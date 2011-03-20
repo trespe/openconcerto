@@ -1,0 +1,17 @@
+#summary Configuration manuelle PostgreSQL
+#labels openconcerto,postgresql,configuration
+
+ 
+
+Voici un exemple de configuration réseau multiposte utilisant PostgreSQL.
+
+Dans cet exemple, le serveur à l'adresse IP : 192.168.1.10<br>
+ 
+Le fichier de configuration *main.properties* (cf les logs pour les chemins) doit contenir les lignes:
+{{{
+server.ip=192.168.1.10:5432
+server.driver=postgresql
+systemRoot=OpenConcerto
+customer=Gestion_Default
+}}}
+
