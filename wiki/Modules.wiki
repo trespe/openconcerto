@@ -1,0 +1,78 @@
+#summary Liste des modules et domaines d'OpenConcerto
+#labels Phase-Implementation
+
+= finance =
+  * budget: budget
+  * accounting: comptabilité genérale, analytique
+   
+
+= projects = 
+  * design: conception, plans
+  
+
+= supplychain =
+  * supplier: fournisseurs,réapprovisionnements
+  * stock: gestion des stocks et mouvements de stocks
+  * purchase: achats, demandes d'achats
+  * contract: contrats fournisseurs, achats contrats
+  * receipt: réception de marchandises
+  * order: commandes de biens, commandes de services 
+  * warehouse: gestion des emplacements entrepots,gestion des     emplacements magasin
+
+= manufacturing = 
+  * production: ordres de production, fabrication 
+  * machine: machines
+  * mrp: calcul des besoins
+  * monitoring: Suivi de la production 
+
+= transport =
+  * management: gestion des transports
+  * cost: gestion des frais de transports
+
+= humanressources = 
+  * payroll: gestion de la paie
+  * skill: competences
+  * enrollment: recrutement, gestion de la rémunération
+  * employe: gestion des employés
+  * bonus: primes d'intéressement
+  * timesheet: suivi du temps de travail
+  * traveil: suivi des frais de déplacement
+  * strucuture: gestion de la structure HR de l'entreprise
+  * career: suivi des carrières
+  * booking: planification des réservations de salle
+  * conference: gestion des séminaires et conférences
+  * workforce: gestion de la workforce
+  * events: gestion des formations et évènements
+
+= customerrelationship =  
+  * lead: leads
+  * customer: clients
+  * call: appels 
+
+= sales = 
+  * quote: devis, offres
+  * invoice: factures,
+  * gestion des appels d'offres
+  * contract: contrats
+  * order : commandes clients
+  * shipment: expéditions et livraisons
+  * info: système d'information commercial
+  * discount: remises en nature
+  * price: détermination des prix, gestion des prix par produit 
+
+= services = 
+  * aftersale: sav
+
+= quality =
+Planification de la qualité
+Plan d'inspection
+  * control: Contrôle qualité, documentation, inspection
+Certificats qualité (entrée / sortie de marchandises)
+  * claim: gestion des réclamations  
+
+= documents =
+
+= reports =
+
+= tasks = 
+  * planning: plannification
