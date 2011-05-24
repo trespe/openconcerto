@@ -4,12 +4,10 @@
 = finance =
   * budget: budget
   * accounting: comptabilité genérale, analytique
-   
 
-= projects = 
+= projects =
   * design: conception, plans
   
-
 = supplychain =
   * supplier: fournisseurs,réapprovisionnements
   * stock: gestion des stocks et mouvements de stocks
@@ -36,13 +34,13 @@
   * employe: gestion des employés
   * bonus: primes d'intéressement
   * timesheet: suivi du temps de travail
-  * traveil: suivi des frais de déplacement
-  * strucuture: gestion de la structure HR de l'entreprise
+  * travel: suivi des frais de déplacement
+  * structure: gestion de la structure HR de l'entreprise
   * career: suivi des carrières
   * booking: planification des réservations de salle
   * conference: gestion des séminaires et conférences
   * workforce: gestion de la workforce
-  * events: gestion des formations et évènements
+  * event: gestion des formations et évènements
 
 = customerrelationship =  
   * lead: leads
@@ -64,10 +62,9 @@
   * aftersale: sav
 
 = quality =
-Planification de la qualité
-Plan d'inspection
+  * planning: Planification de la qualité et plan d'inspection
   * control: Contrôle qualité, documentation, inspection
-Certificats qualité (entrée / sortie de marchandises)
+  * certification: ertificats qualité (entrée / sortie de marchandises)
   * claim: gestion des réclamations  
 
 = documents =
