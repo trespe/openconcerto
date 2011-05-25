@@ -5,6 +5,7 @@
 Gestion des aspects financiers et comptables.
   * accounting: comptabilité genérale, analytique
   * budget: budget
+  * tax: TVA, déclarations de TVA, déclarations d'impôts
 
 = project =
 Gestion des projets
@@ -13,6 +14,7 @@ Gestion des projets
 = supplychain =
 Gestion de la chaîne d'approvisionnement (produits et fournisseurs).
   * contract: contrats fournisseurs, achats contrats
+  * credit: avoirs fournisseurs
   * order: commandes de biens, commandes de services 
   * purchase: achats, demandes d'achats
   * receipt: réception de marchandises
@@ -58,6 +60,7 @@ Gestion de la relation client.
 = sales = 
 Gestion des ventes.
   * contract: contrats
+  * credit: avoirs clients
   * discount: remises en nature
   * info: système d'information commercial
   * invoice: factures,
