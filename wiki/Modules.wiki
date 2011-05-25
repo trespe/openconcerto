@@ -6,6 +6,7 @@ Gestion des aspects financiers et comptables.
   * accounting: comptabilité genérale, analytique
   * budget: budget
   * tax: TVA, déclarations de TVA, déclarations d'impôts
+  * payment: gestion des paiements
 
 = project =
 Gestion des projets
