@@ -5,8 +5,9 @@
 Gestion des aspects financiers et comptables.
   * accounting: comptabilité genérale, analytique
   * budget: budget
+  * payment: gestion des paiements et relances
   * tax: TVA, déclarations de TVA, déclarations d'impôts
-  * payment: gestion des paiements
+ 
 
 = project =
 Gestion des projets
@@ -50,13 +51,13 @@ Gestion des ressources humaines.
   * timesheet: suivi du temps de travail
   * travel: suivi des frais de déplacement
   * workforce: gestion de la workforce
-  
 
 = customerrelationship =
 Gestion de la relation client.
   * call: appels 
   * customer: clients
   * lead: leads
+  * mail: courriers
 
 = sales = 
 Gestion des ventes.
@@ -88,6 +89,7 @@ Gestion documentaire.
 
 = reports =
 Rapports de gestion.
+  * stat: statistiques
 
 = tasks = 
 Gestion des tâches et plannings.
