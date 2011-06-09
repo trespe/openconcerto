@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?> 
+
+<contentDocument>	
+	
+	<element location="A6" type="Value" ValueName="CLIENT">
+	</element>
+
+	<element location="C6" type="Value" ValueName="TEL" controleMultiline="false">
+	</element>
+
+	<element location="D6" type="Value" ValueName="NUMERO_FACTURE">
+	</element>
+
+	<element location="E6" type="Value" ValueName="DATE_FACTURE">
+	</element>
+
+	<element location="F6" type="Value" ValueName="MONTANT">
+	</element>
+
+	<element location="A12" type="Value" ValueName="INFOS" controleMultiline="false">
+	</element>
+
+	<element location="F12" type="Value" ValueName="DATE_RELANCE">
+	</element>
+	
+	
+</contentDocument>
