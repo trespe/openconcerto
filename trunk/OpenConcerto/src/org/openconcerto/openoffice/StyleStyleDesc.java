@@ -1,0 +1,74 @@
+/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ * 
+ * Copyright 2011 OpenConcerto, by ILM Informatique. All rights reserved.
+ * 
+ * The contents of this file are subject to the terms of the GNU General Public License Version 3
+ * only ("GPL"). You may not use this file except in compliance with the License. You can obtain a
+ * copy of the License at http://www.gnu.org/licenses/gpl-3.0.html See the License for the specific
+ * language governing permissions and limitations under the License.
+ * 
+ * When distributing the software, include this License Header Notice in each file.
+ */
+ 
+ package org.openconcerto.openoffice;
+
+import java.util.Collections;
+import java.util.List;
+
+import org.jdom.Element;
+
+/**
+ * Describe a family of style.
+ * 
+ * @author Sylvain CUAZ
+ * 
+ * @param <S> type of style
+ */
+public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> {
+
+    static final String ELEMENT_NAME = "style";
+
+    static String getFamily(final Element styleElem) {
+        assert styleElem.getName().equals(ELEMENT_NAME);
+        return styleElem.getAttributeValue("family", styleElem.getNamespace("style"));
+    }
+
+    public static <C extends StyleStyle> StyleStyleDesc<C> copy(final StyleStyleDesc<C> toClone, final XMLVersion version) {
+        final StyleStyleDesc<C> res = new StyleStyleDesc<C>(toClone.getStyleClass(), version, toClone.getFamily(), toClone.getBaseName()) {
+            @Override
+            public C create(ODPackage pkg, Element e) {
+                return toClone.create(pkg, e);
+            }
+        };
+        res.getRefElementsMap().putAll(toClone.getRefElementsMap());
+        res.getMultiRefElementsMap().putAll(toClone.getMultiRefElementsMap());
+        return res;
+    }
+
+    private final String family;
+
+    protected StyleStyleDesc(final Class<S> clazz, final XMLVersion version, String family, String baseName, String ns) {
+        this(clazz, version, family, baseName, ns, Collections.singletonList(ns + ":" + family));
+    }
+
+    protected StyleStyleDesc(final Class<S> clazz, final XMLVersion version, String family, String baseName, String ns, final List<String> refQNames) {
+        this(clazz, version, family, baseName);
+        this.getRefElementsMap().putAll(ns + ":style-name", refQNames);
+    }
+
+    protected StyleStyleDesc(final Class<S> clazz, final XMLVersion version, String family, String baseName) {
+        super(clazz, version, ELEMENT_NAME, baseName);
+        this.family = family;
+    }
+
+    public final String getFamily() {
+        return this.family;
+    }
+
+    @Override
+    protected void initStyle(Element elem) {
+        super.initStyle(elem);
+        elem.setAttribute("family", this.getFamily(), elem.getNamespace());
+    }
+}
