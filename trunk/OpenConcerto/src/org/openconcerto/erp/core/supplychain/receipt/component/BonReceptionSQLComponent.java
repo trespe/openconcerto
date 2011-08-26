@@ -40,7 +40,6 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.TitledSeparator;
-
 import org.openconcerto.ui.preferences.DefaultProps;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
@@ -50,6 +49,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.JLabel;
@@ -147,6 +147,22 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
         c.weighty = 0;
         c.fill = GridBagConstraints.NONE;
         this.add(this.fournisseur, c);
+
+        // Devise
+        c.gridx = 0;
+        c.gridy++;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel(getLabelFor("ID_DEVISE"), SwingConstants.RIGHT), c);
+
+        final ElementComboBox boxDevise = new ElementComboBox();
+        c.gridx = GridBagConstraints.RELATIVE;
+        c.gridwidth = 1;
+        c.weightx = 1;
+        c.weighty = 0;
+        c.fill = GridBagConstraints.NONE;
+        this.add(boxDevise, c);
+        this.addView(boxDevise, "ID_DEVISE");
 
         // Element du bon
         this.tableBonItem = new BonReceptionItemTable();
@@ -541,7 +557,7 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
             rowVals.put("DATE", row.getObject("DATE"));
             try {
                 SQLRow rowInsert = rowVals.insert();
-                MouvementStockSQLElement.updateStock(rowInsert.getID());
+                MouvementStockSQLElement.updateStock(Arrays.asList(rowInsert.getID()));
             } catch (SQLException e) {
                 e.printStackTrace();
             }

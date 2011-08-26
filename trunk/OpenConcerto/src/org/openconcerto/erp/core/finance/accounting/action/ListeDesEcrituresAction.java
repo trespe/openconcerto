@@ -14,7 +14,6 @@
  package org.openconcerto.erp.core.finance.accounting.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
@@ -35,7 +34,6 @@ import java.awt.GridBagConstraints;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.math.BigInteger;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -131,15 +129,7 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
         // frame.getPanel().add(comp2, c);
 
         // Renderer
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
         JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (i != 0 && (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class)) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
-        // table.setDefaultRenderer(Long.class, rend);
-        // table.setDefaultRenderer(BigInteger.class, rend);
 
         frame.getPanel().setCloneVisible(false);
         frame.getPanel().setAddVisible(false);

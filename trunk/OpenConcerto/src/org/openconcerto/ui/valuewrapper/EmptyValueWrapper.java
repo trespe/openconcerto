@@ -49,6 +49,10 @@ public class EmptyValueWrapper<T> implements ValueWrapper<T>, EmptyObj {
         this.vw.addValidListener(l);
     }
 
+    public void removeValidListener(final ValidListener l) {
+        this.vw.removeValidListener(l);
+    }
+
     public void addValueListener(final PropertyChangeListener l) {
         this.vw.addValueListener(l);
     }

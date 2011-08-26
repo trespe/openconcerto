@@ -18,7 +18,6 @@ import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
 import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
 import org.openconcerto.erp.core.sales.shipment.report.BonLivraisonXmlSheet;
 import org.openconcerto.erp.generationDoc.SheetXml;
-import org.openconcerto.erp.generationDoc.gestcomm.AffacturageXmlSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirClientXmlSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirFournisseurXmlSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.CommandeXmlSheet;
@@ -39,13 +38,12 @@ public class GenerationDocumentGestCommPreferencePanel extends AbstractGeneratio
         this.mapKeyLabel.put(RelanceSheet.getTuple2Location().get0(), RelanceSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(CommandeXmlSheet.getTuple2Location().get0(), CommandeXmlSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(CommandeClientXmlSheet.getTuple2Location().get0(), CommandeClientXmlSheet.getTuple2Location().get1());
-        this.mapKeyLabel.put(AffacturageXmlSheet.getTuple2Location().get0(), AffacturageXmlSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(AvoirFournisseurXmlSheet.getTuple2Location().get0(), AvoirFournisseurXmlSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(CourrierClientSheet.getTuple2Location().get0(), CourrierClientSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(ReleveChequeEmisSheet.getTuple2Location().get0(), ReleveChequeEmisSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(ReleveChequeSheet.getTuple2Location().get0(), ReleveChequeSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(SheetXml.tupleDefault.get0(), SheetXml.tupleDefault.get1());
-        uiInit();
+        // uiInit();
     }
 
     public String getTitleName() {

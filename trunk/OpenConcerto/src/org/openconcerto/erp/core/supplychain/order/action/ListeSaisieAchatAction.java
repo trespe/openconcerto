@@ -14,17 +14,12 @@
  package org.openconcerto.erp.core.supplychain.order.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.view.IListFrame;
 
-import java.math.BigInteger;
-
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JTable;
-
 
 public class ListeSaisieAchatAction extends CreateFrameAbstractAction {
 
@@ -34,15 +29,7 @@ public class ListeSaisieAchatAction extends CreateFrameAbstractAction {
     }
 
     public JFrame createFrame() {
-
         IListFrame frame = new IListFrame(new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_ACHAT")));
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
         return frame;
     }
 }

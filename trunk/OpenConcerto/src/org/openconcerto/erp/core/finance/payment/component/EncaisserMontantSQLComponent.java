@@ -227,8 +227,6 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
                                         rowVals.put("COMPTANT", Boolean.TRUE);
                                         rowVals.put("AJOURS", 0);
                                         rowVals.put("LENJOUR", 0);
-                                        rowVals.put("ID_BANQUE_POLE_PRODUIT", rowModeRegl.getInt("ID_BANQUE_POLE_PRODUIT"));
-
                                         eltModeRegl.setValue(rowVals);
                                     }
                                 }

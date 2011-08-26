@@ -17,13 +17,17 @@ import org.openconcerto.erp.action.NouvelleConnexionAction;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.ui.DevisItemTable;
+import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.panel.PostgreSQLFrame;
 import org.openconcerto.erp.panel.UserExitPanel;
 import org.openconcerto.ftp.updater.UpdateManager;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.PropsConfiguration;
+import org.openconcerto.sql.State;
 import org.openconcerto.sql.element.UISQLComponent;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRequestLog;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.view.ListeModifyPanel;
@@ -33,6 +37,7 @@ import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.component.WaitIndeterminatePanel;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.protocol.Helper;
 
 import java.awt.AWTEvent;
@@ -131,9 +136,12 @@ public class Gestion {
         System.setProperty(UISQLComponent.REQUIRED_SUFFIX_PROP, "");
         System.setProperty(ElementComboBox.CAN_MODIFY, "true");
         System.setProperty("org.openconcerto.ui.removeSwapSearchCheckBox", "true");
-        String ods = System.getProperty("org.openconcerto.oo.useODSViewer");
-        if (ods == null) {
+
+        if (System.getProperty("org.openconcerto.oo.useODSViewer") == null) {
             System.setProperty("org.openconcerto.oo.useODSViewer", "true");
+        }
+        if (System.getProperty(State.DEAF) == null) {
+            System.setProperty(State.DEAF, "true");
         }
         IListe.setForceAlternateCellRenderer(true);
         ITableModel.setDefaultEditable(false);
@@ -151,6 +159,7 @@ public class Gestion {
                 UIManager.put("control", new Color(240, 240, 240));
                 UIManager.put("Table.showGrid", Boolean.TRUE);
                 UIManager.put("FormattedTextField.background", new Color(240, 240, 240));
+                UIManager.put("Table.alternateRowColor", Color.WHITE);
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -160,7 +169,6 @@ public class Gestion {
         Toolkit.getDefaultToolkit().setDynamicLayout(true);
 
         ComboSQLRequest.setDefaultFieldSeparator(" ");
-        // System.setProperty("org.openconcerto.listpanel.simpleui", "true");
 
         // Init des caches
         long t1 = System.currentTimeMillis();
@@ -188,13 +196,21 @@ public class Gestion {
         }
         try {
             conf.getBase();
-
+            // create table if necessary
+            SQLPreferences.getPrefTable(conf.getRoot());
         } catch (Exception e) {
             System.out.println("Init phase 1 error:" + (System.currentTimeMillis() - t4) + "ms");
             ExceptionHandler.die("Erreur de connexion à la base de données", e);
             // since we're not in the EDT, the previous call doesn't block,
             // so return (it won't quit the VM since a dialog is displaying)
             return;
+        }
+        try {
+            final File moduleDir = new File("Modules");
+            moduleDir.mkdir();
+            ModuleManager.getInstance().addFactories(moduleDir);
+        } catch (Throwable e) {
+            ExceptionHandler.handle("Erreur d'accès aux modules", e);
         }
         System.out.println("Init phase 1:" + (System.currentTimeMillis() - t1) + "ms");
         SwingUtilities.invokeLater(new Runnable() {
@@ -250,6 +266,23 @@ public class Gestion {
                         FrameUtil.show(f);
                     }
                     System.out.println("Init phase 2:" + (System.currentTimeMillis() - t1) + "ms");
+                }
+            }
+        });
+
+        // needed so that we can uninstall modules
+        System.setProperty(SQLBase.ALLOW_OBJECT_REMOVAL, "true");
+        ModuleManager.getInstance().invoke(new IClosure<ModuleManager>() {
+            @Override
+            public void executeChecked(ModuleManager mngr) {
+                try {
+                    final Exception exn = mngr.setup();
+                    // OK to continue without all modules started
+                    if (exn != null)
+                        ExceptionHandler.handle(MainFrame.getInstance(), "Impossible de démarrer les modules", exn);
+                } catch (Exception e) {
+                    // not OK to continue without required elements
+                    ExceptionHandler.die("Impossible de démarrer les modules requis", e);
                 }
             }
         });

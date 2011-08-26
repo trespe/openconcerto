@@ -13,17 +13,19 @@
  
  package org.openconcerto.sql.utils;
 
+import org.openconcerto.sql.model.Constraint;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
@@ -56,6 +58,57 @@ public final class AlterTable extends ChangeTable<AlterTable> {
 
     public final AlterTable dropColumn(String name) {
         return this.addClause("DROP COLUMN " + SQLBase.quoteIdentifier(name), ClauseType.DROP_COL);
+    }
+
+    public final AlterTable dropColumnCascade(String name) {
+        return this.dropColumnsCascade(Collections.singleton(name));
+    }
+
+    /**
+     * Drop the passed columns and all constraints that depends on them. Note: this can thus drop
+     * constraints that use other fields.
+     * 
+     * @param columns the names of the columns to drop.
+     * @return this.
+     */
+    public final AlterTable dropColumnsCascade(Collection<String> columns) {
+        for (final Link l : this.t.getDBSystemRoot().getGraph().getForeignLinks(this.t))
+            if (CollectionUtils.containsAny(l.getCols(), columns))
+                this.dropForeignConstraint(l.getName());
+        for (final Constraint c : this.t.getConstraints())
+            if (CollectionUtils.containsAny(c.getCols(), columns))
+                this.dropConstraint(c.getName());
+        for (final String name : columns)
+            this.dropColumn(name);
+        return thisAsT();
+
+    }
+
+    public final AlterTable dropForeignColumn(String name) {
+        return dropForeignColumns(Collections.singletonList(name));
+    }
+
+    /**
+     * Drop the passed columns and their constraint.
+     * 
+     * @param columns the columns of a single foreign key.
+     * @return this.
+     * @throws IllegalArgumentException if no foreign key with <code>columns</code> exists.
+     */
+    public final AlterTable dropForeignColumns(List<String> columns) throws IllegalArgumentException {
+        final Link foreignLink = this.t.getDBSystemRoot().getGraph().getForeignLink(this.t, columns);
+        if (foreignLink == null)
+            throw new IllegalArgumentException("No foreign key in " + this.t + " with : " + columns);
+        return dropForeignColumns(foreignLink);
+    }
+
+    public final AlterTable dropForeignColumns(final Link foreignLink) throws IllegalArgumentException {
+        if (foreignLink.getSource() != this.t)
+            throw new IllegalArgumentException("Not in " + this.t + " : " + foreignLink);
+        this.dropForeignConstraint(foreignLink.getName());
+        for (final String name : foreignLink.getCols())
+            this.dropColumn(name);
+        return thisAsT();
     }
 
     public final AlterTable alterColumn(String fname, SQLField from) {
@@ -138,7 +191,10 @@ public final class AlterTable extends ChangeTable<AlterTable> {
 
     @Override
     public String asString(String rootName) {
-        return this.asString(rootName, EnumSet.allOf(ClauseType.class));
+        // even for a single instance of AlterTable we need to order types since
+        // supportMultiAlterClause() might return false, in which case we might return several SQL
+        // statements
+        return this.asString(rootName, ChangeTable.ORDERED_TYPES);
     }
 
     private final String asString(final String rootName, final Set<ClauseType> types) {

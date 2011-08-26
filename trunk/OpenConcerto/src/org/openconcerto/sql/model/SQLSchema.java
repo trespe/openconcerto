@@ -311,6 +311,14 @@ public final class SQLSchema extends SQLIdentifier {
         return this.getFwkMetadata(VERSION_MDKEY);
     }
 
+    // TODO assure that the updated version is different that current one and unique
+    // For now the resolution is the millisecond, this poses 2 problems :
+    // 1/ if we have a fast in-memory DB, some additions might get lost
+    // 2/ if not everyone's time is correct ; if client1 calls updateVersion(), then client2 makes
+    // some changes and calls updateVersion(), his clock might be returning the same time than
+    // client1 had when he called updateVersion().
+    // Perhaps something like VERSION = date seconds || '_' || (select cast( substring(indexof '_')
+    // as int ) + 1 from VERSION) ; e.g. 20110701-1021_01352
     public final String updateVersion() throws SQLException {
         final String res = XMLStructureSource.XMLDATE_FMT.format(new Date());
         this.setFwkMetadata(SQLSchema.VERSION_MDKEY, res);

@@ -20,6 +20,9 @@ import org.openconcerto.utils.cc.IClosure;
 
 import java.io.File;
 
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+
 public class ServerFinderConfig {
     public static final String H2 = "H2";
     public static final String POSTGRESQL = "PostgreSQL";
@@ -58,6 +61,11 @@ public class ServerFinderConfig {
     }
 
     public void setFile(File file) {
+        if (file == null) {
+            JOptionPane.showMessageDialog(new JFrame(), "Dossier de base de donnée vide");
+        } else if (!file.exists()) {
+            JOptionPane.showMessageDialog(new JFrame(), "Dossier de base de donnée inexistant");
+        }
         this.file = file;
     }
 
@@ -143,11 +151,14 @@ public class ServerFinderConfig {
     public String test() {
         String result = "Erreur de connexion. \n";
         try {
-            SQLServer server = createServer("public");
+            SQLServer server = createServer("Common");
             DBSystemRoot r = server.getSystemRoot("OpenConcerto");
             final boolean ok = CompareUtils.equals(1, r.getDataSource().executeScalar("SELECT 1"));
             if (ok) {
-                result = "Connexion réussie sur la base OpenConcerto";
+                result = "Connexion réussie sur la base OpenConcerto.";
+                if (r.getChildrenNames().size() == 0) {
+                    result = "Attention: la base OpenConcerto est vide";
+                }
             }
             server.destroy();
         } catch (Exception e) {
@@ -169,13 +180,20 @@ public class ServerFinderConfig {
     }
 
     public SQLServer createServer(final String root) {
-        SQLServer server = new SQLServer(this.getType(), this.getIp(), String.valueOf(this.getPort()), getOpenconcertoLogin(), getOpenconcertoPassword(), new IClosure<DBSystemRoot>() {
+        final String host;
+        if (this.getType().equals(ServerFinderConfig.H2)) {
+            host = "file:" + this.getFile().getAbsolutePath() + "/";
+        } else {
+            host = this.getIp();
+        }
+        final SQLServer server = new SQLServer(this.getType(), host, String.valueOf(this.getPort()), getOpenconcertoLogin(), getOpenconcertoPassword(), new IClosure<DBSystemRoot>() {
             @Override
             public void executeChecked(DBSystemRoot input) {
                 // don't map all the database
                 input.getRootsToMap().add(root);
             }
         }, null);
+
         return server;
     }
 
@@ -187,23 +205,35 @@ public class ServerFinderConfig {
      * @throws Exception
      */
     public boolean createUserIfNeeded(String user, String password) throws Exception {
+        final String host;
+        if (this.getType().equals(ServerFinderConfig.H2)) {
+            host = "file:" + this.getFile().getAbsolutePath() + "/";
 
-        SQLServer server = new SQLServer(this.getType(), this.getIp(), String.valueOf(this.getPort()), user, password, new IClosure<DBSystemRoot>() {
-
-            @Override
-            public void executeChecked(DBSystemRoot input) {
-                // don't map all the database
-                input.getRootsToMap().add("postgres");
-            }
-        }, null);
-        Number n = (Number) server.getBase("postgres").getDataSource().executeScalar("SELECT COUNT(*) FROM pg_user WHERE usename='openconcerto'");
-        if (n.intValue() > 0) {
-            return false;
+        } else {
+            host = this.getIp();
         }
-        server.getBase("postgres").getDataSource().execute("CREATE ROLE openconcerto LOGIN ENCRYPTED PASSWORD 'md51d6fb5ca62757af27ed31f93fc7751a7' SUPERUSER CREATEDB VALID UNTIL 'infinity'");
+        if (this.getType().equals(ServerFinderConfig.POSTGRESQL)) {
+            final SQLServer server = new SQLServer(this.getType(), host, String.valueOf(this.getPort()), user, password, new IClosure<DBSystemRoot>() {
 
-        // UPDATE pg_authid SET rolcatupdate=false WHERE rolname='openconcerto'
-        server.destroy();
+                @Override
+                public void executeChecked(DBSystemRoot input) {
+                    // don't map all the database
+                    input.getRootsToMap().add("postgres");
+                }
+            }, null);
+            Number n = (Number) server.getBase("postgres").getDataSource().executeScalar("SELECT COUNT(*) FROM pg_user WHERE usename='openconcerto'");
+            if (n.intValue() > 0) {
+                return false;
+            }
+            server.getBase("postgres").getDataSource().execute("CREATE ROLE openconcerto LOGIN ENCRYPTED PASSWORD 'md51d6fb5ca62757af27ed31f93fc7751a7' SUPERUSER CREATEDB VALID UNTIL 'infinity'");
+
+            // UPDATE pg_authid SET rolcatupdate=false WHERE rolname='openconcerto'
+            server.destroy();
+        } else {
+            // FIXME: support MySQL & H2
+            System.err.println("Not supported for this database");
+
+        }
         return true;
         // CREATE ROLE openconcerto LOGIN ENCRYPTED PASSWORD 'md51d6fb5ca62757af27ed31f93fc7751a7'
         // SUPERUSER CREATEDB VALID UNTIL 'infinity'
@@ -212,6 +242,7 @@ public class ServerFinderConfig {
 
     @Override
     public String toString() {
-        return this.getType() + ":" + this.getPort();
+        return this.getType() + ":" + this.getIp() + ":" + this.getPort() + " file:" + this.getFile() + " " + this.getOpenconcertoLogin() + "/" + this.getOpenconcertoPassword() + " ["
+                + this.getDbLogin() + "/" + this.getDbPassword() + "]";
     }
 }

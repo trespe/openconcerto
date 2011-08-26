@@ -63,7 +63,16 @@ public class SQLSearchableTextCombo extends ISearchableTextCombo implements RowI
 
     public void init(SQLRowItemView v) {
         // after uiInit since our superclass add listeners to our UI
-        final ISQLListModel cache = new ISQLListModel(v.getField());
+        this.initCacheLater(new ISQLListModel(v.getField()));
+    }
+
+    /**
+     * Load <code>cache</code> and only afterwards call
+     * {@link #initCache(org.openconcerto.utils.model.IListModel)}.
+     * 
+     * @param cache the cache to set.
+     */
+    public void initCacheLater(final ISQLListModel cache) {
         cache.load(new Runnable() {
             @Override
             public void run() {
@@ -72,13 +81,17 @@ public class SQLSearchableTextCombo extends ISearchableTextCombo implements RowI
         });
     }
 
-    private static class ISQLListModel extends DefaultIMutableListModel<String> {
+    public static class ISQLListModel extends DefaultIMutableListModel<String> {
 
         private final ITextComboCacheSQL cache;
         private final ListDataListener l;
 
         public ISQLListModel(final SQLField f) {
-            this.cache = new ITextComboCacheSQL(f);
+            this(new ITextComboCacheSQL(f));
+        }
+
+        public ISQLListModel(final ITextComboCacheSQL c) {
+            this.cache = c;
             this.l = new ListDataListener() {
 
                 @SuppressWarnings("unchecked")
@@ -135,7 +148,8 @@ public class SQLSearchableTextCombo extends ISearchableTextCombo implements RowI
                             e1.printStackTrace();
                         }
                         addListDataListener(ISQLListModel.this.l);
-                        r.run();
+                        if (r != null)
+                            r.run();
                     }
 
                 }.execute();

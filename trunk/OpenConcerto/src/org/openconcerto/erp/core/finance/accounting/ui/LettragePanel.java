@@ -30,15 +30,15 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.text.DocumentFilterList;
-import org.openconcerto.utils.text.SimpleDocumentListener;
 import org.openconcerto.utils.text.DocumentFilterList.FilterType;
+import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -253,7 +253,8 @@ public class LettragePanel extends JPanel {
         this.add(sepEcriture, c);
 
         // Liste des ecritures
-        this.ecriturePanel = new ListPanelEcritures();
+        final EcritureSQLElement ecritureElem = Configuration.getInstance().getDirectory().getElement(EcritureSQLElement.class);
+        this.ecriturePanel = new ListPanelEcritures(ecritureElem, new IListe(ecritureElem.createLettrageTableSource()));
         c.gridx = 0;
         c.gridy++;
         c.weighty = 1;
@@ -615,19 +616,6 @@ public class LettragePanel extends JPanel {
      * sélection
      */
     private void changeListRequest() {
-
-        // Champs à afficher
-        List<String> listEcriture = new ArrayList<String>();
-
-        listEcriture.add("LETTRAGE");
-        listEcriture.add("ID_COMPTE_PCE");
-        listEcriture.add("ID_MOUVEMENT");
-        listEcriture.add("NOM");
-        listEcriture.add("DATE_LETTRAGE");
-        listEcriture.add("DATE");
-        listEcriture.add("DEBIT");
-        listEcriture.add("CREDIT");
-
         Object idCpt = this.selCompte.getSelectedId();
 
         SQLRow row = this.tableComptePCE.getRow(Integer.valueOf(idCpt.toString()));
@@ -689,21 +677,8 @@ public class LettragePanel extends JPanel {
             }
         }
 
-        this.ecriturePanel.setRequest(new ListSQLRequest(this.tableEcr, listEcriture, w) {
-            @Override
-            protected void customizeToFetch(SQLRowValues graphToFetch) {
-                // TODO Auto-generated method stub
-                super.customizeToFetch(graphToFetch);
-                graphToFetch.put("VALIDE", null);
-            }
-        });
+        this.ecriturePanel.getListe().getRequest().setWhere(w);
         this.ecriturePanel.getListe().setSQLEditable(false);
-
-        // MaJ du renderer
-        LettrageRenderer rend = LettrageRenderer.getInstance();
-        for (int i = 0; i < this.ecriturePanel.getListe().getJTable().getColumnCount(); i++) {
-            this.ecriturePanel.getListe().getJTable().getColumnModel().getColumn(i).setCellRenderer(rend);
-        }
 
         this.model.setIdCompte(Integer.parseInt(idCpt.toString()));
     }
@@ -811,7 +786,7 @@ public class LettragePanel extends JPanel {
 
         JPanel ecritureNonValidPanel = new JPanel();
         ecritureNonValidPanel.setLayout(new GridBagLayout());
-        ecritureNonValidPanel.setBackground(PointageRenderer.GetCouleurEcritureNonValide());
+        ecritureNonValidPanel.setBackground(PointageRenderer.getCouleurEcritureNonValide());
         ecritureNonValidPanel.add(new JLabel("Ecritures non validées"), cPanel);
         panelLegende.add(ecritureNonValidPanel, c);
 

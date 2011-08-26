@@ -73,7 +73,7 @@ public class OOgenerationXML {
 
     private static int answer = JOptionPane.NO_OPTION;
 
-    public static synchronized File genere(String modele, String pathDest, final String fileDest, SQLRow row) {
+    public static synchronized File genere(String modele, String pathDest, final String fileDest, SQLRow row, SQLRow rowLanguage) {
 
         cacheStyle.clear();
         OOXMLCache.clearCache();
@@ -108,18 +108,14 @@ public class OOgenerationXML {
             }
         }
 
-        if (modele.startsWith("VenteFactureCT")) {
-            OOXMLField.initCacheAffaireCT(row);
-        }
-
         Date d = new Date();
         SAXBuilder builder = new SAXBuilder();
         try {
 
-            if (needAnnexe(modele, row)) {
+            if (needAnnexe(modele, row, rowLanguage)) {
                 try {
                     // check if it exists
-                    getOOTemplate(modele + "_annexe");
+                    getOOTemplate(modele + "_annexe", rowLanguage);
                     modele += "_annexe";
                     System.err.println("modele With annexe " + modele);
                 } catch (FileNotFoundException e) {
@@ -129,7 +125,7 @@ public class OOgenerationXML {
 
             System.err.println("modele " + modele);
 
-            Document doc = builder.build(getXmlTemplate(modele));
+            Document doc = builder.build(getXmlTemplate(modele, rowLanguage));
 
             // On initialise un nouvel élément racine avec l'élément racine du document.
             Element racine = doc.getRootElement();
@@ -138,21 +134,23 @@ public class OOgenerationXML {
             List<Element> listElts = racine.getChildren("element");
 
             // Création et génération du fichier OO
-            SpreadSheet spreadSheet = SpreadSheet.create(new ODPackage(getOOTemplate(modele)));
+            SpreadSheet spreadSheet = SpreadSheet.create(new ODPackage(getOOTemplate(modele, rowLanguage)));
+            try {
+                // On remplit les cellules de la feuille
+                parseElementsXML(listElts, row, spreadSheet);
 
-            // On remplit les cellules de la feuille
-            parseElementsXML(listElts, row, spreadSheet);
+                // Liste des <element>
+                List<Element> listTable = racine.getChildren("table");
 
-            // Liste des <element>
-            List<Element> listTable = racine.getChildren("table");
-
-            for (Element tableChild : listTable) {
-                // On remplit les cellules du tableau
-                parseTableauXML(tableChild, row, spreadSheet);
+                for (Element tableChild : listTable) {
+                    // On remplit les cellules du tableau
+                    parseTableauXML(tableChild, row, spreadSheet, rowLanguage);
+                }
+            } catch (Exception e) {
+                ExceptionHandler.handle("Impossible de remplir le document " + modele + " " + rowLanguage.getString("CHEMIN"), e);
             }
-
             // Sauvegarde du fichier
-            return saveSpreadSheet(spreadSheet, new File(pathDest), fileDest, modele);
+            return saveSpreadSheet(spreadSheet, new File(pathDest), fileDest, modele, rowLanguage);
 
         } catch (final JDOMException e) {
 
@@ -182,7 +180,7 @@ public class OOgenerationXML {
      * @param id
      * @param sheet
      */
-    private static void parseTableauXML(Element tableau, SQLRow row, SpreadSheet spreadsheet) {
+    private static void parseTableauXML(Element tableau, SQLRow row, SpreadSheet spreadsheet, SQLRow rowLanguage) {
 
         if (tableau == null) {
             return;
@@ -207,14 +205,14 @@ public class OOgenerationXML {
             fillTaxe(tableau, sheet, mapStyle, false);
             return;
         }
-        int nbPage = fillTable(tableau, row, sheet, mapStyle, true);
+        int nbPage = fillTable(tableau, row, sheet, mapStyle, true, rowLanguage);
         int firstLine = Integer.valueOf(tableau.getAttributeValue("firstLine"));
         int endLine = Integer.valueOf(tableau.getAttributeValue("endLine"));
         Object printRangeObj = sheet.getPrintRanges();
 
         System.err.println("Nombre de page == " + nbPage);
         if (nbPage == 1) {
-            fillTable(tableau, row, sheet, mapStyle, false);
+            fillTable(tableau, row, sheet, mapStyle, false, rowLanguage);
         } else {
             if (printRangeObj != null) {
                 String s = printRangeObj.toString();
@@ -228,7 +226,7 @@ public class OOgenerationXML {
                 int rowEnd = -1;
                 if (range.length > 1) {
                     rowEnd = sheet.resolveHint(range[1]).y + 1;
-                    int rowEndNew = rowEnd * (nbPage + 1);
+                    int rowEndNew = rowEnd * (nbPage);
                     String sNew = s.replaceAll(String.valueOf(rowEnd), String.valueOf(rowEndNew));
                     sheet.setPrintRanges(sNew);
                     System.err.println(" ******  Replace print ranges; Old:" + rowEnd + "--" + s + " New:" + rowEndNew + "--" + sNew);
@@ -259,7 +257,16 @@ public class OOgenerationXML {
             if (nbPage > 2) {
                 sheet.duplicateFirstRows(endPageLine, nbPage - 2);
             }
-            fillTable(tableau, row, sheet, mapStyle, false);
+            String pageRef = tableau.getAttributeValue("pageRef");
+            if (pageRef != null && pageRef.trim().length() > 0) {
+                MutableCell<SpreadSheet> cell = sheet.getCellAt(pageRef);
+                cell.setValue("Page 1/" + nbPage);
+                for (int i = 1; i < nbPage; i++) {
+                    MutableCell<SpreadSheet> cell2 = sheet.getCellAt(cell.getX(), cell.getY() + (endPageLine * i));
+                    cell2.setValue("Page " + (i + 1) + "/" + nbPage);
+                }
+            }
+            fillTable(tableau, row, sheet, mapStyle, false, rowLanguage);
         }
 
     }
@@ -304,7 +311,7 @@ public class OOgenerationXML {
 
     }
 
-    private static int fillTable(Element tableau, SQLRow row, Sheet sheet, Map<String, Map<Integer, String>> mapStyle, boolean test) {
+    private static int fillTable(Element tableau, SQLRow row, Sheet sheet, Map<String, Map<Integer, String>> mapStyle, boolean test, SQLRow rowLanguage) {
 
         if (tableau == null) {
             return 1;
@@ -379,10 +386,12 @@ public class OOgenerationXML {
                 boolean first = true;
 
                 int tableLine = 1;
+                int toAdd = 0;
                 // on remplit chaque cellule de la ligne
                 for (Element e : listElts) {
 
-                    OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId());
+                    OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId(),
+                            rowLanguage);
 
                     // On teste si on sort du tableau
                     final int fill = fill("A1", "test", sheet, false, null, tmp, true, tableField.isMultilineAuto());
@@ -394,6 +403,7 @@ public class OOgenerationXML {
                     }
 
                     if (!test && styleName != null && tableElement.getListBlankLineStyle().contains(styleName) && first) {
+                        toAdd++;
                         currentLine++;
                         // nbCellule = Math.max(nbCellule, 2);
                         first = false;
@@ -414,7 +424,7 @@ public class OOgenerationXML {
                     // Cellule pour un style défini
                     List<String> listBlankStyle = tableField.getBlankStyle();
 
-                    nbCellule = Math.max(nbCellule, tableField.getLine());
+                    // nbCellule = Math.max(nbCellule, tableField.getLine());
 
                     if (styleName == null || !listBlankStyle.contains(styleName)) {
 
@@ -439,7 +449,14 @@ public class OOgenerationXML {
                                 int tmpCelluleAffect = fill(test ? "A1" : loc, value, sheet, tableField.isTypeReplace(), null, styleOO, test, tableField.isMultilineAuto());
                                 // tmpCelluleAffect = Math.max(tmpCelluleAffect,
                                 // tableField.getLine());
-                                tmpCelluleAffect = (tableField.getLine() == 1) ? tmpCelluleAffect : Math.max(tmpCelluleAffect + nbCellule - 1, tableField.getLine());
+                                if (tableField.getLine() != 1) {
+                                    if (nbCellule >= tableField.getLine()) {
+                                        tmpCelluleAffect = tmpCelluleAffect + nbCellule;
+                                    } else {
+                                        tmpCelluleAffect += tableField.getLine() - 1;
+                                    }
+                                }
+
                                 if (tableField.isNeeding2Lines()) {
                                     nbCellule = Math.max(nbCellule, 2);
                                 } else {
@@ -461,7 +478,7 @@ public class OOgenerationXML {
                 }
 
                 currentLine += nbCellule;
-                nbCellules += nbCellule;
+                nbCellules += (nbCellule + toAdd);
 
             }
         }
@@ -648,7 +665,8 @@ public class OOgenerationXML {
      */
     private static void setCellValue(MutableCell cell, Object value, boolean replace, String replacePattern) {
         if (value == null) {
-            value = "";
+            return;
+            // value = "";
         }
 
         if (replace) {
@@ -672,7 +690,7 @@ public class OOgenerationXML {
      * @return un File pointant sur le fichier créé
      * @throws IOException
      */
-    private static File saveSpreadSheet(SpreadSheet ssheet, File pathDest, String fileName, String modele) throws IOException {
+    private static File saveSpreadSheet(SpreadSheet ssheet, File pathDest, String fileName, String modele, SQLRow rowLanguage) throws IOException {
 
         // Test des arguments
         if (ssheet == null || pathDest == null || fileName.trim().length() == 0) {
@@ -709,7 +727,7 @@ public class OOgenerationXML {
         // Copie de l'odsp
         try {
             File odspOut = new File(pathDest, fileName + ".odsp");
-            InputStream odspIn = getTemplate(modele + ".odsp");
+            InputStream odspIn = getTemplate(modele + ".odsp", rowLanguage);
             if (odspIn != null) {
                 StreamUtils.copy(odspIn, odspOut);
             }
@@ -719,16 +737,16 @@ public class OOgenerationXML {
         return fDest;
     }
 
-    public static InputStream getOOTemplate(String name) throws FileNotFoundException {
-        return OOgenerationListeXML.getOOTemplate(name);
+    public static InputStream getOOTemplate(String name, SQLRow language) throws FileNotFoundException {
+        return OOgenerationListeXML.getOOTemplate(name, language);
     }
 
-    public static InputStream getXmlTemplate(String name) throws FileNotFoundException {
-        return OOgenerationListeXML.getXmlTemplate(name);
+    public static InputStream getXmlTemplate(String name, SQLRow language) throws FileNotFoundException {
+        return OOgenerationListeXML.getXmlTemplate(name, language);
     }
 
-    public static InputStream getTemplate(String name) throws FileNotFoundException {
-        return OOgenerationListeXML.getTemplate(name);
+    public static InputStream getTemplate(String name, SQLRow language) throws FileNotFoundException {
+        return OOgenerationListeXML.getTemplate(name, language);
     }
 
     /**
@@ -764,8 +782,6 @@ public class OOgenerationXML {
                         try {
                             if (mapStyleDef.containsKey(c.getValue().toString())) {
                                 style = c.getValue().toString();
-                                // System.err.println("FIND STYLE " + c.getValue().toString() +
-                                // " SET VALUE " + cellStyle);
                             }
                         } catch (IllegalStateException e) {
                             e.printStackTrace();
@@ -773,7 +789,6 @@ public class OOgenerationXML {
                         mapCellStyle.put(Integer.valueOf(x), cellStyle);
                         if (style.trim().length() != 0) {
                             c.clearValue();
-                            // c.setStyle("Default");
                             if (!style.trim().equalsIgnoreCase("Normal") && mapStyleDef.get("Normal") != null) {
                                 String styleCell = mapStyleDef.get("Normal").get(Integer.valueOf(x));
                                 if (styleCell != null && styleCell.length() != 0) {
@@ -790,21 +805,20 @@ public class OOgenerationXML {
 
             if (style.length() > 0) {
                 mapStyleDef.put(style, mapCellStyle);
-                // System.err.println("style " + mapCellStyle);
             }
         }
         cacheStyle.put(sheet, mapStyleDef);
         return mapStyleDef;
     }
 
-    public static boolean needAnnexe(String modele, SQLRow row) {
+    public static boolean needAnnexe(String modele, SQLRow row, SQLRow rowLanguage) {
 
         SAXBuilder builder = new SAXBuilder();
         try {
 
-            Document doc = builder.build(getXmlTemplate(modele));
+            Document doc = builder.build(getXmlTemplate(modele, rowLanguage));
 
-            SpreadSheet spreadSheet = SpreadSheet.create(new ODPackage(getOOTemplate(modele)));
+            SpreadSheet spreadSheet = SpreadSheet.create(new ODPackage(getOOTemplate(modele, rowLanguage)));
 
             // On initialise un nouvel élément racine avec l'élément racine du document.
             Element racine = doc.getRootElement();
@@ -832,7 +846,7 @@ public class OOgenerationXML {
 
             Map<String, Map<Integer, String>> mapStyle = searchStyle(sheet, lastColumn, endPageLine);
 
-            int nbPage = fillTable(tableau, row, sheet, mapStyle, true);
+            int nbPage = fillTable(tableau, row, sheet, mapStyle, true, rowLanguage);
 
             return nbPage > 1;
         } catch (final JDOMException e) {
@@ -860,7 +874,7 @@ public class OOgenerationXML {
         SQLElement elt = Configuration.getInstance().getDirectory().getElement("DEVIS");
 
         System.err.println("Start Genere");
-        genere("Devis", "C:\\", "Test", elt.getTable().getRow(19));
+        // genere("Devis", "C:\\", "Test", elt.getTable().getRow(19));
         System.err.println("Stop genere");
     }
 }

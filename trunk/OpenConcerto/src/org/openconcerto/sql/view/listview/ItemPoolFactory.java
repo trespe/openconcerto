@@ -28,8 +28,8 @@ import java.util.List;
 public abstract class ItemPoolFactory {
 
     // computeFF("ARTICLE", 3, false) => {"ID_ARTICLE", "ID_ARTICLE_2", "ID_ARTICLE_3"}
-    protected static final List computeFF(String foreignT, int count, boolean firstSuffixed) {
-        final List res = new ArrayList(count);
+    protected static final List<String> computeFF(String foreignT, int count, boolean firstSuffixed) {
+        final List<String> res = new ArrayList<String>(count);
         if (!firstSuffixed)
             res.add("ID_" + foreignT);
         for (int i = (firstSuffixed ? 1 : 2); i <= count; i++)
@@ -43,7 +43,7 @@ public abstract class ItemPoolFactory {
      * @param r the row, eg MACHINE[123].
      * @return a list of SQLRowAccessor, eg [OBSERVATION[142], OBSERVATION[221]].
      */
-    public abstract List getItems(SQLRowAccessor r);
+    public abstract List<SQLRowAccessor> getItems(SQLRowAccessor r);
 
     /**
      * Creates an ItemPool who can handle a list of this kind.

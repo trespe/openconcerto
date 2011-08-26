@@ -249,19 +249,19 @@ public class Style extends ODNode {
     private final StyleDesc<?> desc;
     private final ODPackage pkg;
     private final String name;
-    private final XMLVersion ns;
+    private final XMLFormatVersion ns;
 
     public Style(final ODPackage pkg, final Element styleElem) {
         super(styleElem);
         this.pkg = pkg;
         this.name = this.getElement().getAttributeValue("name", this.getSTYLE());
-        this.ns = this.pkg.getVersion();
-        this.desc = getNonNullStyleDesc(this.getClass(), this.ns, styleElem, getName());
+        this.ns = this.pkg.getFormatVersion();
+        this.desc = getNonNullStyleDesc(this.getClass(), this.ns.getXMLVersion(), styleElem, getName());
         if (!this.desc.getElementName().equals(this.getElement().getName()))
             throw new IllegalArgumentException("expected " + this.desc.getElementName() + " but got " + this.getElement().getName() + " for " + styleElem);
         // assert that styleElem is in pkg (and thus have the same version)
         assert this.pkg.getXMLFile(getElement().getDocument()) != null;
-        assert this.pkg.getVersion() == XMLVersion.getVersion(getElement());
+        assert this.pkg.getFormatVersion().equals(XMLFormatVersion.get(getElement().getDocument()));
     }
 
     protected final Namespace getSTYLE() {
@@ -269,7 +269,7 @@ public class Style extends ODNode {
     }
 
     public final XMLVersion getNS() {
-        return this.ns;
+        return this.ns.getXMLVersion();
     }
 
     public final String getName() {
@@ -291,14 +291,10 @@ public class Style extends ODNode {
      * @return the matching properties, eg &lt;text-properties&gt;.
      */
     public final Element getFormattingProperties(final String family) {
-        final String childName;
-        if (this.getNS() == XMLVersion.OD)
-            childName = family + "-properties";
-        else
-            childName = "properties";
-        Element res = this.getElement().getChild(childName, this.getSTYLE());
+        final Element elem = this.ns.getXML().createFormattingProperties(family);
+        Element res = this.getElement().getChild(elem.getName(), elem.getNamespace());
         if (res == null) {
-            res = new Element(childName, this.getSTYLE());
+            res = elem;
             this.getElement().addContent(res);
         }
         return res;

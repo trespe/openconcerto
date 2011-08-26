@@ -27,6 +27,7 @@ import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cc.IFactory;
@@ -232,57 +233,62 @@ public class UserRightsManager {
      * @return the user's rights by CODE.
      */
     private final CollectionMap<String, Tuple2<String, Boolean>> loadRightsForUser(final int userID) {
-        final SQLRow userRow = this.getTable().getForeignTable("ID_USER_COMMON").getRow(userID);
-        if (userRow != null && userRow.getBoolean("SUPERUSER"))
-            return SUPERUSER_RIGHTS;
+        try {
+            final SQLRow userRow = this.getTable().getForeignTable("ID_USER_COMMON").getRow(userID);
+            if (userRow != null && userRow.getBoolean("SUPERUSER"))
+                return SUPERUSER_RIGHTS;
 
-        final CollectionMap<String, Tuple2<String, Boolean>> res = new CollectionMap<String, Tuple2<String, Boolean>>(ArrayList.class);
-        final Set<Tuple2<String, String>> unicity = new HashSet<Tuple2<String, String>>();
-        // only superuser can modify RIGHTs
-        expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE_MODIF, this.getTable().getForeignTable("ID_RIGHT"), false));
-        // only admin can modify or see USER_RIGHTs
-        expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE, this.getTable(), userRow != null && userRow.getBoolean("ADMIN")));
+            final CollectionMap<String, Tuple2<String, Boolean>> res = new CollectionMap<String, Tuple2<String, Boolean>>(ArrayList.class);
+            final Set<Tuple2<String, String>> unicity = new HashSet<Tuple2<String, String>>();
+            // only superuser can modify RIGHTs
+            expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE_MODIF, this.getTable().getForeignTable("ID_RIGHT"), false));
+            // only admin can modify or see USER_RIGHTs
+            expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE, this.getTable(), userRow != null && userRow.getBoolean("ADMIN")));
 
-        // java rights have priority over SQL rights
-        for (final RightTuple t : this.javaRights.getNonNull(userID)) {
-            expand(res, unicity, t);
-        }
-        for (final RightTuple t : this.javaRights.getNonNull(null)) {
-            expand(res, unicity, t);
-        }
-
-        final SQLRowValues vals = new SQLRowValues(getTable()).setAllToNull();
-        vals.putRowValues("ID_RIGHT").setAllToNull();
-
-        final SQLRowValuesListFetcher sel = new SQLRowValuesListFetcher(vals);
-        sel.setOrdered(true);
-        sel.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
-            @Override
-            public SQLSelect transformChecked(final SQLSelect sel) {
-                sel.setWhere(new Where(getTable().getField("ID_USER_COMMON"), "=", userID));
-                return sel;
+            // java rights have priority over SQL rights
+            for (final RightTuple t : this.javaRights.getNonNull(userID)) {
+                expand(res, unicity, t);
             }
-        });
+            for (final RightTuple t : this.javaRights.getNonNull(null)) {
+                expand(res, unicity, t);
+            }
 
-        final List<SQLRowValues> list = sel.fetch();
-        for (final SQLRowValues row : list) {
-            final SQLRowAccessor right = row.getForeign("ID_RIGHT");
-            if (row.isUndefined()) {
-                Log.get().warning(row.asRow() + " has undef right");
-            } else {
-                final String rightCode = right.getString("CODE");
-                // do *not* load null code has it means SUPERUSER
-                if (rightCode == null)
-                    Log.get().warning(right + " has null CODE");
-                else {
-                    final String object = row.getString("OBJECT");
-                    final Boolean haveRight = row.getBoolean("HAVE_RIGHT");
-                    expand(res, unicity, rightCode, object, haveRight);
+            final SQLRowValues vals = new SQLRowValues(getTable()).setAllToNull();
+            vals.putRowValues("ID_RIGHT").setAllToNull();
+
+            final SQLRowValuesListFetcher sel = new SQLRowValuesListFetcher(vals);
+            sel.setOrdered(true);
+            sel.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
+                @Override
+                public SQLSelect transformChecked(final SQLSelect sel) {
+                    sel.setWhere(new Where(getTable().getField("ID_USER_COMMON"), "=", userID));
+                    return sel;
+                }
+            });
+
+            final List<SQLRowValues> list = sel.fetch();
+            for (final SQLRowValues row : list) {
+                final SQLRowAccessor right = row.getForeign("ID_RIGHT");
+                if (row.isUndefined()) {
+                    Log.get().warning(row.asRow() + " has undef right");
+                } else {
+                    final String rightCode = right.getString("CODE");
+                    // do *not* load null code has it means SUPERUSER
+                    if (rightCode == null)
+                        Log.get().warning(right + " has null CODE");
+                    else {
+                        final String object = row.getString("OBJECT");
+                        final Boolean haveRight = row.getBoolean("HAVE_RIGHT");
+                        expand(res, unicity, rightCode, object, haveRight);
+                    }
                 }
             }
-        }
 
-        return res;
+            return res;
+        } catch (Exception e) {
+            ExceptionHandler.handle("Erreur lors du chargement des droits utilisateurs pour l'utilisateur (Id:" + userID + ")", e);
+            return SUPERUSER_RIGHTS;
+        }
     }
 
     private final void expand(final CollectionMap<String, Tuple2<String, Boolean>> res, final Set<Tuple2<String, String>> unicity, final RightTuple t) {

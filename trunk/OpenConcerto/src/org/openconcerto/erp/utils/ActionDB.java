@@ -17,23 +17,26 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.PropsConfiguration;
-import org.openconcerto.sql.changer.Changer;
 import org.openconcerto.sql.changer.correct.FixSerial;
+import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBStructureItemDB;
+import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
-import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSchema;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSyntax;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.utils.SQLCreateRoot;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -58,278 +61,58 @@ public class ActionDB {
      * @param baseDefault nom de la base par défaut
      * @param newBase nom de la nouvelle base
      */
-    public static void dupliqueMySQLDB(String baseDefault, String newBase, StatusListener l) {
-
-        // ComptaPropsConfiguration instance = ComptaPropsConfiguration.create();
-        // Configuration.setInstance(instance);
-
-        // instance.setUpSocieteDataBaseConnexion(baseDefault);
-        DatabaseMetaData dbMetaDataSocieteDefault;
-        try {
-
-            // Creation de la nouvelle base
-            String reqDatabase = "CREATE DATABASE \"" + newBase + "\" CHARACTER SET 'UTF8'";
-
-            Configuration.getInstance().getBase().getDataSource().getConnection().prepareStatement(reqDatabase).executeUpdate();
-            SQLBase baseSQLNew = Configuration.getInstance().getBase().getServer().getBase(newBase, "openconcerto", "openconcerto");
-            SQLBase baseSQLDefault = Configuration.getInstance().getBase().getServer().getBase(baseDefault, "openconcerto", "openconcerto");
-            // Table de la base par defaut
-            dbMetaDataSocieteDefault = baseSQLDefault.getDataSource().getConnection().getMetaData();
-
-            ResultSet rs = dbMetaDataSocieteDefault.getTables("", "", null, null);
-            while (rs.next()) {
-                StringBuffer result = new StringBuffer();
-                String tableName = rs.getString("TABLE_NAME");
-                String tableType = rs.getString("TABLE_TYPE");
-
-                if ("TABLE".equalsIgnoreCase(tableType)) {
-
-                    // Creation d'une table
-                    // result.append("\n\n-- " + tableName);
-                    result.append("\nCREATE TABLE `" + newBase + "`.`" + tableName + "` (\n");
-                    ResultSet tableMetaData = dbMetaDataSocieteDefault.getColumns(null, null, tableName, "%");
-                    boolean firstLine = true;
-
-                    // On recupere la cle primaire
-                    String primaryKey = "";
-                    try {
-                        ResultSet primaryKeys = dbMetaDataSocieteDefault.getPrimaryKeys(null, null, tableName);
-                        while (primaryKeys.next()) {
-                            primaryKey = primaryKeys.getString("COLUMN_NAME");
-                        }
-                    } catch (SQLException e) {
-                        ExceptionHandler.handle("Erreur pendant la création de la base!", e);
-                        System.err.println("Unable to get primary keys for table " + tableName + " because " + e);
-                    }
-
-                    System.err.println(primaryKey);
-
-                    // Creation des columns
-                    while (tableMetaData.next()) {
-
-                        if (firstLine) {
-                            firstLine = false;
-                        } else {
-                            result.append(",\n");
-                        }
-
-                        // COLUMN NAME, TYPE AND SIZE
-                        String columnName = tableMetaData.getString("COLUMN_NAME");
-                        String columnType = tableMetaData.getString("TYPE_NAME");
-                        String decimalDigits = tableMetaData.getString("DECIMAL_DIGITS");
-
-                        int columnSize = tableMetaData.getInt("COLUMN_SIZE");
-
-                        // NULL OR NOT NULL
-                        String nullable = tableMetaData.getString("IS_NULLABLE");
-                        String nullString = "NULL";
-                        if ("NO".equalsIgnoreCase(nullable)) {
-                            nullString = "NOT NULL";
-                        }
-
-                        // DEFAULT
-                        String defaultValue = tableMetaData.getString("COLUMN_DEF");
-                        String defaultValueString = "";
-                        if (defaultValue != null) {
-                            defaultValueString = " default '" + defaultValue + "'";
-                        }
-
-                        if (columnType.trim().equalsIgnoreCase("int unsigned")) {
-                            result.append("    " + " `" + columnName + "` " + "int (" + columnSize + ")" + " unsigned " + nullString);
-                        } else {
-                            if (columnType.trim().equalsIgnoreCase("bigint unsigned")) {
-                                result.append("    " + " `" + columnName + "` " + "bigint (" + columnSize + ")" + " unsigned " + nullString);
-                            } else {
-                                if (columnType.trim().equalsIgnoreCase("date")) {
-                                    result.append("    " + " `" + columnName + "` date " + nullString);
-                                } else {
-                                    if (columnType.trim().equalsIgnoreCase("numeric")) {
-                                        result.append("    " + " `" + columnName + "` " + columnType + " (" + columnSize + "," + decimalDigits + ")" + " " + nullString);
-                                    } else {
-                                        result.append("    " + " `" + columnName + "` " + columnType + " (" + columnSize + ")" + " " + nullString);
-                                    }
-                                }
-                            }
-                        }
-
-                        if (primaryKey.equalsIgnoreCase(columnName) && (columnType.trim().equalsIgnoreCase("int unsigned") || columnType.trim().equalsIgnoreCase("int"))) {
-                            result.append(" auto_increment");
-                        } else {
-                            result.append(defaultValueString);
-                        }
-
-                        // for (int i = 1; i < 20; i++) {
-                        // System.err.println(i + " " + tableMetaData.getObject(i));
-                        // }
-
-                    }
-                    tableMetaData.close();
-
-                    // PRIMARY
-                    if (primaryKey.trim().length() != 0) {
-                        result.append(",\n     PRIMARY KEY (`" + primaryKey + "`)\n);\n");
-                    } else {
-                        result.append(");\n");
-                    }
-                    // Creation de la table dans la nouvelle base
-                    baseSQLNew.getDataSource().getConnection().prepareStatement("DROP TABLE IF EXISTS `" + newBase + "`.`" + tableName + "`").executeUpdate();
-                    System.err.println("Execute Query " + result);
-                    baseSQLNew.getDataSource().getConnection().prepareStatement(result.toString()).executeUpdate();
-
-                    // Dump Table
-                    // dumpTable(baseSQLDefault, baseSQLNew, tableName);
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            ExceptionHandler.handle("Erreur pendant la création de la base!", e);
-        }
-    }
-
-    public static void dupliquePGSqlDB(String baseDefault, String newBase, StatusListener l) {
-        final SQLBase base = Configuration.getInstance().getBase();
-
-        // FIXME Replace by SQLCopy
+    public static void dupliqueDB(String baseDefault, String newBase, StatusListener l) {
+        final DBSystemRoot sysRoot = Configuration.getInstance().getSystemRoot();
 
         // FIXME ADD TRIGGER TO UPDATE SOLDE COMPTE_PCE
         // ComptaPropsConfiguration instance = ComptaPropsConfiguration.create();
         // Configuration.setInstance(instance);
 
-        // instance.setUpSocieteDataBaseConnexion(baseDefault);
-        // DatabaseMetaData dbMetaDataSocieteDefault;
-        List<SQLTable> listTableDefault;
         try {
             log(l, "Création du schéma");
+            if (!sysRoot.getRootsToMap().contains(baseDefault)) {
+                sysRoot.getRootsToMap().add(baseDefault);
+                sysRoot.refetch(Collections.singleton(baseDefault));
+            }
+            final DBRoot baseSQLDefault = sysRoot.getRoot(baseDefault);
+            log(l, "Traitement des " + baseSQLDefault.getChildrenNames().size() + " tables");
 
-            // Creation de la nouvelle base
-            final String reqDatabase = SQLSelect.quote("CREATE SCHEMA %i", newBase);
+            final SQLCreateRoot createRoot = baseSQLDefault.getDefinitionSQL(sysRoot.getServer().getSQLSystem());
+            final SQLDataSource ds = sysRoot.getDataSource();
+            // be safe don't add DROP SCHEMA
+            ds.execute(createRoot.asString(newBase, false, true));
+            sysRoot.getRootsToMap().add(newBase);
+            // TODO find a more functional way
+            final boolean origVal = Boolean.getBoolean(SQLSchema.NOAUTO_CREATE_METADATA);
+            if (!origVal)
+                System.setProperty(SQLSchema.NOAUTO_CREATE_METADATA, "true");
+            sysRoot.refetch(Collections.singleton(newBase));
+            if (!origVal)
+                System.setProperty(SQLSchema.NOAUTO_CREATE_METADATA, "false");
+            final DBRoot baseSQLNew = sysRoot.getRoot(newBase);
 
-            base.getDataSource().execute(reqDatabase);
-            final Set<String> rootsToMap = base.getDBSystemRoot().getRootsToMap();
-            rootsToMap.add(baseDefault);
-            rootsToMap.add(newBase);
-            // TODO: Sylvain voir pour y faire rapidement
-            base.fetchTables();
-            final SQLSchema baseSQLDefault = base.getSchema(baseDefault);
-            final SQLSchema baseSQLNew = base.getSchema(newBase);
-            // Table de la base par defaut
-            listTableDefault = new ArrayList<SQLTable>(baseSQLDefault.getTables());
-            log(l, "Traitement des " + listTableDefault.size() + " tables");
-            // SQLSchema baseSQLNew = Configuration.getInstance().getBase().getSchema(newBase);
-            // ResultSet rs = dbMetaDataSocieteDefault.getTables("", "", null, null);
-            for (int i = 0; i < listTableDefault.size(); i++) {
-                SQLTable table = listTableDefault.get(i);
-                StringBuffer result = new StringBuffer();
+            final Set<SQLTable> newTables = baseSQLNew.getTables();
+            int i = 0;
+            final SQLSyntax syntax = sysRoot.getServer().getSQLSystem().getSyntax();
+            // MAYBE SQLCreateRoot can avoid creating foreign constraints, then we insert data,
+            // finally SQLCreateRoot adds just the constraints
+            ds.execute(syntax.disableFKChecks(baseSQLNew));
+            for (final SQLTable table : newTables) {
                 String tableName = table.getName();
 
-                // Creation d'une table
-                // result.append("\n\n-- " + tableName);
-                result.append("\nCREATE TABLE \"" + newBase + "\".\"" + tableName + "\" (\n");
-                Set<SQLField> tableFields = table.getFields();
-                boolean firstLine = true;
-
-                // On recupere la cle primaire
-                String primaryKey = (table.getKey() == null) ? "" : table.getKey().getName();
-
-                System.err.println(primaryKey);
-
-                // Creation des columns
-                for (SQLField field : tableFields) {
-
-                    if (firstLine) {
-                        firstLine = false;
-                    } else {
-                        result.append(",\n");
-                    }
-
-                    // COLUMN NAME, TYPE AND SIZE
-                    String columnName = field.getName();
-                    String columnType = field.getType().getTypeName();
-
-                    // NULL OR NOT NULL
-                    // field.getType().getSize();
-                    // String nullable = tableMetaData.getString("IS_NULLABLE");
-                    String nullString = "NULL";
-                    DBStructureItemDB db = field.getDB();
-                    // if ("NO".equalsIgnoreCase(nullable)) {
-                    // nullString = "NOT NULL";
-                    // }
-
-                    // DEFAULT
-                    Object defaultValueO = field.getDefaultValue();
-                    String defaultValue = (defaultValueO == null) ? null : defaultValueO.toString();
-                    String defaultValueString = "";
-                    if (defaultValue != null) {
-                        defaultValueString = " default " + defaultValue;
-                    }
-
-                    int columnSize = field.getType().getSize();
-                    Integer decimalDigit = (Integer) field.getMetadata("DECIMAL_DIGITS");
-                    String stringColumnSize = "";
-                    if (Integer.valueOf(columnSize).intValue() > 0 && Integer.valueOf(columnSize).intValue() < 10000) {
-                        stringColumnSize = " (" + columnSize;
-
-                        if (decimalDigit != null && Integer.valueOf(decimalDigit).intValue() > 0) {
-                            stringColumnSize += ", " + decimalDigit;
-                        }
-
-                        stringColumnSize += ")";
-                    }
-
-                    if (primaryKey.equalsIgnoreCase(columnName) && (columnType.trim().equalsIgnoreCase("serial"))) {
-                        result.append("    " + " \"" + columnName + "\" " + columnType);
-                    } else {
-                        if ((columnType.trim().equalsIgnoreCase("character varying") || columnType.trim().equalsIgnoreCase("varchar") || columnType.trim().equalsIgnoreCase("numeric"))
-                                && stringColumnSize.length() > 0) {
-                            result.append("    " + " \"" + columnName + "\" " + columnType + stringColumnSize + " ");
-                            result.append(defaultValueString);
-                        } else {
-                            result.append("    " + " \"" + columnName + "\" " + columnType + " ");
-                            result.append(defaultValueString);
-                        }
-                    }
-                }
-
-                // FOREIGN
-                Set<SQLField> setForeign = table.getForeignKeys();
-                for (SQLField field2 : setForeign) {
-
-                    // Only if not in default
-                    final SQLTable foreignTable = base.getGraph().getForeignTable(field2);
-                    SQLName pointsToTable = foreignTable.getSQLName();
-                    String pointsToBase = "\"" + pointsToTable.getFirst() + "\"";
-                    String pointsToSchema = foreignTable.getSchema().getName();
-                    String pointsToField = foreignTable.getKey().getName();
-
-                    if (!pointsToSchema.equalsIgnoreCase(baseSQLDefault.getName())) {
-                        result.append(",\n     FOREIGN KEY (\"" + field2.getName() + "\")" + " REFERENCES " + pointsToBase + ".\"" + pointsToSchema + "\".\"" + pointsToTable.getName() + "\" (\""
-                                + pointsToField + "\") MATCH SIMPLE" + " ON UPDATE NO ACTION ON DELETE NO ACTION");
-                    }
-                }
-
-                // PRIMARY
-                if (primaryKey.trim().length() != 0) {
-                    result.append(",\n     PRIMARY KEY (\"" + primaryKey + "\")\n);\n");
-                } else {
-                    result.append(");\n");
-                }
-                // Creation de la table dans la nouvelle base
-                log(l, "Création de la table " + tableName + " " + (i + 1) + "/" + listTableDefault.size());
-                base.getDataSource().getConnection().prepareStatement("DROP TABLE IF EXISTS \"" + newBase + "\".\"" + tableName + "\"").executeUpdate();
-                System.err.println("Execute Query " + result);
-                base.getDataSource().getConnection().prepareStatement(result.toString()).executeUpdate();
-
-                log(l, "Copie de la table " + tableName + " " + (i + 1) + "/" + listTableDefault.size());
-
+                log(l, "Copie de la table " + tableName + " " + (i + 1) + "/" + newTables.size());
                 // Dump Table
-                dumpTable(baseSQLDefault, baseSQLNew, tableName);
-                log(l, "Maj des séquences table " + tableName + " " + (i + 1) + "/" + listTableDefault.size());
-                log(l, "Table " + tableName + " " + (i + 1) + "/" + listTableDefault.size() + " OK");
+                dumpTable(baseSQLDefault, table);
+                log(l, "Table " + tableName + " " + (i + 1) + "/" + newTables.size() + " OK");
+                i++;
             }
-            // TODO: Sylvain voir pour le faire rapidement: fetchSchema(...)
+            ds.execute(syntax.enableFKChecks(baseSQLNew));
 
-            base.fetchTables();
-            Changer.change(baseSQLNew, FixSerial.class);
+            if (syntax.getSystem() == SQLSystem.POSTGRESQL) {
+                log(l, "Maj des séquences des tables");
+                new FixSerial(sysRoot).changeAll(baseSQLNew);
+            }
+
 
             log(l, "Duplication terminée");
 
@@ -339,94 +122,6 @@ public class ActionDB {
             log(l, "Erreur pendant la duplication");
         }
 
-    }
-
-    private static String getControleStatement(String customer, String base, String year) {
-
-        StringBuffer s = new StringBuffer();
-        s.append("ALTER TABLE \"" + base + "\".\"AFFAIRE_ELEMENT\" ADD COLUMN \"ID_DOMAINE\" integer default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"AFFAIRE_ELEMENT\" ADD CONSTRAINT \"AFFAIRE_ELEMENT_ID_DOMAINE_fkey\" FOREIGN KEY (\"ID_DOMAINE\") REFERENCES \"" + customer
-                + "_Common\".\"DISCIPLINE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-        s.append("ALTER TABLE \"" + base + "\".\"CODE_MISSION\" ADD COLUMN \"ID_DOMAINE\" integer default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"CODE_MISSION\" ADD CONSTRAINT \"CODE_MISSION_ID_DOMAINE_fkey\" FOREIGN KEY (\"ID_DOMAINE\") REFERENCES \"" + customer
-                + "_Common\".\"DISCIPLINE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS_ELEMENT\" ADD COLUMN \"ID_DOMAINE\" integer default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS_ELEMENT\" ADD CONSTRAINT \"FICHE_RENDEZ_VOUS_ELEMENT_ID_DOMAINE_fkey\" FOREIGN KEY (\"ID_DOMAINE\") REFERENCES \"" + customer
-                + "_Common\".\"DISCIPLINE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"PROPOSITION_ELEMENT\" ADD COLUMN \"ID_DOMAINE\" integer default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"PROPOSITION_ELEMENT\" ADD CONSTRAINT \"PROPOSITION_ELEMENT_ID_DOMAINE_fkey\" FOREIGN KEY (\"ID_DOMAINE\") REFERENCES \"" + customer
-                + "_Common\".\"DISCIPLINE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"SAISIE_VENTE_FACTURE_ELEMENT\" ADD COLUMN \"ID_DOMAINE\" integer default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"SAISIE_VENTE_FACTURE_ELEMENT\" ADD CONSTRAINT \"SAISIE_VENTE_FACTURE_ELEMENT_ID_DOMAINE_fkey\" FOREIGN KEY (\"ID_DOMAINE\") REFERENCES \"" + customer
-                + "_Common\".\"DISCIPLINE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"SAISIE_VENTE_FACTURE\" ADD COLUMN \"ID_VERIFICATEUR\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"SAISIE_VENTE_FACTURE\" ADD CONSTRAINT \"SAISIE_VENTE_FACTURE_ID_VERIFICATEUR_fkey\" FOREIGN KEY (\"ID_VERIFICATEUR\") REFERENCES \"" + customer + "_"
-                + year + "\".\"VERIFICATEUR\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"POURCENT_SERVICE\" ADD COLUMN \"ID_VERIFICATEUR\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"POURCENT_SERVICE\" ADD CONSTRAINT \"POURCENT_SERVICE_ID_VERIFICATEUR_fkey\" FOREIGN KEY (\"ID_VERIFICATEUR\") REFERENCES \"" + customer + "_" + year
-                + "\".\"VERIFICATEUR\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS\" ADD COLUMN \"ID_VERIFICATEUR\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS\" ADD CONSTRAINT \"FICHE_RENDEZ_VOUS_ID_VERIFICATEUR_fkey\" FOREIGN KEY (\"ID_VERIFICATEUR\") REFERENCES \"" + customer + "_" + year
-                + "\".\"VERIFICATEUR\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS_ELEMENT\" ADD COLUMN \"ID_VERIFICATEUR\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS_ELEMENT\" ADD CONSTRAINT \"FICHE_RENDEZ_VOUS_ELEMENT_ID_VERIFICATEUR_fkey\" FOREIGN KEY (\"ID_VERIFICATEUR\") REFERENCES \""
-                + customer + "_" + year + "\".\"VERIFICATEUR\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"RAPPORT\" ADD COLUMN \"ID_VERIFICATEUR\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"RAPPORT\" ADD CONSTRAINT \"RAPPORT_ID_VERIFICATEUR_fkey\" FOREIGN KEY (\"ID_VERIFICATEUR\") REFERENCES \"" + customer + "_" + year
-                + "\".\"VERIFICATEUR\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"ORDRE_MISSION\" ADD COLUMN \"ID_VERIFICATEUR\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"ORDRE_MISSION\" ADD CONSTRAINT \"ORDRE_MISSION_ID_VERIFICATEUR_fkey\" FOREIGN KEY (\"ID_VERIFICATEUR\") REFERENCES \"" + customer + "_" + year
-                + "\".\"VERIFICATEUR\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"SAISIE_VENTE_FACTURE_ELEMENT\" ADD COLUMN \"ID_MISSION\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"SAISIE_VENTE_FACTURE_ELEMENT\" ADD CONSTRAINT \"SAISIE_VENTE_FACTURE_ELEMENT_ID_MISSION_fkey\" FOREIGN KEY (\"ID_MISSION\") REFERENCES \"" + customer
-                + "_" + year + "\".\"MISSION\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS_ELEMENT\" ADD COLUMN \"ID_MISSION\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS_ELEMENT\" ADD CONSTRAINT \"FICHE_RENDEZ_VOUS_ELEMENT_ID_MISSION_fkey\" FOREIGN KEY (\"ID_MISSION\") REFERENCES \"" + customer + "_"
-                + year + "\".\"MISSION\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"POURCENT_SERVICE\" ADD COLUMN \"ID_SERVICE\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"POURCENT_SERVICE\" ADD CONSTRAINT \"POURCENT_SERVICE_ID_SERVICE_fkey\" FOREIGN KEY (\"ID_SERVICE\") REFERENCES \"" + customer
-                + "_Common\".\"SERVICE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"CODE_MISSION\" ADD COLUMN \"ID_SERVICE\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"CODE_MISSION\" ADD CONSTRAINT \"CODE_MISSION_ID_SERVICE_fkey\" FOREIGN KEY (\"ID_SERVICE\") REFERENCES \"" + customer
-                + "_Common\".\"SERVICE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"AFFAIRE_ELEMENT\" ADD COLUMN \"ID_PERIODICITE\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"AFFAIRE_ELEMENT\" ADD CONSTRAINT \"AFFAIRE_ELEMENT_ID_PERIODICITE_fkey\" FOREIGN KEY (\"ID_PERIODICITE\") REFERENCES \"" + customer
-                + "_Common\".\"PERIODICITE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS_ELEMENT\" ADD COLUMN \"ID_PERIODICITE\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"FICHE_RENDEZ_VOUS_ELEMENT\" ADD CONSTRAINT \"FICHE_RENDEZ_VOUS_ELEMENT_ID_PERIODICITE_fkey\" FOREIGN KEY (\"ID_PERIODICITE\") REFERENCES \""
-                + customer + "_Common\".\"PERIODICITE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"PROPOSITION_ELEMENT\" ADD COLUMN \"ID_PERIODICITE\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"PROPOSITION_ELEMENT\" ADD CONSTRAINT \"PROPOSITION_ELEMENT_ID_PERIODICITE_fkey\" FOREIGN KEY (\"ID_PERIODICITE\") REFERENCES \"" + customer
-                + "_Common\".\"PERIODICITE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"RAPPORT\" ADD COLUMN \"ID_PERIODICITE\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"RAPPORT\" ADD CONSTRAINT \"RAPPORT_ID_PERIODICITE_fkey\" FOREIGN KEY (\"ID_PERIODICITE\") REFERENCES \"" + customer
-                + "_Common\".\"PERIODICITE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"SAISIE_VENTE_FACTURE_ELEMENT\" ADD COLUMN \"ID_PERIODICITE\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"SAISIE_VENTE_FACTURE_ELEMENT\" ADD CONSTRAINT \"SAISIE_VENTE_FACTURE_ELEMENT_ID_PERIODICITE_fkey\" FOREIGN KEY (\"ID_PERIODICITE\") REFERENCES \""
-                + customer + "_Common\".\"PERIODICITE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-
-        s.append("ALTER TABLE \"" + base + "\".\"AVOIR_CLIENT_ELEMENT\" ADD COLUMN \"ID_PERIODICITE\"  int4  default 1;");
-        s.append("ALTER TABLE \"" + base + "\".\"AVOIR_CLIENT_ELEMENT\" ADD CONSTRAINT \"AVOIR_CLIENT_ELEMENT_ID_PERIODICITE_fkey\" FOREIGN KEY (\"ID_PERIODICITE\") REFERENCES \"" + customer
-                + "_Common\".\"PERIODICITE\" (\"ID\") MATCH SIMPLE ON UPDATE NO ACTION ON DELETE NO ACTION;");
-        return s.toString();
     }
 
     private static void log(StatusListener l, String message) {
@@ -442,56 +137,11 @@ public class ActionDB {
      * @param baseNew
      * @param tableName
      */
-    private static void dumpTable(SQLSchema base, SQLSchema baseNew, String tableName) {
-
+    private static void dumpTable(DBRoot source, SQLTable newTable) {
         try {
-            // First we output the create table stuff
-            // PreparedStatement stmt = dbConn.prepareStatement("SELECT * FROM " + tableName);
-
-            List<Map> rs = base.getBase().getDataSource().execute("SELECT * FROM \"" + base.getName() + "\".\"" + tableName + "\"");
-
-            // ResultSetMetaData metaData = rs.getMetaData();
-            if (rs == null || rs.size() == 0) {
-                return;
-            }
-            int columnCount = rs.get(0).keySet().size();
-
-            // Now we can output the actual data
-            PreparedStatement statement;
-            StringBuffer query = new StringBuffer();
-            query = new StringBuffer("INSERT INTO \"" + baseNew.getName() + "\".\"" + tableName + "\"(");
-
-            Map m = rs.get(0);
-            for (Iterator i = m.keySet().iterator(); i.hasNext();) {
-                String key = i.next().toString();
-                if (i.hasNext()) {
-                    query.append("\"" + key.toString() + "\", ");
-                } else {
-                    query.append("\"" + key.toString() + "\") VALUES (");
-                }
-            }
-
-            // StringBuffer query = new StringBuffer("INSERT INTO `" + baseNew.getName() + "`.`" +
-            // tableName + "` VALUES (");
-            for (int i = 0; i < columnCount - 1; i++) {
-                query.append("?,");
-            }
-            query.append("?)");
-            statement = baseNew.getBase().getDataSource().getConnection().prepareStatement(query.toString());
-
-            for (Map map : rs) {
-                int i = 0;
-                for (Object key : map.keySet()) {
-
-                    statement.setObject(i + 1, map.get(key));
-                    i++;
-                }
-                // TODO: g
-                statement.executeUpdate();
-            }
-
+            SQLRowValues.insertFromTable(newTable, source.getTable(newTable.getName()));
         } catch (SQLException e) {
-            System.err.println("Unable to dump table " + tableName + " because: " + e);
+            System.err.println("Unable to dump table " + newTable.getName());
             e.printStackTrace();
         }
     }

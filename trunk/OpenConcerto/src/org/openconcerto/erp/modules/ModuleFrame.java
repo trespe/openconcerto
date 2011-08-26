@@ -15,7 +15,6 @@
 
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
-import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -25,20 +24,22 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
 
 public class ModuleFrame extends JFrame {
-    ModuleFrame() {
+    private final InstalledModulesPanel tab1;
+    private final AvailableModulesPanel tab2;
 
+    public ModuleFrame() {
         this.setTitle("Modules");
         this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         final JPanel p = new JPanel();
         p.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
         final JTabbedPane tabbedPane = new JTabbedPane();
-        tabbedPane.addTab("Modules installés", new InstalledModulesPanel());
-        tabbedPane.addTab("Modules disponibles", new AvailableModulesPanel());
+        this.tab1 = new InstalledModulesPanel(this);
+        tabbedPane.addTab("Modules installés", this.tab1);
+        this.tab2 = new AvailableModulesPanel(this);
+        tabbedPane.addTab("Modules disponibles", this.tab2);
         c.weightx = 1;
         c.weighty = 1;
         c.fill = GridBagConstraints.BOTH;
@@ -58,23 +59,8 @@ public class ModuleFrame extends JFrame {
         this.setContentPane(p);
     }
 
-    public static void main(String[] args) {
-        SwingUtilities.invokeLater(new Runnable() {
-
-            @Override
-            public void run() {
-                try {
-                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-                ModuleFrame frame = new ModuleFrame();
-                frame.setMinimumSize(new Dimension(480, 640));
-                frame.setLocationRelativeTo(null);
-                frame.setVisible(true);
-
-            }
-        });
-
+    public void reload() {
+        this.tab1.reload();
+        this.tab2.reload();
     }
 }

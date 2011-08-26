@@ -15,7 +15,6 @@
 
 import org.openconcerto.odtemplate.TemplateException;
 import org.openconcerto.odtemplate.statements.Statement;
-import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.OOUtils;
 import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.utils.ExceptionUtils;
@@ -64,7 +63,7 @@ public class Processor<E> {
     private static Logger logger = Logger.getLogger(Processor.class.getName());
 
     private final Parsed<E> parsed;
-    private final XMLVersion ns;
+    private final OOXML ns;
     // to workaround OO, see getChildren()
     private final XPath xp;
     private final DataModel model;
@@ -76,7 +75,7 @@ public class Processor<E> {
         this.model = model;
         this.ns = this.parsed.getSource().getNS();
         try {
-            this.xp = OOUtils.getXPath(".//text:span", this.ns);
+            this.xp = OOUtils.getXPath(".//text:span", this.ns.getVersion());
         } catch (JDOMException e) {
             throw ExceptionUtils.createExn(TemplateException.class, "xpath error", e);
         }
@@ -148,7 +147,7 @@ public class Processor<E> {
      * @throws TemplateException if the field cannot be evaluated.
      */
     private void replaceField(Element field) throws TemplateException {
-        String expression = field.getAttributeValue("description", this.ns.getTEXT());
+        String expression = field.getAttributeValue("description", this.ns.getVersion().getTEXT());
 
         final boolean asString = expression.startsWith(AS_STR);
         if (asString)
@@ -161,11 +160,11 @@ public class Processor<E> {
             expression = expression.substring(ENCODE.length());
 
         field.setName("span");
-        field.setNamespace(this.ns.getTEXT());
+        field.setNamespace(this.ns.getVersion().getTEXT());
         Object value = this.model.eval(expression);
         if (value != null) {
             if (encode)
-                value = OOXML.get(this.ns).encodeWS(value.toString());
+                value = this.ns.encodeWS(value.toString());
             else if (isOOXML) {
                 try {
                     value = this.parse(value.toString());
@@ -220,7 +219,7 @@ public class Processor<E> {
     }
 
     private Element parse(String ooxml) throws JDOMException {
-        return JDOMUtils.parseElementString("<dummy>" + ooxml + "</dummy>", this.ns.getALL());
+        return JDOMUtils.parseElementString("<dummy>" + ooxml + "</dummy>", this.ns.getVersion().getALL());
     }
 
 }

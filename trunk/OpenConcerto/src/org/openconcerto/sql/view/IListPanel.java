@@ -17,7 +17,7 @@ import static javax.swing.JOptionPane.DEFAULT_OPTION;
 import static javax.swing.JOptionPane.QUESTION_MESSAGE;
 import org.openconcerto.openoffice.ContentType;
 import org.openconcerto.openoffice.OOUtils;
-import org.openconcerto.openoffice.XMLVersion;
+import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -29,13 +29,16 @@ import org.openconcerto.sql.users.rights.UserRights;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.ITableModel;
+import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.search.SearchListComponent;
 import org.openconcerto.ui.ContinuousButtonModel;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.SwingThreadUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.change.ListChangeIndex;
 
 import java.awt.Container;
 import java.awt.Dimension;
@@ -46,6 +49,8 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
@@ -150,6 +155,31 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                 list.setConfigFile(config);
         }
         this.liste = list;
+        final IClosure<ListChangeIndex<RowAction>> l = new IClosure<ListChangeIndex<RowAction>>() {
+            @Override
+            public void executeChecked(ListChangeIndex<RowAction> input) {
+                for (final RowAction rm : input.getItemsRemoved())
+                    getListe().removeRowAction(rm);
+                for (final RowAction added : input.getItemsAdded())
+                    getListe().addRowAction(added);
+            }
+        };
+        // remove listener if non displayable since getElement() never dies
+        this.addHierarchyListener(new HierarchyListener() {
+            public void hierarchyChanged(HierarchyEvent e) {
+                if ((e.getChangeFlags() & HierarchyEvent.DISPLAYABILITY_CHANGED) != 0)
+                    if (isDisplayable()) {
+                        getListe().addRowActions(getElement().getRowActions());
+                        getListe().addRowActionFactories(getElement().getRowActionFactories());
+                        getElement().addRowActionsListener(l);
+                    } else {
+                        getElement().removeRowActionsListener(l);
+                        getListe().removeRowActions(getElement().getRowActions());
+                        getListe().removeRowActionFactories(getElement().getRowActionFactories());
+                    }
+            }
+        });
+
         this.init();
     }
 
@@ -450,8 +480,8 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                         options, options[0]);
                 if (answer == 0 || answer == 1) {
                     final FileDialog fd = new FileDialog(SwingThreadUtils.getAncestorOrSelf(Frame.class, this), "Sauver la liste", FileDialog.SAVE);
-                    final XMLVersion version = XMLVersion.getDefault();
-                    fd.setFile(this.element.getPluralName().replace('/', '-') + "." + ContentType.SPREADSHEET.getVersioned(version).getExtension());
+                    final XMLFormatVersion version = XMLFormatVersion.getDefault();
+                    fd.setFile(this.element.getPluralName().replace('/', '-') + "." + ContentType.SPREADSHEET.getVersioned(version.getXMLVersion()).getExtension());
                     fd.setVisible(true);
                     if (fd.getFile() != null) {
                         final File f = this.liste.exporter(new File(fd.getDirectory(), fd.getFile()), answer == 1, version);

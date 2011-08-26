@@ -318,42 +318,6 @@ public class HistoriqueClientBilanPanel extends JPanel {
         updateLabels();
     }
 
-    SwingWorker<String, Object> workerPropo;
-
-    public synchronized void updatePropositionData(final List<Integer> listId) {
-        if (workerPropo != null && !workerPropo.isDone()) {
-            workerPropo.cancel(true);
-        }
-        workerPropo = new SwingWorker<String, Object>() {
-            @Override
-            protected String doInBackground() throws Exception {
-                final SQLBase base = ((ComptaPropsConfiguration) ComptaPropsConfiguration.getInstance()).getSQLBaseSociete();
-                final SQLTable tableProp = base.getTable("PROPOSITION");
-                long valueTotal = 0;
-                if (listId != null) {
-                    for (final Iterator<Integer> i = listId.iterator(); i.hasNext();) {
-                        final SQLRow rowTmp = tableProp.getRow(i.next());
-                        if (rowTmp != null) {
-                            final Object montantO = rowTmp.getObject("TOTAL_HT");
-                            valueTotal += Long.parseLong(montantO.toString());
-                        }
-                    }
-                }
-                setNbPropositions(listId == null ? 0 : listId.size());
-                setTotalPropositions(valueTotal);
-                // TODO Auto-generated method stub
-                return null;
-            }
-
-            @Override
-            protected void done() {
-                updateLabels();
-                // TODO Auto-generated method stub
-                super.done();
-            }
-        };
-        workerPropo.execute();
-    }
 
     public synchronized void updateChequeData(final List<Integer> listId) {
         final SQLBase base = ((ComptaPropsConfiguration) ComptaPropsConfiguration.getInstance()).getSQLBaseSociete();

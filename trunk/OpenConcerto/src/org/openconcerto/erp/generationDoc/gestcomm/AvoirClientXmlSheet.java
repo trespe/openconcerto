@@ -35,6 +35,16 @@ public class AvoirClientXmlSheet extends AbstractSheetXml {
         return tuple;
     }
 
+    @Override
+    public SQLRow getRowLanguage() {
+        SQLRow rowClient = this.row.getForeignRow("ID_CLIENT");
+        if (rowClient.getTable().contains("ID_LANGUE")) {
+            return rowClient.getForeignRow("ID_LANGUE");
+        } else {
+            return super.getRowLanguage();
+        }
+    }
+
     public AvoirClientXmlSheet(SQLRow row) {
         super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");

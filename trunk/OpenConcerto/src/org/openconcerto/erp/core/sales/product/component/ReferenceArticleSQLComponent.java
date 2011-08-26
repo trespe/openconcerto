@@ -17,6 +17,8 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
+import org.openconcerto.erp.core.sales.product.ui.ArticleDesignationTable;
+import org.openconcerto.erp.core.sales.product.ui.ArticleTarifTable;
 import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.erp.preferences.DefaultNXProps;
@@ -33,23 +35,31 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.TitledSeparator;
+import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.preferences.DefaultProps;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
+import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
@@ -73,6 +83,10 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     final ElementComboBox comboSelModeVente = new ElementComboBox(false, 25);
     private JLabel labelMetriqueHA1 = new JLabel(getLabelFor("PRIX_METRIQUE_HA_1"));
     private JLabel labelMetriqueVT1 = new JLabel(getLabelFor("PRIX_METRIQUE_VT_1"));
+
+    ArticleDesignationTable tableDes = new ArticleDesignationTable();
+    ArticleTarifTable tableTarifVente = new ArticleTarifTable(this);
+
     private DocumentListener pieceHAArticle = new DocumentListener() {
 
         public void changedUpdate(DocumentEvent arg0) {
@@ -166,9 +180,13 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     @Override
     public void select(SQLRowAccessor r) {
         // TODO Auto-generated method stub
+
         super.select(r);
         if (r != null && r.getID() > getTable().getUndefinedID()) {
             this.checkObs.setVisible(true);
+            this.tableTarifVente.setArticleValues(r);
+            this.tableTarifVente.insertFrom("ID_ARTICLE", r.getID());
+            this.tableDes.insertFrom("ID_ARTICLE", r.getID());
         }
     }
 
@@ -195,68 +213,92 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.textPoids = new JTextField(6);
 
         // Code
-        this.add(new JLabel(getLabelFor("CODE")), c);
-        c.gridx++;
-        c.weightx = 0.1;
-        this.add(this.textCode, c);
-
-        // Nom
-        c.gridx++;
-        c.weightx = 0;
-        this.add(new JLabel(getLabelFor("NOM")), c);
-        c.gridx++;
-        c.weightx = 0.9;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        this.add(this.textNom, c);
-
-        c.gridy++;
-        c.gridx = 0;
-        c.gridwidth = 1;
-        c.weightx = 0;
-        // Famille
-        this.add(new JLabel(getLabelFor("ID_FAMILLE_ARTICLE")), c);
-        c.gridx++;
-        c.weightx = 0;
-        c.gridwidth = 2;
-        final ElementComboBox comboSelFamille = new ElementComboBox(false, 25);
-
-        this.add(comboSelFamille, c);
-
-        // Obsolete
+        JLabel codelabel = new JLabel(getLabelFor("CODE"));
+        codelabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        DefaultGridBagConstraints.lockMinimumSize(codelabel);
+        this.add(codelabel, c);
         c.gridx++;
         c.weightx = 1;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.fill = GridBagConstraints.NONE;
+        DefaultGridBagConstraints.lockMinimumSize(textCode);
+        this.add(this.textCode, c);
 
-        c.anchor = GridBagConstraints.EAST;
-        this.add(this.checkObs, c);
-
-        this.checkObs.setVisible(false);
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.anchor = GridBagConstraints.WEST;
+        // Famille
+        c.gridx++;
         c.gridwidth = 1;
+        c.weightx = 0;
+        JLabel labelFamille = new JLabel(getLabelFor("ID_FAMILLE_ARTICLE"));
+        labelFamille.setHorizontalAlignment(SwingConstants.RIGHT);
+        DefaultGridBagConstraints.lockMinimumSize(labelFamille);
+        this.add(labelFamille, c);
+        c.gridx++;
+        c.weightx = 1;
+        c.gridwidth = 1;
+        final ElementComboBox comboSelFamille = new ElementComboBox(false, 25);
+        DefaultGridBagConstraints.lockMinimumSize(comboSelFamille);
+        this.add(comboSelFamille, c);
+
+        // Nom
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 0;
+        JLabel labelNom = new JLabel(getLabelFor("NOM"));
+        labelNom.setHorizontalAlignment(SwingConstants.RIGHT);
+        DefaultGridBagConstraints.lockMinimumSize(labelNom);
+        this.add(labelNom, c);
+        c.gridx++;
+        c.weightx = 1;
+        DefaultGridBagConstraints.lockMinimumSize(textNom);
+        this.add(this.textNom, c);
+
+        // Code barre
+        c.gridx++;
+        c.weightx = 0;
+        JLabel labelCodeBarre = new JLabel(getLabelFor("CODE_BARRE"));
+        labelCodeBarre.setHorizontalAlignment(SwingConstants.RIGHT);
+        DefaultGridBagConstraints.lockMinimumSize(labelCodeBarre);
+        this.add(labelCodeBarre, c);
+        c.gridx++;
+        c.weightx = 1;
+        JTextField fieldCodeBarre = new JTextField();
+        DefaultGridBagConstraints.lockMinimumSize(fieldCodeBarre);
+        this.add(fieldCodeBarre, c);
+        this.addView(fieldCodeBarre, "CODE_BARRE");
+
+        DefaultProps props = DefaultNXProps.getInstance();
 
         // Article détaillé
-        DefaultProps props = DefaultNXProps.getInstance();
         String modeVente = props.getStringProperty("ArticleModeVenteAvance");
         Boolean bModeVente = Boolean.valueOf(modeVente);
         boolean modeVenteAvance = (bModeVente == null || bModeVente.booleanValue());
 
         if (modeVenteAvance) {
-
             addModeVenteAvance(c);
-
         }
 
         getMontantPanel(c, props);
 
+        JTabbedPane pane = new JTabbedPane();
         c.gridy++;
         c.weightx = 1;
+        c.weighty = 0.7;
+
+        pane.add("Tarifs de vente", createTarifPanel());
+        pane.add("Exportation", createExportationPanel());
+        pane.add("Achat", createAchatPanel());
+        pane.add("Stock", createStockPanel());
+        pane.add("Descriptif", createDescriptifPanel());
+        pane.add("Désignations multilingues", createDesignationPanel());
         c.fill = GridBagConstraints.BOTH;
+        this.add(pane, c);
+
+        c.gridy++;
+        c.weightx = 1;
+        c.weighty = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
         this.add(new TitledSeparator("Informations complémentaires"), c);
 
         c.gridy++;
-        c.weighty = 1;
+        c.weighty = 0.3;
         JTextArea infos = new JTextArea();
         c.fill = GridBagConstraints.BOTH;
         this.add(infos, c);
@@ -270,7 +312,6 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.addSQLObject(this.comboSelModeVente, "ID_MODE_VENTE_ARTICLE");
         this.addSQLObject(this.boxService, "SERVICE");
         this.addSQLObject(comboSelFamille, "ID_FAMILLE_ARTICLE");
-        this.addSQLObject(checkObs, "OBSOLETE");
 
         this.addRequiredSQLObject(this.textNom, "NOM");
         this.addRequiredSQLObject(this.textCode, "CODE");
@@ -283,13 +324,373 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             public void propertyChange(PropertyChangeEvent evt) {
                 System.err.println(ReferenceArticleSQLComponent.this.comboSelModeVente.getSelectedId());
                 selectModeVente(ReferenceArticleSQLComponent.this.comboSelModeVente.getSelectedId());
+
             }
         };
         setListenerModeVenteActive(true);
         this.comboSelModeVente.setValue(ReferenceArticleSQLElement.A_LA_PIECE);
     }
 
+    private Component createDescriptifPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints c = new DefaultGridBagConstraints();
+
+        // Obsolete
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 1;
+        panel.add(this.checkObs, c);
+
+        this.checkObs.setVisible(false);
+        this.addView(this.checkObs, "OBSOLETE");
+
+        ITextArea area = new ITextArea();
+        JLabel sep = new JLabel("Descriptif complet");
+        c.gridy++;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(sep, c);
+
+        c.gridy++;
+        c.weighty = 1;
+        c.fill = GridBagConstraints.BOTH;
+        panel.add(area, c);
+        this.addView(area, "DESCRIPTIF");
+        return panel;
+    }
+
+    private Component createDesignationPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints c = new DefaultGridBagConstraints();
+
+        // Ajout des
+        c.gridwidth = 1;
+        c.weightx = 0;
+        c.gridy++;
+        c.gridx = 0;
+        panel.add(new JLabel("Ajouter une désignation "), c);
+
+        final ElementComboBox boxDes = new ElementComboBox();
+        boxDes.init(Configuration.getInstance().getDirectory().getElement("LANGUE"));
+
+        c.gridx++;
+        panel.add(boxDes, c);
+
+        c.fill = GridBagConstraints.NONE;
+        c.gridx++;
+        JButton buttonAjouterDes = new JButton("Ajouter");
+        buttonAjouterDes.setOpaque(false);
+        panel.add(buttonAjouterDes, c);
+        c.gridx++;
+        JButton buttonSupprimerDes = new JButton("Supprimer");
+        buttonSupprimerDes.setOpaque(false);
+        panel.add(buttonSupprimerDes, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.fill = GridBagConstraints.BOTH;
+        c.weighty = 1;
+        c.weightx = 1;
+        this.tableDes.setOpaque(false);
+        panel.add(this.tableDes, c);
+
+        // Listerners
+        buttonAjouterDes.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                int id = boxDes.getSelectedId();
+                if (id <= 1) {
+                    return;
+                }
+                int nbRows = tableDes.getModel().getRowCount();
+
+                for (int i = 0; i < nbRows; i++) {
+                    SQLRowValues rowVals = tableDes.getModel().getRowValuesAt(i);
+                    int idLangue = Integer.parseInt(rowVals.getObject("ID_LANGUE").toString());
+                    if (idLangue == id) {
+                        JOptionPane.showMessageDialog(null, "Impossible d'ajouter.\nLa langue est déjà présente dans la liste!");
+                        return;
+                    }
+                }
+
+                SQLRowValues rowVals = new SQLRowValues(Configuration.getInstance().getBase().getTable("ARTICLE_DESIGNATION"));
+                if (getSelectedID() > 1) {
+                    rowVals.put("ID_ARTICLE", getSelectedID());
+                }
+                rowVals.put("ID_LANGUE", id);
+                rowVals.put("NOM", "");
+                tableDes.getModel().addRow(rowVals);
+            }
+        });
+        buttonSupprimerDes.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                tableDes.removeSelectedRow();
+            }
+        });
+
+        return panel;
+    }
+
+    private Component createStockPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints c = new DefaultGridBagConstraints();
+        DefaultProps props = DefaultNXProps.getInstance();
+        String stockMin = props.getStringProperty("ArticleStockMin");
+        Boolean bStockMin = !stockMin.equalsIgnoreCase("false");
+        boolean gestionStockMin = (bStockMin == null || bStockMin.booleanValue());
+        c.gridx = 0;
+        c.gridy++;
+
+        final JCheckBox boxStock = new JCheckBox(getLabelFor("GESTION_STOCK"));
+        boxStock.setOpaque(false);
+        panel.add(boxStock, c);
+        this.addView(boxStock, "GESTION_STOCK");
+
+        final JTextField fieldQteMin = new JTextField();
+        final JTextField fieldQteAchat = new JTextField();
+        boxStock.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // TODO Raccord de méthode auto-généré
+                fieldQteMin.setEnabled(boxStock.isSelected());
+                fieldQteAchat.setEnabled(boxStock.isSelected());
+            }
+        });
+
+        boxStock.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // TODO Raccord de méthode auto-généré
+            }
+        });
+
+        c.gridwidth = 1;
+        if (gestionStockMin) {
+            c.gridx = 0;
+            c.gridy++;
+            c.weightx = 0;
+            panel.add(new JLabel(getLabelFor("QTE_MIN")), c);
+            c.gridx++;
+            c.weightx = 1;
+            panel.add(fieldQteMin, c);
+            this.addView(fieldQteMin, "QTE_MIN");
+
+            c.gridx = 0;
+            c.gridy++;
+            c.weightx = 0;
+            panel.add(new JLabel(getLabelFor("QTE_ACHAT")), c);
+            c.gridx++;
+            c.weightx = 1;
+            panel.add(fieldQteAchat, c);
+            this.addView(fieldQteAchat, "QTE_ACHAT");
+        }
+
+        c.gridy++;
+        c.weighty = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.BOTH;
+        final JPanel spacer = new JPanel();
+        spacer.setOpaque(false);
+        panel.add(spacer, c);
+        return panel;
+    }
+
+    private Component createAchatPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints c = new DefaultGridBagConstraints();
+        // Fournisseur
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 1;
+        c.weightx = 0;
+        JLabel labelFournisseur = new JLabel(getLabelFor("ID_FOURNISSEUR"));
+        labelFournisseur.setHorizontalAlignment(SwingConstants.RIGHT);
+        panel.add(labelFournisseur, c);
+        c.gridx++;
+        c.weightx = 1;
+        c.gridwidth = 2;
+        final ElementComboBox comboSelFournisseur = new ElementComboBox(false, 25);
+        panel.add(comboSelFournisseur, c);
+        this.addView(comboSelFournisseur, "ID_FOURNISSEUR");
+
+        c.gridy++;
+        c.weighty = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.BOTH;
+        final JPanel spacer = new JPanel();
+        spacer.setOpaque(false);
+        panel.add(spacer, c);
+        return panel;
+    }
+
+    private JPanel createExportationPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints c = new DefaultGridBagConstraints();
+        // Code douanier
+        c.gridx = 0;
+        c.weightx = 0;
+        c.gridy++;
+        c.gridwidth = 1;
+        JLabel labelCodeD = new JLabel(getLabelFor("CODE_DOUANIER"));
+        labelCodeD.setHorizontalAlignment(SwingConstants.RIGHT);
+        panel.add(labelCodeD, c);
+
+        c.gridx++;
+        JTextField fieldCodeDouanier = new JTextField();
+        c.weightx = 1;
+        panel.add(fieldCodeDouanier, c);
+        this.addView(fieldCodeDouanier, "CODE_DOUANIER");
+
+        // Pays d'origine
+        c.gridx++;
+        c.weightx = 0;
+        JLabel labelPays = new JLabel(getLabelFor("ID_PAYS"));
+        labelPays.setHorizontalAlignment(SwingConstants.RIGHT);
+        panel.add(labelPays, c);
+        c.gridx++;
+        c.weightx = 1;
+        final ElementComboBox comboSelPays = new ElementComboBox(false);
+        panel.add(comboSelPays, c);
+        this.addView(comboSelPays, "ID_PAYS");
+        c.gridy++;
+        c.weighty = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.BOTH;
+        final JPanel spacer = new JPanel();
+        spacer.setOpaque(false);
+        panel.add(spacer, c);
+        return panel;
+    }
+
+    private JPanel createTarifPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints c = new DefaultGridBagConstraints();
+
+        // Ajout tarif
+        c.gridwidth = 1;
+        c.weightx = 0;
+        c.gridy++;
+        c.gridx = 0;
+        panel.add(new JLabel("Ajouter le tarif "), c);
+
+        final ElementComboBox boxTarif = new ElementComboBox();
+        boxTarif.init(Configuration.getInstance().getDirectory().getElement("TARIF"));
+
+        c.gridx++;
+        panel.add(boxTarif, c);
+
+        c.fill = GridBagConstraints.NONE;
+        c.gridx++;
+        JButton buttonAjouter = new JButton("Ajouter");
+        buttonAjouter.setOpaque(false);
+        panel.add(buttonAjouter, c);
+        c.gridx++;
+        JButton buttonSupprimer = new JButton("Supprimer");
+        buttonSupprimer.setOpaque(false);
+        panel.add(buttonSupprimer, c);
+
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.fill = GridBagConstraints.BOTH;
+        c.weightx = 1;
+        c.weighty = 1;
+        c.gridy++;
+        c.gridx = 0;
+        c.fill = GridBagConstraints.BOTH;
+        this.tableTarifVente.setOpaque(false);
+        panel.add(this.tableTarifVente, c);
+
+        // Listeners
+        buttonAjouter.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                SQLRow rowTarif = boxTarif.getSelectedRow();
+                if (rowTarif == null || rowTarif.isUndefined()) {
+                    return;
+                }
+                int nbRows = tableTarifVente.getModel().getRowCount();
+
+                for (int i = 0; i < nbRows; i++) {
+                    SQLRowValues rowVals = tableTarifVente.getModel().getRowValuesAt(i);
+                    int idTarif = Integer.parseInt(rowVals.getObject("ID_TARIF").toString());
+                    if (idTarif == rowTarif.getID()) {
+                        JOptionPane.showMessageDialog(null, "Impossible d'ajouter.\nLe tarif est déjà présent dans la liste!");
+                        return;
+                    }
+                }
+
+                SQLRowValues rowVals = new SQLRowValues(Configuration.getInstance().getBase().getTable("ARTICLE_TARIF"));
+                if (getSelectedID() > 1) {
+                    rowVals.put("ID_ARTICLE", getSelectedID());
+                }
+                rowVals.put("ID_TARIF", rowTarif.getID());
+                rowVals.put("ID_DEVISE", rowTarif.getInt("ID_DEVISE"));
+                rowVals.put("ID_TAXE", rowTarif.getInt("ID_TAXE"));
+                rowVals.put("PRIX_METRIQUE_VT_1", Long.valueOf(0));
+                rowVals.put("PV_HT", Long.valueOf(0));
+                rowVals.put("PV_TTC", Long.valueOf(0));
+                tableTarifVente.getModel().addRow(rowVals);
+            }
+        });
+        buttonSupprimer.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                tableTarifVente.removeSelectedRow();
+            }
+        });
+        return panel;
+    }
+
     protected void getMontantPanel(final GridBagConstraints c, DefaultProps props) {
+
+        // PA devise
+        JPanel pDevise = new JPanel();
+        pDevise.add(new JLabel("Devise du fournisseur"));
+        final ElementComboBox boxDevise = new ElementComboBox();
+
+        pDevise.add(boxDevise);
+        this.addView(boxDevise, "ID_DEVISE_HA");
+
+        pDevise.add(new JLabel("Prix d'achat devise"));
+        final DeviseField fieldHAD = new DeviseField();
+        pDevise.add(fieldHAD);
+        this.addView(fieldHAD, "PA_DEVISE");
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.anchor = GridBagConstraints.WEST;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.NONE;
+        this.add(pDevise, c);
+        fieldHAD.getDocument().addDocumentListener(new SimpleDocumentListener() {
+
+            @Override
+            public void update(DocumentEvent e) {
+
+                Long ha = (Long) fieldHAD.getUncheckedValue();
+                if (ha != null && fieldHAD.getText().trim().length() > 0) {
+                    BigDecimal taux = BigDecimal.ONE;
+                    if (boxDevise != null && boxDevise.getSelectedRow() != null && !boxDevise.getSelectedRow().isUndefined()) {
+                        taux = (BigDecimal) boxDevise.getSelectedRow().getObject("TAUX");
+                        textPAHT.setValue(GestionDevise.currencyToString(taux.multiply(new BigDecimal(ha)).longValue()));
+                    }
+                }
+            }
+        });
+
         // PA
         JPanel p = new JPanel();
         p.add(new JLabel(getLabelFor("PA_HT")));
@@ -403,6 +804,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
                 } else {
                     setTextHT();
                 }
+                tableTarifVente.fireModification();
             }
         };
         this.textPVHT.getDocument().addDocumentListener(this.htDocListener);
@@ -535,6 +937,12 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
     }
 
+    @Override
+    public void update() {
+            super.update();
+        this.tableTarifVente.updateField("ID_ARTICLE", getSelectedID());
+        this.tableDes.updateField("ID_ARTICLE", getSelectedID());
+    }
 
     /**
      * Sélection d'un mode de vente pour l'article. Affiche les prix metriques requis et fixe les
@@ -581,7 +989,15 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             this.textPVHT.getDocument().addDocumentListener(this.pieceVTArticle);
             break;
         }
+        this.tableTarifVente.fireModification();
+    }
 
+    @Override
+    public int insert(SQLRow order) {
+        int id = super.insert(order);
+        this.tableTarifVente.updateField("ID_ARTICLE", id);
+        this.tableDes.updateField("ID_ARTICLE", id);
+        return id;
     }
 
     @Override
@@ -596,6 +1012,24 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         rowVals.put("VALEUR_METRIQUE_1", Float.valueOf("1.0"));
         rowVals.put("PA_HT", Long.valueOf(0));
         rowVals.put("POIDS", Float.valueOf(0));
+
+        // SQLTable tableTarif = getTable().getTable("TARIF");
+        // SQLTable tableArticleTarif = getTable().getTable("ARTICLE_TARIF");
+        // SQLSelect sel = new SQLSelect(getTable().getBase());
+        // sel.addSelectStar(tableTarif);
+        // this.table.getRowValuesTable().getRowValuesTableModel().clearRows();
+        // System.err.println(sel.asString());
+        // List<SQLRow> rows = (List<SQLRow>)
+        // Configuration.getInstance().getBase().getDataSource().execute(sel.asString(),
+        // SQLRowListRSH.createFromSelect(sel));
+        // for (SQLRow sqlRow : rows) {
+        // SQLRowValues rowVals2 = new SQLRowValues(tableArticleTarif);
+        // rowVals2.put("PRIX_REVENTE_HT", Long.valueOf(0));
+        // rowVals2.put("PRIX_FINAL_TTC", Long.valueOf(0));
+        // rowVals2.put("ID_TARIF", sqlRow.getID());
+        // this.table.getRowValuesTable().getRowValuesTableModel().addRow(rowVals2);
+        // }
+
         return rowVals;
     }
 
@@ -648,10 +1082,16 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             this.textPAHT.setText(GestionDevise.currencyToString(ReferenceArticleSQLElement.getPrixHAFromDetails(rowVals)));
 
             this.textPVHT.setText(GestionDevise.currencyToString(ReferenceArticleSQLElement.getPrixVTFromDetails(rowVals)));
+
+            this.tableTarifVente.fireModification();
         }
     }
 
-    private SQLRowValues getDetailsRowValues() {
+    public int getSelectedTaxe() {
+        return this.comboSelTaxe.getSelectedId();
+    }
+
+    public SQLRowValues getDetailsRowValues() {
         SQLRowValues rowVals = new SQLRowValues(getTable());
         rowVals.put(this.textMetrique1HA.getField().getName(), this.textMetrique1HA.getUncheckedValue());
 

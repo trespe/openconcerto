@@ -17,6 +17,9 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
+import org.openconcerto.erp.core.finance.accounting.ui.LettrageRenderer;
+import org.openconcerto.erp.core.finance.accounting.ui.ListEcritureRenderer;
+import org.openconcerto.erp.core.finance.accounting.ui.PointageRenderer;
 import org.openconcerto.erp.core.finance.accounting.ui.SuppressionEcrituresPanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
@@ -35,6 +38,8 @@ import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.SQLTableModelColumn;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.utils.ExceptionHandler;
@@ -97,14 +102,59 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    public synchronized ListSQLRequest getListRequest() {
-        return new ListSQLRequest(this.getTable(), this.getListFields()) {
+    public synchronized ListSQLRequest createListRequest() {
+        return createListRequest(this.getListFields());
+    }
+
+    public ListSQLRequest createListRequest(List<String> fields) {
+        return new ListSQLRequest(this.getTable(), fields) {
             @Override
             protected void customizeToFetch(SQLRowValues graphToFetch) {
                 super.customizeToFetch(graphToFetch);
                 graphToFetch.put("VALIDE", null);
             }
         };
+    }
+
+    @Override
+    protected void _initTableSource(SQLTableModelSourceOnline res) {
+        super._initTableSource(res);
+        for (SQLTableModelColumn col : res.getColumns()) {
+            col.setRenderer(ListEcritureRenderer.UTILS.getRenderer(col.getRenderer()));
+        }
+    }
+
+    public final SQLTableModelSourceOnline createPointageTableSource() {
+        final List<String> listEcriture = new ArrayList<String>();
+        listEcriture.add("POINTEE");
+        listEcriture.add("DATE_POINTEE");
+        listEcriture.add("ID_MOUVEMENT");
+        listEcriture.add("NOM");
+        listEcriture.add("DATE");
+        listEcriture.add("DEBIT");
+        listEcriture.add("CREDIT");
+        final SQLTableModelSourceOnline res = this.initTableSource(new SQLTableModelSourceOnline(this.createListRequest(listEcriture)));
+        for (SQLTableModelColumn column : res.getColumns()) {
+            column.setRenderer(PointageRenderer.UTILS.getRenderer(column.getRenderer()));
+        }
+        return res;
+    }
+
+    public final SQLTableModelSourceOnline createLettrageTableSource() {
+        final List<String> listEcriture = new ArrayList<String>();
+        listEcriture.add("LETTRAGE");
+        listEcriture.add("ID_COMPTE_PCE");
+        listEcriture.add("ID_MOUVEMENT");
+        listEcriture.add("NOM");
+        listEcriture.add("DATE_LETTRAGE");
+        listEcriture.add("DATE");
+        listEcriture.add("DEBIT");
+        listEcriture.add("CREDIT");
+        final SQLTableModelSourceOnline res = this.initTableSource(new SQLTableModelSourceOnline(this.createListRequest(listEcriture)));
+        for (SQLTableModelColumn column : res.getColumns()) {
+            column.setRenderer(LettrageRenderer.UTILS.getRenderer(column.getRenderer()));
+        }
+        return res;
     }
 
     /*

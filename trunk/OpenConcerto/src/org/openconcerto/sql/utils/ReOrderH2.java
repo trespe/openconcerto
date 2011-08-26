@@ -48,14 +48,14 @@ final class ReOrderH2 extends ReOrder {
         idsToReorder.addFrom(this.t, alias);
         idsToReorder.addSelect(tID);
         final Where updateNulls = this.isAll() ? new Where(tOrder, "is", (Object) null) : null;
-        final Where w = new Where(tOrder, "<=", -this.getFirst()).or(updateNulls);
+        final Where w = new Where(tOrder, "<=", this.getFirstToReorder().negate()).or(updateNulls);
         idsToReorder.setWhere(w);
         idsToReorder.addRawOrder(tOrder.getFieldRef() + " DESC NULLS LAST");
         idsToReorder.addRawOrder(tID.getFieldRef() + " ASC");
         // REORDER: ID => ORDRE
         res.add("DROP TABLE IF EXISTS REORDER ;");
         final String idName = this.t.getKey().getName();
-        res.add("CREATE LOCAL TEMPORARY TABLE REORDER as select M.ID, " + this.getFirst() + " +(M.ind - 1) * @inc as ORDRE from (\n" + "SELECT rownum() as ind, " + new SQLName(idName).quote()
+        res.add("CREATE LOCAL TEMPORARY TABLE REORDER as select M.ID, " + this.getFirstOrderValue() + " +(M.ind - 1) * @inc as ORDRE from (\n" + "SELECT rownum() as ind, " + new SQLName(idName).quote()
                 + " as ID from (" + idsToReorder.asString() + ") ) M;");
 
         res.add(this.t.getBase().quote("UPDATE %f %i SET ( %n ) = (\n" +

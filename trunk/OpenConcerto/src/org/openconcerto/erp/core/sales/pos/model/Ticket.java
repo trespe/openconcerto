@@ -17,6 +17,8 @@ import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.erp.core.sales.pos.io.DefaultTicketPrinter;
 import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
 import org.openconcerto.erp.core.sales.pos.ui.TicketCellRenderer;
+import org.openconcerto.erp.preferences.TemplateNXProps;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
 
 import java.io.File;
@@ -387,10 +389,12 @@ public class Ticket {
         int j = cal.get(Calendar.DAY_OF_MONTH);
         int m = cal.get(Calendar.MONTH) + 1;
         int a = cal.get(Calendar.YEAR);
-
-        File outputDir = new File("Tickets");
+        TemplateNXProps nxprops = (TemplateNXProps) TemplateNXProps.getInstance();
+        final String defaultLocation = nxprops.getDefaultStringValue();
+        File defaultDir = new File(defaultLocation);
+        File outputDir = new File(defaultDir, "Tickets");
         if (!outputDir.exists()) {
-            outputDir.mkdir();
+            outputDir.mkdirs();
         }
         File outputDirYear = new File(outputDir, format(4, a));
         if (!outputDirYear.exists()) {
@@ -403,6 +407,9 @@ public class Ticket {
         File outputDirDay = new File(outputDirMonth, format(2, j));
         if (!outputDirDay.exists()) {
             outputDirDay.mkdir();
+        }
+        if (!outputDirDay.exists()) {
+            ExceptionHandler.handle("Impossible de créer le dossier des tickets.\n\n" + outputDirDay.getAbsolutePath());
         }
         return outputDirDay;
     }

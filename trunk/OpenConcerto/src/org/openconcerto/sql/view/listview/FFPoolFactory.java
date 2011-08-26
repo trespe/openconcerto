@@ -19,7 +19,6 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 
 // ID_ARTICLE_1,_2,_3 or ID_OBSERVATION,_2,_3
@@ -27,8 +26,7 @@ public abstract class FFPoolFactory extends ItemPoolFactory {
 
     private final SQLTable t;
     private final SQLTable foreignT;
-    // [SQLField]
-    private final List fields;
+    private final List<SQLField> fields;
 
     public FFPoolFactory(SQLTable t, String foreignT) {
         this(t, foreignT, null);
@@ -38,17 +36,15 @@ public abstract class FFPoolFactory extends ItemPoolFactory {
         this(t, foreignT, computeFF(foreignT, count, firstSuffixed));
     }
 
-    public FFPoolFactory(SQLTable t, String foreignT, List fields) {
+    public FFPoolFactory(SQLTable t, String foreignT, List<String> fields) {
         this.t = t;
-        this.foreignT = t.getBase().getTable(foreignT);
+        this.foreignT = t.getDBRoot().getTable(foreignT);
 
-        this.fields = new ArrayList();
-        final DatabaseGraph g = this.t.getBase().getGraph();
+        this.fields = new ArrayList<SQLField>();
+        final DatabaseGraph g = this.t.getDBSystemRoot().getGraph();
         if (fields == null)
-            fields = new ArrayList(g.getForeignFields(this.t, this.foreignT));
-        final Iterator iter = fields.iterator();
-        while (iter.hasNext()) {
-            final String fieldName = (String) iter.next();
+            fields = DatabaseGraph.getNames(g.getForeignLinks(this.t, this.foreignT), new ArrayList<String>());
+        for (final String fieldName : fields) {
             final SQLField f = this.t.getField(fieldName);
             if (this.foreignT.equals(g.getForeignTable(f))) {
                 this.fields.add(f);
@@ -58,7 +54,7 @@ public abstract class FFPoolFactory extends ItemPoolFactory {
         }
     }
 
-    protected final List getFields() {
+    protected final List<SQLField> getFields() {
         return this.fields;
     }
 
@@ -72,11 +68,9 @@ public abstract class FFPoolFactory extends ItemPoolFactory {
 
     public abstract ItemPool create(ListSQLView panel);
 
-    public final List getItems(SQLRowAccessor r) {
-        final List res = new ArrayList();
-        final Iterator iter = this.getFields().iterator();
-        while (iter.hasNext()) {
-            final SQLField f = (SQLField) iter.next();
+    public final List<SQLRowAccessor> getItems(SQLRowAccessor r) {
+        final List<SQLRowAccessor> res = new ArrayList<SQLRowAccessor>();
+        for (final SQLField f : this.getFields()) {
             if (!r.isForeignEmpty(f.getName()))
                 res.add(r.getForeign(f.getName()));
         }

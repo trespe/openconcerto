@@ -44,12 +44,14 @@ import javax.swing.event.TableModelListener;
 
 public class TotalPanel extends JPanel implements TableModelListener {
     private RowValuesTable table;
-    private int columnIndexHT, columnIndexTTC, columnIndexService, columnIndexHA, columnIndexQte;
+    private int columnIndexHT, columnIndexTTC, columnIndexService, columnIndexHA, columnIndexQte, columnIndexDevise, columnIndexPoids;
     private DeviseField textTotalHT, textTotalHTSel;
     private DeviseField textTotalTVA, textTotalTVASel;
     private DeviseField textTotalTTC, textTotalTTCSel;
     private DeviseField textPortHT;
     private DeviseField textRemiseHT;
+    private JTextField textPoids;
+    private DeviseField textTotalDevise, textTotalDeviseSel;
     private DeviseField textService, textServiceSel;
     private DeviseField textHA, textHASel;
     private JTextField marge, margeSel;
@@ -59,26 +61,30 @@ public class TotalPanel extends JPanel implements TableModelListener {
     private int columnIndexEchTTC = -1;
 
     public TotalPanel(RowValuesTable table, SQLTableElement ht, SQLTableElement ttc, SQLTableElement ha, SQLTableElement qte, DeviseField textTotalHT, DeviseField textTotalTVA,
-            DeviseField textTotalTTC, DeviseField textPortHT, DeviseField textRemiseHT, DeviseField textService, SQLTableElement serv) {
-        this(table, ht, ttc, ha, qte, textTotalHT, textTotalTVA, textTotalTTC, textPortHT, textRemiseHT, textService, serv, null, null);
+            DeviseField textTotalTTC, DeviseField textPortHT, DeviseField textRemiseHT, DeviseField textService, SQLTableElement serv, DeviseField textTotalDevise, SQLTableElement devise,
+            JTextField textTotalPoids, SQLTableElement poids) {
+        this(table, ht, ttc, ha, qte, textTotalHT, textTotalTVA, textTotalTTC, textPortHT, textRemiseHT, textService, serv, null, null, textTotalDevise, devise, textTotalPoids, poids);
     }
 
     public TotalPanel(RowValuesTable table, SQLTableElement ht, SQLTableElement ttc, SQLTableElement ha, SQLTableElement qte, DeviseField textTotalHT, DeviseField textTotalTVA,
-            DeviseField textTotalTTC, DeviseField textPortHT, DeviseField textRemiseHT, DeviseField textService, SQLTableElement serv, JPanel tableEchantillon, DeviseField textTotalHA) {
+            DeviseField textTotalTTC, DeviseField textPortHT, DeviseField textRemiseHT, DeviseField textService, SQLTableElement serv, JPanel tableEchantillon, DeviseField textTotalHA,
+            DeviseField textTotalDevise, SQLTableElement devise, JTextField textTotalPoids, SQLTableElement poids) {
 
         super();
         this.supp = new PropertyChangeSupport(this);
         this.table = table;
         this.columnIndexHT = this.table.getRowValuesTableModel().getColumnIndexForElement(ht);
         this.columnIndexTTC = this.table.getRowValuesTableModel().getColumnIndexForElement(ttc);
+        this.columnIndexDevise = (devise == null ? -1 : this.table.getRowValuesTableModel().getColumnIndexForElement(devise));
         this.columnIndexService = this.table.getRowValuesTableModel().getColumnIndexForElement(serv);
-
+        this.columnIndexPoids = this.table.getRowValuesTableModel().getColumnIndexForElement(poids);
         this.gestionHA = ha != null && qte != null;
 
         if (this.gestionHA) {
             this.columnIndexHA = this.table.getRowValuesTableModel().getColumnIndexForElement(ha);
             this.columnIndexQte = this.table.getRowValuesTableModel().getColumnIndexForElement(qte);
         }
+        this.textPoids = textTotalPoids;
         this.textTotalHT = textTotalHT;
         this.textTotalHT.setBold();
         this.textTotalTVA = textTotalTVA;
@@ -94,7 +100,12 @@ public class TotalPanel extends JPanel implements TableModelListener {
         this.textTotalTVASel = new DeviseField();
         this.marge = new JTextField();
         this.margeSel = new JTextField();
-
+        if (devise != null) {
+            this.textTotalDevise = textTotalDevise;
+            this.textTotalDeviseSel = new DeviseField();
+            reconfigure(this.textTotalDevise);
+            reconfigure(this.textTotalDeviseSel);
+        }
         reconfigure(this.textTotalHT);
         reconfigure(this.textTotalTVA);
         reconfigure(this.textTotalTTC);
@@ -201,6 +212,18 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.fill = GridBagConstraints.BOTH;
         this.add(createSeparator(), c);
 
+        if (devise != null) {
+            // Devise
+            c.gridwidth = 1;
+            c.gridx = 1;
+            c.gridy++;
+            c.weightx = 0;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            this.add(getLabelFor(textTotalDevise.getField()), c);
+            c.gridx++;
+            c.weightx = 1;
+            this.add(this.textTotalDeviseSel, c);
+        }
         // TTC
         c.gridwidth = 1;
         c.gridx = 1;
@@ -300,6 +323,19 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.fill = GridBagConstraints.BOTH;
         this.add(createSeparator(), c);
 
+        if (devise != null) {
+            // devise
+            c.gridwidth = 1;
+            c.gridx = 4;
+            c.gridy++;
+            c.weightx = 0;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            this.add(getLabelBoldFor(textTotalDevise.getField()), c);
+            c.gridx++;
+            c.weightx = 1;
+            textTotalDevise.setFont(textTotalHT.getFont());
+            this.add(textTotalDevise, c);
+        }
         // TTC
         c.gridwidth = 1;
         c.gridx = 4;
@@ -338,7 +374,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
     public void tableChanged(TableModelEvent e) {
         if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() == this.columnIndexHT || e.getColumn() == this.columnIndexTTC || e.getColumn() == this.columnIndexEchHT
-                || e.getColumn() == this.columnIndexEchTTC) {
+                || e.getColumn() == this.columnIndexEchTTC || e.getColumn() == this.columnIndexDevise) {
             // System.out.println(e);
             updateTotal();
         }
@@ -359,6 +395,9 @@ public class TotalPanel extends JPanel implements TableModelListener {
             long totalHASel = 0;
             long totalTTCSel = 0;
             long totalServiceSel = 0;
+            long totalDeviseSel = 0;
+            long totalDevise = 0;
+            double totalPoids = 0;
             int[] selectedRows = this.table.getSelectedRows();
 
             for (int i = 0; i < this.table.getRowValuesTableModel().getRowCount(); i++) {
@@ -379,8 +418,16 @@ public class TotalPanel extends JPanel implements TableModelListener {
                         totalService += nHT.longValue();
                     }
                 }
+                Number nDevise = null;
+                if (this.textTotalDevise != null) {
+                    nDevise = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexDevise);
+                    totalDevise += nDevise.longValue();
+                }
                 Number nTTC = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexTTC);
                 totalTTC += nTTC.longValue();
+
+                Number nPoids = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexPoids);
+                totalPoids += nPoids.doubleValue();
 
                 if (containsInt(selectedRows, i)) {
 
@@ -400,6 +447,9 @@ public class TotalPanel extends JPanel implements TableModelListener {
                     }
 
                     totalTTCSel += nTTC.longValue();
+                    if (this.textTotalDevise != null) {
+                        totalDeviseSel += nDevise.longValue();
+                    }
                 }
             }
 
@@ -428,6 +478,11 @@ public class TotalPanel extends JPanel implements TableModelListener {
             long remiseTTC = new PrixHT(valRemiseHT).calculLongTTC(0.196F);
             realTotalTTC = totalTTC + portTTC - remiseTTC;
 
+            if (this.textTotalDevise != null) {
+                this.textTotalDevise.setText(GestionDevise.currencyToString(totalDevise));
+                this.textTotalDeviseSel.setText(GestionDevise.currencyToString(totalDeviseSel));
+            }
+            this.textPoids.setText(String.valueOf(totalPoids));
             this.textTotalHT.setText(GestionDevise.currencyToString(realTotalHT));
             this.textService.setText(GestionDevise.currencyToString(totalService));
             this.textTotalTVA.setText(GestionDevise.currencyToString(realTotalTTC - realTotalHT));

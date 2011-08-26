@@ -16,6 +16,7 @@
  */
 package org.openconcerto.openoffice.generation;
 
+import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.ODSingleXMLDocument;
 import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.openoffice.XMLVersion;
@@ -24,6 +25,7 @@ import org.openconcerto.openoffice.generation.desc.part.GeneratorReportPart;
 import org.openconcerto.openoffice.generation.generator.ExtractGenerator;
 
 import java.io.File;
+import java.io.IOException;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
 import java.util.HashMap;
@@ -38,24 +40,32 @@ import org.jdom.Element;
  * 
  * @param <R> type of generation
  */
-public class GenerationCommon<R extends ReportGeneration> {
+public class GenerationCommon<R extends ReportGeneration<?>> {
 
     private static final NumberFormat FLOAT_FMT = new DecimalFormat("#.###");
 
     /** Notre génération */
     private final R rg;
+    private OOXML xml;
 
     public GenerationCommon(R rg) {
         this.rg = rg;
+        this.xml = null;
     }
 
     public final XMLVersion getOOVersion() {
-        // MAYBE more formal, but ATTN costly to unzip
-        return this.getRg().getReportType().getTemplate().getName().endsWith(".sxw") ? XMLVersion.OOo : XMLVersion.OD;
+        return this.getOOXML().getVersion();
     }
 
     public final OOXML getOOXML() {
-        return OOXML.get(getOOVersion());
+        if (this.xml == null) {
+            try {
+                this.xml = new ODPackage(this.getRg().getReportType().getTemplate()).getFormatVersion().getXML();
+            } catch (IOException e) {
+                throw new IllegalStateException("Couldn't read template", e);
+            }
+        }
+        return this.xml;
     }
 
     /**

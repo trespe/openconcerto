@@ -422,7 +422,6 @@ public class ReportGeneration<C extends GenerationCommon> {
         try {
             res.put("join", Ognl.getValue(":[@org.openconcerto.utils.CollectionUtils@join( #this, #sep == null ? ', ' : #sep )]", null));
             res.put("silentFirst", Ognl.getValue(":[#this.size == 0 ? null : #this[0]]", null));
-            res.put("escape", Ognl.getValue(":[#s = #this, @org.openconcerto.openoffice.OOXML@encodeOOWS(#s)]", null));
         } catch (OgnlException exn) {
             // n'arrive jamais, la syntaxe est correcte
             exn.printStackTrace();

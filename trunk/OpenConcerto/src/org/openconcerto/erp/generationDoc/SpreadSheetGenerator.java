@@ -181,14 +181,14 @@ public abstract class SpreadSheetGenerator implements Runnable {
     }
 
     protected SpreadSheet loadTemplate() throws IOException {
-        InputStream f = getStreamStatic(modelDir + this.modele);
-        fODSP = modelDir + this.modele + "p";
+        InputStream f = getStreamStatic(modelDir + File.separator + this.modele);
+        fODSP = modelDir + File.separator + this.modele + "p";
         if (f == null) {
-            f = getStreamStatic(defaultLocationTemplate + this.modele);
-            fODSP = defaultLocationTemplate + this.modele + "p";
+            f = getStreamStatic(defaultLocationTemplate + File.separator + this.modele);
+            fODSP = defaultLocationTemplate + File.separator + this.modele + "p";
             if (f == null) {
                 ExceptionHandler.handle("Modele " + this.modele + " introuvable. Impossible de générer le document.");
-                System.err.println("Modele introuvable : " + (defaultLocationTemplate + this.modele));
+                System.err.println("Modele introuvable : " + (defaultLocationTemplate + File.separator + this.modele));
                 fODSP = null;
                 return null;
             }

@@ -33,7 +33,7 @@ import javax.swing.table.TableColumn;
  * 
  * @author Sylvain
  */
-public class AlternateTableCellRenderer implements TableCellRenderer {
+public class AlternateTableCellRenderer extends TableCellRendererDecorator {
 
     public static final Color COLOR_LIGHT_GRAY = new Color(243, 243, 243);
     public static final Color DEFAULT_BG_COLOR = Color.WHITE;
@@ -118,23 +118,13 @@ public class AlternateTableCellRenderer implements TableCellRenderer {
         }
     };
 
-    /**
-     * Set the cell renderer of all the columns of <code>jTable</code> to an
-     * AlternateTableCellRenderer.
-     * 
-     * @param jTable the wannabe iTunes jTable.
-     */
-    static public void setAllColumns(final JTable jTable) {
-        for (int i = 0; i < jTable.getColumnModel().getColumnCount(); i++) {
-            setRenderer(jTable.getColumnModel().getColumn(i));
-        }
-    }
+    static public final TableCellRendererDecoratorUtils<AlternateTableCellRenderer> UTILS = createUtils(AlternateTableCellRenderer.class);
 
     private static final PropertyChangeListener RENDERER_L = new PropertyChangeListener() {
         @Override
         public void propertyChange(PropertyChangeEvent evt) {
             if ("cellRenderer".equals(evt.getPropertyName())) {
-                setRenderer((TableColumn) evt.getSource());
+                UTILS.setRenderer((TableColumn) evt.getSource());
             }
         }
     };
@@ -147,35 +137,24 @@ public class AlternateTableCellRenderer implements TableCellRenderer {
     }
 
     static public final void setRenderer(final TableColumn col) {
-        final TableCellRenderer currentRenderer = col.getCellRenderer();
-        if (!(currentRenderer instanceof AlternateTableCellRenderer))
-            col.setCellRenderer(new AlternateTableCellRenderer(currentRenderer));
-    }
-
-    static public void clearColumns(JTable jTable) {
-        for (int i = 0; i < jTable.getColumnModel().getColumnCount(); i++) {
-            final TableColumn tc = jTable.getColumnModel().getColumn(i);
-            tc.setCellRenderer(null);
-        }
+        UTILS.setRenderer(col);
     }
 
     static public AlternateTableCellRenderer createDefault() {
         return new AlternateTableCellRenderer(new DefaultTableCellRenderer());
     }
 
-    private final TableCellRenderer renderer;
-
     public AlternateTableCellRenderer() {
         this(null);
     }
 
     public AlternateTableCellRenderer(TableCellRenderer renderer) {
-        this.renderer = renderer;
+        super(renderer);
     }
 
     @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-        TableCellRenderer tableRenderer = this.getRenderer(table, row, column);
+        TableCellRenderer tableRenderer = this.getRenderer(table, column);
         if (tableRenderer instanceof IAlternateTableCellRenderer) {
             return ((IAlternateTableCellRenderer) tableRenderer).getAlternateTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
         } else {
@@ -186,9 +165,5 @@ public class AlternateTableCellRenderer implements TableCellRenderer {
                 return altComp.setComp(comp);
             }
         }
-    }
-
-    private TableCellRenderer getRenderer(JTable table, int row, int column) {
-        return this.renderer == null ? table.getDefaultRenderer(table.getColumnClass(column)) : this.renderer;
     }
 }

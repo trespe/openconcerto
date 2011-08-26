@@ -16,10 +16,11 @@
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.UISQLComponent;
-import javax.swing.JTextField;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.JTextField;
 
 
 public class FichePayeElementSQLElement extends ComptaSQLConfElement {

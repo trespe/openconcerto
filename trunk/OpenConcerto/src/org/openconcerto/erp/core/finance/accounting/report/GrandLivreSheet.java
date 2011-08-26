@@ -64,6 +64,7 @@ public class GrandLivreSheet extends SheetInterface {
     private boolean excludeCompteSolde = true;
     private boolean centralClient = false;
     private boolean centralFourn = false;
+    int idJrnlExclude = -1;
 
     public static void setSize(int debut, int fin) {
         debutFill = debut;
@@ -80,11 +81,12 @@ public class GrandLivreSheet extends SheetInterface {
         return tuple;
     }
 
-    public GrandLivreSheet(Date du, Date au, String compteDep, String compteEnd, int lettrage, boolean cumul, boolean excludeCptSolde, boolean centralClient, boolean centralFourn) {
+    public GrandLivreSheet(Date du, Date au, String compteDep, String compteEnd, int lettrage, boolean cumul, boolean excludeCptSolde, boolean centralClient, boolean centralFourn, int idJrnlExclude) {
         super();
         Calendar cal = Calendar.getInstance();
         cal.setTime(au);
         this.nbRowsPerPage = 72;
+        this.idJrnlExclude = idJrnlExclude;
         this.printer = PrinterNXProps.getInstance().getStringProperty("GrandLivrePrinter");
         this.modele = "GrandLivre.ods";
         this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
@@ -167,7 +169,7 @@ public class GrandLivreSheet extends SheetInterface {
                 } else {
                     w = w.and(new Where(tableEcriture.getField("COMPTE_NUMERO"), (Object) GrandLivreSheet.this.compteDeb, (Object) GrandLivreSheet.this.compteEnd));
                 }
-
+                w = w.and(new Where(tableEcriture.getField("ID_JOURNAL"), "!=", idJrnlExclude));
                 w = w.and(new Where(tableEcriture.getField("ID_MOUVEMENT"), "=", tableMvt.getField("ID")));
 
                 if (GrandLivreSheet.this.lettrage == MODELETTREE) {
@@ -490,7 +492,7 @@ public class GrandLivreSheet extends SheetInterface {
         } else {
             w = w.and(new Where(tableEcriture.getField("DATE"), this.dateDu, this.dateAu));
         }
-
+        w = w.and(new Where(tableEcriture.getField("ID_JOURNAL"), "!=", idJrnlExclude));
         if (this.lettrage == MODELETTREE) {
             Object o = null;
             w = w.and(new Where(tableEcriture.getField("LETTRAGE"), "<>", o));
@@ -564,7 +566,7 @@ public class GrandLivreSheet extends SheetInterface {
         }
 
         w = w.and(new Where(tableEcriture.getField("ID_COMPTE_PCE"), "=", tableCompte.getField("ID")));
-
+        w = w.and(new Where(tableEcriture.getField("ID_JOURNAL"), "!=", idJrnlExclude));
         if (listCompteSolde != null) {
             w = w.and(new Where(tableEcriture.getField("ID_COMPTE_PCE"), listCompteSolde).not());
         }

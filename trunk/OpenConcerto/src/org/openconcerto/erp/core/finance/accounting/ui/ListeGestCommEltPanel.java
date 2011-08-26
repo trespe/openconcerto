@@ -22,7 +22,6 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
-import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 
 import java.awt.event.ActionEvent;
 
@@ -30,23 +29,17 @@ import javax.swing.JButton;
 
 public class ListeGestCommEltPanel extends ListeAddPanel {
 
-    private static SQLTableModelSourceOnline copy(SQLElement elem, Where w) {
-        final SQLTableModelSourceOnline res = elem.getTableSource(true);
-        res.getReq().setWhere(w);
-        return res;
-    }
-
     private EditFrame editModifyFrame, editReadOnlyFrame;
 
     private ListeGestCommEltPanel(SQLElement elem, boolean showAdd, Where w) {
         // TODO verifier que l'element contient la clef etrangere ID_MOUVEMENT
-        this(elem, new IListe(copy(elem, w)), showAdd);
+        this(elem, new IListe(elem.createTableSource(w)), showAdd);
     }
 
     public ListeGestCommEltPanel(SQLElement elem, IListe l) {
         this(elem, l, false);
     }
-        
+
     public ListeGestCommEltPanel(SQLElement elem, IListe l, boolean showAdd) {
         super(elem, l);
         this.setAddVisible(showAdd);

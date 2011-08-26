@@ -13,8 +13,11 @@
  
  package org.openconcerto.erp.config;
 
+import org.openconcerto.sql.Configuration;
+
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.io.File;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.sql.Connection;
@@ -54,6 +57,18 @@ public class ServerConfigListModel extends AbstractListModel {
             return;
         }
         ServerFinder f = new ServerFinder();
+        File fH2 = new File(Configuration.getDefaultConfDir(), "OpenConcerto-GESTION_DEFAULT/DBData");
+        if (fH2.exists() && fH2.isDirectory()) {
+            final ServerFinderConfig c = new ServerFinderConfig();
+            c.setType(ServerFinderConfig.H2);
+            c.setFile(fH2);
+            if (new File(fH2, "OpenConcerto.h2.db").exists()) {
+                c.setProduct("H2 OpenConcerto found");
+            } else {
+                c.setProduct("Unknown H2 database");
+            }
+            confs.add(c);
+        }
         List<String> l = f.getIPsToScan();
         int stop = l.size();
         for (int i = 0; i < stop; i++) {

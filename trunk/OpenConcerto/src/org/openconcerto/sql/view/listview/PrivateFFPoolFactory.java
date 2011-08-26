@@ -24,7 +24,7 @@ public final class PrivateFFPoolFactory extends FFPoolFactory {
         super(t, foreignT, count, firstSuffixed);
     }
 
-    public PrivateFFPoolFactory(SQLTable t, String foreignT, List fields) {
+    public PrivateFFPoolFactory(SQLTable t, String foreignT, List<String> fields) {
         super(t, foreignT, fields);
     }
 

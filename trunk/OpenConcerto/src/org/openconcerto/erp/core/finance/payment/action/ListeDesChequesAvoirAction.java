@@ -13,62 +13,8 @@
  
  package org.openconcerto.erp.core.finance.payment.action;
 
-import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
-import org.openconcerto.erp.core.common.ui.PanelFrame;
-import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
-import org.openconcerto.erp.core.finance.accounting.ui.SuppressionEcrituresPanel;
-import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.view.IListFrame;
-import org.openconcerto.sql.view.ListeAddPanel;
-
-import java.awt.event.ActionEvent;
-import java.math.BigInteger;
-
-import javax.swing.Action;
-import javax.swing.JButton;
-import javax.swing.JFrame;
-import javax.swing.JTable;
-
-
-public class ListeDesChequesAvoirAction extends CreateFrameAbstractAction {
-
+public class ListeDesChequesAvoirAction extends ListeDesChequesAction {
     public ListeDesChequesAvoirAction() {
-        super();
-        this.putValue(Action.NAME, "Chèques d'avoir");
-    }
-
-    public JFrame createFrame() {
-        IListFrame frame = new IListFrame(new ListeAddPanel(Configuration.getInstance().getDirectory().getElement("CHEQUE_AVOIR_CLIENT")) {
-            protected void handleAction(JButton source, ActionEvent evt) {
-                if (this.getListe().getSelectedId() > 1) {
-                    SQLRow row = this.getListe().getSelectedRow();
-                    if (source == this.buttonModifier) {
-                        MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
-                    } else {
-                        if (source == this.buttonEffacer) {
-                            PanelFrame frameDelete = new PanelFrame(new SuppressionEcrituresPanel(row.getInt("ID_MOUVEMENT")), "Suppression");
-                            frameDelete.pack();
-                            frameDelete.setLocationRelativeTo(null);
-                            frameDelete.setResizable(false);
-                            frameDelete.setVisible(true);
-                        }
-                    }
-                } else {
-                    super.handleAction(source, evt);
-                }
-            }
-        });
-        frame.getPanel().getListe().setSQLEditable(false);
-        frame.getPanel().setAddVisible(false);
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
-        return frame;
+        super("Chèques d'avoir", "CHEQUE_AVOIR_CLIENT");
     }
 }

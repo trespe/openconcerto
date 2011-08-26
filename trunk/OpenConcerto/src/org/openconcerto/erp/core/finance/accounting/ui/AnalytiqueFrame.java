@@ -13,6 +13,9 @@
  
  package org.openconcerto.erp.core.finance.accounting.ui;
 
+import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElement;
+
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.GraphicsEnvironment;
@@ -24,9 +27,6 @@ import java.awt.Rectangle;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.border.Border;
-
-import org.openconcerto.sql.element.SQLComponent;
-import org.openconcerto.sql.element.SQLElement;
 
 // TODO vérifier si on place une repartition sur un compte
 // et qu'ensuite le compte devient racine ???????

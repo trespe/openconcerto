@@ -19,6 +19,7 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.order.component.CommandeClientSQLComponent;
 import org.openconcerto.erp.core.sales.quote.component.DevisSQLComponent;
+import org.openconcerto.erp.core.supplychain.order.component.CommandeSQLComponent;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -59,7 +60,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    public synchronized ListSQLRequest getListRequest() {
+    public synchronized ListSQLRequest createListRequest() {
         return new ListSQLRequest(getTable(), getListFields()) {
             @Override
             protected void customizeToFetch(SQLRowValues graphToFetch) {
@@ -112,6 +113,29 @@ public class DevisSQLElement extends ComptaSQLConfElement {
         editFactureFrame.setState(JFrame.NORMAL);
         editFactureFrame.setVisible(true);
     }
+
+    // /**
+    // * Transfert d'un devis en commande
+    // *
+    // * @param devisID
+    // * @deprecated
+    // */
+    // public void transfertCommande(int devisID) {
+    //
+    // SQLElement elt = Configuration.getInstance().getDirectory().getElement("COMMANDE");
+    // EditFrame editFactureFrame = new EditFrame(elt);
+    // editFactureFrame.setIconImage(new
+    // ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
+    //
+    // CommandeSQLComponent comp = (CommandeSQLComponent) editFactureFrame.getSQLComponent();
+    //
+    // comp.setDefaults();
+    // comp.loadDevis(devisID);
+    //
+    // editFactureFrame.pack();
+    // editFactureFrame.setState(JFrame.NORMAL);
+    // editFactureFrame.setVisible(true);
+    // }
 
     /**
      * Transfert d'un devis en commande

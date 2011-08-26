@@ -13,14 +13,14 @@
  
  package org.openconcerto.erp.core.finance.accounting.report;
 
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
-
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.preferences.TemplateNXProps;
 import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
+
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 public class PdfGenerator_2033A extends PdfGenerator {
 

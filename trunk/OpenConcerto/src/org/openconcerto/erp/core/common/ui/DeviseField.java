@@ -380,6 +380,11 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
         // FIXME
     }
 
+    @Override
+    public void removeValidListener(ValidListener l) {
+        // FIXME
+    }
+
     public void show(SQLRowAccessor r) {
         if (r.getFields().contains(this.getField().getName())) {
             Object o = r.getObject(this.getField().getName());

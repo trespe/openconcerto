@@ -20,6 +20,7 @@ import org.openconcerto.openoffice.ContentTypeVersioned;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.OOUtils;
+import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.SheetTableModel.MutableTableModel;
 
@@ -57,13 +58,13 @@ public class SpreadSheet implements ODDocument {
     }
 
     public static SpreadSheet createEmpty(TableModel t) throws IOException {
-        return createEmpty(t, XMLVersion.getOD());
+        return createEmpty(t, XMLFormatVersion.getDefault());
     }
 
-    public static SpreadSheet createEmpty(TableModel t, XMLVersion ns) throws IOException {
-        final ContentTypeVersioned ct = ContentType.SPREADSHEET.getVersioned(ns);
-        final SpreadSheet spreadSheet = create(ct.createPackage());
-        spreadSheet.getBody().addContent(Sheet.createEmpty(ns));
+    public static SpreadSheet createEmpty(TableModel t, XMLFormatVersion ns) throws IOException {
+        final ContentTypeVersioned ct = ContentType.SPREADSHEET.getVersioned(ns.getXMLVersion());
+        final SpreadSheet spreadSheet = create(ct.createPackage(ns));
+        spreadSheet.getBody().addContent(Sheet.createEmpty(ns.getXMLVersion()));
         spreadSheet.getSheet(0).merge(t, 0, 0, true);
         return spreadSheet;
     }
@@ -78,7 +79,7 @@ public class SpreadSheet implements ODDocument {
      * @return the saved file, eg "dir/data.ods".
      * @throws IOException if the file can't be saved.
      */
-    public static File export(TableModel t, File f, XMLVersion ns) throws IOException {
+    public static File export(TableModel t, File f, XMLFormatVersion ns) throws IOException {
         return SpreadSheet.createEmpty(t, ns).saveAs(f);
     }
 
@@ -111,6 +112,11 @@ public class SpreadSheet implements ODDocument {
     @Override
     public final XMLVersion getVersion() {
         return this.getPackage().getVersion();
+    }
+
+    @Override
+    public XMLFormatVersion getFormatVersion() {
+        return this.getPackage().getFormatVersion();
     }
 
     private Element getBody() {

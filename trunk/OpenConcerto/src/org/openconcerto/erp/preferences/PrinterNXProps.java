@@ -13,12 +13,12 @@
  
  package org.openconcerto.erp.preferences;
 
-import java.io.File;
-
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.ui.preferences.PrinterProps;
+
+import java.io.File;
 
 public class PrinterNXProps extends PrinterProps {
     private static final String societeBaseName = ((ComptaPropsConfiguration) Configuration.getInstance()).getSocieteBaseName();

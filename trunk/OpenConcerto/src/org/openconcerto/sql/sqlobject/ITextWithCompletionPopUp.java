@@ -93,16 +93,12 @@ public class ITextWithCompletionPopUp extends JPopupMenu {
 
     public Dimension getPreferredSize() {
         Dimension d = super.getPreferredSize();
-        System.out.println("Largeur:" + d.width);
         int width = d.width;
         if (width > 500)
             width = 500;
-        System.out.println(this.getBounds());
         width = Math.max(width, this.minWitdh) + 2;
         int height = 2 + 17 * Math.min(listModel.getSize(), MAXROW);
         Dimension newD = new Dimension(width, height);
-        System.out.println("ITextWithCompletionPopUp.getPreferredSize()");
-        System.out.println("->taille du model:" + listModel.getSize() + " -> Dimension:" + newD);
         return newD;
     }
 
@@ -138,7 +134,6 @@ public class ITextWithCompletionPopUp extends JPopupMenu {
                 index = listModel.getSize() - 1;
         }
         if (this.list.getSelectedIndex() != index) {
-            System.out.println("->" + index);
             this.list.setSelectedIndex(index);
             if (shouldScroll)
                 this.list.ensureIndexIsVisible(index);

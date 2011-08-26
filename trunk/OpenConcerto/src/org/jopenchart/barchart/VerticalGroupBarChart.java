@@ -120,7 +120,6 @@ public class VerticalGroupBarChart extends VerticalBarChart {
             }
         }
         if (this.highlight != found) {
-            System.out.println(found);
             this.highlight = found;
             this.getDataModel().fireDataModelChanged();
         }

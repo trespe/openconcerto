@@ -664,7 +664,7 @@ public final class SQLRowValues extends SQLRowAccessor {
      * @return this.
      */
     public SQLRowValues setOrder(SQLRow r, boolean after) {
-        return this.setOrder(r, after, 100, 0);
+        return this.setOrder(r, after, ReOrder.DISTANCE.movePointRight(2).intValue(), 0);
     }
 
     private SQLRowValues setOrder(SQLRow r, boolean after, int nbToReOrder, int nbReOrdered) {
@@ -677,7 +677,7 @@ public final class SQLRowValues extends SQLRowAccessor {
         } else {
             // make room
             try {
-                ReOrder.create(this.getTable(), r.getOrder().intValue() - 1, nbToReOrder).exec();
+                ReOrder.create(this.getTable(), r.getOrder().intValue() - (nbToReOrder / 2), nbToReOrder).exec();
             } catch (SQLException e) {
                 throw ExceptionUtils.createExn(IllegalStateException.class, "reorder failed for " + this.getTable() + " at " + r.getOrder(), e);
             }
@@ -1336,7 +1336,8 @@ public final class SQLRowValues extends SQLRowAccessor {
                     req += questionMarks;
                     if (values.size() > 0)
                         req += ", ";
-                    req += "MAX(" + SQLBase.quoteIdentifier(order.getName()) + ") + 1 FROM " + tableQuoted;
+                    // COALESCE for empty tables, MIN_ORDER + 1 since MIN_ORDER cannot be moved
+                    req += "COALESCE(MAX(" + SQLBase.quoteIdentifier(order.getName()) + "), " + ReOrder.MIN_ORDER + ") + 1 FROM " + tableQuoted;
                 } else {
                     req += " VALUES (";
                     req += questionMarks;
@@ -1539,9 +1540,9 @@ public final class SQLRowValues extends SQLRowAccessor {
     // if scalar is null primary keys aren't fetched
     private static final Insertion<?> insert(final SQLTable t, final String sql, final Boolean scalar) throws SQLException {
         final SQLSystem sys = t.getServer().getSQLSystem();
-        if (sys == SQLSystem.H2)
+        if (scalar != null && sys == SQLSystem.H2)
             throw new IllegalArgumentException("H2 use IDENTITY() which only returns the last ID: " + t.getSQLName());
-        if (sys == SQLSystem.MSSQL)
+        if (scalar != null && sys == SQLSystem.MSSQL)
             throw new IllegalArgumentException("In MS getUpdateCount() is correct but getGeneratedKeys() only returns the last ID: " + t.getSQLName());
         return SQLUtils.executeAtomic(t.getDBSystemRoot().getDataSource(), new ConnectionHandlerNoSetup<Insertion<?>, SQLException>() {
             @Override
@@ -1568,9 +1569,10 @@ public final class SQLRowValues extends SQLRowAccessor {
                         // null if no returning
                         rs = stmt.getResultSet();
                     } else {
-                        stmt.execute(insertInto, Statement.RETURN_GENERATED_KEYS);
                         // MySQL always return an empty resultSet for anything else than 1 pk
-                        rs = t.getPrimaryKeys().size() != 1 ? null : stmt.getGeneratedKeys();
+                        final boolean dontGetGK = scalar == null || (sys == SQLSystem.MYSQL && t.getPrimaryKeys().size() != 1);
+                        stmt.execute(insertInto, dontGetGK ? Statement.NO_GENERATED_KEYS : Statement.RETURN_GENERATED_KEYS);
+                        rs = dontGetGK ? null : stmt.getGeneratedKeys();
                     }
                     final List<?> list;
                     final int count;
@@ -1609,6 +1611,41 @@ public final class SQLRowValues extends SQLRowAccessor {
         for (final Number id : ids)
             res.add(new SQLRow(t, id.intValue()));
         return res;
+    }
+
+    // MAYBE add insertFromSelect(SQLTable, SQLSelect) if aliases are kept in SQLSelect (so that we
+    // can map arbitray expressions to fields in the destination table)
+    public static final int insertFromTable(final SQLTable dest, final SQLTable src) throws SQLException {
+        return insertFromTable(dest, src, src.getChildrenNames());
+    }
+
+    /**
+     * Copy all rows from <code>src</code> to <code>dest</code>.
+     * 
+     * @param dest the table where rows will be inserted.
+     * @param src the table where rows will be selected.
+     * @param fieldsNames the fields to use.
+     * @return the insertion count.
+     * @throws SQLException if an error occurs while inserting.
+     */
+    public static final int insertFromTable(final SQLTable dest, final SQLTable src, final Set<String> fieldsNames) throws SQLException {
+        if (dest.getDBSystemRoot() != src.getDBSystemRoot())
+            throw new IllegalArgumentException("Tables are not on the same system root : " + dest.getSQLName() + " / " + src.getSQLName());
+        if (!dest.getChildrenNames().containsAll(fieldsNames))
+            throw new IllegalArgumentException("Destination table " + dest.getSQLName() + " doesn't contain all fields of the source " + src + " : " + fieldsNames);
+
+        final List<SQLField> fields = new ArrayList<SQLField>(fieldsNames.size());
+        for (final String fName : fieldsNames)
+            fields.add(src.getField(fName));
+        final SQLSelect sel = new SQLSelect(src.getBase(), true);
+        sel.addAllSelect(fields);
+        final String colNames = "(" + CollectionUtils.join(fields, ",", new ITransformer<SQLField, String>() {
+            @Override
+            public String transformChecked(SQLField input) {
+                return SQLBase.quoteIdentifier(input.getName());
+            }
+        }) + ") ";
+        return insertCount(dest, colNames + sel.asString());
     }
 
     /**

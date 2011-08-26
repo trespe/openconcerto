@@ -18,10 +18,10 @@ import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.UISQLComponent;
 import org.openconcerto.utils.CollectionMap;
 
-import javax.swing.JTextField;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.JTextField;
 
 public class EtatDevisSQLElement extends ComptaSQLConfElement {
 

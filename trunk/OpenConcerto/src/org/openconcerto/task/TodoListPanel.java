@@ -90,7 +90,7 @@ import javax.swing.table.TableColumnModel;
 
 import org.apache.commons.dbutils.ResultSetHandler;
 
-import sun.swing.table.DefaultTableCellHeaderRenderer;
+import javax.swing.table.DefaultTableCellRenderer;
 
 public class TodoListPanel extends JPanel implements ModelStateListener {
 
@@ -504,7 +504,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         this.t.setBlockRepaint(false);
         this.t.getColumnModel().getColumn(1).setCellRenderer(this.iconRenderer);
 
-        AlternateTableCellRenderer.setAllColumns(this.t);
+        AlternateTableCellRenderer.UTILS.setAllColumns(this.t);
         this.t.repaint();
 
     }
@@ -659,7 +659,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
     }
 }
 
-class JComponentTableCellRenderer extends DefaultTableCellHeaderRenderer {
+class JComponentTableCellRenderer extends DefaultTableCellRenderer {
     Icon icon;
     TableCellRenderer renderer;
 

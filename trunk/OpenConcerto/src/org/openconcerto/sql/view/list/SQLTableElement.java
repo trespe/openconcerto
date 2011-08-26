@@ -230,6 +230,10 @@ public class SQLTableElement {
         return this.rowField;
     }
 
+    protected Object getDefaultNullValue() {
+        return null;
+    }
+
     public Object convertEditorValueToModel(final Object value, final SQLRowValues row) {
 
         // if (value instanceof IComboSelectionItem) {
@@ -241,7 +245,11 @@ public class SQLTableElement {
                 return v;
         }
         // }
-        return value;
+        if (value == null && getDefaultNullValue() != null) {
+            return getDefaultNullValue();
+        } else {
+            return value;
+        }
     }
 
     public void fireModification(final SQLRowValues row) {

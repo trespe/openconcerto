@@ -48,7 +48,6 @@ import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 
-
 import org.apache.commons.collections.Predicate;
 
 public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String>, DocumentComponent, TextComponent, EmptyObject {
@@ -172,6 +171,11 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
 
     public void addValidListener(final ValidListener l) {
         this.supp.addValidListener(l);
+    }
+
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.supp.removeValidListener(l);
     }
 
     public void addValueListener(final PropertyChangeListener l) {

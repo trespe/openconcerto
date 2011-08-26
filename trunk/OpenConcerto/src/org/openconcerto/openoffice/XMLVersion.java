@@ -76,8 +76,6 @@ public enum XMLVersion {
     private static final String DRAW_2 = "urn:oasis:names:tc:opendocument:xmlns:drawing:1.0";
     private static final String FO_2 = "urn:oasis:names:tc:opendocument:xmlns:xsl-fo-compatible:1.0";
 
-    private static XMLVersion defaultNS = OD;
-
     private final String name;
     private final Map<String, Namespace> nss;
     private final Namespace manifest;
@@ -189,11 +187,7 @@ public enum XMLVersion {
         return parent;
     }
 
-    public static void setDefault(XMLVersion ns) {
-        defaultNS = ns;
-    }
-
     public static XMLVersion getDefault() {
-        return defaultNS;
+        return OOXML.getDefault().getVersion();
     }
 }

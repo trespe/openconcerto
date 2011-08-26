@@ -82,6 +82,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
     }
 
     protected boolean showMdr = true;
+    private ElementComboBox boxPays = null;
+    final ElementComboBox boxTarif = new ElementComboBox();
 
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
@@ -102,7 +104,7 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    public synchronized ListSQLRequest getListRequest() {
+    public synchronized ListSQLRequest createListRequest() {
         return new ListSQLRequest(getTable(), getListFields()) {
             @Override
             protected void customizeToFetch(SQLRowValues graphToFetch) {
@@ -185,8 +187,9 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                 this.add(labelRS, c);
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
                 c.fill = GridBagConstraints.BOTH;
+                DefaultGridBagConstraints.lockMinimumSize(textType);
                 this.add(textType, c);
 
                 // Code
@@ -200,8 +203,9 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
                 c.fill = GridBagConstraints.HORIZONTAL;
                 this.add(labelCode, c);
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
                 c.gridwidth = 1;
+                DefaultGridBagConstraints.lockMinimumSize(textCode);
                 this.add(this.textCode, c);
                 // Nom
                 JLabel labelNom = new JLabel("Nom");
@@ -211,14 +215,27 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
                 c.weightx = 0;
                 this.add(labelNom, c);
                 c.gridx++;
-                c.gridwidth = GridBagConstraints.REMAINDER;
-                c.weightx = 1;
+                c.gridwidth = 1;
+                c.weightx = 0.5;
 
                     this.textNom = new ITextArea();
+                DefaultGridBagConstraints.lockMinimumSize(textNom);
                 this.add(this.textNom, c);
 
+                if (getTable().getFieldsName().contains("ID_PAYS")) {
+                    c.gridx++;
+                    c.weightx = 0;
+                    this.add(new JLabel(getLabelFor("ID_PAYS")), c);
+                    boxPays = new ElementComboBox(true, 25);
+                    c.gridx++;
+                    c.weightx = 0.5;
+                    DefaultGridBagConstraints.lockMinimumSize(boxPays);
+                    this.add(boxPays, c);
+                    this.addView(boxPays, "ID_PAYS");
+                }
+
                 // Numero intracomm
-                JLabel labelIntraComm = new JLabel("N° intracommunautaire");
+                JLabel labelIntraComm = new JLabel("N° TVA");
                 labelIntraComm.setHorizontalAlignment(SwingConstants.RIGHT);
                 c.gridy++;
                 c.gridx = 0;
@@ -228,7 +245,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                 JTextField textNumIntracomm = new JTextField();
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
+                DefaultGridBagConstraints.lockMinimumSize(textNumIntracomm);
                 this.add(textNumIntracomm, c);
                 JLabel labelSIREN = new JLabel(getLabelFor("SIRET"));
                 labelSIREN.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -240,7 +258,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
                 JComponent textSiren;
                     textSiren = new JTextField();
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
+                DefaultGridBagConstraints.lockMinimumSize(textSiren);
                 this.add(textSiren, c);
 
                 // Responsable
@@ -254,6 +273,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
                 c.gridwidth = 1;
                 this.add(responsable, c);
                 c.gridx++;
+                c.weightx = 0.5;
+                DefaultGridBagConstraints.lockMinimumSize(textResp);
                 this.add(textResp, c);
 
                 JLabel labelRIB = new JLabel(getLabelFor("RIB"));
@@ -265,7 +286,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                 JTextField textRib = new JTextField();
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
+                DefaultGridBagConstraints.lockMinimumSize(textRib);
                 this.add(textRib, c);
 
 
@@ -279,7 +301,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                 final JTextField textTel = new JTextField();
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
+                DefaultGridBagConstraints.lockMinimumSize(textTel);
                 this.add(textTel, c);
                 textTel.getDocument().addDocumentListener(new DocumentListener() {
 
@@ -306,7 +329,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                 JTextField textMail = new JTextField();
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
+                DefaultGridBagConstraints.lockMinimumSize(textMail);
                 this.add(textMail, c);
 
                 // Portable
@@ -319,7 +343,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                 JTextField textPortable = new JTextField();
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
+                DefaultGridBagConstraints.lockMinimumSize(textPortable);
                 this.add(textPortable, c);
 
                 // Fax
@@ -331,7 +356,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                 final JTextField textFax = new JTextField();
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
+                DefaultGridBagConstraints.lockMinimumSize(textFax);
                 this.add(textFax, c);
 
                 textFax.getDocument().addDocumentListener(new DocumentListener() {
@@ -450,8 +476,60 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
                     comp.setVisible(false);
                 }
 
-                // Add on
+                if (getTable().getFieldsName().contains("ID_TARIF")) {
 
+                    // Tarif
+                    TitledSeparator tarifSep = new TitledSeparator("Tarif spécial à appliquer");
+                    c.gridwidth = GridBagConstraints.REMAINDER;
+                    c.gridy++;
+                    c.gridx = 0;
+                    this.add(tarifSep, c);
+
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.gridwidth = 1;
+                    c.weightx = 0;
+                    this.add(new JLabel(getLabelFor("ID_TARIF")), c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    c.gridwidth = GridBagConstraints.REMAINDER;
+
+                    this.add(boxTarif, c);
+                    this.addView(boxTarif, "ID_TARIF");
+                }
+                if (getTable().getFieldsName().contains("ID_LANGUE")) {
+                    // Tarif
+                    TitledSeparator langueSep = new TitledSeparator("Langue à appliquer sur les documents");
+                    c.gridwidth = GridBagConstraints.REMAINDER;
+                    c.gridy++;
+                    c.gridx = 0;
+                    this.add(langueSep, c);
+
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.gridwidth = 1;
+                    c.weightx = 0;
+                    this.add(new JLabel(getLabelFor("ID_LANGUE")), c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    c.gridwidth = GridBagConstraints.REMAINDER;
+                    final ElementComboBox boxLangue = new ElementComboBox();
+                    this.add(boxLangue, c);
+                    this.addView(boxLangue, "ID_LANGUE");
+
+                    boxPays.addValueListener(new PropertyChangeListener() {
+
+                        @Override
+                        public void propertyChange(PropertyChangeEvent evt) {
+                            SQLRow row = boxPays.getSelectedRow();
+                            if (row != null) {
+                                boxTarif.setValue(row.getInt("ID_TARIF"));
+                                boxLangue.setValue(row.getInt("ID_LANGUE"));
+                            }
+                        }
+                    });
+                }
+                // Add on
                 final JPanel addOnPanel = getAddOnPanel(this);
                 if (addOnPanel != null) {
                     c.gridy++;

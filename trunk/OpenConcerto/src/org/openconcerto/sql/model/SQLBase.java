@@ -57,6 +57,11 @@ public class SQLBase extends SQLIdentifier {
      * will be loaded from XML instead of JDBC.
      */
     public static final String STRUCTURE_USE_XML = "org.openconcerto.sql.structure.useXML";
+    /**
+     * Boolean system property, if <code>true</code> then schemas and tables can be dropped,
+     * otherwise {@link #fetchTables()} will throw an exception.
+     */
+    public static final String ALLOW_OBJECT_REMOVAL = "org.openconcerto.sql.identifier.allowRemoval";
 
     // null is a valid name (MySQL doesn't support schemas)
     private final Map<String, SQLSchema> schemas;
@@ -271,7 +276,7 @@ public class SQLBase extends SQLIdentifier {
     }
 
     static <T> void mustContain(final DBStructureItemJDBC c, final Set<T> newC, final Set<T> oldC, final String name) {
-        if (Boolean.getBoolean("org.openconcerto.sql.identifier.allowRemoval"))
+        if (Boolean.getBoolean(ALLOW_OBJECT_REMOVAL))
             return;
 
         final Set<T> diff = CollectionUtils.contains(newC, oldC);

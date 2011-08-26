@@ -68,6 +68,7 @@ public class OOInstallation {
     // cannot use \p{} since some names/values can be non-ASCII
     private static final Pattern stringValuePattern = Pattern.compile("^\\s*(.+?)\\s+REG_SZ\\s+(.+?)$", Pattern.MULTILINE);
 
+    private static final String LOBundleID = "org.libreoffice.script";
     private static final String OOBundleID = "org.openoffice.script";
 
     // return the standard out (not the standard error)
@@ -88,10 +89,21 @@ public class OOInstallation {
 
     // handle windows x64
     private static String findRootPath() {
-        final String[] rootPaths = { "HKEY_LOCAL_MACHINE\\SOFTWARE\\OpenOffice.org", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\OpenOffice.org" };
+        final String[] rootPaths = { "HKEY_LOCAL_MACHINE\\SOFTWARE\\LibreOffice", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\LibreOffice", "HKEY_LOCAL_MACHINE\\SOFTWARE\\OpenOffice.org",
+                "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\OpenOffice.org" };
         for (final String p : rootPaths) {
             if (DesktopEnvironment.test("reg", "query", p))
                 return p;
+        }
+        return null;
+    }
+
+    private static String findBundleURL() throws IOException {
+        for (final String bundleID : new String[] { LOBundleID, OOBundleID }) {
+            // if not found prints nothing to out and a cryptic error to the standard error stream
+            final String url = cmdSubstitution("osascript", "-e", "tell application id \"com.apple.Finder\" to URL of application file id \"" + bundleID + "\"").trim();
+            if (url.length() > 0)
+                return url;
         }
         return null;
     }
@@ -154,6 +166,7 @@ public class OOInstallation {
             // not installed
             if (rootPath == null)
                 return null;
+            final boolean libreOffice = rootPath.contains("LibreOffice");
 
             // Only the default value so pass '/ve'
             final Map<String, String> unoValues = getStringValues(rootPath + "\\UNO\\InstallPath", "/ve");
@@ -166,12 +179,11 @@ public class OOInstallation {
             exe = new File(unoPath, "soffice.exe");
 
             // '/s' since variables are one level (the version) deeper
-            final Map<String, String> layersValues = getStringValues(rootPath + "\\Layers\\OpenOffice.org", "/s");
+            final Map<String, String> layersValues = getStringValues(rootPath + (libreOffice ? "\\Layers_\\LibreOffice" : "\\Layers\\OpenOffice.org"), "/s");
             addPaths(cp, unoPath, layersValues.get("BASISINSTALLLOCATION"), layersValues.get("UREINSTALLLOCATION"));
         } else if (os.startsWith("Mac OS")) {
-            // if not found prints nothing to out and a cryptic error to the standard error stream
-            final String url = cmdSubstitution("osascript", "-e", "tell application id \"com.apple.Finder\" to URL of application file id \"" + OOBundleID + "\"").trim();
-            if (url.length() == 0)
+            final String url = findBundleURL();
+            if (url == null)
                 return null;
             try {
                 final File appPkg = new File(new URI(url).getPath());

@@ -18,7 +18,6 @@ import org.openconcerto.erp.core.sales.pos.model.Categorie;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 

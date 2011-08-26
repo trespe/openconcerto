@@ -13,8 +13,12 @@
  
  package org.openconcerto.utils;
 
+import java.math.BigDecimal;
+import java.text.DecimalFormat;
 
 public class GestionDevise {
+
+    private static final DecimalFormat DECIMAL_FORMAT = new DecimalFormat(",##0.00");
 
     /**
      * parse une String representant un decimal avec 2 chiffres apres la virgule en un long.
@@ -130,6 +134,10 @@ public class GestionDevise {
      */
     public final static String currencyToString(long cents) {
         return currencyToString(cents, true);
+    }
+
+    public final static String currencyToString(BigDecimal currency) {
+        return DECIMAL_FORMAT.format(currency);
     }
 
     /**

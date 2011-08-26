@@ -14,7 +14,6 @@
  package org.openconcerto.erp.core.humanresources.payroll.ui;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheet;
 import org.openconcerto.sql.Configuration;
@@ -23,12 +22,12 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.users.rights.JListSQLTablePanel;
 import org.openconcerto.sql.view.IListPanel;
 import org.openconcerto.sql.view.IListener;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
@@ -40,7 +39,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -50,12 +48,9 @@ import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JSplitPane;
-import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.table.TableCellRenderer;
-
 
 public class HistoriqueFichePayePanel extends JPanel {
 
@@ -79,15 +74,10 @@ public class HistoriqueFichePayePanel extends JPanel {
             SQLTable table = HistoriqueFichePayePanel.this.listePanel.getElement().getTable();
             Where w = new Where(table.getField("VALIDE"), "=", Boolean.TRUE);
             if (id > 1) {
-                HistoriqueFichePayePanel.this.listePanel.setRequest(ListSQLRequest.copy(HistoriqueFichePayePanel.this.listePanel.getElement().getListRequest(), w.and(new Where(table.getField("ID_"
-                        + HistoriqueFichePayePanel.this.jListPanel.getModel().getTable().getName()), "=", id))));
-            } else {
-                HistoriqueFichePayePanel.this.listePanel.setRequest(ListSQLRequest.copy(HistoriqueFichePayePanel.this.listePanel.getElement().getListRequest(), w));
+                w = w.and(new Where(table.getField("ID_" + HistoriqueFichePayePanel.this.jListPanel.getModel().getTable().getName()), "=", id));
             }
+            HistoriqueFichePayePanel.this.listePanel.getListe().getRequest().setWhere(w);
             HistoriqueFichePayePanel.this.listePanel.getListe().setSQLEditable(false);
-
-            // Set renderer
-            setRenderer(HistoriqueFichePayePanel.this.listePanel);
         }
     };
 
@@ -115,10 +105,11 @@ public class HistoriqueFichePayePanel extends JPanel {
         this.jListPanel = new JListSQLTablePanel(e.getTable(), l, "Tous");
 
         // IListe
-        this.listePanel = new ListeAddPanel(eltFiche, new IListe(ListSQLRequest.copy(eltFiche.getListRequest(), Where.createRaw("FALSE"))));
+        final SQLTableModelSourceOnline src = eltFiche.getTableSource(true);
+        src.getReq().setWhere(Where.FALSE);
+        this.listePanel = new ListeAddPanel(eltFiche, new IListe(src));
         this.listePanel.setAddVisible(false);
 
-        setRenderer(this.listePanel);
         this.listePanel.getListe().setSQLEditable(false);
         this.listePanel.setOpaque(false);
         this.listePanel.setBorder(null);
@@ -171,8 +162,8 @@ public class HistoriqueFichePayePanel extends JPanel {
 
                     JPopupMenu menuDroit = new JPopupMenu();
 
-                    final SQLRow rowFiche = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("FICHE_PAYE").getRow(
-                            HistoriqueFichePayePanel.this.listePanel.getListe().getSelectedId());
+                    final SQLRow rowFiche = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("FICHE_PAYE")
+                            .getRow(HistoriqueFichePayePanel.this.listePanel.getListe().getSelectedId());
                     final File f = FichePayeSheet.getFile(rowFiche, FichePayeSheet.typeOO);
 
                     AbstractAction actionOpen = new AbstractAction("Voir le document") {
@@ -224,18 +215,6 @@ public class HistoriqueFichePayePanel extends JPanel {
         if (index >= 0) {
             this.jListPanel.getJList().setSelectedIndex(index);
             this.jListPanel.getJList().ensureIndexIsVisible(index);
-        }
-    }
-
-    private void setRenderer(IListPanel liste) {
-
-        JTable table = liste.getListe().getJTable();
-        TableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        for (int j = 0; j < table.getColumnCount(); j++) {
-
-            if (table.getColumnClass(j) == Long.class || table.getColumnClass(j) == BigInteger.class) {
-                table.getColumnModel().getColumn(j).setCellRenderer(rend);
-            }
         }
     }
 

@@ -73,6 +73,7 @@ public class TemplateNXProps extends TemplateProps {
 
     @Override
     public String getDefaultStringValue() {
+
         final Configuration conf = ComptaPropsConfiguration.getInstance();
         final SQLRow rowSociete = ((ComptaPropsConfiguration) conf).getRowSociete();
         return conf.getWD().getAbsolutePath() + File.separator + rowSociete.getString("NOM") + "-" + rowSociete.getID();

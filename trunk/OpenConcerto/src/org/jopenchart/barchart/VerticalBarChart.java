@@ -51,8 +51,6 @@ public class VerticalBarChart extends BarChart {
         double minYValue = Math.min(0, model1.getMinValue().doubleValue());
 
         double rangeYValue = maxYValue - minYValue;
-        System.out.println("Range:" + rangeYValue);
-        System.out.println("GraphHeight:" + graphHeight);
         double ratioy = ((double) graphHeight) / rangeYValue;
         long x = graphPosX + this.getSpaceBetweenBars();
         // long posY = Math.round(model1.getMinValue().doubleValue() * ratioy);
@@ -62,19 +60,16 @@ public class VerticalBarChart extends BarChart {
             final Number valueAt = model1.getValueAt(i);
             if (valueAt != null) {
                 double h = valueAt.doubleValue() * ratioy;
-                System.out.print("y:" + (int) y + " h:" + (int) h + ",");
                 g.setColor(this.getColor(0));
                 y -= Math.ceil(h) - 1;
 
                 g.fillRect((int) x, (int) y, this.getBarWidth(), (int) h);
             }
 
-            System.out.println();
             x += this.getSpaceBetweenBars() + this.getBarWidth();
         }
         g.setColor(Color.pink);
-        // g.drawRect(this.getChartRectangle().x, this.getChartRectangle().y,
-        // this.getChartRectangle().width, this.getChartRectangle().height);
+
     }
 
     @Override

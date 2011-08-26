@@ -43,11 +43,10 @@ public class SQLTableModelSourceOnline extends SQLTableModelSource {
     }
 
     @Override
-    protected void colsChanged(ListChangeIndex change) {
+    protected void colsChanged(ListChangeIndex<SQLTableModelColumn> change) {
         super.colsChanged(change);
         // add needed fields for each new column
-        for (final Object o : change.getItemsAdded()) {
-            final SQLTableModelColumn col = (SQLTableModelColumn) o;
+        for (final SQLTableModelColumn col : change.getItemsAdded()) {
             for (final FieldPath p : col.getPaths()) {
                 final SQLRowValues assurePath = this.getReq().getGraphToFetch().assurePath(p.getPath());
                 if (!assurePath.getFields().contains(p.getFieldName()))

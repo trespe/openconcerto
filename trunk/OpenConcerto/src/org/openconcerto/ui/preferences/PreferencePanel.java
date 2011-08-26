@@ -13,29 +13,32 @@
  
  package org.openconcerto.ui.preferences;
 
-public interface PreferencePanel {
+import org.openconcerto.utils.checks.ValidObject;
+
+public interface PreferencePanel extends ValidObject {
 
     // nom figurant comme titre
     public String getTitleName();
 
+    /**
+     * Called once before being displayed.
+     */
+    public void uiInit();
+
+    /**
+     * Persist UI values.
+     */
     public void apply();
 
-    public void storeValues();
-
+    /**
+     * Reset UI to the default values.
+     */
     public void restoreToDefaults();
 
     public void addModifyChangeListener(PreferencePanelListener l);
 
     /**
-     * fire if the modify state of panel change
-     * 
-     * @param b
-     */
-    public void fireModifyChange(boolean b);
-
-    /**
      * @return true if any changes occured on the values
      */
     public boolean isModified();
-
 }

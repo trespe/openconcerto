@@ -16,7 +16,9 @@
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.CollectionMap;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -49,6 +51,13 @@ public class TarifSQLElement extends ComptaSQLConfElement {
         return l;
     }
 
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        CollectionMap<String, String> map = new CollectionMap<String, String>();
+        map.put(null, "NOM");
+        return map;
+    }
+
     public SQLComponent createComponent() {
         return new BaseSQLComponent(this) {
 
@@ -57,7 +66,7 @@ public class TarifSQLElement extends ComptaSQLConfElement {
                 final GridBagConstraints c = new DefaultGridBagConstraints();
 
                 // Nom
-                JLabel labelNom = new JLabel("NOM");
+                JLabel labelNom = new JLabel(getLabelFor("NOM"));
                 JTextField textNom = new JTextField();
 
                 this.add(labelNom, c);
@@ -65,7 +74,29 @@ public class TarifSQLElement extends ComptaSQLConfElement {
                 c.weightx = 1;
                 this.add(textNom, c);
 
+                // Devise
+                JLabel labelDevise = new JLabel(getLabelFor("ID_DEVISE"));
+                ElementComboBox boxDevise = new ElementComboBox();
+                c.gridx++;
+                c.weightx = 0;
+                this.add(labelDevise, c);
+                c.gridx++;
+                c.weightx = 1;
+                this.add(boxDevise, c);
+
+                // Devise
+                JLabel labelTaxe = new JLabel(getLabelFor("ID_TAXE"));
+                ElementComboBox boxTaxe = new ElementComboBox();
+                c.gridx++;
+                c.weightx = 0;
+                this.add(labelTaxe, c);
+                c.gridx++;
+                c.weightx = 1;
+                this.add(boxTaxe, c);
+
                 this.addRequiredSQLObject(textNom, "NOM");
+                this.addSQLObject(boxDevise, "ID_DEVISE");
+                this.addSQLObject(boxTaxe, "ID_TAXE");
 
             }
         };

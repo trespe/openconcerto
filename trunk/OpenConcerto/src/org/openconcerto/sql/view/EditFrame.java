@@ -21,6 +21,7 @@ import org.openconcerto.ui.state.WindowStateManager;
 import org.openconcerto.utils.doc.Documented;
 
 import java.awt.Dimension;
+import java.awt.Toolkit;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.HierarchyEvent;
@@ -98,8 +99,15 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
         this.setContentPane(this.panel);
         this.initTitle(comp.getElement(), mode);
         this.setLocation(0, 50);
+
+        // The minimum size of the frame must be the size when packed
         this.pack();
-        this.setMinimumSize(new Dimension(this.getMinimumSize()));
+        Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
+        int w = Math.min(d.width - 100, getWidth());
+        int h = Math.min(d.height - 100, getHeight());
+        setMinimumSize(new Dimension(w, h));
+
+        // View resized
         this.viewResized();
         addEditPanelListener(this);
         if (mode == CREATION) {

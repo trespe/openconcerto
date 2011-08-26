@@ -49,4 +49,7 @@ public final class ValidChangeSupport {
         this.listeners.add(l);
     }
 
+    public void removeValidListener(ValidListener l) {
+        this.listeners.remove(l);
+    }
 }

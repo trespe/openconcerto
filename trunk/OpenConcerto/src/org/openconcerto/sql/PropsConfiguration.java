@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
+import org.openconcerto.sql.element.SQLElementDirectory.DirectoryListener;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBStructureItem;
 import org.openconcerto.sql.model.DBSystemRoot;
@@ -152,6 +153,7 @@ public class PropsConfiguration extends Configuration {
     private SQLFilter filter;
     private SQLFieldTranslator translator;
     private SQLElementDirectory directory;
+    private DirectoryListener directoryListener;
     private File wd;
     // split sql tree and the rest since creating the tree is costly
     // and nodes are inter-dependant, while the rest is mostly fast
@@ -202,6 +204,8 @@ public class PropsConfiguration extends Configuration {
         if (this.server != null) {
             this.server.destroy();
         }
+        if (this.directoryListener != null)
+            this.directory.removeListener(this.directoryListener);
     }
 
     public final String getProperty(String name) {
@@ -517,6 +521,13 @@ public class PropsConfiguration extends Configuration {
                 FileUtils.mkdir_p(homeLogDir);
                 logDir = homeLogDir;
             }
+            System.out.println("Log directory: " + logDir.getAbsolutePath());
+            if (!logDir.exists()) {
+                System.err.println("Log directory: " + logDir.getAbsolutePath() + " DOEST NOT EXISTS!!!");
+            }
+            if (!logDir.canWrite()) {
+                System.err.println("Log directory: " + logDir.getAbsolutePath() + " is NOT WRITABLE");
+            }
         } catch (IOException e) {
             throw new IllegalStateException("unable to create log dir", e);
         }
@@ -527,6 +538,7 @@ public class PropsConfiguration extends Configuration {
             final File logFile = new File(logDir, (logNameBase + ".txt"));
             logFile.getParentFile().mkdirs();
             try {
+                System.out.println("Log file: " + logFile.getAbsolutePath());
                 final PrintStream ps = new PrintStream(new FileOutputStream(logFile, true));
                 System.setErr(ps);
                 System.setOut(ps);
@@ -545,6 +557,8 @@ public class PropsConfiguration extends Configuration {
                     }
                 }
             }).start();
+        } else {
+            System.out.println("Log not redirected to file");
         }
 
         // removes default
@@ -555,13 +569,14 @@ public class PropsConfiguration extends Configuration {
         try {
             final File logFile = new File(logDir, this.getAppName() + "-%u-age%g.log");
             logFile.getParentFile().mkdirs();
+            System.out.println("Logger logs: " + logFile.getAbsolutePath());
             // 2 files of at most 5M, each new launch append
             // if multiple concurrent launches %u is used
             final FileHandler fh = new FileHandler(logFile.getPath(), 5 * 1024 * 1024, 2, true);
             fh.setFormatter(new SimpleFormatter());
             Logger.getLogger("").addHandler(fh);
         } catch (IOException e) {
-            ExceptionHandler.handle("Enregistrement du log désactivé", e);
+            ExceptionHandler.handle("Enregistrement du Logger désactivé", e);
         }
 
         this.setLoggersLevel();
@@ -581,16 +596,31 @@ public class PropsConfiguration extends Configuration {
 
     protected ShowAs createShowAs() {
         final ShowAs res = new ShowAs(this.getRoot());
-        for (final SQLElement elem : this.getDirectory().getElements()) {
-            final CollectionMap<String, String> sa = elem.getShowAs();
-            if (sa != null) {
-                for (final Entry<String, Collection<String>> e : sa.entrySet()) {
-                    if (e.getKey() == null) {
-                        res.show(elem.getTable(), (List<String>) e.getValue());
-                    } else
-                        res.show(elem.getTable().getField(e.getKey()), (List<String>) e.getValue());
+        assert this.directoryListener == null;
+        this.directoryListener = new DirectoryListener() {
+            @Override
+            public void elementRemoved(SQLElement elem) {
+                res.removeTable(elem.getTable());
+            }
+
+            @Override
+            public void elementAdded(SQLElement elem) {
+                final CollectionMap<String, String> sa = elem.getShowAs();
+                if (sa != null) {
+                    for (final Entry<String, Collection<String>> e : sa.entrySet()) {
+                        if (e.getKey() == null) {
+                            res.show(elem.getTable(), (List<String>) e.getValue());
+                        } else
+                            res.show(elem.getTable().getField(e.getKey()), (List<String>) e.getValue());
+                    }
                 }
             }
+        };
+        synchronized (this.getDirectory()) {
+            for (final SQLElement elem : this.getDirectory().getElements()) {
+                this.directoryListener.elementAdded(elem);
+            }
+            this.getDirectory().addListener(this.directoryListener);
         }
         return res;
     }

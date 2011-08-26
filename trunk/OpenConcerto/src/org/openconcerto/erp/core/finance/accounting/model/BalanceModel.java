@@ -34,12 +34,10 @@ import org.apache.commons.dbutils.handlers.ArrayListHandler;
 public class BalanceModel extends AbstractTableModel {
 
     private String[] titres;
-    private Vector<Compte> vecteurCompte;
+    private Vector<Compte> vecteurCompte = new Vector<Compte>();
     private long totalDebitBalance, totalCreditBalance;
 
     public BalanceModel() {
-
-        // getBalance();
         this.titres = new String[5];
         this.titres[0] = "N° compte";
         this.titres[1] = "Libellé compte";
@@ -116,7 +114,7 @@ public class BalanceModel extends AbstractTableModel {
         // Compte numero -- totalDebit
         Map<Number, Long> mapCompteDebit = new HashMap<Number, Long>();
         Map<Number, Long> mapCompteCredit = new HashMap<Number, Long>();
-        this.vecteurCompte = new Vector<Compte>();
+        Vector<Compte> comptes = new Vector<Compte>();
         this.totalDebitBalance = 0;
         this.totalCreditBalance = 0;
 
@@ -209,9 +207,12 @@ public class BalanceModel extends AbstractTableModel {
                 if ((totalDebit != 0.0) || (totalCredit != 0.0)) {
                     Compte cpt = new Compte(((Number) tmp[0]).intValue(), tmp[1].toString(), tmp[2].toString(), "", totalDebit, totalCredit);
 
-                    this.vecteurCompte.add(cpt);
+                    comptes.add(cpt);
                 }
             }
         }
+
+        this.vecteurCompte = comptes;
+        fireTableDataChanged();
     }
 }

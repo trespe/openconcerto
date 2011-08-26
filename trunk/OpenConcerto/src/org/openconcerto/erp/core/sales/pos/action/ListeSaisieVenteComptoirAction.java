@@ -14,17 +14,12 @@
  package org.openconcerto.erp.core.sales.pos.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 
-import java.math.BigInteger;
-
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JTable;
-
 
 public class ListeSaisieVenteComptoirAction extends CreateFrameAbstractAction {
 
@@ -35,14 +30,6 @@ public class ListeSaisieVenteComptoirAction extends CreateFrameAbstractAction {
 
     public JFrame createFrame() {
         IListFrame frame = new IListFrame(new ListeAddPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_COMPTOIR")));
-
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
         return frame;
     }
 }

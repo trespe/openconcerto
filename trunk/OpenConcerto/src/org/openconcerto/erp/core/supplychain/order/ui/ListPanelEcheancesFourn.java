@@ -20,31 +20,30 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
 
 import java.awt.event.ActionEvent;
 
 import javax.swing.JButton;
 import javax.swing.JTable;
 
-public class ListPanelEcheancesFourn extends ListeAddPanel implements SQLTableListener {
+public class ListPanelEcheancesFourn extends ListeAddPanel {
 
     private EditFrame editFrame;
 
     public ListPanelEcheancesFourn() {
+        this(Configuration.getInstance().getDirectory().getElement("ECHEANCE_FOURNISSEUR"));
+    }
 
-        super(Configuration.getInstance().getDirectory().getElement("ECHEANCE_FOURNISSEUR"));
+    public ListPanelEcheancesFourn(final SQLElement elem) {
+        super(elem, new IListe(elem.getTableSource(true)));
 
         // this.buttonAjouter.setVisible(false);
         setListe();
-        SQLElement elementEch = Configuration.getInstance().getDirectory().getElement("ECHEANCE_FOURNISSEUR");
-        elementEch.getTable().addTableListener(this);
     }
 
     public JTable getJTable() {
@@ -72,24 +71,9 @@ public class ListPanelEcheancesFourn extends ListeAddPanel implements SQLTableLi
         }
     }
 
-    public void rowAdded(SQLTable table, int id) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void rowDeleted(SQLTable table, int id) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void rowModified(SQLTable table, int id) {
-        setListe();
-    }
-
     private void setListe() {
-        SQLElement elementEch = Configuration.getInstance().getDirectory().getElement("ECHEANCE_FOURNISSEUR");
-        Where wNotRegle = new Where(elementEch.getTable().getField("REGLE"), "=", Boolean.FALSE);
-        this.setRequest(ListSQLRequest.copy(elementEch.getListRequest(), wNotRegle));
+        Where wNotRegle = new Where(getListe().getSource().getPrimaryTable().getField("REGLE"), "=", Boolean.FALSE);
+        this.getListe().getRequest().setWhere(wNotRegle);
 
         this.getListe().setSQLEditable(false);
 

@@ -118,10 +118,6 @@ public class LineChart extends Chart {
         int topHeight = left.getMaxLabelHeight(g) / 2;
         int bottomHeight = 1 + bottom.getMaxLabelHeight(g) + bottom.getMarkerLenght() + bottom.getMarkerSpacing();
 
-        System.out.println("leftWidth:" + leftWidth);
-        System.out.println("rightWidth:" + rightWidth);
-        System.out.println("topHeight:" + topHeight);
-        System.out.println("bottomHeight:" + bottomHeight);
         int graphWidth = this.getDimension().width - leftWidth - rightWidth;
         int graphHeight = this.getDimension().height - topHeight - bottomHeight;
 
@@ -160,10 +156,9 @@ public class LineChart extends Chart {
             int graphHeight = this.getChartRectangle().height;
 
             double dx = (double) graphWidth / (length - 1);
-            System.out.println("l:" + length);
+
             double ratioy = (double) graphHeight / rangeXValue;
-            System.out.println("graphHeight:" + graphHeight + " " + rangeXValue);
-            System.out.println("graphWidth:" + graphWidth + " " + rangeXValue);
+
             double x1 = graphPosX;
 
             ArrayOfInt lx = new ArrayOfInt();

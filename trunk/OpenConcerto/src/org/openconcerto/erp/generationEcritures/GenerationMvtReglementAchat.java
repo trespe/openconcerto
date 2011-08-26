@@ -105,13 +105,6 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
 
                     this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
 
-                    SQLRow rowBanque = modeRegRow.getForeignRow("ID_BANQUE_POLE_PRODUIT");
-                    if (rowBanque != null && rowBanque.getID() > 1) {
-                        SQLRow rowJournal = rowBanque.getForeignRow("ID_JOURNAL");
-                        if (rowJournal != null && rowJournal.getID() > 1) {
-                            this.mEcritures.put("ID_JOURNAL", rowJournal.getID());
-                        }
-                    }
 
                 }
 
@@ -217,10 +210,6 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
         mEncaisse.put("DATE_ACHAT", new java.sql.Date(this.date.getTime()));
         mEncaisse.put("DATE_MIN_DECAISSE", new java.sql.Date(dateEch.getTime()));
         mEncaisse.put("MONTANT", Long.valueOf(prixTTC.getLongValue()));
-        SQLRow rowModeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
-        if (rowModeRegl != null && rowModeRegl.getID() > 1) {
-            mEncaisse.put("ID_BANQUE_POLE_PRODUIT", rowModeRegl.getInt("ID_BANQUE_POLE_PRODUIT"));
-        }
         SQLRow rowMvtPere = tableMouvement.getRow(this.idPere);
         this.idMvt = getNewMouvement("CHEQUE_FOURNISSEUR", 1, this.idPere, rowMvtPere.getInt("ID_PIECE"));
 

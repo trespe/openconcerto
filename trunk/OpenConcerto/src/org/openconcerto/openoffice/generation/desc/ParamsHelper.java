@@ -117,7 +117,7 @@ public abstract class ParamsHelper {
         }
     }
 
-    private static Object evaluteOgnl(final String exprAttr, IFactory<?> data) {
+    static Object evaluteOgnl(final String exprAttr, IFactory<?> data) {
         try {
             return Ognl.getValue(exprAttr, data.createChecked());
         } catch (OgnlException e) {

@@ -19,6 +19,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.view.list.RowValuesTable;
@@ -43,12 +44,14 @@ public abstract class AbstractArticleItemTable extends JPanel {
     protected RowValuesTable table;
     protected SQLTableElement totalHT;
     protected SQLTableElement tableElementTotalTTC;
+    protected SQLTableElement tableElementTotalDevise;
     protected SQLTableElement service, qte, ha;
     protected SQLTableElement tableElementPoidsTotal;
     protected RowValuesTableModel model;
     protected SQLRowValues defaultRowVals;
     private List<JButton> buttons = null;
     protected RowValuesTableControlPanel control = null;
+    private SQLRowAccessor tarif = null;
 
     public AbstractArticleItemTable() {
         init();
@@ -141,6 +144,10 @@ public abstract class AbstractArticleItemTable extends JPanel {
         return this.ha;
     }
 
+    public SQLTableElement getTableElementTotalDevise() {
+        return this.tableElementTotalDevise;
+    }
+
     public void deplacerDe(final int inc) {
         final int rowIndex = this.table.getSelectedRow();
 
@@ -200,5 +207,13 @@ public abstract class AbstractArticleItemTable extends JPanel {
 
     public SQLRowValues getDefaultRowValues() {
         return this.defaultRowVals;
+    }
+
+    public SQLRowAccessor getTarif() {
+        return tarif;
+    }
+
+    public void setTarif(SQLRowAccessor idTarif, boolean ask) {
+        this.tarif = idTarif;
     }
 }

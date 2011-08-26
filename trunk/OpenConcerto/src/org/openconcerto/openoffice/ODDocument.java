@@ -21,5 +21,7 @@
 public interface ODDocument {
     public XMLVersion getVersion();
 
+    public XMLFormatVersion getFormatVersion();
+
     public ODPackage getPackage();
 }

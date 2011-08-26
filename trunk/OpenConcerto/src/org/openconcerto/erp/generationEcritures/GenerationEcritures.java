@@ -196,26 +196,6 @@ public class GenerationEcritures {
         return -1;
     }
 
-    private static SQLTable tableAssoc = Configuration.getInstance().getDirectory().getElement("ASSOCIATION_ANALYTIQUE").getTable();
-    private static SQLTable tablePoste = Configuration.getInstance().getDirectory().getElement("POSTE_ANALYTIQUE").getTable();
-
-    public void addAssocAnalytique(int idEcr, int idPoste) {
-        if (tablePoste.getUndefinedID() == idPoste) {
-            return;
-        }
-        SQLRowValues rowVals = new SQLRowValues(tableAssoc);
-        rowVals.put("ID_POSTE_ANALYTIQUE", idPoste);
-        SQLRow row = ecritureTable.getRow(idEcr);
-        rowVals.put("POURCENT", 100.0);
-        rowVals.put("ID_ECRITURE", idEcr);
-        rowVals.put("MONTANT", row.getLong("DEBIT") - row.getLong("CREDIT"));
-        try {
-            rowVals.commit();
-        } catch (SQLException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-    }
 
     /**
      * Génération d'un groupe d'écritures respectant la partie double.

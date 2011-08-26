@@ -24,7 +24,6 @@ import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -287,12 +286,7 @@ public class PlanComptableEPanel extends JPanel {
 
                                     Where w = new Where(ecrTable.getField("ID_JOURNAL"), "=", rowEcr.getInt("ID_JOURNAL"));
 
-                                    f2.getPanel().setRequest(ListSQLRequest.copy(f2.getPanel().getElement().getListRequest(), w));
-
-                                    // on doit remettre le renderer comme les colonnes ont changé
-                                    for (int i = 0; i < f2.getPanel().getListe().getJTable().getColumnCount(); i++) {
-                                        f2.getPanel().getListe().getJTable().getColumnModel().getColumn(i).setCellRenderer(ListEcritureRenderer.getInstance());
-                                    }
+                                    f2.getPanel().getListe().getRequest().setWhere(w);
                                     f2.getPanel().getListe().setSQLEditable(false);
                                     f2.pack();
                                     f2.setVisible(true);
@@ -325,13 +319,7 @@ public class PlanComptableEPanel extends JPanel {
                 SQLRow rowCompte = base.getTable("COMPTE_PCE").getRow(((PlanComptableEModel) (table.getModel())).getId(row));
 
                 Where w = new Where(ecrTable.getField("ID_COMPTE_PCE"), "=", rowCompte.getID());
-                SQLElement eltEcriture = Configuration.getInstance().getDirectory().getElement("ECRITURE");
-                f.getPanel().setRequest(ListSQLRequest.copy(eltEcriture.getListRequest(), w));
-
-                // on doit remettre le renderer comme les colonnes ont changé
-                for (int i = 0; i < f.getPanel().getListe().getJTable().getColumnCount(); i++) {
-                    f.getPanel().getListe().getJTable().getColumnModel().getColumn(i).setCellRenderer(ListEcritureRenderer.getInstance());
-                }
+                f.getPanel().getListe().getRequest().setWhere(w);
 
                 f.getPanel().getListe().setSQLEditable(false);
                 f.pack();

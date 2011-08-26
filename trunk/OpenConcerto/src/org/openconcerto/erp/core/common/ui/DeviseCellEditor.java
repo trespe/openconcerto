@@ -16,6 +16,7 @@
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.utils.GestionDevise;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.event.ActionEvent;
 import java.awt.event.FocusAdapter;
@@ -32,6 +33,7 @@ import javax.swing.AbstractCellEditor;
 import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.border.LineBorder;
 import javax.swing.table.TableCellEditor;
 
 
@@ -45,7 +47,8 @@ public class DeviseCellEditor extends AbstractCellEditor implements TableCellEdi
     private float taxe = 19.6F;
 
     public DeviseCellEditor() {
-
+        // Mimic JTable.GenericEditor behavior
+        this.textField.setBorder(new LineBorder(Color.black));
         // On ne peut saisir qu'un chiffre à 2 décimales
         textField.addKeyListener(new KeyAdapter() {
             public void keyTyped(java.awt.event.KeyEvent keyEvent) {

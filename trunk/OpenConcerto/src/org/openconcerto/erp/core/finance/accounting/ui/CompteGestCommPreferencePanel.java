@@ -231,7 +231,7 @@ public class CompteGestCommPreferencePanel extends DefaultPreferencePanel {
 
         // Compte TVA intracommunautaire
         c.gridy++;
-        c.weighty = 1;
+        c.weighty = 0;
         c.weightx = 0;
         c.gridx = 0;
         this.add(new JLabel("Compte TVA sur immobilisations"), c);

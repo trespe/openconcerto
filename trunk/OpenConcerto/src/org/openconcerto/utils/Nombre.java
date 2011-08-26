@@ -26,8 +26,23 @@ public class Nombre {
 
     static int[] puissanceMille = { 0, 1000, 1000000, 1000000000 };
 
+    static final String[] ref0Eng = { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+            "seventeen", "eighteen", "nineteen", "twenty" };
+    static final String[] ref10Eng = { "zero", "ten", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety", "hundred" };
+
+    static final String[] refmultEng = { "thousand", "million", "billion", "billion", "trillion" };// 3,6,9,12,15
+
+    public static int FR = 0;
+    public static int EN = 1;
+    private int language = FR;
+
     public Nombre(int i) {
+        this(i, FR);
+    }
+
+    public Nombre(int i, int language) {
         this.nb = i;
+        this.language = language;
     }
 
     public String getText() {
@@ -36,26 +51,26 @@ public class Nombre {
             result.append("moins ");
 
         if (this.nb <= 20) {
-            result.append(ref0[this.nb]);
+            result.append(language == FR ? ref0[this.nb] : ref0Eng[this.nb]);
         } else if (this.nb < 100) {
 
             int decimal = this.nb / 10;
             int unit = this.nb % 10;
 
-            result.append(ref10[decimal]);
+            result.append(language == FR ? ref10[decimal] : ref10Eng[decimal]);
 
-            if (decimal != 7 && decimal != 9) {
+            if (this.language == EN || (decimal != 7 && decimal != 9)) {
                 if (unit > 0) { // trente, quarante..
                     if (unit == 1) {
-                        result.append(" et");
+                        result.append(language == FR ? " et" : " and");
                     }
-                    result.append(" " + ref0[unit]);
+                    result.append(" " + (language == FR ? ref0[unit] : ref0Eng[unit]));
                 }
             } else {
                 if (unit == 1) {
-                    result.append(" et");
+                    result.append(language == FR ? " et" : " and");
                 }
-                result.append(" " + ref0[unit + 10]);
+                result.append(" " + (language == FR ? ref0[unit + 10] : ref0Eng[unit + 10]));
             }
 
         } else {
@@ -65,13 +80,13 @@ public class Nombre {
                 int cent = this.nb / 100;
 
                 if (cent == 1) {
-                    result.append("cent");
+                    result.append(language == FR ? "cent" : "one hundred");
                 } else {
-                    result.append(ref0[cent] + " cent");
+                    result.append((language == FR ? ref0[cent] : ref0Eng[cent]) + (language == FR ? " cent" : " hundred"));
                 }
                 int reste = this.nb - (cent * 100);
                 if (reste > 0) {
-                    Nombre d = new Nombre(reste);
+                    Nombre d = new Nombre(reste, language);
                     result.append(" " + d.getText());
                 }
             } else {
@@ -85,9 +100,9 @@ public class Nombre {
                     if (val > 0) {
                         if (val > 1 && (i - 1) > 0) {
 
-                            result.append(new Nombre(val).getText() + " " + refmult[i - 1] + "s ");
+                            result.append(new Nombre(val, this.language).getText() + " " + (language == FR ? refmult[i - 1] : refmultEng[i - 1]) + "s ");
                         } else {
-                            result.append(new Nombre(val).getText() + " " + refmult[i - 1] + " ");
+                            result.append(new Nombre(val, this.language).getText() + " " + (language == FR ? refmult[i - 1] : refmultEng[i - 1]) + " ");
                         }
                     }
                     cumul += val * puissancei;
@@ -95,7 +110,7 @@ public class Nombre {
 
                 int val = this.nb % 1000;
                 if (val > 0) {
-                    result.append(new Nombre(val).getText());
+                    result.append(new Nombre(val, this.language).getText());
                 }
             }
         }

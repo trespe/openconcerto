@@ -37,12 +37,12 @@ public abstract class ItemPool {
 
     private final ItemPoolFactory creator;
     private final ListSQLView panel;
-    private final Set validListeners;
+    private final Set<ValidListener> validListeners;
 
     public ItemPool(ItemPoolFactory parent, ListSQLView panel) {
         this.creator = parent;
         this.panel = panel;
-        this.validListeners = new HashSet();
+        this.validListeners = new HashSet<ValidListener>();
     }
 
     public abstract void reset();
@@ -68,21 +68,21 @@ public abstract class ItemPool {
      * 
      * @return a List of SQLRowItemView.
      */
-    public abstract List getItems();
+    public abstract List<SQLRowItemView> getItems();
 
     /**
      * Get the items that will be added to the DB on the next update/insert.
      * 
      * @return a List of SQLRowItemView.
      */
-    public abstract List getAddedItems();
+    public abstract List<SQLRowItemView> getAddedItems();
 
     /**
      * Get the items that will be deleted from the DB on the next update/insert.
      * 
      * @return a List of SQLRowItemView.
      */
-    public abstract List getRemovedItems();
+    public abstract List<SQLRowItemView> getRemovedItems();
 
     protected final ItemPoolFactory getCreator() {
         return this.creator;
@@ -116,12 +116,14 @@ public abstract class ItemPool {
         this.validListeners.add(l);
     }
 
+    public void removeValidListener(ValidListener l) {
+        this.validListeners.remove(l);
+    }
+
     protected synchronized final void fireValidChange() {
         // ATTN called very often during a select() (for each SQLObject empty & value change)
         final boolean validated = this.isValidated();
-        final Iterator iter = this.validListeners.iterator();
-        while (iter.hasNext()) {
-            final ValidListener l = (ValidListener) iter.next();
+        for (final ValidListener l : this.validListeners) {
             l.validChange(this.getPanel(), validated);
         }
     }
@@ -129,9 +131,9 @@ public abstract class ItemPool {
     final boolean isValidated() {
         // si la liste est vide, elle est valide
         boolean res = true;
-        final Iterator iter = this.getItems().iterator();
+        final Iterator<SQLRowItemView> iter = this.getItems().iterator();
         while (iter.hasNext() && res) {
-            final SQLRowItemView v = (SQLRowItemView) iter.next();
+            final SQLRowItemView v = iter.next();
             res = v.isValidated();
         }
         return res;

@@ -22,7 +22,6 @@ import org.openconcerto.ui.component.ITextArea;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-
 import java.util.ArrayList;
 import java.util.List;
 

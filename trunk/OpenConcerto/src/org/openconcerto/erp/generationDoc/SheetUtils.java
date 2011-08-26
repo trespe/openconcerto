@@ -15,6 +15,7 @@
 
 import java.awt.Graphics2D;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -80,7 +81,8 @@ public class SheetUtils {
                     public void run() {
                         try {
 
-                            JOptionPane.showMessageDialog(null, "Le fichier " + finalFile.getCanonicalPath() + " n'a pu être créé. \n Impossible de déplacer le fichier existant dans l'historique.\n Vérifier que le document n'est pas déjà ouvert.");
+                            JOptionPane.showMessageDialog(null, "Le fichier " + finalFile.getCanonicalPath()
+                                    + " n'a pu être créé. \n Impossible de déplacer le fichier existant dans l'historique.\n Vérifier que le document n'est pas déjà ouvert.");
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
@@ -119,55 +121,68 @@ public class SheetUtils {
         return result;
     }
 
-    public void convert2PDF(OpenDocument doc, File f, String fileName) throws Exception {
+    public void convert2PDF(final OpenDocument doc, final File f, final String fileName) throws Exception {
 
-        // Open the PDF document
-        Document document = new Document(PageSize.A4);
-        File outFile = new File(f.getParent(), fileName + ".pdf");
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                // TODO Raccord de méthode auto-généré
 
-        PdfDocument pdf = new PdfDocument();
-        document.addDocListener(pdf);
+                // Open the PDF document
+                Document document = new Document(PageSize.A4);
+                File outFile = new File(f.getParent(), fileName + ".pdf");
 
-        FileOutputStream fileOutputStream = new FileOutputStream(outFile);
-        PdfWriter writer = PdfWriter.getInstance(pdf, fileOutputStream);
-        pdf.addWriter(writer);
+                PdfDocument pdf = new PdfDocument();
+                document.addDocListener(pdf);
 
-        document.open();
+                FileOutputStream fileOutputStream;
+                try {
+                    fileOutputStream = new FileOutputStream(outFile);
+                    PdfWriter writer = PdfWriter.getInstance(pdf, fileOutputStream);
+                    pdf.addWriter(writer);
 
-        // Create a template and a Graphics2D object
-        com.lowagie.text.Rectangle pageSize = document.getPageSize();
-        int w = (int) (pageSize.getWidth() * 0.9);
-        int h = (int) (pageSize.getHeight() * 0.95);
-        PdfContentByte cb = writer.getDirectContent();
-        PdfTemplate tp = cb.createTemplate(w, h);
+                    document.open();
 
-        Graphics2D g2 = tp.createPrinterGraphics(w, h, null);
-        // If you want to prevent copy/paste, you can use
-        // g2 = tp.createGraphicsShapes(w, h, true, 0.9f);
+                    // Create a template and a Graphics2D object
+                    com.lowagie.text.Rectangle pageSize = document.getPageSize();
+                    int w = (int) (pageSize.getWidth() * 0.9);
+                    int h = (int) (pageSize.getHeight() * 0.95);
+                    PdfContentByte cb = writer.getDirectContent();
+                    PdfTemplate tp = cb.createTemplate(w, h);
 
-        tp.setWidth(w);
-        tp.setHeight(h);
+                    Graphics2D g2 = tp.createPrinterGraphics(w, h, null);
+                    // If you want to prevent copy/paste, you can use
+                    // g2 = tp.createGraphicsShapes(w, h, true, 0.9f);
 
-        // Configure the renderer
-        ODTRenderer renderer = new ODTRenderer(doc);
-        renderer.setIgnoreMargins(true);
-        renderer.setPaintMaxResolution(true);
+                    tp.setWidth(w);
+                    tp.setHeight(h);
 
-        // Scale the renderer to fit width
-        renderer.setResizeFactor(renderer.getPrintWidth() / w);
-        // Render
-        renderer.paintComponent(g2);
-        g2.dispose();
+                    // Configure the renderer
+                    ODTRenderer renderer = new ODTRenderer(doc);
+                    renderer.setIgnoreMargins(true);
+                    renderer.setPaintMaxResolution(true);
 
-        // Add our spreadsheet in the middle of the page
-        float offsetX = (pageSize.getWidth() - w) / 2;
-        float offsetY = (pageSize.getHeight() - h) / 2;
-        cb.addTemplate(tp, offsetX, offsetY);
-        // Close the PDF document
-        document.close();
-        writer.close();
-        fileOutputStream.close();
+                    // Scale the renderer to fit width
+                    renderer.setResizeFactor(renderer.getPrintWidth() / w);
+                    // Render
+                    renderer.paintComponent(g2);
+                    g2.dispose();
 
+                    // Add our spreadsheet in the middle of the page
+                    float offsetX = (pageSize.getWidth() - w) / 2;
+                    float offsetY = (pageSize.getHeight() - h) / 2;
+                    cb.addTemplate(tp, offsetX, offsetY);
+                    // Close the PDF document
+                    document.close();
+                    writer.close();
+                    fileOutputStream.close();
+
+                } catch (Exception exn) {
+                    // TODO Bloc catch auto-généré
+                    exn.printStackTrace();
+                }
+            }
+        });
     }
 
 }

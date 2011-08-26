@@ -20,29 +20,27 @@ import org.openconcerto.sql.request.SQLRowItemView;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Iterator;
 import java.util.List;
 
 // gère les créés, effacés, inchangés
 public abstract class FFItemPool extends ItemPool {
 
-    // [SQLRowItemView]
     // items that have been neither added nor removed since show()
     // but they may have been changed (ie change the CONSTATATION of an observation)
-    protected final List stills;
+    protected final List<SQLRowItemView> stills;
     // items that have been added since show()
-    protected final List added;
+    protected final List<SQLRowItemView> added;
     // items that have been removed since show()
-    protected final List removed;
-    // free items, [SQLField]
-    protected final List availables;
+    protected final List<SQLRowItemView> removed;
+    // free items
+    protected final List<SQLField> availables;
 
     public FFItemPool(ItemPoolFactory parent, ListSQLView panel) {
         super(parent, panel);
-        this.stills = new ArrayList();
-        this.added = new ArrayList();
-        this.removed = new ArrayList();
-        this.availables = new ArrayList();
+        this.stills = new ArrayList<SQLRowItemView>();
+        this.added = new ArrayList<SQLRowItemView>();
+        this.removed = new ArrayList<SQLRowItemView>();
+        this.availables = new ArrayList<SQLField>();
 
         this.reset();
     }
@@ -58,12 +56,10 @@ public abstract class FFItemPool extends ItemPool {
     public final void show(SQLRowAccessor r) {
         this.reset();
 
-        final List availableViews = new ArrayList(this.getPanel().getExistantViews());
+        final List<ListItemSQLView> availableViews = new ArrayList<ListItemSQLView>(this.getPanel().getExistantViews());
         // eg ARTICLE[12], ARTICLE[25]
-        final List items = this.getCreator().getItems(r);
-        final Iterator iter = items.iterator();
-        while (iter.hasNext()) {
-            final SQLRowAccessor foreignRow = (SQLRowAccessor) iter.next();
+        final List<SQLRowAccessor> items = this.getCreator().getItems(r);
+        for (final SQLRowAccessor foreignRow : items) {
             // reuse existant views and create necessary ones
             final ListItemSQLView v;
             if (availableViews.isEmpty()) {
@@ -107,17 +103,17 @@ public abstract class FFItemPool extends ItemPool {
 
     //
 
-    public List getItems() {
-        final List res = new ArrayList(this.stills);
+    public List<SQLRowItemView> getItems() {
+        final List<SQLRowItemView> res = new ArrayList<SQLRowItemView>(this.stills);
         res.addAll(this.added);
         return res;
     }
 
-    public List getAddedItems() {
+    public List<SQLRowItemView> getAddedItems() {
         return Collections.unmodifiableList(this.added);
     }
 
-    public List getRemovedItems() {
+    public List<SQLRowItemView> getRemovedItems() {
         return Collections.unmodifiableList(this.removed);
     }
 

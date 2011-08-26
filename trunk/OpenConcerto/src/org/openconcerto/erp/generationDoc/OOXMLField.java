@@ -14,6 +14,7 @@
  package org.openconcerto.erp.generationDoc;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -26,7 +27,10 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.Nombre;
+import org.openconcerto.utils.StringUtils;
+import org.openconcerto.utils.Tuple2;
 
+import java.math.BigDecimal;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -37,25 +41,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
 import org.jdom.Element;
 
 public class OOXMLField extends OOXMLElement {
 
     private String op = "";
 
-    public OOXMLField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id) {
-        super(eltField, sqlElt, id);
+    public OOXMLField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, SQLRow rowLanguage) {
+        super(eltField, sqlElt, id, rowLanguage);
 
         String base = eltField.getAttributeValue("base");
-
         this.op = eltField.getAttributeValue("op");
 
         this.row = row;
         if ((this.row == null || !this.row.getTable().getSchema().getName().equalsIgnoreCase("Common")) && base != null && base.equalsIgnoreCase("COMMON")) {
             this.row = ((ComptaPropsConfiguration) Configuration.getInstance()).getRowSociete();
         }
-        if (row == null) {
+        if (this.row == null) {
             this.row = sqlElt.getTable().getRow(id);
         }
 
@@ -102,9 +104,13 @@ public class OOXMLField extends OOXMLElement {
 
                             String result = "";
                             for (Element ssComposant : children) {
-                                OOXMLField childElt = new OOXMLField(ssComposant, foreignRow, this.sqlElt, this.id);
+                                OOXMLField childElt = new OOXMLField(ssComposant, foreignRow, this.sqlElt, this.id, this.rowLanguage);
                                 final Object valueComposantO = childElt.getValue();
                                 result += (valueComposantO == null) ? "" : valueComposantO.toString() + " ";
+                            }
+                            String cellSize = this.elt.getAttributeValue("cellSize");
+                            if (cellSize != null && cellSize.trim().length() != 0) {
+                                result = splitStringCell(cellSize, result);
                             }
                             return result.trim();
                         } else {
@@ -112,7 +118,7 @@ public class OOXMLField extends OOXMLElement {
                         }
                     } else {
                         if (isValid()) {
-                            OOXMLField childElt = new OOXMLField(this.elt.getChild("field"), foreignRow, this.sqlElt, this.id);
+                            OOXMLField childElt = new OOXMLField(this.elt.getChild("field"), foreignRow, this.sqlElt, this.id, this.rowLanguage);
                             return childElt.getValue();
                         } else {
                             return "";
@@ -145,9 +151,22 @@ public class OOXMLField extends OOXMLElement {
                 }
 
                 // Liste des valeurs à ne pas afficher
-                List<String> listOfExpectedValues = null;
+                List<String> listOfExcludedValues = null;
                 if (this.elt.getAttributeValue("valuesExpected") != null) {
-                    listOfExpectedValues = SQLRow.toList(this.elt.getAttributeValue("valuesExpected"));
+                    listOfExcludedValues = SQLRow.toList(this.elt.getAttributeValue("valuesExpected"));
+                }
+                List<Element> excludeValue = this.elt.getChildren("exclude");
+                if (excludeValue != null && excludeValue.size() > 0) {
+                    if (listOfExcludedValues == null) {
+                        listOfExcludedValues = new ArrayList<String>();
+                    } else {
+                        listOfExcludedValues = new ArrayList<String>(listOfExcludedValues);
+                    }
+
+                    for (Element element : excludeValue) {
+                        String attributeValue = element.getAttributeValue("value");
+                        listOfExcludedValues.add(attributeValue);
+                    }
                 }
 
                 // Champ boolean
@@ -192,10 +211,11 @@ public class OOXMLField extends OOXMLElement {
                     }
 
                     // on ne fait rien si le champ n'est pas à afficher
-                    if (listOfExpectedValues == null || ((!listOfExpectedValues.contains(stringValue)) && stringValue.trim().length() > 0)) {
+                    if (listOfExcludedValues == null || ((!listOfExcludedValues.contains(stringValue)) && stringValue.trim().length() > 0)) {
                         String prefix = this.elt.getAttributeValue("prefix");
                         String suffix = this.elt.getAttributeValue("suffix");
                         String display = this.elt.getAttributeValue("display");
+                        String cellSize = this.elt.getAttributeValue("cellSize");
                         if (prefix != null || suffix != null) {
 
                             String result = "";
@@ -212,7 +232,9 @@ public class OOXMLField extends OOXMLElement {
                             if (suffix != null) {
                                 result += suffix;
                             }
-
+                            if (cellSize != null && cellSize.trim().length() != 0) {
+                                result = splitStringCell(cellSize, result);
+                            }
                             return result;
                         } else {
                             if (display == null || !display.equalsIgnoreCase("false")) {
@@ -226,13 +248,23 @@ public class OOXMLField extends OOXMLElement {
             }
         }
 
-        return "";
+        return null;
 
+    }
+
+    private String splitStringCell(String cellSize, String result) {
+        try {
+            int nbCar = Integer.parseInt(cellSize);
+            result = StringUtils.splitString(result, nbCar);
+        } catch (NumberFormatException e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 
     protected Object getSpecialValue(String typeComp) {
         String field = this.elt.getAttributeValue("name");
-        final Object object = this.row.getObject(field);
+        final Object result = this.row.getObject(field);
 
         // Liste des valeurs à ne pas afficher
         List<String> listOfExpectedValues = null;
@@ -240,7 +272,7 @@ public class OOXMLField extends OOXMLElement {
             listOfExpectedValues = SQLRow.toList(this.elt.getAttributeValue("valuesExpected"));
         }
 
-        String stringValue = (object == null) ? "" : object.toString();
+        String stringValue = (result == null) ? "" : result.toString();
         if (typeComp != null && typeComp.trim().length() > 0) {
 
             // Type spécial
@@ -250,155 +282,118 @@ public class OOXMLField extends OOXMLElement {
                 SQLSelect sel = new SQLSelect(this.row.getTable().getBase());
                 sel.addSelect(this.row.getTable().getKey(), "COUNT");
                 Where w = new Where(this.row.getTable().getField("DATE"), "<=", this.row.getDate("DATE").getTime());
-                w = w.and(new Where(this.row.getTable().getField("ID_AFFAIRE"), "=", this.row.getInt("ID_AFFAIRE")));
                 sel.setWhere(w);
-
                 return this.row.getTable().getBase().getDataSource().executeScalar(sel.asString());
-            } else {
-                if (typeComp.equalsIgnoreCase("Devise")) {
-                    Number prix = (Number) object;
-                    if (listOfExpectedValues != null) {
-                        for (String string : listOfExpectedValues) {
-                            Long l = Long.parseLong(string);
-                            if (l.longValue() == prix.longValue()) {
-                                return "";
-                            }
-                        }
-                    }
-                    return new Double(GestionDevise.currencyToString(prix.longValue(), false));
-                } else {
-                    if (typeComp.equalsIgnoreCase("globalAcompte")) {
-                        Long prix = (Long) object;
-                        int pourcent = this.row.getInt("POURCENT_ACOMPTE");
-                        long l = Math.round(prix.longValue() / (pourcent / 100.0));
-                        return new Double(GestionDevise.currencyToString(l, false));
-                    } else {
-                        if (typeComp.equalsIgnoreCase("DateEcheanceFiche")) {
-                            Date d = getDateEch(this.row);
-                            if (d != null) {
-                                final DateFormat format2 = new SimpleDateFormat("dd/MM/yyyy");
-                                return format2.format(d);
-                            } else {
-                                return "";
-                            }
-                        } else {
-                            if (typeComp.equalsIgnoreCase("MoisEcheanceFiche")) {
-                                return getMoisEch(this.row);
-                            } else {
-                                if (typeComp.equalsIgnoreCase("SituationAdminFiche")) {
-                                    return getSituationAdmin(this.row);
-                                } else {
-                                    if (typeComp.equalsIgnoreCase("AcompteVerse")) {
-                                        return getAcompteVerse(this.row);
-                                    } else {
-                                        if (typeComp.equalsIgnoreCase("CumulPrec")) {
-
-                                            final long cumulPrecedent = getCumulPrecedent(this.row);
-                                            return new Double(GestionDevise.currencyToString(cumulPrecedent, false));
-                                        } else {
-                                            if (typeComp.equalsIgnoreCase("Activite")) {
-                                                return object.toString() + getActivite(this.id);
-                                            } else {
-                                                // Devise exprimée en lettre
-                                                if (typeComp.equalsIgnoreCase("DeviseLettre")) {
-                                                    Long prix = (Long) object;
-                                                    return getLettreFromDevise(prix.longValue());
-                                                } else {
-                                                    // Proposition associée à la facture (Notre
-                                                    // propo N°
-                                                    // ...
-                                                    // du
-                                                    // ...)
-                                                    if (typeComp.equalsIgnoreCase("propositionFacture")) {
-                                                        return getStringProposition(this.row);
-                                                    } else {
-
-                                                        // Ville si null on retourne la valeur du
-                                                        // champ
-                                                        // de
-                                                        // la
-                                                        // base
-                                                        if (typeComp.equalsIgnoreCase("Ville")) {
-                                                            stringValue = (object == null) ? "" : object.toString();
-                                                            final String ville = getVille(stringValue);
-                                                            if (ville == null) {
-                                                                return stringValue;
-                                                            } else {
-                                                                return ville;
-                                                            }
-                                                        } else {
-                                                            // Code postal de la ville
-                                                            if (typeComp.equalsIgnoreCase("ListeVerificateur")) {
-                                                                return getListeVerificateur(this.row);
-                                                            } else {
-
-                                                                // Code postal de la ville
-                                                                if (typeComp.equalsIgnoreCase("VilleCP")) {
-                                                                    stringValue = (object == null) ? "" : object.toString();
-                                                                    return getVilleCP(stringValue, this.row);
-                                                                } else {
-
-                                                                    // Retourne la date d'échéance
-                                                                    if (typeComp.equalsIgnoreCase("DateEcheance")) {
-
-                                                                        int idModeReglement = this.row.getInt("ID_MODE_REGLEMENT");
-                                                                        Date d = (Date) this.row.getObject("DATE");
-                                                                        return getDateEcheance(idModeReglement, d);
-                                                                    } else {
-                                                                        if (typeComp.equalsIgnoreCase("Jour")) {
-                                                                            int day = this.row.getInt(field);
-                                                                            stringValue = "le " + String.valueOf(day);
-                                                                            if (day == 31) {
-                                                                                return "fin de mois";
-                                                                            } else {
-                                                                                if (day == 0) {
-                                                                                    return "Date de facture";
-                                                                                } else {
-
-                                                                                    return stringValue;
-                                                                                }
-                                                                            }
-                                                                        } else {
-                                                                            if (typeComp.equalsIgnoreCase("Date")) {
-
-                                                                                String datePattern = this.elt.getAttributeValue("DatePattern");
-                                                                                if (datePattern == null || datePattern.trim().length() == 0) {
-                                                                                    datePattern = "dd/MM/yyyy";
-                                                                                }
-                                                                                SimpleDateFormat format = new SimpleDateFormat(datePattern);
-                                                                                if (object != null) {
-                                                                                    Date d = (Date) object;
-                                                                                    return format.format(d);
-                                                                                } else {
-                                                                                    return "";
-                                                                                }
-                                                                            }
-                                                                            if (typeComp.equalsIgnoreCase("initiale")) {
-                                                                                stringValue = (object == null) ? "" : object.toString();
-                                                                                if (stringValue.trim().length() > 0) {
-                                                                                    stringValue = String.valueOf(stringValue.charAt(0));
-                                                                                }
-                                                                                return stringValue;
-                                                                            }
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+            } else if (typeComp.equalsIgnoreCase("Devise")) {
+                Number prix = (Number) result;
+                if (listOfExpectedValues != null) {
+                    for (String string : listOfExpectedValues) {
+                        Long l = Long.parseLong(string);
+                        if (l.longValue() == prix.longValue()) {
+                            return "";
                         }
                     }
                 }
+                return new Double(GestionDevise.currencyToString(prix.longValue(), false));
+            } else if (typeComp.equalsIgnoreCase("globalAcompte")) {
+                Long prix = (Long) result;
+                int pourcent = this.row.getInt("POURCENT_ACOMPTE");
+                long l = Math.round(prix.longValue() / (pourcent / 100.0));
+                return new Double(GestionDevise.currencyToString(l, false));
+            } else if (typeComp.equalsIgnoreCase("CumulPrec")) {
+
+                final long cumulPrecedent = getCumulPrecedent(this.row);
+                return new Double(GestionDevise.currencyToString(cumulPrecedent, false));
+            } else if (typeComp.equalsIgnoreCase("DeviseLettre")) {
+                // Devise exprimée en lettre
+                Long prix = (Long) result;
+                return getLettreFromDevise(prix.longValue(), Nombre.FR, Tuple2.create(" euros ", " cents"));
+            } else if (typeComp.equalsIgnoreCase("DeviseLettreEng")) {
+                // Devise exprimée en lettre
+                Long prix = (Long) result;
+                SQLRowAccessor tarif = this.row.getForeign("ID_TARIF");
+                if (tarif.isUndefined()) {
+                    return getLettreFromDevise(prix.longValue(), Nombre.EN, Tuple2.create(" euros ", " cents"));
+                } else {
+                    SQLRowAccessor rowDevise = tarif.getForeign("ID_DEVISE");
+                    if (rowDevise.isUndefined()) {
+                        return getLettreFromDevise(prix.longValue(), Nombre.EN, Tuple2.create(" euros ", " cents"));
+                    } else {
+                        return getLettreFromDevise(prix.longValue(), Nombre.EN, Tuple2.create(" " + rowDevise.getString("LIBELLE") + " ", " " + rowDevise.getString("LIBELLE_CENT") + " "));
+                    }
+                }
+            } else if (typeComp.equalsIgnoreCase("Ville")) {
+                // Ville si null on retourne la valeur du
+                // champ de la base
+                stringValue = (result == null) ? "" : result.toString();
+                final String ville = getVille(stringValue);
+                if (ville == null) {
+                    return stringValue;
+                } else {
+                    return ville;
+                }
+            } else if (typeComp.equalsIgnoreCase("VilleCP")) {
+                // Code postal de la ville
+                stringValue = (result == null) ? "" : result.toString();
+                return getVilleCP(stringValue, this.row);
+            } else if (typeComp.equalsIgnoreCase("DateEcheance")) {
+                // Retourne la date d'échéance
+                int idModeReglement = this.row.getInt("ID_MODE_REGLEMENT");
+                Date d = (Date) this.row.getObject("DATE");
+                return getDateEcheance(idModeReglement, d);
+            } else if (typeComp.equalsIgnoreCase("Jour")) {
+                int day = this.row.getInt(field);
+                stringValue = "le " + String.valueOf(day);
+                if (day == 31) {
+                    return "fin de mois";
+                } else if (day == 0) {
+                    return "Date de facture";
+                } else {
+                    return stringValue;
+                }
+            } else if (typeComp.equalsIgnoreCase("Date")) {
+
+                String datePattern = this.elt.getAttributeValue("DatePattern");
+                if (datePattern == null || datePattern.trim().length() == 0) {
+                    datePattern = "dd/MM/yyyy";
+                }
+                SimpleDateFormat format = new SimpleDateFormat(datePattern);
+                if (result != null) {
+                    Date d = (Date) result;
+                    return format.format(d);
+                } else {
+                    return "";
+                }
+            } else if (typeComp.equalsIgnoreCase("initiale")) {
+                stringValue = (result == null) ? "" : result.toString();
+                if (stringValue.trim().length() > 0) {
+                    stringValue = String.valueOf(stringValue.charAt(0));
+                }
+                return stringValue;
             }
+
         }
 
-        return (object == null) ? "" : object;
+        return (result == null) ? "" : result;
+    }
+
+    private Object getTraduction() {
+        if (this.rowLanguage == null || this.rowLanguage.isUndefined()) {
+            return null;
+        }
+        int id = ReferenceArticleSQLElement.getIdForCNM(row.asRowValues(), false);
+        SQLTable table = Configuration.getInstance().getBase().getTable("ARTICLE_DESIGNATION");
+        SQLSelect sel = new SQLSelect(table.getBase());
+        sel.addSelectStar(table);
+        Where w = new Where(table.getField("ID_ARTICLE"), "=", id);
+        w = w.and(new Where(table.getField("ID_LANGUE"), "=", this.rowLanguage.getID()));
+        sel.setWhere(w);
+        List<SQLRow> rows = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
+        if (rows != null && rows.size() > 0) {
+            return rows.get(0).getString(this.elt.getAttributeValue("name"));
+        } else {
+            return this.row.getObject(this.elt.getAttributeValue("name"));
+        }
     }
 
     public boolean isValid() {
@@ -418,11 +413,15 @@ public class OOXMLField extends OOXMLElement {
         Collection<? extends SQLRowAccessor> factElts = rowFact.getReferentRows(tableElt);
 
         for (SQLRowAccessor row : factElts) {
-            Collection<? extends SQLRowAccessor> rowsElt = row.getForeign("ID_MISSION").getReferentRows(tableElt);
-            for (SQLRowAccessor row2 : rowsElt) {
-                SQLRowAccessor rowFacture = row2.getForeign("ID_SAISIE_VENTE_FACTURE");
-                if (rowFacture.getDate("DATE").before(rowFact.getDate("DATE"))) {
-                    cumul += row2.getLong("T_PV_HT");
+
+            final SQLRowAccessor foreign = row.getForeign("ID_MISSION");
+            if (foreign.getID() > 1) {
+                Collection<? extends SQLRowAccessor> rowsElt = foreign.getReferentRows(tableElt);
+                for (SQLRowAccessor row2 : rowsElt) {
+                    SQLRowAccessor rowFacture = row2.getForeign("ID_SAISIE_VENTE_FACTURE");
+                    if (rowFacture.getDate("DATE").before(rowFact.getDate("DATE"))) {
+                        cumul += row2.getLong("T_PV_HT");
+                    }
                 }
             }
         }
@@ -430,76 +429,50 @@ public class OOXMLField extends OOXMLElement {
         return cumul;
     }
 
-    private static Date getDateEch(SQLRowAccessor rowFiche) {
+    private static long getMontantGlobal(SQLRowAccessor rowFact) {
 
-        Date d = null;
-
-        // On recupere les missions associées
-        Collection<? extends SQLRowAccessor> factElts = rowFiche.getReferentRows(rowFiche.getTable().getTable("FICHE_RENDEZ_VOUS_ELEMENT"));
-
-        if (factElts != null && factElts.size() > 0) {
-            Object[] rows = factElts.toArray();
-            int i = 0;
-            Calendar date;
-            while (i < factElts.size()) {
-                date = ((SQLRow) rows[i]).getDate("DATE_ECHEANCE");
-                if (date != null) {
-                    d = date.getTime();
-                    break;
-                }
-                i++;
-            }
-        }
-
-        return d;
-    }
-
-    private static String getMoisEch(SQLRowAccessor rowFiche) {
-
-        String mois = "";
+        long cumul = 0;
 
         // On recupere les missions associées
-        SQLTable tableElt = Configuration.getInstance().getRoot().findTable("FICHE_RENDEZ_VOUS_ELEMENT");
-        Collection<? extends SQLRowAccessor> factElts = rowFiche.getReferentRows(tableElt);
+        SQLTable tableElt = Configuration.getInstance().getRoot().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
+        Collection<? extends SQLRowAccessor> factElts = rowFact.getReferentRows(tableElt);
 
-        if (factElts != null && factElts.size() > 0) {
-            Object[] rows = factElts.toArray();
-            int i = 0;
-            while (i < factElts.size()) {
-                int idMois = ((SQLRow) rows[i]).getInt("ID_MOIS_PREV");
-                if (idMois > 1) {
-                    mois = ((SQLRow) rows[i]).getForeign("ID_MOIS_PREV").getString("NOM");
-                    break;
-                }
-                i++;
+        for (SQLRowAccessor row : factElts) {
+            Long p0 = (Long) row.getObject("MONTANT_INITIAL");
+            Long l0 = (Long) row.getObject("INDICE_0");
+            Long lN = (Long) row.getObject("INDICE_N");
+            final Object o = row.getObject("POURCENT_ACOMPTE");
+            final Object o2 = row.getObject("POURCENT_REMISE");
+            double lA = (o == null) ? 0 : ((BigDecimal) o).doubleValue();
+            double lremise = (o2 == null) ? 0 : ((BigDecimal) o2).doubleValue();
+            Long p;
+            if (l0 != 0) {
+                double d;
+                double coeff = ((double) lN) / ((double) l0);
+
+                d = 0.15 + (0.85 * coeff);
+                p = Math.round(d * p0);
+            } else {
+                p = p0;
             }
+            // if (lA >= 0 && lA != 100) {
+            // p = Math.round(p * (lA / 100.0));
+            // }
+            if (lremise > 0 && lremise != 100) {
+                p = Math.round(p * (100.0 - lremise) / 100.0);
+            }
+            cumul += p;
         }
 
-        return mois;
+        // Echantillons
+        SQLTable tableEchElt = Configuration.getInstance().getRoot().findTable("ECHANTILLON_ELEMENT");
+        Collection<? extends SQLRowAccessor> echElts = rowFact.getReferentRows(tableEchElt);
+        for (SQLRowAccessor sqlRowAccessor : echElts) {
+            cumul += sqlRowAccessor.getLong("T_PV_HT");
+        }
+        return cumul;
     }
 
-    private static String getSituationAdmin(SQLRowAccessor rowFiche) {
-
-        SQLTable tableElt = Configuration.getInstance().getRoot().findTable("FICHE_RENDEZ_VOUS_ELEMENT");
-        Collection<? extends SQLRowAccessor> rows = rowFiche.getReferentRows(tableElt);
-
-        String text = "";
-        List<String> l = new ArrayList<String>();
-        for (SQLRowAccessor row : rows) {
-
-            final String situation = row.getString("SITUATION_ADMIN");
-            if (!l.contains(situation)) {
-                text += situation + ", ";
-                l.add(situation);
-            }
-        }
-
-        if (text.length() > 0) {
-            text = text.substring(0, text.length() - 2);
-        }
-
-        return text;
-    }
 
     private static List<Integer> getListId(Collection<SQLRow> rowFactElts) {
         return getListId(rowFactElts, null);
@@ -518,31 +491,6 @@ public class OOXMLField extends OOXMLElement {
         return l;
     }
 
-    /**
-     * 
-     * @param idAffaire
-     * @return la liste des activités séparées par des -
-     */
-    private static String getActivite(int idAffaire) {
-
-        SQLElement eltAffaire = Configuration.getInstance().getDirectory().getElement("AFFAIRE");
-        SQLElement eltAffaireElt = Configuration.getInstance().getDirectory().getElement("AFFAIRE_ELEMENT");
-        List<SQLRow> s = eltAffaire.getTable().getRow(idAffaire).getReferentRows(eltAffaireElt.getTable());
-
-        String codes = "";
-        List<String> l = new ArrayList<String>(s.size());
-        for (SQLRow row : s) {
-
-            final String string = row.getString("ACTIVITE");
-            if (!l.contains(string)) {
-                l.add(string);
-                String code = "-" + string;
-                codes += code;
-            }
-        }
-
-        return codes;
-    }
 
     /**
      * transforme une devise exprimée en chiffres en lettres
@@ -550,20 +498,22 @@ public class OOXMLField extends OOXMLElement {
      * @param value
      * @return la devise exprimée en lettres
      */
-    private static String getLettreFromDevise(long value) {
+    private static String getLettreFromDevise(long value, int langue, Tuple2<String, String> deviseName) {
 
         StringBuffer result = new StringBuffer();
 
         Long decimal = Long.valueOf(value % 100);
         Long entier = Long.valueOf(value / 100);
 
-        Nombre n1 = new Nombre(entier.intValue());
-        Nombre n2 = new Nombre(decimal.intValue());
+        Nombre n1 = new Nombre(entier.intValue(), langue);
+        Nombre n2 = new Nombre(decimal.intValue(), langue);
 
-        result.append(n1.getText() + " euros");
+        // result.append(n1.getText() + " euros");
+        result.append(n1.getText() + deviseName.get0());
 
         if (decimal.intValue() > 0) {
-            result.append(" et " + n2.getText() + " cents");
+            // result.append(" et " + n2.getText() + " cents");
+            result.append((langue == Nombre.FR ? " et " : " and ") + n2.getText() + deviseName.get1());
         }
         if (result != null && result.length() > 0) {
             return result.toString().replaceFirst(String.valueOf(result.charAt(0)), String.valueOf(result.charAt(0)).toUpperCase());
@@ -599,79 +549,6 @@ public class OOXMLField extends OOXMLElement {
             }
         }
         return ville.getCodepostal();
-    }
-
-    protected static void initCacheAffaireCT(SQLRow row) {
-        SQLSelect sel = new SQLSelect(row.getTable().getBase());
-        final SQLTable tableFactElt = row.getTable().getTable("SAISIE_VENTE_FACTURE_ELEMENT");
-        final SQLTable tableAffElt = row.getTable().getTable("AFFAIRE_ELEMENT");
-
-        sel.addSelectStar(tableFactElt);
-        sel.addJoin("LEFT", tableFactElt.getField("ID_AFFAIRE_ELEMENT"));
-
-        Where w = new Where(sel.getAlias(tableAffElt.getField("ID_AFFAIRE")), "=", row.getInt("ID_AFFAIRE"));
-        w = w.or(new Where(sel.getAlias(tableFactElt.getField("ID_SAISIE_VENTE_FACTURE")), "=", row.getID()));
-        sel.setWhere(w);
-        List<SQLRowAccessor> l = (List<SQLRowAccessor>) row.getTable().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(tableFactElt, true));
-        System.err.println(l.size());
-        for (SQLRowAccessor sqlRow : l) {
-
-            // On cache les elt de factures references par les elements d'affaire
-            SQLRowAccessor affElt = OOXMLCache.getForeignRow(sqlRow, sqlRow.getTable().getField("ID_AFFAIRE_ELEMENT"));
-            Map<SQLRowAccessor, Map<SQLTable, List<SQLRowAccessor>>> cacheReferent = OOXMLCache.getCacheReferent();
-            if (affElt != null) {
-
-                Map<SQLTable, List<SQLRowAccessor>> m = cacheReferent.get(affElt);
-                if (m == null) {
-                    m = new HashMap<SQLTable, List<SQLRowAccessor>>();
-                    cacheReferent.put(affElt, m);
-                }
-                List<SQLRowAccessor> list = m.get(sqlRow.getTable());
-                if (list == null) {
-                    list = new ArrayList();
-                    m.put(sqlRow.getTable(), list);
-                }
-                list.add(sqlRow);
-            }
-            // On cache les elements de
-            if (sqlRow.getInt("ID_SAISIE_VENTE_FACTURE") == row.getID()) {
-                Map<SQLTable, List<SQLRowAccessor>> m = cacheReferent.get(row);
-                if (m == null) {
-                    m = new HashMap<SQLTable, List<SQLRowAccessor>>();
-                    cacheReferent.put(row, m);
-                }
-                List<SQLRowAccessor> list = m.get(sqlRow.getTable());
-                if (list == null) {
-                    list = new ArrayList<SQLRowAccessor>();
-                    m.put(sqlRow.getTable(), list);
-                }
-                list.add(sqlRow);
-
-            }
-        }
-    }
-
-    private static Double getAcompteVerse(SQLRowAccessor row) {
-
-        SQLRowAccessor rowAff = OOXMLCache.getForeignRow(row, row.getTable().getField("ID_AFFAIRE"));
-        List<? extends SQLRowAccessor> list = OOXMLCache.getReferentRows(rowAff, row.getTable());
-
-        double total = 0.0;
-        for (SQLRowAccessor sqlRow : list) {
-            Calendar date = row.getDate("DATE");
-            Calendar date2 = sqlRow.getDate("DATE");
-            if (date2.before(date)) {
-                total += sqlRow.getFloat("T_HT");
-            }
-        }
-
-        // On cumul ce qui a déja était verse
-        List<? extends SQLRowAccessor> listElt = OOXMLCache.getReferentRows(rowAff, rowAff.getTable().getTable("AFFAIRE_ELEMENT"));
-        for (SQLRowAccessor sqlRow : listElt) {
-            total += sqlRow.getFloat("TOTAL_HT_REALISE");
-        }
-
-        return total / 100.0;
     }
 
     private static Number calcul(Object o1, Object o2, String op) {

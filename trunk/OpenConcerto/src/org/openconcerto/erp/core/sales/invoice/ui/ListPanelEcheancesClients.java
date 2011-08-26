@@ -20,14 +20,13 @@ import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
-import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.sql.view.list.SQLTableModelSource;
 
 import java.awt.event.ActionEvent;
 
@@ -35,7 +34,7 @@ import javax.swing.JButton;
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 
-public class ListPanelEcheancesClients extends ListeAddPanel implements SQLTableListener {
+public class ListPanelEcheancesClients extends ListeAddPanel {
 
     // TODO Ajouter une légende dans liste echeance panel pour les couleurs du renderer
 
@@ -43,13 +42,12 @@ public class ListPanelEcheancesClients extends ListeAddPanel implements SQLTable
     private boolean showRegCompta = false;
 
     public ListPanelEcheancesClients() {
+        this(Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT"));
+    }
 
-        super(Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT"));
-
+    private ListPanelEcheancesClients(final SQLElement elem) {
+        super(elem, new IListe(elem.getTableSource(true)));
         setListe();
-        SQLElement elementEch = Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT");
-        elementEch.getTable().addTableListener(this);
-
     }
 
     public JTable getJTable() {
@@ -68,7 +66,7 @@ public class ListPanelEcheancesClients extends ListeAddPanel implements SQLTable
             if (this.editFrame == null) {
                 this.editFrame = new EditFrame(this.element, EditFrame.MODIFICATION);
             }
-            this.editFrame.selectionId(this.getListe().getSelectedId(), -1);
+            this.editFrame.selectionId(this.getListe().getSelectedId());
             this.editFrame.pack();
             this.editFrame.setVisible(true);
 
@@ -82,31 +80,17 @@ public class ListPanelEcheancesClients extends ListeAddPanel implements SQLTable
         }
     }
 
-    public void rowAdded(SQLTable table, int id) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void rowDeleted(SQLTable table, int id) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void rowModified(SQLTable table, int id) {
-        setListe();
-    }
-
     private void setListe() {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
 
-                final SQLElement elementEch = Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT");
-                Where wNotRegle = new Where(elementEch.getTable().getField("REGLE"), "=", Boolean.FALSE);
+                final SQLTable elementEchT = getListe().getSource().getPrimaryTable();
+                Where wNotRegle = new Where(elementEchT.getField("REGLE"), "=", Boolean.FALSE);
                 if (!showRegCompta) {
-                    wNotRegle = wNotRegle.and(new Where(elementEch.getTable().getField("REG_COMPTA"), "=", Boolean.FALSE));
+                    wNotRegle = wNotRegle.and(new Where(elementEchT.getField("REG_COMPTA"), "=", Boolean.FALSE));
                 }
-                ListPanelEcheancesClients.this.setRequest(ListSQLRequest.copy(elementEch.getListRequest(), wNotRegle));
+                getListe().getRequest().setWhere(wNotRegle);
 
                 // this.buttonAjouter.setVisible(false);
                 final ListEcheanceClientRenderer rend = new ListEcheanceClientRenderer();
@@ -121,7 +105,7 @@ public class ListPanelEcheancesClients extends ListeAddPanel implements SQLTable
                 ListPanelEcheancesClients.this.buttonEffacer.setVisible(false);
                 ListPanelEcheancesClients.this.buttonModifier.setVisible(false);
 
-                final SQLTableModelSourceOnline src = (SQLTableModelSourceOnline) ListPanelEcheancesClients.this.getListe().getModel().getReq();
+                final SQLTableModelSource src = ListPanelEcheancesClients.this.getListe().getSource();
 
                 ListPanelEcheancesClients.this.getListe().setSQLEditable(true);
 

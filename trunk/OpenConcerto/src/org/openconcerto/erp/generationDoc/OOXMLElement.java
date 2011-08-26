@@ -36,18 +36,21 @@ public class OOXMLElement {
     protected SQLElement sqlElt;
     protected int id;
     protected SQLRowAccessor row = null;
+    protected SQLRow rowLanguage;
 
-    public OOXMLElement(Element elt, SQLElement sqlElt, int id) {
+    public OOXMLElement(Element elt, SQLElement sqlElt, int id, SQLRow rowLanguage) {
         this.elt = elt;
         this.sqlElt = sqlElt;
         this.id = id;
+        this.rowLanguage = rowLanguage;
     }
 
-    public OOXMLElement(Element elt, SQLElement sqlElt, int id, SQLRowAccessor row) {
+    public OOXMLElement(Element elt, SQLElement sqlElt, int id, SQLRowAccessor row, SQLRow rowLanguage) {
         this.elt = elt;
         this.sqlElt = sqlElt;
         this.id = id;
         this.row = row;
+        this.rowLanguage = rowLanguage;
     }
 
     public Object getValue() {
@@ -67,20 +70,8 @@ public class OOXMLElement {
             return getInitialesUserCreate();
         }
 
-        if (attributeValue.equalsIgnoreCase("propositionFacture")) {
-            return getProposition(row);
-        }
-
-        if (attributeValue.equalsIgnoreCase("ListeVerificateur")) {
-            return getListeVerificateur(row);
-        }
-
         if (attributeValue.equalsIgnoreCase("TotalHTTable")) {
             return getTotalHTTable(row);
-        }
-
-        if (attributeValue.equalsIgnoreCase("codesMissions")) {
-            return getCodesMissions(this.id);
         }
 
         if (attributeValue.equalsIgnoreCase("DateEcheance")) {
@@ -96,7 +87,7 @@ public class OOXMLElement {
                 String result = "";
                 for (Element eltField : eltFields) {
 
-                    OOXMLField field = new OOXMLField(eltField, this.row, this.sqlElt, this.id);
+                    OOXMLField field = new OOXMLField(eltField, this.row, this.sqlElt, this.id, this.rowLanguage);
 
                     Object value = field.getValue();
                     if (value != null) {
@@ -105,7 +96,7 @@ public class OOXMLElement {
                 }
                 res = result;
             } else {
-                OOXMLField field = new OOXMLField(eltFields.get(0), this.row, this.sqlElt, this.id);
+                OOXMLField field = new OOXMLField(eltFields.get(0), this.row, this.sqlElt, this.id, this.rowLanguage);
                 res = field.getValue();
             }
         }
@@ -158,23 +149,6 @@ public class OOXMLElement {
         return result.toString();
     }
 
-    /**
-     * String proposition préventec
-     * 
-     * @param row
-     * @return une string du format Proposition + numero + du + date
-     */
-    protected String getProposition(SQLRowAccessor row) {
-        String source = row.getString("SOURCE");
-        int idSource = row.getInt("IDSOURCE");
-
-        if (source.equalsIgnoreCase("PROPOSITION") && idSource > 1) {
-            SQLElement eltProp = Configuration.getInstance().getDirectory().getElement("PROPOSITION");
-            SQLRow rowProp = eltProp.getTable().getRow(idSource);
-            return getStringProposition(rowProp);
-        }
-        return "";
-    }
 
     public static DateFormat format = new SimpleDateFormat("dd/MM/yyyy");
 
@@ -183,49 +157,6 @@ public class OOXMLElement {
         return "Notre proposition " + rowProp.getString("NUMERO") + " du " + format.format(rowProp.getObject("DATE"));
     }
 
-    /**
-     * Liste des vérificateur séparée par des virgules, premiere lettre du prenom + nom
-     * 
-     * @param rowFact
-     * @return
-     */
-    protected String getListeVerificateur(SQLRowAccessor rowFact) {
-        SQLTable tableElt = Configuration.getInstance().getRoot().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
-        SQLTable tablePourcent = Configuration.getInstance().getRoot().findTable("POURCENT_SERVICE");
-        Collection<? extends SQLRowAccessor> rows = rowFact.getReferentRows(tableElt);
-        List<SQLRowAccessor> l = new ArrayList<SQLRowAccessor>();
-
-        StringBuffer result = new StringBuffer();
-        for (SQLRowAccessor row : rows) {
-
-            Collection<? extends SQLRowAccessor> s = row.getReferentRows(tablePourcent);
-
-            for (SQLRowAccessor row2 : s) {
-                SQLRowAccessor rowVerif = row2.getForeign("ID_VERIFICATEUR");
-
-                if (rowVerif != null && !l.contains(rowVerif)) {
-                    String prenom = rowVerif.getString("PRENOM");
-                    if (prenom.length() > 1) {
-                        prenom = String.valueOf(prenom.charAt(0));
-                    }
-                    result.append(prenom + ".");
-                    String nom = rowVerif.getString("NOM");
-                    if (nom.length() > 1) {
-                        nom = String.valueOf(nom.charAt(0));
-                    }
-
-                    result.append(nom + ", ");
-                    l.add(rowVerif);
-                }
-            }
-        }
-        if (result.length() > 0) {
-            result.deleteCharAt(result.length() - 1);
-            result.deleteCharAt(result.length() - 1);
-        }
-
-        return result.toString();
-    }
 
     public Double getTotalHTTable(SQLRowAccessor rowFact) {
 
@@ -239,35 +170,6 @@ public class OOXMLElement {
         return new Double(GestionDevise.currencyToString(total, false));
     }
 
-    /**
-     * 
-     * @param idAffaire
-     * @return la liste des noms des missions séparés par des virgules
-     */
-    protected String getCodesMissions(int idAffaire) {
-
-        SQLElement eltAffaire = Configuration.getInstance().getDirectory().getElement("AFFAIRE");
-        SQLElement eltAffaireElt = Configuration.getInstance().getDirectory().getElement("AFFAIRE_ELEMENT");
-        List<SQLRow> s = eltAffaire.getTable().getRow(idAffaire).getReferentRows(eltAffaireElt.getTable());
-
-        String codes = "";
-        List<String> l = new ArrayList<String>(s.size());
-        for (SQLRow row : s) {
-
-            final String string = row.getString("NOM");
-            if (!l.contains(string)) {
-                l.add(string);
-                String code = string;
-                codes += code + ", ";
-            }
-        }
-        if (codes.trim().length() > 0) {
-            codes = codes.trim().substring(0, codes.trim().length() - 1);
-        }
-
-        return codes;
-
-    }
 
     /**
      * Calcul la date d'échéance d'un élément par rapport au mode de reglement et à la date

@@ -65,6 +65,10 @@ public abstract class XMLItem {
         return this.getType() == null ? null : this.dataFactory;
     }
 
+    protected final Object evaluateOgnl(final String s) {
+        return ParamsHelper.evaluteOgnl(s, getData());
+    }
+
     public String getParam(String paramName) {
         return ParamsHelper.getParam(this.elem, paramName, getData());
     }

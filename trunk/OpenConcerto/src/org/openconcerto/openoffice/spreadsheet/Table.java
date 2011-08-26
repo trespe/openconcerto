@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.Set;
 import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.swing.table.TableModel;
 
@@ -175,6 +176,8 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         this.duplicateRows(rowDuplicated, 1, nbDuplicate);
     }
 
+    private static Pattern regexp = Pattern.compile("((^.*)\\.(\\D*))((\\d*)$)");
+
     /**
      * Clone a range of rows. Eg if you want to copy once rows 2 through 5, you call
      * <code>duplicateRows(2, 4, 1)</code>.
@@ -183,6 +186,7 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      * @param count the number of rows after <code>start</code> to clone.
      * @param copies the number of copies of the range to make.
      */
+
     public final synchronized void duplicateRows(int start, int count, int copies) {
         final int stop = start + count;
         // clone xml elements and add them to our tree
@@ -190,12 +194,63 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         for (int i = 0; i < copies; i++) {
             for (int l = start; l < stop; l++) {
                 final Element r = this.rows.get(l).getElement();
-                clones.add((Element) r.clone());
+                Element c = (Element) r.clone();
+                List<Element> children = (List<Element>) c.getChildren("table-cell", c.getNamespace());
+                for (Element element : children) {
+                    System.err.println("--------get table cell");
+                    List<Element> lChild = (List<Element>) element.getChildren("frame", element.getNamespace("frame"));
+                    for (Element element2 : lChild) {
+                        System.err.println("---------get frame");
+                        Attribute attribute = element2.getAttribute("end-cell-address", c.getNamespace());
+                        final String value = attribute.getValue();
+                        System.err.println(value);
+                        final Matcher matcher = regexp.matcher(value);
+                        if (matcher.matches() && matcher.groupCount() == 5) {
+                            String result = matcher.group(1);
+                            int val = Integer.parseInt(matcher.group(4));
+                            val = val + (count * (i + 1));
+                            result += val;
+
+                            attribute.setValue(result);
+                            System.err.println(attribute.getValue());
+                        }
+                    }
+                }
+                clones.add(c);
             }
         }
         // works anywhere its XML element is
         JDOMUtils.insertAfter(this.rows.get(stop - 1).getElement(), clones);
 
+        // synchronize our rows with our new tree
+        this.readRows();
+
+        // Fix image if after
+        for (int i = (start + (count * (copies + 1))); i < this.rows.size(); i++) {
+            final Element r = this.rows.get(i).getElement();
+
+            List<Element> children = (List<Element>) r.getChildren("table-cell", r.getNamespace());
+            for (Element element : children) {
+                System.err.println("--------get table cell");
+                List<Element> lChild = (List<Element>) element.getChildren("frame", element.getNamespace("frame"));
+                for (Element element2 : lChild) {
+                    System.err.println("---------get frame");
+                    Attribute attribute = element2.getAttribute("end-cell-address", r.getNamespace());
+                    final String value = attribute.getValue();
+                    System.err.println(value);
+                    final Matcher matcher = regexp.matcher(value);
+                    if (matcher.matches() && matcher.groupCount() == 5) {
+                        String result = matcher.group(1);
+                        int val = Integer.parseInt(matcher.group(4));
+                        val = val + (count * copies);
+                        result += val;
+
+                        attribute.setValue(result);
+                        System.err.println(attribute.getValue());
+                    }
+                }
+            }
+        }
         // synchronize our rows with our new tree
         this.readRows();
     }

@@ -52,7 +52,7 @@ public class GenerationMvtAvoirClient extends GenerationEcritures {
 
         SQLRow avoirRow = avoirClientTable.getRow(this.idAvoirClient);
 
-        boolean affacturage = affacturage = avoirRow.getBoolean("AFFACTURE");
+        boolean affacturage = avoirRow.getBoolean("AFFACTURE");
 
         SQLRow rowClient;
             rowClient = avoirRow.getForeignRow("ID_CLIENT");
@@ -130,7 +130,8 @@ public class GenerationMvtAvoirClient extends GenerationEcritures {
                     this.mEcritures.put("CREDIT", Long.valueOf(0));
                     ajoutEcriture();
                 }
-            } else// la remise déborde sur les frais de service donc aucun frais pour les produits
+            } else// la remise déborde sur les frais de service donc aucun frais
+                  // pour les produits
             {
                 // compte Vente Services
                 this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteVenteService));

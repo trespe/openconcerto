@@ -142,6 +142,11 @@ public class SQLJavaEditor extends JavaEditor implements ValueWrapper<String> {
         this.validSupp.addValidListener(l);
     }
 
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.validSupp.removeValidListener(l);
+    }
+
     public JComponent getComp() {
         return this;
     }

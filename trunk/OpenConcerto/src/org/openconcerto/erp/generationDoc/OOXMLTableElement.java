@@ -75,13 +75,48 @@ public class OOXMLTableElement {
 
     }
 
-    static SQLTable tablePourcentService = Configuration.getInstance().getRoot().findTable("POURCENT_SERVICE");
-
     public List<? extends SQLRowAccessor> getRows() {
         SQLTable tableElt = Configuration.getInstance().getRoot().findTable(this.tableau.getAttributeValue("table"));
 
         if (tableElt != null) {
-            Set<SQLField> fields = tablePourcentService.getForeignKeys(tableElt);
+
+            // // #if gestionnx
+            // Set<SQLField> fields =
+            // tablePourcentService.getForeignKeys(tableElt);
+            //
+            // if (((ComptaPropsConfiguration)
+            // Configuration.getInstance()).customerIsPreventec() && fields !=
+            // null && fields.size() > 0) {
+            // SQLSelect sel = new
+            // SQLSelect(Configuration.getInstance().getBase());
+            //
+            // sel.addSelectStar(tableElt);
+            // Set<SQLField> fieldsElt =
+            // tableElt.getForeignKeys(this.row.getTable());
+            // Where w = new Where(fieldsElt.iterator().next(), "=",
+            // this.row.getTable().getKey());
+            // w = w.and(new Where(fields.iterator().next(), "=",
+            // tableElt.getKey()));
+            // w = w.and(new Where(this.row.getTable().getKey(), "=",
+            // this.row.getID()));
+            // sel.setWhere(w);
+            // sel.addFieldOrder(tablePourcentService.getField("ID_VERIFICATEUR"));
+            // sel.addFieldOrder(fields.iterator().next());
+            // List<SQLRow> l = (List<SQLRow>)
+            // Configuration.getInstance().getBase().getDataSource().execute(sel.asString(),
+            // SQLRowListRSH.createFromSelect(sel, tableElt));
+            //
+            // // Suppression des doublons
+            // List<SQLRow> list = new ArrayList<SQLRow>();
+            // for (SQLRow sqlRow : l) {
+            // if (!list.contains(sqlRow)) {
+            // list.add(sqlRow);
+            // }
+            // }
+            // return list;
+            // }
+            // // #endif
+
             return OOXMLCache.getReferentRows(this.row, tableElt, this.tableau.getAttributeValue("groupBy"));
 
         } else {

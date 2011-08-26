@@ -13,6 +13,7 @@
  
  package org.openconcerto.ui.preferences;
 
+import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Component;
@@ -57,6 +58,10 @@ public abstract class DefaultPreferencePanel extends JPanel implements Preferenc
         fireModifyChange(false);
     }
 
+    @Override
+    public void uiInit() {
+    }
+
     public final void apply() {
         storeValues();
         fireModifyChange(false);
@@ -86,7 +91,6 @@ public abstract class DefaultPreferencePanel extends JPanel implements Preferenc
         fireModifyChange(this.hasBeenModified);
     }
 
-    @Override
     public void fireModifyChange(boolean b) {
         long time = Calendar.getInstance().getTimeInMillis();
 
@@ -182,5 +186,27 @@ public abstract class DefaultPreferencePanel extends JPanel implements Preferenc
     @Override
     public void actionPerformed(ActionEvent e) {
         fireModifyChange(true);
+    }
+
+    // * ValidObject
+
+    @Override
+    public boolean isValidated() {
+        return true;
+    }
+
+    @Override
+    public String getValidationText() {
+        return null;
+    }
+
+    @Override
+    public void addValidListener(ValidListener l) {
+        // nothing to do
+    }
+
+    @Override
+    public void removeValidListener(ValidListener l) {
+        // nothing to do
     }
 }

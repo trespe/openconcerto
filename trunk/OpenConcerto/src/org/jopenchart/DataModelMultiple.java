@@ -26,7 +26,6 @@ public class DataModelMultiple extends DataModel implements DataModelListener {
     }
 
     public int getSize() {
-
         return this.models.size();
     }
 
@@ -46,7 +45,6 @@ public class DataModelMultiple extends DataModel implements DataModelListener {
 
     public Number getMinValue() {
         Number min = null;
-
         for (DataModel1D model : models) {
             Number b = model.getMinValue();
             if (min == null) {

@@ -67,7 +67,7 @@ public class DataModel1DMorphing extends DataModel1D implements DataModelListene
                     }
                     synchronized (DataModel1DMorphing.this.src) {
                         try {
-                            System.out.println("wait");
+
                             src.wait();
                         } catch (InterruptedException e) {
                             // TODO Auto-generated catch block
@@ -92,7 +92,7 @@ public class DataModel1DMorphing extends DataModel1D implements DataModelListene
         computeDy();
 
         count += STEP;
-        System.out.println("notyfy");
+
         synchronized (src) {
             src.notifyAll();
         }

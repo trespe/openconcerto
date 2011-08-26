@@ -13,7 +13,6 @@
  
  /*
  * Créé le 2 mai 2005
- * 
  */
 package org.openconcerto.sql.view.listview;
 
@@ -57,8 +56,7 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
     private final SQLComponent parent;
     private final String name;
     private final ItemPool pool;
-    // [ListItemSQLView]
-    private final List items;
+    private final List<ListItemSQLView> items;
 
     private final PropertyChangeSupport supp;
     private final EmptyObjectHelper helper;
@@ -76,7 +74,7 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
         this.pool = factory.create(this);
 
         this.supp = new PropertyChangeSupport(this);
-        this.items = new ArrayList();
+        this.items = new ArrayList<ListItemSQLView>();
 
         this.addValidListener(new ValidListener() {
             public void validChange(ValidObject src, boolean newValue) {
@@ -210,7 +208,7 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
         }
     }
 
-    public List getExistantViews() {
+    public List<ListItemSQLView> getExistantViews() {
         return this.items;
     }
 
@@ -262,6 +260,11 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
 
     public void addValidListener(ValidListener l) {
         this.getPool().addValidListener(l);
+    }
+
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.getPool().removeValidListener(l);
     }
 
     public String getValidationText() {

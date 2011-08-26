@@ -148,6 +148,11 @@ public final class JDateTime extends JPanel implements ValueWrapper<Date> {
     }
 
     @Override
+    public void removeValidListener(ValidListener l) {
+        // nothing to do
+    }
+
+    @Override
     public String getValidationText() {
         return null;
     }

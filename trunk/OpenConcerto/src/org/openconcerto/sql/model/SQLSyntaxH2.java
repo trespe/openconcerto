@@ -103,11 +103,13 @@ class SQLSyntaxH2 extends SQLSyntax {
             final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
             res.add(SQLSelect.quote("ALTER COLUMN %n " + type + getDefaultClause(newDef) + getNullableClause(newNullable), f));
         } else {
-            if (toAlter.contains(Properties.NULLABLE))
-                res.add(this.setNullable(f, nullable));
             if (toAlter.contains(Properties.DEFAULT))
                 res.add(this.setDefault(f, defaultVal));
         }
+        // Contrary to the documentation "alter column type" doesn't change the nullable
+        // e.g. ALTER COLUMN "VARCHAR" varchar(150) DEFAULT 'testAllProps' NULL
+        if (toAlter.contains(Properties.NULLABLE))
+            res.add(this.setNullable(f, nullable));
         return res;
     }
 

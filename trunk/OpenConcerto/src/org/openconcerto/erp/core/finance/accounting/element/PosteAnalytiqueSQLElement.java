@@ -16,10 +16,15 @@
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
-import javax.swing.JTextField;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.JLabel;
+import javax.swing.JTextField;
 
 public class PosteAnalytiqueSQLElement extends ComptaSQLConfElement {
 
@@ -44,8 +49,16 @@ public class PosteAnalytiqueSQLElement extends ComptaSQLConfElement {
     public SQLComponent createComponent() {
         return new BaseSQLComponent(this) {
             public void addViews() {
-                this.addRequiredSQLObject(new JTextField(), "NOM");
-                this.addRequiredSQLObject(new JTextField(), "ID_AXE_ANALYTIQUE");
+                this.setLayout(new GridBagLayout());
+                GridBagConstraints c = new DefaultGridBagConstraints();
+                final JLabel labelNom = new JLabel(getLabelFor("NOM"));
+                this.add(labelNom, c);
+                c.gridx++;
+
+                final JTextField obj = new JTextField();
+                c.weightx = 1;
+                this.add(obj, c);
+                this.addRequiredSQLObject(obj, "NOM");
             }
         };
     }

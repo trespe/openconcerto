@@ -20,6 +20,8 @@ import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.view.list.AutoCompletionManager;
 import org.openconcerto.sql.view.list.CellDynamicModifier;
@@ -65,16 +67,32 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         final SQLTableElement tableElement_PrixMetrique1_AchatHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_HA_1"), Long.class, new DeviseCellEditor());
         tableElement_PrixMetrique1_AchatHT.setRenderer(new DeviseNiceTableCellRenderer());
         list.add(tableElement_PrixMetrique1_AchatHT);
+
+        // Devise
+        final SQLTableElement tableElement_Devise = new SQLTableElement(e.getTable().getField("ID_DEVISE"));
+        list.add(tableElement_Devise);
+
+        // Prix d'achat HT devise
+        final SQLTableElement tableElement_PA_Devise = new SQLTableElement(e.getTable().getField("PA_DEVISE"), Long.class, new DeviseCellEditor());
+        tableElement_PA_Devise.setRenderer(new DeviseNiceTableCellRenderer());
+        list.add(tableElement_PA_Devise);
+
         // Mode de vente
         final SQLTableElement tableElement_ModeVente = new SQLTableElement(e.getTable().getField("ID_MODE_VENTE_ARTICLE"));
         list.add(tableElement_ModeVente);
-        // Quantité
-        final SQLTableElement qteElement = new SQLTableElement(e.getTable().getField("QTE"), Integer.class);
-        list.add(qteElement);
+
         // Prix d'achat unitaire HT
         this.ha = new SQLTableElement(e.getTable().getField("PA_HT"), Long.class, new DeviseCellEditor());
         this.ha.setRenderer(new DeviseNiceTableCellRenderer());
         list.add(this.ha);
+
+        // Quantité
+        final SQLTableElement qteElement = new SQLTableElement(e.getTable().getField("QTE"), Integer.class) {
+            protected Object getDefaultNullValue() {
+                return Integer.valueOf(0);
+            }
+        };
+        list.add(qteElement);
         // TVA
         final SQLTableElement tableElement_Taxe = new SQLTableElement(e.getTable().getField("ID_TAXE"));
         list.add(tableElement_Taxe);
@@ -94,6 +112,11 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
             list.add(this.service);
         }
 
+        // Prix d'achat HT devise
+        this.tableElementTotalDevise = new SQLTableElement(e.getTable().getField("PA_DEVISE_T"), Long.class, new DeviseCellEditor());
+        tableElementTotalDevise.setRenderer(new DeviseNiceTableCellRenderer());
+        list.add(tableElementTotalDevise);
+
         // Total HT
         this.totalHT = new SQLTableElement(e.getTable().getField("T_PA_HT"), Long.class, new DeviseCellEditor());
         this.totalHT.setRenderer(new DeviseNiceTableCellRenderer());
@@ -111,7 +134,17 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
 
         // Autocompletion
         final AutoCompletionManager m = new AutoCompletionManager(tableElementCode, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.CODE"), this.table,
-                this.table.getRowValuesTableModel());
+                this.table.getRowValuesTableModel()) {
+            @Override
+            protected Object getValueFrom(SQLRow row, String field) {
+                Object res = tarifCompletion(row, field);
+                if (res == null) {
+                    return super.getValueFrom(row, field);
+                } else {
+                    return res;
+                }
+            }
+        };
         m.fill("NOM", "NOM");
         m.fill("PA_HT", "PA_HT");
         m.fill("PV_HT", "PV_HT");
@@ -128,8 +161,20 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         m.fill("PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_2");
         m.fill("PRIX_METRIQUE_VT_3", "PRIX_METRIQUE_VT_3");
         m.fill("SERVICE", "SERVICE");
+        m.fill("ID_DEVISE_HA", "ID_DEVISE");
+        m.fill("PA_DEVISE", "PA_DEVISE");
         final AutoCompletionManager m2 = new AutoCompletionManager(tableElementNom, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.NOM"), this.table,
-                this.table.getRowValuesTableModel());
+                this.table.getRowValuesTableModel()) {
+            @Override
+            protected Object getValueFrom(SQLRow row, String field) {
+                Object res = tarifCompletion(row, field);
+                if (res == null) {
+                    return super.getValueFrom(row, field);
+                } else {
+                    return res;
+                }
+            }
+        };
         m2.fill("CODE", "CODE");
         m2.fill("PA_HT", "PA_HT");
         m2.fill("PV_HT", "PV_HT");
@@ -146,12 +191,13 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         m2.fill("PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_2");
         m2.fill("PRIX_METRIQUE_VT_3", "PRIX_METRIQUE_VT_3");
         m2.fill("SERVICE", "SERVICE");
+        m2.fill("ID_DEVISE_HA", "ID_DEVISE");
+        m2.fill("PA_DEVISE", "PA_DEVISE");
         // Calcul automatique du total HT
         qteElement.addModificationListener(this.totalHT);
         this.ha.addModificationListener(this.totalHT);
         this.totalHT.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(final SQLRowValues row) {
-                System.out.println("Compute totalHT");
 
                 // Object qteObject = row.getObject("QTE");
                 // int qte = (qteObject == null) ? 0 : Integer.parseInt(qteObject.toString());
@@ -164,6 +210,22 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
             }
 
         });
+        qteElement.addModificationListener(this.tableElementTotalDevise);
+        tableElement_PA_Devise.addModificationListener(this.tableElementTotalDevise);
+        this.tableElementTotalDevise.setModifier(new CellDynamicModifier() {
+            public Object computeValueFrom(final SQLRowValues row) {
+
+                // Object qteObject = row.getObject("QTE");
+                // int qte = (qteObject == null) ? 0 : Integer.parseInt(qteObject.toString());
+                int qte = Integer.parseInt(row.getObject("QTE").toString());
+                Number f = (Number) row.getObject("PA_DEVISE");
+                // long longValue = (f == null) ? 0 : f.longValue();
+                long r = f.longValue() * qte;
+                return new Long(r);
+            }
+
+        });
+
         // Calcul automatique du total TTC
         qteElement.addModificationListener(this.tableElementTotalTTC);
         this.ha.addModificationListener(this.tableElementTotalTTC);
@@ -202,6 +264,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
             hideColumn(this.model.getColumnForField("VALEUR_METRIQUE_3"));
             hideColumn(this.model.getColumnForField("PRIX_METRIQUE_VT_1"));
             hideColumn(this.model.getColumnForField("ID_MODE_VENTE_ARTICLE"));
+            hideColumn(this.model.getColumnForField("PA_HT"));
         }
 
         // Calcul automatique du poids unitaire
@@ -247,8 +310,37 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
 
         });
 
-        //On réécrit la configuration au cas ou les preferences aurait changé
+        // On réécrit la configuration au cas ou les preferences aurait changé
         this.table.writeState();
+    }
+
+    private Object tarifCompletion(SQLRow row, String field) {
+
+        if (getDevise() != null && !getDevise().isUndefined()) {
+            if ((field.equalsIgnoreCase("ID_DEVISE") || field.equalsIgnoreCase("ID_DEVISE_HA"))) {
+                return getDevise().getID();
+            } else if ((field.equalsIgnoreCase("PA_DEVISE"))) {
+                return row.getObject("PA_DEVISE");
+            }
+        } else {
+            if ((field.equalsIgnoreCase("ID_DEVISE") || field.equalsIgnoreCase("ID_DEVISE_HA"))) {
+                return Configuration.getInstance().getDirectory().getElement("DEVISE").getTable().getUndefinedID();
+            } else if ((field.equalsIgnoreCase("PA_DEVISE"))) {
+
+                return Long.valueOf(0);
+            }
+        }
+        return null;
+    }
+
+    SQLRowAccessor rowDevise;
+
+    public SQLRowAccessor getDevise() {
+        return this.rowDevise;
+    }
+
+    public void setDevise(SQLRowAccessor deviseRow) {
+        this.rowDevise = deviseRow;
     }
 
     private void hideColumn(int col) {

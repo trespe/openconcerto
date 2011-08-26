@@ -22,7 +22,6 @@ import org.openconcerto.erp.core.sales.invoice.report.VenteFactureElementXmlShee
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.quote.ui.EtatDevisRenderer;
 import org.openconcerto.erp.generationDoc.AbstractSheetXml;
-import org.openconcerto.erp.generationDoc.gestcomm.FicheRendezVousXmlSheet;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -30,15 +29,16 @@ import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.users.rights.JListSQLTablePanel;
 import org.openconcerto.sql.view.IListPanel;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -94,7 +94,7 @@ public class ListeHistoriquePanel extends JPanel {
             int selectIndex = ListeHistoriquePanel.this.jListePanel.getSelectedIndex();
 
             SQLRowAccessor row = ListeHistoriquePanel.this.jListePanel.getModel().getRowAt(selectIndex);
-            int id = -1;
+            int id = SQLRow.NONEXISTANT_ID;
             if (row != null) {
                 id = row.getID();
             }
@@ -115,7 +115,7 @@ public class ListeHistoriquePanel extends JPanel {
                 for (String key : ListeHistoriquePanel.this.whereList.keySet()) {
                     Where wTmp = ListeHistoriquePanel.this.whereList.get(key);
 
-                    if (table.getFields().containsAll(wTmp.getFields())) {
+                    if (liste.getListe().getRequest().getAllFields().containsAll(wTmp.getFields())) {
                         if (w == null) {
                             w = wTmp;
                         } else {
@@ -123,21 +123,28 @@ public class ListeHistoriquePanel extends JPanel {
                         }
                     }
                 }
-                final ListSQLRequest listRequest = liste.getElement().getListRequest();
                 if (id > 1) {
                     if (ListeHistoriquePanel.this.listFieldMap != null && ListeHistoriquePanel.this.listFieldMap.get(table) != null) {
                         SQLField field = ListeHistoriquePanel.this.listFieldMap.get(table);
                         Where w2 = new Where(field, "=", table.getForeignTable(field.getName()).getKey());
                         w2 = w2.and(new Where(table.getForeignTable(field.getName()).getField("ID_" + ListeHistoriquePanel.this.jListePanel.getModel().getTable().getName()), "=", id));
-                        liste.setRequest(ListSQLRequest.copy(listRequest, w2.and(w)));
+                        liste.getListe().getRequest().setWhere(w2.and(w));
                     } else {
-                        liste.setRequest(ListSQLRequest.copy(listRequest, new Where(table.getField("ID_" + ListeHistoriquePanel.this.jListePanel.getModel().getTable().getName()), "=", id).and(w)));
+                        liste.getListe().getRequest().setWhere(new Where(table.getField("ID_" + ListeHistoriquePanel.this.jListePanel.getModel().getTable().getName()), "=", id).and(w));
                     }
                 } else {
-                    liste.setRequest(ListSQLRequest.copy(listRequest, w));
+                    liste.getListe().getRequest().setWhere(w);
                 }
                 liste.getListe().setSQLEditable(false);
+                liste.getListe().getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
 
+                    @Override
+                    public SQLSelect transformChecked(SQLSelect input) {
+                        // TODO Raccord de méthode auto-généré
+                        System.err.println(input);
+                        return input;
+                    }
+                });
                 // Set renderer
                 setRenderer(liste);
 
@@ -190,7 +197,7 @@ public class ListeHistoriquePanel extends JPanel {
             IListPanel liste;
 
             if (elt.getTable().contains("ID_MOUVEMENT")) {
-                liste = new ListeGestCommEltPanel(elt, Where.createRaw("FALSE")) {
+                liste = new ListeGestCommEltPanel(elt, Where.FALSE) {
                     protected void handleAction(JButton source, ActionEvent evt) {
 
                         if (elt.getTable().contains("ID_MOUVEMENT")) {
@@ -214,9 +221,9 @@ public class ListeHistoriquePanel extends JPanel {
                 };
 
             } else {
-                liste = new ListeAddPanel(elt, new IListe(ListSQLRequest.copy(elt.getListRequest(), Where.createRaw("FALSE"))));
+                liste = new ListeAddPanel(elt, new IListe(elt.createTableSource(Where.FALSE)));
             }
-         
+
             this.vectListePanel.add(liste);
 
             setRenderer(liste);
@@ -276,12 +283,12 @@ public class ListeHistoriquePanel extends JPanel {
         this.addAncestorListener(new AncestorListener() {
             @Override
             public void ancestorAdded(AncestorEvent event) {
-         
+
             }
 
             @Override
             public void ancestorMoved(AncestorEvent event) {
-            
+
             }
 
             @Override
@@ -301,14 +308,14 @@ public class ListeHistoriquePanel extends JPanel {
 
     private void setRenderer(IListPanel liste) {
 
-        SQLElement propositionElement = Configuration.getInstance().getDirectory().getElement("PROPOSITION");
+        SQLElement propositionItemElement = Configuration.getInstance().getDirectory().getElement("PROPOSITION_ELEMENT");
         SQLElement devisElement = Configuration.getInstance().getDirectory().getElement("DEVIS");
         JTable table = liste.getListe().getJTable();
         TableCellRenderer rend = null;
-        if (liste.getElement().getClass() == propositionElement.getClass() || liste.getElement().getClass() == devisElement.getClass()) {
+        if (liste.getElement().getClass() == devisElement.getClass()) {
             rend = new EtatDevisRenderer();
         } else {
-            rend = new DeviseNiceTableCellRenderer();
+                rend = new DeviseNiceTableCellRenderer();
         }
         for (int j = 0; j < table.getColumnCount(); j++) {
 
@@ -452,6 +459,10 @@ public class ListeHistoriquePanel extends JPanel {
             }
         }
         return -1;
+    }
+
+    public IListe getListe(int index) {
+        return this.vectListePanel.get(index).getListe();
     }
 
     public void fireListesChanged() {

@@ -24,7 +24,7 @@ public final class SharedFFPoolFactory extends FFPoolFactory {
         super(t, foreignT, count, firstSuffixed);
     }
 
-    public SharedFFPoolFactory(SQLTable t, String foreignT, List fields) {
+    public SharedFFPoolFactory(SQLTable t, String foreignT, List<String> fields) {
         super(t, foreignT, fields);
     }
 

@@ -59,7 +59,7 @@ public class ShowAs extends FieldExpander {
         this.clearCache();
     }
 
-    public List getFieldExpand(SQLTable table) {
+    public List<SQLField> getFieldExpand(SQLTable table) {
         return this.byTables.get(table);
     }
 
@@ -84,12 +84,27 @@ public class ShowAs extends FieldExpander {
         }
     }
 
-    private final List<SQLField> namesToFields(final List<String> names, final SQLTable table) {
+    static private final List<SQLField> namesToFields(final List<String> names, final SQLTable table) {
         final List<SQLField> res = new ArrayList<SQLField>(names.size());
         for (final String fieldName : names) {
             res.add(table.getField(fieldName));
         }
         return res;
+    }
+
+    // TODO a listener to remove tables and fields as they are dropped
+    public final void removeTable(SQLTable t) {
+        this.byTables.remove(t);
+        for (final SQLField f : t.getFields())
+            this.byFields.remove(f);
+        this.clearCache();
+    }
+
+    public final void clear() {
+        this.setRoot(null);
+        this.byTables.clear();
+        this.byFields.clear();
+        this.clearCache();
     }
 
     // *** byTables
@@ -143,6 +158,7 @@ public class ShowAs extends FieldExpander {
 
     // *** expand
 
+    @Override
     protected List<SQLField> expandOnce(SQLField field) {
         // c'est une clef externe, donc elle pointe sur une table
         final SQLTable foreignTable = field.getTable().getBase().getGraph().getForeignTable(field);
@@ -168,6 +184,7 @@ public class ShowAs extends FieldExpander {
         return this.simpleExpand(getField(fieldName));
     }
 
+    @Override
     public String toString() {
         return super.toString() + " byTables: " + this.byTables + " byFields: " + this.byFields;
     }

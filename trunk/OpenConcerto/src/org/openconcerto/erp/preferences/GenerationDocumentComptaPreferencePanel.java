@@ -24,7 +24,7 @@ public class GenerationDocumentComptaPreferencePanel extends AbstractGenerationD
         this.mapKeyLabel.put(GrandLivreSheet.getTuple2Location().get0(), GrandLivreSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(JournauxSheet.getTuple2Location().get0(), JournauxSheet.getTuple2Location().get1());
         this.mapKeyLabel.put(BalanceSheet.getTuple2Location().get0(), BalanceSheet.getTuple2Location().get1());
-        uiInit();
+        // uiInit();
     }
 
     public String getTitleName() {

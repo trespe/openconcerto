@@ -83,7 +83,7 @@ public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    public synchronized ListSQLRequest getListRequest() {
+    public synchronized ListSQLRequest createListRequest() {
         return new ListSQLRequest(this.getTable(), this.getListFields()) {
             @Override
             protected void customizeToFetch(SQLRowValues graphToFetch) {

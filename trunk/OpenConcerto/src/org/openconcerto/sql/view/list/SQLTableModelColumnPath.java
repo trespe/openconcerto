@@ -96,7 +96,7 @@ public class SQLTableModelColumnPath extends SQLTableModelColumn {
     }
 
     @Override
-    protected Class getValueClass_() {
+    protected Class<?> getValueClass_() {
         return this.getField().getType().getJavaType();
     }
 
@@ -112,8 +112,7 @@ public class SQLTableModelColumnPath extends SQLTableModelColumn {
 
     @Override
     protected Object show_(final SQLRowAccessor r) {
-        // to speed things up, suppose that r is correct (avoid getForeignTable())
-        return this.p.getObject((SQLRowValues) r, false);
+        return this.p.getObject(r.asRowValues());
     }
 
     @Override

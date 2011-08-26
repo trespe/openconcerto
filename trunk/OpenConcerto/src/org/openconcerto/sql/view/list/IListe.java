@@ -13,24 +13,29 @@
  
  package org.openconcerto.sql.view.list;
 
-import org.openconcerto.openoffice.XMLVersion;
+import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLImmutableRowValues;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ListSQLRequest;
+import org.openconcerto.sql.view.FileTransfertHandler;
 import org.openconcerto.sql.view.IListener;
+import org.openconcerto.sql.view.list.RowAction.LimitedSizeRowAction;
 import org.openconcerto.sql.view.search.ColumnSearchSpec;
 import org.openconcerto.sql.view.search.SearchList;
 import org.openconcerto.ui.FontUtils;
 import org.openconcerto.ui.FormatEditor;
+import org.openconcerto.ui.MenuUtils;
+import org.openconcerto.ui.SwingThreadUtils;
 import org.openconcerto.ui.list.selection.ListSelection;
 import org.openconcerto.ui.list.selection.ListSelectionState;
 import org.openconcerto.ui.state.JTableStateManager;
@@ -49,6 +54,8 @@ import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.convertor.StringClobConvertor;
 
 import java.awt.Component;
+import java.awt.FlowLayout;
+import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -65,7 +72,6 @@ import java.beans.PropertyChangeListenerProxy;
 import java.beans.PropertyChangeSupport;
 import java.io.File;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.sql.Clob;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -75,6 +81,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -82,14 +89,17 @@ import java.util.concurrent.ExecutionException;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.InputMap;
+import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.KeyStroke;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.event.AncestorEvent;
@@ -141,6 +151,10 @@ public final class IListe extends JPanel implements AncestorListener {
         FORCE_ALT_CELL_RENDERER = force;
     }
 
+    public static final IListe get(ActionEvent evt) {
+        return SwingThreadUtils.getAncestorOrSelf(IListe.class, (Component) evt.getSource());
+    }
+
     // *** instance
 
     private final JTable jTable;
@@ -154,6 +168,11 @@ public final class IListe extends JPanel implements AncestorListener {
     private SQLTableModelSource src;
     private boolean adjustVisible;
     private ColumnSizeAdjustor tcsa;
+
+    private final Map<RowAction, JButton> rowActions;
+    // double-click
+    private RowAction defaultRowAction;
+    private final JPanel btnPanel;
 
     // * selection
     private final List<IListener> listeners;
@@ -170,6 +189,7 @@ public final class IListe extends JPanel implements AncestorListener {
 
     private final ListSelectionState state;
     private final JTableStateManager tableStateManager;
+    private List<RowActionFactory> rowActionFactories = new ArrayList<RowActionFactory>(0);
 
     public IListe(final ListSQLRequest req) {
         this(req, null);
@@ -191,6 +211,7 @@ public final class IListe extends JPanel implements AncestorListener {
         if (req == null)
             throw new NullPointerException("Création d'une IListe avec une requete null");
 
+        this.rowActions = new LinkedHashMap<RowAction, JButton>();
         this.supp = new PropertyChangeSupport(this);
         this.listeners = new ArrayList<IListener>();
         this.naListeners = new ArrayList<IListener>();
@@ -218,7 +239,7 @@ public final class IListe extends JPanel implements AncestorListener {
                         infoL.add(original);
                 }
 
-                final SQLRowValues row = IListe.this.getModel().getRow(rowIndex).getRow();
+                final SQLRowValues row = ITableModel.getLine(this.getModel(), rowIndex).getRow();
 
                 final String create = getLine("Créée", row, getSource().getPrimaryTable().getCreationUserField(), getSource().getPrimaryTable().getCreationDateField());
                 if (create != null)
@@ -278,8 +299,14 @@ public final class IListe extends JPanel implements AncestorListener {
         TablePopupMouseListener.add(this.jTable, new ITransformer<MouseEvent, JPopupMenu>() {
             @Override
             public JPopupMenu transformChecked(MouseEvent input) {
-                // afficher un menu que si selection
-                return hasSelection() ? IListe.this.popup : null;
+                return updatePopupMenu();
+            }
+        });
+        this.jTable.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2)
+                    performDefaultAction(e);
             }
         });
 
@@ -287,6 +314,7 @@ public final class IListe extends JPanel implements AncestorListener {
             public void valueChanged(ListSelectionEvent e) {
                 if (!e.getValueIsAdjusting()) {
                     fireNASelectionId();
+                    updateButtons();
                 }
             }
         };
@@ -330,6 +358,8 @@ public final class IListe extends JPanel implements AncestorListener {
         // car les updates du ITableModel se font de manière synchrone dans la EDT
         // donc on ne peut faire aucune action pendant les maj
 
+        this.btnPanel = new JPanel(new FlowLayout(FlowLayout.LEADING));
+
         uiInit();
     }
 
@@ -342,8 +372,113 @@ public final class IListe extends JPanel implements AncestorListener {
         return FORMATS;
     }
 
-    public final void addRowAction(Action action) {
-        this.popup.add(action);
+    public final RowAction addRowAction(Action action) {
+        // for backward compatibility don't put in header
+        final RowAction res = new LimitedSizeRowAction(action, false, true);
+        this.addRowAction(res);
+        return res;
+    }
+
+    public final void addRowActions(Collection<RowAction> actions) {
+        for (final RowAction a : actions)
+            this.addRowAction(a);
+    }
+
+    public void addRowActionFactories(List<RowActionFactory> rowActionFactories) {
+        this.rowActionFactories.addAll(rowActionFactories);
+    }
+
+    public final void addRowAction(RowAction action) {
+        final JButton headerBtn = action.inHeader() ? new JButton(action.getAction()) : null;
+        this.rowActions.put(action, headerBtn);
+        if (headerBtn != null) {
+            this.updateButton(action, getSelectedRows());
+            this.btnPanel.add(headerBtn);
+            this.btnPanel.setVisible(true);
+        }
+    }
+
+    public final void removeRowActions(Collection<RowAction> actions) {
+        for (final RowAction a : actions)
+            this.removeRowAction(a);
+    }
+
+    public final void removeRowAction(RowAction action) {
+        final JButton headerBtn = this.rowActions.remove(action);
+        if (headerBtn != null) {
+            this.btnPanel.remove(headerBtn);
+            if (this.btnPanel.getComponentCount() == 0)
+                this.btnPanel.setVisible(false);
+            this.btnPanel.revalidate();
+        }
+        if (action.equals(this.defaultRowAction))
+            this.defaultRowAction = null;
+    }
+
+    public void removeRowActionFactories(List<RowActionFactory> rowActionFactories2) {
+        // TODO Auto-generated method stub
+    }
+
+    private void updateButtons() {
+        final List<SQLRowAccessor> selectedRows = getSelectedRows();
+        for (final RowAction action : this.rowActions.keySet()) {
+            this.updateButton(action, selectedRows);
+        }
+    }
+
+    private JButton updateButton(final RowAction action, List<SQLRowAccessor> selectedRows) {
+        final JButton btn = this.rowActions.get(action);
+        if (btn != null) {
+            btn.setEnabled(action.enabledFor(selectedRows));
+        }
+        return btn;
+    }
+
+    private JPopupMenu updatePopupMenu() {
+        this.popup.removeAll();
+        final List<SQLRowAccessor> selectedRows = getSelectedRows();
+        List<RowAction> actions = new ArrayList<RowAction>();
+        actions.addAll(this.rowActions.keySet());
+        final int size = this.rowActionFactories.size();
+        for (int i = 0; i < size; i++) {
+            RowActionFactory f = this.rowActionFactories.get(i);
+            List<RowAction> l = f.createActions(selectedRows);
+            if (l != null) {
+                actions.addAll(l);
+            }
+        }
+
+        for (final RowAction a : actions) {
+            if (a.inPopupMenu()) {
+                final JMenuItem menuItem = MenuUtils.addMenuItem(a.getAction(), this.popup, a.getPath());
+                if (a.equals(this.defaultRowAction))
+                    menuItem.setFont(menuItem.getFont().deriveFont(Font.BOLD));
+                menuItem.setEnabled(a.enabledFor(selectedRows));
+            }
+        }
+
+        return this.popup;
+    }
+
+    /**
+     * Set the action performed when double-clicking a row. This method calls
+     * {@link #addRowAction(Action)} and the popup display this action distinctively.
+     * 
+     * @param action the default action.
+     */
+    public final void setDefaultRowAction(final RowAction action) {
+        if (action != null && !this.rowActions.containsKey(action))
+            this.addRowAction(action);
+        this.defaultRowAction = action;
+    }
+
+    public final RowAction getDefaultRowAction() {
+        return this.defaultRowAction;
+    }
+
+    private void performDefaultAction(MouseEvent e) {
+        if (this.defaultRowAction != null && this.defaultRowAction.enabledFor(getSelectedRows()))
+            this.defaultRowAction.getAction().actionPerformed(new ActionEvent(e.getSource(), e.getID(), null, e.getWhen(), e.getModifiers()));
     }
 
     private void uiInit() {
@@ -451,6 +586,11 @@ public final class IListe extends JPanel implements AncestorListener {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new GridBagConstraints(0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0);
         this.add(this.filter, c);
+
+        c.gridy++;
+        this.btnPanel.setVisible(false);
+        this.add(this.btnPanel, c);
+
         c.weighty = 1;
         c.gridy++;
         this.add(scrollPane, c);
@@ -462,6 +602,8 @@ public final class IListe extends JPanel implements AncestorListener {
                     dispChanged();
             }
         });
+
+        this.setTransferHandler(new FileTransfertHandler(getSource().getPrimaryTable()));
     }
 
     protected synchronized final void invertDebug() {
@@ -537,31 +679,15 @@ public final class IListe extends JPanel implements AncestorListener {
 
     // Export en tableau OpenOffice
     public void exporter(File file) throws IOException {
-        exporter(file, false, XMLVersion.getDefault());
+        exporter(file, false, XMLFormatVersion.getDefault());
     }
 
-    public File exporter(File file, final boolean onlySelection, final XMLVersion version) throws IOException {
+    public File exporter(File file, final boolean onlySelection, final XMLFormatVersion version) throws IOException {
         return SpreadSheet.export(getExportModel(onlySelection), file, version);
     }
 
     protected TableModel getExportModel(final boolean onlySelection) {
-        final ViewTableModel res;
-        final String appName = Configuration.getInstance() == null ? null : Configuration.getInstance().getAppName();
-        final boolean isGestioNX = appName != null && appName.startsWith("OpenConcerto");
-        if (isGestioNX) {
-            res = new ViewTableModel(this.jTable) {
-                @Override
-                public Object getValueAt(int rowIndex, int columnIndex) {
-                    final Object value = super.getValueAt(rowIndex, columnIndex);
-                    if (value instanceof Long || value instanceof BigInteger) {
-                        return new Double(((Number) value).longValue() / 100.0);
-                    } else {
-                        return value;
-                    }
-                }
-            };
-        } else
-            res = new ViewTableModel(this.jTable);
+        final ViewTableModel res = new ViewTableModel(this.jTable);
         return onlySelection ? new TableModelSelectionAdapter(res, this.jTable.getSelectedRows()) : res;
     }
 
@@ -673,6 +799,21 @@ public final class IListe extends JPanel implements AncestorListener {
 
     public final SQLRow getDesiredRow() {
         return this.getRow(this.getSelection().getUserSelectedID());
+    }
+
+    public final List<SQLRowAccessor> getSelectedRows() {
+        final ListSelectionModel selectionModel = this.getJTable().getSelectionModel();
+        if (selectionModel.isSelectionEmpty())
+            return Collections.emptyList();
+
+        final int start = selectionModel.getMinSelectionIndex();
+        final int stop = selectionModel.getMaxSelectionIndex();
+        final List<SQLRowAccessor> res = new ArrayList<SQLRowAccessor>();
+        for (int i = start; i <= stop; i++) {
+            if (selectionModel.isSelectedIndex(i))
+                res.add(new SQLImmutableRowValues(this.getLine(i).getRow()));
+        }
+        return res;
     }
 
     public final void setAdjustVisible(boolean b) {

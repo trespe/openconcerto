@@ -68,13 +68,6 @@ public class GenerationMvtReglementAvoir extends GenerationEcritures implements 
                     this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementAvoir.journalCaisse);
                 } else {
                     this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
-                    SQLRow rowBanque = modeRegRow.getForeignRow("ID_BANQUE_POLE_PRODUIT");
-                    if (rowBanque != null && rowBanque.getID() > 1) {
-                        SQLRow rowJournal = rowBanque.getForeignRow("ID_JOURNAL");
-                        if (rowJournal != null && rowJournal.getID() > 1) {
-                            this.mEcritures.put("ID_JOURNAL", rowJournal.getID());
-                        }
-                    }
                 }
 
                 this.idMvt = idPere;
@@ -181,11 +174,6 @@ public class GenerationMvtReglementAvoir extends GenerationEcritures implements 
         valEncaisse.put("ID_CLIENT", new Integer(saisieRow.getInt("ID_CLIENT")));
         valEncaisse.put("DATE_AVOIR", this.date);
         valEncaisse.put("DATE_MIN_DECAISSE", dateEch);
-        SQLRow rowModeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
-        if (rowModeRegl != null && rowModeRegl.getID() > 1) {
-            valEncaisse.put("ID_BANQUE_POLE_PRODUIT", rowModeRegl.getInt("ID_BANQUE_POLE_PRODUIT"));
-        }
-
         SQLRow rowMvtPere = tableMouvement.getRow(idPere);
         this.idMvt = getNewMouvement("CHEQUE_AVOIR_CLIENT", 1, idPere, rowMvtPere.getInt("ID_PIECE"));
         valEncaisse.put("ID_MOUVEMENT", new Integer(this.idMvt));

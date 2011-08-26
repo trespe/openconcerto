@@ -14,6 +14,8 @@
  package org.openconcerto.ui.preferences;
 
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidObject;
 
 import java.awt.Component;
 import java.awt.Font;
@@ -57,6 +59,13 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
     private PrefTree tree;
     private PrefTreeNode currentNode;
     private final JButton buttonApply = new JButton("Appliquer");
+    private final ValidListener validListener = new ValidListener() {
+        @Override
+        public void validChange(ValidObject src, boolean newValue) {
+            MainPrefPanel.this.buttonApply.setEnabled(newValue);
+            MainPrefPanel.this.buttonApply.setToolTipText(src.getValidationText());
+        }
+    };
 
     public MainPrefPanel(PrefTree tree) {
         this.tree = tree;
@@ -187,7 +196,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
     public void setPanelFromTreeNode(PrefTreeNode n) {
         this.currentNode = n;
 
-        PreferencePanel p = n.getPanel();
+        PreferencePanel p = n.createPanel();
         if (p != null) {
             this.titleLabel.setText(p.getTitleName());
 
@@ -198,7 +207,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
                 // MainPrefPanel.this.buttonApply.setEnabled(b);
                 // }
                 // });
-
+                p.uiInit();
                 replacePanel(p);
                 this.addToHistory(n);
             }
@@ -219,18 +228,24 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
                 if (JOptionPane.showConfirmDialog(this, "Appliquer les modifications?", "Modifications", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                     this.currentPanel.apply();
                 } else {
-                    this.currentPanel.fireModifyChange(false);
+                    // no need to reset the panel, it will be discarded (the node is kept in history
+                    // to be able to recreate a brand new panel)
                 }
             }
-
+            this.currentPanel.removeValidListener(this.validListener);
         }
 
         this.remove((JComponent) this.currentPanel);
+        this.currentPanel = null;
+
         c.anchor = GridBagConstraints.NORTHWEST;
         c.fill = GridBagConstraints.BOTH;
         if (p instanceof JComponent) {
 
             this.currentPanel = p;
+            this.currentPanel.addValidListener(this.validListener);
+            // initial value
+            this.validListener.validChange(this.currentPanel, this.currentPanel.isValidated());
             this.add((JComponent) this.currentPanel, c);
             this.revalidate();
             this.repaint();

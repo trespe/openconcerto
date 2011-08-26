@@ -49,6 +49,7 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.component.ITextArea;
+import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Dimension;
@@ -59,11 +60,13 @@ import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
@@ -116,7 +119,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
             }
         }
     };
-
+    private final ElementComboBox boxTarif = new ElementComboBox();
     private PropertyChangeListener changeClientListener = new PropertyChangeListener() {
         public void propertyChange(PropertyChangeEvent evt) {
             // compteSel.removeValueListener(changeCompteListener);
@@ -126,6 +129,28 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
                 AvoirClientSQLComponent.this.defaultContactRowValues.put("ID_CLIENT", id);
                 if (id > 1) {
                     SQLRow row = AvoirClientSQLComponent.this.clientElt.getTable().getRow(id);
+
+                    if (comboClient.getElement().getTable().getFieldsName().contains("ID_TARIF")) {
+
+                        // SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                        // if (foreignRow.isUndefined() &&
+                        // !row.getForeignRow("ID_DEVISE").isUndefined()) {
+                        // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
+                        // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
+                        // foreignRow = rowValsD;
+                        //
+                        // }
+                        // tableBonItem.setTarif(foreignRow, true);
+                        SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                        if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
+                                && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
+                            boxTarif.setValue(foreignRow.getID());
+                            // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
+                            // true);
+                        } else {
+                            boxTarif.setValue(foreignRow.getID());
+                        }
+                    }
 
                         Where w = new Where(SaisieVenteFactureSQLComponent.TABLE_ADRESSE.getKey(), "=", row.getInt("ID_ADRESSE"));
 
@@ -144,22 +169,6 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         }
     };
 
-    private PropertyChangeListener changePoleListener = new PropertyChangeListener() {
-        @Override
-        public void propertyChange(PropertyChangeEvent evt) {
-
-            final SQLTable tableBanque = Configuration.getInstance().getBase().getTable("BANQUE_POLE_PRODUIT");
-            final ModeDeReglementSQLComponent modeReglComp = (ModeDeReglementSQLComponent) AvoirClientSQLComponent.this.eltModeRegl.getSQLChild();
-
-            if (AvoirClientSQLComponent.this.comboPole.getSelectedId() > 1) {
-                Where w = new Where(tableBanque.getField("ID_POLE_PRODUIT"), "=", AvoirClientSQLComponent.this.comboPole.getSelectedId());
-                modeReglComp.setWhereBanque(w);
-            } else {
-                modeReglComp.setWhereBanque(null);
-            }
-
-        }
-    };
 
     @Override
     protected SQLRowValues createDefaults() {
@@ -370,6 +379,30 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         // setCompteServiceVisible(!(bServ != null && !bServ.booleanValue()));
 
 
+        // Tarif
+        if (this.getTable().getFieldsName().contains("ID_TARIF")) {
+            // TARIF
+            c.gridy++;
+            c.gridx = 0;
+            c.weightx = 0;
+            c.weighty = 0;
+            c.gridwidth = 1;
+            this.add(new JLabel("Tarif à appliquer"), c);
+            c.gridx++;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+
+            c.weightx = 1;
+            this.add(boxTarif, c);
+            this.addView(boxTarif, "ID_TARIF");
+            boxTarif.addValueListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    table.setTarif(boxTarif.getSelectedRow(), false);
+                }
+            });
+        }
+
         // Table
             this.table = new AvoirItemTable();
         c.gridx = 0;
@@ -509,14 +542,21 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         final DeviseField fieldTTC = new DeviseField();
         // SQL
         addSQLObject(textPortHT, "PORT_HT");
+        final DeviseField fieldDevise = new DeviseField();
+        if (getTable().getFieldsName().contains("T_DEVISE"))
+            addSQLObject(fieldDevise, "T_DEVISE");
         addSQLObject(textRemiseHT, "REMISE_HT");
         addRequiredSQLObject(fieldHT, "MONTANT_HT");
         addRequiredSQLObject(fieldTVA, "MONTANT_TVA");
         addRequiredSQLObject(fieldTTC, "MONTANT_TTC");
         addRequiredSQLObject(fieldService, "MONTANT_SERVICE");
         //
-        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(), this.table
-                .getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement());
+        JTextField poids = new JTextField();
+        if (getTable().getFieldsName().contains("T_POIDS"))
+            addSQLObject(poids, "T_POIDS");
+        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
+                this.table.getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement(), fieldDevise,
+                this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
         totalTTC.setOpaque(false);
         c.gridx++;
         c.gridy = 0;
@@ -826,7 +866,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
                 rowVals.put("DATE", rowAvoir.getObject("DATE"));
                 try {
                     SQLRow row = rowVals.insert();
-                    MouvementStockSQLElement.updateStock(row.getID());
+                    MouvementStockSQLElement.updateStock(Arrays.asList(row.getID()));
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }

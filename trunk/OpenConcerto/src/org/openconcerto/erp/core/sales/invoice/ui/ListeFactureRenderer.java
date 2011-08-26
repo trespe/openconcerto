@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.core.sales.invoice.ui;
 
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -22,6 +21,8 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.sql.view.list.ListSQLLine;
 import org.openconcerto.ui.table.AlternateTableCellRenderer;
+import org.openconcerto.ui.table.TableCellRendererDecorator;
+import org.openconcerto.ui.table.TableCellRendererUtils;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -32,8 +33,9 @@ import java.util.Set;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JTable;
+import javax.swing.table.TableCellRenderer;
 
-public class ListeFactureRenderer extends DeviseNiceTableCellRenderer {
+public class ListeFactureRenderer extends TableCellRendererDecorator {
 
     // Acompte (bleu ciel)
     public final static Color acompte = new Color(232, 238, 250);
@@ -58,13 +60,19 @@ public class ListeFactureRenderer extends DeviseNiceTableCellRenderer {
         COLORS.put(prev, prevDark);
     }
 
+    static public final TableCellRendererDecoratorUtils<ListeFactureRenderer> UTILS = createUtils(ListeFactureRenderer.class);
+
     public ListeFactureRenderer() {
         super();
     }
 
+    public ListeFactureRenderer(TableCellRenderer renderer) {
+        super(renderer);
+    }
+
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 
-        Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        Component comp = this.getRenderer(table, column).getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
         AlternateTableCellRenderer.setBGColorMap((JComponent) comp, COLORS);
 
         final ListSQLLine line = ITableModel.getLine(table.getModel(), row);
@@ -77,6 +85,8 @@ public class ListeFactureRenderer extends DeviseNiceTableCellRenderer {
                 comp.setBackground(isSelected ? complementGrey : complement);
             } else if (rowAt.getBoolean("PREVISIONNELLE") == Boolean.TRUE) {
                 comp.setBackground(isSelected ? prevGrey : prev);
+            } else {
+                TableCellRendererUtils.setBackgroundColor(comp, table, isSelected);
             }
 
             if (comp instanceof JLabel) {

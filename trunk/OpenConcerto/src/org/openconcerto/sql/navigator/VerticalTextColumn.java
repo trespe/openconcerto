@@ -100,7 +100,6 @@ public class VerticalTextColumn extends JPanel {
         newImage = this.createImage(this.getWidth(), this.getHeight());
         Graphics g = newImage.getGraphics();
         Rectangle r = this.getBounds();
-        System.out.println("paint Tile:" + r);
 
         // super.paint(g);
 
@@ -137,7 +136,7 @@ public class VerticalTextColumn extends JPanel {
 
         AffineTransform at = new AffineTransform();
         at.rotate(Math.toRadians(-90), 0, 0);
-        System.out.println(at);
+
         g2.setTransform(at);
         g2.drawString(title, x, y);
 

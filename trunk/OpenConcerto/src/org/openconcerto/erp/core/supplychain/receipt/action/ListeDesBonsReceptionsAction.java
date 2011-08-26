@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
@@ -25,14 +24,11 @@ import org.openconcerto.sql.view.ListeAddPanel;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.math.BigInteger;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.JPopupMenu;
-import javax.swing.JTable;
-
 
 public class ListeDesBonsReceptionsAction extends CreateFrameAbstractAction {
 
@@ -43,15 +39,6 @@ public class ListeDesBonsReceptionsAction extends CreateFrameAbstractAction {
 
     public JFrame createFrame() {
         final IListFrame frame = new IListFrame(new ListeAddPanel(Configuration.getInstance().getDirectory().getElement("BON_RECEPTION")));
-
-        // Renderer pour les devises
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
         frame.getPanel().getListe().getJTable().addMouseListener(new MouseAdapter() {
 
             public void mousePressed(MouseEvent mouseEvent) {

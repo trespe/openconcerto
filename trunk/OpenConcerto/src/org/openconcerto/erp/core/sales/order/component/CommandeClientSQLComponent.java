@@ -46,10 +46,13 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
@@ -156,6 +159,66 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         c.weighty = 0;
         c.fill = GridBagConstraints.NONE;
         this.add(this.comboClient, c);
+        final ElementComboBox boxTarif = new ElementComboBox();
+        this.comboClient.addValueListener(new PropertyChangeListener() {
+
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if (comboClient.getValue() != null) {
+                    Integer id = comboClient.getValue();
+
+                    if (id > 1) {
+
+                        SQLRow row = comboClient.getElement().getTable().getRow(id);
+                        if (comboClient.getElement().getTable().getFieldsName().contains("ID_TARIF")) {
+
+                            SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                            if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
+                                    && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
+                                boxTarif.setValue(foreignRow.getID());
+                                // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
+                                // true);
+                            } else {
+                                boxTarif.setValue(foreignRow.getID());
+                            }
+                            // SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                            // if (foreignRow.isUndefined() &&
+                            // !row.getForeignRow("ID_DEVISE").isUndefined()) {
+                            // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
+                            // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
+                            // foreignRow = rowValsD;
+                            //
+                            // }
+                            // table.setTarif(foreignRow, true);
+                        }
+                    }
+                }
+
+            }
+        });
+        // tarif
+        if (this.getTable().getFieldsName().contains("ID_TARIF")) {
+            // TARIF
+            c.gridy++;
+            c.gridx = 0;
+            c.weightx = 0;
+            c.weighty = 0;
+            c.gridwidth = 1;
+            this.add(new JLabel("Tarif à appliquer"), c);
+            c.gridx++;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+
+            c.weightx = 1;
+            this.add(boxTarif, c);
+            this.addView(boxTarif, "ID_TARIF");
+            boxTarif.addValueListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    table.setTarif(boxTarif.getSelectedRow(), false);
+                }
+            });
+        }
 
         // Table d'élément
         this.table = new CommandeClientItemTable();
@@ -220,17 +283,22 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         DeviseField fieldHT = new DeviseField();
         DeviseField fieldTVA = new DeviseField();
         DeviseField fieldTTC = new DeviseField();
+        DeviseField fieldDevise = new DeviseField();
         DeviseField fieldService = new DeviseField();
         fieldHT.setOpaque(false);
         fieldTVA.setOpaque(false);
         fieldTTC.setOpaque(false);
         fieldService.setOpaque(false);
+        addSQLObject(fieldDevise, "T_DEVISE");
         addRequiredSQLObject(fieldHT, "T_HT");
         addRequiredSQLObject(fieldTVA, "T_TVA");
         addRequiredSQLObject(fieldTTC, "T_TTC");
         addRequiredSQLObject(fieldService, "T_SERVICE");
-        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(), this.table
-                .getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement());
+        JTextField poids = new JTextField();
+        // addSQLObject(poids, "T_POIDS");
+        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
+                this.table.getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement(), fieldDevise,
+                this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
 
         c.gridx = GridBagConstraints.RELATIVE;
         c.gridy--;
@@ -404,7 +472,12 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
         if (idDevis > 1) {
             SQLInjector injector = SQLInjector.getInjector(devis.getTable(), this.getTable());
-            this.select(injector.createRowValuesFrom(idDevis));
+            SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(idDevis);
+            SQLRow rowDevis = devis.getTable().getRow(idDevis);
+
+            String string = rowDevis.getString("OBJET");
+            createRowValuesFrom.put("NOM", string + (string.trim().length() == 0 ? "" : ",") + rowDevis.getString("NUMERO"));
+            this.select(createRowValuesFrom);
         }
 
         loadItem(this.table, devis, idDevis, devisElt);

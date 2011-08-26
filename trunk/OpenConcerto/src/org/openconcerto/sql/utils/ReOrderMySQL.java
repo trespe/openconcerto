@@ -39,8 +39,8 @@ final class ReOrderMySQL extends ReOrder {
         res.add("SELECT " + getInc() + " into @inc");
         res.add(this.t.getBase().quote("UPDATE %f SET %n =  -%n " + this.getWhere(), this.t, oF, oF));
         // on commence à 0
-        res.add("SET @o := " + this.getFirst() + "- @inc");
-        res.add(getLoop(oF, "<= -" + this.getFirst(), oF, "DESC"));
+        res.add("SET @o := " + this.getFirstOrderValue() + "- @inc");
+        res.add(getLoop(oF, "<= -" + this.getFirstToReorder(), oF, "DESC"));
         if (this.isAll()) {
             res.add(getLoop(oF, "is null", this.t.getKey(), "ASC"));
         }

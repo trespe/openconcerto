@@ -14,7 +14,7 @@
  package org.openconcerto.sql.sqlobject;
 
 import org.openconcerto.sql.Log;
-import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -57,16 +57,20 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
             this.initCache(cache);
     }
 
-    static class ITextComboCacheSQL implements ITextComboCache {
+    static public class ITextComboCacheSQL implements ITextComboCache {
 
-        private final SQLField field;
+        private final String field;
         private final SQLTable t;
         private final List<String> cache;
         private boolean loadedOnce;
 
         public ITextComboCacheSQL(final SQLField f) {
-            this.field = f;
-            this.t = this.field.getDBRoot().findTable("COMPLETION");
+            this(f.getDBRoot(), f.getFullName());
+        }
+
+        public ITextComboCacheSQL(final DBRoot r, final String id) {
+            this.field = id;
+            this.t = r.findTable("COMPLETION");
             if (!this.isValid())
                 Log.get().warning("no completion found for " + this.field);
             this.cache = new ArrayList<String>();
@@ -85,7 +89,7 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
         public List<String> loadCache() {
             final SQLSelect sel = new SQLSelect(this.t.getBase());
             sel.addSelect(this.t.getField("LABEL"));
-            sel.setWhere(new Where(this.t.getField("CHAMP"), "=", this.field.getFullName()));
+            sel.setWhere(new Where(this.t.getField("CHAMP"), "=", this.field));
             this.cache.clear();
             this.cache.addAll(this.getDS().executeCol(sel.asString()));
 
@@ -103,7 +107,7 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
         public void addToCache(String string) {
             if (!this.cache.contains(string)) {
                 final Map<String, Object> m = new HashMap<String, Object>();
-                m.put("CHAMP", this.field.getFullName());
+                m.put("CHAMP", this.field);
                 m.put("LABEL", string);
                 try {
                     // the primary key is not generated so don't let SQLRowValues remove it.
@@ -116,8 +120,8 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
         }
 
         public void deleteFromCache(String string) {
-            String req = "DELETE FROM \"COMPLETION\" WHERE \"CHAMP\"= " + SQLBase.quoteStringStd(this.field.getFullName()) + " AND \"LABEL\"=" + SQLBase.quoteStringStd(string);
-            this.getDS().executeScalar(req);
+            final Where w = new Where(this.t.getField("CHAMP"), "=", this.field).and(new Where(this.t.getField("LABEL"), "=", string));
+            this.getDS().executeScalar("DELETE FROM " + this.t.getSQLName().quote() + " WHERE " + w.getClause());
         }
 
         @Override

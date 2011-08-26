@@ -93,7 +93,7 @@ public class TipsFrame extends JFrame {
         final JPanel toolbar = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         final JCheckBox checkBox = new JCheckBox("Afficher les astuces au démarrage");
         checkBox.setSelected(checked);
-       
+
         toolbar.add(checkBox);
         final JButton buttonPrecedent = new JButton("Précédent");
         toolbar.add(buttonPrecedent);
@@ -122,9 +122,8 @@ public class TipsFrame extends JFrame {
 
         this.setContentPane(panel);
 
-        pack();
         this.setResizable(false);
-        
+        this.pack();
         checkBox.addActionListener(new ActionListener() {
 
             @Override
@@ -133,10 +132,7 @@ public class TipsFrame extends JFrame {
 
             }
         });
-        
-        
-        
-        
+
     }
 
     protected void checkBoxModified(boolean selected) {
@@ -153,14 +149,15 @@ public class TipsFrame extends JFrame {
         }
         currentIndex = i % this.tips.size();
         // Le panel du tips doit faire 640,480;
-
-        this.remove(currentPanel);
-        this.invalidate();
-        currentPanel = this.tips.get(i).getPanel();
-        currentPanel.setMinimumSize(new Dimension(480, H));
-        currentPanel.setPreferredSize(new Dimension(480, H));
-        this.add(currentPanel, constraintPanel);
-        this.validateTree();
+        synchronized (getTreeLock()) {
+            this.remove(currentPanel);
+            this.invalidate();
+            currentPanel = this.tips.get(i).getPanel();
+            currentPanel.setMinimumSize(new Dimension(480, H));
+            currentPanel.setPreferredSize(new Dimension(480, H));
+            this.add(currentPanel, constraintPanel);
+            this.validateTree();
+        }
         this.repaint();
     }
 

@@ -107,7 +107,13 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
         // setValue(Object o, final ODValueType vt)
         if (obj instanceof Number)
             // 5.2
-            this.setValue(ODValueType.FLOAT, obj, TextPFloatFormat.format(obj));
+            // FIXME voir avec Sylvain : probleme avec le viewer si Integer ou Long le textp ne doit
+            // avoir de décimal
+            if (obj instanceof Integer || obj instanceof Long) {
+                this.setValue(ODValueType.FLOAT, obj, (obj == null) ? "" : obj.toString());
+            } else {
+                this.setValue(ODValueType.FLOAT, obj, TextPFloatFormat.format(obj));
+            }
         else if (obj instanceof Date)
             this.setValue(ODValueType.DATE, obj, TextPDateFormat.format(obj));
         else

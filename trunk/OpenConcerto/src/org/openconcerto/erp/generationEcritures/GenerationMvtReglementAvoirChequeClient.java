@@ -43,13 +43,6 @@ public class GenerationMvtReglementAvoirChequeClient extends GenerationEcritures
         this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
         this.mEcritures.put("NOM", this.nom);
         this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
-        SQLRow rowBanque = chequeAvoirRow.getForeignRow("ID_BANQUE_POLE_PRODUIT");
-        if (rowBanque != null && rowBanque.getID() > 1) {
-            SQLRow rowJournal = rowBanque.getForeignRow("ID_JOURNAL");
-            if (rowJournal != null && rowJournal.getID() > 1) {
-                this.mEcritures.put("ID_JOURNAL", rowJournal.getID());
-            }
-        }
         this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
         // compte Clients

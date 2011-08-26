@@ -80,13 +80,6 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
                     this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementVenteComptoir.journalCaisse);
                 } else {
                     this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
-                    SQLRow rowBanque = modeRegRow.getForeignRow("ID_BANQUE_POLE_PRODUIT");
-                    if (rowBanque != null && rowBanque.getID() > 1) {
-                        SQLRow rowJournal = rowBanque.getForeignRow("ID_JOURNAL");
-                        if (rowJournal != null && rowJournal.getID() > 1) {
-                            this.mEcritures.put("ID_JOURNAL", rowJournal.getID());
-                        }
-                    }
                 }
 
                 // compte Clients
@@ -185,11 +178,6 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
         valEncaisse.put("DATE_MIN_DEPOT", new java.sql.Date(dateEch.getTime()));
         valEncaisse.put("DATE_DEPOT", new java.sql.Date(this.date.getTime()));
         valEncaisse.put("MONTANT", new Long(prixTTC.getLongValue()));
-        SQLRow rowModeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
-        if (rowModeRegl != null && rowModeRegl.getID() > 1) {
-            valEncaisse.put("ID_BANQUE_POLE_PRODUIT", rowModeRegl.getInt("ID_BANQUE_POLE_PRODUIT"));
-        }
-
         // on crée un nouveau mouvement pour l'encaissement futur du cheque
         SQLRow rowMvtPere = tableMouvement.getRow(idPere);
         this.idMvt = getNewMouvement("CHEQUE_A_ENCAISSER", 1, idPere, rowMvtPere.getInt("ID_PIECE"));

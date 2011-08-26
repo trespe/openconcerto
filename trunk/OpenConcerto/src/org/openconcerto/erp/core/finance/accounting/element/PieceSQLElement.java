@@ -16,12 +16,12 @@
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
-import javax.swing.JTextField;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JLabel;
+import javax.swing.JTextField;
 
 /***************************************************************************************************
  * Une pièce regroupe l'ensemble d'une opération comptable c'est un ensemble de mouvement

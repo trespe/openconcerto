@@ -27,6 +27,8 @@ public interface ValidObject {
     public boolean isValidated();
 
     public void addValidListener(ValidListener l);
+    
+    public void removeValidListener(ValidListener l);
 
     /**
      * Why isValidated() returns its value.

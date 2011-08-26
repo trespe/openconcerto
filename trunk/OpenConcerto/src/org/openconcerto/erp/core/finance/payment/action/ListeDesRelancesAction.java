@@ -14,7 +14,6 @@
  package org.openconcerto.erp.core.finance.payment.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.FicheRelanceSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.RelanceSheet;
@@ -31,13 +30,11 @@ import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.math.BigInteger;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.JPopupMenu;
-import javax.swing.JTable;
 
 public class ListeDesRelancesAction extends CreateFrameAbstractAction implements MouseListener {
 
@@ -51,15 +48,6 @@ public class ListeDesRelancesAction extends CreateFrameAbstractAction implements
     public JFrame createFrame() {
         final SQLElement elt = Configuration.getInstance().getDirectory().getElement("RELANCE");
         this.frame = new IListFrame(new ListeAddPanel(elt));
-
-        // Renderer
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = this.frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
 
         final SQLTableModelSourceOnline src = (SQLTableModelSourceOnline) this.frame.getPanel().getListe().getModel().getReq();
 

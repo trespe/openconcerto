@@ -29,9 +29,11 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.ListSQLRequest;
+import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.TitledSeparator;
+import org.openconcerto.ui.component.ITextArea;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -43,6 +45,8 @@ import java.util.List;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
 public class FournisseurSQLElement extends ComptaSQLConfElement {
@@ -72,7 +76,7 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    public synchronized ListSQLRequest getListRequest() {
+    public synchronized ListSQLRequest createListRequest() {
         return new ListSQLRequest(getTable(), getListFields()) {
             @Override
             protected void customizeToFetch(SQLRowValues graphToFetch) {
@@ -117,7 +121,7 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                 this.add(labelCode, c);
                 c.gridx++;
                 c.gridwidth = 1;
-                c.weightx = 1;
+                c.weightx = 0.5;
                 this.add(textCode, c);
 
                 c.gridy++;
@@ -130,7 +134,7 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
 
                 this.add(labelRS, c);
                 c.gridx++;
-                c.weightx = 1;
+                c.weightx = 0.5;
                 this.add(textType, c);
 
                 // Tel
@@ -143,7 +147,7 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                 this.add(labelTel, c);
                 c.gridx++;
                 c.gridwidth = 1;
-                c.weightx = 1;
+                c.weightx = 0.5;
                 this.add(textTel, c);
 
                 // Nom
@@ -153,7 +157,7 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                 this.add(new JLabel(getLabelFor("NOM")), c);
                 c.gridx++;
                 c.gridwidth = 1;
-                c.weightx = 1;
+                c.weightx = 0.5;
                 this.add(textNom, c);
 
                 // Fax
@@ -162,9 +166,54 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                 this.add(new JLabel(getLabelFor("FAX")), c);
                 c.gridx++;
                 c.gridwidth = GridBagConstraints.REMAINDER;
-                c.weightx = 1;
+                c.weightx = 0.5;
                 JTextField textFax = new JTextField();
                 this.add(textFax, c);
+
+                // Mail
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(new JLabel(getLabelFor("MAIL")), c);
+                c.gridx++;
+                c.gridwidth = 1;
+                c.weightx = 0.5;
+                JTextField textMail = new JTextField();
+                this.add(textMail, c);
+                this.addView(textMail, "MAIL");
+
+                // Tel P
+                c.gridx++;
+                c.weightx = 0;
+                this.add(new JLabel(getLabelFor("TEL_P")), c);
+                c.gridx++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                c.weightx = 0.5;
+                JTextField textTelP = new JTextField();
+                this.add(textTelP, c);
+                this.addView(textTelP, "TEL_P");
+                // Langue
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(new JLabel(getLabelFor("ID_LANGUE")), c);
+                c.gridx++;
+                c.gridwidth = 1;
+                c.weightx = 0.5;
+                ElementComboBox langue = new ElementComboBox(true, 35);
+                this.add(langue, c);
+                this.addView(langue, "ID_LANGUE");
+
+                // Resp
+                c.gridx++;
+                c.weightx = 0;
+                this.add(new JLabel(getLabelFor("RESPONSABLE")), c);
+                c.gridx++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                c.weightx = 0.5;
+                JTextField textResp = new JTextField();
+                this.add(textResp, c);
+                this.addView(textResp, "RESPONSABLE");
 
                 c.gridx = 0;
                 c.gridy++;
@@ -182,7 +231,7 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                 cAdr.gridx = GridBagConstraints.RELATIVE;
                 panelAdresse.add(this.sep2, cAdr);
 
-                // 
+                //
 
                 this.addView("ID_ADRESSE", REQ + ";" + DEC + ";" + SEP);
 
@@ -271,6 +320,26 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                 c.weighty = 1;
                 c.anchor = GridBagConstraints.NORTHWEST;
                 this.add(panel, c);
+
+                // INfos
+                c.gridx = 0;
+                c.gridy++;
+                c.gridheight = 1;
+                c.weighty = 0;
+                c.weightx = 1;
+                c.anchor = GridBagConstraints.WEST;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                this.add(new TitledSeparator(getLabelFor("INFOS")), c);
+
+                c.gridy++;
+                c.weightx = 1;
+                c.weighty = 1;
+                c.fill = GridBagConstraints.BOTH;
+                ITextArea infos = new ITextArea();
+                final JScrollPane scrollPane = new JScrollPane(infos);
+                scrollPane.setBorder(null);
+                this.add(scrollPane, c);
+                this.addView(infos, "INFOS");
 
                 this.addSQLObject(textType, "TYPE");
                 this.addRequiredSQLObject(textNom, "NOM");

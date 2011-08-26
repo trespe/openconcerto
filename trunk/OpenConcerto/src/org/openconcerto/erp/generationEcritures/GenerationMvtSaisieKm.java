@@ -51,9 +51,9 @@ public class GenerationMvtSaisieKm extends GenerationEcritures {
 
         // gnération des ecritures
         SQLTable tableElt = Configuration.getInstance().getRoot().findTable("SAISIE_KM_ELEMENT");
-        SQLTable tableAssoc = Configuration.getInstance().getRoot().findTable("ASSOCIATION_ANALYTIQUE");
         List<SQLRow> set = saisieRow.getReferentRows(tableElt);
 
+        SQLTable tableAssoc;
         try {
             for (SQLRow rowElement : set) {
 
@@ -65,13 +65,6 @@ public class GenerationMvtSaisieKm extends GenerationEcritures {
                 this.mEcritures.put("DEBIT", rowElement.getObject("DEBIT"));
                 this.mEcritures.put("CREDIT", rowElement.getObject("CREDIT"));
                 int idEcr = ajoutEcriture();
-                List<SQLRow> assocs = rowElement.getReferentRows(tableAssoc);
-                for (SQLRow sqlRow : assocs) {
-                    if (!sqlRow.isUndefined()) {
-                        addAssocAnalytique(idEcr, sqlRow.getInt("ID_POSTE_ANALYTIQUE"));
-                    }
-                }
-
                 // Mise à jour de la clef étrangère écriture de l'élément saisie au km
                 if (idEcr > 1) {
                     SQLRowValues vals = rowElement.createEmptyUpdateRow();

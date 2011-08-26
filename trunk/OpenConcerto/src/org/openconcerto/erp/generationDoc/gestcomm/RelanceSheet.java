@@ -42,19 +42,18 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
     /**
      * @return une Map contenant les valeurs à remplacer dans la template
      */
-    protected Map createMap() {
+    protected Map<String, Object> createMap() {
 
-        SQLRow rowSoc = ((ComptaPropsConfiguration) Configuration.getInstance()).getRowSociete();
-        SQLRow rowSocAdresse = rowSoc.getForeignRow("ID_ADRESSE_COMMON");
+        final SQLRow rowSoc = ((ComptaPropsConfiguration) Configuration.getInstance()).getRowSociete();
+        final SQLRow rowSocAdresse = rowSoc.getForeignRow("ID_ADRESSE_COMMON");
 
-        Map<String, Object> m = new HashMap<String, Object>();
+        final Map<String, Object> map = new HashMap<String, Object>();
 
         // Infos societe
-        m.put("SocieteType", rowSoc.getString("TYPE"));
-        m.put("SocieteNom", rowSoc.getString("NOM"));
-
-        m.put("SocieteAdresse", rowSocAdresse.getString("RUE"));
-        m.put("SocieteCodePostal", getVilleCP(rowSocAdresse.getString("VILLE")));
+        map.put("SocieteType", rowSoc.getString("TYPE"));
+        map.put("SocieteNom", rowSoc.getString("NOM"));
+        map.put("SocieteAdresse", rowSocAdresse.getString("RUE"));
+        map.put("SocieteCodePostal", getVilleCP(rowSocAdresse.getString("VILLE")));
 
         String ville = getVille(rowSocAdresse.getString("VILLE"));
         final Object cedex = rowSocAdresse.getObject("CEDEX");
@@ -67,7 +66,7 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
             }
         }
 
-        m.put("SocieteVille", ville);
+        map.put("SocieteVille", ville);
 
         SQLRow rowClient;
         final SQLRow clientRowNX = this.rowRelance.getForeignRow("ID_CLIENT");
@@ -77,13 +76,13 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         // Client compte
         SQLRow rowCompteClient = clientRowNX.getForeignRow("ID_COMPTE_PCE");
         String numero = rowCompteClient.getString("NUMERO");
-        m.put("ClientNumeroCompte", numero);
+        map.put("ClientNumeroCompte", numero);
 
         // Infos Client
-        m.put("ClientType", rowClient.getString("FORME_JURIDIQUE"));
-        m.put("ClientNom", rowClient.getString("NOM"));
-        m.put("ClientAdresse", rowAdresse.getString("RUE"));
-        m.put("ClientCodePostal", getVilleCP(rowAdresse.getString("VILLE")));
+        map.put("ClientType", rowClient.getString("FORME_JURIDIQUE"));
+        map.put("ClientNom", rowClient.getString("NOM"));
+        map.put("ClientAdresse", rowAdresse.getString("RUE"));
+        map.put("ClientCodePostal", getVilleCP(rowAdresse.getString("VILLE")));
         String villeCli = getVille(rowAdresse.getString("VILLE"));
         final Object cedexCli = rowAdresse.getObject("CEDEX");
         final boolean hasCedexCli = rowAdresse.getBoolean("HAS_CEDEX");
@@ -95,52 +94,48 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
             }
         }
 
-        m.put("ClientVille", villeCli);
+        map.put("ClientVille", villeCli);
 
         // Date relance
         Date d = (Date) this.rowRelance.getObject("DATE");
-        m.put("RelanceDate", dateFormat.format(d));
+        map.put("RelanceDate", dateFormat.format(d));
 
         SQLRow rowFacture = this.rowRelance.getForeignRow("ID_SAISIE_VENTE_FACTURE");
-
-        SQLRow rowPole = rowFacture.getForeignRow("ID_POLE_PRODUIT");
-        m.put("RaisonSociale", rowPole.getString("RAISON_SOCIALE"));
 
         // Infos facture
         Long lTotal = (Long) rowFacture.getObject("T_TTC");
         Long lRestant = (Long) this.rowRelance.getObject("MONTANT");
         Long lVerse = new Long(lTotal.longValue() - lRestant.longValue());
-        m.put("FactureNumero", rowFacture.getString("NUMERO"));
-        m.put("FactureTotal", GestionDevise.currencyToString(lTotal.longValue(), true));
-        m.put("FactureRestant", GestionDevise.currencyToString(lRestant.longValue(), true));
-        m.put("FactureVerse", GestionDevise.currencyToString(lVerse.longValue(), true));
-        m.put("FactureDate", dateFormat2.format((Date) rowFacture.getObject("DATE")));
+        map.put("FactureNumero", rowFacture.getString("NUMERO"));
+        map.put("FactureTotal", GestionDevise.currencyToString(lTotal.longValue(), true));
+        map.put("FactureRestant", GestionDevise.currencyToString(lRestant.longValue(), true));
+        map.put("FactureVerse", GestionDevise.currencyToString(lVerse.longValue(), true));
+        map.put("FactureDate", dateFormat2.format((Date) rowFacture.getObject("DATE")));
 
         Date dFacture = (Date) rowFacture.getObject("DATE");
         SQLRow modeRegRow = rowFacture.getForeignRow("ID_MODE_REGLEMENT");
         Date dateEch = ModeDeReglementSQLElement.calculDate(modeRegRow.getInt("AJOURS"), modeRegRow.getInt("LENJOUR"), dFacture);
-        m.put("FactureDateEcheance", dateFormat2.format(dateEch));
+        map.put("FactureDateEcheance", dateFormat2.format(dateEch));
 
         SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
         sel.addSelect(this.rowRelance.getTable().getKey());
         sel.setWhere(new Where(this.rowRelance.getTable().getField("ID_SAISIE_VENTE_FACTURE"), "=", this.rowRelance.getInt("ID_SAISIE_VENTE_FACTURE")));
         sel.addFieldOrder(this.rowRelance.getTable().getField("DATE").getFullName());
-        List listResult = Configuration.getInstance().getBase().getDataSource().execute(sel.asString());
+        List<Map> listResult = Configuration.getInstance().getBase().getDataSource().execute(sel.asString());
         if (listResult != null && listResult.size() > 0) {
-            Map o = (Map) listResult.get(0);
+            Map o = listResult.get(0);
             Number n = (Number) o.get(this.rowRelance.getTable().getKey().getName());
             SQLRow rowOldRelance = this.rowRelance.getTable().getRow(n.intValue());
             Date dOldRelance = (Date) rowOldRelance.getObject("DATE");
-            m.put("DatePremiereRelance", dateFormat2.format(dOldRelance));
+            map.put("DatePremiereRelance", dateFormat2.format(dOldRelance));
         } else {
-            m.put("DatePremiereRelance", "");
+            map.put("DatePremiereRelance", "");
         }
 
-        return m;
+        return map;
     }
 
     public RelanceSheet(SQLRow row) {
-        super();
         this.rowRelance = row;
         Date d = (Date) this.rowRelance.getObject("DATE");
         String year = yearFormat.format(d);
@@ -150,13 +145,6 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         System.err.println(this.locationTemplate + "/" + string);
         init(year, string, "RelancePrinter", tuple);
     }
-
-    // public void generate(boolean print, boolean show, String printer, boolean overwrite) {
-    // // this.locationTemplate =
-    // // TemplateNXProps.getInstance().getStringProperty("LocationTemplate");
-    //
-    // super.generate(print, show, printer, overwrite);
-    // }
 
     protected boolean savePDF() {
         return true;

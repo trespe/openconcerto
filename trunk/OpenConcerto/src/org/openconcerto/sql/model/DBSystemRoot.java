@@ -166,9 +166,14 @@ public final class DBSystemRoot extends DBStructureItemDB {
     }
 
     void descendantsChanged() {
+        this.descendantsChanged(true);
+    }
+
+    void descendantsChanged(final boolean tableListChange) {
         this.clearGraph();
         // the dataSource must always have all tables, to listen to them for its cache
-        this.getDataSource().setTables(getDescs(SQLTable.class));
+        if (tableListChange)
+            this.getDataSource().setTables(getDescs(SQLTable.class));
     }
 
     private void clearGraph() {

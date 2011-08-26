@@ -273,7 +273,7 @@ public class ConfigCaissePanel extends JPanel {
         }
 
         try {
-
+            System.out.println("Reloading POS information from: " + config);
             SQLServer server = config.createServer("Common");
             DBSystemRoot r = server.getSystemRoot("OpenConcerto");
             DBRoot root = r.getRoot("Common");

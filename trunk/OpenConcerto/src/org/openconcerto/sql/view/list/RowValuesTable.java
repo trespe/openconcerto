@@ -30,6 +30,9 @@ import org.openconcerto.utils.checks.ValidListener;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Graphics;
+import java.awt.Rectangle;
+import java.awt.event.ActionEvent;
+import java.awt.event.KeyEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
@@ -37,7 +40,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import javax.swing.AbstractAction;
+import javax.swing.JComponent;
 import javax.swing.JViewport;
+import javax.swing.KeyStroke;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import javax.swing.event.TableModelEvent;
@@ -109,8 +115,18 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
         this.getModel().addTableModelListener(this);
 
         this.getTableHeader().setReorderingAllowed(false);
+
         this.addAncestorListener(this);
         this.putClientProperty("terminateEditOnFocusLost", Boolean.TRUE);
+
+        // ALT ENTER pour ajouter une nouvelle ligne
+        this.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.ALT_DOWN_MASK), "addLine");
+        this.getActionMap().put("addLine", new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                getRowValuesTableModel().addNewRow();
+            }
+        });
+
     }
 
     @Override
@@ -180,11 +196,14 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     public void loadState(String filename) {
         this.stateManager.loadState(new File(filename));
-
     }
 
     public void tableChanged(TableModelEvent e) {
         super.tableChanged(e);
+        // Scroll à la ligne insérée
+        if (e.getType() == TableModelEvent.INSERT) {
+            scrollRectToVisible(new Rectangle(getCellRect(e.getFirstRow(), 0, true)));
+        }
     }
 
     public RowValuesTableModel getRowValuesTableModel() {
@@ -207,7 +226,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     public void updateField(String field, int id, String fieldCondition) {
         this.model.updateField(field, id, fieldCondition);
-
         // Clear pour fixer le probleme avec les editframe et ne pas fermer la fenetre
         // sinon les elements pointront sur la nouveau devis et l'ancien les perdra
         clear();
@@ -215,7 +233,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     public void updateField(String field, SQLRowValues rowVals, String fieldCondition) {
         this.model.updateField(field, rowVals, fieldCondition);
-
         // Clear pour fixer le probleme avec les editframe et ne pas fermer la fenetre
         // sinon les elements pointront sur la nouveau devis et l'ancien les perdra
         clear();
@@ -251,14 +268,11 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     @Override
     public void changeSelection(int rowIndex, int columnIndex, boolean toggle, boolean extend) {
-
         super.changeSelection(rowIndex, columnIndex, toggle, extend);
         if (editCellAt(rowIndex, columnIndex)) {
             // System.out.println("editCellAt called");
             getEditorComponent().requestFocusInWindow();
             getEditorComponent().requestFocus();
-        } else {
-            // System.out.println("editCellAt called but failed");
         }
     }
 
@@ -267,7 +281,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
         TableColumn tableColumn = getColumnModel().getColumn(column);
         TableCellEditor editor = tableColumn.getCellEditor();
         if (editor == null) {
-
             editor = getDefaultEditor(getColumnClass(column));
         }
         return editor;
@@ -292,7 +305,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
         try {
             this.stateManager.saveState();
         } catch (IOException e) {
-            // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
@@ -303,12 +315,10 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
     }
 
     public void ancestorMoved(AncestorEvent event) {
-        // TODO Auto-generated method stub
 
     }
 
     public void ancestorRemoved(AncestorEvent event) {
-        // TODO Auto-generated method stub
 
     }
 
@@ -322,19 +332,16 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     @Override
     public void addValueListener(PropertyChangeListener l) {
-        // TODO Auto-generated method stub
 
     }
 
     @Override
     public Component getComp() {
-        // TODO Auto-generated method stub
         return this;
     }
 
     @Override
     public String getDescription() {
-        // TODO Auto-generated method stub
         return this.model.getSQLElement().getPluralName();
     }
 
@@ -343,7 +350,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     @Override
     public SQLField getField() {
-
         return this.field;
     }
 
@@ -354,68 +360,62 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     @Override
     public void insert(SQLRowValues vals) {
-        // TODO Auto-generated method stub
         System.err.println("Insert");
     }
 
     @Override
     public void resetValue() {
-        // TODO Auto-generated method stub
 
     }
 
     @Override
     public void setEditable(boolean b) {
-        // TODO Auto-generated method stub
         this.model.setEditable(b);
     }
 
     @Override
     public void show(SQLRowAccessor r) {
-        // TODO Auto-generated method stub
 
     }
 
     @Override
     public void update(SQLRowValues vals) {
-        // TODO Auto-generated method stub
 
     }
 
     @Override
     public void addEmptyListener(EmptyListener l) {
-        // TODO Auto-generated method stub
 
     }
 
     @Override
     public boolean isEmpty() {
-        // TODO Auto-generated method stub
         return false;
     }
 
     @Override
     public void addValidListener(ValidListener l) {
-        // TODO Auto-generated method stub
+
+    }
+
+    @Override
+    public void removeValidListener(ValidListener l) {
 
     }
 
     @Override
     public String getValidationText() {
-        // TODO Auto-generated method stub
-        SQLFieldTranslator trans = Configuration.getInstance().getTranslator();
+        final SQLFieldTranslator trans = Configuration.getInstance().getTranslator();
         return "au moins " + this.model.getSQLElement().getSingularName() + " n'a pas le champ requis \"" + trans.getLabelFor(this.model.getRequiredField()) + "\" rempli";
     }
 
     @Override
     public boolean isValidated() {
-        // TODO Auto-generated method stub
         return this.model.isValidated();
     }
 
     @Override
     public void init(String sqlName, Set<SQLField> fields) {
-        // TODO Auto-generated method stub
         final Object[] array = fields.toArray();
         if (array.length > 0) {
             this.field = (SQLField) array[0];
@@ -427,7 +427,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     @Override
     public void setDescription(String s) {
-        // TODO Auto-generated method stub
 
     }
 }

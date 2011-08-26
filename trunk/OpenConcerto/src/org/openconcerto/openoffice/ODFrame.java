@@ -26,15 +26,6 @@ import org.jdom.Namespace;
  */
 public class ODFrame<D extends ODDocument> extends ImmutableDocStyledNode<GraphicStyle, D> {
 
-    static public String getQualifiedName(final XMLVersion version) {
-        if (version == XMLVersion.OOo)
-            return "draw:text-box";
-        else if (version == XMLVersion.OD)
-            return "draw:frame";
-        else
-            throw new IllegalArgumentException("Unsupported version : " + version);
-    }
-
     /**
      * Parse SVG and OD length.
      * 

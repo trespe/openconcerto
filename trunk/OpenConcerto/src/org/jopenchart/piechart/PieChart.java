@@ -61,7 +61,7 @@ public class PieChart extends Chart {
         Color[] colors = new Color[stop];
         double[] spaces = new double[stop];
         Color origine = this.getColor(0);
-        System.out.println("PieColor:" + origine);
+
         double mR = origine.getRed();
         double mV = origine.getGreen();
         double mB = origine.getBlue();
@@ -102,7 +102,7 @@ public class PieChart extends Chart {
             g.setColor(colors[i]);
             g.setStroke(new BasicStroke(width2 - this.innerWidth, BasicStroke.CAP_BUTT, BasicStroke.JOIN_MITER, 12.0f, null, 10.0f));
             g.drawArc(x, y, width2, height2, (int) Math.round(startAngle), -angle);
-            System.out.println("i:" + i + " moveAngle:" + moveAngle + " angle:" + angle + " x:" + x + " y:" + y);
+
             g.setStroke(new BasicStroke());
             if (i < labels.size()) {
                 final String label = labels.get(i).getLabel();

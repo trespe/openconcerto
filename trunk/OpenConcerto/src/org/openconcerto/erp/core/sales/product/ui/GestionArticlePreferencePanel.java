@@ -33,7 +33,7 @@ import org.jdesktop.swingx.VerticalLayout;
 
 public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
 
-    private final JCheckBox checkModeVente, checkLongueur, checkLargeur, checkPoids;
+    private final JCheckBox checkModeVente, checkLongueur, checkLargeur, checkPoids, checkGestionStockMin;
     private final JCheckBox checkService, checkVenteComptoir, checkShowPoids, checkShowStyle, checkSFE;
 
     public GestionArticlePreferencePanel() {
@@ -45,6 +45,7 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
 
         this.checkSFE = new JCheckBox("Activer la vente de formation");
         this.checkService = new JCheckBox("Activer la gestion de vente de service");
+        this.checkGestionStockMin = new JCheckBox("Activer la gestion de stock minimum par article");
         this.checkLargeur = new JCheckBox("Largeurs");
         this.checkLongueur = new JCheckBox("Longueurs");
         this.checkPoids = new JCheckBox("Poids");
@@ -53,6 +54,9 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         this.checkVenteComptoir = new JCheckBox("Activer le mode vente comptoir");
         this.checkShowPoids = new JCheckBox("Voir le Poids");
 
+
+        this.add(this.checkGestionStockMin, c);
+        c.gridy++;
         this.add(this.checkService, c);
         c.gridy++;
         this.add(this.checkVenteComptoir, c);
@@ -80,7 +84,6 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
             public void itemStateChanged(final ItemEvent e) {
                 enableAdvancedMode(GestionArticlePreferencePanel.this.checkModeVente.isSelected());
             }
-
         });
     }
 
@@ -97,6 +100,7 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         props.setProperty("ArticleService", String.valueOf(this.checkService.isSelected()));
         props.setProperty("ArticleSFE", String.valueOf(this.checkSFE.isSelected()));
         props.setProperty("ArticleVenteComptoir", String.valueOf(this.checkVenteComptoir.isSelected()));
+        props.setProperty("ArticleStockMin", String.valueOf(this.checkGestionStockMin.isSelected()));
         props.store();
     }
 
@@ -109,6 +113,7 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         this.checkService.setSelected(true);
         this.checkSFE.setSelected(false);
         this.checkVenteComptoir.setSelected(false);
+        this.checkGestionStockMin.setSelected(true);
     }
 
     @Override
@@ -157,6 +162,11 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         final String showStyle = props.getStringProperty("ArticleShowStyle");
         final Boolean bShowStyle = !showStyle.equalsIgnoreCase("false");
         this.checkShowStyle.setSelected(bShowStyle == null || bShowStyle.booleanValue());
+
+        // Show Style
+        final String gestionStockMin = props.getStringProperty("ArticleStockMin");
+        final Boolean bStockMin = !gestionStockMin.equalsIgnoreCase("false");
+        this.checkGestionStockMin.setSelected(bStockMin == null || bStockMin.booleanValue());
 
         // Mode vente
         final String modeVente = props.getStringProperty("ArticleModeVenteAvance");

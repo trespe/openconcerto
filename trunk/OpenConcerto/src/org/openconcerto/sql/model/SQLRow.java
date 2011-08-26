@@ -20,6 +20,7 @@ import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLSelect.ArchiveMode;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.utils.ReOrder;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.DecimalUtils;
 
@@ -206,13 +207,13 @@ public class SQLRow extends SQLRowAccessor {
      * @param values les valeurs de la lignes.
      * @throws IllegalArgumentException si values ne contient pas la clef de la table.
      */
-    public SQLRow(SQLTable table, Map<String, Object> values) {
+    public SQLRow(SQLTable table, Map<String, ?> values) {
         this(table, getID(values, table));
         // faire une copie, sinon backdoor pour changer les valeurs sans qu'on s'en aperçoive
         this.setValues(new HashMap<String, Object>(values));
     }
 
-    private static Number getID(Map<String, Object> values, final SQLTable table) {
+    private static Number getID(Map<String, ?> values, final SQLTable table) {
         final String keyName = table.getKey().getName();
         if (!values.keySet().contains(keyName))
             throw new IllegalArgumentException(values + " does not contain the key of " + table);
@@ -364,33 +365,37 @@ public class SQLRow extends SQLRowAccessor {
         final int diff = (!after) ? -1 : 1;
 
         final SQLSelect sel = new SQLSelect(t.getBase());
-        // pouvoir passer le deuxième en premier: le mettre entre indéfini (0) et le premier
-        sel.setExcludeUndefined(false);
+        // undefined must not move
+        sel.setExcludeUndefined(true);
         // unique index prend aussi en compte les archivés
         sel.setArchivedPolicy(SQLSelect.BOTH);
         sel.addSelect(t.getKey());
         sel.addSelect(t.getOrderField());
         sel.setWhere(new Where(t.getOrderField(), diff < 0 ? "<" : ">", destOrder));
         sel.addRawOrder(t.getOrderField().getFieldRef() + (diff < 0 ? "DESC" : "ASC"));
+        sel.setLimit(1);
 
         final BigDecimal otherOrder;
         final SQLDataSource ds = t.getBase().getDataSource();
-        final Map<String, Object> otherMap = ds.execute1(sel.asString() + " LIMIT 1");
-        if (otherMap == null) {
-            // dernière ligne de la table
-            otherOrder = destOrder.add(BigDecimal.ONE);
-        } else {
+        final Map<String, Object> otherMap = ds.execute1(sel.asString());
+        if (otherMap != null) {
             final SQLRow otherRow = new SQLRow(t, otherMap);
             otherOrder = otherRow.getOrder();
+        } else if (after) {
+            // dernière ligne de la table
+            otherOrder = destOrder.add(ReOrder.DISTANCE);
+        } else {
+            // première ligne
+            otherOrder = ReOrder.MIN_ORDER;
         }
 
-        final int decDigits = this.getTable().getOrderField().getType().getDecimalDigits().intValue();
+        final int decDigits = this.getTable().getOrderDecimalDigits();
         final BigDecimal least = BigDecimal.ONE.scaleByPowerOfTen(-decDigits);
         final BigDecimal distance = destOrder.subtract(otherOrder).abs();
         if (distance.compareTo(least) <= 0)
             return null;
         else {
-            final BigDecimal mean = destOrder.add(otherOrder).divide(new BigDecimal(2));
+            final BigDecimal mean = destOrder.add(otherOrder).divide(BigDecimal.valueOf(2));
             return DecimalUtils.round(mean, decDigits);
         }
     }
@@ -532,7 +537,7 @@ public class SQLRow extends SQLRowAccessor {
      * @see #getDistantRows(List)
      */
     public SQLRow getDistantRow(List<String> path) {
-        Set rows = this.getDistantRows(path);
+        final Set<SQLRow> rows = this.getDistantRows(path);
         if (rows.size() != 1)
             throw new IllegalStateException("the path " + path + " does not lead to a unique row (" + rows.size() + ")");
         return (SQLRow) rows.iterator().next();
@@ -547,7 +552,7 @@ public class SQLRow extends SQLRowAccessor {
      */
     public Set<SQLRow> getDistantRows(List<String> path) {
         // on veut tous les champs de la derniere table et rien d'autre
-        final List<List> fields = new ArrayList<List>(Collections.nCopies(path.size() - 1, Collections.EMPTY_LIST));
+        final List<List<SQLField>> fields = new ArrayList<List<SQLField>>(Collections.nCopies(path.size() - 1, Collections.<SQLField> emptyList()));
         fields.add(null);
         final Set<List<SQLRow>> s = this.getRowsOnPath(path, fields);
         final Set<SQLRow> res = new LinkedHashSet<SQLRow>(s.size());
@@ -845,7 +850,7 @@ public class SQLRow extends SQLRowAccessor {
     public Map<String, Object> getAllValues() {
         // commence par tout copier
         final Map<String, Object> res = new HashMap<String, Object>(this.getValues());
-        final Set keys = this.getTable().getKeys();
+        final Set<SQLField> keys = this.getTable().getKeys();
         // puis on enlève les clefs, l'ordre et l'archive
         CollectionUtils.filter(res.keySet(), new Predicate() {
             public boolean evaluate(Object object) {

@@ -61,32 +61,20 @@ public class FieldPath implements IFieldPath {
         return this.fieldName;
     }
 
-    public Object getObject(final SQLRowAccessor r) {
-        return this.getObject(r, true);
-    }
-
     /**
      * Return the value of the field at the end of this path from <code>r</code>.
-     * <code>getForeign</code> controls whether the safer but slower getForeign() is used.
      * 
      * @param r the row to use.
-     * @param getForeign <code>true</code> to use {@link SQLRowAccessor#getForeign(String)},
-     *        <code>false</code> for {@link SQLRowAccessor#getObject(String)}.
      * @return the value.
      */
-    public Object getObject(final SQLRowValues r, final boolean getForeign) {
-        return this.getObject((SQLRowAccessor) r, getForeign);
+    public Object getObject(final SQLRowValues r) {
+        final SQLRowValues vals = r.followPath(getPath());
+        return vals == null ? null : vals.getObject(getFieldName());
     }
 
-    private Object getObject(final SQLRowAccessor r, final boolean getForeign) {
-        SQLRowAccessor current = r;
-        final Path p2 = this.p;
-        final int length = p2.length();
-        for (int i = 0; i < length; i++) {
-            final SQLField step = p2.getSingleStep(i);
-            current = getForeign ? current.getForeign(step.getName()) : (SQLRowAccessor) current.getObject(step.getName());
-        }
-        return current.getObject(this.fieldName);
+    public String getString(final SQLRowValues r) {
+        final SQLRowValues vals = r.followPath(getPath());
+        return vals == null ? null : vals.getString(getFieldName());
     }
 
     @Override

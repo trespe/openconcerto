@@ -10,9 +10,8 @@ import javax.swing.JPanel;
 public class ChartPanel extends JPanel implements DataModelListener, MouseMotionListener {
     private Chart chart;
 
-    public ChartPanel(Chart c) {
+    public ChartPanel(final Chart c) {
         this.chart = c;
-
         c.getDataModel().addDataModelListener(this);
         this.setMinimumSize(c.getDimension());
         this.setPreferredSize(c.getDimension());
@@ -22,22 +21,18 @@ public class ChartPanel extends JPanel implements DataModelListener, MouseMotion
 
     @Override
     protected void paintComponent(Graphics g) {
-        System.err.println("ChartPanel.paintComponent()");
         super.paintComponent(g);
         chart.render((Graphics2D) g);
     }
 
     public void dataChanged() {
-        System.err.println("ChartPanel.dataChanged()");
         invalidate();
         repaint();
-
     }
 
     @Override
     public void mouseDragged(MouseEvent e) {
-        // TODO Auto-generated method stub
-
+        // Nothing
     }
 
     @Override

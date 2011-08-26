@@ -26,7 +26,7 @@ public class DevisCommandeSQLInjector extends SQLInjector {
         // map(tableDevis.getField("PORT_HT"), tableCommande.getField("PORT_HT"));
         // map(tableDevis.getField("REMISE_HT"), tableCommande.getField("REMISE_HT"));
         map(tableDevis.getField("ID_CLIENT"), tableCommande.getField("ID_CLIENT"));
-        mapDefaultValues(tableCommande.getField("SOURCE"), tableCommande.getName());
+        mapDefaultValues(tableCommande.getField("SOURCE"), tableDevis.getName());
         map(tableDevis.getField("ID_DEVIS"), tableCommande.getField("IDSOURCE"));
         map(tableDevis.getField("ID_DEVIS"), tableCommande.getField("ID_DEVIS"));
         map(tableDevis.getField("ID_COMMERCIAL"), tableCommande.getField("ID_COMMERCIAL"));

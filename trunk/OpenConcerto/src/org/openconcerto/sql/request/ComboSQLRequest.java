@@ -33,6 +33,7 @@ import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cache.CacheResult;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
@@ -208,13 +209,14 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         else
             desc = CollectionUtils.join(this.exp.expandGroupBy(this.getFields()), SEP_CHILD, new ITransformer<Tuple2<Path, List<FieldPath>>, Object>() {
                 public Object transformChecked(Tuple2<Path, List<FieldPath>> ancestorFields) {
-                    return CollectionUtils.join(ancestorFields.get1(), ComboSQLRequest.this.fieldSeparator, new ITransformer<FieldPath, String>() {
+                    final List<String> filtered = CollectionUtils.transformAndFilter(ancestorFields.get1(), new ITransformer<FieldPath, String>() {
                         // no need to keep this Transformer in an attribute
                         // even when creating one per line it's the same speed
                         public String transformChecked(FieldPath input) {
                             return getFinalValueOf(input, rs);
                         }
-                    });
+                    }, IPredicate.notNullPredicate(), new ArrayList<String>());
+                    return CollectionUtils.join(filtered, ComboSQLRequest.this.fieldSeparator);
                 }
             });
         final IComboSelectionItem res = new IComboSelectionItem(rs.getID(), desc);
@@ -236,8 +238,7 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
      * @return la valeur du champ en String.
      */
     protected static String getFinalValueOf(FieldPath element, SQLRowValues rs) {
-        String result = "";
-        result = rs.followPath(element.getPath()).getString(element.getFieldName());
+        String result = element.getString(rs);
         // TODO
         // if (element.getType() == "FLOAT") {
         // result = result.replace('.', ',');

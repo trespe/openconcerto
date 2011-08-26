@@ -18,18 +18,25 @@ import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.credit.component.AvoirClientSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
+import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
+import org.openconcerto.erp.core.sales.shipment.component.BonDeLivraisonSQLComponent;
+import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
 
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -54,20 +61,26 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
         l.add("NOM");
         l.add("ID_CLIENT");
             l.add("ID_MODE_REGLEMENT");
+
+        l.add("T_HA");
+        l.add("T_HT");
+        l.add("T_TTC");
+        l.add("INFOS");
+
                 l.add("DATE_ENVOI");
             l.add("DATE_REGLEMENT");
         return l;
     }
 
     @Override
-    public synchronized ListSQLRequest getListRequest() {
+    public synchronized ListSQLRequest createListRequest() {
         return new ListSQLRequest(this.getTable(), this.getListFields()) {
             @Override
             protected void customizeToFetch(SQLRowValues graphToFetch) {
                 super.customizeToFetch(graphToFetch);
                 graphToFetch.put("ACOMPTE", null);
                 graphToFetch.put("COMPLEMENT", null);
-                graphToFetch.put("AFFACTURAGE", null);
+
                 graphToFetch.put("PREVISIONNELLE", null);
                     graphToFetch.grow("ID_MODE_REGLEMENT").put("AJOURS", null).put("LENJOUR", null);
             }
@@ -111,25 +124,6 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
     @Override
     protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
-
-        // Mise à jour du montant facturé dans l'affaire
-        if (row.getObject("ID_AFFAIRE") != null && row.getInt("ID_AFFAIRE") > 1) {
-            int idAffaire = row.getInt("ID_AFFAIRE");
-
-            SQLRow rowAffaire = Configuration.getInstance().getDirectory().getElement("AFFAIRE").getTable().getRow(idAffaire);
-            SQLRowValues rowValsAffaire = rowAffaire.createEmptyUpdateRow();
-            long lMontantFacture = ((Number) rowAffaire.getObject("MONTANT_FACTURE")).longValue();
-
-            long lFacture = ((Number) row.getObject("T_HT")).longValue();
-
-            rowValsAffaire.put("MONTANT_FACTURE", new Long(lMontantFacture - lFacture));
-            try {
-                rowValsAffaire.update();
-            } catch (SQLException e) {
-                ExceptionHandler.handle("Erreur lors de la mise à jour du montant facturé de l'affaire!");
-                e.printStackTrace();
-            }
-        }
 
         // On retire l'avoir
         if (row.getInt("ID_AVOIR_CLIENT") > 1) {
@@ -179,6 +173,26 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
         }
     }
 
+    public void transfertBL(int idFacture) {
+        final SQLElement elt = Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON");
+        final EditFrame editAvoirFrame = new EditFrame(elt);
+        editAvoirFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
+
+        final BonDeLivraisonSQLComponent comp = (BonDeLivraisonSQLComponent) editAvoirFrame.getSQLComponent();
+        final SQLInjector inject = SQLInjector.getInjector(this.getTable(), elt.getTable());
+        SQLRowValues createRowValuesFrom = inject.createRowValuesFrom(idFacture);
+        SQLRow rowFacture = getTable().getRow(idFacture);
+        String string = rowFacture.getString("NOM");
+        createRowValuesFrom.put("NOM", string + (string.trim().length() == 0 ? "" : ", ") + rowFacture.getString("NUMERO"));
+        comp.select(createRowValuesFrom);
+        // comp.loadFactureItem(idFacture);
+
+        editAvoirFrame.pack();
+        editAvoirFrame.setState(JFrame.NORMAL);
+        editAvoirFrame.setVisible(true);
+
+    }
+
     public void transfertAvoir(int idFacture) {
         final SQLElement elt = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
         final EditFrame editAvoirFrame = new EditFrame(elt);
@@ -192,6 +206,73 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
         editAvoirFrame.pack();
         editAvoirFrame.setState(JFrame.NORMAL);
         editAvoirFrame.setVisible(true);
+
+    }
+
+    public void transfertCommande(int idFacture) {
+        // final SQLElement elt = Configuration.getInstance().getDirectory().getElement("COMMANDE");
+        // final EditFrame editAvoirFrame = new EditFrame(elt);
+        // editAvoirFrame.setIconImage(new
+        // ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
+        //
+        // final CommandeSQLComponent comp = (CommandeSQLComponent)
+        // editAvoirFrame.getSQLComponent();
+        // final SQLInjector inject = SQLInjector.getInjector(this.getTable(), elt.getTable());
+        // comp.select(inject.createRowValuesFrom(idFacture));
+        // comp.loadFacture(idFacture);
+        //
+        // editAvoirFrame.pack();
+        // editAvoirFrame.setState(JFrame.NORMAL);
+        // editAvoirFrame.setVisible(true);
+
+        SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
+        SQLTable tableCmdElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT").getTable();
+        SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
+        List<SQLRow> rows = getTable().getRow(idFacture).getReferentRows(elt.getTable());
+        CollectionMap<SQLRow, List<SQLRowValues>> map = new CollectionMap<SQLRow, List<SQLRowValues>>();
+        SQLRow rowDeviseF = null;
+        for (SQLRow sqlRow : rows) {
+            // on récupére l'article qui lui correspond
+            SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
+            for (SQLField field : eltArticle.getTable().getFields()) {
+                if (sqlRow.getTable().getFieldsName().contains(field.getName())) {
+                    rowArticle.put(field.getName(), sqlRow.getObject(field.getName()));
+                }
+            }
+            // rowArticle.loadAllSafe(rowEltFact);
+            int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
+            SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
+            SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
+            SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticleFind));
+
+            rowValsElt.put("QTE", sqlRow.getObject("QTE"));
+            rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
+
+            // gestion de la devise
+            rowDeviseF = sqlRow.getForeignRow("ID_DEVISE");
+            SQLRow rowDeviseHA = rowArticleFind.getForeignRow("ID_DEVISE_HA");
+            if (rowDeviseF != null && !rowDeviseF.isUndefined()) {
+                if (rowDeviseF.getID() == rowDeviseHA.getID()) {
+                    rowValsElt.put("PA_DEVISE", rowArticleFind.getLong("PA_DEVISE"));
+                    rowValsElt.put("PA_DEVISE_T", rowArticleFind.getLong("PA_DEVISE") * rowValsElt.getInt("QTE"));
+                    rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
+                } else {
+                    BigDecimal taux = (BigDecimal) rowDeviseF.getObject("TAUX");
+                    rowValsElt.put("PA_DEVISE", taux.multiply(new BigDecimal(rowValsElt.getLong("PA_HT"))).longValue());
+                    rowValsElt.put("PA_DEVISE_T", rowValsElt.getLong("PA_DEVISE") * rowValsElt.getInt("QTE"));
+                    rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
+                }
+            }
+
+            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
+
+            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
+            rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
+
+            map.put(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
+
+        }
+        MouvementStockSQLElement.createCommandeF(map, rowDeviseF);
 
     }
 }

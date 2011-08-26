@@ -102,6 +102,11 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         // nothing to do
     }
 
+    @Override
+    public void removeValidListener(ValidListener l) {
+        // nothing to do
+    }
+
     public String getValidationText() {
         return null;
     }

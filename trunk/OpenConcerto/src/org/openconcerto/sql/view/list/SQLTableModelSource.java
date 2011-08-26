@@ -26,7 +26,6 @@ import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.change.ListChangeIndex;
 import org.openconcerto.utils.change.ListChangeRecorder;
 
-import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.lang.ref.WeakReference;
@@ -135,19 +134,15 @@ public abstract class SQLTableModelSource {
     }
 
     private void listenToCols() {
-        this.cols.getRecipe().clear();
         // keep allCols in sync with cols, and listen to any change
         this.cols.getRecipe().bind(this.allCols);
-        this.cols.getRecipe().addListener(new PropertyChangeListener() {
+        this.cols.getRecipe().addListener(new IClosure<ListChangeIndex<SQLTableModelColumn>>() {
             @Override
-            public void propertyChange(PropertyChangeEvent evt) {
-                final ListChangeIndex change = (ListChangeIndex) evt.getNewValue();
-                for (final Object o : change.getItemsRemoved()) {
-                    final SQLTableModelColumn col = (SQLTableModelColumn) o;
+            public void executeChecked(ListChangeIndex<SQLTableModelColumn> change) {
+                for (final SQLTableModelColumn col : change.getItemsRemoved()) {
                     SQLTableModelSource.this.colsByName.remove(col.getName());
                 }
-                for (final Object o : change.getItemsAdded()) {
-                    final SQLTableModelColumn col = (SQLTableModelColumn) o;
+                for (final SQLTableModelColumn col : change.getItemsAdded()) {
                     SQLTableModelSource.this.colsByName.put(col.getName(), col);
                 }
                 colsChanged(change);
@@ -156,7 +151,7 @@ public abstract class SQLTableModelSource {
         });
     }
 
-    protected void colsChanged(final ListChangeIndex change) {
+    protected void colsChanged(final ListChangeIndex<SQLTableModelColumn> change) {
     }
 
     private void fireColsChanged() {

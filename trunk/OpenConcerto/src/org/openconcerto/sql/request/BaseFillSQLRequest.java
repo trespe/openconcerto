@@ -117,10 +117,10 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
     protected final SQLRowValuesListFetcher getFetcher(final Where w) {
         final String tableName = getPrimaryTable().getName();
         final SQLRowValuesListFetcher fetcher = new SQLRowValuesListFetcher(getGraphToFetch(), true);
-        // ignore LOCAL in archived BATIMENT, since IListe always expect a BATIMENT
-        // works for now because LOCAL w/o OBS point to OBS[1]
-        fetcher.setFullOnly(true);
-        fetcher.setIncludeForeignUndef(true);
+        // include rows having NULL (not undefined ID) foreign keys
+        fetcher.setFullOnly(false);
+        // treat the same way tables with or without undefined ID
+        fetcher.setIncludeForeignUndef(false);
         fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
             @Override
             public SQLSelect transformChecked(SQLSelect sel) {

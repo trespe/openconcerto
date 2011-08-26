@@ -20,6 +20,7 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -35,7 +36,6 @@ import java.awt.geom.Rectangle2D;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 
 import javax.swing.JPanel;
 
@@ -64,15 +64,25 @@ public class CaissePanel extends JPanel implements CaisseListener {
             public void mousePressed(MouseEvent e) {
                 if (e.getX() < 110) {
                     // Valider
-
-                    CaissePanel.this.controler.printTicket();
-                    CaissePanel.this.controler.printTicket();
-                    CaissePanel.this.controler.saveAndClearTicket();
+                    try {
+                        CaissePanel.this.controler.printTicket();
+                        CaissePanel.this.controler.printTicket();
+                    } catch (Throwable ex) {
+                        ExceptionHandler.handle("Erreur d'impression du ticket", ex);
+                    }
+                    try {
+                        CaissePanel.this.controler.saveAndClearTicket();
+                    } catch (Throwable ex) {
+                        ExceptionHandler.handle("Erreur de sauvegardes des informations du ticket", ex);
+                    }
 
                 } else if (e.getX() > 165 && e.getX() < 275) {
                     // Menu
-                    caisseFrame.showMenu();
-
+                    try {
+                        caisseFrame.showMenu();
+                    } catch (Throwable ex) {
+                        ExceptionHandler.handle("Erreur d'affichage du menu", ex);
+                    }
                 }
 
             }
@@ -141,9 +151,9 @@ public class CaissePanel extends JPanel implements CaisseListener {
             final Categorie s1 = m.get(row.getInt("ID_FAMILLE_ARTICLE"));
             if (s1 != null) {
                 Article a = new Article(s1, row.getString("NOM"));
-                a.setBarCode(row.getString("CODE"));
+                a.setBarCode(row.getString("CODE_BARRE"));
                 a.setIdTaxe(row.getInt("ID_TAXE"));
-                a.setPriceHTInCents((int)row.getLong("PV_HT"));
+                a.setPriceHTInCents((int) row.getLong("PV_HT"));
                 a.setPriceInCents((int) row.getLong("PV_TTC"));
 
             }
@@ -152,7 +162,7 @@ public class CaissePanel extends JPanel implements CaisseListener {
     }
 
     private void fillExampleArticle() {
-        // 
+        //
         Categorie c1 = new Categorie("Carte postales", true);
         Categorie s1 = new Categorie("Baie de Somme");
         c1.add(s1);

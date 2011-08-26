@@ -31,6 +31,21 @@ public class CommandeClientXmlSheet extends AbstractSheetXml {
     public static Tuple2<String, String> getTuple2Location() {
         return tuple;
     }
+    
+    @Override
+    public String getReference() {
+        return this.row.getString("NOM");
+    }
+
+    @Override
+    public SQLRow getRowLanguage() {
+        SQLRow rowClient = this.row.getForeignRow("ID_CLIENT");
+        if (rowClient.getTable().contains("ID_LANGUE")) {
+            return rowClient.getForeignRow("ID_LANGUE");
+        } else {
+            return super.getRowLanguage();
+        }
+    }
 
     // FIXME Prefs printer location
     public CommandeClientXmlSheet(SQLRow row) {

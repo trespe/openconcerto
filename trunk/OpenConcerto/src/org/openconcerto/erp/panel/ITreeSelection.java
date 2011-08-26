@@ -272,6 +272,11 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         // TODO Auto-generated method stub
     }
 
+    @Override
+    public void removeValidListener(ValidListener l) {
+        // TODO Auto-generated method stub
+    }
+
     public boolean isValidated() {
 
         return true;

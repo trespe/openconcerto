@@ -24,7 +24,6 @@ import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
-
 import java.awt.GridBagConstraints;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
@@ -86,9 +85,18 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
                         transfertFactureClient(frame.getPanel().getListe().getSelectedRow());
                     }
                 });
+
+                // Transfert vers commande
+                AbstractAction cmdAction = (new AbstractAction("Transfert vers commande fournisseur") {
+                    public void actionPerformed(ActionEvent e) {
+                        CommandeClientSQLElement elt = (CommandeClientSQLElement) Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
+                        elt.transfertCommande(frame.getPanel().getListe().getSelectedRow().getID());
+                    }
+                });
                 List<AbstractAction> l = new ArrayList<AbstractAction>();
                 l.add(bonAction);
                 l.add(factureAction);
+                l.add(cmdAction);
                 return l;
             }
         });

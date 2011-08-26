@@ -13,15 +13,15 @@
  
  package org.openconcerto.erp.core.finance.accounting.model;
 
-import java.util.List;
-import java.util.Vector;
-
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+
+import java.util.List;
+import java.util.Vector;
 
 import javax.swing.table.AbstractTableModel;
 

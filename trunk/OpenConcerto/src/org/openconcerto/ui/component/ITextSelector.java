@@ -372,8 +372,12 @@ public class ITextSelector extends JPanel implements ValueWrapper<String>, Docum
     }
 
     public void addValidListener(final ValidListener l) {
-        // nothing to do
         this.supp.addValidListener(l);
+    }
+
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.supp.removeValidListener(l);
     }
 
     // document
