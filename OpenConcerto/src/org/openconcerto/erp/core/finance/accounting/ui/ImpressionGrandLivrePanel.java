@@ -20,6 +20,7 @@ import org.openconcerto.erp.generationDoc.SpreadSheetGeneratorListener;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 
@@ -140,6 +141,15 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
         c.gridwidth = 2;
         this.add(boxCentralFourn, c);
 
+        // Journal à exclure
+        c.gridy++;
+        c.gridx = 0;
+        this.add(new JLabel("Exclure le journal"), c);
+        c.gridx++;
+        final ElementComboBox comboJrnl = new ElementComboBox(true);
+        comboJrnl.init(Configuration.getInstance().getDirectory().getElement("JOURNAL"));
+        this.add(comboJrnl, c);
+
         // Radio mode
         JRadioButton radioAll = new JRadioButton(new AbstractAction("Toutes") {
             public void actionPerformed(ActionEvent e) {
@@ -219,7 +229,7 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
                 new Thread(new Runnable() {
                     public void run() {
                         GrandLivreSheet bSheet = new GrandLivreSheet(dateDeb.getDate(), dateEnd.getDate(), compteDeb.getText().trim(), compteEnd.getText().trim(), mode, boxCumulsAnts.isSelected(),
-                                !boxCompteSolde.isSelected(), boxCentralClient.isSelected(), boxCentralFourn.isSelected());
+                                !boxCompteSolde.isSelected(), boxCentralClient.isSelected(), boxCentralFourn.isSelected(), comboJrnl.getSelectedId());
                         final SpreadSheetGeneratorCompta generator = new SpreadSheetGeneratorCompta(bSheet, "GrandLivre" + Calendar.getInstance().getTimeInMillis(), checkImpr.isSelected(), checkVisu
                                 .isSelected(), false);
                         SwingUtilities.invokeLater(new Runnable() {

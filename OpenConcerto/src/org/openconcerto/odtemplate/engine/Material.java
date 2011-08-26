@@ -13,9 +13,9 @@
  
  package org.openconcerto.odtemplate.engine;
 
-import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.ODXMLDocument;
+import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.utils.CopyUtils;
 
 import java.io.File;
@@ -84,8 +84,8 @@ public class Material<W> implements Cloneable {
         return this.whole;
     }
 
-    public XMLVersion getNS() {
-        return XMLVersion.getVersion(this.getRoot());
+    public OOXML getNS() {
+        return OOXML.get(this.getRoot());
     }
 
     @Override

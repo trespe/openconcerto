@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
@@ -28,9 +27,9 @@ import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 
 import java.awt.event.ActionEvent;
-import java.math.BigInteger;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -40,8 +39,6 @@ import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
-import javax.swing.JTable;
-
 
 public class ListeDesReferencesAction extends CreateFrameAbstractAction {
 
@@ -94,7 +91,7 @@ public class ListeDesReferencesAction extends CreateFrameAbstractAction {
             }
         };
 
-        final IListe list = new IListe(req);
+        final IListe list = new IListe(elementArticle.initTableSource(new SQLTableModelSourceOnline(req)));
 
         IListFrame frame = new IListFrame(new ListeAddPanel(elementArticle, list) {
             @Override
@@ -149,18 +146,6 @@ public class ListeDesReferencesAction extends CreateFrameAbstractAction {
             }
 
         };
-
-        // Renderer pour les devises
-        // frame.getPanel().getListe().getJTable().setDefaultRenderer(Long.class, new
-        // DeviseNiceTableCellRenderer());
-
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
 
         return frame;
     }

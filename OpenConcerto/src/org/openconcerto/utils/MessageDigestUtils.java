@@ -87,12 +87,15 @@ public class MessageDigestUtils {
 
     public static String getHashString(String algo, byte[] data) throws NoSuchAlgorithmException {
         final MessageDigest md = MessageDigest.getInstance(algo);
+        return getHashString(md, data);
+    }
+
+    public static String getHashString(MessageDigest md, byte[] data) {
         md.update(data);
         return getHashString(md);
     }
 
-    public static String getHashString(String algo, final InputStream ins) throws IOException, NoSuchAlgorithmException {
-        final MessageDigest md = MessageDigest.getInstance(algo);
+    public static String getHashString(MessageDigest md, final InputStream ins) throws IOException {
         final DigestOutputStream out = new DigestOutputStream(StreamUtils.NULL_OS, md);
         StreamUtils.copy(ins, out);
         out.close();
@@ -102,11 +105,17 @@ public class MessageDigestUtils {
     public static String getMD5(File f) throws IOException {
         final InputStream ins = new FileInputStream(f);
         try {
-            return getHashString("MD5", ins);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("MD5 is part of the standard vm", e);
+            return getHashString(getMD5(), ins);
         } finally {
             ins.close();
+        }
+    }
+
+    public static MessageDigest getMD5() {
+        try {
+            return MessageDigest.getInstance("MD5");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("MD5 is part of the standard vm", e);
         }
     }
 

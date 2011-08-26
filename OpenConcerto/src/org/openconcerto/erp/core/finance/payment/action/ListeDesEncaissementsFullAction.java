@@ -14,22 +14,19 @@
  package org.openconcerto.erp.core.finance.payment.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.common.ui.ListeViewPanel;
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.request.ListSQLRequest;
+import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.IListFrame;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JTable;
-
-import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.Where;
 
 public class ListeDesEncaissementsFullAction extends CreateFrameAbstractAction {
 
@@ -51,16 +48,6 @@ public class ListeDesEncaissementsFullAction extends CreateFrameAbstractAction {
         final SQLElement elementModeRegl = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
         final SQLElement elementMvt = Configuration.getInstance().getDirectory().getElement("MOUVEMENT");
 
-        IListFrame frame = new IListFrame(new ListeViewPanel(elementFacture));
-
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
-
         Where w = new Where(elementFacture.getTable().getField("ID_MODE_REGLEMENT"), "=", elementModeRegl.getTable().getKey());
 
         Where w2 = new Where(elementModeRegl.getTable().getField("AJOURS"), "=", 0).and(new Where(elementModeRegl.getTable().getField("LENJOUR"), "=", 0));
@@ -78,8 +65,10 @@ public class ListeDesEncaissementsFullAction extends CreateFrameAbstractAction {
         Where wFinal = w.and(w2.or(w6.and(w3.and(w4.and(w5)))));
 
         System.err.println(wFinal.getClause());
+        final SQLTableModelSourceOnline src = elementFacture.createTableSource(l);
+        src.getReq().setWhere(wFinal);
 
-        frame.getPanel().getListe().setRequest(new ListSQLRequest(elementFacture.getTable(), l, wFinal));
+        IListFrame frame = new IListFrame(new ListeViewPanel(elementFacture, new IListe(src)));
         return frame;
     }
 }

@@ -18,33 +18,33 @@ import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.IListener;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
 
 import java.awt.event.ActionEvent;
 
 import javax.swing.JButton;
 import javax.swing.JTable;
-import javax.swing.table.TableColumnModel;
 
 public class ListPanelEcritures extends ListeAddPanel {
 
     public ListPanelEcritures() {
+        this(Configuration.getInstance().getDirectory().getElement("ECRITURE"), (Where) null);
+    }
 
-        super(Configuration.getInstance().getDirectory().getElement("ECRITURE"));
+    public ListPanelEcritures(final SQLElement element, final Where w) {
+        this(element, new IListe(element.createTableSource(w)));
+    }
+
+    public ListPanelEcritures(final SQLElement element, final IListe l) {
+        super(element, l);
 
         this.buttonAjouter.setVisible(false);
-
-        System.out.println("set renderer");
-        // ListEcritureRenderer rend = new ListEcritureRenderer(this.getListe().getModel());
-        final TableColumnModel columnModel = this.getListe().getJTable().getColumnModel();
-        final int columnCount = this.getListe().getJTable().getColumnCount();
-        for (int i = 0; i < columnCount; i++) {
-            columnModel.getColumn(i).setCellRenderer(ListEcritureRenderer.getInstance());
-        }
         this.getListe().setSQLEditable(false);
 
         // TODO verifier que ca fonctionne, si selection d'une ecriture valide alors bouton disable

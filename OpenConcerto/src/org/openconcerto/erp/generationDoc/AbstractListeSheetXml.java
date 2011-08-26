@@ -41,7 +41,7 @@ public abstract class AbstractListeSheetXml extends SheetXml {
             public File call() throws Exception {
                 try {
                     createListeValues();
-                    File fGen = OOgenerationListeXML.genere(modele, locationOO, getFileName(), listAllSheetValues, mapAllSheetValues, styleAllSheetValues, sheetNames);
+                    File fGen = OOgenerationListeXML.genere(modele, locationOO, getFileName(), listAllSheetValues, mapAllSheetValues, styleAllSheetValues, sheetNames, null);
                     AbstractListeSheetXml.this.f = fGen;
                     useOO(fGen, visu, impression, getFileName());
                     return fGen;

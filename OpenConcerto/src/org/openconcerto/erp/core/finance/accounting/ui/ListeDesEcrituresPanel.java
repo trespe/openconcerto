@@ -72,7 +72,7 @@ public class ListeDesEcrituresPanel extends JPanel {
         JPanel panelNonValide = new JPanel();
         panelNonValide.setLayout(new GridBagLayout());
         panelNonValide.add(new JLabel("Ecritures non validées"));
-        panelNonValide.setBackground(ListEcritureRenderer.GetCouleurEcritureNonValide());
+        panelNonValide.setBackground(ListEcritureRenderer.getCouleurEcritureNonValide());
         // panelNonValide.setBorder(BorderFactory.createLineBorder(Color.BLACK));
         this.panelLegende.add(panelNonValide, c);
 

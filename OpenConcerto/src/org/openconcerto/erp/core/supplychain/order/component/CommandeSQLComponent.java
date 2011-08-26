@@ -25,6 +25,7 @@ import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
+import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -44,6 +45,8 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 
 import javax.swing.JCheckBox;
@@ -116,6 +119,30 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         c.fill = GridBagConstraints.NONE;
         this.add(this.fourn, c);
 
+        // Commande en cours
+        JCheckBox boxEnCours = new JCheckBox(getLabelFor("EN_COURS"));
+        c.gridx = 2;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(boxEnCours, c);
+        this.addRequiredSQLObject(boxEnCours, "EN_COURS");
+
+        // Devise
+        c.gridx = 0;
+        c.gridy++;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel(getLabelFor("ID_DEVISE"), SwingConstants.RIGHT), c);
+
+        final ElementComboBox boxDevise = new ElementComboBox();
+        c.gridx = GridBagConstraints.RELATIVE;
+        c.gridwidth = 1;
+        c.weightx = 1;
+        c.weighty = 0;
+        c.fill = GridBagConstraints.NONE;
+        this.add(boxDevise, c);
+        this.addView(boxDevise, "ID_DEVISE");
+
         // Reference
         c.gridx = 0;
         c.gridy++;
@@ -156,7 +183,14 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         c.weighty = 1;
         c.gridwidth = 4;
         this.add(this.table, c);
+        boxDevise.addValueListener(new PropertyChangeListener() {
 
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                table.setDevise(boxDevise.getSelectedRow());
+
+            }
+        });
         // Bottom
         c.gridy++;
         c.weighty = 0;
@@ -219,6 +253,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         DefaultProps props = DefaultNXProps.getInstance();
         Boolean b = props.getBooleanValue("ArticleShowPoids");
         final JTextField textPoidsTotal = new JTextField(8);
+        JTextField poids = new JTextField();
         if (b) {
             final JPanel panelPoids = new JPanel();
 
@@ -240,6 +275,9 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             c.anchor = GridBagConstraints.NORTHEAST;
             panel.add(panelPoids, c);
             DefaultGridBagConstraints.lockMinimumSize(panelPoids);
+            addSQLObject(textPoidsTotal, "T_POIDS");
+        } else {
+            addSQLObject(poids, "T_POIDS");
         }
         // Total
         DeviseField textPortHT = new DeviseField();
@@ -247,17 +285,20 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         DeviseField fieldHT = new DeviseField();
         DeviseField fieldTVA = new DeviseField();
         DeviseField fieldTTC = new DeviseField();
+        DeviseField fieldDevise = new DeviseField();
         DeviseField fieldService = new DeviseField();
         fieldHT.setOpaque(false);
         fieldTVA.setOpaque(false);
         fieldTTC.setOpaque(false);
         fieldService.setOpaque(false);
+        addRequiredSQLObject(fieldDevise, "T_DEVISE");
         addRequiredSQLObject(fieldHT, "T_HT");
         addRequiredSQLObject(fieldTVA, "T_TVA");
         addRequiredSQLObject(fieldTTC, "T_TTC");
         addRequiredSQLObject(fieldService, "T_SERVICE");
-        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(), this.table
-                .getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement());
+        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
+                this.table.getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement(), fieldDevise,
+                this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
 
         c.gridx++;
         c.gridy--;
@@ -270,7 +311,6 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
         panel.add(totalTTC, c);
 
-        addSQLObject(textPoidsTotal, "T_POIDS");
 
         table.getModel().addTableModelListener(new TableModelListener() {
 
@@ -393,6 +433,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
     protected SQLRowValues createDefaults() {
         SQLRowValues rowVals = new SQLRowValues(getTable());
         rowVals.put("T_POIDS", 0.0F);
+        rowVals.put("EN_COURS", Boolean.TRUE);
 
         // User
         // SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
@@ -416,4 +457,66 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
         return rowVals;
     }
+
+    public CommandeItemTable getRowValuesTable() {
+        return this.table;
+    }
+
+    /**
+     * Chargement des éléments d'une commande dans la table
+     * 
+     * @param idCommande
+     * 
+     */
+    public void loadCommande(int idCommande) {
+
+        SQLElement commande = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
+        SQLElement commandeElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT_ELEMENT");
+
+        if (idCommande > 1) {
+            SQLInjector injector = SQLInjector.getInjector(commande.getTable(), this.getTable());
+            this.select(injector.createRowValuesFrom(idCommande));
+        }
+
+        loadItem(this.table, commande, idCommande, commandeElt);
+    }
+
+    /**
+     * Chargement des éléments d'un devis dans la table
+     * 
+     * @param idDevis
+     * 
+     */
+    public void loadDevis(int idDevis) {
+
+        SQLElement devis = Configuration.getInstance().getDirectory().getElement("DEVIS");
+        SQLElement devisElt = Configuration.getInstance().getDirectory().getElement("DEVIS_ELEMENT");
+
+        if (idDevis > 1) {
+            SQLInjector injector = SQLInjector.getInjector(devis.getTable(), this.getTable());
+            this.select(injector.createRowValuesFrom(idDevis));
+        }
+
+        loadItem(this.table, devis, idDevis, devisElt);
+    }
+
+    /**
+     * Chargement des éléments d'une facture dans la table
+     * 
+     * @param idFact
+     * 
+     */
+    public void loadFacture(int idFact) {
+
+        SQLElement facture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+        SQLElement factureElt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
+
+        if (idFact > 1) {
+            SQLInjector injector = SQLInjector.getInjector(facture.getTable(), this.getTable());
+            this.select(injector.createRowValuesFrom(idFact));
+        }
+
+        loadItem(this.table, facture, idFact, factureElt);
+    }
+
 }

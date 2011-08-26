@@ -29,7 +29,7 @@ public class TextTableCellEditorWithCompletion extends TextAreaTableCellEditor {
         // FIXME replace by requestcombobox
         t.setPopupInvoker(getTextArea());
         t.setTextEditor(getTextArea());
-        textWithCompl.setSelectionAutoEnabled(false);
+        textWithCompl.setSelectionAutoEnabled(true);
     }
 
     public void setSelectionAutoEnabled(boolean b) {

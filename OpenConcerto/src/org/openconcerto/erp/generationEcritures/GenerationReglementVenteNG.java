@@ -175,18 +175,6 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
                     }
                 }
 
-                SQLRow rowBanque = modeReglement.getForeignRow("ID_BANQUE_POLE_PRODUIT");
-                if (rowBanque != null && rowBanque.getID() > 1) {
-                    SQLRow rowJournal = rowBanque.getForeignRow("ID_JOURNAL");
-                    if (rowJournal != null && rowJournal.getID() > 1) {
-                        this.mEcritures.put("ID_JOURNAL", rowJournal.getID());
-                    }
-                    SQLRow rowCompteBanque = rowBanque.getForeignRow("ID_COMPTE_PCE");
-                    if (rowCompteBanque != null && rowCompteBanque.getID() > 1) {
-                        idCompteRegl = rowCompteBanque.getID();
-                    }
-                }
-
                 // compte Clients
                 try {
 
@@ -283,12 +271,9 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
 
         SQLRowValues valCheque = new SQLRowValues(base.getTable("CHEQUE_A_ENCAISSER"));
         valCheque.put("ID_CLIENT", idClient);
-        valCheque.put("ID_BANQUE_POLE_PRODUIT", modeRegl.getInt("ID_BANQUE_POLE_PRODUIT"));
         valCheque.put("NUMERO", modeRegl.getObject("NUMERO"));
         valCheque.put("DATE", modeRegl.getObject("DATE"));
         valCheque.put("ETS", modeRegl.getObject("ETS"));
-        valCheque.put("ID_BANQUE_POLE_PRODUIT", modeRegl.getInt("ID_BANQUE_POLE_PRODUIT"));
-        valCheque.put("ID_BANQUE_POLE_PRODUIT", modeRegl.getInt("ID_BANQUE_POLE_PRODUIT"));
         valCheque.put("DATE_VENTE", this.date);
         this.idMvt = getNewMouvement("CHEQUE_A_ENCAISSER", 1, mvtSource.getID(), mvtSource.getInt("ID_PIECE"));
         valCheque.put("DATE_MIN_DEPOT", dateEch);

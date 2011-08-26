@@ -23,7 +23,10 @@ public class DataModel {
 
     public void setChart(Chart chart) {
         this.chart = chart;
+    }
 
+    public Chart getChart() {
+        return chart;
     }
 
     public synchronized int getState() {

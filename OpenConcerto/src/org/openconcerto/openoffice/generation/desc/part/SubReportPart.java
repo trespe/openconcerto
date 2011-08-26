@@ -40,6 +40,10 @@ public final class SubReportPart extends ReportPart implements ConditionalPart {
     }
 
     public final String getDocumentID() {
-        return this.elem.getAttributeValue("documentID");
+        final String attr = this.elem.getAttributeValue("documentID");
+        if (attr == null)
+            return null;
+        final Object res = this.evaluateOgnl(attr);
+        return res == null ? null : res.toString();
     }
 }

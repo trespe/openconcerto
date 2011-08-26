@@ -1077,6 +1077,11 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         this.supp.addValidListener(l);
     }
 
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.supp.removeValidListener(l);
+    }
+
     // document
 
     public Document getDocument() {

@@ -64,7 +64,7 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
 
     /**
      * The predicate testing whether the value is empty or not. This implementation returns
-     * {@link EmptyObjFromVO#DEFAULT_PREDICATE}}
+     * {@link EmptyObjFromVO#DEFAULT_PREDICATE}
      * 
      * @return the predicate testing whether the value is empty.
      */
@@ -113,6 +113,11 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
 
     public final void addValidListener(ValidListener l) {
         this.getWrapper().addValidListener(new ChainValidListener(this, l));
+    }
+
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.getWrapper().removeValidListener(new ChainValidListener(this, l));
     }
 
     public String getValidationText() {

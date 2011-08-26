@@ -82,4 +82,7 @@ public class ValidObjectCombiner implements ValidObject {
         this.supp.addValidListener(l);
     }
 
+    public void removeValidListener(ValidListener l) {
+        this.supp.removeValidListener(l);
+    }
 }

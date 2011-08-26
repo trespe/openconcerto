@@ -18,6 +18,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
@@ -26,7 +27,10 @@ import java.util.EventObject;
 
 import javax.swing.AbstractCellEditor;
 import javax.swing.Action;
+import javax.swing.JComponent;
 import javax.swing.JTable;
+import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 import javax.swing.table.TableCellEditor;
 
 public class SQLTextComboTableCellEditor extends AbstractCellEditor implements TableCellEditor {
@@ -43,6 +47,11 @@ public class SQLTextComboTableCellEditor extends AbstractCellEditor implements T
         this.addUndefined = addUndefined;
 
         this.comboBox = new SQLRequestComboBox(addUndefined);
+        // Mimic JTable.GenericEditor behavior
+        this.comboBox.getTextComp().setBorder(new EmptyBorder(0, 0, 0, 18));
+        this.comboBox.setBorder(new LineBorder(Color.black));
+        ((JComponent) this.comboBox.getPulseComponent()).setBorder(null);
+
         ComboSQLRequest c = new ComboSQLRequest(elt.getComboRequest());
         this.comboBox.uiInit(c);
     }

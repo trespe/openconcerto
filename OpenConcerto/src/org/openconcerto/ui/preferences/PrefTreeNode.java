@@ -29,14 +29,11 @@ public class PrefTreeNode extends DefaultMutableTreeNode {
     public PrefTreeNode(Class<? extends PreferencePanel> c, String name, String[] keywords, boolean bold) {
         this.name = name;
         this.keywords = keywords;
-
-        // if (!PreferencePanel.class.isAssignableFrom(c))
-        // throw new IllegalArgumentException();
         this.bold = bold;
         this.c = c;
     }
 
-    public PreferencePanel getPanel() {
+    public PreferencePanel createPanel() {
         try {
             return this.c.newInstance();
         } catch (Exception e) {
@@ -56,7 +53,6 @@ public class PrefTreeNode extends DefaultMutableTreeNode {
             for (int j = 0; j < this.keywords.length; j++) {
                 String key = this.keywords[j].toLowerCase();
                 if (key.indexOf(inValue) >= 0) {
-                    System.out.println("--- match " + this.name);
                     return true;
                 }
             }
@@ -72,6 +68,7 @@ public class PrefTreeNode extends DefaultMutableTreeNode {
         return this.name;
     }
 
+    @Override
     public String toString() {
         return getName();
     }

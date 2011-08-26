@@ -71,11 +71,9 @@ public class CourrierClientSQLElement extends ComptaSQLConfElement {
 
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
-        l.add("ID_AFFAIRE");
         l.add("NUMERO");
         l.add("NOM");
         l.add("DATE");
-        l.add("ID_SECRETAIRE");
         l.add("INFOS");
         return l;
     }
@@ -135,35 +133,7 @@ public class CourrierClientSQLElement extends ComptaSQLConfElement {
                 c.fill = GridBagConstraints.HORIZONTAL;
                 this.add(this.date, c);
 
-                // Affaire
-                c.weightx = 0;
-                c.gridy++;
-                c.gridx = 0;
-                c.fill = GridBagConstraints.NONE;
-                this.add(new JLabel(getLabelFor("ID_AFFAIRE")), c);
-                final SQLElement eltAffaire = Configuration.getInstance().getDirectory().getElement("AFFAIRE");
-                this.selAffaire = new ISQLElementWithCodeSelector(eltAffaire, eltAffaire.getTable().getField("OBJET"));
-                c.weightx = 1;
-                c.gridx++;
-                c.gridwidth = GridBagConstraints.REMAINDER;
-                c.fill = GridBagConstraints.HORIZONTAL;
-                this.add(this.selAffaire, c);
-
-                // Secretaire
-                c.weightx = 0;
-                c.gridy++;
-                c.gridx = 0;
-                c.fill = GridBagConstraints.NONE;
-                c.gridwidth = 1;
-                this.add(new JLabel(getLabelFor("ID_SECRETAIRE")), c);
-                SQLElement eltSecr = Configuration.getInstance().getDirectory().getElement("SECRETAIRE");
-                ISQLElementWithCodeSelector selSecr = new ISQLElementWithCodeSelector(eltSecr, eltSecr.getTable().getField("NOM"));
-                c.weightx = 1;
-                c.gridx++;
-                c.gridwidth = GridBagConstraints.REMAINDER;
-                c.fill = GridBagConstraints.HORIZONTAL;
-                this.add(selSecr, c);
-
+                final SQLElement eltAffaire;
                 // Objet
                 c.gridy++;
                 c.gridx = 0;
@@ -280,69 +250,10 @@ public class CourrierClientSQLElement extends ComptaSQLConfElement {
                     }
                 });
 
-                this.addRequiredSQLObject(this.selAffaire, "ID_AFFAIRE");
                 this.addRequiredSQLObject(this.objet, "NOM");
                 this.addRequiredSQLObject(this.textNumero, "NUMERO");
                 this.addRequiredSQLObject(this.comboModele, "ID_MODELE_COURRIER_CLIENT");
                 this.addRequiredSQLObject(this.date, "DATE");
-                this.addRequiredSQLObject(selSecr, "ID_SECRETAIRE");
-
-                this.selAffaire.addValueListener(new PropertyChangeListener() {
-                    @Override
-                    public void propertyChange(PropertyChangeEvent evt) {
-                        int idSel = getSelectedID();
-
-                        if (idSel <= 1) {
-                            Integer i = selAffaire.getValue();
-                            if (i != null) {
-
-                                SQLRow rowAff = eltAffaire.getTable().getRow(i);
-                                setWhereComboAdresse(rowAff);
-                                if (rowAff != null) {
-
-                                    SQLRow rowCli = rowAff.getForeignRow("ID_CLIENT");
-
-                                    if (rowCli != null) {
-                                        SQLRow rowAdresse;
-                                            rowAdresse = rowCli.getForeignRow("ID_ADRESSE");
-                                        if (rowAdresse != null) {
-
-                                            SQLRowValues rowVals = rowAdresse.createUpdateRow();
-                                            rowVals.clearPrimaryKeys();
-                                            final String string = rowCli.getString("FORME_JURIDIQUE") + " " + rowCli.getString("NOM");
-                                            rowVals.put("DEST", string.trim());
-                                            eltAdr.setValue(rowVals);
-                                        }
-
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-
-                adresseElt.getTable().addTableModifiedListener(new SQLTableModifiedListener() {
-                    @Override
-                    public void tableModified(SQLTableEvent evt) {
-                        Integer i = selAffaire.getValue();
-                        if (i != null) {
-
-                            SQLRow rowAff = eltAffaire.getTable().getRow(i);
-                            setWhereComboAdresse(rowAff);
-                        }
-                    }
-                });
-                eltAffaire.getTable().addTableModifiedListener(new SQLTableModifiedListener() {
-                    @Override
-                    public void tableModified(SQLTableEvent evt) {
-                        Integer i = selAffaire.getValue();
-                        if (i != null) {
-
-                            SQLRow rowAff = eltAffaire.getTable().getRow(i);
-                            setWhereComboAdresse(rowAff);
-                        }
-                    }
-                });
             }
 
             private void setWhereComboAdresse(SQLRow rowAff) {
@@ -372,18 +283,6 @@ public class CourrierClientSQLElement extends ComptaSQLConfElement {
 
                 rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(CourrierClientSQLElement.class));
 
-                // User
-                SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
-                SQLElement eltComm = Configuration.getInstance().getDirectory().getElement("SECRETAIRE");
-                int idUser = UserManager.getInstance().getCurrentUser().getId();
-
-                sel.addSelect(eltComm.getTable().getKey());
-                sel.setWhere(new Where(eltComm.getTable().getField("ID_USER_COMMON"), "=", idUser));
-                List<SQLRow> rowsComm = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel, eltComm.getTable()));
-
-                if (rowsComm != null && rowsComm.size() > 0) {
-                    rowVals.put("ID_SECRETAIRE", rowsComm.get(0).getID());
-                }
                 return rowVals;
             }
 

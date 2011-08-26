@@ -39,12 +39,15 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.utils.DesktopEnvironment;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.JFrame;
@@ -58,12 +61,22 @@ import org.jdom.output.Format;
 import org.jdom.output.XMLOutputter;
 
 public class Caisse {
+    private static final String POS_CONFIGURATION_FILENAME = "pos.xml";
     private static Document document;
 
-    private static File getConfigFile() {
-        final File prefDir = new File("Configuration");
-        final File file = new File(prefDir, "ConfigCaisse.xml");
-        return file;
+    public static File getConfigFile(final String appName, final File wd) {
+        final File wdFile = new File(wd + "/Configuration", POS_CONFIGURATION_FILENAME);
+        final File confFile;
+        if (wdFile.isFile()) {
+            confFile = wdFile;
+        } else {
+            final File preferencesFolder = DesktopEnvironment.getDE().getPreferencesFolder(appName);
+            if (!preferencesFolder.exists()) {
+                preferencesFolder.mkdir();
+            }
+            confFile = new File(preferencesFolder, POS_CONFIGURATION_FILENAME);
+        }
+        return confFile;
     }
 
     private static Document getDocument() {
@@ -74,19 +87,25 @@ public class Caisse {
         final SAXBuilder constructeur = new SAXBuilder();
         // lecture du contenu d'un fichier XML avec JDOM
         File file = getConfigFile();
+        document = new Document();
+
         if (!file.exists()) {
-            System.err.println("Erreur le fichier ConfigCaisse.xml n'existe pas!");
-            return new Document();
+            System.err.println("Erreur le fichier " + file.getAbsolutePath() + " n'existe pas!");
+            document.setRootElement(new Element("config"));
+            return document;
         }
 
         try {
             System.out.println("Loading:" + file.getAbsolutePath());
             document = constructeur.build(file);
         } catch (Exception e) {
-            e.printStackTrace();
-            return new Document();
+            document.setRootElement(new Element("config"));
         }
         return document;
+    }
+
+    private static File getConfigFile() {
+        return getConfigFile(ComptaPropsConfiguration.APP_NAME, new File("."));
     }
 
     public static void createConnexion() {
@@ -295,7 +314,8 @@ public class Caisse {
                 rowVals.put("DATE", rowFacture.getObject("DATE"));
                 try {
                     final SQLRow row = rowVals.insert();
-                    MouvementStockSQLElement.updateStock(row.getID());
+                    // MAYBE Show warning if qte min
+                    MouvementStockSQLElement.updateStock(Arrays.asList(row.getID()));
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
@@ -306,7 +326,7 @@ public class Caisse {
 
     public static int getID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("caisseID"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("caisseID", "2"));
     }
 
     public static void setID(int caisseId) {
@@ -329,7 +349,7 @@ public class Caisse {
 
     public static int getUserID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("userID"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("userID", "2"));
     }
 
     public static void setUserID(int userId) {
@@ -339,7 +359,7 @@ public class Caisse {
 
     public static int getSocieteID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("societeID"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("societeID", "42"));
     }
 
     public static void setSocieteID(int societeId) {
@@ -349,7 +369,7 @@ public class Caisse {
 
     public static boolean isCopyActive() {
         final Document d = getDocument();
-        return Boolean.valueOf(d.getRootElement().getAttributeValue("copyTicket"));
+        return Boolean.valueOf(d.getRootElement().getAttributeValue("copyTicket", "true"));
     }
 
     public static void setCopyActive(boolean b) {
@@ -367,8 +387,10 @@ public class Caisse {
 
     public static boolean isUsingJPos() {
         final Document d = getDocument();
-        final Element child = d.getRootElement().getChild("printer");
+        Element child = d.getRootElement().getChild("printer");
         if (child == null) {
+            child = new Element("printer");
+            d.getRootElement().addContent(child);
             return false;
         }
         final String type = child.getAttributeValue("type");
@@ -377,15 +399,22 @@ public class Caisse {
 
     public static void setPrinterType(String type) {
         final Document d = getDocument();
-        d.getRootElement().getChild("printer").setAttribute("type", type);
+        Element e = d.getRootElement().getChild("printer");
+        if (e == null) {
+            e = new Element("printer");
+            d.getRootElement().addContent(e);
+        }
+        e.setAttribute("type", type);
     }
 
     public static String getJPosPrinter() {
         final Document d = getDocument();
         final List<Element> children = d.getRootElement().getChildren("jpos");
-        for (Element e : children) {
-            if (e.getAttribute("printer") != null) {
-                return e.getAttributeValue("printer");
+        if (children != null) {
+            for (Element e : children) {
+                if (e.getAttribute("printer") != null) {
+                    return e.getAttributeValue("printer");
+                }
             }
         }
         return "";
@@ -393,16 +422,22 @@ public class Caisse {
 
     public static void setJPosPrinter(String printer) {
         final Document d = getDocument();
-        final Element e = d.getRootElement().getChild("jpos");
+        Element e = d.getRootElement().getChild("jpos");
+        if (e == null) {
+            e = new Element("jpos");
+            d.getRootElement().addContent(e);
+        }
         e.setAttribute("printer", printer);
     }
 
     public static String getESCPPort() {
         final Document d = getDocument();
         final List<Element> children = d.getRootElement().getChildren("escp");
-        for (Element e : children) {
-            if (e.getAttribute("port") != null) {
-                return e.getAttributeValue("port");
+        if (children != null) {
+            for (Element e : children) {
+                if (e.getAttribute("port") != null) {
+                    return e.getAttributeValue("port", "COM1:");
+                }
             }
         }
         return "COM1:";
@@ -410,16 +445,22 @@ public class Caisse {
 
     public static void setESCPPort(String port) {
         final Document d = getDocument();
-        final Element e = d.getRootElement().getChild("escp");
+        Element e = d.getRootElement().getChild("escp");
+        if (e == null) {
+            e = new Element("escp");
+            d.getRootElement().addContent(e);
+        }
         e.setAttribute("port", port);
     }
 
     public static String getJPosDirectory() {
         final Document d = getDocument();
         final List<Element> children = d.getRootElement().getChildren("jpos");
-        for (Element e : children) {
-            if (e.getValue() != null) {
-                return e.getValue();
+        if (children != null) {
+            for (Element e : children) {
+                if (e.getValue() != null) {
+                    return e.getValue();
+                }
             }
         }
         return "";
@@ -427,7 +468,11 @@ public class Caisse {
 
     public static void setJPosDirectory(String dir) {
         final Document d = getDocument();
-        final Element e = d.getRootElement().getChild("jpos");
+        Element e = d.getRootElement().getChild("jpos");
+        if (e == null) {
+            e = new Element("jpos");
+            d.getRootElement().addContent(e);
+        }
         e.setText(dir);
     }
 
@@ -435,8 +480,10 @@ public class Caisse {
         final List<TicketLine> l = new ArrayList<TicketLine>();
         final Document d = getDocument();
         final List<Element> list = d.getRootElement().getChildren("header");
-        for (Element element : list) {
-            l.add(new TicketLine(element.getValue(), element.getAttributeValue("style")));
+        if (list != null) {
+            for (Element element : list) {
+                l.add(new TicketLine(element.getValue(), element.getAttributeValue("style")));
+            }
         }
         return l;
     }
@@ -461,8 +508,10 @@ public class Caisse {
         final List<TicketLine> l = new ArrayList<TicketLine>();
         final Document d = getDocument();
         final List<Element> list = d.getRootElement().getChildren("footer");
-        for (Element element : list) {
-            l.add(new TicketLine(element.getValue(), element.getAttributeValue("style")));
+        if (list != null) {
+            for (Element element : list) {
+                l.add(new TicketLine(element.getValue(), element.getAttributeValue("style")));
+            }
         }
         return l;
     }
@@ -478,10 +527,12 @@ public class Caisse {
     public static int getTicketWidth() {
         final Document d = getDocument();
         final List<Element> children = d.getRootElement().getChildren("printer");
-        for (Element e : children) {
-            if (e.getAttribute("printWidth") != null) {
-                final String attributeValue = e.getAttributeValue("printWidth");
-                return Integer.parseInt(attributeValue);
+        if (children != null) {
+            for (Element e : children) {
+                if (e.getAttribute("printWidth") != null) {
+                    final String attributeValue = e.getAttributeValue("printWidth");
+                    return Integer.parseInt(attributeValue);
+                }
             }
         }
         return 20;
@@ -489,7 +540,11 @@ public class Caisse {
 
     public static void setTicketWidth(String w) {
         final Document d = getDocument();
-        final Element e = d.getRootElement().getChild("printer");
+        Element e = d.getRootElement().getChild("printer");
+        if (e == null) {
+            e = new Element("printer");
+            d.getRootElement().addContent(e);
+        }
         e.setAttribute("printWidth", w);
     }
 
@@ -503,7 +558,7 @@ public class Caisse {
             fileOutputStream.close();
         } catch (Exception e) {
             e.printStackTrace();
-            JOptionPane.showMessageDialog(new JFrame(), "Erreur lors de la sauvegarde de la configuration de la caisse.\n" + file.getAbsolutePath());
+            ExceptionHandler.handle("Erreur lors de la sauvegarde de la configuration de la caisse.\n" + file.getAbsolutePath());
         }
 
     }

@@ -30,11 +30,13 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 
 public class GenListeVentePanel extends JPanel implements ActionListener {
@@ -42,6 +44,7 @@ public class GenListeVentePanel extends JPanel implements ActionListener {
     private final JButton buttonGen = new JButton("Créer");
     private final JDate du;
     private final JDate au;
+    JProgressBar bar = new JProgressBar();
 
     public GenListeVentePanel() {
         super(new GridBagLayout());
@@ -68,7 +71,13 @@ public class GenListeVentePanel extends JPanel implements ActionListener {
 
         c.gridy++;
         c.gridx = 0;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.weightx = 1;
+        this.add(this.bar, c);
 
+        c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = 1;
         JPanel panelButton = new JPanel();
         panelButton.add(this.buttonGen);
         final JButton buttonClose = new JButton("Fermer");
@@ -85,25 +94,41 @@ public class GenListeVentePanel extends JPanel implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == this.buttonGen) {
-            SQLTable tableFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE").getTable();
-            SQLTable tableAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT").getTable();
-            SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
-            final SQLDataSource dataSource = Configuration.getInstance().getBase().getDataSource();
-            sel.addSelectStar(tableFact);
-            sel.setDistinct(true);
-            sel.setWhere(new Where(tableFact.getField("DATE"), this.du.getDate(), this.au.getDate()));
-
-            List<SQLRow> l = (List<SQLRow>) dataSource.execute(sel.asString(), SQLRowListRSH.createFromSelect(sel, tableFact));
-
-            SQLSelect sel2 = new SQLSelect(Configuration.getInstance().getBase());
-            sel2.addSelectStar(tableAvoir);
-            sel2.setWhere(new Where(tableAvoir.getField("DATE"), this.du.getDate(), this.au.getDate()));
-            sel2.setDistinct(true);
-            l.addAll((List<SQLRow>) dataSource.execute(sel2.asString(), SQLRowListRSH.createFromSelect(sel2, tableAvoir)));
-
-            ListeVenteXmlSheet sheet = new ListeVenteXmlSheet(l, this.du.getDate(), this.au.getDate());
-            sheet.genere(true, false);
+            final Thread thread = new Thread(new Runnable() {
+                public void run() {
+                    SQLTable tableFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE").getTable();
+                    SQLTable tableAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT").getTable();
+                    SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
+                    final SQLDataSource dataSource = Configuration.getInstance().getBase().getDataSource();
+                    sel.addSelectStar(tableFact);
+                    sel.setDistinct(true);
+                    sel.setWhere(new Where(tableFact.getField("DATE"), GenListeVentePanel.this.du.getDate(), GenListeVentePanel.this.au.getDate()));
+                    List<SQLRow> l = (List<SQLRow>) dataSource.execute(sel.asString(), SQLRowListRSH.createFromSelect(sel, tableFact));
+                    SQLSelect sel2 = new SQLSelect(Configuration.getInstance().getBase());
+                    sel2.addSelectStar(tableAvoir);
+                    sel2.setWhere(new Where(tableAvoir.getField("DATE"), GenListeVentePanel.this.du.getDate(), GenListeVentePanel.this.au.getDate()));
+                    sel2.setDistinct(true);
+                    l.addAll((List<SQLRow>) dataSource.execute(sel2.asString(), SQLRowListRSH.createFromSelect(sel2, tableAvoir)));
+                    ListeVenteXmlSheet sheet = new ListeVenteXmlSheet(l, GenListeVentePanel.this.du.getDate(), GenListeVentePanel.this.au.getDate(), GenListeVentePanel.this.bar);
+                    try {
+                        sheet.genere(true, false).get();
+                    } catch (InterruptedException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    } catch (ExecutionException e) {
+                        // TODO Auto-generated catch block
+                        e.printStackTrace();
+                    }
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            ((JFrame) SwingUtilities.getRoot(GenListeVentePanel.this)).dispose();
+                        }
+                    });
+                }
+            });
+            thread.start();
+        } else {
+            ((JFrame) SwingUtilities.getRoot(this)).dispose();
         }
-        ((JFrame) SwingUtilities.getRoot(this)).dispose();
     }
 }

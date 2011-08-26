@@ -290,6 +290,11 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
         this.validSupp.addValidListener(l);
     }
 
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.validSupp.removeValidListener(l);
+    }
+
     private void fireValidChange() {
         this.validSupp.fireValidChange(isValidated());
     }

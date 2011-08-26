@@ -14,7 +14,6 @@
  package org.openconcerto.erp.core.sales.credit.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
@@ -27,13 +26,11 @@ import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JTable;
 
 public class ListeDesAvoirsClientsAction extends CreateFrameAbstractAction {
 
@@ -71,14 +68,6 @@ public class ListeDesAvoirsClientsAction extends CreateFrameAbstractAction {
 
         frame.getPanel().getListe().getJTable().addMouseListener(new MouseSheetXmlListeListener(frame.getPanel().getListe(), AvoirClientXmlSheet.class));
 
-        // Renderer pour les devises
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
         frame.getPanel().getListe().setSQLEditable(false);
         return frame;
     }

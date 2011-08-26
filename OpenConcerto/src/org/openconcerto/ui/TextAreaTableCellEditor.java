@@ -17,6 +17,7 @@ import org.openconcerto.utils.text.DocumentFilterList;
 import org.openconcerto.utils.text.LimitedSizeDocumentFilter;
 import org.openconcerto.utils.text.DocumentFilterList.FilterType;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
@@ -31,6 +32,7 @@ import javax.swing.AbstractCellEditor;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.SwingUtilities;
+import javax.swing.border.LineBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.table.TableCellEditor;
@@ -43,7 +45,8 @@ public class TextAreaTableCellEditor extends AbstractCellEditor implements Table
     final JTextArea textArea = new JTextArea();
 
     public TextAreaTableCellEditor(final JTable t) {
-
+        // Mimic JTable.GenericEditor behavior
+        this.textArea.setBorder(new LineBorder(Color.black));
         textArea.addKeyListener(new KeyAdapter() {
             @Override
             public void keyPressed(KeyEvent e) {

@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.sales.product.ui.FamilleArticlePanel;
 import org.openconcerto.erp.panel.ITreeSelection;
 import org.openconcerto.sql.Configuration;
@@ -23,7 +22,6 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -36,13 +34,11 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.math.BigInteger;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
-import javax.swing.JTable;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 
@@ -65,7 +61,7 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
         // frame.getPanel().getListe().getJTable().setDefaultRenderer(Long.class, new
         // DeviseNiceTableCellRenderer());
         SQLElement elt = Configuration.getInstance().getDirectory().getElement(this.sqlTableArticle);
-        IListe liste = new IListe(ListSQLRequest.copy(elt.getListRequest(), getWhere(panelFam)));
+        IListe liste = new IListe(elt.createTableSource(getWhere(panelFam)));
         final ListeAddPanel panel = new ListeAddPanel(elt, liste);
 
         JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panelFam, panel);
@@ -76,14 +72,6 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
         c.weighty = 1;
         c.insets = new Insets(0, 0, 0, 0);
         panelAll.add(pane, c);
-
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = panel.getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
 
         final ITreeSelection tree = panelFam.getFamilleTree();
         tree.addValueListener(new PropertyChangeListener() {

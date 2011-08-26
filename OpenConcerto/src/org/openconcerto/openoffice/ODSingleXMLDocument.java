@@ -406,7 +406,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
     }
 
     private String[] getFontDecls() {
-        return OOXML.get(getVersion()).getFontDecls();
+        return getXML().getFontDecls();
     }
 
     // merge everything under office:styles
@@ -822,7 +822,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
         final Map<RootElement, Document> res = new HashMap<RootElement, Document>();
         final XMLVersion version = getVersion();
         final Element root = this.getDocument().getRootElement();
-        final String officeVersion = root.getAttributeValue("version", version.getOFFICE());
+        final String officeVersion = getFormatVersion().getOfficeVersion();
 
         // meta
         {
@@ -924,6 +924,6 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
     }
 
     private final Element getPProps() {
-        return new Element(this.getVersion().equals(XMLVersion.OD) ? "paragraph-properties" : "properties", this.getVersion().getSTYLE());
+        return this.getXML().createFormattingProperties("paragraph");
     }
 }

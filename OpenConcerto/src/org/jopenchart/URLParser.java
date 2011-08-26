@@ -42,7 +42,6 @@ public class URLParser {
             if (c == '&') {
                 value = buff;
                 buff = "";
-                System.out.println(key + " " + value);
                 parameters.put(key, value);
 
             } else if (c == '=') {
@@ -54,7 +53,7 @@ public class URLParser {
         }
         value = buff;
         parameters.put(key, value);
-        System.out.println(key + " " + value);
+
     }
 
     /**
@@ -241,17 +240,15 @@ public class URLParser {
 
     private List<Stroke> getStrokes(String string) {
         List<Stroke> list = new ArrayList<Stroke>();
-        System.err.println("full:" + string);
+
         final String[] params = splitPipe(string);
         for (int i = 0; i < params.length; i++) {
-            System.err.println("f:" + params[i]);
             list.add(getSroke(params[i]));
         }
         return list;
     }
 
     private Stroke getSroke(String string) {
-        System.err.println("s:" + string);
         final String[] params = string.split(",");
         float thickness = Float.parseFloat(params[0]);
         float lineLength = Float.parseFloat(params[1]);

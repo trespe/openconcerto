@@ -26,17 +26,20 @@ import org.openconcerto.utils.Tuple2;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.beans.PropertyChangeListener;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.event.EventListenerList;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 
 public class IListTotalPanel extends JPanel {
 
+    EventListenerList loadingListener = new EventListenerList();
     private final IListe list;
     private final Map<SQLField, JLabel> map = new HashMap<SQLField, JLabel>();
 
@@ -115,8 +118,22 @@ public class IListTotalPanel extends JPanel {
                         map.get(field).setText(GestionDevise.currencyToString(0));
                     }
                 }
-
+                fireUpdated();
             }
         });
+    }
+
+    public void fireUpdated() {
+        for (PropertyChangeListener l : this.loadingListener.getListeners(PropertyChangeListener.class)) {
+            l.propertyChange(null);
+        }
+    }
+
+    public void addListener(PropertyChangeListener l) {
+        this.loadingListener.add(PropertyChangeListener.class, l);
+    }
+
+    public JLabel getTotal(SQLField field) {
+        return this.map.get(field);
     }
 }

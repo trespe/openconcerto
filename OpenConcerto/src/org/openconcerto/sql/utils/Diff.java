@@ -115,12 +115,19 @@ public class Diff {
         return "-- To change " + getDesc(this.a) + t + "\n-- into " + getDesc(this.b) + t + "\n-- \n";
     }
 
-    public final String compute() {
-        final Set<String> tables = CollectionUtils.union(this.a.getChildrenNames(), this.b.getChildrenNames());
-        return this.getHeader(null) + this.computeBody(tables);
+    private Set<String> getTablesUnion() {
+        return CollectionUtils.union(this.a.getChildrenNames(), this.b.getChildrenNames());
     }
 
-    private final String computeBody(final Collection<String> tables) {
+    public final String compute() {
+        return this.getHeader(null) + this.computeBody(getTablesUnion());
+    }
+
+    public final List<ChangeTable<?>> getChangeTables() {
+        return this.getChangeTables(getTablesUnion());
+    }
+
+    public final List<ChangeTable<?>> getChangeTables(final Collection<String> tables) {
         final List<ChangeTable<?>> l = new ArrayList<ChangeTable<?>>();
         for (final String table : tables) {
             final ChangeTable<?> compute = this.computeP(table);
@@ -128,6 +135,11 @@ public class Diff {
                 l.add(compute);
             }
         }
+        return l;
+    }
+
+    private final String computeBody(final Collection<String> tables) {
+        final List<ChangeTable<?>> l = getChangeTables(tables);
         if (Boolean.getBoolean(SIMPLE_SEQ)) {
             final StringBuilder sb = new StringBuilder();
             for (final ChangeTable<?> compute : l) {

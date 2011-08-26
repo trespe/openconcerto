@@ -13,9 +13,14 @@
  
  package org.openconcerto.utils;
 
+import java.awt.Cursor;
+import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Image;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
+import java.net.URI;
 import java.net.URL;
 
 import javax.swing.ImageIcon;
@@ -32,6 +37,7 @@ public class JImage extends JComponent {
     private ImageIcon icon;
 
     private boolean centered;
+    private String hyperlink;
 
     /**
      * Cree une JImage a partir d'un nom de fichier.
@@ -54,6 +60,30 @@ public class JImage extends JComponent {
     public JImage(Image img) {
         this.image = img;
         this.icon = null;
+        this.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                if (hyperlink != null) {
+                    try {
+                        URI uri = new URI(hyperlink);
+                        Desktop.getDesktop().browse(uri);
+                    } catch (Exception ex) {
+                        ExceptionHandler.handle("Impossible d'ouvir l'URL " + hyperlink, ex);
+                    }
+                    e.consume();
+                }
+            }
+
+            @Override
+            public void mouseEntered(MouseEvent e) {
+                setCursor(new Cursor(Cursor.HAND_CURSOR));
+            }
+
+            @Override
+            public void mouseExited(MouseEvent e) {
+                setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+            }
+        });
     }
 
     public void check() {
@@ -97,5 +127,9 @@ public class JImage extends JComponent {
 
     public void setImage(Image image) {
         this.image = image;
+    }
+
+    public void setHyperLink(String url) {
+        this.hyperlink = url;
     }
 }

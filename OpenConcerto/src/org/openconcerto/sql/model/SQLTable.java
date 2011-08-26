@@ -303,6 +303,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
             e.printStackTrace();
             this.addConstraint((Constraint) null);
         }
+
+        // we might have added/dropped a foreign key but the set of tables hasn't changed
+        this.getDBSystemRoot().descendantsChanged(false);
+
         this.save();
     }
 
@@ -589,6 +593,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return this.getDBSystemRoot().getGraph().getForeignTable(this.getField(foreignField));
     }
 
+    public SQLTable findReferentTable(String tableName) {
+        return this.getDBSystemRoot().getGraph().findReferentTable(this, tableName);
+    }
+
     /**
      * Renvoie toutes les clefs de cette table. C'est à dire les clefs primaires plus les clefs
      * externes.
@@ -618,8 +626,9 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      */
     public SQLField getField(String fieldName) {
         SQLField res = this.getFieldRaw(fieldName);
-        if (res == null)
-            throw new IllegalArgumentException("unknown field " + fieldName + " in " + this);
+        if (res == null) {
+            throw new IllegalArgumentException("unknown field " + fieldName + " in " + this.getName() + ". The table " + this.getName() + " contains the followins fields: " + this.fields.asList());
+        }
         return res;
     }
 
@@ -871,6 +880,19 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
 
     public SQLField getOrderField() {
         return this.getFieldRaw(orderField);
+    }
+
+    /**
+     * The number of fractional digits of the order field.
+     * 
+     * @return the number of fractional digits of the order field.
+     */
+    public final int getOrderDecimalDigits() {
+        return this.getOrderField().getType().getDecimalDigits().intValue();
+    }
+
+    public final BigDecimal getOrderULP() {
+        return BigDecimal.ONE.scaleByPowerOfTen(-this.getOrderDecimalDigits());
     }
 
     public boolean isArchivable() {

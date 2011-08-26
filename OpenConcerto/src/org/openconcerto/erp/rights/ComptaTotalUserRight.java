@@ -35,6 +35,7 @@ public class ComptaTotalUserRight extends ComptaUserRight {
     public List<RightTuple> expand(UserRightsManager mngr, String rightCode, String object, boolean haveRight) {
         final List<RightTuple> res = new ArrayList<RightTuple>();
         res.add(new RightTuple(ComptaUserRight.MENU, haveRight));
+        res.add(new RightTuple(ComptaUserRight.ACCES_NOT_RESCTRICTED_TO_411, haveRight));
         return res;
     }
 }

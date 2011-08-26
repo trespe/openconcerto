@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
@@ -39,7 +38,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;
-import java.math.BigInteger;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -52,7 +50,6 @@ import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
-import javax.swing.JTable;
 
 public class ListeDesDevisAction extends CreateFrameAbstractAction implements MouseListener {
 

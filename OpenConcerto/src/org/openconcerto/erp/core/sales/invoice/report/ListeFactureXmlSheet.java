@@ -52,8 +52,6 @@ public class ListeFactureXmlSheet extends AbstractListeSheetXml {
 
     protected void createListeValues() {
         SQLElement eltFacture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-
-        SQLElement eltAffaire = Configuration.getInstance().getDirectory().getElement("AFFAIRE");
         SQLElement eltModeRegl = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
         SQLElement eltTypeRegl = Configuration.getInstance().getDirectory().getElement("TYPE_REGLEMENT");
 
@@ -76,13 +74,6 @@ public class ListeFactureXmlSheet extends AbstractListeSheetXml {
             String libClient = rowCli.getString("FORME_JURIDIQUE") + " " + rowCli.getString("NOM");
             mValues.put("CLIENT", libClient.trim());
 
-            // Affaire
-            int idAffaire = rowFacture.getInt("ID_AFFAIRE");
-            if (idAffaire > 1) {
-                SQLRow rowAffaire = eltAffaire.getTable().getRow(idAffaire);
-                mValues.put("NUMERO_AFFAIRE", rowAffaire.getString("NUMERO"));
-                mValues.put("NOM_AFFAIRE", rowAffaire.getString("OBJET"));
-            }
 
             // Mode de reglement
             int idModeRegl = rowFacture.getInt("ID_MODE_REGLEMENT");

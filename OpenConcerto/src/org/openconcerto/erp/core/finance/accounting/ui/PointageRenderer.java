@@ -13,79 +13,13 @@
  
  package org.openconcerto.erp.core.finance.accounting.ui;
 
-import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.view.list.ITableModel;
-import org.openconcerto.utils.GestionDevise;
+import javax.swing.table.TableCellRenderer;
 
-import java.awt.Color;
-import java.awt.Component;
-import java.math.BigInteger;
-import java.text.DateFormat;
-import java.util.Date;
-import java.util.Locale;
+public class PointageRenderer extends EcritureCheckedRenderer {
 
-import javax.swing.JTable;
-import javax.swing.table.DefaultTableCellRenderer;
+    static public final EcritureUtils<PointageRenderer> UTILS = new EcritureUtils<PointageRenderer>(PointageRenderer.class);
 
-public class PointageRenderer extends DefaultTableCellRenderer {
-
-    private static final DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.FRENCH);
-    private final static Color couleurEcritureNonValide = new Color(253, 243, 204);
-    // private final static Color couleurEcritureToDay = new Color(255, 252, 236);
-    private final static Color couleurEcritureToDay = new Color(225, 254, 207);
-
-    private final static Color couleurEcriturePointee = new Color(255, 232, 245);
-
-    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-
-        super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-
-        // System.out.println("Cell renderer ON :: " + row);
-
-        if (!isSelected) {
-            final SQLRowValues ecritureRow = ITableModel.getLine(table.getModel(), row).getRow();
-            if (!ecritureRow.getBoolean("VALIDE")) {
-                // this.setForeground(couleurEcritureNonValide);
-                Date dateEcr = ((Date) ecritureRow.getObject("DATE"));
-                Date dateToDay = new Date();
-
-                if ((dateEcr.getDate() == dateToDay.getDate()) && (dateEcr.getMonth() == dateToDay.getMonth()) && (dateEcr.getYear() == dateToDay.getYear())) {
-                    // System.out.println("ToDay :: " + dateToDay + " Ecr ::: " + dateEcr);
-
-                    this.setBackground(couleurEcritureToDay);
-                } else {
-                    this.setBackground(couleurEcritureNonValide);
-                }
-            } else {
-                // this.setForeground(Color.BLACK);
-                this.setBackground(Color.WHITE);
-            }
-
-            if (ecritureRow.getString("POINTEE").trim().length() > 0) {
-                this.setBackground(couleurEcriturePointee);
-            }
-        }
-
-        if (value instanceof Date) {
-            this.setText(dateFormat.format((Date) value));
-        }
-
-        if (value != null && (table.getColumnClass(column) == BigInteger.class || value.getClass() == Long.class)) {
-            this.setText(GestionDevise.currencyToString(((Long) value).longValue()));
-        }
-
-        return this;
-    }
-
-    public static Color GetCouleurEcritureNonValide() {
-        return couleurEcritureNonValide;
-    }
-
-    public static Color getCouleurEcritureToDay() {
-        return couleurEcritureToDay;
-    }
-
-    public static Color getCouleurEcriturePointee() {
-        return couleurEcriturePointee;
+    public PointageRenderer(final TableCellRenderer r) {
+        super(r, "POINTEE");
     }
 }

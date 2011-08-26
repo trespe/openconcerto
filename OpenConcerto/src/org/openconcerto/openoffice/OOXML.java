@@ -16,6 +16,7 @@
  */
 package org.openconcerto.openoffice;
 
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.Validator;
 
@@ -25,6 +26,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.SortedMap;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -32,8 +35,6 @@ import javax.xml.XMLConstants;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 
-import org.apache.commons.collections.Transformer;
-import org.apache.commons.collections.map.LazyMap;
 import org.jdom.Content;
 import org.jdom.Document;
 import org.jdom.Element;
@@ -48,79 +49,137 @@ import org.xml.sax.SAXException;
  * Various bits of OpenDocument XML.
  * 
  * @author Sylvain CUAZ
- * @see #get(XMLVersion)
+ * @see #get(XMLFormatVersion)
  */
-public class OOXML {
+public abstract class OOXML implements Comparable<OOXML> {
 
-    private static final Map instances = LazyMap.decorate(new HashMap(), new Transformer() {
-        public Object transform(Object input) {
-            return new OOXML((XMLVersion) input);
-        }
-    });
+    /**
+     * If this system property is set to <code>true</code> then {@link #get(XMLFormatVersion)} will
+     * never return <code>null</code>, allowing to support unknown versions.
+     */
+    public static final String LAST_FOR_UNKNOWN_PROP = OOXML.class.getPackage().getName() + ".lastOOXMLForUnknownVersion";
+    private static final XML_OO instanceOO = new XML_OO();
+    private static final SortedMap<String, XML_OD> instancesODByDate = new TreeMap<String, XML_OD>();
+    private static final Map<String, XML_OD> instancesODByVersion = new HashMap<String, XML_OD>();
+    private static final List<OOXML> values;
+    private static OOXML defaultInstance;
+
+    static {
+        register(new XML_OD_1_0());
+        register(new XML_OD_1_1());
+        register(new XML_OD_1_2());
+        values = new ArrayList<OOXML>(instancesODByDate.size() + 1);
+        values.add(instanceOO);
+        values.addAll(instancesODByDate.values());
+
+        setDefault(getLast());
+    }
+
+    private static void register(XML_OD xml) {
+        assert xml.getVersion() == XMLVersion.OD;
+        instancesODByDate.put(xml.getDateString(), xml);
+        instancesODByVersion.put(xml.getFormatVersion().getOfficeVersion(), xml);
+    }
 
     /**
      * Returns the instance that match the requested version.
      * 
      * @param version the version.
-     * @return the corresponding instance.
+     * @return the corresponding instance, <code>null</code> for unsupported versions.
+     * @see #LAST_FOR_UNKNOWN_PROP
      */
-    public static OOXML get(XMLVersion version) {
-        return (OOXML) instances.get(version);
+    public static OOXML get(XMLFormatVersion version) {
+        return get(version, Boolean.getBoolean(LAST_FOR_UNKNOWN_PROP));
     }
 
-    static public final String getLineBreakS() {
-        return "<text:line-break/>";
+    public static OOXML get(XMLFormatVersion version, final boolean lastForUnknown) {
+        if (version.getXMLVersion() == XMLVersion.OOo) {
+            return instanceOO;
+        } else {
+            final XML_OD res = instancesODByVersion.get(version.getOfficeVersion());
+            if (res == null && lastForUnknown)
+                return getLast(version.getXMLVersion());
+            else
+                return res;
+        }
+    }
+
+    public static OOXML get(Element root) {
+        return XMLFormatVersion.get(root).getXML();
+    }
+
+    /**
+     * Return all known instances in the order they were published.
+     * 
+     * @return all known instances ordered.
+     * @see #compareTo(OOXML)
+     */
+    static public final List<OOXML> values() {
+        return values;
+    }
+
+    static public final OOXML getLast() {
+        return CollectionUtils.getLast(values);
+    }
+
+    static public final OOXML getLast(XMLVersion version) {
+        if (version == XMLVersion.OOo)
+            return instanceOO;
+        else
+            return instancesODByDate.get(instancesODByDate.lastKey());
+    }
+
+    public static void setDefault(OOXML ns) {
+        defaultInstance = ns;
+    }
+
+    public static OOXML getDefault() {
+        return defaultInstance;
     }
 
     static private final String rt2oo(String content, String tagName, String styleName) {
         return content.replaceAll("\\[" + tagName + "\\]", "<text:span text:style-name=\"" + styleName + "\">").replaceAll("\\[/" + tagName + "\\]", "</text:span>");
     }
 
-    /**
-     * Encode spaces for OpenOffice 1, and escape characters for XML.
-     * 
-     * @param s a string to encode, eg "hi\n 3<4".
-     * @return the string encoded in XML, eg "hi<text:line-break/><text:s text:c="2"/>3&lt;4".
-     * @deprecated see {@link #encodeWS(String)}
-     */
-    static public final String encodeOOWS(final String s) {
-        String tmp = JDOMUtils.OUTPUTTER.escapeElementEntities(s).replaceAll("\n", getLineBreakS()).replaceAll("\t", OOXML.get(XMLVersion.OOo).getTabS());
-
-        String res = "";
-        // les séries de plus d'un espace consécutifs
-        final Pattern p = Pattern.compile("  +");
-        final Matcher m = p.matcher(tmp);
-        int lastEnd = 0;
-        while (m.find()) {
-            // c == le nombre d'espaces
-            res += tmp.substring(lastEnd, m.start()) + "<text:s text:c=\"" + (m.group().length()) + "\"/>";
-            lastEnd = m.end();
-        }
-        res += tmp.substring(lastEnd);
-
-        return res;
-    }
-
     // *** instances
 
-    private final XMLVersion version;
-    private Schema schema = null;
+    private final XMLFormatVersion version;
+    private final String dateString;
 
-    private OOXML(XMLVersion version) {
+    private OOXML(XMLFormatVersion version, final String dateString) {
         this.version = version;
+        this.dateString = dateString;
+    }
+
+    /**
+     * The date the specification was published.
+     * 
+     * @return the date in "yyyyMMdd" format.
+     */
+    public final String getDateString() {
+        return this.dateString;
+    }
+
+    /**
+     * Compare the date the specification was published.
+     * 
+     * @param o the object to be compared.
+     * @see #getDateString()
+     */
+    @Override
+    public int compareTo(OOXML o) {
+        return this.dateString.compareTo(o.dateString);
     }
 
     public final XMLVersion getVersion() {
+        return this.getFormatVersion().getXMLVersion();
+    }
+
+    public final XMLFormatVersion getFormatVersion() {
         return this.version;
     }
 
-    private Schema getSchema() throws SAXException {
-        if (this.schema == null) {
-            this.schema = SchemaFactory.newInstance(XMLConstants.RELAXNG_NS_URI).newSchema(getClass().getResource("oofficeDTDs/OpenDocument-strict-schema-v1.1.rng"));
-        }
-        assert this.schema != null;
-        return this.schema;
-    }
+    public abstract boolean canValidate();
 
     /**
      * Verify that the passed document is a valid OpenOffice.org 1 or ODF document.
@@ -128,23 +187,7 @@ public class OOXML {
      * @param doc the xml to test.
      * @return a validator on <code>doc</code>.
      */
-    public Validator getValidator(Document doc) {
-        if (this.getVersion() == XMLVersion.OD) {
-            final Schema schema;
-            try {
-                schema = this.getSchema();
-            } catch (SAXException e) {
-                throw new IllegalStateException("relaxNG schemas pb", e);
-            }
-            return new Validator.JAXPValidator(doc, schema);
-        } else {
-            // DTDs are stubborn, xmlns have to be exactly where they want
-            // in this case the root element
-            for (final Namespace n : getVersion().getALL())
-                doc.getRootElement().addNamespaceDeclaration(n);
-            return new Validator.DTDValidator(doc, OOUtils.getBuilderLoadDTD());
-        }
-    }
+    public abstract Validator getValidator(Document doc);
 
     /**
      * Return the names of font face declarations.
@@ -152,37 +195,22 @@ public class OOXML {
      * @return at index 0 the name of the container element, at 1 the qualified name of its
      *         children.
      */
-    public String[] getFontDecls() {
-        if (this.getVersion() == XMLVersion.OOo)
-            return new String[] { "font-decls", "style:font-decl" };
-        else
-            return new String[] { "font-face-decls", "style:font-face" };
-    }
+    public abstract String[] getFontDecls();
 
     public final Element getLineBreak() {
         return new Element("line-break", getVersion().getTEXT());
     }
 
-    public final Element getTab() {
-        return new Element(this.getVersion().equals(XMLVersion.OD) ? "tab" : "tab-stop", getVersion().getTEXT());
-    }
+    public abstract Element getTab();
 
-    /**
-     * How to encode a tab.
-     * 
-     * @return the xml string to encode a tab.
-     * @deprecated use {@link #getTab()}
-     */
-    public final String getTabS() {
-        return this.getVersion().equals(XMLVersion.OD) ? "<text:tab/>" : "<text:tab-stop/>";
-    }
+    public abstract String getFrameQName();
 
-    protected final List encodeRT_L(String content, Map styles) {
+    public abstract Element createFormattingProperties(final String family);
+
+    protected final List encodeRT_L(String content, Map<String, String> styles) {
         String res = JDOMUtils.OUTPUTTER.escapeElementEntities(content);
-        final Iterator iter = styles.entrySet().iterator();
-        while (iter.hasNext()) {
-            final Entry e = (Entry) iter.next();
-            res = rt2oo(res, (String) e.getKey(), (String) e.getValue());
+        for (final Entry<String, String> e : styles.entrySet()) {
+            res = rt2oo(res, e.getKey(), e.getValue());
         }
         try {
             return JDOMUtils.parseString(res, getVersion().getALL());
@@ -201,7 +229,7 @@ public class OOXML {
      *        "Gras").
      * @return the corresponding element.
      */
-    public final Element encodeRT(String content, Map styles) {
+    public final Element encodeRT(String content, Map<String, String> styles) {
         return new Element("span", getVersion().getTEXT()).addContent(encodeRT_L(content, styles));
     }
 
@@ -264,7 +292,7 @@ public class OOXML {
     public final Element encodeWS(final Element elem) {
         final XPath path;
         try {
-            path = OOUtils.getXPath(".//text()", XMLVersion.getVersion(elem));
+            path = OOUtils.getXPath(".//text()", getVersion());
         } catch (JDOMException e) {
             // static path, hence always valid
             throw new IllegalStateException("cannot create XPath", e);
@@ -281,4 +309,114 @@ public class OOXML {
         return elem;
     }
 
+    private static final class XML_OO extends OOXML {
+        public XML_OO() {
+            super(XMLFormatVersion.getOOo(), "20020501");
+        }
+
+        @Override
+        public boolean canValidate() {
+            return true;
+        }
+
+        @Override
+        public Validator getValidator(Document doc) {
+            // DTDs are stubborn, xmlns have to be exactly where they want
+            // in this case the root element
+            for (final Namespace n : getVersion().getALL())
+                doc.getRootElement().addNamespaceDeclaration(n);
+            return new Validator.DTDValidator(doc, OOUtils.getBuilderLoadDTD());
+        }
+
+        @Override
+        public String[] getFontDecls() {
+            return new String[] { "font-decls", "style:font-decl" };
+        }
+
+        @Override
+        public final Element getTab() {
+            return new Element("tab-stop", getVersion().getTEXT());
+        }
+
+        @Override
+        public String getFrameQName() {
+            return "draw:text-box";
+        }
+
+        @Override
+        public Element createFormattingProperties(String family) {
+            return new Element("properties", this.getVersion().getSTYLE());
+        }
+    }
+
+    private static class XML_OD extends OOXML {
+        private final String schemaFile;
+        private Schema schema = null;
+
+        public XML_OD(final String dateString, final String versionString, final String schemaFile) {
+            super(XMLFormatVersion.get(XMLVersion.OD, versionString), dateString);
+            this.schemaFile = schemaFile;
+        }
+
+        @Override
+        public boolean canValidate() {
+            return this.schemaFile != null;
+        }
+
+        private Schema getSchema() throws SAXException {
+            if (this.schema == null && this.schemaFile != null) {
+                this.schema = SchemaFactory.newInstance(XMLConstants.RELAXNG_NS_URI).newSchema(getClass().getResource("oofficeDTDs/" + this.schemaFile));
+            }
+            return this.schema;
+        }
+
+        @Override
+        public Validator getValidator(Document doc) {
+            final Schema schema;
+            try {
+                schema = this.getSchema();
+            } catch (SAXException e) {
+                throw new IllegalStateException("relaxNG schemas pb", e);
+            }
+            return schema == null ? null : new Validator.JAXPValidator(doc, schema);
+        }
+
+        @Override
+        public final String[] getFontDecls() {
+            return new String[] { "font-face-decls", "style:font-face" };
+        }
+
+        @Override
+        public final Element getTab() {
+            return new Element("tab", getVersion().getTEXT());
+        }
+
+        @Override
+        public String getFrameQName() {
+            return "draw:frame";
+        }
+
+        @Override
+        public Element createFormattingProperties(String family) {
+            return new Element(family + "-properties", this.getVersion().getSTYLE());
+        }
+    }
+
+    private static final class XML_OD_1_0 extends XML_OD {
+        public XML_OD_1_0() {
+            super("20061130", "1.0", null);
+        }
+    }
+
+    private static final class XML_OD_1_1 extends XML_OD {
+        public XML_OD_1_1() {
+            super("20070201", "1.1", "OpenDocument-strict-schema-v1.1.rng");
+        }
+    }
+
+    private static final class XML_OD_1_2 extends XML_OD {
+        public XML_OD_1_2() {
+            super("20110317", "1.2", "OpenDocument-v1.2-cs01-schema.rng");
+        }
+    }
 }

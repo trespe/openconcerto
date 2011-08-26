@@ -20,7 +20,6 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.GestionDevise;
 
-
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;

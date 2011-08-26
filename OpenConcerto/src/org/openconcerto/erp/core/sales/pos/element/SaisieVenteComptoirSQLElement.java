@@ -40,6 +40,7 @@ import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.warning.JLabelWarning;
+import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.GestionDevise;
 
 import java.awt.GridBagConstraints;
@@ -54,6 +55,7 @@ import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -125,7 +127,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             private JLabel labelEcheancejours = new JLabel("jours");
             private ElementComboBox comboAvoir;
             private ElementComboBox comboClient;
-         
+
             private final JLabel labelImgWarning = new JLabelWarning();
 
             private final JLabel labelWarning = new JLabel("le montant du service ne peut pas dépasser le total HT!");
@@ -144,7 +146,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                         if (rowArticle != null) {
                             comboTaxe.setValue(rowArticle.getInt("ID_TAXE"));
 
-                              textMontantTTC.setText(GestionDevise.currencyToString(((Long) rowArticle.getObject("PV_TTC")).longValue()));
+                            textMontantTTC.setText(GestionDevise.currencyToString(((Long) rowArticle.getObject("PV_TTC")).longValue()));
                         }
                         System.out.println("value article Changed");
 
@@ -202,7 +204,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 JLabel labelDate = new JLabel(getLabelFor("DATE"));
 
                 this.dateSaisie = new JDate(true);
-                 c.gridwidth = 1;
+                c.gridwidth = 1;
                 c.gridx += 2;
                 c.weightx = 0;
                 labelDate.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -259,7 +261,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 // Selection d'un avoir si le client en possede
 
-                   this.comboAvoir = new ElementComboBox();
+                this.comboAvoir = new ElementComboBox();
 
                 JLabel labelAvoirClient = new JLabel(getLabelFor("ID_AVOIR_CLIENT"));
                 c.gridy++;
@@ -306,7 +308,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 // Choix TVA
                 c.gridx++;
                 c.weightx = 0;
-                c.gridwidth = 1; 
+                c.gridwidth = 1;
                 this.comboTaxe = new ElementComboBox(false);
 
                 c.fill = GridBagConstraints.NONE;
@@ -730,7 +732,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 rowVals.put("DATE", rowVC.getObject("DATE"));
                 try {
                     SQLRow row = rowVals.insert();
-                    MouvementStockSQLElement.updateStock(row.getID());
+                    CollectionMap<SQLRow, List<SQLRowValues>> map = MouvementStockSQLElement.updateStock(Arrays.asList(row.getID()));
+                    MouvementStockSQLElement.createCommandeF(map, null);
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
@@ -870,7 +873,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                     rowVals.put("DATE", row.getObject("DATE"));
                     try {
                         SQLRow rowNew = rowVals.insert();
-                        MouvementStockSQLElement.updateStock(rowNew.getID());
+                        CollectionMap<SQLRow, List<SQLRowValues>> map = MouvementStockSQLElement.updateStock(Arrays.asList(rowNew.getID()));
+                        MouvementStockSQLElement.createCommandeF(map, null);
                     } catch (SQLException e) {
                         e.printStackTrace();
                     }

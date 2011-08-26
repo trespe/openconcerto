@@ -149,7 +149,9 @@ public final class TreesOfSQLRows {
             final SQLElement refElem = this.elem.getElementLenient(link.getSource());
             // play it safe
             final ReferenceAction action = refElem != null ? refElem.getActions().get(ffName) : ReferenceAction.RESTRICT;
-
+            if (action == null) {
+                throw new IllegalStateException("Null action for " + refElem + " " + ffName);
+            }
             final Map<Integer, SQLRowValues> next = new HashMap<Integer, SQLRowValues>();
             final SQLRowValuesListFetcher fetcher = new SQLRowValuesListFetcher(new SQLRowValues(link.getSource()).put(ffName, null));
             fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {

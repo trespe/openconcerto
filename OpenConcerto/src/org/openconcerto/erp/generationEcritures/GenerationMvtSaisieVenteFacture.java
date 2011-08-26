@@ -72,11 +72,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
     private void genereMouvement() throws IllegalArgumentException {
 
         SQLRow saisieRow = GenerationMvtSaisieVenteFacture.saisieVFTable.getRow(this.idSaisieVenteFacture);
-        SQLRow rowPole = saisieRow.getForeignRow("ID_POLE_PRODUIT");
-        int idPoleAnnalytique = -1;
-        if (!rowPole.isUndefined()) {
-            idPoleAnnalytique = rowPole.getInt("ID_POSTE_ANALYTIQUE");
-        }
         SQLRow clientRow = saisieRow.getForeignRow("ID_CLIENT");
 
         // Calcul des montants
@@ -91,12 +86,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
         this.mEcritures.put("DATE", this.date);
         this.mEcritures.put("NOM", this.nom);
         this.mEcritures.put("ID_JOURNAL", GenerationMvtSaisieVenteFacture.journal);
-        if (saisieRow.getBoolean("AFFACTURAGE")) {
-            int idJrnlFactor = rowPrefsCompte.getInt("ID_JOURNAL_FACTOR");
-            if (idJrnlFactor > 1) {
-                this.mEcritures.put("ID_JOURNAL", idJrnlFactor);
-            }
-        }
         this.mEcritures.put("ID_MOUVEMENT", Integer.valueOf(1));
 
         // on calcule le nouveau numero de mouvement
@@ -140,9 +129,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
                 this.mEcritures.put("DEBIT", Long.valueOf(0));
                 this.mEcritures.put("CREDIT", Long.valueOf(produitHT));
                 int idEcr = ajoutEcriture();
-                if (idPoleAnnalytique > 1) {
-                    addAssocAnalytique(idEcr, idPoleAnnalytique);
-                }
             }
 
             // si on a des frais de service
@@ -153,9 +139,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
                 this.mEcritures.put("DEBIT", Long.valueOf(0));
                 this.mEcritures.put("CREDIT", Long.valueOf(prixService.getLongValue()));
                 int idEcr = ajoutEcriture();
-                if (idPoleAnnalytique > 1) {
-                    addAssocAnalytique(idEcr, idPoleAnnalytique);
-                }
 
             }
         } else// la remise déborde sur les frais de service donc aucun frais pour les produits
@@ -165,9 +148,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
             this.mEcritures.put("DEBIT", Long.valueOf(0));
             this.mEcritures.put("CREDIT", Long.valueOf(prixHT.getLongValue()));
             int idEcr = ajoutEcriture();
-            if (idPoleAnnalytique > 1) {
-                addAssocAnalytique(idEcr, idPoleAnnalytique);
-            }
 
         }
 
@@ -224,30 +204,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
         this.mEcritures.put("CREDIT", Long.valueOf(0));
         ajoutEcriture();
 
-        if (saisieRow.getBoolean("AFFACTURAGE")) {
-            this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteClient));
-            this.mEcritures.put("DEBIT", Long.valueOf(0));
-            this.mEcritures.put("CREDIT", Long.valueOf(prixTTC.getLongValue()));
-            ajoutEcriture();
-
-            // compte Factor
-            int idComptefactor = rowPrefsCompte.getInt("ID_COMPTE_PCE_FACTOR");
-            if (idComptefactor <= 1) {
-                idComptefactor = rowPrefsCompte.getInt("ID_COMPTE_PCE_FACTOR");
-                if (idComptefactor <= 1) {
-                    try {
-                        idComptefactor = ComptePCESQLElement.getIdComptePceDefault("Factor");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-
-            this.mEcritures.put("ID_COMPTE_PCE", idComptefactor);
-            this.mEcritures.put("DEBIT", Long.valueOf(prixTTC.getLongValue()));
-            this.mEcritures.put("CREDIT", Long.valueOf(0));
-            ajoutEcriture();
-        } else {
             // Génération du reglement
             SQLRow modeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
             final SQLRow typeRegRow = modeRegl.getForeignRow("ID_TYPE_REGLEMENT");
@@ -261,7 +217,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
             if (prixTTC.getLongValue() > 0) {
                 new GenerationReglementVenteNG(label, clientRow, prixTTC, this.date, modeRegl, saisieRow, mvtTable.getRow(idMvt));
             }
-        }
         // Mise à jour de mouvement associé à la facture
 
         SQLRowValues valSasieVF = new SQLRowValues(GenerationMvtSaisieVenteFacture.saisieVFTable);

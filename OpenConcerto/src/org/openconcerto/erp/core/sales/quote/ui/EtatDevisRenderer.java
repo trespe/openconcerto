@@ -27,7 +27,6 @@ import java.util.Date;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
 
-
 public class EtatDevisRenderer extends DefaultTableCellRenderer {
 
     public final static Color couleurBeige = new Color(253, 243, 204);
@@ -55,7 +54,7 @@ public class EtatDevisRenderer extends DefaultTableCellRenderer {
         }
         if (!isSelected) {
             final SQLRowValues rowElt = ITableModel.getLine(table.getModel(), row).getRow();
-            switch (rowElt.getInt("ID_ETAT_DEVIS")) {
+            switch (getEtat(rowElt)) {
             case EtatDevisSQLElement.EN_ATTENTE:
                 this.setBackground(couleurBeige);
                 break;
@@ -72,4 +71,10 @@ public class EtatDevisRenderer extends DefaultTableCellRenderer {
 
         return this;
     }
+
+    protected int getEtat(SQLRowValues rowElt) {
+        // TODO Raccord de méthode auto-généré
+        return rowElt.getInt("ID_ETAT_DEVIS");
+    }
+
 }

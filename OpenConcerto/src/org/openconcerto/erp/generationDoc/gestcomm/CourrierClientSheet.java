@@ -22,8 +22,6 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.Tuple2;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -32,7 +30,6 @@ import java.util.Map;
 public class CourrierClientSheet extends AbstractJOOReportsSheet {
 
     private SQLRow rowCourrier;
-    private DateFormat dateFormat = new SimpleDateFormat("dd MMMM yyyy");
 
     private static final Tuple2<String, String> tuple = Tuple2.create("LocationCourrier", "Courrier");
 
@@ -55,69 +52,11 @@ public class CourrierClientSheet extends AbstractJOOReportsSheet {
 
         Map<String, Object> m = new HashMap<String, Object>();
 
-        SQLElement eltAffaire = Configuration.getInstance().getDirectory().getElement("AFFAIRE");
-        SQLRow rowAffaire = eltAffaire.getTable().getRow(this.rowCourrier.getInt("ID_AFFAIRE"));
-
-        SQLElement eltProp = Configuration.getInstance().getDirectory().getElement("PROPOSITION");
-        final int idProp = rowAffaire.getInt("ID_PROPOSITION");
-        SQLRow rowProp = eltProp.getTable().getRow(idProp);
-
         SQLElement elt = Configuration.getInstance().getDirectory().getElement("MODELE_COURRIER_CLIENT");
         SQLRow rowModele = elt.getTable().getRow(this.rowCourrier.getInt("ID_MODELE_COURRIER_CLIENT"));
         String contenu = rowModele.getString("CONTENU");
-
-        // Missions
-        SQLTable tableElt = Configuration.getInstance().getRoot().findTable("AFFAIRE_ELEMENT");
-        List<SQLRow> rowsMission = rowAffaire.getReferentRows(tableElt);
-        String listeMissions = "";
-        for (SQLRow rowMission : rowsMission) {
-            listeMissions += rowMission.getString("NOM") + ", ";
-        }
-
-        listeMissions = listeMissions.trim();
-        if (listeMissions.length() != 0) {
-            listeMissions = listeMissions.substring(0, listeMissions.length() - 1);
-        }
-
-        contenu = contenu.replaceAll("%mission", listeMissions);
-        m.put("Corps", contenu);
-        m.put("Date", dateFormat.format(this.rowCourrier.getDate("DATE").getTime()));
-        if (idProp > 1) {
-            m.put("Numero", rowProp.getString("NUMERO"));
-        } else {
-            m.put("Numero", "");
-        }
-
-        m.put("NumeroAffaire", rowAffaire.getString("NUMERO"));
-        m.put("NomAffaire", rowAffaire.getString("OBJET"));
         m.put("Objet", this.rowCourrier.getString("NOM"));
-
-        // Initiale Comm
-        SQLElement eltComm = Configuration.getInstance().getDirectory().getElement("COMMERCIAL");
-        SQLRow rowCommercial = eltComm.getTable().getRow(rowProp.getInt("ID_COMMERCIAL"));
-        String initialeComm = getInitiales(rowCommercial);
-
-        m.put("IR", initialeComm);
-
-        // initiale Secr
-        SQLElement eltSecretaire = Configuration.getInstance().getDirectory().getElement("SECRETAIRE");
-        SQLRow rowSecretaire = eltSecretaire.getTable().getRow(this.rowCourrier.getInt("ID_SECRETAIRE"));
-        String initialeSecr = getInitiales(rowSecretaire);
-
-        m.put("IS", initialeSecr);
-        SQLElement eltContact = Configuration.getInstance().getDirectory().getElement("CONTACT");
-        SQLElement eltTitre = Configuration.getInstance().getDirectory().getElement("TITRE_PERSONNEL");
-        SQLRow rowContactCom = eltContact.getTable().getRow(rowAffaire.getInt("ID_CONTACT_COM"));
-        SQLRow rowTitre = eltTitre.getTable().getRow(rowContactCom.getInt("ID_TITRE_PERSONNEL"));
-        String correspondant = rowTitre.getString("NOM");
-
-        String contact = rowTitre.getString("NOM");
-        contact += " " + rowContactCom.getString("PRENOM");
-        contact += " " + rowContactCom.getString("NOM");
-
-        m.put("Correspondant", correspondant);
-        m.put("Contact", contact);
-
+        m.put("Date", dateFormat.format(this.rowCourrier.getDate("DATE").getTime()));
         int idAdresse = this.rowCourrier.getInt("ID_ADRESSE");
 
         if (idAdresse > 1) {
@@ -125,29 +64,6 @@ public class CourrierClientSheet extends AbstractJOOReportsSheet {
             SQLRow rowAdresseClient = this.rowCourrier.getForeignRow("ID_ADRESSE");
 
             m.put("clientNom", rowAdresseClient.getString("DEST"));
-            m.put("clientAdresse", rowAdresseClient.getString("RUE"));
-
-            m.put("codePostal", getVilleCP(rowAdresseClient.getString("VILLE")));
-            String villeCli = getVille(rowAdresseClient.getString("VILLE"));
-            final Object cedexCli = rowAdresseClient.getObject("CEDEX");
-            final boolean hasCedexCli = rowAdresseClient.getBoolean("HAS_CEDEX");
-
-            if (hasCedexCli) {
-                villeCli += " CEDEX";
-                if (cedexCli != null && cedexCli.toString().trim().length() > 0) {
-                    villeCli += " " + cedexCli.toString().trim();
-                }
-            }
-
-            m.put("ville", villeCli);
-        } else {
-            // Client
-            SQLRow rowClient;
-                rowClient = rowAffaire.getForeignRow("ID_CLIENT");
-            m.put("clientNom", rowClient.getString("FORME_JURIDIQUE") + " " + rowClient.getString("NOM"));
-
-            SQLRow rowAdresseClient = rowClient.getForeignRow("ID_ADRESSE");
-
             m.put("clientAdresse", rowAdresseClient.getString("RUE"));
 
             m.put("codePostal", getVilleCP(rowAdresseClient.getString("VILLE")));

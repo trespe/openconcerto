@@ -13,23 +13,47 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.utils.cc.IFactory;
+
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.table.AbstractTableModel;
 
 public class ModuleTableModel extends AbstractTableModel {
 
-    protected List<ModuleFactory> list;
-    private Boolean[] selection;
+    static private final int CB_INDEX = 0;
 
-    public ModuleTableModel(Collection<ModuleFactory> l) {
-        this.list = new ArrayList<ModuleFactory>(l);
-        this.selection = new Boolean[l.size()];
-        for (int i = 0; i < this.selection.length; i++) {
-            this.selection[i] = Boolean.FALSE;
-        }
+    private final IFactory<? extends Collection<ModuleFactory>> rowSource;
+    protected List<ModuleFactory> list;
+    private final Set<ModuleFactory> selection;
+
+    public ModuleTableModel(IFactory<? extends Collection<ModuleFactory>> rowSource) {
+        this.rowSource = rowSource;
+        this.selection = new HashSet<ModuleFactory>();
+        this.reload();
+    }
+
+    public final void reload() {
+        this.list = new ArrayList<ModuleFactory>(this.rowSource.createChecked());
+        // sort alphabetically
+        Collections.sort(this.list, new Comparator<ModuleFactory>() {
+            @Override
+            public int compare(ModuleFactory o1, ModuleFactory o2) {
+                return o1.getID().compareTo(o2.getID());
+            }
+        });
+        this.selection.retainAll(this.list);
+        this.fireTableDataChanged();
+    }
+
+    public final Collection<ModuleFactory> getCheckedRows() {
+        return Collections.unmodifiableSet(this.selection);
     }
 
     @Override
@@ -44,7 +68,7 @@ public class ModuleTableModel extends AbstractTableModel {
 
     @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
-        return (columnIndex == 0);
+        return columnIndex == CB_INDEX;
     }
 
     @Override
@@ -62,13 +86,21 @@ public class ModuleTableModel extends AbstractTableModel {
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
         if (columnIndex == 1) {
-            return this.list.get(rowIndex).getName();
+            try {
+                return this.list.get(rowIndex).getName();
+            } catch (Exception e) {
+                return e.getMessage();
+            }
         } else if (columnIndex == 2) {
-            return this.list.get(rowIndex).getVersion();
+            try {
+                return this.list.get(rowIndex).getVersion();
+            } catch (Exception e) {
+                return e.getMessage();
+            }
         } else if (columnIndex == 3) {
             return ModuleManager.getInstance().isModuleRunning(this.list.get(rowIndex).getID()) ? "Actif" : "Inactif";
-        } else if (columnIndex == 0) {
-            return this.selection[rowIndex];
+        } else if (columnIndex == CB_INDEX) {
+            return this.selection.contains(this.list.get(rowIndex));
         } else {
             return null;
         }
@@ -76,14 +108,17 @@ public class ModuleTableModel extends AbstractTableModel {
 
     @Override
     public void setValueAt(Object value, int rowIndex, int columnIndex) {
-        if (columnIndex == 0) {
-            this.selection[rowIndex] = (Boolean) value;
+        if (columnIndex == CB_INDEX) {
+            if ((Boolean) value)
+                this.selection.add(this.list.get(rowIndex));
+            else
+                this.selection.remove(this.list.get(rowIndex));
         }
     }
 
     @Override
     public Class<?> getColumnClass(int columnIndex) {
-        if (columnIndex == 0) {
+        if (columnIndex == CB_INDEX) {
             return Boolean.class;
         } else {
             return String.class;

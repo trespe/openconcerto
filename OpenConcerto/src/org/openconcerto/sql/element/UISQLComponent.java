@@ -159,6 +159,7 @@ public abstract class UISQLComponent extends BaseSQLComponent {
 
     private void setLayouter(int w, int d) {
         this.autoLayouter = new FormLayouter(this.currentPanel, w, d);
+        this.setAdditionalFieldsPanel(this.autoLayouter);
     }
 
     protected final FormLayouter getLayouter() {

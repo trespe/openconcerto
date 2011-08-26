@@ -35,6 +35,8 @@ import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.TableSorter;
 import org.openconcerto.utils.cc.IClosure;
 
@@ -43,6 +45,8 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.math.BigInteger;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -51,6 +55,7 @@ import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
@@ -61,6 +66,8 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
     private ListeGestCommEltPanel listeFact;
     private JButton buttonEnvoye, buttonRegle, buttonDupliquer;
     private static SQLElement eltClient = Configuration.getInstance().getDirectory().getElement("CLIENT");
+    JLabelBold textField = new JLabelBold("0");
+    JLabelBold textField2 = new JLabelBold("0");
 
     public ListeDesVentesPanel() {
 
@@ -81,7 +88,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
         JTabbedPane tabbedPane = new JTabbedPane();
 
         // tab Vente facture
-        SQLElement eltFacture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+        final SQLElement eltFacture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
         final SQLTableModelSourceOnline src = eltFacture.getTableSource(true);
         // Filter
         final Where wPrev = new Where(eltFacture.getTable().getField("PREVISIONNELLE"), "=", Boolean.FALSE);
@@ -100,14 +107,14 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
         final SQLTableModelColumn dateReglCol = src.getColumn(eltFacture.getTable().getField("DATE_REGLEMENT"));
         ((SQLTableModelColumnPath) dateReglCol).setEditable(true);
 
-        // Edition des dates d'envois
-        dateEnvoiCol.setColumnInstaller(new IClosure<TableColumn>() {
-            @Override
-            public void executeChecked(TableColumn columnDateEnvoi) {
-                columnDateEnvoi.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
-                columnDateEnvoi.setCellRenderer(new DateEnvoiRenderer());
-            }
-        });
+            // Edition des dates d'envois
+            dateEnvoiCol.setColumnInstaller(new IClosure<TableColumn>() {
+                @Override
+                public void executeChecked(TableColumn columnDateEnvoi) {
+                    columnDateEnvoi.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
+                    columnDateEnvoi.setCellRenderer(new DateEnvoiRenderer());
+                }
+            });
 
         // Edition des dates de reglement
         dateReglCol.setColumnInstaller(new IClosure<TableColumn>() {
@@ -158,13 +165,14 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
         List<SQLField> l = new ArrayList<SQLField>();
         l.add(eltFacture.getTable().getField("T_HT"));
         l.add(eltFacture.getTable().getField("T_TTC"));
-        IListTotalPanel total = new IListTotalPanel(this.listeFact.getListe(), l, null, null);
+        final IListTotalPanel total = new IListTotalPanel(this.listeFact.getListe(), l, null, null);
         cFacture.weighty = 0;
         cFacture.fill = GridBagConstraints.NONE;
         cFacture.gridy++;
         cFacture.anchor = GridBagConstraints.EAST;
         total.setOpaque(false);
         panelFacture.add(total, cFacture);
+
 
         IListFilterDatePanel filterDate = new IListFilterDatePanel(this.listeFact.getListe(), eltFacture.getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
         cFacture.weighty = 0;
@@ -180,12 +188,19 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
             @Override
             public List<AbstractAction> addToMenu() {
 
-                final SQLRow rowFacture = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("SAISIE_VENTE_FACTURE").getRow(
-                        ListeDesVentesPanel.this.listeFact.getListe().getSelectedId());
+                final SQLRow rowFacture = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("SAISIE_VENTE_FACTURE")
+                        .getRow(ListeDesVentesPanel.this.listeFact.getListe().getSelectedId());
                 AbstractAction actionAvoir = new AbstractAction("Transférer en avoir") {
                     public void actionPerformed(ActionEvent e) {
                         SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
                         elt.transfertAvoir(rowFacture.getID());
+                    }
+                };
+
+                AbstractAction actionCommande = new AbstractAction("Transférer en commande") {
+                    public void actionPerformed(ActionEvent e) {
+                        SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                        elt.transfertCommande(rowFacture.getID());
                     }
                 };
 
@@ -201,6 +216,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
 
                 List<AbstractAction> l = new ArrayList<AbstractAction>(1);
                 l.add(actionAvoir);
+                l.add(actionCommande);
                 l.add(actionClient);
                 return l;
             }
@@ -214,44 +230,45 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
             }
         });
 
-        // Tab Vente comptoir
-        final ListeGestCommEltPanel listeVC = new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_COMPTOIR"), true);
-        listeVC.getListe().setSQLEditable(false);
-        listeVC.setOpaque(false);
+            // Tab Vente comptoir
+            final ListeGestCommEltPanel listeVC = new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_COMPTOIR"), true);
+            listeVC.getListe().setSQLEditable(false);
+            listeVC.setOpaque(false);
 
-        final JTable table = listeVC.getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
+            final JTable table = listeVC.getListe().getJTable();
+            for (int i = 0; i < table.getColumnCount(); i++) {
+                if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
+                    table.getColumnModel().getColumn(i).setCellRenderer(rend);
+                }
             }
-        }
 
-        JPanel panelComptoir = new JPanel(new GridBagLayout());
-        GridBagConstraints cc = new DefaultGridBagConstraints();
-        cc.weightx = 1;
-        cc.weighty = 1;
-        cc.fill = GridBagConstraints.BOTH;
-        panelComptoir.add(listeVC, cc);
+            JPanel panelComptoir = new JPanel(new GridBagLayout());
+            GridBagConstraints cc = new DefaultGridBagConstraints();
+            cc.weightx = 1;
+            cc.weighty = 1;
+            cc.fill = GridBagConstraints.BOTH;
+            panelComptoir.add(listeVC, cc);
 
-        final List<SQLField> l2 = new ArrayList<SQLField>();
-        l2.add(listeVC.getElement().getTable().getField("MONTANT_HT"));
-        l2.add(listeVC.getElement().getTable().getField("MONTANT_TTC"));
-        IListTotalPanel total2 = new IListTotalPanel(listeVC.getListe(), l2, null, null);
-        cc.weighty = 0;
-        cc.fill = GridBagConstraints.NONE;
-        cc.gridy++;
-        cc.anchor = GridBagConstraints.EAST;
-        total2.setOpaque(false);
-        panelComptoir.add(total2, cc);
+            final List<SQLField> l2 = new ArrayList<SQLField>();
+            l2.add(listeVC.getElement().getTable().getField("MONTANT_HT"));
+            l2.add(listeVC.getElement().getTable().getField("MONTANT_TTC"));
+            final IListTotalPanel total2 = new IListTotalPanel(listeVC.getListe(), l2, null, null);
+            cc.weighty = 0;
+            cc.fill = GridBagConstraints.NONE;
+            cc.gridy++;
+            cc.anchor = GridBagConstraints.EAST;
+            total2.setOpaque(false);
+            panelComptoir.add(total2, cc);
 
-        IListFilterDatePanel filterDate2 = new IListFilterDatePanel(listeVC.getListe(), listeVC.getElement().getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
-        cc.weighty = 0;
-        cc.fill = GridBagConstraints.HORIZONTAL;
-        cc.gridy++;
-        filterDate2.setOpaque(false);
-        panelComptoir.add(filterDate2, cc);
+            IListFilterDatePanel filterDate2 = new IListFilterDatePanel(listeVC.getListe(), listeVC.getElement().getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
+            cc.weighty = 0;
+            cc.fill = GridBagConstraints.HORIZONTAL;
+            cc.gridy++;
+            filterDate2.setOpaque(false);
+            panelComptoir.add(filterDate2, cc);
 
-        tabbedPane.add("Ventes comptoir", panelComptoir);
+            tabbedPane.add("Ventes comptoir", panelComptoir);
+
         this.add(tabbedPane, c);
     }
 

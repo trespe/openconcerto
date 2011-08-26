@@ -20,13 +20,13 @@ import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
-
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.ui.EmailComposer;
 import org.openconcerto.utils.ExceptionHandler;
 
-import java.awt.Font;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
@@ -34,13 +34,13 @@ import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
-import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
-import javax.swing.JSeparator;
 
 public class MouseSheetXmlListeListener implements MouseListener {
 
@@ -52,8 +52,8 @@ public class MouseSheetXmlListeListener implements MouseListener {
     private String previewString = "Voir le document";
     private String showString = "Modifier le document avec OpenOffice";
     private String generateString = "Générer le document";
-    private String mailPDFString = "Envoyé le document PDF par email";
-    private String mailString = "Envoyé le document par email";
+    private String mailPDFString = "Envoyer le document PDF par email";
+    private String mailString = "Envoyer le document par email";
 
     private boolean previewIsVisible = true;
     private boolean showIsVisible = true;
@@ -74,28 +74,36 @@ public class MouseSheetXmlListeListener implements MouseListener {
         this.generateIsVisible = generate;
     }
 
+    private static Map<SQLRow, AbstractSheetXml> cache = new HashMap<SQLRow, AbstractSheetXml>();
+
     protected Class<? extends AbstractSheetXml> getSheetClass() {
         return this.clazz;
     }
 
     protected AbstractSheetXml createAbstractSheet(SQLRow row) {
-        try {
-            Constructor<? extends AbstractSheetXml> ctor = getSheetClass().getConstructor(SQLRow.class);
-            return ctor.newInstance(row);
-        } catch (IllegalArgumentException e) {
-            e.printStackTrace();
-        } catch (InstantiationException e) {
-            e.printStackTrace();
-        } catch (IllegalAccessException e) {
-            e.printStackTrace();
-        } catch (InvocationTargetException e) {
-            e.printStackTrace();
-        } catch (SecurityException e) {
-            e.printStackTrace();
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+        if (cache.get(row) != null) {
+            return cache.get(row);
+        } else {
+            try {
+                Constructor<? extends AbstractSheetXml> ctor = getSheetClass().getConstructor(SQLRow.class);
+                AbstractSheetXml sheet = ctor.newInstance(row);
+                cache.put(row, sheet);
+                return sheet;
+            } catch (IllegalArgumentException e) {
+                e.printStackTrace();
+            } catch (InstantiationException e) {
+                e.printStackTrace();
+            } catch (IllegalAccessException e) {
+                e.printStackTrace();
+            } catch (InvocationTargetException e) {
+                e.printStackTrace();
+            } catch (SecurityException e) {
+                e.printStackTrace();
+            } catch (NoSuchMethodException e) {
+                e.printStackTrace();
+            }
+            return null;
         }
-        return null;
     }
 
     public void mouseClicked(MouseEvent e) {
@@ -117,126 +125,8 @@ public class MouseSheetXmlListeListener implements MouseListener {
                 final AbstractSheetXml bSheet = createAbstractSheet(this.liste.getSelectedRow());
                 if (bSheet != null) {
 
-                    if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
-                        if (this.showIsVisible) {
-                            AbstractAction actionShow = new AbstractAction(this.showString) {
-                                public void actionPerformed(ActionEvent ev) {
-                                    bSheet.showDocument();
-                                }
-                            };
-                            JMenuItem item = new JMenuItem(actionShow);
-
-                            if (bSheet.isFileOOExist()) {
-                                item.setFont(item.getFont().deriveFont(Font.BOLD));
-                            }
-                            actionShow.setEnabled(bSheet.isFileOOExist());
-                            menuDroit.add(item);
-
-                        }
-                    } else {
-                        if (this.previewIsVisible && bSheet.isFileODSExist()) {
-                            AbstractAction actionPreview = new AbstractAction(this.previewString) {
-                                public void actionPerformed(ActionEvent ev) {
-                                    bSheet.showPreviewDocument();
-                                }
-                            };
-                            JMenuItem item = new JMenuItem(actionPreview);
-                            if (bSheet.isFileOOExist()) {
-                                item.setFont(item.getFont().deriveFont(Font.BOLD));
-                            }
-                            menuDroit.add(item);
-                        }
-                    }
-                    List<AbstractAction> list = addToMenu();
-                    if (list != null) {
-                        for (AbstractAction abstractAction : list) {
-                            JMenuItem itemItalic = new JMenuItem(abstractAction);
-                            itemItalic.setFont(itemItalic.getFont().deriveFont(Font.ITALIC));
-                            menuDroit.add(itemItalic);
-                        }
-                    }
-                    menuDroit.add(new JSeparator());
-                    if (Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
-
-                        if (this.showIsVisible) {
-                            AbstractAction actionShow = new AbstractAction(this.showString) {
-                                public void actionPerformed(ActionEvent ev) {
-                                    bSheet.showDocument();
-                                }
-                            };
-                            JMenuItem item = new JMenuItem(actionShow);
-
-                            actionShow.setEnabled(bSheet.isFileOOExist());
-                            menuDroit.add(item);
-                            menuDroit.add(new JSeparator());
-                        }
-                    }
-                    if (this.printIsVisible) {
-
-                        AbstractAction actionFastPrint = new AbstractAction(this.fastPrintString) {
-                            public void actionPerformed(ActionEvent ev) {
-                                bSheet.fastPrintDocument();
-                            }
-                        };
-                        actionFastPrint.setEnabled(bSheet.isFileOOExist());
-                        menuDroit.add(actionFastPrint);
-
-                        AbstractAction actionPrint = new AbstractAction(this.printString) {
-                            public void actionPerformed(ActionEvent ev) {
-                                bSheet.printDocument();
-                            }
-                        };
-                        actionPrint.setEnabled(bSheet.isFileOOExist());
-                        menuDroit.add(actionPrint);
-
-                        if (this.liste.getSelection().getSelectedIDs().size() > 1) {
-                            AbstractAction actionPrintAll = new AbstractAction(this.printAllString) {
-                                @Override
-                                public void actionPerformed(ActionEvent e) {
-
-                                    final int[] l = liste.getJTable().getSelectedRows();
-                                    final List<SQLRow> list = new ArrayList<SQLRow>();
-
-                                    for (int i = 0; i < l.length; i++) {
-                                        list.add(liste.getModel().getTable().getRow(liste.getLine(l[i]).getRow().getID()));
-                                    }
-
-                                    ListeFastPrintFrame frame = new ListeFastPrintFrame(list, clazz);
-                                    frame.setVisible(true);
-                                }
-                            };
-                            menuDroit.add(actionPrintAll);
-                        }
-                    }
-
-                    if (this.showIsVisible) {
-
-                        if (bSheet.getSQLRow() != null) {
-                            AbstractAction actionMailPDF = new AbstractAction(this.mailPDFString) {
-                                public void actionPerformed(ActionEvent ev) {
-                                    sendMail(bSheet, true);
-                                }
-                            };
-                            actionMailPDF.setEnabled(bSheet.isFileOOExist());
-                            menuDroit.add(actionMailPDF);
-                        }
-
-                        AbstractAction actionMail = new AbstractAction(this.mailString) {
-                            public void actionPerformed(ActionEvent ev) {
-                                sendMail(bSheet, false);
-                            }
-                        };
-                        actionMail.setEnabled(bSheet.isFileOOExist());
-                        menuDroit.add(actionMail);
-
-                    }
-                    if (this.generateIsVisible) {
-                        menuDroit.add(new AbstractAction(this.generateString) {
-                            public void actionPerformed(ActionEvent ev) {
-
-                                bSheet.genere(true, false);
-                            }
-                        });
+                    for (RowAction action : getRowActions()) {
+                        menuDroit.add(action.getAction());
                     }
 
                     menuDroit.pack();
@@ -295,6 +185,8 @@ public class MouseSheetXmlListeListener implements MouseListener {
 
         final String adresseMail = mail;
 
+        final String subject = sheet.getReference();
+
         if (readOnly) {
 
             final Thread t = new Thread() {
@@ -310,14 +202,15 @@ public class MouseSheetXmlListeListener implements MouseListener {
 
                             // Future<File> pdf = doc.saveToPDF(f);
 
-                            EmailComposer.getInstance().compose(adresseMail, "", "", sheet.getFilePDF().getAbsoluteFile());
+                            EmailComposer.getInstance().compose(adresseMail, subject + (subject.trim().length() == 0 ? "" : ", ") + sheet.getFilePDF().getName(), "",
+                                    sheet.getFilePDF().getAbsoluteFile());
                         } catch (Exception e) {
                             e.printStackTrace();
                             ExceptionHandler.handle("Impossible de charger le document PDF", e);
                         }
                     } else {
                         try {
-                            EmailComposer.getInstance().compose(adresseMail, "", "", f.getAbsoluteFile());
+                            EmailComposer.getInstance().compose(adresseMail, subject + (subject.trim().length() == 0 ? "" : ", ") + f.getName(), "", f.getAbsoluteFile());
                         } catch (Exception exn) {
                             ExceptionHandler.handle(null, "Impossible de créer le courriel", exn);
                         }
@@ -329,7 +222,7 @@ public class MouseSheetXmlListeListener implements MouseListener {
             t.start();
         } else {
             try {
-                EmailComposer.getInstance().compose(adresseMail, "", "", sheet.getFileODS().getAbsoluteFile());
+                EmailComposer.getInstance().compose(adresseMail, subject + (subject.trim().length() == 0 ? "" : ", ") + sheet.getFileODS().getName(), "", sheet.getFileODS().getAbsoluteFile());
             } catch (Exception exn) {
                 ExceptionHandler.handle(null, "Impossible de créer le courriel", exn);
             }
@@ -362,5 +255,170 @@ public class MouseSheetXmlListeListener implements MouseListener {
 
     public void setprintString(String printString) {
         this.printString = printString;
+    }
+
+    public List<RowAction> getRowActions() {
+        List<RowAction> l = new ArrayList<RowAction>();
+
+        if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
+            if (this.showIsVisible) {
+                l.add(new RowAction(new AbstractAction(this.showString) {
+                    public void actionPerformed(ActionEvent ev) {
+                        createAbstractSheet(liste.getSelectedRow()).showDocument();
+                    }
+
+                }, false) {
+                    @Override
+                    public boolean enabledFor(List<SQLRowAccessor> selection) {
+                        return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                    }
+                });
+
+                // if (bSheet.isFileOOExist()) {
+                // item.setFont(item.getFont().deriveFont(Font.BOLD));
+                // }
+            }
+        } else {
+            if (this.previewIsVisible) {
+                l.add(new RowAction(new AbstractAction(this.previewString) {
+                    public void actionPerformed(ActionEvent ev) {
+                        createAbstractSheet(liste.getSelectedRow()).showPreviewDocument();
+                    }
+
+                }, false) {
+                    @Override
+                    public boolean enabledFor(List<SQLRowAccessor> selection) {
+                        return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                    }
+                });
+                // if (bSheet.isFileOOExist()) {
+                // item.setFont(item.getFont().deriveFont(Font.BOLD));
+                // }
+            }
+        }
+
+        // action supplémentaire
+        List<AbstractAction> list = addToMenu();
+        if (list != null) {
+            for (AbstractAction abstractAction : list) {
+                // JMenuItem itemItalic = new JMenuItem(abstractAction);
+                // itemItalic.setFont(itemItalic.getFont().deriveFont(Font.ITALIC));
+                l.add(new RowAction(abstractAction, false) {
+                    @Override
+                    public boolean enabledFor(List<SQLRowAccessor> selection) {
+                        return selection != null && selection.size() > 0;
+                    }
+                });
+            }
+        }
+
+        if (Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
+
+            if (this.showIsVisible) {
+                l.add(new RowAction(new AbstractAction(this.showString) {
+                    public void actionPerformed(ActionEvent ev) {
+                        createAbstractSheet(liste.getSelectedRow()).showDocument();
+                    }
+                }, false) {
+                    @Override
+                    public boolean enabledFor(List<SQLRowAccessor> selection) {
+                        return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                    }
+                });
+            }
+        }
+
+        if (this.printIsVisible) {
+
+            l.add(new RowAction(new AbstractAction(this.fastPrintString) {
+                public void actionPerformed(ActionEvent ev) {
+                    createAbstractSheet(liste.getSelectedRow()).fastPrintDocument();
+                }
+            }, false) {
+                @Override
+                public boolean enabledFor(List<SQLRowAccessor> selection) {
+                    return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                }
+            });
+
+            l.add(new RowAction(new AbstractAction(this.printString) {
+                public void actionPerformed(ActionEvent ev) {
+                    createAbstractSheet(liste.getSelectedRow()).printDocument();
+                }
+            }, false) {
+                @Override
+                public boolean enabledFor(List<SQLRowAccessor> selection) {
+                    return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                }
+            });
+
+            if (this.liste.getSelection().getSelectedIDs().size() > 1) {
+                l.add(new RowAction(new AbstractAction(this.printAllString) {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+
+                        final int[] l = liste.getJTable().getSelectedRows();
+                        final List<SQLRow> list = new ArrayList<SQLRow>();
+
+                        for (int i = 0; i < l.length; i++) {
+                            list.add(liste.getModel().getTable().getRow(liste.getLine(l[i]).getRow().getID()));
+                        }
+
+                        ListeFastPrintFrame frame = new ListeFastPrintFrame(list, clazz);
+                        frame.setVisible(true);
+                    }
+                }, false) {
+                    @Override
+                    public boolean enabledFor(List<SQLRowAccessor> selection) {
+                        return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                    }
+                });
+
+            }
+
+        }
+
+        if (this.showIsVisible) {
+
+            // if (createAbstractSheet(liste.getSelectedRow()).getSQLRow() != null) {
+            l.add(new RowAction(new AbstractAction(this.mailPDFString) {
+                public void actionPerformed(ActionEvent ev) {
+                    sendMail(createAbstractSheet(liste.getSelectedRow()), true);
+                }
+            }, false) {
+                @Override
+                public boolean enabledFor(List<SQLRowAccessor> selection) {
+                    return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                }
+            });
+
+            // }
+            l.add(new RowAction(new AbstractAction(this.mailString) {
+                public void actionPerformed(ActionEvent ev) {
+                    sendMail(createAbstractSheet(liste.getSelectedRow()), false);
+                }
+            }, false) {
+                @Override
+                public boolean enabledFor(List<SQLRowAccessor> selection) {
+                    return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                }
+            });
+
+        }
+        if (this.generateIsVisible) {
+            l.add(new RowAction(new AbstractAction(this.generateString) {
+                public void actionPerformed(ActionEvent ev) {
+
+                    createAbstractSheet(liste.getSelectedRow()).genere(true, false);
+                }
+            }, false) {
+                @Override
+                public boolean enabledFor(List<SQLRowAccessor> selection) {
+                    return selection != null && selection.size() == 1;
+                }
+            });
+        }
+
+        return l;
     }
 }

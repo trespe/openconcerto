@@ -15,11 +15,14 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
+import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
+import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
 import org.openconcerto.erp.core.sales.invoice.report.ListeFactureXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.ui.ListeFactureRenderer;
@@ -31,15 +34,19 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
+import org.openconcerto.sql.view.EditPanelListener;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -47,9 +54,9 @@ import org.openconcerto.utils.Tuple2;
 
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
-import java.math.BigDecimal;
-import java.math.BigInteger;
+import java.awt.event.ActionListener;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +73,7 @@ import javax.swing.border.Border;
 public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
 
     private IListFrame frame;
-    private EditFrame editFrame;
+    // private EditFrame editFrame;
     private ListeGestCommEltPanel listeAddPanel;
     private SQLElement eltEcheance = Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT");
     private SQLElement eltMvt = Configuration.getInstance().getDirectory().getElement("MOUVEMENT");
@@ -81,10 +88,12 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
         SQLElement eltFacture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
 
         final SQLTableModelSourceOnline src = eltFacture.getTableSource(true);
-        final ListeFactureRenderer rend = new ListeFactureRenderer();
+
         for (SQLTableModelColumn column : src.getColumns()) {
-            if (column.getValueClass() == Long.class || column.getValueClass() == BigInteger.class || column.getValueClass() == BigDecimal.class)
-                column.setRenderer(rend);
+            // if (column.getValueClass() == Long.class || column.getValueClass() ==
+            // BigInteger.class || column.getValueClass() == BigDecimal.class)
+            column.setRenderer(ListeFactureRenderer.UTILS.getRenderer(column.getRenderer()));
+
         }
 
         this.listeAddPanel = new ListeGestCommEltPanel(eltFacture, new IListe(src)) {
@@ -137,16 +146,36 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
         this.frame = new IListFrame(this.listeAddPanel);
 
         // FIXME Maybe Stock rowSelection in new List
-        final MouseSheetXmlListeListener mouseListener = new MouseSheetXmlListeListener(this.frame.getPanel().getListe(), VenteFactureXmlSheet.class) {
+        final MouseSheetXmlListeListener mouseListener = new MouseSheetXmlListeListener(this.listeAddPanel.getListe(), VenteFactureXmlSheet.class) {
             @Override
             public List<AbstractAction> addToMenu() {
 
-                return super.addToMenu();
+                final SQLRow row = liste.getSelectedRow();
+                List<AbstractAction> l = new ArrayList<AbstractAction>(5);
+                if (row != null) {
+                    AbstractAction actionAvoir = new AbstractAction("Transférer en avoir") {
+                        public void actionPerformed(ActionEvent e) {
+                            SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                            elt.transfertAvoir(row.getID());
+                        }
+                    };
+                    l.add(actionAvoir);
+                    AbstractAction actionBL = new AbstractAction("Transférer en bon de livraison") {
+                        public void actionPerformed(ActionEvent e) {
+                            SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                            elt.transfertBL(row.getID());
+                        }
+                    };
+                    l.add(actionBL);
+                }
+                return l;
+                // return super.addToMenu();
 
             }
         };
-
+        // this.frame.getPanel().getListe().addRowActions(mouseListener.getRowActions());
         this.frame.getPanel().getListe().getJTable().addMouseListener(mouseListener);
+
 
         return this.frame;
     }

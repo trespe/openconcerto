@@ -18,12 +18,15 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.SystemInfoPanel;
+import org.openconcerto.utils.ProductInfo;
 
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
+import java.io.IOException;
+import java.util.Properties;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -94,6 +97,13 @@ public final class AboutAction extends AbstractAction {
         final FormLayouter lay = new FormLayouter(res, 1);
         final ComptaPropsConfiguration conf = (ComptaPropsConfiguration) ComptaPropsConfiguration.getInstance();
         lay.add("Nom de l'application", new JLabel(conf.getAppName()));
+        String version = "Version inconnue";
+        try {
+            version = ProductInfo.getInstance().getProps().getProperty("VERSION", version);
+        } catch (Exception e) {
+            System.err.println("Error reading product.properties");
+        }
+        lay.add("Version de l'application", new JLabel(version));
         if (conf.isUsingSSH()) {
             lay.add("Liaison sécurisée", new JLabel(conf.getWanHostAndPort()));
         }

@@ -16,8 +16,6 @@
 
 import java.awt.GridLayout;
 
-
-
 import javax.swing.JPanel;
 
 public class ArticleSelectorPanel extends JPanel {

@@ -17,6 +17,9 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.tax.ui.TvaPreferencePanel;
 import org.openconcerto.erp.core.humanresources.payroll.ui.ImpressionPayePreferencePanel;
 import org.openconcerto.erp.core.sales.product.ui.GestionArticlePreferencePanel;
+import org.openconcerto.erp.modules.AbstractModule;
+import org.openconcerto.erp.modules.ModuleManager;
+import org.openconcerto.erp.modules.ModulePreferencePanelDesc;
 import org.openconcerto.erp.preferences.GenerationDeclarationDocPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentComptaPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentGestCommPreferencePanel;
@@ -32,6 +35,9 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.ui.preferences.EmailNode;
 import org.openconcerto.ui.preferences.EmptyPreferencePanel;
 import org.openconcerto.ui.preferences.PrefTreeNode;
+
+import java.util.List;
+import java.util.Map.Entry;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 
@@ -128,6 +134,25 @@ public class ComptaPrefTreeNode extends DefaultMutableTreeNode {
         // Mail
         final PrefTreeNode nMail = new PrefTreeNode(EmailNode.class, "EMail", new String[] { "email", "mail", "courriel" });
         nsPoste.add(nMail);
+
+        // add preferences for modules
+        for (final AbstractModule module : ModuleManager.getInstance().getRunningModules().values()) {
+            for (final Entry<Boolean, List<ModulePreferencePanelDesc>> e : module.getPrefDescriptorsByLocation().entrySet()) {
+                final DefaultMutableTreeNode node = e.getKey() ? nsPoste : nsGlobale;
+                final List<ModulePreferencePanelDesc> descs = e.getValue();
+                if (descs.size() > 1) {
+                    // if there's more than one panel, create an additional level
+                    final DefaultMutableTreeNode moduleNode = new PrefTreeNode(EmptyPreferencePanel.class, module.getName(), new String[] { module.getName() });
+                    for (final ModulePreferencePanelDesc desc : descs) {
+                        moduleNode.add(desc.createTreeNode(module.getFactory(), null));
+                    }
+                    node.add(moduleNode);
+                } else if (descs.size() == 1) {
+                    // if there's only one panel it should be named like the module
+                    node.add(descs.get(0).createTreeNode(module.getFactory(), module.getName()));
+                }
+            }
+        }
 
         this.add(nsGlobale);
         this.add(nsPoste);

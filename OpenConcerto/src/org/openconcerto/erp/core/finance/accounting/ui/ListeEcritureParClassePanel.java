@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.core.finance.accounting.ui;
 
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.erp.element.objet.ClasseCompte;
@@ -22,10 +21,12 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.cc.ITransformer;
 
@@ -34,7 +35,6 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.math.BigInteger;
 
 import javax.swing.AbstractAction;
 import javax.swing.JPanel;
@@ -107,11 +107,8 @@ public class ListeEcritureParClassePanel extends JPanel {
     private ListeAddPanel createIListe(final ClasseCompte ccTmp) {
 
         final SQLElement elementEcriture = Configuration.getInstance().getDirectory().getElement("ECRITURE");
-        final SQLElement elementCptPCE = Configuration.getInstance().getDirectory().getElement("COMPTE_PCE");
-        final ListeAddPanel panel = new ListeAddPanel(elementEcriture);
-
-        ListSQLRequest listRequest = new ListSQLRequest(elementEcriture.getListRequest());
-        listRequest.setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
+        final SQLTableModelSourceOnline src = elementEcriture.getTableSource(true);
+        src.getReq().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
 
             @Override
             public SQLSelect transformChecked(SQLSelect sel) {
@@ -119,7 +116,7 @@ public class ListeEcritureParClassePanel extends JPanel {
                 // Filtre sur les comptes de la classe
                 String function = "REGEXP";
                 String match = ccTmp.getTypeNumeroCompte();
-                if (Configuration.getInstance().getBase().getServer().getSystem().equalsIgnoreCase("postgresql")) {
+                if (elementEcriture.getTable().getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
                     function = "SIMILAR TO";
                     match = ccTmp.getTypeNumeroCompte().replace(".*", "%");
 
@@ -134,19 +131,12 @@ public class ListeEcritureParClassePanel extends JPanel {
                 return sel.andWhere(w);
             }
         });
-        panel.setRequest(listRequest);
+        final ListeAddPanel panel = new ListeAddPanel(elementEcriture, new IListe(src));
 
         panel.setOpaque(false);
         panel.setSearchFullMode(true);
 
-        // Renderer
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
         JTable table = panel.getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (i != 0 && (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class)) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
 
         panel.setCloneVisible(false);
         panel.setAddVisible(false);

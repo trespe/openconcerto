@@ -505,22 +505,28 @@ public class DatabaseGraph extends BaseGraph {
         return res;
     }
 
-    public SQLTable findReferentTable(SQLTable table, final String refTable, final List<String> refKeys) {
+    public Set<SQLTable> findReferentTables(SQLTable table, final String refTable, final List<String> refKeys) {
+        final Set<SQLTable> res = new HashSet<SQLTable>();
         for (final Link l : this.getReferentLinks(table)) {
             if (l.getSource().getName().equals(refTable) && (refKeys.isEmpty() || l.getCols().equals(refKeys)))
-                return l.getSource();
+                res.add(l.getSource());
         }
-        return null;
+        return res;
+    }
+
+    public SQLTable findReferentTable(SQLTable table, final String refTable, final List<String> refKeys) {
+        return org.openconcerto.utils.CollectionUtils.getSole(this.findReferentTables(table, refTable, refKeys));
     }
 
     /**
-     * Find the first referent table named <code>refTable</code>.
+     * Find the only referent table named <code>refTable</code>.
      * 
      * @param table a table.
      * @param refTable a table name that should point to <code>table</code>.
      * @param refKeys the names of the fields from <code>refTable</code>, empty meaning don't use
      *        them to filter.
-     * @return the first matching table or <code>null</code>.
+     * @return the only matching table or <code>null</code> (i.e. if there's none or more than one).
+     * @see #findReferentTables(SQLTable, String, List)
      */
     public SQLTable findReferentTable(SQLTable table, final String refTable, final String... refKeys) {
         return this.findReferentTable(table, refTable, Arrays.asList(refKeys));

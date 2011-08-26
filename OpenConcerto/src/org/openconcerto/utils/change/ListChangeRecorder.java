@@ -20,7 +20,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * A class that wraps a list, to recored every change made to it. The changes are available with
+ * A class that wraps a list, to detect every change made to it. The changes are available with
  * {@link #getRecipe()}.
  * 
  * @author Sylvain
@@ -33,9 +33,13 @@ public class ListChangeRecorder<E> extends AbstractList<E> {
     private final ListChangeRecipe<E> recipe;
 
     public ListChangeRecorder(List<E> delegate) {
+        this(delegate, false);
+    }
+
+    public ListChangeRecorder(List<E> delegate, final boolean keepHistory) {
         super();
         this.delegate = delegate;
-        this.recipe = new ListChangeRecipe<E>();
+        this.recipe = new ListChangeRecipe<E>(keepHistory);
     }
 
     public ListChangeRecipe<E> getRecipe() {

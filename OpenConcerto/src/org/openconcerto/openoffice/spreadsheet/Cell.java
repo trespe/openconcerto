@@ -18,6 +18,7 @@ package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODValueType;
+import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.utils.CollectionUtils;
 
@@ -42,6 +43,11 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
     // see 5.1.1
     private static final Pattern multiSpacePattern = Pattern.compile("[\t\r\n ]+");
     private static boolean OO_MODE = true;
+
+    // from §5.12 of OpenDocument-v1.2-cs01-part2
+    // Error ::= '#' [A-Z0-9]+ ([!?] | ('/' ([A-Z] | ([0-9] [!?]))))
+    // we added an optional space before the marks to support OpenOffice/LibreOffice (at least until 3.4)
+    private static final Pattern ErrorPattern = Pattern.compile("#[A-Z0-9]+( ?[!?]|(/([A-Z]|([0-9] ?[!?]))))");
 
     /**
      * Set whether {@link #getTextValue()} parses strings using the standard way or using the
@@ -195,6 +201,29 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
             sb.deleteCharAt(sb.length() - 1);
 
         return sb.toString();
+    }
+
+    public final String getFormula() {
+        return this.getElement().getAttributeValue("formula", getTABLE());
+    }
+
+    /**
+     * Tries to find out if this cell computation resulted in an error. This method cannot be robust
+     * since there's no error attribute in OpenDocument, we must match the value of the cell against
+     * a pattern. E.g. whether a cell has '=A0' for formula or '= "#N" & "/A"', this method will
+     * return a non-null error.
+     * 
+     * @return the error or <code>null</code>.
+     */
+    public String getError() {
+        // to differentiate between the result of a computation and the user having typed '#N/A'
+        // (this is because per §4.6 of OpenDocument-v1.2-cs01-part2 : if an error value is the
+        // result of a cell computation it shall be stored as if it was a string.)
+        if (getFormula() == null)
+            return null;
+        final String textValue = getTextValue();
+        // OpenDocument 1.1 didn't specify errors
+        return (XMLFormatVersion.get(XMLVersion.OD, "1.1").equals(getODDocument().getFormatVersion()) && textValue.equals("#NA")) || ErrorPattern.matcher(textValue).matches() ? textValue : null;
     }
 
     public boolean isValid() {

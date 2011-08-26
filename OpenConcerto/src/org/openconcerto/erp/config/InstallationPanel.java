@@ -13,16 +13,34 @@
  
  package org.openconcerto.erp.config;
 
+import org.openconcerto.sql.changer.convert.AddFK;
+import org.openconcerto.sql.changer.correct.CorrectOrder;
 import org.openconcerto.sql.changer.correct.FixSerial;
+import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLDataSource;
+import org.openconcerto.sql.model.SQLField.Properties;
+import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSyntax;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.graph.DatabaseGraph;
+import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.utils.AlterTable;
+import org.openconcerto.sql.utils.ChangeTable;
+import org.openconcerto.sql.utils.DropTable;
+import org.openconcerto.sql.utils.ReOrder;
+import org.openconcerto.sql.utils.SQLCreateTable;
+import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
@@ -31,6 +49,8 @@ import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -44,7 +64,17 @@ import javax.swing.SwingUtilities;
 
 public class InstallationPanel extends JPanel {
 
+    static private void insertUndef(final SQLCreateTable ct) {
+        final String insert = "INSERT into " + getTableName(ct).quote() + "(" + SQLBase.quoteIdentifier(SQLSyntax.ORDER_NAME) + ") VALUES(" + ReOrder.MIN_ORDER + ")";
+        ct.getRoot().getDBSystemRoot().getDataSource().execute(insert);
+    }
+
+    static private SQLName getTableName(final SQLCreateTable ct) {
+        return new SQLName(ct.getRoot().getName(), ct.getName());
+    }
+
     JProgressBar bar = new JProgressBar();
+    boolean error;
 
     public InstallationPanel(final ServerFinderPanel finderPanel) {
         super(new GridBagLayout());
@@ -58,43 +88,71 @@ public class InstallationPanel extends JPanel {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-
+                finderPanel.saveConfigFile();
                 bar.setIndeterminate(true);
                 up.setEnabled(false);
                 new Thread(new Runnable() {
 
                     @Override
                     public void run() {
-                        ComptaPropsConfiguration conf = ComptaPropsConfiguration.create(true);
+                        final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create(true);
 
-                        // Mise à jour des taux
-                        final SQLTable table = conf.getBase().getTable("VARIABLE_PAYE");
                         try {
+                            final SQLDataSource ds = conf.getSystemRoot().getDataSource();
+                            System.err.println("SystemRoot:" + conf.getSystemRoot());
+                            System.err.println("Root:" + conf.getRoot());
+
+                            // Mise à jour des taux
+                            final SQLTable table = conf.getRoot().getTable("VARIABLE_PAYE");
+                            System.out.println("InstallationPanel.InstallationPanel() UPDATE PAYE");
                             updateVariablePaye(table, "SMIC", 9);
                             updateVariablePaye(table, "TRANCHE_A", 2946);
                             updateVariablePaye(table, "PART_SAL_GarantieMP", 23.83);
                             updateVariablePaye(table, "PART_PAT_GarantieMP", 38.98);
 
-                            System.err.println(conf.getSystemRoot().getName());
-                            conf.getSystemRoot().getRootsToMap().clear();
+                            if (!table.getDBRoot().contains("DEVISE")) {
+                                System.out.println("InstallationPanel.InstallationPanel() ADD DEVISE");
+                                try {
+                                    SQLUtils.executeAtomic(ds, new SQLUtils.SQLFactory<Object>() {
+                                        @Override
+                                        public Object create() throws SQLException {
+                                            final SQLCreateTable createDevise = new SQLCreateTable(table.getDBRoot(), "DEVISE");
+                                            createDevise.addVarCharColumn("CODE", 128);
+                                            createDevise.addVarCharColumn("NOM", 128);
+                                            createDevise.addVarCharColumn("LIBELLE", 128);
+                                            createDevise.addVarCharColumn("LIBELLE_CENT", 128);
+                                            createDevise.addColumn("TAUX", "numeric(16,8) default 1");
+                                            ds.execute(createDevise.asString());
 
+                                            insertUndef(createDevise);
+
+                                            conf.getRoot().getSchema().updateVersion();
+
+                                            return null;
+                                        }
+                                    });
+                                } catch (Exception ex) {
+                                    throw new IllegalStateException("Erreur lors de la création de la table DEVISE", ex);
+                                }
+                            }
+
+                            // we need to upgrade all roots
+                            conf.getSystemRoot().getRootsToMap().clear();
                             conf.getSystemRoot().refetch();
+
                             final Set<String> childrenNames = conf.getSystemRoot().getChildrenNames();
-                            System.err.println(childrenNames);
+
                             SwingUtilities.invokeLater(new Runnable() {
 
                                 @Override
                                 public void run() {
                                     bar.setIndeterminate(false);
-                                    bar.setMaximum(childrenNames.size());
+                                    bar.setMaximum(childrenNames.size() + 1);
                                 }
                             });
                             int i = 1;
-                            for (String child : childrenNames) {
-                                if (child.startsWith(conf.getAppName()) || child.equalsIgnoreCase("Default")) {
-
-                                    updateSocieteSchema(conf, child);
-                                }
+                            for (final String childName : childrenNames) {
+                                System.out.println("InstallationPanel.InstallationPanel() UPDATE SCHEMA " + childName);
                                 final int barValue = i;
                                 SwingUtilities.invokeLater(new Runnable() {
 
@@ -104,10 +162,36 @@ public class InstallationPanel extends JPanel {
                                     }
                                 });
                                 i++;
-                            }
+                                final DBRoot root = conf.getSystemRoot().getRoot(childName);
+                                final SQLTable tableUndef = root.getTable(SQLTable.undefTable);
+                                if (tableUndef != null && tableUndef.getField("UNDEFINED_ID").isNullable() == Boolean.FALSE) {
+                                    final AlterTable alterUndef = new AlterTable(tableUndef);
+                                    alterUndef.alterColumn("TABLENAME", EnumSet.allOf(Properties.class), "varchar(250)", "''", false);
+                                    alterUndef.alterColumn("UNDEFINED_ID", EnumSet.allOf(Properties.class), "int", null, true);
+                                    try {
+                                        ds.execute(alterUndef.asString());
+                                        tableUndef.getSchema().updateVersion();
+                                    } catch (SQLException ex) {
+                                        throw new IllegalStateException("Erreur lors de la modification de UNDEFINED_ID", ex);
+                                    }
+                                }
 
+                                if (childName.startsWith(conf.getAppName()) || childName.equalsIgnoreCase("Default")) {
+                                    SQLUtils.executeAtomic(ds, new SQLUtils.SQLFactory<Object>() {
+                                        @Override
+                                        public Object create() throws SQLException {
+                                            updateSocieteSchema(root);
+                                            updateToV1Dot2(root);
+                                            return null;
+                                        }
+                                    });
+                                }
+
+                            }
+                            error = false;
                         } catch (Exception e1) {
                             ExceptionHandler.handle("Echec de mise à jour", e1);
+                            error = true;
                         }
 
                         conf.destroy();
@@ -116,7 +200,10 @@ public class InstallationPanel extends JPanel {
                             @Override
                             public void run() {
                                 up.setEnabled(true);
-                                JOptionPane.showMessageDialog(InstallationPanel.this, "Mise à niveau réussie");
+
+                                if (!error) {
+                                    JOptionPane.showMessageDialog(InstallationPanel.this, "Mise à niveau réussie");
+                                }
                             }
                         });
 
@@ -316,100 +403,679 @@ public class InstallationPanel extends JPanel {
         this.add(comp, c);
     }
 
-    private void updateSocieteSchema(ComptaPropsConfiguration conf, String child) {
-
-        // Add article
-        SQLTable tableArticle = conf.getSystemRoot().getRoot(child).getTable("ARTICLE");
-        if (!tableArticle.getFieldsName().contains("INFOS")) {
-            AlterTable t = new AlterTable(tableArticle);
-            t.addVarCharColumn("INFOS", 2048);
-            tableArticle.getBase().getDataSource().execute(t.asString());
+    private void updateToV1Dot2(final DBRoot root) throws SQLException {
+        final SQLTable tableDevis = root.getTable("DEVIS");
+        final SQLDataSource ds = root.getDBSystemRoot().getDataSource();
+        if (!tableDevis.getFieldsName().contains("DATE_VALIDITE")) {
+            AlterTable t = new AlterTable(tableDevis);
+            t.addColumn("DATE_VALIDITE", "date");
             try {
-                tableArticle.fetchFields();
+                ds.execute(t.asString());
+                tableDevis.getSchema().updateVersion();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout du champ DATE_VALIDITE à la table DEVIS", ex);
+            }
+        } else {
+            AlterTable t = new AlterTable(tableDevis);
+            t.alterColumn("DATE_VALIDITE", EnumSet.allOf(Properties.class), "date", null, true);
+            try {
+                ds.execute(t.asString());
+                tableDevis.getSchema().updateVersion();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout du champ DATE_VALIDITE à la table DEVIS", ex);
+            }
+        }
+
+        // Bon de livraison
+        {
+            SQLTable tableBL = root.getTable("BON_DE_LIVRAISON");
+            boolean alterBL = false;
+            AlterTable t = new AlterTable(tableBL);
+            if (!tableBL.getFieldsName().contains("SOURCE")) {
+                t.addVarCharColumn("SOURCE", 512);
+                alterBL = true;
+            }
+            if (!tableBL.getFieldsName().contains("IDSOURCE")) {
+                t.addColumn("IDSOURCE", "integer DEFAULT 1");
+                alterBL = true;
+            }
+            if (alterBL) {
+                try {
+                    ds.execute(t.asString());
+                    tableBL.getSchema().updateVersion();
+                    tableBL.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table BON_DE_LIVRAISON", ex);
+                }
+            }
+        }
+        SQLTable tableArticle = root.getTable("ARTICLE");
+
+        AlterTable t = new AlterTable(tableArticle);
+        boolean alterArticle = false;
+        if (!tableArticle.getFieldsName().contains("QTE_ACHAT")) {
+            t.addColumn("QTE_ACHAT", "integer DEFAULT 1");
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("DESCRIPTIF")) {
+            t.addVarCharColumn("DESCRIPTIF", 2048);
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("CODE_BARRE")) {
+            t.addVarCharColumn("CODE_BARRE", 256);
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("GESTION_STOCK")) {
+            t.addColumn("GESTION_STOCK", "boolean DEFAULT true");
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("CODE_DOUANIER")) {
+            t.addVarCharColumn("CODE_DOUANIER", 256);
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("QTE_MIN")) {
+            t.addColumn("QTE_MIN", "integer DEFAULT 1");
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("ID_DEVISE")) {
+            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("ID_FOURNISSEUR")) {
+            t.addForeignColumn("ID_FOURNISSEUR", root.findTable("FOURNISSEUR"));
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("PV_U_DEVISE")) {
+            t.addColumn("PV_U_DEVISE", "bigint default 0");
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("ID_DEVISE_HA")) {
+            t.addForeignColumn("ID_DEVISE_HA", root.findTable("DEVISE"));
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("PA_DEVISE")) {
+            t.addColumn("PA_DEVISE", "bigint default 0");
+            alterArticle = true;
+        }
+        if (!tableArticle.getFieldsName().contains("ID_PAYS")) {
+            t.addForeignColumn("ID_PAYS", root.findTable("PAYS"));
+            alterArticle = true;
+        }
+        if (alterArticle) {
+            try {
+                ds.execute(t.asString());
                 tableArticle.getSchema().updateVersion();
+                tableArticle.fetchFields();
             } catch (SQLException ex) {
-                throw new IllegalStateException("Erreur lors de l'ajout du champ INFO à la table ARTICLE", ex);
+                throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table ARTICLE", ex);
             }
         }
 
-        // Fix Caisse serial
-        SQLTable tableCaisse = conf.getSystemRoot().getRoot(child).getTable("CAISSE");
+        // Création de la table Langue
+        boolean refetchRoot = false;
+        if (!root.contains("LANGUE")) {
 
-        FixSerial f = new FixSerial(conf.getSystemRoot());
-        try {
-            f.change(tableCaisse);
-        } catch (SQLException e2) {
-            throw new IllegalStateException("Erreur lors la mise à jours des sequences de la table CAISSE", e2);
-        }
-
-        // add Mvt on Ticket
-        SQLTable tableTicket = conf.getSystemRoot().getRoot(child).getTable("TICKET_CAISSE");
-        if (!tableTicket.getFieldsName().contains("ID_MOUVEMENT")) {
-            AlterTable t = new AlterTable(tableTicket);
-            t.addForeignColumn("ID_MOUVEMENT", conf.getSystemRoot().getRoot(child).getTable("MOUVEMENT"));
-            tableTicket.getBase().getDataSource().execute(t.asString());
+            SQLCreateTable createLangue = new SQLCreateTable(root, "LANGUE");
+            createLangue.addVarCharColumn("CODE", 256);
+            createLangue.addVarCharColumn("NOM", 256);
+            createLangue.addVarCharColumn("CHEMIN", 256);
             try {
-                tableTicket.fetchFields();
-                tableTicket.getSchema().updateVersion();
+                ds.execute(createLangue.asString());
+                insertUndef(createLangue);
+                tableDevis.getSchema().updateVersion();
+                refetchRoot = true;
             } catch (SQLException ex) {
-                throw new IllegalStateException("Erreur lors de l'ajout du champ ID_MOUVEMENT à la table TICKET_CAISSE", ex);
+                throw new IllegalStateException("Erreur lors de la création de la table LANGUE", ex);
             }
+
+            final String[] langs = new String[] { "FR", "Français", "EN", "Anglais", "SP", "Espagnol", "DE", "Allemand", "NL", "Néerlandais", "IT", "Italien" };
+            // ('FR', 'Français', 1.000), ('EN', 'Anglais', 2.000)
+            final List<String> values = new ArrayList<String>();
+            final SQLBase base = root.getBase();
+            for (int i = 0; i < langs.length; i += 2) {
+                final int order = values.size() + 1;
+                values.add("(" + base.quoteString(langs[i]) + ", " + base.quoteString(langs[i + 1]) + ", " + order + ")");
+            }
+            final String valuesStr = CollectionUtils.join(values, ", ");
+            final String insertVals = "INSERT INTO " + getTableName(createLangue).quote() + "(" + SQLBase.quoteIdentifier("CODE") + ", " + SQLBase.quoteIdentifier("NOM") + ", "
+                    + SQLBase.quoteIdentifier(SQLSyntax.ORDER_NAME) + ") VALUES" + valuesStr;
+            ds.execute(insertVals);
         }
 
-        // Check type de reglement
-        SQLTable tableReglmt = conf.getSystemRoot().getRoot(child).getTable("TYPE_REGLEMENT");
-        SQLSelect sel = new SQLSelect(tableReglmt.getBase());
-        sel.addSelect(tableReglmt.getKey());
-        sel.setWhere(new Where(tableReglmt.getField("NOM"), "=", "Virement"));
-        List<Number> l = (List<Number>) tableReglmt.getBase().getDataSource().executeCol(sel.asString());
-        if (l.size() == 0) {
-            SQLRowValues rowVals = new SQLRowValues(tableReglmt);
-            rowVals.put("NOM", "Virement");
-            rowVals.put("COMPTANT", Boolean.FALSE);
-            rowVals.put("ECHEANCE", Boolean.FALSE);
+        // Création de la table Tarif
+        if (!root.contains("TARIF")) {
+
+            SQLCreateTable createTarif = new SQLCreateTable(root, "TARIF");
+            createTarif.addVarCharColumn("NOM", 256);
+            createTarif.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            createTarif.addForeignColumn("ID_TAXE", root.findTable("TAXE"));
+            createTarif.asString();
             try {
-                rowVals.commit();
-            } catch (SQLException e) {
-                throw new IllegalStateException("Erreur lors de l'ajout du type de paiement par virement", e);
+                ds.execute(createTarif.asString());
+                insertUndef(createTarif);
+                tableDevis.getSchema().updateVersion();
+                refetchRoot = true;
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table TARIF", ex);
             }
         }
+        if (refetchRoot)
+            root.refetch();
 
-        SQLSelect sel2 = new SQLSelect(tableReglmt.getBase());
-        sel2.addSelect(tableReglmt.getKey());
-        sel2.setWhere(new Where(tableReglmt.getField("NOM"), "=", "CESU"));
-        List<Number> l2 = (List<Number>) tableReglmt.getBase().getDataSource().executeCol(sel2.asString());
-        if (l2.size() == 0) {
-            SQLRowValues rowVals = new SQLRowValues(tableReglmt);
-            rowVals.put("NOM", "CESU");
-            rowVals.put("COMPTANT", Boolean.FALSE);
-            rowVals.put("ECHEANCE", Boolean.FALSE);
+        // Création de la table article Tarif
+        if (!root.contains("ARTICLE_TARIF")) {
+
+            SQLCreateTable createTarif = new SQLCreateTable(root, "ARTICLE_TARIF");
+            createTarif.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            createTarif.addForeignColumn("ID_TAXE", root.findTable("TAXE"));
+            createTarif.addForeignColumn("ID_TARIF", root.findTable("TARIF"));
+            createTarif.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE"));
+            createTarif.addColumn("PV_HT", "bigint DEFAULT 0");
+            createTarif.addColumn("PV_TTC", "bigint DEFAULT 0");
+            createTarif.addColumn("PRIX_METRIQUE_VT_1", "bigint DEFAULT 0");
+            createTarif.addColumn("PRIX_METRIQUE_VT_2", "bigint DEFAULT 0");
+            createTarif.addColumn("PRIX_METRIQUE_VT_3", "bigint DEFAULT 0");
+            createTarif.asString();
             try {
-                rowVals.commit();
-            } catch (SQLException e) {
-                throw new IllegalStateException("Erreur lors de l'ajout du type CESU", e);
+                ds.execute(createTarif.asString());
+                insertUndef(createTarif);
+                tableDevis.getSchema().updateVersion();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table ARTICLE_TARIF", ex);
             }
         }
 
-        // Undefined
-        try {
+        // Création de la table article Désignation
+        if (!root.contains("ARTICLE_DESIGNATION")) {
 
-            SQLTable.setUndefID(tableTicket.getSchema(), tableTicket.getName(), 1);
-            SQLTable.setUndefID(tableTicket.getSchema(), "CAISSE", 1);
-        } catch (SQLException e1) {
-            throw new IllegalStateException("Erreur lors de la mise à jour des indéfinis de la table CAISSE", e1);
+            SQLCreateTable createTarif = new SQLCreateTable(root, "ARTICLE_DESIGNATION");
+            createTarif.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE"));
+            createTarif.addForeignColumn("ID_LANGUE", root.findTable("LANGUE"));
+            createTarif.addVarCharColumn("NOM", 1024);
+            createTarif.asString();
+            try {
+                ds.execute(createTarif.asString());
+                insertUndef(createTarif);
+                tableDevis.getSchema().updateVersion();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table ARTICLE_DESIGNATION", ex);
+            }
         }
 
-        // Mise à jour du schéma
-        try {
-            tableTicket.getSchema().updateVersion();
-        } catch (SQLException e) {
-            throw new IllegalStateException("Erreur lors de la mise à jour de la version du schema", e);
+        SQLTable tableVFElt = root.getTable("SAISIE_VENTE_FACTURE_ELEMENT");
+        addTarifField(tableVFElt, root);
+
+        SQLTable tableDevisElt = root.getTable("DEVIS_ELEMENT");
+        addTarifField(tableDevisElt, root);
+
+        SQLTable tableCmdElt = root.getTable("COMMANDE_CLIENT_ELEMENT");
+        addTarifField(tableCmdElt, root);
+
+        SQLTable tableBonElt = root.getTable("BON_DE_LIVRAISON_ELEMENT");
+        addTarifField(tableBonElt, root);
+
+        SQLTable tableAvoirElt = root.getTable("AVOIR_CLIENT_ELEMENT");
+        addTarifField(tableAvoirElt, root);
+
+        SQLTable tableCmdFournElt = root.getTable("COMMANDE_ELEMENT");
+        addTotalDeviseHAField(tableCmdFournElt, root);
+
+        SQLTable tableBonRecptElt = root.getTable("BON_RECEPTION_ELEMENT");
+        addTotalDeviseHAField(tableBonRecptElt, root);
+
+        SQLTable tableBonRecpt = root.getTable("BON_RECEPTION");
+        addDeviseHAField(tableBonRecpt, root);
+
+        SQLTable tableCommande = root.getTable("COMMANDE");
+        addDeviseHAField(tableCommande, root);
+
+        {
+            SQLTable tableVF = root.getTable("SAISIE_VENTE_FACTURE");
+            addTotalDeviseField(tableVF, root);
+
+            addTotalDeviseField(tableDevis, root);
+
+            SQLTable tableCmd = root.getTable("COMMANDE_CLIENT");
+            addTotalDeviseField(tableCmd, root);
+
+            SQLTable tableBon = root.getTable("BON_DE_LIVRAISON");
+            addTotalDeviseField(tableBon, root);
+
+            SQLTable tableAvoir = root.getTable("AVOIR_CLIENT");
+            addTotalDeviseField(tableAvoir, root);
+        }
+        // Change client
+        {
+            SQLTable tableClient = root.getTable("CLIENT");
+
+            AlterTable tClient = new AlterTable(tableClient);
+            boolean alterClient = false;
+
+            if (!tableClient.getFieldsName().contains("ID_TARIF")) {
+                tClient.addForeignColumn("ID_TARIF", root.findTable("TARIF"));
+                alterClient = true;
+            }
+            if (!tableClient.getFieldsName().contains("ID_PAYS")) {
+                tClient.addForeignColumn("ID_PAYS", root.findTable("PAYS"));
+                alterClient = true;
+            }
+            if (!tableClient.getFieldsName().contains("ID_LANGUE")) {
+                tClient.addForeignColumn("ID_LANGUE", root.findTable("LANGUE"));
+                alterClient = true;
+            }
+
+            if (!tableClient.getFieldsName().contains("ID_DEVISE")) {
+                tClient.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+                alterClient = true;
+            }
+            if (alterClient) {
+                try {
+                    ds.execute(tClient.asString());
+                    tableClient.getSchema().updateVersion();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table CLIENT", ex);
+                }
+            }
+        }
+
+        // Change Pays
+        {
+            SQLTable tablePays = root.getTable("PAYS");
+
+            AlterTable tPays = new AlterTable(tablePays);
+            boolean alterPays = false;
+
+            if (!tablePays.getFieldsName().contains("ID_TARIF")) {
+                tPays.addForeignColumn("ID_TARIF", root.findTable("TARIF"));
+                alterPays = true;
+            }
+            if (!tablePays.getFieldsName().contains("ID_LANGUE")) {
+                tPays.addForeignColumn("ID_LANGUE", root.findTable("LANGUE"));
+                alterPays = true;
+            }
+            if (alterPays) {
+                try {
+                    ds.execute(tPays.asString());
+                    tablePays.getSchema().updateVersion();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table PAYS", ex);
+                }
+            }
+        }
+        // Change Commande
+        {
+            SQLTable tableCmd = root.getTable("COMMANDE");
+
+            AlterTable tCmd = new AlterTable(tableCmd);
+            boolean alterCmd = false;
+
+            if (!tableCmd.getFieldsName().contains("EN_COURS")) {
+                tCmd.addColumn("EN_COURS", "boolean default true");
+                alterCmd = true;
+            }
+            if (alterCmd) {
+                try {
+                    ds.execute(tCmd.asString());
+                    tableCmd.getSchema().updateVersion();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table COMMANDE", ex);
+                }
+            }
+        }
+        // Change Fournisseur
+        {
+            SQLTable tableFournisseur = root.getTable("FOURNISSEUR");
+
+            AlterTable tFourn = new AlterTable(tableFournisseur);
+            boolean alterFourn = false;
+
+            if (!tableFournisseur.getFieldsName().contains("ID_LANGUE")) {
+                tFourn.addForeignColumn("ID_LANGUE", root.findTable("LANGUE"));
+                alterFourn = true;
+            }
+            if (!tableFournisseur.getFieldsName().contains("ID_DEVISE")) {
+                tFourn.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+                alterFourn = true;
+            }
+            if (!tableFournisseur.getFieldsName().contains("RESPONSABLE")) {
+                tFourn.addVarCharColumn("RESPONSABLE", 256);
+                alterFourn = true;
+            }
+            if (!tableFournisseur.getFieldsName().contains("TEL_P")) {
+                tFourn.addVarCharColumn("TEL_P", 256);
+                alterFourn = true;
+            }
+            if (!tableFournisseur.getFieldsName().contains("MAIL")) {
+                tFourn.addVarCharColumn("MAIL", 256);
+                alterFourn = true;
+            }
+            if (!tableFournisseur.getFieldsName().contains("INFOS")) {
+                tFourn.addVarCharColumn("INFOS", 2048);
+                alterFourn = true;
+            }
+
+            if (alterFourn) {
+                try {
+                    ds.execute(tFourn.asString());
+                    tableFournisseur.getSchema().updateVersion();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table FOURNISSEUR", ex);
+                }
+            }
+        }
+
+        root.refetch();
+    }
+
+    private void addDeviseHAField(SQLTable table, DBRoot root) throws SQLException {
+        boolean alter = false;
+        AlterTable t = new AlterTable(table);
+        if (!table.getFieldsName().contains("ID_DEVISE")) {
+            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            alter = true;
+        }
+
+        if (!table.getFieldsName().contains("T_DEVISE")) {
+            t.addColumn("T_DEVISE", "bigint default 0");
+            alter = true;
+        }
+
+        if (alter) {
+            try {
+                table.getBase().getDataSource().execute(t.asString());
+                table.getSchema().updateVersion();
+                table.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
+            }
         }
 
     }
 
-    private void updateVariablePaye(SQLTable table, String var, double value) throws SQLException {
+    private void addTotalDeviseHAField(SQLTable table, DBRoot root) throws SQLException {
+        boolean alter = false;
+        AlterTable t = new AlterTable(table);
+        if (!table.getFieldsName().contains("QTE_ACHAT")) {
+            t.addColumn("QTE_ACHAT", "integer DEFAULT 1");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("PA_DEVISE")) {
+            t.addColumn("PA_DEVISE", "bigint default 0");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("ID_DEVISE")) {
+            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            alter = true;
+        }
 
+        if (!table.getFieldsName().contains("PA_DEVISE_T")) {
+            t.addColumn("PA_DEVISE_T", "bigint default 0");
+            alter = true;
+        }
+
+        if (alter) {
+            try {
+                table.getBase().getDataSource().execute(t.asString());
+                table.getSchema().updateVersion();
+                table.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
+            }
+        }
+
+    }
+
+    private void addTotalDeviseField(SQLTable table, DBRoot root) throws SQLException {
+        boolean alter = false;
+        AlterTable t = new AlterTable(table);
+        if (!table.getFieldsName().contains("T_DEVISE")) {
+            t.addColumn("T_DEVISE", "bigint default 0");
+            alter = true;
+        } else {
+            table.getBase().getDataSource().execute("UPDATE " + table.getSQLName().quote() + " SET \"T_DEVISE\"=0 WHERE \"T_DEVISE\" IS NULL");
+            t.alterColumn("T_DEVISE", EnumSet.allOf(Properties.class), "bigint", "0", false);
+        }
+        if (!table.getFieldsName().contains("T_POIDS")) {
+            t.addColumn("T_POIDS", "real default 0");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("ID_TARIF")) {
+            t.addForeignColumn("ID_TARIF", root.findTable("TARIF"));
+            alter = true;
+        }
+
+        if (alter) {
+            try {
+                table.getBase().getDataSource().execute(t.asString());
+                table.getSchema().updateVersion();
+                table.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
+            }
+        }
+    }
+
+    private void addTarifField(SQLTable table, DBRoot root) throws SQLException {
+
+        boolean alter = false;
+        AlterTable t = new AlterTable(table);
+        if (!table.getFieldsName().contains("QTE_ACHAT")) {
+            t.addColumn("QTE_ACHAT", "integer DEFAULT 1");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("CODE_DOUANIER")) {
+            t.addVarCharColumn("CODE_DOUANIER", 256);
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("ID_PAYS")) {
+            t.addForeignColumn("ID_PAYS", root.findTable("PAYS"));
+            alter = true;
+        }
+
+        if (!table.getFieldsName().contains("ID_DEVISE")) {
+            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("PV_U_DEVISE")) {
+            t.addColumn("PV_U_DEVISE", "bigint default 0");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("POURCENT_REMISE")) {
+            t.addColumn("POURCENT_REMISE", "numeric(6,2) default 0");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("PV_T_DEVISE")) {
+            t.addColumn("PV_T_DEVISE", "bigint default 0");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("TAUX_DEVISE")) {
+            t.addColumn("TAUX_DEVISE", "numeric (16,8) DEFAULT 1");
+            alter = true;
+        }
+        if (alter) {
+            try {
+                root.getDBSystemRoot().getDataSource().execute(t.asString());
+                table.getSchema().updateVersion();
+                table.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
+            }
+        }
+    }
+
+    private void updateSocieteSchema(final DBRoot root) throws SQLException {
+        final DBSystemRoot sysRoot = root.getDBSystemRoot();
+        final SQLDataSource ds = sysRoot.getDataSource();
+        System.out.println("InstallationPanel.InstallationPanel() UPDATE COMMERCIAL " + root);
+        // Fix commercial Ordre
+        SQLTable tableCommercial = root.getTable("COMMERCIAL");
+        CorrectOrder orderCorrect = new CorrectOrder(sysRoot);
+        orderCorrect.change(tableCommercial);
+
+        new AddFK(sysRoot).change(root);
+        root.getSchema().updateVersion();
+        root.refetch();
+        // load graph now so that it's coherent with the structure
+        // that way we can add foreign columns after without refreshing
+        // 1. root.refetch() clears the graph
+        // 2. we add some foreign field (the graph is still null)
+        // 3. we use a method that needs the graph
+        // 4. the graph is created and throws an exception when it wants to use the new field not in
+        // the structure
+        sysRoot.getGraph();
+
+        try {
+            // Add article
+            final SQLTable tableArticle = root.getTable("ARTICLE");
+            if (!tableArticle.getFieldsName().contains("INFOS")) {
+                AlterTable t = new AlterTable(tableArticle);
+                t.addVarCharColumn("INFOS", 2048);
+                try {
+                    ds.execute(t.asString());
+                } catch (Exception ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout du champ INFO à la table ARTICLE", ex);
+                }
+            }
+
+            if (sysRoot.getServer().getSQLSystem().equals(SQLSystem.POSTGRESQL)) {
+                // Fix Caisse serial
+                SQLTable tableCaisse = root.getTable("CAISSE");
+
+                FixSerial f = new FixSerial(sysRoot);
+                try {
+                    f.change(tableCaisse);
+                } catch (SQLException e2) {
+                    throw new IllegalStateException("Erreur lors la mise à jours des sequences de la table CAISSE", e2);
+                }
+            }
+            System.out.println("InstallationPanel.InstallationPanel() UPDATE TICKET_CAISSE " + root);
+            // add Mvt on Ticket
+            SQLTable tableTicket = root.getTable("TICKET_CAISSE");
+            if (!tableTicket.getFieldsName().contains("ID_MOUVEMENT")) {
+                AlterTable t = new AlterTable(tableTicket);
+                t.addForeignColumn("ID_MOUVEMENT", root.getTable("MOUVEMENT"));
+                try {
+                    ds.execute(t.asString());
+                } catch (Exception ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout du champ ID_MOUVEMENT à la table TICKET_CAISSE", ex);
+                }
+            }
+
+            // Check type de reglement
+
+            System.out.println("InstallationPanel.InstallationPanel() UPDATE TYPE_REGLEMENT " + root);
+            SQLTable tableReglmt = root.getTable("TYPE_REGLEMENT");
+            SQLSelect sel = new SQLSelect(tableReglmt.getBase());
+            sel.addSelect(tableReglmt.getKey());
+            sel.setWhere(new Where(tableReglmt.getField("NOM"), "=", "Virement"));
+            List<Number> l = (List<Number>) ds.executeCol(sel.asString());
+            if (l.size() == 0) {
+                SQLRowValues rowVals = new SQLRowValues(tableReglmt);
+                rowVals.put("NOM", "Virement");
+                rowVals.put("COMPTANT", Boolean.FALSE);
+                rowVals.put("ECHEANCE", Boolean.FALSE);
+                try {
+                    rowVals.commit();
+                } catch (SQLException e) {
+                    throw new IllegalStateException("Erreur lors de l'ajout du type de paiement par virement", e);
+                }
+            }
+
+            SQLSelect sel2 = new SQLSelect(tableReglmt.getBase());
+            sel2.addSelect(tableReglmt.getKey());
+            sel2.setWhere(new Where(tableReglmt.getField("NOM"), "=", "CESU"));
+            List<Number> l2 = (List<Number>) ds.executeCol(sel2.asString());
+            if (l2.size() == 0) {
+                SQLRowValues rowVals = new SQLRowValues(tableReglmt);
+                rowVals.put("NOM", "CESU");
+                rowVals.put("COMPTANT", Boolean.FALSE);
+                rowVals.put("ECHEANCE", Boolean.FALSE);
+                try {
+                    rowVals.commit();
+                } catch (SQLException e) {
+                    throw new IllegalStateException("Erreur lors de l'ajout du type CESU", e);
+                }
+            }
+            System.out.println("InstallationPanel.InstallationPanel() UPDATE FAMILLE_ARTICLE " + root);
+            //
+            final SQLTable tableFam = root.getTable("FAMILLE_ARTICLE");
+            final int nomSize = 256;
+            if (tableFam.getField("NOM").getType().getSize() < nomSize) {
+                final AlterTable t = new AlterTable(tableFam);
+                t.alterColumn("NOM", EnumSet.allOf(Properties.class), "varchar(" + nomSize + ")", "''", false);
+                try {
+                    ds.execute(t.asString());
+                } catch (Exception ex) {
+                    throw new IllegalStateException("Erreur lors de la modification du champs NOM sur la table FAMILLE_ARTICLE", ex);
+                }
+            }
+
+            // Suppression des champs 1.0
+            System.out.println("InstallationPanel.InstallationPanel() UPDATE FROM 1.0 " + root);
+            final List<ChangeTable<?>> changes = new ArrayList<ChangeTable<?>>();
+
+            List<String> tablesToRemove = new ArrayList<String>();
+            tablesToRemove.add("AFFAIRE");
+            tablesToRemove.add("RAPPORT");
+            tablesToRemove.add("CODE_MISSION");
+            tablesToRemove.add("FICHE_RENDEZ_VOUS");
+            tablesToRemove.add("NATURE_MISSION");
+            tablesToRemove.add("AVIS_INTERVENTION");
+            tablesToRemove.add("POURCENT_CCIP");
+            tablesToRemove.add("SECRETAIRE");
+            tablesToRemove.add("FICHE_RENDEZ_VOUS_ELEMENT");
+            tablesToRemove.add("POURCENT_SERVICE");
+            tablesToRemove.add("PROPOSITION");
+            tablesToRemove.add("AFFAIRE_ELEMENT");
+            tablesToRemove.add("PROPOSITION_ELEMENT");
+            tablesToRemove.add("POLE_PRODUIT");
+            tablesToRemove.add("BANQUE_POLE_PRODUIT");
+            tablesToRemove.add("AFFACTURAGE");
+            tablesToRemove.add("SECTEUR_ACTIVITE");
+
+            final DatabaseGraph graph = sysRoot.getGraph();
+            for (String tableName : tablesToRemove) {
+                if (root.contains(tableName)) {
+
+                    final SQLTable table = root.getTable(tableName);
+                    for (final Link link : graph.getReferentLinks(table)) {
+                        if (!(link.getSource().getDBRoot() == root && tablesToRemove.contains(link.getSource().getName()))) {
+                            final AlterTable alter = new AlterTable(link.getSource());
+                            alter.dropForeignColumns(link);
+                            changes.add(alter);
+                        }
+                    }
+                    changes.add(new DropTable(table));
+                }
+            }
+
+            final List<String> alterRequests = ChangeTable.cat(changes, root.getName());
+            try {
+                for (final String req : alterRequests) {
+                    ds.execute(req);
+                }
+            } catch (Exception e1) {
+                throw new IllegalStateException("Erreur lors de la mise à jour des tables v1.0", e1);
+            }
+            System.out.println("InstallationPanel.InstallationPanel() UPDATE CAISSE " + root);
+            // Undefined
+            try {
+                SQLTable.setUndefID(tableTicket.getSchema(), tableTicket.getName(), 1);
+                SQLTable.setUndefID(tableTicket.getSchema(), "CAISSE", 1);
+            } catch (SQLException e1) {
+                throw new IllegalStateException("Erreur lors de la mise à jour des indéfinis de la table CAISSE", e1);
+            }
+        } finally {
+            // Mise à jour du schéma
+            root.getSchema().updateVersion();
+            root.refetch();
+        }
+    }
+
+    private void updateVariablePaye(SQLTable table, String var, double value) throws SQLException {
+        if (table == null) {
+            throw new IllegalArgumentException("null table");
+        }
         SQLSelect sel = new SQLSelect(table.getBase());
         sel.addSelectStar(table);
         sel.setWhere(new Where(table.getField("NOM"), "=", var));

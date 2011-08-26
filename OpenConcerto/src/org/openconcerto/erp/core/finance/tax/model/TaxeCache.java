@@ -25,6 +25,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.dbutils.ResultSetHandler;
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
@@ -81,5 +82,15 @@ public final class TaxeCache {
         }
         return this.firstIdTaxe;
 
+    }
+
+    public Integer getIdFromTaux(Float tax) {
+        Set<Integer> s = (Set<Integer>) mapTaux.keySet();
+        for (Integer integer : s) {
+            if (this.mapTaux.get(integer).equals(tax)) {
+                return integer;
+            }
+        }
+        return null;
     }
 }

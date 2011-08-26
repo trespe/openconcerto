@@ -61,7 +61,7 @@ public class ODXMLDocument {
         res.add(new Element("meta", ns));
         res.add(new Element("settings", ns));
         res.add(new Element(ins == XMLVersion.OOo ? "script" : "scripts", ns));
-        res.add(new Element(OOXML.get(ins).getFontDecls()[0], ns));
+        res.add(new Element(OOXML.getLast(ins).getFontDecls()[0], ns));
         res.add(new Element("styles", ns));
         res.add(new Element("automatic-styles", ns));
         res.add(new Element("master-styles", ns));
@@ -91,12 +91,12 @@ public class ODXMLDocument {
     }
 
     private final Document content;
-    private final XMLVersion version;
+    private final XMLFormatVersion version;
     private final ChildCreator childCreator;
 
     // before making it public, assure that content is really of version "version"
     // eg by checking some namespace
-    protected ODXMLDocument(final Document content, final XMLVersion version) {
+    protected ODXMLDocument(final Document content, final XMLFormatVersion version) {
         if (content == null)
             throw new NullPointerException("null document");
         this.content = content;
@@ -105,7 +105,7 @@ public class ODXMLDocument {
     }
 
     public ODXMLDocument(Document content) {
-        this(content, XMLVersion.getVersion(content.getRootElement()));
+        this(content, XMLFormatVersion.get(content.getRootElement()));
     }
 
     public ODXMLDocument(ODXMLDocument doc) {
@@ -117,11 +117,19 @@ public class ODXMLDocument {
     }
 
     public Validator getValidator() {
-        return OOXML.get(this.getVersion()).getValidator(this.getDocument());
+        return getXML().getValidator(this.getDocument());
+    }
+
+    public final OOXML getXML() {
+        return this.getFormatVersion().getXML();
+    }
+
+    public final XMLFormatVersion getFormatVersion() {
+        return this.version;
     }
 
     public final XMLVersion getVersion() {
-        return this.version;
+        return this.getFormatVersion().getXMLVersion();
     }
 
     // *** children
@@ -363,9 +371,9 @@ public class ODXMLDocument {
                 listToAdd = cloned;
             } else {
                 listToAdd = new ArrayList<Content>(cloned.size());
-                final Iterator iter = cloned.iterator();
+                final Iterator<Content> iter = cloned.iterator();
                 while (iter.hasNext()) {
-                    final Content c = (Content) iter.next();
+                    final Content c = iter.next();
                     if (c instanceof Element) {
                         final Element transformedElem = addTransf.transform((Element) c);
                         if (transformedElem != null)

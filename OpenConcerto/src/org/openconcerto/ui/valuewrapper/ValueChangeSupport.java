@@ -87,7 +87,7 @@ public final class ValueChangeSupport<T> {
         this.validListeners.add(l);
     }
 
-    public void rmValidListener(ValidListener l) {
+    public void removeValidListener(ValidListener l) {
         this.validListeners.remove(l);
     }
 

@@ -43,6 +43,7 @@ public class CommandeSQLElement extends ComptaSQLConfElement {
         l.add("NOM");
         l.add("DATE");
         l.add("ID_FOURNISSEUR");
+        l.add("EN_COURS");
         l.add("INFOS");
         return l;
     }

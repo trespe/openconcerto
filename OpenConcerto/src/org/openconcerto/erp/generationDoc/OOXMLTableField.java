@@ -14,11 +14,15 @@
  package org.openconcerto.erp.generationDoc;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowListRSH;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.Nombre;
 
@@ -35,8 +39,8 @@ public class OOXMLTableField extends OOXMLField {
     private String type;
     private int filterId, line;
 
-    public OOXMLTableField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, int filterId) {
-        super(eltField, row, sqlElt, id);
+    public OOXMLTableField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, int filterId, SQLRow rowLanguage) {
+        super(eltField, row, sqlElt, id, rowLanguage);
         this.type = eltField.getAttributeValue("type");
         this.filterId = filterId;
         String s = eltField.getAttributeValue("line");
@@ -52,100 +56,18 @@ public class OOXMLTableField extends OOXMLField {
 
         if (this.type.equalsIgnoreCase("DescriptifArticle")) {
             value = getDescriptifArticle(this.row);
+        } else if (this.type.equalsIgnoreCase("DateEcheance")) {
+            value = getDateEcheance(this.row.getInt("ID_MODE_REGLEMENT"), (Date) this.row.getObject("DATE"));
+        } else if (this.type.equalsIgnoreCase("MontantRevise")) {
+            value = getMontantRevise(this.row);
+        } else if (this.type.equalsIgnoreCase("Localisation")) {
+            value = getLocalisation(this.row);
         } else {
-            if (this.type.equalsIgnoreCase("TotalFacture")) {
-                value = getDejaFacture(this.row);
-            } else {
-                if (this.type.equalsIgnoreCase("propositionFacture")) {
-                    value = getProposition(this.row);
-                } else {
-                    if (this.type.equalsIgnoreCase("pourcentRealise")) {
-                        value = getPourcentRealise(this.row);
-                    } else {
-                        if (this.type.equalsIgnoreCase("DateEcheance")) {
-                            value = getDateEcheance(this.row.getInt("ID_MODE_REGLEMENT"), (Date) this.row.getObject("DATE"));
-                        } else {
-                            if (this.type.equalsIgnoreCase("MontantRevise")) {
-                                value = getMontantRevise(this.row);
-                            } else {
-                                if (this.type.equalsIgnoreCase("Localisation")) {
-                                    value = getLocalisation(this.row);
-                                } else {
-                                    if (this.type.equalsIgnoreCase("Verificateurs")) {
-                                        value = getVerificateur(this.row, this.filterId);
-                                    } else {
-                                        if (this.type.equalsIgnoreCase("CCIP")) {
-                                            value = getCCIP(this.row);
-                                        } else {
-                                            if (this.type.equalsIgnoreCase("Echantillon")) {
-                                                value = getStringEchantillon(this.row);
-                                            } else {
-                                                OOXMLElement eltXml = new OOXMLElement(this.elt, this.sqlElt, this.id, this.row);
-                                                value = eltXml.getValue();
-                                            }
-                                        }
-                                    }
-
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+            OOXMLElement eltXml = new OOXMLElement(this.elt, this.sqlElt, this.id, this.row, this.rowLanguage);
+            value = eltXml.getValue();
         }
 
         return value;
-    }
-
-    private static Double getDejaFacture(SQLRowAccessor rowElt) {
-        SQLRowAccessor rowAffElt = OOXMLCache.getForeignRow(rowElt, rowElt.getTable().getField("ID_AFFAIRE_ELEMENT"));
-        List<? extends SQLRowAccessor> list = OOXMLCache.getReferentRows(rowAffElt, rowElt.getTable());
-        SQLRowAccessor rowFact = OOXMLCache.getForeignRow(rowElt, rowElt.getTable().getField("ID_SAISIE_VENTE_FACTURE"));
-
-        double total = rowAffElt.getFloat("TOTAL_HT_REALISE");
-        for (SQLRowAccessor sqlRow : list) {
-            SQLRowAccessor rowFact2 = OOXMLCache.getForeignRow(sqlRow, sqlRow.getTable().getField("ID_SAISIE_VENTE_FACTURE"));
-            Calendar date = rowFact.getDate("DATE");
-            Calendar date2 = rowFact2.getDate("DATE");
-            if (date2.before(date)) {
-                total += sqlRow.getFloat("T_PV_HT");
-            }
-        }
-        return total / 100.0;
-    }
-
-    private static Double getPourcentRealise(SQLRowAccessor rowElt) {
-
-        SQLRowAccessor rowAffElt = OOXMLCache.getForeignRow(rowElt, rowElt.getTable().getField("ID_AFFAIRE_ELEMENT"));
-        if (rowAffElt.getID() <= 1) {
-            return 100.0;
-        }
-        SQLRowAccessor rowFact = OOXMLCache.getForeignRow(rowElt, rowElt.getTable().getField("ID_SAISIE_VENTE_FACTURE"));
-        List<? extends SQLRowAccessor> list = OOXMLCache.getReferentRows(rowAffElt, rowElt.getTable());
-
-        double percent = rowAffElt.getFloat("POURCENT_REALISE");
-        for (SQLRowAccessor sqlRow : list) {
-            SQLRowAccessor rowFact2 = OOXMLCache.getForeignRow(sqlRow, sqlRow.getTable().getField("ID_SAISIE_VENTE_FACTURE"));
-            Calendar date = rowFact.getDate("DATE");
-            Calendar date2 = rowFact2.getDate("DATE");
-            if (date2.before(date) || date2.equals(date)) {
-                if (rowAffElt.getInt("NOMBRE") != 0) {
-                    percent += sqlRow.getInt("QTE") * sqlRow.getFloat("POURCENT_ACOMPTE") / rowAffElt.getInt("NOMBRE");
-                } else {
-                    percent += sqlRow.getFloat("POURCENT_ACOMPTE");
-                }
-            }
-        }
-        return percent;
-    }
-
-    protected static String getStringEchantillon(SQLRowAccessor rowEch) {
-
-        final int nbEch = rowEch.getInt("QTE");
-        Nombre n = new Nombre(nbEch);
-        Long ht = rowEch.getLong("PV_HT");
-
-        return "Par " + n.getText() + " échantillon" + ((nbEch > 1) ? "s " : " ") + "au " + rowEch.getString("NOM") + ", soit " + nbEch + " x " + GestionDevise.currencyToString(ht) + " € HT";
     }
 
     public boolean isNeeding2Lines() {
@@ -259,59 +181,6 @@ public class OOXMLTableField extends OOXMLField {
             result.append(" € HT");
             return result.toString();
         }
-    }
-
-    /**
-     * @param row
-     * @return La liste des vérificateurs prévus pour la mission
-     */
-    public static String getVerificateur(SQLRowAccessor row, int filterID) {
-        StringBuffer result = new StringBuffer();
-        SQLTable tableElt = Configuration.getInstance().getRoot().findTable("POURCENT_SERVICE");
-        Collection<? extends SQLRowAccessor> s = row.getReferentRows(tableElt);
-        for (SQLRowAccessor row2 : s) {
-            SQLRowAccessor rowVerif = row2.getForeign("ID_VERIFICATEUR");
-
-            if (rowVerif != null && (filterID <= 1 || filterID == rowVerif.getID())) {
-                String prenom = rowVerif.getString("PRENOM");
-                if (prenom.length() > 1) {
-                    prenom = String.valueOf(prenom.charAt(0));
-                }
-                result.append(prenom + "." + rowVerif.getString("NOM"));
-                result.append(", ");
-            }
-        }
-
-        if (result.length() > 0) {
-            result.deleteCharAt(result.length() - 1);
-            result.deleteCharAt(result.length() - 1);
-        }
-        return result.toString();
-    }
-
-    /**
-     * @param row
-     * @return La liste des mois CCIP
-     */
-    public static String getCCIP(SQLRowAccessor row) {
-        StringBuffer result = new StringBuffer();
-        SQLTable tableElt = Configuration.getInstance().getRoot().findTable("POURCENT_CCIP");
-        Collection<? extends SQLRowAccessor> s = row.getReferentRows(tableElt);
-        for (SQLRowAccessor row2 : s) {
-            SQLRowAccessor rowMois = row2.getForeign("ID_MOIS");
-
-            if (rowMois != null) {
-                String nom = rowMois.getString("NOM");
-                result.append(nom);
-                result.append(",\n");
-            }
-        }
-
-        if (result.length() > 0) {
-            result.deleteCharAt(result.length() - 1);
-            result.deleteCharAt(result.length() - 1);
-        }
-        return result.toString();
     }
 
     public List<String> getBlankStyle() {

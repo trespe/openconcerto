@@ -39,13 +39,11 @@ public class Chart {
 
     public void setChartRectangle(Rectangle r) {
         if (chartRectangle == null || !r.equals(chartRectangle)) {
-            System.err.println("Chart.setChartRectangle()" + r);
             chartRectangle = r;
         }
     }
 
     public Rectangle getChartRectangle() {
-
         return chartRectangle;
     }
 
@@ -99,14 +97,10 @@ public class Chart {
         renderBackground(g);
         renderAxis(g);
         renderPlot(g);
-
         renderLabels(g);
-        // g.setColor(Color.PINK);
-        // g.drawLine(0, 0, this.getDimension().width, this.getDimension().height);
     }
 
     public void prepareRendering(Graphics2D g) {
-
     }
 
     public void renderBackground(Graphics2D g) {

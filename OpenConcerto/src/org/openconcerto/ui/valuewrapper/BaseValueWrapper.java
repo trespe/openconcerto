@@ -48,8 +48,8 @@ abstract public class BaseValueWrapper<T> implements ValueWrapper<T> {
         this.supp.addValidListener(l);
     }
 
-    public void rmValidListener(ValidListener l) {
-        this.supp.rmValidListener(l);
+    public void removeValidListener(ValidListener l) {
+        this.supp.removeValidListener(l);
     }
 
     public String getValidationText() {

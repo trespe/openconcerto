@@ -40,7 +40,6 @@ import java.util.Map;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
-
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class FichePayeSheet extends SheetInterface {

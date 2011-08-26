@@ -48,7 +48,7 @@ public class ModeDeReglementSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    public synchronized ListSQLRequest getListRequest() {
+    public synchronized ListSQLRequest createListRequest() {
 
         return new ListSQLRequest(this.getTable(), this.getListFields()) {
             @Override

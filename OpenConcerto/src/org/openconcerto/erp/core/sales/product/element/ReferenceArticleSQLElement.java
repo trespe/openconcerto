@@ -59,6 +59,7 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         l.add("PV_HT");
             l.add("ID_TAXE");
         l.add("PV_TTC");
+        l.add("ID_FOURNISSEUR");
         l.add("ID_STOCK");
         String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
         Boolean b = Boolean.valueOf(val);
@@ -313,5 +314,10 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         }
         sel.setWhere(w);
         return sel.asString();
+    }
+
+    public static boolean isReferenceEquals(SQLRowValues rowVals1, SQLRowValues rowVals2) {
+        return (rowVals1.getObject("CODE").equals(rowVals2.getObject("CODE")) && rowVals1.getString("VALEUR_METRIQUE_1").equals(rowVals2.getString("VALEUR_METRIQUE_1"))
+                && rowVals1.getString("VALEUR_METRIQUE_2").equals(rowVals2.getString("VALEUR_METRIQUE_2")) && rowVals1.getString("VALEUR_METRIQUE_3").equals(rowVals2.getString("VALEUR_METRIQUE_3")));
     }
 }

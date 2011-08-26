@@ -24,6 +24,7 @@ import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.StringInputStream;
 import org.openconcerto.utils.Zip;
 import org.openconcerto.utils.ZippedFilesProcessor;
+import org.openconcerto.xml.Validator;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
@@ -97,8 +98,8 @@ public class ODPackage {
         }
 
         static final Document createSingle(final Document from) {
-            final XMLVersion version = XMLVersion.getVersion(from);
-            return SINGLE_CONTENT.createDocument(version, from.getRootElement().getAttributeValue("version", version.getOFFICE()));
+            final XMLFormatVersion version = XMLFormatVersion.get(from);
+            return SINGLE_CONTENT.createDocument(version.getXMLVersion(), version.getOfficeVersion());
         }
 
         private final String nsPrefix;
@@ -268,11 +269,16 @@ public class ODPackage {
      * @return the version of this package, can be <code>null</code>.
      */
     public final XMLVersion getVersion() {
+        final XMLFormatVersion res = getFormatVersion();
+        return res == null ? null : res.getXMLVersion();
+    }
+
+    public final XMLFormatVersion getFormatVersion() {
         final ODXMLDocument content = this.getContent();
         if (content == null)
             return null;
         else
-            return content.getVersion();
+            return content.getFormatVersion();
     }
 
     /**
@@ -301,12 +307,15 @@ public class ODPackage {
     }
 
     /**
-     * Call {@link OOXML#isValid(Document)} on each XML subdocuments.
+     * Call {@link Validator#isValid()} on each XML subdocuments.
      * 
-     * @return all problems indexed by subdocuments names, ie empty if all ok.
+     * @return all problems indexed by subdocuments names, i.e. empty if all OK, <code>null</code>
+     *         if validation couldn't occur.
      */
     public final Map<String, String> validateSubDocuments() {
-        final OOXML ooxml = OOXML.get(getVersion());
+        final OOXML ooxml = this.getFormatVersion().getXML();
+        if (!ooxml.canValidate())
+            return null;
         final Map<String, String> res = new HashMap<String, String>();
         for (final String s : subdocNames) {
             if (this.getEntries().contains(s)) {
@@ -497,7 +506,7 @@ public class ODPackage {
             final Map<RootElement, Document> split = ((ODSingleXMLDocument) this.getContent()).split();
             // from 22.2.1 (D1.1.2) of OpenDocument-v1.2-part1-cd04
             assert (split.containsKey(RootElement.CONTENT) || split.containsKey(RootElement.STYLES)) && RootElement.getPackageElements().containsAll(split.keySet()) : "wrong elements " + split;
-            final XMLVersion version = getVersion();
+            final XMLFormatVersion version = getFormatVersion();
             for (final Entry<RootElement, Document> e : split.entrySet()) {
                 this.putFile(e.getKey().getZipEntry(), new ODXMLDocument(e.getValue(), version));
             }

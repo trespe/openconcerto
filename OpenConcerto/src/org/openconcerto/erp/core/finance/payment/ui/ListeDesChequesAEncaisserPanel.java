@@ -18,7 +18,7 @@ import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.erp.model.GestionChequesModel;
 import org.openconcerto.erp.rights.ComptaTotalUserRight;
 import org.openconcerto.openoffice.OOUtils;
-import org.openconcerto.openoffice.XMLVersion;
+import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -189,7 +189,7 @@ public class ListeDesChequesAEncaisserPanel extends JPanel {
         c.anchor = GridBagConstraints.EAST;
         this.add(panelButton, c);
 
-        // 
+        //
         c.anchor = GridBagConstraints.WEST;
         c.gridy++;
         c.weightx = 0;
@@ -236,10 +236,10 @@ public class ListeDesChequesAEncaisserPanel extends JPanel {
                             JOptionPane.YES_NO_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, "Tout");
 
                     if (answer == JOptionPane.NO_OPTION) {
-                        SpreadSheet.export(getExportModel(true), f, XMLVersion.getOOo());
+                        SpreadSheet.export(getExportModel(true), f, XMLFormatVersion.getDefault());
                     } else {
                         if (answer == JOptionPane.YES_OPTION) {
-                            SpreadSheet.export(getExportModel(false), f, XMLVersion.getOOo());
+                            SpreadSheet.export(getExportModel(false), f, XMLFormatVersion.getDefault());
                         } else {
                             return;
                         }

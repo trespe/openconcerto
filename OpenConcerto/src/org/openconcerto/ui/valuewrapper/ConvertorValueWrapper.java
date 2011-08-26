@@ -42,6 +42,11 @@ public class ConvertorValueWrapper<T, U> implements ValueWrapper<T> {
     public void addValidListener(ValidListener l) {
         this.delegate.addValidListener(l);
     }
+    
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.delegate.removeValidListener(l);  
+    }
 
     public String getValidationText() {
         return this.delegate.getValidationText();

@@ -22,9 +22,12 @@ import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.lang.reflect.InvocationTargetException;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,6 +41,7 @@ public final class SQLElementDirectory {
     private final Map<SQLTable, SQLElement> elements;
     private final CollectionMap<String, SQLTable> tableNames;
     private final CollectionMap<Class<? extends SQLElement>, SQLTable> byClass;
+    private final List<DirectoryListener> listeners;
 
     public SQLElementDirectory() {
         this.elements = new HashMap<SQLTable, SQLElement>();
@@ -45,6 +49,8 @@ public final class SQLElementDirectory {
         // the second one should replace the first one
         this.tableNames = new CollectionMap<String, SQLTable>(HashSet.class);
         this.byClass = new CollectionMap<Class<? extends SQLElement>, SQLTable>(HashSet.class);
+
+        this.listeners = new ArrayList<DirectoryListener>();
     }
 
     private static <K> SQLTable getSoleTable(CollectionMap<K, SQLTable> m, K key) throws IllegalArgumentException {
@@ -95,6 +101,9 @@ public final class SQLElementDirectory {
         this.elements.put(elem.getTable(), elem);
         this.tableNames.put(elem.getTable().getName(), elem.getTable());
         this.byClass.put(elem.getClass(), elem.getTable());
+        for (final DirectoryListener dl : this.listeners) {
+            dl.elementAdded(elem);
+        }
     }
 
     public synchronized final boolean contains(SQLTable t) {
@@ -113,7 +122,7 @@ public final class SQLElementDirectory {
      *         <code>tableName</code>.
      * @throws IllegalArgumentException if more than one table match.
      */
-    public final SQLElement getElement(String tableName) {
+    public synchronized final SQLElement getElement(String tableName) {
         return this.getElement(getSoleTable(this.tableNames, tableName));
     }
 
@@ -125,15 +134,66 @@ public final class SQLElementDirectory {
      * @return the corresponding SQLElement, or <code>null</code> if none can be found.
      * @throws IllegalArgumentException if there's more than one match.
      */
-    public final <S extends SQLElement> S getElement(Class<S> clazz) {
+    public synchronized final <S extends SQLElement> S getElement(Class<S> clazz) {
         return clazz.cast(this.getElement(getSoleTable(this.byClass, clazz)));
     }
 
     public synchronized final Set<SQLTable> getTables() {
-        return this.elements.keySet();
+        return this.getElementsMap().keySet();
     }
 
     public synchronized final Collection<SQLElement> getElements() {
-        return this.elements.values();
+        return this.getElementsMap().values();
+    }
+
+    public final Map<SQLTable, SQLElement> getElementsMap() {
+        return Collections.unmodifiableMap(this.elements);
+    }
+
+    /**
+     * Remove the passed instance. NOTE: this method only remove the specific instance passed, so
+     * it's a conditional <code>removeSQLElement(elem.getTable())</code>.
+     * 
+     * @param elem the instance to remove.
+     * @see #removeSQLElement(SQLTable)
+     */
+    public synchronized void removeSQLElement(SQLElement elem) {
+        if (this.getElement(elem.getTable()) == elem)
+            this.removeSQLElement(elem.getTable());
+    }
+
+    /**
+     * Remove the element for the passed table.
+     * 
+     * @param t the table to remove.
+     * @return the removed element, can be <code>null</code>.
+     */
+    public synchronized SQLElement removeSQLElement(SQLTable t) {
+        final SQLElement elem = this.elements.remove(t);
+        if (elem != null) {
+            this.tableNames.remove(elem.getTable().getName(), elem.getTable());
+            this.byClass.remove(elem.getClass(), elem.getTable());
+            // MAYBE only reset neighbours.
+            for (final SQLElement otherElem : this.elements.values())
+                otherElem.resetRelationships();
+            for (final DirectoryListener dl : this.listeners) {
+                dl.elementRemoved(elem);
+            }
+        }
+        return elem;
+    }
+
+    public synchronized final void addListener(DirectoryListener dl) {
+        this.listeners.add(dl);
+    }
+
+    public synchronized final void removeListener(DirectoryListener dl) {
+        this.listeners.remove(dl);
+    }
+
+    static public interface DirectoryListener {
+        void elementAdded(SQLElement elem);
+
+        void elementRemoved(SQLElement elem);
     }
 }

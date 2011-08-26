@@ -15,7 +15,7 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
-import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ITextWithCompletion;
@@ -169,8 +169,9 @@ public class AutoCompletionManager implements SelectionListener {
             }
             new Thread(new Runnable() {
                 public void run() {
-                    final SQLRowValues rowV = new SQLRowValues(AutoCompletionManager.this.fillFrom.getTable());
-                    rowV.loadAllSafe(AutoCompletionManager.this.fillFrom.getTable().getRow(id));
+                    // final SQLRowValues rowV = new
+                    // SQLRowValues(AutoCompletionManager.this.fillFrom.getTable());
+                    final SQLRow rowV = AutoCompletionManager.this.fillFrom.getTable().getRow(id);
                     final Set<String> keys = AutoCompletionManager.this.fillBy.keySet();
                     // Fill the table model rowvalue with the selected item using the fields defined
                     // with 'fill'
@@ -180,7 +181,7 @@ public class AutoCompletionManager implements SelectionListener {
                             for (Iterator<String> iter = keys.iterator(); iter.hasNext();) {
                                 String from = iter.next();
                                 String to = AutoCompletionManager.this.fillBy.get(from);
-                                Object fromV = rowV.getObject(from);
+                                Object fromV = getValueFrom(rowV, from);
                                 int column = AutoCompletionManager.this.tableModel.getColumnForField(to);
                                 if (column >= 0) {
 
@@ -211,6 +212,10 @@ public class AutoCompletionManager implements SelectionListener {
             }).start();
 
         }
+    }
+
+    protected Object getValueFrom(SQLRow row, String field) {
+        return row.getObject(field);
     }
 
     public void setWhere(Where w) {

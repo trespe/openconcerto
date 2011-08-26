@@ -60,13 +60,6 @@ public class GenerationReglementVente extends GenerationEcritures {
         this.mEcritures.put("DATE", this.date);
         this.mEcritures.put("NOM", this.nom);
         this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
-        SQLRow rowBanque = modeRegRow.getForeignRow("ID_BANQUE_POLE_PRODUIT");
-        if (rowBanque != null && rowBanque.getID() > 1) {
-            SQLRow rowJournal = rowBanque.getForeignRow("ID_JOURNAL");
-            if (rowJournal != null && rowJournal.getID() > 1) {
-                this.mEcritures.put("ID_JOURNAL", rowJournal.getID());
-            }
-        }
         this.mEcritures.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
 
         // si paiement comptant
@@ -221,11 +214,6 @@ public class GenerationReglementVente extends GenerationEcritures {
 
         if (idEchCli > 1) {
             valCheque.put("ID_CLIENT", Integer.valueOf(echeanceRow.getInt("ID_CLIENT")));
-        }
-
-        SQLRow rowModeRegl = encaisseMontantRow.getForeignRow("ID_MODE_REGLEMENT");
-        if (rowModeRegl != null && rowModeRegl.getID() > 1) {
-            valCheque.put("ID_BANQUE_POLE_PRODUIT", rowModeRegl.getInt("ID_BANQUE_POLE_PRODUIT"));
         }
 
         valCheque.put("DATE_VENTE", this.date);

@@ -20,12 +20,12 @@ import org.openconcerto.erp.element.objet.Journal;
 import org.openconcerto.erp.model.LoadingTableListener;
 import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.GestionDevise;
 
@@ -312,8 +312,28 @@ public class EtatJournauxPanel extends JPanel {
 
                 // Afficher la JTable du compte
                 if (!this.isShow) {
+                    final SQLElement element = Configuration.getInstance().getDirectory().getElement("ECRITURE");
+                    final SQLTable ecrTable = element.getTable();
 
-                    this.listEcriture = new ListPanelEcritures();
+                    Calendar cal = Calendar.getInstance();
+
+                    cal.setTime(date);
+                    cal.set(Calendar.DATE, 1);
+                    Date inf = cal.getTime();
+
+                    cal.set(Calendar.DATE, cal.getActualMaximum(Calendar.DATE));
+                    Date sup = cal.getTime();
+
+                    System.out.println("Inf : " + inf + " Sup : " + sup);
+                    Where w = new Where(ecrTable.getField("ID_JOURNAL"), "=", jrnl.getId());
+                    Where w2 = new Where(ecrTable.getField("DATE"), inf, sup);
+
+                    if (!UserManager.getInstance().getCurrentUser().getRights().haveRight(ComptaUserRight.ACCES_NOT_RESCTRICTED_TO_411)) {
+                        // TODO Show Restricted acces in UI
+                        w = w.and(new Where(ecrTable.getField("COMPTE_NUMERO"), "LIKE", "411%"));
+                    }
+
+                    this.listEcriture = new ListPanelEcritures(element, w.and(w2));
                     this.listEcriture.setModificationVisible(false);
                     this.listEcriture.setAjoutVisible(false);
                     this.listEcriture.setSuppressionVisible(false);
@@ -336,32 +356,6 @@ public class EtatJournauxPanel extends JPanel {
                     c.weightx = 1;
                     c.weighty = 1;
                     c.fill = GridBagConstraints.BOTH;
-
-                    SQLTable ecrTable = base.getTable("ECRITURE");
-
-                    Calendar cal = Calendar.getInstance();
-
-                    cal.setTime(date);
-                    cal.set(Calendar.DATE, 1);
-                    Date inf = cal.getTime();
-
-                    cal.set(Calendar.DATE, cal.getActualMaximum(Calendar.DATE));
-                    Date sup = cal.getTime();
-
-                    System.out.println("Inf : " + inf + " Sup : " + sup);
-                    Where w = new Where(ecrTable.getField("ID_JOURNAL"), "=", jrnl.getId());
-                    Where w2 = new Where(ecrTable.getField("DATE"), inf, sup);
-
-                    if (!UserManager.getInstance().getCurrentUser().getRights().haveRight(ComptaUserRight.ACCES_NOT_RESCTRICTED_TO_411)) {
-                        // TODO Show Restricted acces in UI
-                        w = w.and(new Where(ecrTable.getField("COMPTE_NUMERO"), "LIKE", "411%"));
-                    }
-
-                    this.listEcriture.setRequest(ListSQLRequest.copy(this.listEcriture.getElement().getListRequest(), w.and(w2)));
-
-                    for (int i = 0; i < this.listEcriture.getListe().getModel().getColumnCount(); i++) {
-                        this.listEcriture.getListe().getJTable().getColumnModel().getColumn(i).setCellRenderer(ListEcritureRenderer.getInstance());
-                    }
 
                     this.listEcriture.getListe().setSQLEditable(false);
 

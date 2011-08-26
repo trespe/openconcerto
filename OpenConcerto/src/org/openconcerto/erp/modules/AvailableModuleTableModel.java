@@ -13,10 +13,32 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.cc.IFactory;
+import org.openconcerto.utils.cc.IPredicate;
+
+import java.util.HashSet;
+import java.util.Set;
+
 public class AvailableModuleTableModel extends ModuleTableModel {
 
+    static private IFactory<Set<ModuleFactory>> getNonInstalled() {
+        return new IFactory<Set<ModuleFactory>>() {
+            @Override
+            public Set<ModuleFactory> createChecked() {
+                final ModuleManager mngr = ModuleManager.getInstance();
+                return CollectionUtils.select(mngr.getFactories().values(), new IPredicate<ModuleFactory>() {
+                    @Override
+                    public boolean evaluateChecked(ModuleFactory input) {
+                        return !mngr.isModuleInstalledLocally(input.getID());
+                    }
+                }, new HashSet<ModuleFactory>());
+            }
+        };
+    }
+
     public AvailableModuleTableModel() {
-        super(ModuleManager.getInstance().getFactories().values());
+        super(getNonInstalled());
     }
 
     @Override

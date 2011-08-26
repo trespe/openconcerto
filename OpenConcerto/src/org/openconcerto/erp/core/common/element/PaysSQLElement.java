@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
@@ -35,6 +36,7 @@ public class PaysSQLElement extends ComptaSQLConfElement {
         final List<String> l = new ArrayList<String>();
         l.add("CODE");
         l.add("NOM");
+        l.add("ID_TARIF");
         return l;
     }
 
@@ -59,12 +61,32 @@ public class PaysSQLElement extends ComptaSQLConfElement {
                 final JTextField textCode = new JTextField();
                 final JLabel labelNom = new JLabel(getLabelFor("NOM"));
                 final JLabel labelCode = new JLabel(getLabelFor("CODE"));
+                final JLabel labelTarif = new JLabel(getLabelFor("ID_TARIF"));
+                final ElementComboBox comboTarif = new ElementComboBox();
                 this.add(labelCode, c);
+                c.weightx = 0.5;
                 this.add(textCode, c);
+                c.weightx = 0;
                 this.add(labelNom, c);
+                c.weightx = 0.5;
                 this.add(textNom, c);
+                c.gridy++;
+                c.weightx = 0;
+                this.add(labelTarif, c);
+                c.weightx = 0.5;
+                this.add(comboTarif, c);
+
+                final JLabel labelLangue = new JLabel(getLabelFor("ID_LANGUE"));
+                final ElementComboBox comboLangue = new ElementComboBox();
+                c.weightx = 0;
+                this.add(labelLangue, c);
+                c.weightx = 0.5;
+                this.add(comboLangue, c);
+
                 this.addSQLObject(textCode, "CODE");
                 this.addSQLObject(textNom, "NOM");
+                this.addSQLObject(comboTarif, "ID_TARIF");
+                this.addSQLObject(comboLangue, "ID_LANGUE");
             }
         };
     }

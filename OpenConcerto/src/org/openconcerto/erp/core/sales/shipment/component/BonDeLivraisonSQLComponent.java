@@ -49,6 +49,8 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -56,6 +58,7 @@ import java.util.List;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
@@ -153,6 +156,43 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         this.comboClient = new ElementComboBox();
 
         this.add(this.comboClient, c);
+        final ElementComboBox boxTarif = new ElementComboBox();
+        this.comboClient.addValueListener(new PropertyChangeListener() {
+
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if (comboClient.getValue() != null) {
+                    Integer id = comboClient.getValue();
+
+                    if (id > 1) {
+
+                        SQLRow row = comboClient.getElement().getTable().getRow(id);
+                        if (comboClient.getElement().getTable().getFieldsName().contains("ID_TARIF")) {
+
+                            // SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                            // if (foreignRow.isUndefined() &&
+                            // !row.getForeignRow("ID_DEVISE").isUndefined()) {
+                            // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
+                            // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
+                            // foreignRow = rowValsD;
+                            //
+                            // }
+                            // tableBonItem.setTarif(foreignRow, true);
+                            SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                            if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
+                                    && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
+                                boxTarif.setValue(foreignRow.getID());
+                                // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
+                                // true);
+                            } else {
+                                boxTarif.setValue(foreignRow.getID());
+                            }
+                        }
+                    }
+                }
+
+            }
+        });
 
         // Bouton tout livrer
         JButton boutonAll = new JButton("Tout livrer");
@@ -171,6 +211,29 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
             }
         });
 
+        // Tarif
+        if (this.getTable().getFieldsName().contains("ID_TARIF")) {
+            // TARIF
+            c.gridy++;
+            c.gridx = 0;
+            c.weightx = 0;
+            c.weighty = 0;
+            c.gridwidth = 1;
+            this.add(new JLabel("Tarif à appliquer"), c);
+            c.gridx++;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+
+            c.weightx = 1;
+            this.add(boxTarif, c);
+            this.addView(boxTarif, "ID_TARIF");
+            boxTarif.addValueListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    tableBonItem.setTarif(boxTarif.getSelectedRow(), false);
+                }
+            });
+        }
         // Element du bon
         List<JButton> l = new ArrayList<JButton>();
         l.add(boutonAll);
@@ -463,10 +526,38 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
         if (idCommande > 1) {
             SQLInjector injector = SQLInjector.getInjector(commande.getTable(), this.getTable());
-            this.select(injector.createRowValuesFrom(idCommande));
+            SQLRow rowCmd = commande.getTable().getRow(idCommande);
+            SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(idCommande);
+            String string = rowCmd.getString("NOM");
+            createRowValuesFrom.put("NOM", string + (string.trim().length() == 0 ? "" : ",") + rowCmd.getString("NUMERO"));
+            this.select(createRowValuesFrom);
         }
 
         loadItem(this.tableBonItem, commande, idCommande, commandeElt);
+    }
+
+    /**
+     * Chargement des éléments d'une facture dans la table
+     * 
+     * @param idFacture
+     * 
+     */
+    public void loadFacture(int idFacture) {
+
+        SQLElement facture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+        SQLElement factureElt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
+
+        if (idFacture > 1) {
+            SQLInjector injector = SQLInjector.getInjector(facture.getTable(), this.getTable());
+            SQLRow rowFact = facture.getTable().getRow(idFacture);
+            SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(idFacture);
+            String string = rowFact.getString("NOM");
+            createRowValuesFrom.put("NOM", string + (string.trim().length() == 0 ? "" : ",") + rowFact.getString("NUMERO"));
+            this.select(createRowValuesFrom);
+        }
+
+        loadItem(this.tableBonItem, facture, idFacture, factureElt);
+
     }
 
     /**
@@ -479,6 +570,10 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         SQLElement facture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
         SQLElement factureElt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
         loadItem(this.tableBonItem, facture, idSaisieVenteFacture, factureElt);
+        for (int i = 0; i < this.tableBonItem.getRowValuesTable().getRowCount(); i++) {
+            SQLRowValues rowVals = this.tableBonItem.getRowValuesTable().getRowValuesTableModel().getRowValuesAt(i);
+            this.tableBonItem.getRowValuesTable().getRowValuesTableModel().putValue(rowVals.getObject("QTE"), i, "QTE_LIVREE");
+        }
     }
 
     /***********************************************************************************************

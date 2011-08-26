@@ -18,6 +18,7 @@ import org.openconcerto.erp.core.common.component.SocieteCommonSQLElement;
 import org.openconcerto.erp.core.common.element.AdresseCommonSQLElement;
 import org.openconcerto.erp.core.common.element.AdresseSQLElement;
 import org.openconcerto.erp.core.common.element.DepartementSQLElement;
+import org.openconcerto.erp.core.common.element.LangueSQLElement;
 import org.openconcerto.erp.core.common.element.MoisSQLElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.element.PaysSQLElement;
@@ -103,7 +104,10 @@ import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.pos.element.CaisseTicketSQLElement;
 import org.openconcerto.erp.core.sales.pos.element.SaisieVenteComptoirSQLElement;
 import org.openconcerto.erp.core.sales.pos.element.TicketCaisseSQLElement;
+import org.openconcerto.erp.core.sales.price.element.DeviseSQLElement;
 import org.openconcerto.erp.core.sales.price.element.TarifSQLElement;
+import org.openconcerto.erp.core.sales.product.element.ArticleDesignationSQLElement;
+import org.openconcerto.erp.core.sales.product.element.ArticleTarifSQLElement;
 import org.openconcerto.erp.core.sales.product.element.FamilleArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.element.MetriqueSQLElement;
 import org.openconcerto.erp.core.sales.product.element.ModeVenteArticleSQLElement;
@@ -123,20 +127,23 @@ import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElem
 import org.openconcerto.erp.core.supplychain.stock.element.StockSQLElement;
 import org.openconcerto.erp.core.supplychain.supplier.element.EcheanceFournisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.supplier.element.FournisseurSQLElement;
-import org.openconcerto.erp.injector.AffaireFactureSQLInjector;
+import org.openconcerto.erp.injector.ArticleCommandeEltSQLInjector;
 import org.openconcerto.erp.injector.BonFactureSQLInjector;
 import org.openconcerto.erp.injector.BrFactureAchatSQLInjector;
 import org.openconcerto.erp.injector.CommandeBlEltSQLInjector;
 import org.openconcerto.erp.injector.CommandeBlSQLInjector;
 import org.openconcerto.erp.injector.CommandeBrSQLInjector;
+import org.openconcerto.erp.injector.CommandeCliCommandeSQLInjector;
 import org.openconcerto.erp.injector.CommandeFactureAchatSQLInjector;
 import org.openconcerto.erp.injector.CommandeFactureClientSQLInjector;
+import org.openconcerto.erp.injector.DevisCommandeFournisseurSQLInjector;
 import org.openconcerto.erp.injector.DevisCommandeSQLInjector;
 import org.openconcerto.erp.injector.DevisEltFactureEltSQLInjector;
 import org.openconcerto.erp.injector.DevisFactureSQLInjector;
 import org.openconcerto.erp.injector.EcheanceEncaisseSQLInjector;
-import org.openconcerto.erp.injector.ElementPropositionAffaireSQLInjector;
 import org.openconcerto.erp.injector.FactureAvoirSQLInjector;
+import org.openconcerto.erp.injector.FactureBonSQLInjector;
+import org.openconcerto.erp.injector.FactureCommandeSQLInjector;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.rights.ComptaTotalUserRight;
 import org.jopendocument.link.OOConnexion;
@@ -179,7 +186,7 @@ import javax.swing.SwingUtilities;
 // final so we can use setupLogging(), see the constructor comment
 public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration {
 
-    static final String APP_NAME = "OpenConcerto";
+    public static final String APP_NAME = "OpenConcerto";
     private static final String DEFAULT_ROOT = "Common";
     // the properties path from this class
     private static final String PROPERTIES = "main.properties";
@@ -359,7 +366,12 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             // H2 create the database on connection
             final DBSystemRoot sysRoot = tmpServer.getSystemRoot(this.getSystemRootName());
             if (!sysRoot.contains(getRootName())) {
-                final String createScript = this.getResource("/webstart/create.sql");
+                String createScript = null;
+                try {
+                    createScript = this.getResource("/webstart/create.sql");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
                 if (createScript == null)
                     throw new IllegalStateException("Couldn't find database creation script");
                 final SQLDataSource ds = sysRoot.getDataSource();
@@ -388,6 +400,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     @Override
     protected ShowAs createShowAs() {
+        System.out.println("ComptaPropsConfiguration.createShowAszzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz()");
         final ShowAs showAs = super.createShowAs();
 
         showAs.show("ADRESSE_COMMON", SQLRow.toList("RUE,VILLE"));
@@ -417,12 +430,15 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         final SQLElementDirectory dir = super.createDirectory();
         dir.addSQLElement(new AdresseCommonSQLElement());
         dir.addSQLElement(new ExerciceCommonSQLElement());
+        dir.addSQLElement(DeviseSQLElement.class);
         dir.addSQLElement(new SocieteCommonSQLElement());
         return dir;
     }
 
     private void setSocieteDirectory() {
         SQLElementDirectory dir = Configuration.getInstance().getDirectory();
+        dir.addSQLElement(ArticleTarifSQLElement.class);
+        dir.addSQLElement(ArticleDesignationSQLElement.class);
         dir.addSQLElement(new TitrePersonnelSQLElement());
         dir.addSQLElement(new ContactSQLElement());
         dir.addSQLElement(new SaisieKmItemSQLElement());
@@ -528,6 +544,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
         dir.addSQLElement(new JournalSQLElement());
 
+        dir.addSQLElement(LangueSQLElement.class);
+
         dir.addSQLElement(new MetriqueSQLElement());
         dir.addSQLElement(new ModeleCourrierClientSQLElement());
         dir.addSQLElement(new ModeVenteArticleSQLElement());
@@ -579,10 +597,14 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     private void setSocieteSQLInjector() {
         final DBRoot rootSociete = getRootSociete();
-
+        new ArticleCommandeEltSQLInjector(rootSociete);
+        new CommandeCliCommandeSQLInjector(rootSociete);
         new FactureAvoirSQLInjector(rootSociete);
+        new FactureBonSQLInjector(rootSociete);
+        new FactureCommandeSQLInjector(rootSociete);
         new DevisFactureSQLInjector(rootSociete);
         new DevisCommandeSQLInjector(rootSociete);
+        new DevisCommandeFournisseurSQLInjector(rootSociete);
         new CommandeBlEltSQLInjector(rootSociete);
         new CommandeBlSQLInjector(rootSociete);
         new BonFactureSQLInjector(rootSociete);
@@ -597,13 +619,12 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
 
     private void setSocieteShowAs() {
-        final ComptaPropsConfiguration configuration = (ComptaPropsConfiguration) Configuration.getInstance();
-        final ShowAs showAs = configuration.getShowAs();
+        final ShowAs showAs = this.getShowAs();
         showAs.setRoot(getRootSociete());
         showAs.show("ARTICLE", "NOM");
         showAs.show("ACTIVITE", "CODE_ACTIVITE");
         showAs.show("ADRESSE", SQLRow.toList("RUE,VILLE"));
-        final DBRoot root = configuration.getRootSociete();
+        final DBRoot root = this.getRootSociete();
         showAs.show("AXE_ANALYTIQUE", "NOM");
 
         showAs.show("CHEQUE_A_ENCAISSER", "MONTANT", "ID_CLIENT");
@@ -634,7 +655,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.show("ECHEANCE_FOURNISSEUR", SQLRow.toList("ID_FOURNISSEUR,ID_MOUVEMENT"));
         showAs.show("FAMILLE_ARTICLE", "NOM");
         showAs.show("FICHE_PAYE", SQLRow.toList("ID_MOIS,ANNEE"));
-        showAs.show("FOURNISSEUR", "TYPE", "NOM");
+        showAs.show("FOURNISSEUR", "NOM");
 
         showAs.show("IDCC", "NOM");
 
@@ -652,7 +673,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.show("PAYS", "CODE", "NOM");
         showAs.show("PIECE", "ID", "NOM");
 
-        final SQLElementDirectory directory = configuration.getDirectory();
+        final SQLElementDirectory directory = this.getDirectory();
         showAs.show("REPARTITION_ANALYTIQUE", "NOM");
         showAs.show("REGIME_BASE", "ID_CODE_REGIME_BASE");
         showAs.show("REGLEMENT_PAYE", "NOM_BANQUE", "RIB");
@@ -672,8 +693,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.showField("SAISIE_VENTE_FACTURE_ELEMENT.ID_SAISIE_VENTE_FACTURE", listFieldFactureElt);
 
         showAs.show("SALARIE", SQLRow.toList("CODE,NOM,PRENOM"));
-        showAs.show("SECTEUR_ACTIVITE", "NOM");
-        showAs.show("SECRETAIRE", SQLRow.toList("NOM,PRENOM"));
 
         showAs.show("SITUATION_FAMILIALE", "NOM");
         showAs.show("STOCK", "QTE_REEL");
@@ -735,4 +754,5 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     public String getServerIp() {
         return getProperty("server.ip");
     }
+
 }

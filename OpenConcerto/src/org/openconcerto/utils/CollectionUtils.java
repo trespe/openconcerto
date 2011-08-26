@@ -13,6 +13,8 @@
  
  package org.openconcerto.utils;
 
+import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
@@ -55,19 +57,18 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
      * @return la chaine composée de chacun des éléments séparés par <code>sep</code>.
      */
     static public final <E> String join(final Collection<E> c, final String sep, final ITransformer<? super E, ?> tf) {
-        if (c.size() == 0)
+        final int size = c.size();
+        if (size == 0)
             return "";
 
-        final StringBuffer res = new StringBuffer(c.size() * 4);
+        final StringBuffer res = new StringBuffer(size * 4);
         if (c instanceof RandomAccess && c instanceof List) {
             final List<E> list = (List<E>) c;
-            final int stop = c.size() - 1;
-            for (int i = 0; i < stop; i++) {
+            for (int i = 0; i < size; i++) {
                 res.append(tf.transformChecked(list.get(i)));
-                res.append(sep);
-
+                if (i < size - 1)
+                    res.append(sep);
             }
-            res.append(tf.transformChecked(list.get(stop)));
         } else {
             final Iterator<E> iter = c.iterator();
             while (iter.hasNext()) {
@@ -93,7 +94,32 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
         return join(c, sep, org.openconcerto.utils.cc.Transformer.<T> nopTransformer());
     }
 
-    // *** split
+    static public <T, U, C extends Collection<? super U>> C transformAndFilter(final Collection<T> c, final ITransformer<? super T, U> transf, final IPredicate<? super U> filter, final C res) {
+        iterate(c, new IClosure<T>() {
+            @Override
+            public void executeChecked(T input) {
+                final U item = transf.transformChecked(input);
+                if (filter.evaluateChecked(item))
+                    res.add(item);
+            }
+        });
+        return res;
+    }
+
+    static public <T> void iterate(final Collection<T> c, final IClosure<T> cl) {
+        if (c instanceof RandomAccess && c instanceof List) {
+            final List<T> list = (List<T>) c;
+            final int size = c.size();
+            for (int i = 0; i < size; i++) {
+                cl.executeChecked(list.get(i));
+            }
+        } else {
+            final Iterator<T> iter = c.iterator();
+            while (iter.hasNext()) {
+                cl.executeChecked(iter.next());
+            }
+        }
+    }
 
     private static final Pattern COMMA = Pattern.compile("\\p{Space}*,\\p{Space}*");
 
@@ -163,6 +189,11 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
      */
     static public void delete(List<?> l, int from) {
         delete(l, from, -1);
+    }
+
+    public static <T, C extends Collection<? super T>> C select(Collection<T> inputCollection, IPredicate<? super T> predicate, C outputCollection) {
+        org.apache.commons.collections.CollectionUtils.select(inputCollection, predicate, outputCollection);
+        return outputCollection;
     }
 
     /**

@@ -13,11 +13,11 @@
  
  package org.openconcerto.erp.panel;
 
-import java.util.List;
-
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+
+import java.util.List;
 
 import javax.swing.tree.DefaultMutableTreeNode;
 

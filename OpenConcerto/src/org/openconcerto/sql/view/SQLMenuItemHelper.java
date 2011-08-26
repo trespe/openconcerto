@@ -15,16 +15,14 @@
 
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.cc.IFactory;
 
 import java.awt.event.ActionEvent;
 
 import javax.swing.AbstractAction;
-import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
-
-import org.apache.commons.collections.Factory;
 
 /**
  * Allow to easily create JMenuItem from an SQLElement (for creating and listing). If you want
@@ -94,13 +92,18 @@ public class SQLMenuItemHelper {
 
     public final JMenuItem createEditMenuItem(final SQLElement elem) {
         this.menuItemCreated(elem);
-        final SQLMenuItemAction menuItemAction = new SQLMenuItemAction(elem, "Créer " + elem.getSingularName(), new Factory() {
-            public Object create() {
+        return new JMenuItem(createEditAction(elem));
+    }
+
+    public final SQLMenuItemAction createEditAction(final SQLElement elem) {
+        final SQLMenuItemAction menuItemAction = new SQLMenuItemAction(elem, "Créer " + elem.getSingularName(), new IFactory<JFrame>() {
+            @Override
+            public JFrame createChecked() {
                 return ppFrame(createEditFrame(elem), null);
             }
         });
         this.actionCreated(menuItemAction);
-        return new JMenuItem(menuItemAction);
+        return menuItemAction;
     }
 
     public final JMenuItem createListMenuItem(final SQLElement elem) {
@@ -109,24 +112,42 @@ public class SQLMenuItemHelper {
 
     public final JMenuItem createListMenuItem(final SQLElement elem, final IClosure<IListFrame> initFrame) {
         this.menuItemCreated(elem);
-        final SQLMenuItemAction menuItemAction = new SQLMenuItemAction(elem, "Gérer les " + elem.getPluralName(), new Factory() {
-            public Object create() {
+        return new JMenuItem(createListAction(elem, initFrame));
+    }
+
+    public final SQLMenuItemAction createListAction(final SQLElement elem) {
+        return this.createListAction(elem, null);
+    }
+
+    public final SQLMenuItemAction createListAction(final SQLElement elem, final IClosure<IListFrame> initFrame) {
+        final SQLMenuItemAction menuItemAction = new SQLMenuItemAction(elem, "Gérer les " + elem.getPluralName(), new IFactory<JFrame>() {
+            @Override
+            public JFrame createChecked() {
                 return ppFrame(createListFrame(elem), initFrame);
             }
         });
         this.actionCreated(menuItemAction);
-        return new JMenuItem(menuItemAction);
+        return menuItemAction;
     }
 
     public static abstract class AbstractSQLMenuItemAction extends AbstractAction {
 
         private final SQLElement elem;
         private JFrame frame;
+        private boolean cacheFrame;
 
         public AbstractSQLMenuItemAction(SQLElement elem, String name) {
+            super(name);
             this.elem = elem;
-            this.putValue(Action.NAME, name);
             this.frame = null;
+            this.cacheFrame = true;
+        }
+
+        public final void setCacheFrame(boolean cacheFrame) {
+            if (this.cacheFrame != cacheFrame) {
+                this.cacheFrame = cacheFrame;
+                this.frame = null;
+            }
         }
 
         /**
@@ -134,11 +155,15 @@ public class SQLMenuItemHelper {
          * 
          * @return la frame de cet élément de menu.
          */
-        public synchronized final JFrame getFrame() {
-            if (this.frame == null) {
-                this.frame = this.createFrame();
+        public final JFrame getFrame() {
+            if (this.cacheFrame) {
+                if (this.frame == null) {
+                    this.frame = this.createFrame();
+                }
+                return this.frame;
+            } else {
+                return this.createFrame();
             }
-            return this.frame;
         }
 
         protected abstract JFrame createFrame();
@@ -147,6 +172,7 @@ public class SQLMenuItemHelper {
             return this.elem;
         }
 
+        @Override
         public void actionPerformed(ActionEvent e) {
             this.getFrame().setVisible(true);
         }
@@ -154,15 +180,16 @@ public class SQLMenuItemHelper {
 
     public static class SQLMenuItemAction extends AbstractSQLMenuItemAction {
 
-        private final Factory frameFactory;
+        private final IFactory<? extends JFrame> frameFactory;
 
-        public SQLMenuItemAction(SQLElement elem, String name, Factory frameFactory) {
+        public SQLMenuItemAction(SQLElement elem, String name, IFactory<? extends JFrame> frameFactory) {
             super(elem, name);
             this.frameFactory = frameFactory;
         }
 
+        @Override
         protected JFrame createFrame() {
-            return (JFrame) this.frameFactory.create();
+            return this.frameFactory.createChecked();
         }
 
     }

@@ -13,7 +13,15 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElementDirectory;
+
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public abstract class AbstractModule {
 
@@ -44,11 +52,56 @@ public abstract class AbstractModule {
         return this.getFactory().getMajorVersion();
     }
 
-    protected void install() {
+    /**
+     * Should create permanent items. NOTE: all items created through <code>ctxt</code> will be
+     * dropped automatically, i.e. no action is necessary in {@link #uninstall()}.
+     * 
+     * @param ctxt to create database objects.
+     */
+    protected void install(DBContext ctxt) {
 
     }
 
+    /**
+     * Should add elements for the tables of this module. It's also the place to
+     * {@link SQLElement#setAction(String, org.openconcerto.sql.element.SQLElement.ReferenceAction)set actions}
+     * for foreign keys of this module. NOTE: this method is called as long as the module is
+     * installed in the database, even if it is stopped.
+     * 
+     * @param dir the directory where to add elements.
+     */
+    protected void setupElements(SQLElementDirectory dir) {
+    }
+
+    /**
+     * Called before start() to add fields to {@link SQLComponent}.
+     * 
+     * @param ctxt context to modify sql components.
+     */
+    protected void setupComponents(ComponentsContext ctxt) {
+    }
+
     protected abstract void start();
+
+    public List<ModulePreferencePanelDesc> getPrefDescriptors() {
+        return Collections.emptyList();
+    }
+
+    public final Map<Boolean, List<ModulePreferencePanelDesc>> getPrefDescriptorsByLocation() {
+        final Map<Boolean, List<ModulePreferencePanelDesc>> res = new HashMap<Boolean, List<ModulePreferencePanelDesc>>();
+        for (final ModulePreferencePanelDesc desc : getPrefDescriptors()) {
+            final Boolean key = desc.isLocal();
+            final List<ModulePreferencePanelDesc> l;
+            if (!res.containsKey(key)) {
+                l = new ArrayList<ModulePreferencePanelDesc>();
+                res.put(key, l);
+            } else {
+                l = res.get(key);
+            }
+            l.add(desc);
+        }
+        return res;
+    }
 
     protected abstract void stop();
 

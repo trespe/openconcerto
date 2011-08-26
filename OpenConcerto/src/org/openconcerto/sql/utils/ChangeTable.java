@@ -31,7 +31,9 @@ import org.openconcerto.utils.cc.ITransformer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -72,6 +74,16 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         }
     }
 
+    public static final Set<ClauseType> ORDERED_TYPES;
+
+    static {
+        final Set<ClauseType> tmp = new LinkedHashSet<ClauseType>(ClauseType.values().length);
+        for (final ConcatStep step : ConcatStep.values())
+            tmp.addAll(step.getTypes());
+        assert tmp.equals(EnumSet.allOf(ClauseType.class)) : "ConcatStep is missing some types : " + tmp;
+        ORDERED_TYPES = Collections.unmodifiableSet(tmp);
+    }
+
     /**
      * Compute the SQL needed to create all passed tables, handling foreign key cycles.
      * 
@@ -79,11 +91,11 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @param r where to create them.
      * @return the SQL needed.
      */
-    public static List<String> cat(List<? extends ChangeTable> cts, final String r) {
+    public static List<String> cat(List<? extends ChangeTable<?>> cts, final String r) {
         return cat(cts, r, false);
     }
 
-    private static List<String> cat(List<? extends ChangeTable> cts, final String r, final boolean forceCat) {
+    private static List<String> cat(List<? extends ChangeTable<?>> cts, final String r, final boolean forceCat) {
         final List<String> res = new ArrayList<String>();
         for (final ConcatStep step : ConcatStep.values()) {
             for (final ChangeTable<?> ct : cts) {
@@ -93,15 +105,17 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
                 }
             }
         }
+        // don't return [""] because the caller might test the size of the result and assume that
+        // the DB was changed
         // MySQL needs to have its "alter table add/drop fk" in separate execute()
         // (multiple add would work in 5.0)
-        if (!forceCat && cts.size() > 0 && cts.get(0).getSyntax().getSystem() == SQLSystem.MYSQL)
+        if (!forceCat && (cts.size() == 0 || cts.get(0).getSyntax().getSystem() == SQLSystem.MYSQL))
             return res;
         else
             return Collections.singletonList(CollectionUtils.join(res, "\n"));
     }
 
-    public static String catToString(List<? extends ChangeTable> cts, final String r) {
+    public static String catToString(List<? extends ChangeTable<?>> cts, final String r) {
         return cat(cts, r, true).get(0);
     }
 
@@ -191,7 +205,11 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     public abstract T addColumn(String name, String definition);
 
     public final T addColumn(SQLField f) {
-        return this.addColumn(f.getName(), this.getSyntax().getFieldDecl(f));
+        return this.addColumn(f.getName(), f);
+    }
+
+    public final T addColumn(final String name, SQLField f) {
+        return this.addColumn(name, this.getSyntax().getFieldDecl(f));
     }
 
     public final T addIndex(final Index index) {

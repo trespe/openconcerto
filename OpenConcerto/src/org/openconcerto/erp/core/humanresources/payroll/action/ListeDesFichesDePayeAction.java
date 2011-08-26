@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheet;
 import org.openconcerto.erp.core.humanresources.payroll.ui.PanelCumulsPaye;
@@ -23,27 +22,24 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.IListener;
 import org.openconcerto.sql.view.ListeAddPanel;
-import org.openconcerto.ui.table.AlternateTableCellRenderer;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
-import java.math.BigInteger;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPopupMenu;
-import javax.swing.JTable;
-
 
 public class ListeDesFichesDePayeAction extends CreateFrameAbstractAction {
 
@@ -57,26 +53,16 @@ public class ListeDesFichesDePayeAction extends CreateFrameAbstractAction {
     public JFrame createFrame() {
 
         // Liste Panel avec impossibilité de modifier les fiches de paye
-        final ListeAddPanel liste = new ListFichePayeAddPanel(Configuration.getInstance().getDirectory().getElement("FICHE_PAYE"));
+        final SQLElement elt = Configuration.getInstance().getDirectory().getElement("FICHE_PAYE");
+        final SQLTableModelSourceOnline src = elt.getTableSource(true);
+        // On affcihe seulement les fiches de payes validées
+        src.getReq().setWhere(new Where(elt.getTable().getField("VALIDE"), "=", Boolean.TRUE));
+        final ListeAddPanel liste = new ListFichePayeAddPanel(elt, new IListe(src));
 
         final IListFrame frame = new IListFrame(liste);
 
-        // On affcihe seulement les fiches de payes validées
-        liste.setRequest(ListSQLRequest.copy(liste.getElement().getListRequest(), new Where(liste.getElement().getTable().getField("VALIDE"), "=", Boolean.TRUE)));
         frame.getPanel().getListe().setSQLEditable(false);
         frame.getPanel().setAddVisible(false);
-
-        // Renderer
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        AlternateTableCellRenderer niceRend = new AlternateTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            } else {
-                table.getColumnModel().getColumn(i).setCellRenderer(niceRend);
-            }
-        }
 
         final PanelCumulsPaye pCumuls = new PanelCumulsPaye();
         final PanelFrame p = new PanelFrame(pCumuls, "Détails cumuls et variables");
@@ -145,10 +131,16 @@ public class ListeDesFichesDePayeAction extends CreateFrameAbstractAction {
     }
 
     class ListFichePayeAddPanel extends ListeAddPanel {
+        {
+            this.buttonModifier.setText("Voir");
+        }
 
         public ListFichePayeAddPanel(SQLElement component) {
             super(component);
-            this.buttonModifier.setText("Voir");
+        }
+
+        public ListFichePayeAddPanel(SQLElement component, IListe list) {
+            super(component, list);
         }
 
         protected void handleAction(JButton source, ActionEvent evt) {

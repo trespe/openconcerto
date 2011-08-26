@@ -26,7 +26,6 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-
 import java.util.List;
 import java.util.Vector;
 

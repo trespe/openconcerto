@@ -442,6 +442,11 @@ public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Do
         this.supp.addValidListener(l);
     }
 
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.supp.removeValidListener(l);
+    }
+
     public void rmValueListener(PropertyChangeListener l) {
         this.supp.rmValueListener(l);
     }

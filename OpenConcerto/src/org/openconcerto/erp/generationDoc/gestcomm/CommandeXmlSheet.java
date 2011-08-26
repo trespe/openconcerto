@@ -32,6 +32,16 @@ public class CommandeXmlSheet extends AbstractSheetXml {
         return tuple;
     }
 
+    @Override
+    public SQLRow getRowLanguage() {
+        SQLRow rowFournisseur = this.row.getForeignRow("ID_FOURNISSEUR");
+        if (rowFournisseur.getTable().contains("ID_LANGUE")) {
+            return rowFournisseur.getForeignRow("ID_LANGUE");
+        } else {
+            return super.getRowLanguage();
+        }
+    }
+
     // FIXME Prefs printer location
     public CommandeXmlSheet(SQLRow row) {
         super(row);
@@ -39,8 +49,8 @@ public class CommandeXmlSheet extends AbstractSheetXml {
         this.elt = Configuration.getInstance().getDirectory().getElement("COMMANDE");
         Calendar cal = Calendar.getInstance();
         cal.setTime((Date) row.getObject("DATE"));
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false)+ File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, false)+ File.separator + cal.get(Calendar.YEAR);
+        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
+        this.locationPDF = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
         this.modele = "Commande";
     }
 

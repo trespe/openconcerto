@@ -169,6 +169,11 @@ public final class JTime extends JPanel implements ValueWrapper<Date>, TextCompo
     }
 
     @Override
+    public void removeValidListener(ValidListener l) {
+        // nothing to do
+    }
+
+    @Override
     public String getValidationText() {
         return null;
     }

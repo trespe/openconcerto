@@ -46,8 +46,8 @@ import javax.swing.SwingWorker;
 import javax.swing.event.DocumentEvent;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
-import javax.swing.text.JTextComponent;
 import javax.swing.text.DocumentFilter.FilterBypass;
+import javax.swing.text.JTextComponent;
 
 /**
  * A comboBox that can be editable or not, and whose values are taken from a ITextComboCache.
@@ -401,6 +401,11 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
     }
 
     public void addValidListener(ValidListener l) {
+        // nothing to do
+    }
+
+    @Override
+    public void removeValidListener(ValidListener l) {
         // nothing to do
     }
 

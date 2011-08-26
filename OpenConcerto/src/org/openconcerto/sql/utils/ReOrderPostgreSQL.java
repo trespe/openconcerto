@@ -66,7 +66,7 @@ final class ReOrderPostgreSQL extends ReOrder {
         final UpdateBuilder update = new UpdateBuilder(this.t);
         update.addTable("REORDER", "M");
         update.addTable("inc", null);
-        update.set(oF.getName(), "M.index * inc.val + " + getFirst());
+        update.set(oF.getName(), "M.index * inc.val + " + getFirstOrderValue());
         res.add(update.asString() + " where M.\"ID\" = " + this.t.getKey().getFieldRef() + ";");
 
         // drop tables so we can reorder more than once in the same transaction

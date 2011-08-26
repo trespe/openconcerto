@@ -17,8 +17,8 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.FastPrintAskFrame;
 import org.openconcerto.erp.core.common.ui.PreviewFrame;
 import org.openconcerto.erp.preferences.TemplateNXProps;
+import org.openconcerto.openoffice.OOUtils;
 import org.jopendocument.link.Component;
-import org.jopendocument.link.OOConnexion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
@@ -27,8 +27,8 @@ import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
 
 import java.io.File;
+import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
-
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -53,6 +53,9 @@ public abstract class SheetXml {
     // id
     protected SQLRow row;
 
+    // Language du document
+    protected SQLRow rowLanguage;
+
     // emplacement du fichier OO généré
     protected String locationOO;
 
@@ -74,7 +77,7 @@ public abstract class SheetXml {
     protected static UncaughtExceptionHandler DEFAULT_HANDLER = new UncaughtExceptionHandler() {
         @Override
         public void uncaughtException(Thread t, Throwable e) {
-            e.printStackTrace();
+            ExceptionHandler.handle("Erreur de generation", e);
         }
     };
 
@@ -157,6 +160,14 @@ public abstract class SheetXml {
         return getValidFileName(getFileName()) + ".sxc";
     }
 
+    public SQLRow getRowLanguage() {
+        return this.rowLanguage;
+    }
+
+    public String getReference() {
+        return "";
+    }
+
     /**
      * retourne l'emplacement de destination d'un Tuple<id (ex:LocationDevis), Nom (ex:Devis)>
      */
@@ -202,24 +213,12 @@ public abstract class SheetXml {
         return f;
     }
 
-    // private String getPDFName() {
-    // return getFileName() + ".pdf";
-    // }
-
     public void showDocument() {
-
         final File f = getFile();
-
         try {
-            final OOConnexion ooConnexion = ComptaPropsConfiguration.getOOConnexion();
-            if (ooConnexion == null) {
-                return;
-            }
-            ooConnexion.loadDocument(f, false);
-        } catch (Exception e) {
-
-            e.printStackTrace();
-            ExceptionHandler.handle("Impossible de charger le document OpentOffice", e);
+            OOUtils.open(f);
+        } catch (IOException e) {
+            ExceptionHandler.handle("Impossible d'ouvrir " + f.getAbsolutePath(), e);
         }
     }
 

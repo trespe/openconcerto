@@ -17,6 +17,7 @@
 package org.openconcerto.sql.element;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -33,6 +34,7 @@ import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.sqlobject.itemview.SimpleRowItemView;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.ui.DisplayabilityListener;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.text.TextBehaviour;
@@ -58,6 +60,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import javax.swing.JCheckBox;
@@ -93,6 +96,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     private boolean alwaysEditable;
     private final Set<SQLField> hide;
     private String invalidityCause;
+    private FormLayouter additionalFieldsPanel;
 
     public BaseSQLComponent(SQLElement element) {
         super(element);
@@ -134,18 +138,18 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         return this.addViewJComponent(field, spec);
     }
 
-    private Component addViewJComponent(String field, String spec) {
+    private Component addViewJComponent(String field, Object spec) {
         if (getElement().getPrivateElement(field) != null) {
             // private
             final SQLComponent comp = this.getElement().getPrivateElement(field).createComponent();
 
             // TODO add a callback so that RowItemView is notified when added to a SQLComponent
-            // avoid parsing twice spec, and the 'if instanceof ElementSQLObject'
-            final SpecParser parser = new SpecParser(spec);
+            // avoiding the 'if instanceof ElementSQLObject' in addInitedView()
+            final SpecParser parser = SpecParser.create(spec);
             DefaultElementSQLObject dobj = new DefaultElementSQLObject(this, comp);
             dobj.setDecorated(parser.isDecorated());
             dobj.showSeparator(parser.showSeparator());
-            return this.addView((MutableRowItemView) dobj, field, spec);
+            return this.addView((MutableRowItemView) dobj, field, parser);
         } else if (getField(field).isKey()) {
             // foreign
             return this.addView(new ElementComboBox(), field, spec);
@@ -227,11 +231,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         // if (obj == null)
         // throw new IllegalArgumentException("obj is null");
 
-        final Spec spec;
-        if (specObj == null || specObj instanceof String) {
-            spec = new SpecParser((String) specObj);
-        } else
-            spec = (SpecParser) specObj;
+        final Spec spec = SpecParser.create(specObj);
 
         // ParentForeignField is always required
         final String fieldName = v.getField().getName();
@@ -243,7 +243,14 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         this.getRequest().add(v);
 
         if (!this.hide.contains(v.getField())) {
-            this.addToUI(v, spec.getWhere());
+            if (spec.isAdditional()) {
+                if (this.additionalFieldsPanel == null)
+                    Log.get().warning("No additionalFieldsPanel for " + v.getField() + " : " + v);
+                else
+                    this.additionalFieldsPanel.add(getDesc(v), v.getComp());
+            } else {
+                this.addToUI(v, spec.getWhere());
+            }
         }
         if (dontEdit(v))
             v.setEditable(false);
@@ -261,6 +268,16 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     }
 
     protected final void inited() {
+        super.inited();
+        for (final Entry<String, JComponent> e : this.getElement().getAdditionalFields().entrySet()) {
+            final SpecParser spec = new SpecParser(null, true);
+            final JComponent comp = e.getValue();
+            if (comp == null)
+                // infer component
+                this.addViewJComponent(e.getKey(), spec);
+            else
+                this.addView(comp, e.getKey(), spec);
+        }
         // assure that added views are consistent with our editable status
         this.setChildrenEditable(this.isEditable());
         for (final SQLRowItemView v : this.getRequest().getViews()) {
@@ -306,6 +323,10 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         // implement it to do nothing since subclass may choose not to use it
     }
 
+    protected final void setAdditionalFieldsPanel(FormLayouter panel) {
+        this.additionalFieldsPanel = panel;
+    }
+
     public final SQLRowItemView getView(String name) {
         return this.getRequest().getView(name);
     }
@@ -325,6 +346,11 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
 
     public void addValidListener(ValidListener l) {
         this.listeners.add(l);
+    }
+
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.listeners.remove(l);
     }
 
     protected synchronized final void fireValidChange() {
@@ -562,16 +588,34 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         boolean isRequired();
 
         String getWhere();
+
+        boolean isAdditional();
     }
 
     private static final class SpecParser implements Spec {
+
+        static public SpecParser create(Object specObj) {
+            final SpecParser spec;
+            if (specObj == null || specObj instanceof String) {
+                spec = new SpecParser((String) specObj);
+            } else {
+                spec = (SpecParser) specObj;
+            }
+            return spec;
+        }
 
         private boolean isRequired;
         private String where;
         private boolean showSeparator = true;
         private boolean isDecorated = true;
+        private final boolean isAdditional;
 
         public SpecParser(String spec) {
+            this(spec, false);
+        }
+
+        public SpecParser(String spec, final boolean isAdditional) {
+            this.isAdditional = isAdditional;
             // empty string treated as null
             if (spec == null || spec.length() == 0) {
                 this.isRequired = false;
@@ -611,6 +655,11 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         @Override
         public final String getWhere() {
             return this.where;
+        }
+
+        @Override
+        public final boolean isAdditional() {
+            return this.isAdditional;
         }
     }
 

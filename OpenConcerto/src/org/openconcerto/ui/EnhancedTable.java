@@ -13,6 +13,7 @@
  
  package org.openconcerto.ui;
 
+import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Point;
 import java.awt.Rectangle;
@@ -83,7 +84,8 @@ public class EnhancedTable extends JTable {
      */
     private void initUI() {
         setUI(new EnhancedTableUI());
-
+        // Fix for Nimbus L&F http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6594663
+        this.setIntercellSpacing(new Dimension(1, 1));
     };
 
     public int rowAtPoint(Point point) {
@@ -402,23 +404,19 @@ public class EnhancedTable extends JTable {
 
     @Override
     protected void paintComponent(Graphics g) {
-        // TODO Auto-generated method stub
         super.paintComponent(g);
-        resizeAndRepaint();
+        // If call resizeAndRepaint(); infinite repaints on OpenSuse...
     }
 
     @Override
     public void paintComponents(Graphics g) {
-        // TODO Auto-generated method stub
         super.paintComponents(g);
         resizeAndRepaint();
     }
 
     public void repaint() {
-
         if (!blockRepaint) {
             // System.out.println("--------------- EnhancedTable.repaint()");
-            ;
             // Thread.dumpStack();
             super.repaint();
         }
@@ -479,5 +477,17 @@ public class EnhancedTable extends JTable {
 
         super.resizeAndRepaint();
         // System.out.println("*- EnhancedTable.resizeAndRepaint()" + this.getSize() + " done");
+    }
+
+    @Override
+    public boolean getShowHorizontalLines() {
+        // Fix for Nimbus L&F http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6594663
+        return true;
+    }
+
+    @Override
+    public boolean getShowVerticalLines() {
+        // Fix for Nimbus L&F http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6594663
+        return true;
     }
 }

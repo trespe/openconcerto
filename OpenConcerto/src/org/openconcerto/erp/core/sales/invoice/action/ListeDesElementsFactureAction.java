@@ -14,7 +14,7 @@
  package org.openconcerto.erp.core.sales.invoice.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
+import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.common.ui.ListeViewPanel;
 import org.openconcerto.sql.Configuration;
@@ -25,13 +25,11 @@ import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JTable;
 
 public class ListeDesElementsFactureAction extends CreateFrameAbstractAction {
 
@@ -61,13 +59,13 @@ public class ListeDesElementsFactureAction extends CreateFrameAbstractAction {
         frame.getPanel().getListe().setSQLEditable(false);
         frame.getPanel().setAddVisible(false);
         frame.getPanel().setSearchFullMode(true);
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
+
+        // Date panel
+        IListFilterDatePanel datePanel = new IListFilterDatePanel(frame.getPanel().getListe(), element.getTable().getTable("SAISIE_VENTE_FACTURE").getField("DATE"),
+                IListFilterDatePanel.getDefaultMap());
+        c.gridy++;
+        c.anchor = GridBagConstraints.CENTER;
+        frame.getPanel().add(datePanel, c);
 
         return frame;
     }

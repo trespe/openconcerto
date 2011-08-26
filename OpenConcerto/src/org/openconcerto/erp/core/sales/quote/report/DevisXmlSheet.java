@@ -32,6 +32,21 @@ public class DevisXmlSheet extends AbstractSheetXml {
         return tuple;
     }
 
+    @Override
+    public String getReference() {
+        return this.row.getString("OBJET");
+    }
+
+    @Override
+    public SQLRow getRowLanguage() {
+        SQLRow rowClient = this.row.getForeignRow("ID_CLIENT");
+        if (rowClient.getTable().contains("ID_LANGUE")) {
+            return rowClient.getForeignRow("ID_LANGUE");
+        } else {
+            return super.getRowLanguage();
+        }
+    }
+
     public DevisXmlSheet(SQLRow row) {
         super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("DevisPrinter");

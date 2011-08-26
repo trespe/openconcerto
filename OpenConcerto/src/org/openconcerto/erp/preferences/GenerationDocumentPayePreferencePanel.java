@@ -20,7 +20,7 @@ public class GenerationDocumentPayePreferencePanel extends AbstractGenerationDoc
         this.mapKeyLabel.put("LocationFichePaye", "Fiche paye");
         this.mapKeyLabel.put("LocationLivrePaye", "Livre paye");
         this.mapKeyLabel.put("LocationEtatChargesPaye", "Etat des charges");
-        uiInit();
+        // uiInit();
     }
 
     public String getTitleName() {

@@ -19,7 +19,6 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 
-
 import java.util.List;
 
 

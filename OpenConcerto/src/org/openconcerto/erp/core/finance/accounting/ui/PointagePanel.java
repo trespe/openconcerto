@@ -27,9 +27,8 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.users.UserManager;
-
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
@@ -50,9 +49,7 @@ import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractAction;
@@ -260,7 +257,8 @@ public class PointagePanel extends JPanel {
         this.add(sepEcriture, c);
 
         // Liste des ecritures
-        this.ecriturePanel = new ListPanelEcritures();
+        final EcritureSQLElement ecritureElem = Configuration.getInstance().getDirectory().getElement(EcritureSQLElement.class);
+        this.ecriturePanel = new ListPanelEcritures(ecritureElem, new IListe(ecritureElem.createPointageTableSource()));
         c.gridx = 0;
         c.gridy++;
         c.weighty = 1;
@@ -581,18 +579,6 @@ public class PointagePanel extends JPanel {
      * sélection
      */
     private void changeListRequest() {
-
-        // Champs à afficher
-        List<String> listEcriture = new ArrayList<String>();
-
-        listEcriture.add("POINTEE");
-        listEcriture.add("DATE_POINTEE");
-        listEcriture.add("ID_MOUVEMENT");
-        listEcriture.add("NOM");
-        listEcriture.add("DATE");
-        listEcriture.add("DEBIT");
-        listEcriture.add("CREDIT");
-
         Object idCpt = this.selCompte.getSelectedId();
 
         // filtre de selection
@@ -627,20 +613,8 @@ public class PointagePanel extends JPanel {
             }
         }
 
-        this.ecriturePanel.setRequest(new ListSQLRequest(this.tableEcr, listEcriture, w) {
-            @Override
-            protected void customizeToFetch(SQLRowValues graphToFetch) {
-                super.customizeToFetch(graphToFetch);
-                graphToFetch.put("VALIDE", null);
-            }
-        });
+        this.ecriturePanel.getListe().getRequest().setWhere(w);
         this.ecriturePanel.getListe().setSQLEditable(false);
-
-        // MaJ du renderer
-        final PointageRenderer rend = new PointageRenderer();
-        for (int i = 0; i < this.ecriturePanel.getListe().getJTable().getColumnCount(); i++) {
-            this.ecriturePanel.getListe().getJTable().getColumnModel().getColumn(i).setCellRenderer(rend);
-        }
 
         this.model.setIdCompte(Integer.parseInt(idCpt.toString()));
     }
@@ -748,7 +722,7 @@ public class PointagePanel extends JPanel {
 
         JPanel ecritureNonValidPanel = new JPanel();
         ecritureNonValidPanel.setLayout(new GridBagLayout());
-        ecritureNonValidPanel.setBackground(PointageRenderer.GetCouleurEcritureNonValide());
+        ecritureNonValidPanel.setBackground(PointageRenderer.getCouleurEcritureNonValide());
         ecritureNonValidPanel.add(new JLabel("Ecritures non validées"), cPanel);
         panelLegende.add(ecritureNonValidPanel, c);
 

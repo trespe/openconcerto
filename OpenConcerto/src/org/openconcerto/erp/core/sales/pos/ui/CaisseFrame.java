@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.erp.core.sales.pos.model.Ticket;
+import org.openconcerto.sql.State;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.utils.ClassPathLoader;
 import org.openconcerto.utils.ExceptionHandler;
@@ -41,6 +42,9 @@ public class CaisseFrame extends JFrame {
         try {
             System.out.println("Lancement du module de caisse");
             ToolTipManager.sharedInstance().setInitialDelay(0);
+            if (System.getProperty(State.DEAF) == null) {
+                System.setProperty(State.DEAF, "true");
+            }
             // SpeedUp Linux
             System.setProperty("sun.java2d.pmoffscreen", "false");
             System.setProperty("org.openconcerto.sql.structure.useXML", "true");

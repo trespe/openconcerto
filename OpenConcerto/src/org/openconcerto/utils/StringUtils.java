@@ -16,6 +16,7 @@
  */
 package org.openconcerto.utils;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -29,6 +30,8 @@ import java.util.Set;
  * @author Sylvain CUAZ
  */
 public class StringUtils {
+
+    private static final Charset UTF8 = Charset.forName("UTF8");
 
     /**
      * Retourne la chaine avec la première lettre en majuscule et le reste en minuscule.
@@ -56,6 +59,128 @@ public class StringUtils {
         return s.substring(0, 1).toUpperCase() + s.substring(1);
     }
 
+    static public abstract class Shortener {
+
+        private final int hashSize;
+        private final int hashPartSize;
+        private final String prefix;
+        private final String suffix;
+        private final int minStringLength;
+
+        protected Shortener(int hashSize, String prefix, String suffix, int minCharsBeforeAndAfter) {
+            super();
+            this.hashSize = hashSize;
+            this.prefix = prefix;
+            this.suffix = suffix;
+            this.hashPartSize = this.hashSize + this.prefix.length() + this.suffix.length();
+            if (minCharsBeforeAndAfter < 1)
+                throw new IllegalArgumentException("minCharsBeforeAndAfter must be at least 1: " + minCharsBeforeAndAfter);
+            this.minStringLength = this.hashPartSize + minCharsBeforeAndAfter * 2;
+        }
+
+        public final int getMinStringLength() {
+            return this.minStringLength;
+        }
+
+        public final String getBoundedLengthString(final String s, final int maxLength) {
+            // don't test first for s.length, it's more predictable
+            // (otherwise boundedString("a", 2) would succeed)
+            if (maxLength < this.getMinStringLength())
+                throw new IllegalArgumentException("Maximum too low : " + maxLength + "<" + getMinStringLength());
+            if (s.length() <= maxLength)
+                return s;
+            else
+                return this.shorten(s, maxLength);
+        }
+
+        final String shorten(final String s, final int maxLength) {
+            assert s.length() >= this.getMinStringLength();
+            final int toRemoveLength = s.length() - maxLength + this.hashPartSize;
+            // remove the middle part of encoded
+            final int toRemoveStartIndex = s.length() / 2 - toRemoveLength / 2;
+            final String toHash = s.substring(toRemoveStartIndex, toRemoveStartIndex + toRemoveLength);
+
+            final String hash = shorten(toHash);
+            assert this.hashSize == hash.length();
+
+            final String res = s.substring(0, toRemoveStartIndex) + this.prefix + hash + this.suffix + s.substring(toRemoveStartIndex + toRemoveLength);
+            assert res.length() == maxLength;
+            return res;
+        }
+
+        protected abstract String shorten(String s);
+
+        static public final Shortener Ellipsis = new Shortener(1, "", "", 1) {
+            @Override
+            protected String shorten(String s) {
+                return "…";
+            }
+        };
+
+        // String.hashCode() is an int written in hex
+        static public final Shortener JavaHashCode = new Shortener(Integer.SIZE / 8 * 2, "#", "#", 3) {
+            @Override
+            protected String shorten(String s) {
+                return MessageDigestUtils.asHex(MessageDigestUtils.int2bytes(s.hashCode()));
+            }
+        };
+
+        // 128 bits written in hex
+        static public final Shortener MD5 = new Shortener(128 / 8 * 2, "#", "#", 11) {
+            @Override
+            protected String shorten(String s) {
+                return MessageDigestUtils.getHashString(MessageDigestUtils.getMD5(), s.getBytes(UTF8));
+            }
+        };
+
+        // order descendant by getMinStringLength()
+        static final Shortener[] ORDERED = new Shortener[] { MD5, JavaHashCode, Ellipsis };
+    }
+
+    /**
+     * The minimum value for {@link #getBoundedLengthString(String, int)}.
+     * 
+     * @return the minimum value for <code>maxLength</code>.
+     */
+    public static final int getLeastMaximum() {
+        return Shortener.ORDERED[Shortener.ORDERED.length - 1].getMinStringLength();
+    }
+
+    private static final Shortener getShortener(final int l) {
+        for (final Shortener sh : Shortener.ORDERED) {
+            if (l >= sh.getMinStringLength())
+                return sh;
+        }
+        return null;
+    }
+
+    /**
+     * Return a string built from <code>s</code> that is at most <code>maxLength</code> long.
+     * 
+     * @param s the string to bound.
+     * @param maxLength the maximum length the result must have.
+     * @return a string built from <code>s</code>.
+     * @throws IllegalArgumentException if <code>maxLength</code> is too small.
+     * @see #getLeastMaximum()
+     * @see Shortener#getBoundedLengthString(String, int)
+     */
+    public static final String getBoundedLengthString(final String s, final int maxLength) throws IllegalArgumentException {
+        // don't test first for s.length, it's more predictable
+        // (otherwise boundedString("a", 2) would succeed)
+        if (maxLength < getLeastMaximum())
+            throw new IllegalArgumentException("Maximum too low : " + maxLength + "<" + getLeastMaximum());
+
+        final String res;
+        if (s.length() <= maxLength) {
+            res = s;
+        } else {
+            // use maxLength to choose the shortener since it's generally a constant
+            // and thus the strings returned by this method have the same pattern
+            res = getShortener(maxLength).shorten(s, maxLength);
+        }
+        return res;
+    }
+
     public static final List<String> fastSplit(final String string, final char sep) {
         final List<String> l = new ArrayList<String>();
         final int length = string.length();
@@ -73,6 +198,60 @@ public class StringUtils {
             l.add(new String(cars, rfirst, length - rfirst));
         }
         return l;
+    }
+
+    /**
+     * Split une string s tous les nbCharMaxLine
+     * 
+     * @param s
+     * @param nbCharMaxLine
+     * @return
+     */
+    public static String splitString(String s, int nbCharMaxLine) {
+
+        if (s == null) {
+            return s;
+        }
+
+        if (s.trim().length() < nbCharMaxLine) {
+            return s;
+        }
+        StringBuffer lastString = new StringBuffer();
+        StringBuffer result = new StringBuffer();
+        for (int i = 0; i < s.length(); i++) {
+
+            if (lastString.length() == nbCharMaxLine) {
+                int esp = lastString.lastIndexOf(" ");
+                if (result.length() > 0) {
+                    result.append("\n");
+                }
+                if (esp > 0) {
+                    result.append(lastString.substring(0, esp).toString().trim());
+                    lastString = new StringBuffer(lastString.substring(esp, lastString.length()));
+                } else {
+                    result.append(lastString.toString().trim());
+                    lastString = new StringBuffer();
+                }
+            }
+
+            char charAt = s.charAt(i);
+            if (charAt == '\n') {
+                lastString.append(charAt);
+                result.append(charAt);
+                lastString = new StringBuffer();
+            } else {
+
+                lastString.append(charAt);
+            }
+        }
+
+        if (result.length() > 0) {
+            result.append("\n");
+        }
+
+        result.append(lastString.toString().trim());
+
+        return result.toString();
     }
 
     public static final class Escaper {

@@ -16,18 +16,13 @@
 
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
-
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
-
-
-
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-
 import java.util.ArrayList;
 import java.util.List;
 

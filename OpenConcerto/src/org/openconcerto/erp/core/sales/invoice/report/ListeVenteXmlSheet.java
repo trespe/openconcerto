@@ -35,18 +35,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.JProgressBar;
+import javax.swing.SwingUtilities;
+
 public class ListeVenteXmlSheet extends AbstractListeSheetXml {
 
     private static final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yy");
 
     private Date du, au;
     private List<SQLRow> listeIds;
+    JProgressBar bar;
 
     public static Tuple2<String, String> getTuple2Location() {
         return tupleDefault;
     }
 
-    public ListeVenteXmlSheet(List<SQLRow> listeIds, Date du, Date au) {
+    public ListeVenteXmlSheet(List<SQLRow> listeIds, Date du, Date au, JProgressBar bar) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.listeIds = listeIds;
         this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
@@ -54,6 +58,7 @@ public class ListeVenteXmlSheet extends AbstractListeSheetXml {
         this.du = du;
         this.au = au;
         this.modele = "ListeVentes";
+        this.bar = bar;
     }
 
     SQLElement eltAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
@@ -65,7 +70,14 @@ public class ListeVenteXmlSheet extends AbstractListeSheetXml {
         if (this.listeIds == null) {
             return;
         }
+
+        SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                ListeVenteXmlSheet.this.bar.setMaximum(ListeVenteXmlSheet.this.listeIds.size());
+            }
+        });
         List<Map<String, Object>> listValues = new ArrayList<Map<String, Object>>(this.listeIds.size());
+        int i = 1;
         for (SQLRow rowFacture : this.listeIds) {
             Map<String, Object> mValues = new HashMap<String, Object>();
             final String dateFacture = dateFormat.format((Date) rowFacture.getObject("DATE"));
@@ -143,6 +155,12 @@ public class ListeVenteXmlSheet extends AbstractListeSheetXml {
             }
 
             listValues.add(mValues);
+            final int value = i++;
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    ListeVenteXmlSheet.this.bar.setValue(value);
+                }
+            });
         }
         final Map<String, Object> values = new HashMap<String, Object>();
         values.put("DATE", "Du " + dateFormat.format(this.du) + " au " + dateFormat.format(this.au));

@@ -14,19 +14,14 @@
  package org.openconcerto.erp.core.supplychain.credit.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirFournisseurXmlSheet;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.view.IListFrame;
 
-import java.math.BigInteger;
-
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JTable;
-
 
 public class ListeDesAvoirsFournisseurAction extends CreateFrameAbstractAction {
 
@@ -39,15 +34,6 @@ public class ListeDesAvoirsFournisseurAction extends CreateFrameAbstractAction {
         final IListFrame frame = new IListFrame(new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("AVOIR_FOURNISSEUR")));
 
         frame.getPanel().getListe().getJTable().addMouseListener(new MouseSheetXmlListeListener(frame.getPanel().getListe(), AvoirFournisseurXmlSheet.class));
-
-        // Renderer pour les devises
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
         frame.getPanel().getListe().setSQLEditable(false);
         return frame;
     }

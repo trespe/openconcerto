@@ -41,6 +41,12 @@ public class ISpinner implements ValueWrapper<Integer> {
         // TODO Auto-generated method stub
 
     }
+    
+    @Override
+    public void removeValidListener(ValidListener l) {
+        // TODO Auto-generated method stub
+        
+    }
 
     @Override
     public String getValidationText() {

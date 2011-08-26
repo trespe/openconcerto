@@ -77,18 +77,6 @@ public class GenerationMvtReglementChequeClient extends GenerationEcritures {
                 }
             }
 
-            SQLRow rowBanque = chequeRow.getForeignRow("ID_BANQUE_POLE_PRODUIT");
-            if (rowBanque != null && rowBanque.getID() > 1) {
-                SQLRow rowJournal = rowBanque.getForeignRow("ID_JOURNAL");
-                if (rowJournal != null && rowJournal.getID() > 1) {
-                    this.mEcritures.put("ID_JOURNAL", rowJournal.getID());
-                }
-                SQLRow rowCompteBanque = rowBanque.getForeignRow("ID_COMPTE_PCE");
-                if (rowCompteBanque != null && rowCompteBanque.getID() > 1) {
-                    idPce = rowCompteBanque.getID();
-                }
-            }
-
             this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteClient));
             this.mEcritures.put("DEBIT", new Long(0));
             this.mEcritures.put("CREDIT", new Long(this.montant));

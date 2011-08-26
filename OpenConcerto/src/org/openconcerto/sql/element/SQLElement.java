@@ -25,14 +25,18 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSelect.ArchiveMode;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.request.SQLCache;
+import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
+import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.RowActionFactory;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
@@ -44,8 +48,11 @@ import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.cache.CacheResult;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.change.ListChangeIndex;
+import org.openconcerto.utils.change.ListChangeRecorder;
 
 import java.awt.Component;
+import java.awt.Container;
 import java.lang.reflect.Constructor;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -61,7 +68,9 @@ import java.util.Set;
 import java.util.SortedMap;
 import java.util.logging.Level;
 
+import javax.swing.JComponent;
 import javax.swing.JOptionPane;
+import javax.swing.text.JTextComponent;
 
 import org.apache.commons.collections.MapIterator;
 import org.apache.commons.collections.MultiMap;
@@ -96,7 +105,8 @@ public abstract class SQLElement {
     private ComboSQLRequest combo;
     private ListSQLRequest list;
     private SQLTableModelSourceOnline tableSrc;
-
+    private final ListChangeRecorder<RowAction> rowActions;
+    private final List<RowActionFactory> rowActionFactories;
     // foreign fields
     private Set<String> normalFF;
     private String parentFF;
@@ -110,6 +120,8 @@ public abstract class SQLElement {
     // lazy creation
     private SQLCache<SQLRowAccessor, Object> modelCache;
 
+    private final Map<String, JComponent> additionalFields;
+
     public SQLElement(String singular, String plural, SQLTable primaryTable) {
         super();
         this.singular = singular;
@@ -120,18 +132,29 @@ public abstract class SQLElement {
         this.primaryTable = primaryTable;
         this.combo = null;
         this.list = null;
+        this.rowActions = new ListChangeRecorder<RowAction>(new ArrayList<RowAction>());
+        this.rowActionFactories = new ArrayList<RowActionFactory>();
+        this.actions = new HashMap<String, ReferenceAction>();
+        this.resetRelationships();
 
+        this.modelCache = null;
+
+        this.additionalFields = new HashMap<String, JComponent>();
+    }
+
+    /**
+     * Must be called if foreign/referent keys are added or removed.
+     */
+    public synchronized void resetRelationships() {
         this.privateFF = null;
         this.parentFF = null;
         this.normalFF = null;
         this.sharedFF = null;
-        this.actions = new HashMap<String, ReferenceAction>();
+        this.actions.clear();
 
         this.childRF = null;
         this.privateParentRF = null;
         this.otherRF = null;
-
-        this.modelCache = null;
     }
 
     private void checkSelfCall(boolean check, final String methodName) {
@@ -246,7 +269,7 @@ public abstract class SQLElement {
             return;
         this.childRF = computingRF;
 
-        final Set children = this.computeChildrenRF();
+        final Set<SQLField> children = this.computeChildrenRF();
 
         final Set<SQLField> tmpChildRF = new HashSet<SQLField>();
         for (final SQLField refField : this.getTable().getBase().getGraph().getReferentKeys(this.getTable())) {
@@ -524,8 +547,8 @@ public abstract class SQLElement {
                     final MapIterator refIter = new EntrySetMapIterator(externReferences);
                     while (refIter.hasNext()) {
                         final SQLField refKey = (SQLField) refIter.next();
-                        final Collection refList = (Collection) refIter.getValue();
-                        final Iterator listIter = refList.iterator();
+                        final Collection<?> refList = (Collection<?>) refIter.getValue();
+                        final Iterator<?> listIter = refList.iterator();
                         while (listIter.hasNext()) {
                             final SQLRow ref = (SQLRow) listIter.next();
                             ref.createEmptyUpdateRow().putEmptyLink(refKey.getName()).update();
@@ -730,8 +753,7 @@ public abstract class SQLElement {
     }
 
     /**
-     * Specify an action for a normal foreign field. Should be called from {@link #ffInited()} to
-     * avoid infinite loop.
+     * Specify an action for a normal foreign field.
      * 
      * @param ff the foreign field name.
      * @param action what to do if a referenced row must be archived.
@@ -815,11 +837,15 @@ public abstract class SQLElement {
 
     abstract protected List<String> getComboFields();
 
-    public synchronized ListSQLRequest getListRequest() {
+    public final synchronized ListSQLRequest getListRequest() {
         if (this.list == null) {
-            this.list = new ListSQLRequest(this.getTable(), this.getListFields());
+            this.list = createListRequest();
         }
         return this.list;
+    }
+
+    protected ListSQLRequest createListRequest() {
+        return new ListSQLRequest(this.getTable(), this.getListFields());
     }
 
     public final SQLTableModelSourceOnline getTableSource() {
@@ -843,8 +869,27 @@ public abstract class SQLElement {
             return this.createAndInitTableSource();
     }
 
+    public final SQLTableModelSourceOnline createTableSource(final List<String> fields) {
+        return initTableSource(new SQLTableModelSourceOnline(new ListSQLRequest(this.getTable(), fields)));
+    }
+
+    public final SQLTableModelSourceOnline createTableSource(final Where w) {
+        final SQLTableModelSourceOnline res = this.getTableSource(true);
+        res.getReq().setWhere(w);
+        return res;
+    }
+
     private final SQLTableModelSourceOnline createAndInitTableSource() {
         final SQLTableModelSourceOnline res = this.createTableSource();
+        return initTableSource(res);
+    }
+
+    protected synchronized void _initTableSource(final SQLTableModelSourceOnline res) {
+    }
+
+    public final synchronized SQLTableModelSourceOnline initTableSource(final SQLTableModelSourceOnline res) {
+        // do init first since it can modify the columns
+        this._initTableSource(res);
         // setEditable(false) on read only fields
         // MAYBE setReadOnlyFields() on SQLTableModelSource, so that SQLTableModelLinesSource can
         // check in commit()
@@ -857,7 +902,9 @@ public abstract class SQLElement {
     }
 
     protected SQLTableModelSourceOnline createTableSource() {
-        return new SQLTableModelSourceOnline(this.getListRequest());
+        // also create a new ListSQLRequest, otherwise it's a backdoor to change the behaviour of
+        // the new TableModelSource
+        return new SQLTableModelSourceOnline(this.createListRequest());
     }
 
     /**
@@ -871,6 +918,22 @@ public abstract class SQLElement {
     }
 
     abstract protected List<String> getListFields();
+
+    public final Collection<RowAction> getRowActions() {
+        return this.rowActions;
+    }
+
+    public List<RowActionFactory> getRowActionFactories() {
+        return this.rowActionFactories;
+    }
+
+    public final void addRowActionsListener(final IClosure<ListChangeIndex<RowAction>> listener) {
+        this.rowActions.getRecipe().addListener(listener);
+    }
+
+    public final void removeRowActionsListener(final IClosure<ListChangeIndex<RowAction>> listener) {
+        this.rowActions.getRecipe().rmListener(listener);
+    }
 
     public String getDescription(SQLRow fromRow) {
         return fromRow.toString();
@@ -1076,9 +1139,7 @@ public abstract class SQLElement {
         final SQLRowValues copy = new SQLRowValues(this.getTable());
         copy.loadAllSafe(row);
 
-        final Iterator iter = this.getPrivateForeignFields().iterator();
-        while (iter.hasNext()) {
-            final String privateName = (String) iter.next();
+        for (final String privateName : this.getPrivateForeignFields()) {
             final SQLElement privateElement = this.getPrivateElement(privateName);
             if (!privateElement.dontDeepCopy() && !row.isForeignEmpty(privateName)) {
                 final SQLRowValues child = privateElement.createCopy(row.getInt(privateName));
@@ -1202,10 +1263,10 @@ public abstract class SQLElement {
     private Map<String, SQLRow> getNormalForeigns(SQLRow row, final SQLRowMode mode) {
         check(row);
         final Map<String, SQLRow> mm = new HashMap<String, SQLRow>();
-        final Iterator iter = this.getNormalForeignFields().iterator();
+        final Iterator<String> iter = this.getNormalForeignFields().iterator();
         while (iter.hasNext()) {
             // eg SOURCE.ID_CPI
-            final String ff = (String) iter.next();
+            final String ff = iter.next();
             // eg CPI[12]
             final SQLRow foreignRow = row.getForeignRow(ff, mode);
             if (foreignRow != null)
@@ -1246,7 +1307,7 @@ public abstract class SQLElement {
     private final Object createModelObject(SQLRowAccessor row) {
         if (!RowBacked.class.isAssignableFrom(this.getModelClass()))
             throw new IllegalStateException("modelClass must inherit from RowBacked: " + this.getModelClass());
-        final Constructor ctor;
+        final Constructor<? extends RowBacked> ctor;
         try {
             ctor = this.getModelClass().getConstructor(new Class[] { SQLRowAccessor.class });
         } catch (Exception e) {
@@ -1283,9 +1344,7 @@ public abstract class SQLElement {
         }
 
         // les private equals
-        final Iterator privateIter = this.getPrivateForeignFields().iterator();
-        while (privateIter.hasNext()) {
-            final String prvt = (String) privateIter.next();
+        for (final String prvt : this.getPrivateForeignFields()) {
             final SQLElement foreignElement = this.getForeignElement(prvt);
             // ne pas tester
             if (!foreignElement.dontDeepCopy() && !foreignElement.equals(row.getForeignRow(prvt), row2.getForeignRow(prvt)))
@@ -1330,6 +1389,42 @@ public abstract class SQLElement {
      * @return l'interface graphique de saisie.
      */
     public abstract SQLComponent createComponent();
+
+    /**
+     * Allows a module to add a view for a field to this element.
+     * 
+     * @param field the field of the component.
+     * @return <code>true</code> if no view existed.
+     */
+    public final boolean putAdditionalField(final String field) {
+        return this.putAdditionalField(field, (JComponent) null);
+    }
+
+    public final boolean putAdditionalField(final String field, final JTextComponent comp) {
+        return this.putAdditionalField(field, (JComponent) comp);
+    }
+
+    public final boolean putAdditionalField(final String field, final SQLTextCombo comp) {
+        return this.putAdditionalField(field, (JComponent) comp);
+    }
+
+    // private as only a few JComponent are OK
+    private final boolean putAdditionalField(final String field, final JComponent comp) {
+        if (this.additionalFields.containsKey(field)) {
+            return false;
+        } else {
+            this.additionalFields.put(field, comp);
+            return true;
+        }
+    }
+
+    public final Map<String, JComponent> getAdditionalFields() {
+        return Collections.unmodifiableMap(this.additionalFields);
+    }
+
+    public final void removeAdditionalField(final String field) {
+        this.additionalFields.remove(field);
+    }
 
     public final boolean askArchive(final Component comp, final Number ids) {
         return this.askArchive(comp, Collections.singleton(ids));
@@ -1393,6 +1488,7 @@ public abstract class SQLElement {
         }
     }
 
+    @SuppressWarnings("rawtypes")
     private final String toString(MultiMap descs) {
         final List<String> l = new ArrayList<String>();
         final Iterator iter = descs.keySet().iterator();
@@ -1431,4 +1527,5 @@ public abstract class SQLElement {
     private final int askSerious(Component comp, String msg, String title) {
         return JOptionPane.showConfirmDialog(comp, msg, title + " (" + this.getPluralName() + ")", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
     }
+
 }

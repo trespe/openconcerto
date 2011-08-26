@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.sales.pos.ui;
 
 import org.openconcerto.erp.core.sales.pos.Caisse;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -84,29 +85,34 @@ public class CaisseMenuPanel extends JPanel implements ListSelectionListener {
     }
 
     @Override
-    public void valueChanged(ListSelectionEvent e) {
-        if (e.getValueIsAdjusting()) {
+    public void valueChanged(ListSelectionEvent event) {
+        if (event.getValueIsAdjusting()) {
             return;
         }
-
-        int selectedIndex = l.getSelectedIndex();
-        System.out.println("CaisseMenuPanel.valueChanged():" + selectedIndex);
-        if (selectedIndex == 0) {
-            // Retour
-            frame.showCaisse();
-        }
-        if (selectedIndex == 2) {
-            // Liste des tickets
-            frame.showTickets(null);
-        }
-        if (selectedIndex == 3) {
-            // Clôture
-            Caisse.commitAll(Caisse.allTickets());
-        }
-        if (selectedIndex == 5) {
-            // Fermeture
-            frame.dispose();
-            // System.exit(0);
+        try {
+            final int selectedIndex = l.getSelectedIndex();
+            switch (selectedIndex) {
+            case 0:
+                // Retour
+                frame.showCaisse();
+                break;
+            case 2:
+                // Liste des tickets
+                frame.showTickets(null);
+                break;
+            case 3:
+                // Clôture
+                Caisse.commitAll(Caisse.allTickets());
+                break;
+            case 5:
+                // Fermeture
+                frame.dispose();
+                break;
+            default:
+                break;
+            }
+        } catch (Exception ex) {
+            ExceptionHandler.handle("Erreur", ex);
         }
     }
 

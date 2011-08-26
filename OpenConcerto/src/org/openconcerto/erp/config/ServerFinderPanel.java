@@ -14,9 +14,15 @@
  package org.openconcerto.erp.config;
 
 import org.openconcerto.erp.core.sales.pos.ui.ConfigCaissePanel;
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.PropsConfiguration;
+import org.openconcerto.sql.State;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.VFlowLayout;
+import org.openconcerto.utils.DesktopEnvironment;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 
 import java.awt.Component;
@@ -63,6 +69,7 @@ public class ServerFinderPanel extends JPanel {
     private ServerConfigListModel dataModel;
     private File confFile;
     private JComboBox comboMode;
+    private JTextField textMainProperties;
     private JTextField textIP;
     private JTextField textPort;
     private JTextField textFile;
@@ -71,8 +78,29 @@ public class ServerFinderPanel extends JPanel {
     private JTabbedPane tabbedPane;
 
     public static void main(String[] args) {
+        System.out.println("Reading configuration from: " + ComptaPropsConfiguration.getConfFile().getAbsolutePath());
         // nothing to debug, avoid firewall questions
-        System.setProperty(org.openconcerto.sql.State.DEAF, "true");
+        if (System.getProperty(State.DEAF) == null) {
+            System.setProperty(State.DEAF, "true");
+        }
+        System.setProperty(org.openconcerto.sql.PropsConfiguration.REDIRECT_TO_FILE, "true");
+        System.setProperty(SQLBase.ALLOW_OBJECT_REMOVAL, "true");
+
+        ExceptionHandler.setForceUI(true);
+        ExceptionHandler.setForumURL("http://www.openconcerto.org/forum");
+        PropsConfiguration conf = new PropsConfiguration(new Properties()) {
+            @Override
+            protected File createWD() {
+                return new File(DesktopEnvironment.getDE().getDocumentsFolder().getAbsolutePath() + File.separator + "OpenConcerto");
+            }
+
+            @Override
+            public String getAppName() {
+                return "OpenConcerto_Configuration";
+            }
+        };
+        conf.setupLogging();
+
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
@@ -98,10 +126,13 @@ public class ServerFinderPanel extends JPanel {
 
     protected void loadConfigFile() {
         this.props = new Properties();
-        System.out.println("Loading:" + this.confFile.getAbsolutePath());
         if (!this.confFile.exists()) {
+            System.out.println("Unable to find: " + this.confFile.getAbsolutePath());
+
+            this.textFile.setText(new File(Configuration.getDefaultConfDir(), "OpenConcerto-GESTION_DEFAULT/DBData").getAbsolutePath());
             return;
         }
+        System.out.println("Loading: " + this.confFile.getAbsolutePath());
         if (!this.confFile.isFile()) {
             JOptionPane.showMessageDialog(null, this.confFile + " n'est pas un fichier valide");
         } else if (!this.confFile.canRead()) {
@@ -173,12 +204,15 @@ public class ServerFinderPanel extends JPanel {
             String serverDriver;
             if (this.comboMode.getSelectedItem().equals(ServerFinderConfig.H2)) {
                 serverDriver = "h2";
-                String ip = this.textIP.getText();
-                if (ip == null || ip.trim().length() == 0) {
-                    ip = "Données/";
+                String filePath = this.textFile.getText();
+                if (filePath == null || filePath.trim().length() == 0) {
+                    filePath = "";
                     JOptionPane.showMessageDialog(null, "Attention. Le dossier de données n'est pas rempli");
                 }
-                serverIp = "file:" + ip;
+                if (!filePath.endsWith("/")) {
+                    filePath += "/";
+                }
+                serverIp = "file:" + filePath;
             } else if (this.comboMode.getSelectedItem().equals(ServerFinderConfig.MYSQL)) {
                 serverDriver = "mysql";
                 String ip = this.textIP.getText();
@@ -242,6 +276,7 @@ public class ServerFinderPanel extends JPanel {
 
     protected void setConfigFile(File f) {
         this.confFile = f;
+        this.textMainProperties.setText(f.getAbsolutePath());
     }
 
     public ServerFinderPanel() {
@@ -280,7 +315,7 @@ public class ServerFinderPanel extends JPanel {
         c.weighty = 0;
         c.gridy++;
         this.add(buttons, c);
-        updateUIForMode(ServerFinderConfig.POSTGRESQL);
+        updateUIForMode(ServerFinderConfig.H2);
         this.comboMode.addActionListener((new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -327,17 +362,32 @@ public class ServerFinderPanel extends JPanel {
         p.setLayout(new GridBagLayout());
         p.setOpaque(false);
         GridBagConstraints c = new DefaultGridBagConstraints();
+        // L0: Fichier
+        c.weightx = 0;
+        p.add(new JLabel("Fichier de configuration", SwingConstants.RIGHT), c);
+        c.gridx++;
+        c.gridwidth = 3;
+        c.weightx = 1;
+        this.textMainProperties = new JTextField("");
+        this.textMainProperties.setEditable(false);
+        p.add(this.textMainProperties, c);
+
         // L1: Type
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = 1;
         c.weightx = 0;
         p.add(new JLabel("Type", SwingConstants.RIGHT), c);
         c.gridx++;
         c.weightx = 1;
+        c.fill = GridBagConstraints.NONE;
         this.comboMode = new JComboBox(new String[] { ServerFinderConfig.H2, ServerFinderConfig.POSTGRESQL, ServerFinderConfig.MYSQL });
         p.add(this.comboMode, c);
         // L2: IP, port
         c.gridy++;
         c.gridx = 0;
         c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
         p.add(new JLabel("Adresse du serveur", SwingConstants.RIGHT), c);
         c.gridx++;
         c.weighty = 0;
@@ -469,21 +519,25 @@ public class ServerFinderPanel extends JPanel {
                 SwingWorker<Void, Void> worker = new SwingWorker<Void, Void>() {
                     @Override
                     public Void doInBackground() {
-                        ServerFinderPanel.this.dataModel.startScan(new PropertyChangeListener() {
+                        try {
+                            ServerFinderPanel.this.dataModel.startScan(new PropertyChangeListener() {
 
-                            @Override
-                            public void propertyChange(PropertyChangeEvent evt) {
-                                final int i = (Integer) evt.getNewValue();
-                                SwingUtilities.invokeLater(new Runnable() {
+                                @Override
+                                public void propertyChange(PropertyChangeEvent evt) {
+                                    final int i = (Integer) evt.getNewValue();
+                                    SwingUtilities.invokeLater(new Runnable() {
 
-                                    @Override
-                                    public void run() {
-                                        bar.setValue(i);
+                                        @Override
+                                        public void run() {
+                                            bar.setValue(i);
 
-                                    }
-                                });
-                            }
-                        });
+                                        }
+                                    });
+                                }
+                            });
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
                         return null;
                     }
 
@@ -527,7 +581,13 @@ public class ServerFinderPanel extends JPanel {
                 }
                 p.setLayout(new VFlowLayout());
                 ServerFinderConfig c = (ServerFinderConfig) value;
-                JLabel l1 = new JLabelBold(c.getIp() + " " + c.getType());
+                final String label;
+                if (!c.getType().equals(ServerFinderConfig.H2)) {
+                    label = c.getIp() + ":" + c.getPort() + " " + c.getType();
+                } else {
+                    label = c.getFile().getAbsolutePath() + " " + c.getType();
+                }
+                JLabel l1 = new JLabelBold(label);
                 l1.setOpaque(false);
                 p.add(l1);
                 JLabel l2 = new JLabel(c.getProduct() == null ? "Connexion impossible" : c.getProduct());
@@ -589,14 +649,14 @@ public class ServerFinderPanel extends JPanel {
     }
 
     private JPanel createPanelInstallation() {
-        JPanel p = new JPanel();
+        final JPanel p = new JPanel();
         p.setLayout(new GridBagLayout());
         p.setOpaque(false);
         return p;
     }
 
     public ServerFinderConfig getServerConfig() {
-        ServerFinderConfig conf = new ServerFinderConfig();
+        final ServerFinderConfig conf = new ServerFinderConfig();
         conf.setType(ServerFinderPanel.this.comboMode.getSelectedItem().toString());
         conf.setIp(ServerFinderPanel.this.textIP.getText());
         conf.setPort(ServerFinderPanel.this.textPort.getText());
@@ -610,6 +670,14 @@ public class ServerFinderPanel extends JPanel {
             ServerFinderConfig config = (ServerFinderConfig) sel;
             this.textIP.setText(config.getIp());
             this.textPort.setText(String.valueOf(config.getPort()));
+            if (config.getType().equals(ServerFinderConfig.H2)) {
+                this.textIP.setText("");
+                this.textPort.setText("");
+                this.textFile.setText(config.getFile().getAbsolutePath());
+            } else {
+                this.textIP.setText(config.getIp());
+                this.textPort.setText(String.valueOf(config.getPort()));
+            }
             updateUIForMode(config.getType());
             this.tabbedPane.setSelectedIndex(0);
 
@@ -622,8 +690,15 @@ public class ServerFinderPanel extends JPanel {
     public ServerFinderConfig createServerFinderConfig() {
         ServerFinderConfig conf = new ServerFinderConfig();
         conf.setType(this.comboMode.getSelectedItem().toString());
-        conf.setIp(this.textIP.getText());
-        conf.setPort(this.textPort.getText());
+        if (!conf.getType().equals(ServerFinderConfig.H2)) {
+            conf.setIp(this.textIP.getText());
+            conf.setPort(this.textPort.getText());
+        } else {
+            final File file = new File(this.textFile.getText());
+            conf.setFile(file);
+            conf.setIp("");
+            conf.setPort("");
+        }
         return conf;
     }
 }

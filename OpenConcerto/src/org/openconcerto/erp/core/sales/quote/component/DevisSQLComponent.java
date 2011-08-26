@@ -49,13 +49,17 @@ import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
+import java.util.Calendar;
 import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
@@ -189,12 +193,83 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
         final ElementComboBox comboClient = new ElementComboBox();
         c.gridx++;
-        c.gridwidth = 3;
+        c.gridwidth = 1;
         c.weightx = 0;
         c.weighty = 0;
         c.fill = GridBagConstraints.NONE;
-
         this.add(comboClient, c);
+        final ElementComboBox boxTarif = new ElementComboBox();
+        comboClient.addValueListener(new PropertyChangeListener() {
+
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if (comboClient.getValue() != null) {
+                    Integer id = comboClient.getValue();
+
+                    if (id > 1) {
+
+                        SQLRow row = comboClient.getElement().getTable().getRow(id);
+                        if (comboClient.getElement().getTable().getFieldsName().contains("ID_TARIF")) {
+
+                            SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                            if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
+                                    && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
+                                boxTarif.setValue(foreignRow.getID());
+                                // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
+                                // true);
+                            } else {
+                                boxTarif.setValue(foreignRow.getID());
+                            }
+
+                            // SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                            // if (foreignRow.isUndefined() &&
+                            // !row.getForeignRow("ID_DEVISE").isUndefined()) {
+                            // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
+                            // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
+                            // foreignRow = rowValsD;
+                            //
+                            // }
+                            // table.setTarif(foreignRow, true);
+                        }
+                    }
+                }
+
+            }
+        });
+
+        if (getTable().getFieldsName().contains("DATE_VALIDITE")) {
+            c.gridx++;
+            this.add(new JLabel(getLabelFor("DATE_VALIDITE")), c);
+            c.gridx++;
+            JDate dateValidite = new JDate();
+            this.add(dateValidite, c);
+            this.addView(dateValidite, "DATE_VALIDITE");
+        }
+
+        // Tarif
+        if (this.getTable().getFieldsName().contains("ID_TARIF")) {
+            // TARIF
+            c.gridy++;
+            c.gridx = 0;
+            c.weightx = 0;
+            c.weighty = 0;
+            c.gridwidth = 1;
+            this.add(new JLabel("Tarif à appliquer"), c);
+            c.gridx++;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+
+            c.weightx = 1;
+            this.add(boxTarif, c);
+            this.addView(boxTarif, "ID_TARIF");
+            DefaultGridBagConstraints.lockMinimumSize(boxTarif);
+            boxTarif.addValueListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    table.setTarif(boxTarif.getSelectedRow(), false);
+                }
+            });
+        }
 
         // Table d'élément
         this.table = new DevisItemTable();
@@ -206,7 +281,6 @@ public class DevisSQLComponent extends BaseSQLComponent {
         this.add(this.table, c);
 
         // Panel en bas
-
         final JPanel bottomPanel = new JPanel(new GridBagLayout());
         final GridBagConstraints cBottom = new DefaultGridBagConstraints();
         // 1ere Colonne : Infos
@@ -300,6 +374,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         this.fieldHT = new DeviseField();
         final DeviseField fieldTVA = new DeviseField();
         final DeviseField fieldTTC = new DeviseField();
+        final DeviseField fieldDevise = new DeviseField();
         final DeviseField fieldService = new DeviseField();
         fieldHT.setEditable(false);
         fieldTVA.setEditable(false);
@@ -308,10 +383,14 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
         addRequiredSQLObject(this.fieldHT, "T_HT");
         addRequiredSQLObject(fieldTVA, "T_TVA");
+        addSQLObject(fieldDevise, "T_DEVISE");
         addRequiredSQLObject(fieldTTC, "T_TTC");
         addRequiredSQLObject(fieldService, "T_SERVICE");
-        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(), this.table
-                .getQteElement(), this.fieldHT, fieldTVA, fieldTTC, textPortHT, this.textRemiseHT, fieldService, this.table.getPrixServiceElement());
+        JTextField poids = new JTextField();
+        // addSQLObject(poids, "T_POIDS");
+        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
+                this.table.getQteElement(), this.fieldHT, fieldTVA, fieldTTC, textPortHT, this.textRemiseHT, fieldService, this.table.getPrixServiceElement(), fieldDevise,
+                this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
 
         cBottom.gridy = 0;
         cBottom.gridx += 2;
@@ -422,6 +501,12 @@ public class DevisSQLComponent extends BaseSQLComponent {
         rowVals.put("T_TVA", Long.valueOf(0));
         rowVals.put("T_SERVICE", Long.valueOf(0));
         rowVals.put("T_TTC", Long.valueOf(0));
+
+        if (getTable().getFieldsName().contains("DATE_VALIDITE")) {
+            Calendar cal = Calendar.getInstance();
+            cal.add(Calendar.MONTH, 1);
+            rowVals.put("DATE_VALIDITE", cal.getTime());
+        }
         return rowVals;
     }
 

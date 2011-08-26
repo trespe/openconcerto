@@ -9,9 +9,6 @@ public class AxisLabel extends Label {
         super(label);
     }
 
-    /*
-     * public AxisLabel(String label, int position) { super(label); this.position = position; }
-     */
     public AxisLabel(String label, Number value) {
         super(label);
         this.value = value;

@@ -30,9 +30,7 @@ public class DataModel1D extends DataModel {
     }
 
     public void setValueAt(int index, Number value) {
-
         ensureCapacity(index);
-
         l.set(index, value);
     }
 
@@ -44,13 +42,11 @@ public class DataModel1D extends DataModel {
 
     public Number getValueAt(int index) {
         ensureCapacity(index);
-
         return l.get(index);
     }
 
     public Number getMaxValue() {
         Number max = 0;
-
         for (Number b : this.l) {
             if (max == null) {
                 max = b;
@@ -63,7 +59,6 @@ public class DataModel1D extends DataModel {
 
     public Number getMinValue() {
         Number min = 0;
-
         for (Number b : this.l) {
             if (min == null) {
                 min = b;

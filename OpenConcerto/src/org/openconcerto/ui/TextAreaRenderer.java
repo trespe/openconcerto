@@ -20,6 +20,7 @@ import java.awt.Dimension;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.SwingConstants;
+import javax.swing.UIManager;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableColumnModel;
 
@@ -33,11 +34,27 @@ public class TextAreaRenderer extends DefaultTableCellRenderer {
     public final static Color couleurBonMore = new Color(243, 233, 194);
     public final static Color couleurBonDark = couleurBon.darker();
 
-    JTextArea area = new JTextArea();
+    final JTextArea area;
     private JTable currentTable;
     private int currentRow;
 
     public TextAreaRenderer() {
+        if (UIManager.getLookAndFeel().getName().equalsIgnoreCase("nimbus")) {
+            this.area = new JTextArea() {
+                // remplace le bord blanc des JTextArea de Nimbus
+                protected void paintComponent(java.awt.Graphics g) {
+                    final Color c = g.getColor();
+                    final Color background = getBackground();
+                    g.setColor(background);
+                    g.fillRect(0, 0, TextAreaRenderer.this.area.getWidth(), TextAreaRenderer.this.area.getHeight());
+                    g.setColor(c);
+                    super.paintComponent(g);
+                };
+
+            };
+        } else {
+            this.area = new JTextArea();
+        }
         this.area.setLineWrap(true);
         this.area.setWrapStyleWord(true);
     }

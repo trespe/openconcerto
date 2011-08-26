@@ -14,6 +14,7 @@
  package org.openconcerto.sql.utils;
 
 import org.openconcerto.sql.model.FieldRef;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSyntax;
@@ -23,6 +24,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -35,6 +37,11 @@ import java.util.List;
  * @author Sylvain
  */
 public abstract class ReOrder {
+
+    // must be zero so that we can work on negative numbers without breaking the unique constraint
+    public static final BigDecimal MIN_ORDER = BigDecimal.ZERO;
+    // preferred distance
+    public static final BigDecimal DISTANCE = BigDecimal.ONE;
 
     static public ReOrder create(final SQLTable t) {
         return create(t, ALL);
@@ -70,7 +77,11 @@ public abstract class ReOrder {
         return this.spec == ALL;
     }
 
-    protected final int getFirst() {
+    protected final BigDecimal getFirstToReorder() {
+        return this.spec.getFirstToReorder();
+    }
+
+    protected final BigDecimal getFirstOrderValue() {
         return this.spec.getFirst();
     }
 
@@ -92,7 +103,7 @@ public abstract class ReOrder {
     // MAYBE return affected IDs
     public final void exec() throws SQLException {
         final Connection conn = this.t.getBase().getDataSource().getConnection();
-        final UpdateBuilder updateUndef = new UpdateBuilder(this.t).set(this.t.getOrderField().getName(), "0");
+        final UpdateBuilder updateUndef = new UpdateBuilder(this.t).set(this.t.getOrderField().getName(), MIN_ORDER.toPlainString());
         updateUndef.setWhere(new Where(this.t.getKey(), "=", this.t.getUndefinedID()));
         SQLUtils.executeAtomic(conn, new SQLFactory<Object>() {
             @Override
@@ -117,25 +128,49 @@ public abstract class ReOrder {
     static private class Some implements Spec {
 
         private final SQLTable t;
-        private final int first;
-        private final int count;
+        private final BigDecimal firstToReorder;
+        private final BigDecimal first;
+        private final BigDecimal lastToReorder;
 
         public Some(final SQLTable t, final int first, final int count) {
             this.t = t;
-            if (first <= 0)
-                throw new IllegalArgumentException();
-            this.first = first;
             if (count <= 0)
-                throw new IllegalArgumentException();
-            this.count = count;
+                throw new IllegalArgumentException("Negative Count : " + count);
+            // the row with MIN_ORDER cannot be displayed since no row can be moved before it
+            // so don't change it
+            if (BigDecimal.valueOf(first).compareTo(MIN_ORDER) <= 0) {
+                this.firstToReorder = MIN_ORDER.add(t.getOrderULP());
+                // make some room before the first non MIN_ORDER row so that another on can came
+                // before it
+                this.first = MIN_ORDER.add(DISTANCE);
+            } else {
+                this.firstToReorder = BigDecimal.valueOf(first);
+                this.first = this.firstToReorder;
+            }
+            final BigDecimal simpleLastToReorder = this.firstToReorder.add(BigDecimal.valueOf(count));
+            // needed since first can be different than firstToReorder
+            this.lastToReorder = simpleLastToReorder.compareTo(this.first) > 0 ? simpleLastToReorder : this.first.add(DISTANCE.movePointRight(1));
+            // OK since DISTANCE is a lot greater than the ULP of ORDRE
+            assert this.getFirstToReorder().compareTo(this.getFirst()) <= 0 && this.getFirst().compareTo(this.getLast()) < 0 && this.getLast().compareTo(this.getLastToReorder()) <= 0;
         }
 
         @Override
         public final String getInc() {
             final SQLField oF = this.t.getOrderField();
             final SQLSyntax syntax = SQLSyntax.get(this.t.getServer().getSQLSystem());
+
+            // last order of the whole table
+            final SQLSelect selTableLast = new SQLSelect(this.t.getBase(), true);
+            selTableLast.addSelect(oF, "MAX");
+
             // cast inc to order type to avoid truncation error
-            return SQLSelect.quote(" cast( ( max( %n ) - min( %n ) ) / ( count(*) -1) as " + syntax.getOrderType() + ") FROM %f where " + this.getWhere(null).getClause(), oF, oF, this.t);
+            final String avgDistance = " cast( ( " + getLast() + " - " + this.getFirst() + " ) / ( count(*) -1) as " + syntax.getOrderType() + ")";
+            // if the last order of this Spec is the last order of the table, we can use whatever
+            // increment we want, we won't span over existing rows. This can be useful when
+            // reordering densely packed rows, but this means that lastOrderValue won't be equal to
+            // getLastToReorder().
+            final String res = "CASE WHEN max(" + SQLBase.quoteIdentifier(oF.getName()) + ") = (" + selTableLast.asString() + ") then " + ALL.getInc() + " else " + avgDistance + " end";
+            return res + " FROM " + this.t.getSQLName().quote() + " where " + this.getWhere(null).getClause();
         }
 
         @Override
@@ -144,20 +179,32 @@ public abstract class ReOrder {
                 order = this.t.getOrderField();
             else if (order.getField() != this.t.getOrderField())
                 throw new IllegalArgumentException();
-            return new Where(order, this.first, this.first + this.count);
+            return new Where(order, this.getFirstToReorder(), this.getLastToReorder());
         }
 
         @Override
-        public int getFirst() {
+        public final BigDecimal getFirstToReorder() {
+            return this.firstToReorder;
+        }
+
+        private final BigDecimal getLastToReorder() {
+            return this.lastToReorder;
+        }
+
+        @Override
+        public BigDecimal getFirst() {
             return this.first;
         }
 
+        public final BigDecimal getLast() {
+            return this.getLastToReorder();
+        }
     }
 
     static private Spec ALL = new Spec() {
         @Override
         public String getInc() {
-            return "1";
+            return String.valueOf(DISTANCE);
         }
 
         @Override
@@ -166,8 +213,13 @@ public abstract class ReOrder {
         }
 
         @Override
-        public int getFirst() {
-            return 0;
+        public BigDecimal getFirstToReorder() {
+            return MIN_ORDER;
+        }
+
+        @Override
+        public BigDecimal getFirst() {
+            return getFirstToReorder();
         }
     };
 
@@ -176,6 +228,10 @@ public abstract class ReOrder {
 
         Where getWhere(final FieldRef order);
 
-        int getFirst();
+        // before reorder
+        BigDecimal getFirstToReorder();
+
+        // the first order value after reorder
+        BigDecimal getFirst();
     }
 }

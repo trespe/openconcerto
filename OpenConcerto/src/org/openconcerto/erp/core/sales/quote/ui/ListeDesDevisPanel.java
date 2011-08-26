@@ -13,28 +13,33 @@
  
  package org.openconcerto.erp.core.sales.quote.ui;
 
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.sales.invoice.ui.DateEnvoiRenderer;
+import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.sales.quote.component.DevisSQLComponent;
+import org.openconcerto.erp.core.sales.quote.element.DevisItemSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
+import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.IListener;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.CollectionMap;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -42,7 +47,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.math.BigInteger;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -146,7 +150,7 @@ public class ListeDesDevisPanel extends JPanel {
         });
 
         // Vers cmd
-        this.buttonCmd = new JButton("Transfert en commande");
+        this.buttonCmd = new JButton("Transfert en commande client");
         c.gridx++;
         this.add(this.buttonCmd, c);
         this.buttonCmd.addActionListener(new ActionListener() {
@@ -195,25 +199,24 @@ public class ListeDesDevisPanel extends JPanel {
     }
 
     private ListeAddPanel createPanel(int idFilter) {
-        final ListeAddPanel pane = new ListeAddPanel(this.eltDevis);
-
         // Filter
-        List<SQLField> lAttente = this.eltDevis.getListRequest().getFields();
+        final SQLTableModelSourceOnline lAttente = this.eltDevis.getTableSource(true);
+        final SQLTableModelColumnPath dateEnvoiCol;
         if (idFilter == EtatDevisSQLElement.ACCEPTE) {
-            lAttente = new ArrayList<SQLField>(lAttente);
-            lAttente.add(this.eltDevis.getTable().getField("DATE_ENVOI"));
+            dateEnvoiCol = new SQLTableModelColumnPath(this.eltDevis.getTable().getField("DATE_ENVOI"));
+            lAttente.getColumns().add(dateEnvoiCol);
+            dateEnvoiCol.setRenderer(new DateEnvoiRenderer());
+            dateEnvoiCol.setEditable(true);
+        } else {
+            dateEnvoiCol = null;
         }
         Where wAttente = new Where(this.eltDevis.getTable().getField("ID_ETAT_DEVIS"), "=", idFilter);
-        pane.setRequest(new ListSQLRequest(this.eltDevis.getTable(), lAttente, wAttente));
+        lAttente.getReq().setWhere(wAttente);
+        // one config file per idFilter since they haven't the same number of columns
+        final ListeAddPanel pane = new ListeAddPanel(this.eltDevis, new IListe(lAttente), "idFilter" + idFilter);
 
         // Renderer
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
         JTable table = pane.getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
 
         if (idFilter == EtatDevisSQLElement.ACCEPTE) {
 
@@ -221,14 +224,12 @@ public class ListeDesDevisPanel extends JPanel {
             // Edition des dates d'envois
             TableColumn columnDateEnvoi = pane.getListe().getJTable().getColumnModel().getColumn(table.getColumnCount() - 1);
             columnDateEnvoi.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
-            columnDateEnvoi.setCellRenderer(new DateEnvoiRenderer());
             final SQLTableModelSourceOnline src = (SQLTableModelSourceOnline) pane.getListe().getModel().getReq();
             for (SQLTableModelColumn column : src.getColumns()) {
-                if (column.getClass().isAssignableFrom(SQLTableModelColumnPath.class)) {
+                if (column != dateEnvoiCol && column.getClass().isAssignableFrom(SQLTableModelColumnPath.class)) {
                     ((SQLTableModelColumnPath) column).setEditable(false);
                 }
             }
-            ((SQLTableModelColumnPath) src.getColumns(this.eltDevis.getTable().getField("DATE_ENVOI")).iterator().next()).setEditable(true);
         }
 
         pane.getListe().getJTable().addMouseListener(new MouseSheetXmlListeListener(pane.getListe(), DevisXmlSheet.class) {
@@ -243,6 +244,13 @@ public class ListeDesDevisPanel extends JPanel {
                     }
                 });
 
+                // Voir le document
+                AbstractAction actionTransfertCmd = new AbstractAction("Transférer en commande") {
+                    public void actionPerformed(ActionEvent e) {
+                        transfertCommande(row);
+                    }
+                };
+
                 // Transfert vers commande
                 AbstractAction commandeAction = (new AbstractAction("Transfert vers commande client") {
                     public void actionPerformed(ActionEvent e) {
@@ -251,7 +259,7 @@ public class ListeDesDevisPanel extends JPanel {
                 });
 
                 // Marqué accepté
-                AbstractAction accepteAction = (new AbstractAction("Marqué comme accepté") {
+                AbstractAction accepteAction = (new AbstractAction("Marquer comme accepté") {
                     public void actionPerformed(ActionEvent e) {
                         SQLRowValues rowVals = row.createEmptyUpdateRow();
                         rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
@@ -273,6 +281,7 @@ public class ListeDesDevisPanel extends JPanel {
                 }
                 list.add(factureAction);
                 list.add(commandeAction);
+                list.add(actionTransfertCmd);
                 return list;
             }
         });
@@ -330,7 +339,39 @@ public class ListeDesDevisPanel extends JPanel {
      * @param row
      */
     private void transfertCommandeClient(SQLRow row) {
+
         DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
         elt.transfertCommandeClient(row.getID());
+    }
+
+    private void transfertCommande(SQLRow row) {
+        DevisItemSQLElement elt = (DevisItemSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS_ELEMENT");
+        SQLTable tableCmdElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT").getTable();
+        SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
+        List<SQLRow> rows = row.getReferentRows(elt.getTable());
+        CollectionMap<SQLRow, List<SQLRowValues>> map = new CollectionMap<SQLRow, List<SQLRowValues>>();
+        for (SQLRow sqlRow : rows) {
+            // on récupére l'article qui lui correspond
+            SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
+            for (SQLField field : eltArticle.getTable().getFields()) {
+                if (sqlRow.getTable().getFieldsName().contains(field.getName())) {
+                    rowArticle.put(field.getName(), sqlRow.getObject(field.getName()));
+                }
+            }
+            // rowArticle.loadAllSafe(rowEltFact);
+            int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
+            SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
+            SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
+            SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticleFind));
+
+            rowValsElt.put("QTE", sqlRow.getObject("QTE"));
+            rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
+            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
+            rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
+
+            map.put(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
+
+        }
+        MouvementStockSQLElement.createCommandeF(map, row.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"));
     }
 }

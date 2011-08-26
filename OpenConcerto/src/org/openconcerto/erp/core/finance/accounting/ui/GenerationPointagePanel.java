@@ -21,7 +21,6 @@ import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
-
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -29,7 +28,6 @@ import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.Calendar;
-
 
 import javax.swing.JButton;
 import javax.swing.JFrame;

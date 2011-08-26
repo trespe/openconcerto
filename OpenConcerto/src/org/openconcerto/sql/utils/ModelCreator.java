@@ -18,6 +18,7 @@ import org.openconcerto.sql.model.SQLServer;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.DefaultListModel;
+import org.openconcerto.utils.ClipboardUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.LogUtils;
 
@@ -168,13 +169,37 @@ public class ModelCreator extends JFrame implements ListSelectionListener {
         }
     }
 
-    private final JEditTextArea createTA(final String text) {
+    private final JPanel createTA(final String text) {
+        JPanel p = new JPanel();
+        p.setOpaque(false);
+        p.setLayout(new GridBagLayout());
+        GridBagConstraints c = new DefaultGridBagConstraints();
+
+        c.weightx = 1;
+        c.weighty = 1;
+        c.fill = GridBagConstraints.BOTH;
         final JEditTextArea res = new JEditTextArea();
         res.setEditable(false);
         res.setTokenMarker(new JavaTokenMarker());
         res.setText(text);
         res.setCaretPosition(0);
-        return res;
+        p.add(res, c);
+
+        JButton b = new JButton("Copy to clipboard");
+        b.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                ClipboardUtils.setClipboardContents(res.getText());
+
+            }
+        });
+        c.gridy++;
+        c.fill = GridBagConstraints.NONE;
+        c.weighty = 0;
+        p.add(b, c);
+
+        return p;
     }
 
     private void connect(final DefaultListModel model, final String textUrl) {

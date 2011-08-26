@@ -13,23 +13,18 @@
  
  package org.openconcerto.erp.core.sales.pos.action;
 
-import java.awt.event.ActionEvent;
-import java.math.BigInteger;
-
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.common.ui.ListeViewPanel;
 import org.openconcerto.erp.core.sales.pos.ui.TextAreaTicketPanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.ui.PanelFrame;
 
+import java.awt.event.ActionEvent;
+
 import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JFrame;
-import javax.swing.JTable;
-
-
 
 public class ListeDesTicketsAction extends CreateFrameAbstractAction {
 
@@ -49,13 +44,6 @@ public class ListeDesTicketsAction extends CreateFrameAbstractAction {
                 }
             }
         });
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
         frame.getPanel().getListe().setSQLEditable(false);
         return frame;
     }

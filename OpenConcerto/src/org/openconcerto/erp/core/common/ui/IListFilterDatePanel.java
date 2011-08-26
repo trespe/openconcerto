@@ -203,6 +203,8 @@ public class IListFilterDatePanel extends JPanel {
             System.err.println("Null ");
             if (this.t != null) {
                 this.list.getRequest().setSelectTransf(this.t);
+            } else {
+                this.list.getRequest().setSelectTransf(null);
             }
             return;
         }

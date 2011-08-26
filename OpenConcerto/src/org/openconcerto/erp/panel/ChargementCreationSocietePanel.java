@@ -20,7 +20,6 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSchema;
 import org.openconcerto.sql.model.SQLSelect;
-import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.ui.JLabelBold;
@@ -95,13 +94,8 @@ public class ChargementCreationSocietePanel extends JPanel implements StatusList
 
         System.err.println("Création de la base");
 
-        final SQLSystem dbSystem = Configuration.getInstance().getBase().getServer().getSQLSystem();
+        ActionDB.dupliqueDB("Default", "OpenConcerto" + id, this);
 
-        if (dbSystem == SQLSystem.MYSQL) {
-            ActionDB.dupliqueMySQLDB("Default", "OpenConcerto" + id, this);
-        } else {
-            ActionDB.dupliquePGSqlDB("Default", "OpenConcerto" + id, this);
-        }
         statusChanged("Mise à jour des sociétés");
         SQLRowValues rowVals = new SQLRowValues(Configuration.getInstance().getBase().getTable("SOCIETE_COMMON"));
         rowVals.put("DATABASE_NAME", "OpenConcerto" + id);

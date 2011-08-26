@@ -49,21 +49,17 @@ public class Axis {
 
     public void addLabels(List<AxisLabel> labels) {
         this.labels.addAll(labels);
-
     }
 
     public int getWidth() {
-
         return width;
     }
 
     public int getX() {
-
         return x;
     }
 
     public int getY() {
-
         return y;
     }
 
@@ -74,24 +70,21 @@ public class Axis {
     public int getMaxLabelWidth(Graphics2D g) {
         int max = 0;
         for (AxisLabel label : this.labels) {
-
             int w = (int) g.getFontMetrics().getStringBounds(label.getLabel(), g).getWidth();
-            if (w > max)
+            if (w > max) {
                 max = w;
+            }
         }
-
         return max;
     }
 
     public int getMaxLabelHeight(Graphics2D g) {
         int max = 0;
         for (AxisLabel label : this.labels) {
-
             int h = (int) g.getFontMetrics().getStringBounds(label.getLabel(), g).getHeight();
             if (h > max)
                 max = h;
         }
-
         return max;
     }
 
@@ -134,8 +127,9 @@ public class Axis {
     }
 
     public int getMarkerSpacing() {
-        if (labels.isEmpty())
+        if (labels.isEmpty()) {
             return 0;
+        }
         return 3;
     }
 

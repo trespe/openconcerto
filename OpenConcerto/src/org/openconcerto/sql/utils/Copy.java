@@ -18,6 +18,7 @@ import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSchema;
@@ -85,7 +86,7 @@ public class Copy {
         LogUtils.setUpConsoleHandler();
         Log.get().setLevel(Level.INFO);
 
-        System.setProperty("org.openconcerto.sql.identifier.allowRemoval", "true");
+        System.setProperty(SQLBase.ALLOW_OBJECT_REMOVAL, "true");
         // we're backup/restore tool: don't touch the data at all
         System.setProperty(SQLSchema.NOAUTO_CREATE_METADATA, "true");
 

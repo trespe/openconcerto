@@ -78,10 +78,6 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
         final SQLTableElement tableElementNomEcriture = new SQLTableElement(elt.getTable().getField("NOM_ECRITURE"));
         list.add(tableElementNomEcriture);
 
-        final AssociationAnalytiqueTable analytiqueTable = new AssociationAnalytiqueTable(null);
-        SQLTableElement eltPourcent = new SQLTableElement(elt.getTable().getField("ANALYTIQUE"), String.class, new MultiLineTableCellEditor(analytiqueTable.getTable(), analytiqueTable));
-        list.add(eltPourcent);
-
         this.debit = new SQLTableElement(elt.getTable().getField("DEBIT"), Long.class, this.deviseCellEditor);
         list.add(this.debit);
         this.credit = new SQLTableElement(elt.getTable().getField("CREDIT"), Long.class, this.deviseCellEditor);

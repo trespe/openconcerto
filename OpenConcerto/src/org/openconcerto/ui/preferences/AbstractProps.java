@@ -75,8 +75,24 @@ public abstract class AbstractProps {
         return property;
     }
 
+    /**
+     * Return Boolean.TRUE only if the property is defined and equals to "true". If the property is
+     * not defined or not equals to "true", return Boolean.FALSE
+     * */
     public final Boolean getBooleanValue(String name) {
-        return Boolean.valueOf(this.getProperty(name));
+        final String property = this.getProperty(name);
+        if (property == null) {
+            return Boolean.FALSE;
+        }
+        return Boolean.valueOf(property);
+    }
+
+    public final boolean getBooleanValue(String name, boolean defaultValue) {
+        final String property = this.getProperty(name);
+        if (property == null) {
+            return defaultValue;
+        }
+        return Boolean.valueOf(property);
     }
 
     public String getDefaultStringValue() {

@@ -14,7 +14,6 @@
  package org.openconcerto.erp.core.supplychain.order.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
 import org.openconcerto.erp.generationDoc.gestcomm.CommandeXmlSheet;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
@@ -24,14 +23,12 @@ import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 
 import java.awt.event.ActionEvent;
-import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JTable;
 
 public class ListeDesCommandesAction extends CreateFrameAbstractAction {
     public ListeDesCommandesAction() {
@@ -41,14 +38,6 @@ public class ListeDesCommandesAction extends CreateFrameAbstractAction {
 
     public JFrame createFrame() {
         final IListFrame frame = new IListFrame(new ListeAddPanel(Configuration.getInstance().getDirectory().getElement("COMMANDE")));
-
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
 
         frame.getPanel().getListe().getJTable().addMouseListener(new MouseSheetXmlListeListener(frame.getPanel().getListe(), CommandeXmlSheet.class) {
             @Override

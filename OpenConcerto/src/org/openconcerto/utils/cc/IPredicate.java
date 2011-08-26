@@ -23,10 +23,21 @@ public abstract class IPredicate<E> implements Predicate {
             return true;
         }
     };
+    private static final IPredicate<Object> NotNullPred = new IPredicate<Object>() {
+        @Override
+        public boolean evaluateChecked(Object input) {
+            return input != null;
+        }
+    };
 
     @SuppressWarnings("unchecked")
     public static final <N> IPredicate<N> truePredicate() {
         return (IPredicate<N>) truePred;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static final <N> IPredicate<N> notNullPredicate() {
+        return (IPredicate<N>) NotNullPred;
     }
 
     @SuppressWarnings("unchecked")

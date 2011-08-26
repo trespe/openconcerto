@@ -288,6 +288,14 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
         }
     }
 
+    public final <T extends DBStructureItemJDBC> T getDescLenient(SQLName name, Class<T> clazz) {
+        try {
+            return this.getDesc(name, clazz);
+        } catch (DBStructureItemNotFound e) {
+            return null;
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public final <T extends DBStructureItem> Set<T> getDescs(Class<T> clazz) {
         // getDescendants() stays in the same tree, so start from the desired one.

@@ -58,7 +58,7 @@ public class ArticleManager {
 
         for (int i = 0; i < cacheCode.size(); i++) {
             Map m = (Map) cacheCode.get(i);
-            String c = (String) m.get("CODE");
+            String c = (String) m.get("CODE_BARRE");
             String n = (String) m.get("NOM");
             if ((code.length() > 0 && c.toLowerCase().trim().equals(code)) || n.toLowerCase().trim().equals(nom)) {
                 // on doit faire juste l'update
@@ -74,7 +74,7 @@ public class ArticleManager {
         if (!update) {
             rowParDefaut.loadAllSafe(table.getRow(table.getUndefinedID()));
             rowParDefaut.put("NOM", nom);
-            rowParDefaut.put("CODE", code);
+            rowParDefaut.put("CODE_BARRE", code);
         }
 
         rowParDefaut.put("PA_HT", new Long(prixAchatHT));
@@ -114,7 +114,7 @@ public class ArticleManager {
      */
 
     private void fillCache() {
-        this.cacheCode = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getDataSource().execute("SELECT ID,NOM,CODE FROM ARTICLE");
+        this.cacheCode = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getDataSource().execute("SELECT ID,NOM,CODE_BARRE FROM ARTICLE");
 
     }
 

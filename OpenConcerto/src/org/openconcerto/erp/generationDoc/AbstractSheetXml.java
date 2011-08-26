@@ -30,7 +30,7 @@ public abstract class AbstractSheetXml extends SheetXml {
             @Override
             public File call() throws Exception {
                 try {
-                    File fGen = OOgenerationXML.genere(AbstractSheetXml.this.modele, AbstractSheetXml.this.locationOO, getFileName(), AbstractSheetXml.this.row);
+                    File fGen = OOgenerationXML.genere(AbstractSheetXml.this.modele, AbstractSheetXml.this.locationOO, getFileName(), AbstractSheetXml.this.row, getRowLanguage());
                     AbstractSheetXml.this.f = fGen;
                     useOO(fGen, visu, impression, getFileName());
                     return fGen;

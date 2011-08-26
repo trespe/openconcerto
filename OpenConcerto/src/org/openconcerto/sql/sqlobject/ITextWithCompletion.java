@@ -149,7 +149,11 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
             private boolean consume;
 
             public void keyPressed(KeyEvent e) {
-                if (e.getKeyCode() == KeyEvent.VK_DOWN) {
+                if (e.getKeyCode() == KeyEvent.VK_TAB) {
+                    // Complete si exactement la valeur souhaitée
+                    updateAutoCompletion(true);
+                    e.consume();
+                } else if (e.getKeyCode() == KeyEvent.VK_DOWN) {
                     if (ITextWithCompletion.this.popup.isShowing()) {
                         ITextWithCompletion.this.popup.selectNext();
                         e.consume();
@@ -181,12 +185,11 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
                         ITextWithCompletion.this.popup.selectPreviousPage();
                         e.consume();
                     }
-                } else {
-                    if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-                        if (ITextWithCompletion.this.popup.isShowing()) {
-                            hidePopup();
-                        }
+                } else if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+                    if (ITextWithCompletion.this.popup.isShowing()) {
+                        hidePopup();
                     }
+
                 }
 
                 // else {
@@ -265,8 +268,6 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
         }
         final SwingWorker worker = new SwingWorker<Object, Object>() {
 
-          
-
             // Runs on the event-dispatching thread.
             @Override
             public void done() {
@@ -282,11 +283,11 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
             @Override
             protected Object doInBackground() throws Exception {
                 loadCache();
-               
+
                 return null;
             }
         };
-        
+
         worker.execute();
     }
 
@@ -296,7 +297,9 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
      */
     List<IComboSelectionItem> getPossibleValues(String aText) {
         List<IComboSelectionItem> result = new Vector<IComboSelectionItem>();
-
+        if (aText.isEmpty()) {
+            return result;
+        }
         Map<String, IComboSelectionItem> map = new HashMap<String, IComboSelectionItem>();
 
         aText = aText.trim().toLowerCase();
@@ -353,19 +356,16 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
     }
 
     private List<String> cut(String value) {
-        Vector<String> v = new Vector<String>();
-        StringTokenizer tokenizer = new StringTokenizer(value);
+        final Vector<String> v = new Vector<String>();
+        final StringTokenizer tokenizer = new StringTokenizer(value);
         while (tokenizer.hasMoreElements()) {
-            String element = (String) tokenizer.nextElement();
-
+            final String element = (String) tokenizer.nextElement();
             v.add(element.toLowerCase());
-
         }
-
         return v;
     }
 
-    private void updateAutoCompletion() {
+    private void updateAutoCompletion(boolean autoselectIfMatch) {
         if (!this.isCompletionEnabled() || this.isLoading) {
             return;
         }
@@ -389,14 +389,12 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
             hidePopup();
         }
         // Le texte dans la case n'est pas celui d'un id
-        // boolean isInCombo=false;
-        // this.selectedId = -1;
+
         int newId = this.selectedId;
         boolean found = false;
         for (Iterator<IComboSelectionItem> iter = l.iterator(); iter.hasNext();) {
             IComboSelectionItem element = iter.next();
-            if (element.getLabel().equalsIgnoreCase(t) && l.size() == 1) {
-
+            if (element.getLabel().equalsIgnoreCase(t) && autoselectIfMatch) {
                 newId = element.getId();
                 hidePopup();
                 found = true;
@@ -409,9 +407,7 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
                 public void run() {
                     ITextWithCompletion.this.fireSelectionId(ITextWithCompletion.this.getSelectedId());
                 }
-            }
-
-            );
+            });
         }
         if (!found) {
             this.selectedId = -1;
@@ -431,17 +427,17 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
     }
 
     public void changedUpdate(DocumentEvent e) {
-        updateAutoCompletion();
+        updateAutoCompletion(false);
         this.supp.firePropertyChange("value", null, this.getText());
     }
 
     public void insertUpdate(DocumentEvent e) {
-        updateAutoCompletion();
+        updateAutoCompletion(false);
         this.supp.firePropertyChange("value", null, this.getText());
     }
 
     public void removeUpdate(DocumentEvent e) {
-        updateAutoCompletion();
+        updateAutoCompletion(false);
         this.supp.firePropertyChange("value", null, this.getText());
     }
 

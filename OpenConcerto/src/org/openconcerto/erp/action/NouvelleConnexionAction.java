@@ -21,9 +21,6 @@ import org.openconcerto.erp.core.common.ui.StatusPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.humanresources.payroll.element.CaisseCotisationSQLElement;
 import org.openconcerto.erp.element.objet.ClasseCompte;
-import org.openconcerto.erp.modules.ModuleFactory;
-import org.openconcerto.erp.modules.ModuleManager;
-import org.openconcerto.erp.modules.ModuleVersion;
 import org.openconcerto.erp.panel.ComptaTipsFrame;
 import org.openconcerto.erp.utils.NXDatabaseAccessor;
 import org.openconcerto.map.model.Ville;
@@ -50,6 +47,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.state.WindowStateManager;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.JImage;
 
 import java.awt.Color;
@@ -62,7 +60,6 @@ import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.concurrent.CountDownLatch;
 
 import javax.swing.Action;
@@ -92,72 +89,45 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
         Runnable r = new Runnable() {
 
             public void run() {
-
-                final Boolean booleanValue = UserProps.getInstance().getBooleanValue("HideTips");
-                if (!booleanValue) {
-                    ComptaTipsFrame.getFrame(true).setVisible(true);
-                }
-                final int selectedSociete = NouvelleConnexionAction.this.connexionPanel == null ? UserProps.getInstance().getLastSocieteID() : NouvelleConnexionAction.this.connexionPanel
-                        .getSelectedSociete();
-                comptaPropsConfiguration.setUpSocieteDataBaseConnexion(selectedSociete);
-
-
-                // check required modules
-                final ModuleManager moduleMngr = ModuleManager.getInstance();
-                final List<String> modulesToStart = new ArrayList<String>();
                 try {
-                    for (final Entry<String, ModuleVersion> e : moduleMngr.getDBInstalledModules().entrySet()) {
-                        final String moduleID = e.getKey();
-                        final ModuleFactory moduleFactory = moduleMngr.getFactories().get(moduleID);
-                        final String error;
-                        if (moduleFactory == null)
-                            error = "Il manque " + moduleID;
-                        else if (!moduleFactory.getVersion().equals(e.getValue()))
-                            error = "Mauvaise version pour " + moduleID;
-                        else if (!moduleMngr.canFactoryCreate(moduleFactory))
-                            error = "Impossible de créer " + moduleID;
-                        else
-                            error = null;
-                        if (error != null) {
-                            // TODO open GUI to resolve the issue
-                            ExceptionHandler.die(error);
-                            return;
-                        } else {
-                            modulesToStart.add(moduleID);
-                        }
+                    final Boolean booleanValue = UserProps.getInstance().getBooleanValue("HideTips");
+                    if (!booleanValue) {
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                ComptaTipsFrame.getFrame(true).setVisible(true);
+                            }
+                        });
                     }
-                } catch (Exception e) {
-                    ExceptionHandler.die("Impossible de déterminer les modules requis", e);
-                    return;
+                    final int selectedSociete = NouvelleConnexionAction.this.connexionPanel == null ? UserProps.getInstance().getLastSocieteID() : NouvelleConnexionAction.this.connexionPanel
+                            .getSelectedSociete();
+                    comptaPropsConfiguration.setUpSocieteDataBaseConnexion(selectedSociete);
+
+
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            // even for quick login, check the license before displaying the main
+                            // frame
+
+                            StatusPanel.getInstance().fireStatusChanged();
+                            final JFrame f = new MainFrame();
+                            final File f2 = new File(Configuration.getInstance().getConfDir(), "Configuration" + File.separator + "Frame" + File.separator + "mainFrame.xml");
+                            WindowStateManager manager = new WindowStateManager(f, f2);
+                            String version = comptaPropsConfiguration.getVersion();
+                            f.setTitle(comptaPropsConfiguration.getAppName() + " " + version + ", " + " [Société " + comptaPropsConfiguration.getRowSociete().getString("NOM") + "]");
+                            f.setMinimumSize(new Dimension(800, 600));
+                            // f.setResizable(false);
+                            f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+                            manager.loadState();
+
+                            FrameUtil.show(f);
+                        }
+                    });
+                    initCache();
+                } catch (Throwable e) {
+                    ExceptionHandler.handle("Erreur de connexion", e);
                 }
-
-                SwingUtilities.invokeLater(new Runnable() {
-                    @Override
-                    public void run() {
-                        // even for quick login, check the license before displaying the main frame
-
-                        StatusPanel.getInstance().fireStatusChanged();
-                        final JFrame f = new MainFrame();
-                        final File f2 = new File(Configuration.getInstance().getConfDir(), "Configuration" + File.separator + "Frame" + File.separator + "mainFrame.xml");
-                        WindowStateManager manager = new WindowStateManager(f, f2);
-                        String version = comptaPropsConfiguration.getVersion();
-                        f.setTitle(comptaPropsConfiguration.getAppName() + " " + version + ", " + " [Société " + comptaPropsConfiguration.getRowSociete().getString("NOM") + "]");
-                        f.setMinimumSize(new Dimension(800, 600));
-                        // f.setResizable(false);
-                        f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                        manager.loadState();
-
-                        try {
-                            moduleMngr.startModules(modulesToStart, false);
-                        } catch (Exception e) {
-                            ExceptionHandler.die("Impossible de démarrer les modules requis", e);
-                        }
-
-                        FrameUtil.show(f);
-                    }
-                });
-                initCache();
-
             }
 
             private void fixEcriture() {

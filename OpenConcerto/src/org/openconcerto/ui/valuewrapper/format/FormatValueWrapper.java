@@ -26,6 +26,8 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.text.Format;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.JComponent;
 import javax.swing.text.AbstractDocument;
@@ -66,14 +68,31 @@ public abstract class FormatValueWrapper<T> extends BaseValueWrapper<T> {
 
         // this validObject is the combination of comp & this format
         this.comb = ValidObjectCombiner.create(this, this.comp, new ValidObject() {
-            public void addValidListener(final ValidListener l) {
-                final ValidObject me = this;
+
+            private final List<ValidListener> listeners = new ArrayList<ValidListener>();
+
+            {
                 // isValidated() depends on getText(), ie the value
                 FormatValueWrapper.this.addValueListener(new PropertyChangeListener() {
                     public void propertyChange(PropertyChangeEvent evt) {
-                        l.validChange(me, isValidated());
+                        fireValidChange();
                     }
                 });
+            }
+
+            private void fireValidChange() {
+                for (final ValidListener l : this.listeners)
+                    l.validChange(this, this.isValidated());
+            }
+
+            @Override
+            public void addValidListener(final ValidListener l) {
+                this.listeners.add(l);
+            }
+
+            @Override
+            public void removeValidListener(ValidListener l) {
+                this.listeners.remove(l);
             }
 
             public String getValidationText() {

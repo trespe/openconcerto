@@ -13,18 +13,16 @@
  
  package org.openconcerto.erp.core.sales.invoice.report;
 
-import java.text.DateFormat;
-import java.util.Date;
-import java.util.HashMap;
-
-
-
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.generationDoc.SheetInterface;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
+
+import java.text.DateFormat;
+import java.util.Date;
+import java.util.HashMap;
 
 public class VenteComptoirSheet extends SheetInterface {
 

@@ -37,10 +37,10 @@ public class VerticalStackBarChart extends VerticalBarChart {
 
         double minXValue = lowerRange.doubleValue();
         double rangeXValue = maxXValue - minXValue;
-        System.out.println("Range:" + rangeXValue);
+
         double ratioy = (double) graphHeight / rangeXValue;
         long x = graphPosX + this.getSpaceBetweenBars();
-        long height = (long) this.getDimension().getHeight();
+
         for (int i = 0; i < nbBar; i++) {
             long y = graphPosY + graphHeight;
 
@@ -50,7 +50,7 @@ public class VerticalStackBarChart extends VerticalBarChart {
                 final Number valueAt = model1.getValueAt(i);
                 if (valueAt != null) {
                     double h = valueAt.doubleValue() * ratioy;
-                    System.out.print("y:" + (int) y + " h:" + (int) h + ",");
+
                     g.setColor(this.getColor(j));
                     y -= Math.ceil(h) - 1;
 
@@ -58,7 +58,7 @@ public class VerticalStackBarChart extends VerticalBarChart {
                 }
 
             }
-            System.out.println();
+
             x += this.getSpaceBetweenBars() + this.getBarWidth();
         }
         g.setColor(Color.pink);

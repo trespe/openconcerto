@@ -466,6 +466,11 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         this.supp.addValidListener(l);
     }
 
+    @Override
+    public void removeValidListener(ValidListener l) {
+        this.supp.removeValidListener(l);
+    }
+
     public String getValidationText() {
         return null;
     }
