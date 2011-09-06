@@ -23,6 +23,7 @@ import java.math.BigInteger;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Date;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Arrays;
@@ -66,6 +67,8 @@ public abstract class SQLType {
             return Timestamp.class;
         case Types.DATE:
             return java.util.Date.class;
+        case Types.TIME:
+            return java.sql.Time.class;
         case Types.INTEGER:
         case Types.SMALLINT:
         case Types.TINYINT:
@@ -121,6 +124,8 @@ public abstract class SQLType {
                 res = new BooleanType(type, size, typeName, clazz);
             else if (Number.class.isAssignableFrom(clazz))
                 res = new NumberType(type, size, decDigits, typeName, clazz);
+            else if (Time.class.isAssignableFrom(clazz))
+                res = new TimeType(type, size, decDigits, typeName, clazz);
             else if (Timestamp.class.isAssignableFrom(clazz))
                 res = new TimestampType(type, size, decDigits, typeName, clazz);
             // Date en dernier surclasse des autres
@@ -465,6 +470,22 @@ public abstract class SQLType {
                 ts = (Timestamp) o;
             else
                 ts = new Timestamp(getTime(o));
+            return "'" + ts.toString() + "'";
+        }
+    }
+
+    private static class TimeType extends DateOrTimeType {
+        public TimeType(int type, int size, Integer decDigits, String typeName, Class clazz) {
+            super(type, size, decDigits, typeName, clazz);
+        }
+
+        @Override
+        protected String toStringRaw(Object o) {
+            final Time ts;
+            if (o instanceof Time)
+                ts = (Time) o;
+            else
+                ts = new Time(getTime(o));
             return "'" + ts.toString() + "'";
         }
     }

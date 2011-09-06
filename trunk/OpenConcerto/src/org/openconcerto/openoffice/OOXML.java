@@ -254,7 +254,7 @@ public abstract class OOXML implements Comparable<OOXML> {
         return new Element("span", getVersion().getTEXT()).setContent(encodeWSasList(s));
     }
 
-    private final List<Content> encodeWSasList(final String s) {
+    public final List<Content> encodeWSasList(final String s) {
         final List<Content> res = new ArrayList<Content>();
         final Matcher m = Pattern.compile("\n|\t| {2,}").matcher(s);
         int last = 0;

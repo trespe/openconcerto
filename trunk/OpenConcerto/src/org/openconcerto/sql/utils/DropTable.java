@@ -67,4 +67,9 @@ public final class DropTable extends ChangeTable<DropTable> {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    protected String getConstraintPrefix() {
+        // FIXME make a superclass w/o it
+        throw new UnsupportedOperationException();
+    }
 }

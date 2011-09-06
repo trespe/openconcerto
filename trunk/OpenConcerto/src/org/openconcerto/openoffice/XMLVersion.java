@@ -33,7 +33,6 @@ public enum XMLVersion {
             this.putMandatory(OFFICE_1, STYLE_1, TEXT_1, TABLE_1);
             this.put("number", NUMBER_1);
             this.put("draw", DRAW_1);
-            this.put("number", NUMBER_1);
             this.put("fo", FO_1);
             this.put("form", "http://openoffice.org/2000/form");
             this.put("xlink", "http://www.w3.org/1999/xlink");
@@ -49,7 +48,6 @@ public enum XMLVersion {
             this.putMandatory(OFFICE_2, STYLE_2, TEXT_2, TABLE_2);
             this.put("number", NUMBER_2);
             this.put("draw", DRAW_2);
-            this.put("number", NUMBER_2);
             this.put("fo", FO_2);
             this.put("form", "urn:oasis:names:tc:opendocument:xmlns:form:1.0");
             this.put("xlink", "http://www.w3.org/1999/xlink");

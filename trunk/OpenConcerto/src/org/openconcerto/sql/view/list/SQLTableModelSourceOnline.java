@@ -59,4 +59,9 @@ public class SQLTableModelSourceOnline extends SQLTableModelSource {
     protected SQLTableModelLinesSourceOnline _createLinesSource(final ITableModel model) {
         return new SQLTableModelLinesSourceOnline(this, model);
     }
+
+    @Override
+    public SQLRowValues getMaxGraph() {
+        return this.getReq().getGraphToFetch();
+    }
 }

@@ -13,6 +13,8 @@
  
  package org.openconcerto.xml;
 
+import org.openconcerto.utils.cc.IPredicate;
+
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
@@ -151,6 +153,25 @@ public final class JDOMUtils {
         return OUTPUTTER.outputString(xml);
     }
 
+    public static Element getAncestor(Element element, final String name, final Namespace ns) {
+        return getAncestor(element, new IPredicate<Element>() {
+            @Override
+            public boolean evaluateChecked(Element elem) {
+                return elem.getName().equals(name) && elem.getNamespace().equals(ns);
+            }
+        });
+    }
+
+    public static Element getAncestor(Element element, final IPredicate<Element> pred) {
+        Element current = element;
+        while (current != null) {
+            if (pred.evaluateChecked(current))
+                return current;
+            current = current.getParentElement();
+        }
+        return null;
+    }
+
     /**
      * Add namespace declaration to <code>elem</code> if needed. Necessary since JDOM uses a simple
      * list.
@@ -226,6 +247,23 @@ public final class JDOMUtils {
         final Element parentElement = sibling.getParentElement();
         final int index = parentElement.indexOf(sibling);
         parentElement.addContent(after ? index + 1 : index, toAdd);
+    }
+
+    /**
+     * Test if two elements have the same namespace and name.
+     * 
+     * @param elem1 an element, can be <code>null</code>.
+     * @param elem2 an element, can be <code>null</code>.
+     * @return <code>true</code> if both elements have the same name and namespace, or if both are
+     *         <code>null</code>.
+     */
+    public static boolean equals(Element elem1, Element elem2) {
+        if (elem1 == null && elem2 == null)
+            return true;
+        else if (elem1 == null || elem2 == null)
+            return false;
+        else
+            return elem1.getName().equals(elem2.getName()) && elem1.getNamespace().equals(elem2.getNamespace());
     }
 
     // @return SAXException If a SAX error occurs during parsing of doc.

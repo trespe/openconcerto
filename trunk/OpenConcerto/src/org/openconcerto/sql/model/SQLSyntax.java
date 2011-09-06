@@ -338,7 +338,7 @@ public abstract class SQLSyntax {
         return !Boolean.FALSE.equals(f.isNullable());
     }
 
-    protected final String getNullableClause(boolean nullable) {
+    public final String getNullableClause(boolean nullable) {
         return nullable ? " " : " NOT NULL ";
     }
 
@@ -404,7 +404,7 @@ public abstract class SQLSyntax {
      * @param def the default, e.g. "0".
      * @return the default clause, e.g. "DEFAULT 0".
      */
-    protected final String getDefaultClause(final String def) {
+    public final String getDefaultClause(final String def) {
         if (def == null)
             return " ";
         else

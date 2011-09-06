@@ -13,11 +13,14 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
-import org.openconcerto.openoffice.ODFrame;
+import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
+
+import java.math.BigDecimal;
 
 import org.jdom.Element;
 
@@ -31,12 +34,35 @@ public class RowStyle extends StyleStyle {
         }
     };
 
+    private StyleTableRowProperties rowProps;
+
     public RowStyle(final ODPackage pkg, Element tableColElem) {
         super(pkg, tableColElem);
     }
 
-    public final float getHeight() {
-        return ODFrame.parseLength(getFormattingProperties().getAttributeValue("row-height", this.getSTYLE()), TableStyle.DEFAULT_UNIT);
+    public final StyleTableRowProperties getTableRowProperties() {
+        if (this.rowProps == null)
+            this.rowProps = new StyleTableRowProperties(this);
+        return this.rowProps;
     }
 
+    // see 17.17 of v1.2-cs01-part1
+    public static class StyleTableRowProperties extends StyleProperties {
+
+        public StyleTableRowProperties(StyleStyle style) {
+            super(style, style.getFamily());
+        }
+
+        public final BigDecimal getHeight(final LengthUnit in) {
+            return LengthUnit.parseLength(getAttributeValue("row-height", this.getNS("style")), in);
+        }
+
+        public final String getBreakBefore() {
+            return getAttributeValue("break-before", this.getNS("fo"));
+        }
+
+        public final String getBreakAfter() {
+            return getAttributeValue("break-after", this.getNS("fo"));
+        }
+    }
 }

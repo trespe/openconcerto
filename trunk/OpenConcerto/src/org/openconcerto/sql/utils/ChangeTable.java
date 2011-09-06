@@ -23,6 +23,7 @@ import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTable.Index;
 import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.SQLKey;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ReflectUtils;
@@ -202,6 +203,29 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         return this.addColumn(name, getSyntax().getDateAndTimeType());
     }
 
+    /**
+     * Adds a non-null integer column.
+     * 
+     * @param name the name of the column.
+     * @param defaultVal the default value of the column.
+     * @return this.
+     */
+    public final T addIntegerColumn(String name, int defaultVal) {
+        return this.addIntegerColumn(name, defaultVal, false);
+    }
+
+    /**
+     * Adds an integer column.
+     * 
+     * @param name the name of the column.
+     * @param defaultVal the default value of the column, can be <code>null</code>.
+     * @param nullable whether the column accepts NULL.
+     * @return this.
+     */
+    public final T addIntegerColumn(String name, Integer defaultVal, boolean nullable) {
+        return this.addColumn(name, "integer " + getSyntax().getDefaultClause(defaultVal == null ? null : defaultVal.toString()) + " " + getSyntax().getNullableClause(nullable));
+    }
+
     public abstract T addColumn(String name, String definition);
 
     public final T addColumn(SQLField f) {
@@ -255,6 +279,41 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
 
     // * addForeignColumn = addColumn + addForeignConstraint
 
+    public T addForeignColumn(SQLCreateTableBase<?> createTable) {
+        return this.addForeignColumnWithSuffix("", createTable);
+    }
+
+    /**
+     * Add a foreign column to a table not yet created.
+     * 
+     * @param suffix the suffix of the column, used to tell apart multiple columns pointing to the
+     *        same table, e.g. "" or "2".
+     * @param createTable the table the new column must point to.
+     * @return this.
+     * @see #addForeignColumn(String, SQLCreateTableBase)
+     */
+    public T addForeignColumnWithSuffix(String suffix, SQLCreateTableBase<?> createTable) {
+        final String fk = SQLKey.PREFIX + createTable.getName() + (suffix.length() == 0 ? "" : "_" + suffix);
+        return this.addForeignColumn(fk, createTable);
+    }
+
+    /**
+     * Add a foreign column to a table not yet created. Note: this method assumes that the foreign
+     * table will be created in the same root as this table, like with
+     * {@link ChangeTable#cat(List, String)}.
+     * 
+     * @param fk the field name, e.g. "ID_BAT".
+     * @param createTable the table the new column must point to.
+     * @return this.
+     * @see #addForeignColumn(String, SQLName, String, String)
+     */
+    public T addForeignColumn(String fk, SQLCreateTableBase<?> createTable) {
+        final List<String> primaryKey = createTable.getPrimaryKey();
+        if (primaryKey.size() != 1)
+            throw new IllegalArgumentException("Not exactly one field in the foreign primary key : " + primaryKey);
+        return this.addForeignColumn(fk, new SQLName(createTable.getName()), primaryKey.get(0), null);
+    }
+
     /**
      * Add a column and its foreign constraint. If <code>table</code> is of length 1 it will be
      * prepended the root name of this table.
@@ -306,9 +365,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         });
     }
 
-    private final String getConstraintPrefix() {
-        return this instanceof AlterTable ? "ADD " : "";
-    }
+    protected abstract String getConstraintPrefix();
 
     /**
      * Add a clause inside the "CREATE TABLE".

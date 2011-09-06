@@ -25,7 +25,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
@@ -42,11 +44,24 @@ public class ModulePackager {
     private final List<File> classesDirs;
     private final List<File> jars = new ArrayList<File>();
     private final File propsFile;
+    private final Set<String> dirEntries, fileEntries;
+    private boolean skipDuplicateFiles;
 
     public ModulePackager(final File propsFile, final File classes) {
         this.propsFile = propsFile;
         this.classesDirs = new ArrayList<File>(8);
         this.classesDirs.add(classes);
+        this.dirEntries = new HashSet<String>();
+        this.fileEntries = new HashSet<String>();
+        this.setSkipDuplicateFiles(false);
+    }
+
+    public final void setSkipDuplicateFiles(boolean skipDuplicateFiles) {
+        this.skipDuplicateFiles = skipDuplicateFiles;
+    }
+
+    public final boolean getSkipDuplicateFiles() {
+        return this.skipDuplicateFiles;
     }
 
     public final void addDir(final File classesDir) {
@@ -90,6 +105,8 @@ public class ModulePackager {
         final RuntimeModuleFactory f = new RuntimeModuleFactory(this.propsFile);
         final File jarFile = new File(dir, f.getID() + "-" + f.getMajorVersion() + "." + f.getMinorVersion() + ".jar");
         final JarOutputStream jarStream = new JarOutputStream(new BufferedOutputStream(new FileOutputStream(jarFile)));
+        this.dirEntries.clear();
+        this.fileEntries.clear();
         try {
             if (!this.zipExistingFile(jarStream, this.propsFile, MODULE_PROPERTIES_PATH))
                 throw new IllegalStateException("Missing properties file : " + this.propsFile);
@@ -101,6 +118,8 @@ public class ModulePackager {
             }
         } finally {
             jarStream.close();
+            this.dirEntries.clear();
+            this.fileEntries.clear();
         }
         return jarFile;
     }
@@ -172,6 +191,13 @@ public class ModulePackager {
     }
 
     private void zip(JarOutputStream jarStream, final JarEntry entry, InputStream in) throws IOException {
+        // ignore duplicate directories
+        final boolean isDir = entry.isDirectory();
+        if (isDir && !this.dirEntries.add(entry.getName()))
+            return;
+        if (!isDir && this.getSkipDuplicateFiles() && !this.fileEntries.add(entry.getName()))
+            return;
+
         jarStream.putNextEntry(entry);
         if (in != null) {
             StreamUtils.copy(in, jarStream);

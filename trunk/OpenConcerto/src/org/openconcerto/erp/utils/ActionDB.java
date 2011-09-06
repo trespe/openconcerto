@@ -116,7 +116,7 @@ public class ActionDB {
 
             log(l, "Duplication terminée");
 
-        } catch (SQLException e) {
+        } catch (Throwable e) {
             e.printStackTrace();
             ExceptionHandler.handle("Erreur pendant la création de la base!", e);
             log(l, "Erreur pendant la duplication");

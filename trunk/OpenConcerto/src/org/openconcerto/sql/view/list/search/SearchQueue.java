@@ -15,8 +15,8 @@
 
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.sql.view.list.LineListener;
@@ -124,7 +124,7 @@ public final class SearchQueue extends SleepingQueue {
         if (id < SQLRow.MIN_VALID_ID)
             throw new IllegalArgumentException("invalid ID: " + id);
         if (!this.fullList.isEmpty()) {
-            final SQLRowValues proto = this.fullList.get(0).getRow();
+            final SQLRowValues proto = this.getModel().getLinesSource().getParent().getMaxGraph();
             final List<Path> pathsToT = new ArrayList<Path>();
             proto.walkGraph(pathsToT, new ITransformer<State<List<Path>>, List<Path>>() {
                 @Override
@@ -137,9 +137,9 @@ public final class SearchQueue extends SleepingQueue {
             });
             for (final Path p : pathsToT) {
                 for (final ListSQLLine line : this.fullList) {
-                    final SQLRowValues current = line.getRow().assurePath(p);
+                    final SQLRowValues current = line.getRow().followPath(p);
                     // works for rowValues w/o any ID
-                    if (current.getID() == id) {
+                    if (current != null && current.getID() == id) {
                         // add to the list of paths that have been refreshed
                         if (byLine)
                             res.put(line, p);

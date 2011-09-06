@@ -24,6 +24,7 @@ import org.openconcerto.sql.model.DBFileCache;
 import org.openconcerto.sql.model.DBItemFileCache;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLSchema;
@@ -142,7 +143,7 @@ public class DatabaseGraph extends BaseGraph {
                 Log.get().config("XML took " + (t2 - t1) + "ms for mapping the graph of " + this.base.getName() + "." + res);
             }
         } catch (Exception e) {
-            Log.get().info("invalid files in " + dir + "\n" + ExceptionUtils.getStackTrace(e));
+            SQLBase.logCacheError(dir, e);
             this.deleteGraphFiles();
         }
         if (!childrenToFetch.isEmpty()) {

@@ -28,9 +28,10 @@ import org.jdom.Element;
 public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> {
 
     static final String ELEMENT_NAME = "style";
+    static final String ELEMENT_DEFAULT_NAME = "default-style";
 
     static String getFamily(final Element styleElem) {
-        assert styleElem.getName().equals(ELEMENT_NAME);
+        assert styleElem.getName().equals(ELEMENT_NAME) || styleElem.getName().equals(ELEMENT_DEFAULT_NAME);
         return styleElem.getAttributeValue("family", styleElem.getNamespace("style"));
     }
 
@@ -70,5 +71,10 @@ public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> 
     protected void initStyle(Element elem) {
         super.initStyle(elem);
         elem.setAttribute("family", this.getFamily(), elem.getNamespace());
+    }
+
+    public final S findDefaultStyle(final ODPackage pkg) {
+        final Element styleElem = pkg.getDefaultStyle(this);
+        return styleElem == null ? null : this.create(pkg, styleElem);
     }
 }

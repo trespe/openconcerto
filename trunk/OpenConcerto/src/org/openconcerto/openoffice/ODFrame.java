@@ -34,13 +34,7 @@ public class ODFrame<D extends ODDocument> extends ImmutableDocStyledNode<Graphi
      * @return the length, eg 15.3.
      */
     public static final float parseLength(final String l, final LengthUnit to) {
-        return parseLengthDecimal(l, to).floatValue();
-    }
-
-    public static final BigDecimal parseLengthDecimal(final String l, final LengthUnit to) {
-        if (l == null)
-            return null;
-        return LengthUnit.parseLength(l, to).stripTrailingZeros();
+        return LengthUnit.parseLength(l, to).floatValue();
     }
 
     // BigDecimal are exact and they can be null (eg optional attribute)
@@ -48,8 +42,8 @@ public class ODFrame<D extends ODDocument> extends ImmutableDocStyledNode<Graphi
 
     public ODFrame(D parent, Element frame) {
         super(parent, frame, GraphicStyle.class);
-        this.width = parseLengthDecimal(this.getSVGAttr("width"), getUnit());
-        this.height = parseLengthDecimal(this.getSVGAttr("height"), getUnit());
+        this.width = LengthUnit.parseLength(this.getSVGAttr("width"), getUnit());
+        this.height = LengthUnit.parseLength(this.getSVGAttr("height"), getUnit());
     }
 
     public final BigDecimal getWidth() {
@@ -95,11 +89,11 @@ public class ODFrame<D extends ODDocument> extends ImmutableDocStyledNode<Graphi
     }
 
     public final BigDecimal getX() {
-        return parseLengthDecimal(this.getSVGAttr("x"), getUnit());
+        return LengthUnit.parseLength(this.getSVGAttr("x"), getUnit());
     }
 
     public final BigDecimal getY() {
-        return parseLengthDecimal(this.getSVGAttr("y"), getUnit());
+        return LengthUnit.parseLength(this.getSVGAttr("y"), getUnit());
     }
 
     /**

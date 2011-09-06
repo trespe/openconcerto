@@ -69,12 +69,12 @@ public class SideStyleProperties extends StyleProperties {
     }
 
     protected final String getSideAttribute(final Side s, final String attrName, final Namespace ns) {
-        final String allBorder = getElement().getAttributeValue(attrName, ns);
+        final String allBorder = getAttributeValue(attrName, ns);
         final String res;
         if (allBorder != null)
             res = allBorder;
         else
-            res = getElement().getAttributeValue(attrName + "-" + s.name().toLowerCase(), ns);
+            res = getAttributeValue(attrName + "-" + s.name().toLowerCase(), ns);
         return res;
     }
 }

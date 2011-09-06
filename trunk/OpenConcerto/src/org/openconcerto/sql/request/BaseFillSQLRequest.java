@@ -37,6 +37,13 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
      */
     public static final boolean lockSelect = !Boolean.getBoolean("org.openconcerto.sql.noSelectLock");
 
+    static public void setupForeign(final SQLRowValuesListFetcher fetcher) {
+        // include rows having NULL (not undefined ID) foreign keys
+        fetcher.setFullOnly(false);
+        // treat the same way tables with or without undefined ID
+        fetcher.setIncludeForeignUndef(false);
+    }
+
     private final SQLTable primaryTable;
     private Where where;
     private ITransformer<SQLSelect, SQLSelect> selTransf;
@@ -117,10 +124,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
     protected final SQLRowValuesListFetcher getFetcher(final Where w) {
         final String tableName = getPrimaryTable().getName();
         final SQLRowValuesListFetcher fetcher = new SQLRowValuesListFetcher(getGraphToFetch(), true);
-        // include rows having NULL (not undefined ID) foreign keys
-        fetcher.setFullOnly(false);
-        // treat the same way tables with or without undefined ID
-        fetcher.setIncludeForeignUndef(false);
+        setupForeign(fetcher);
         fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
             @Override
             public SQLSelect transformChecked(SQLSelect sel) {

@@ -73,6 +73,7 @@ import java.beans.PropertyChangeSupport;
 import java.io.File;
 import java.io.IOException;
 import java.sql.Clob;
+import java.sql.Time;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -125,10 +126,13 @@ public final class IListe extends JPanel implements AncestorListener {
     private static boolean FORCE_ALT_CELL_RENDERER = false;
     private static final DateFormat MODIF_DATE_FORMAT = new SimpleDateFormat("'le' dd MMMM yyyy 'à' HH:mm:ss");
     static final String SEP = " ► ";
+    private static final DateFormat TIME_FORMAT = DateFormat.getTimeInstance(DateFormat.SHORT);
     private static final Map<Class<?>, FormatGroup> FORMATS;
     static {
         FORMATS = new HashMap<Class<?>, FormatGroup>();
         FORMATS.put(Date.class, new FormatGroup(DateFormat.getDateInstance(DateFormat.SHORT), DateFormat.getDateInstance(DateFormat.MEDIUM), DateFormat.getDateInstance(DateFormat.LONG)));
+        // longer first otherwise seconds are not displayed by the cell editor and will be lost
+        FORMATS.put(Time.class, new FormatGroup(DateFormat.getTimeInstance(DateFormat.MEDIUM), DateFormat.getTimeInstance(DateFormat.SHORT)));
     }
 
     public static final void remove(InputMap m, KeyStroke key) {
@@ -554,6 +558,13 @@ public final class IListe extends JPanel implements AncestorListener {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 return super.getTableCellRendererComponent(table, StringClobConvertor.INSTANCE.unconvert((Clob) value), isSelected, hasFocus, row, column);
+            }
+        });
+        this.jTable.setDefaultRenderer(Time.class, new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                final String val = value == null ? "" : TIME_FORMAT.format((Time) value);
+                return super.getTableCellRendererComponent(table, val, isSelected, hasFocus, row, column);
             }
         });
         for (final Map.Entry<Class<?>, FormatGroup> e : this.getFormats().entrySet())

@@ -360,6 +360,21 @@ public class ODPackage {
         return null;
     }
 
+    /**
+     * The XML document where are located the common styles.
+     * 
+     * @return the document where are located styles.
+     */
+    public final ODXMLDocument getStyles() {
+        final ODXMLDocument res;
+        if (this.isSingle())
+            res = this.getContent();
+        else {
+            res = this.getXMLFile(STYLES.getZipEntry());
+        }
+        return res;
+    }
+
     public final ODXMLDocument getContent() {
         return this.getXMLFile(CONTENT.getZipEntry());
     }
@@ -425,6 +440,11 @@ public class ODPackage {
         if (res == null && refSubDoc.equals(stylesContainer[0]) && this.getXMLFile(stylesContainer[1]) != null)
             res = this.getXMLFile(stylesContainer[1]).getStyle(desc, name);
         return res;
+    }
+
+    public final Element getDefaultStyle(final StyleStyleDesc<?> desc) {
+        // from 16.4 of OpenDocument-v1.2-cs01-part1, default-style only usable in office:styles
+        return getStyles().getDefaultStyle(desc);
     }
 
     // *** setter

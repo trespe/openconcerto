@@ -99,7 +99,7 @@ public class PageLayoutStyle extends Style {
         }
 
         private final BigDecimal getLengthAttr(final String attrName, final String attrNS, final LengthUnit in) {
-            return LengthUnit.parseLength(getElement().getAttributeValue(attrName, this.getNS(attrNS)), in);
+            return LengthUnit.parseLength(getAttributeValue(attrName, this.getNS(attrNS)), in);
         }
     }
 }

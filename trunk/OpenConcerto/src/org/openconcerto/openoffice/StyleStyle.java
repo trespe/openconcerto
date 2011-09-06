@@ -32,6 +32,13 @@ public class StyleStyle extends Style {
     }
 
     @Override
+    protected void checkElemName() {
+        // allow use of default styles
+        if (!StyleStyleDesc.ELEMENT_DEFAULT_NAME.equals(this.getElement().getName()) && !this.getDesc().getElementName().equals(this.getElement().getName()))
+            throw new IllegalArgumentException("expected a default style (" + StyleStyleDesc.ELEMENT_DEFAULT_NAME + ") or " + this.getDesc().getElementName() + " but got " + getElement());
+    }
+
+    @Override
     protected StyleStyleDesc<?> getDesc() {
         return (StyleStyleDesc<?>) super.getDesc();
     }
@@ -42,6 +49,10 @@ public class StyleStyle extends Style {
 
     public final Element getFormattingProperties() {
         return this.getFormattingProperties(this.getFamily());
+    }
+
+    public final StyleStyle getDefaultStyle() {
+        return this.getDesc().findDefaultStyle(getPackage());
     }
 
     @Override

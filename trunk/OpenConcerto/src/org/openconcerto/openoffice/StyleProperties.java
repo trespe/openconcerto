@@ -23,6 +23,18 @@ public abstract class StyleProperties {
     public static final Color TRANSPARENT = new Color(0, 0, 0, 0);
     public static final String TRANSPARENT_NAME = "transparent";
 
+    static public final boolean parseBoolean(final String s, boolean def) {
+        return s == null ? def : Boolean.parseBoolean(s);
+    }
+
+    static public final int parseInt(final String s, int def) {
+        return s == null ? def : Integer.parseInt(s);
+    }
+
+    static public final Integer parseInteger(final String s) {
+        return s == null ? null : Integer.valueOf(s);
+    }
+
     private final Style parentStyle;
     private final String propPrefix;
 
@@ -36,11 +48,34 @@ public abstract class StyleProperties {
     }
 
     public final Element getElement() {
-        return this.getParentStyle().getFormattingProperties(this.propPrefix);
+        return getElement(this.getParentStyle(), true);
     }
 
-    protected final boolean parseBoolean(final String s, boolean def) {
-        return s == null ? def : Boolean.parseBoolean(s);
+    protected final Element getElement(final Style s, final boolean create) {
+        return s.getFormattingProperties(this.propPrefix, create);
+    }
+
+    private final String getAttributeValue(final Style s, final String attrName, final Namespace attrNS) {
+        // e.g. no default style defined
+        if (s == null)
+            return null;
+        final Element elem = this.getElement(s, false);
+        if (elem == null)
+            return null;
+        return elem.getAttributeValue(attrName, attrNS);
+    }
+
+    // if a formatting property is not defined locally, the default style should be searched
+    protected final String getAttributeValue(final String attrName, final Namespace attrNS) {
+        final String localRes = getAttributeValue(this.getParentStyle(), attrName, attrNS);
+        if (localRes != null)
+            return localRes;
+        if (this.getParentStyle() instanceof StyleStyle) {
+            final StyleStyle defaultStyle = ((StyleStyle) this.getParentStyle()).getDefaultStyle();
+            return getAttributeValue(defaultStyle, attrName, attrNS);
+        } else {
+            return null;
+        }
     }
 
     protected final Namespace getNS(final String prefix) {
@@ -53,7 +88,7 @@ public abstract class StyleProperties {
     // <style:table-properties>, <style:table-row-properties> and <style:text-properties>
 
     public final String getRawBackgroundColor() {
-        return this.getElement().getAttributeValue("background-color", this.getNS("fo"));
+        return this.getAttributeValue("background-color", this.getNS("fo"));
     }
 
     public final Color getBackgroundColor() {

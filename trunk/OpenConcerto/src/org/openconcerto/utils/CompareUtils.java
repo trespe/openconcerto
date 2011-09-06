@@ -18,6 +18,7 @@ package org.openconcerto.utils;
 
 import org.openconcerto.utils.cc.ITransformer;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
 
@@ -88,6 +89,7 @@ public class CompareUtils {
      * @param o1 the first object, can be <code>null</code>.
      * @param o2 the second object, can be <code>null</code>.
      * @return <code>true</code> if both are <code>null</code> or if o1.equals(o2).
+     * @see Object#equals(Object)
      */
     static public final boolean equals(Object o1, Object o2) {
         if (o1 == null && o2 == null)
@@ -95,6 +97,24 @@ public class CompareUtils {
         if (o1 == null || o2 == null)
             return false;
         return o1.equals(o2);
+    }
+
+    /**
+     * Compare 2 objets pouvant être <code>null</code> avec compareTo(). Useful since for some
+     * classes equals() is more specific than compareTo()==0, e.g. {@link BigDecimal#equals(Object)}
+     * doesn't compare the numeric value but instance variables (1E2 is not equal to 100 or 100.00).
+     * 
+     * @param o1 the first object, can be <code>null</code>.
+     * @param o2 the second object, can be <code>null</code>.
+     * @return <code>true</code> if both are <code>null</code> or if o1.compareTo(o2) == 0.
+     * @see Comparable#compareTo(Object)
+     */
+    static public final <T> boolean equalsWithCompareTo(Comparable<T> o1, T o2) {
+        if (o1 == null && o2 == null)
+            return true;
+        if (o1 == null || o2 == null)
+            return false;
+        return o1.compareTo(o2) == 0;
     }
 
     static public interface Equalizer<T> {

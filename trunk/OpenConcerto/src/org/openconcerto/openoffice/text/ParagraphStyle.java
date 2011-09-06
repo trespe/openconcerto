@@ -78,7 +78,7 @@ public class ParagraphStyle extends TextStyle {
         }
 
         public final String getAlignment() {
-            return getElement().getAttributeValue("text-align", this.getNS("fo"));
+            return getAttributeValue("text-align", this.getNS("fo"));
         }
     }
 }

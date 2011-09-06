@@ -218,19 +218,19 @@ public class ODXMLDocument {
         // " | ./office:master-styles/style:master-page/" + stylePath);
         final Element root = this.getDocument().getRootElement();
         final Namespace office = getVersion().getOFFICE();
-        Element res = this.findStyleChild(root.getChild("styles", office), styleDesc.getElementName(), family, name);
+        Element res = this.findStyleChild(root.getChild("styles", office), styleDesc.getElementNS(), styleDesc.getElementName(), family, name);
         if (res != null) {
             return res;
         }
 
-        res = this.findStyleChild(root.getChild("automatic-styles", office), styleDesc.getElementName(), family, name);
+        res = this.findStyleChild(root.getChild("automatic-styles", office), styleDesc.getElementNS(), styleDesc.getElementName(), family, name);
         if (res != null) {
             return res;
         }
 
         final Element masterStyles = root.getChild("master-styles", office);
         if (masterStyles != null) {
-            res = this.findStyleChild(root.getChild("master-page", getVersion().getSTYLE()), styleDesc.getElementName(), family, name);
+            res = this.findStyleChild(root.getChild("master-page", getVersion().getSTYLE()), styleDesc.getElementNS(), styleDesc.getElementName(), family, name);
             if (res != null) {
                 return res;
             }
@@ -239,16 +239,22 @@ public class ODXMLDocument {
         return null;
     }
 
-    private final Element findStyleChild(final Element styles, final String elemName, final String family, final String name) {
+    public final Element getDefaultStyle(final StyleStyleDesc<?> styleDesc) {
+        final Element root = this.getDocument().getRootElement();
+        final Namespace office = getVersion().getOFFICE();
+        return this.findStyleChild(root.getChild("styles", office), styleDesc.getElementNS(), StyleStyleDesc.ELEMENT_DEFAULT_NAME, styleDesc.getFamily(), null);
+    }
+
+    private final Element findStyleChild(final Element styles, final Namespace elemNS, final String elemName, final String family, final String name) {
         if (styles == null)
             return null;
 
         final Namespace styleNS = getVersion().getSTYLE();
         // from JDOM : traversal through the List is best done with a Iterator
-        for (final Object o : styles.getChildren(elemName, styleNS)) {
+        for (final Object o : styles.getChildren(elemName, elemNS)) {
             final Element styleElem = (Element) o;
             // name first since it is more specific (and often includes family, eg "co2")
-            if (name.equals(styleElem.getAttributeValue("name", styleNS)) && (family == null || family.equals(StyleStyleDesc.getFamily(styleElem)))) {
+            if ((name == null || name.equals(styleElem.getAttributeValue("name", styleNS))) && (family == null || family.equals(StyleStyleDesc.getFamily(styleElem)))) {
                 return styleElem;
             }
         }

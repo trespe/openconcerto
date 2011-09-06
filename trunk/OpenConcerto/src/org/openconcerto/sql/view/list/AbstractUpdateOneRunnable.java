@@ -21,6 +21,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.request.BaseFillSQLRequest;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.cc.ITransformer;
@@ -50,19 +51,18 @@ abstract class AbstractUpdateOneRunnable extends UpdateRunnable {
             if (!lines.isEmpty()) {
                 // deepCopy() instead of new SQLRowValues() otherwise the used line's graph will be
                 // modified (eg the new instance would be linked to it)
-                final SQLRowValues proto = lines.get(0).getRow().followPath(p).deepCopy();
+                final SQLRowValues proto = getModel().getLinesSource().getParent().getMaxGraph().followPath(p).deepCopy();
                 // keep only what has changed, eg CONTACT.NOM
                 proto.retainAll(getModifedFields());
                 // fetch the changed rowValues
+                // ATTN this doesn't use the original fetcher that was used in the updateAll
+                // MAYBE add a slower but accurate mode using the updateAll fetcher (and thus
+                // reloading rows from the primary table and not just the changed rows)
                 final SQLRowValuesListFetcher fetcher = new SQLRowValuesListFetcher(proto);
-                // the result should have the same graph as proto
-                fetcher.setFullOnly(true);
+                BaseFillSQLRequest.setupForeign(fetcher);
                 final ITransformer<SQLSelect, SQLSelect> transf = new ITransformer<SQLSelect, SQLSelect>() {
                     @Override
                     public SQLSelect transformChecked(SQLSelect input) {
-                        // don't exclude undef, eg either RECEPTEUR pointing to undef OBS
-                        // or even refreshing that undef OBS
-                        input.setExcludeUndefined(false);
                         if (ListSQLRequest.lockSelect)
                             input.addWaitPreviousWriteTXTable(getTable().getName());
                         return input.setWhere(new Where(getTable().getKey(), "=", getID()));

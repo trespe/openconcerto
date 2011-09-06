@@ -13,11 +13,15 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
+import org.openconcerto.openoffice.Log;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODFrame;
 import org.openconcerto.openoffice.ODValueType;
+import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ByteArrayProducer;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ImageProducer;
+import org.openconcerto.openoffice.style.data.DataStyle;
+import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
 
 import java.awt.Color;
@@ -27,7 +31,7 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.NumberFormat;
-import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -44,8 +48,32 @@ import org.jdom.Text;
  */
 public class MutableCell<D extends ODDocument> extends Cell<D> {
 
-    static private final DateFormat TextPDateFormat = new SimpleDateFormat("dd/MM/yyyy");
-    static private final NumberFormat TextPFloatFormat = new DecimalFormat(",##0.00");
+    static private final DateFormat TextPDateFormat = DateFormat.getDateInstance();
+    static private final DateFormat TextPTimeFormat = DateFormat.getTimeInstance();
+    static private final NumberFormat TextPFloatFormat = DecimalFormat.getNumberInstance();
+    static private final NumberFormat TextPPercentFormat = DecimalFormat.getPercentInstance();
+    static private final NumberFormat TextPCurrencyFormat = DecimalFormat.getCurrencyInstance();
+
+    static public String formatNumber(Number n, final CellStyle defaultStyle) {
+        return formatNumber(TextPFloatFormat, n, defaultStyle, false);
+    }
+
+    static public String formatPercent(Number n, final CellStyle defaultStyle) {
+        return formatNumber(TextPPercentFormat, n, defaultStyle, true);
+    }
+
+    static public String formatCurrency(Number n, final CellStyle defaultStyle) {
+        return formatNumber(TextPCurrencyFormat, n, defaultStyle, true);
+    }
+
+    static private String formatNumber(NumberFormat format, Number n, final CellStyle defaultStyle, boolean forceFraction) {
+        synchronized (format) {
+            final int decPlaces = DataStyle.getDecimalPlaces(defaultStyle);
+            format.setMinimumFractionDigits(forceFraction ? decPlaces : 0);
+            format.setMaximumFractionDigits(decPlaces);
+            return format.format(n);
+        }
+    }
 
     MutableCell(Row<D> parent, Element elem) {
         super(parent, elem);
@@ -86,7 +114,7 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
             // try to reuse the first text:p to keep style
             final Element child = this.getElement().getChild("p", getNS().getTEXT());
             final Element t = child != null ? child : new Element("p", getNS().getTEXT());
-            t.setContent(new Text(value));
+            t.setContent(OOXML.get(this.getODDocument().getFormatVersion()).encodeWSasList(value));
 
             this.getElement().setContent(t);
         }
@@ -102,22 +130,91 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
     }
 
     public void setValue(Object obj) {
-        // FIXME use arbitrary textP format, should use the cell format
-        // TODO handle all type of objects as in ODUserDefinedMeta
-        // setValue(Object o, final ODValueType vt)
-        if (obj instanceof Number)
-            // 5.2
-            // FIXME voir avec Sylvain : probleme avec le viewer si Integer ou Long le textp ne doit
-            // avoir de décimal
-            if (obj instanceof Integer || obj instanceof Long) {
-                this.setValue(ODValueType.FLOAT, obj, (obj == null) ? "" : obj.toString());
+        final ODValueType type;
+        final ODValueType currentType = getValueType();
+        // try to keep current type, since for example a Number can work with FLOAT, PERCENTAGE
+        // and CURRENCY
+        if (currentType != null && currentType.canFormat(obj.getClass())) {
+            type = currentType;
+        } else if (obj instanceof Number) {
+            type = ODValueType.FLOAT;
+        } else if (obj instanceof Date || obj instanceof Calendar) {
+            type = ODValueType.DATE;
+        } else if (obj instanceof Boolean) {
+            type = ODValueType.BOOLEAN;
+        } else if (obj instanceof String) {
+            type = ODValueType.STRING;
+        } else {
+            throw new IllegalArgumentException("Couldn't infer type of " + obj);
+        }
+        this.setValue(obj, type, true);
+    }
+
+    /**
+     * Change the value of this cell.
+     * 
+     * @param obj the new cell value.
+     * @param vt the value type.
+     * @param lenient <code>false</code> to throw an exception if we can't format according to the
+     *        ODF, <code>true</code> to try best-effort.
+     * @throws UnsupportedOperationException if <code>obj</code> couldn't be formatted.
+     */
+    public void setValue(final Object obj, final ODValueType vt, final boolean lenient) throws UnsupportedOperationException {
+        final String text;
+        final String formatted = format(obj, lenient);
+
+        if (formatted != null) {
+            text = formatted;
+        } else {
+            // either there were no format or formatting failed
+            if (vt == ODValueType.FLOAT) {
+                text = formatNumber((Number) obj, getDefaultStyle());
+            } else if (vt == ODValueType.PERCENTAGE) {
+                text = formatPercent((Number) obj, getDefaultStyle());
+            } else if (vt == ODValueType.CURRENCY) {
+                text = formatCurrency((Number) obj, getDefaultStyle());
+            } else if (vt == ODValueType.DATE) {
+                text = TextPDateFormat.format(obj);
+            } else if (vt == ODValueType.TIME) {
+                text = TextPTimeFormat.format(obj);
+            } else if (vt == ODValueType.BOOLEAN) {
+                if (lenient)
+                    text = obj.toString();
+                else
+                    throw new UnsupportedOperationException(vt + " not supported");
+            } else if (vt == ODValueType.STRING) {
+                text = obj.toString();
             } else {
-                this.setValue(ODValueType.FLOAT, obj, TextPFloatFormat.format(obj));
+                throw new IllegalStateException(vt + " unknown");
             }
-        else if (obj instanceof Date)
-            this.setValue(ODValueType.DATE, obj, TextPDateFormat.format(obj));
-        else
-            this.setValue(null, null, obj.toString());
+        }
+        this.setValue(vt, obj, text);
+    }
+
+    // return null if no data style exists, or if one exists but we couldn't use it
+    private String format(Object obj, boolean lenient) {
+        try {
+            final DataStyle ds = getDataStyle();
+            // act like OO, that is if we set a String to a Date cell, change the value and
+            // value-type but leave the data-style untouched
+            if (ds != null && ds.canFormat(obj.getClass()))
+                return ds.format(obj, getDefaultStyle(), lenient);
+        } catch (UnsupportedOperationException e) {
+            if (lenient)
+                Log.get().warning(ExceptionUtils.getStackTrace(e));
+            else
+                throw e;
+        }
+        return null;
+    }
+
+    public final DataStyle getDataStyle() {
+        final CellStyle s = this.getStyle();
+        return s != null ? getStyle().getDataStyle() : null;
+    }
+
+    protected final CellStyle getDefaultStyle() {
+        return this.getRow().getSheet().getDefaultCellStyle();
     }
 
     public void replaceBy(String oldValue, String newValue) {
@@ -125,7 +222,7 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
     }
 
     private void replaceContentBy(Element l, String oldValue, String newValue) {
-        final List content = l.getContent();
+        final List<?> content = l.getContent();
         for (int i = 0; i < content.size(); i++) {
             final Object obj = content.get(i);
             if (obj instanceof Text) {

@@ -13,11 +13,15 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
+import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODFrame;
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
+
+import java.math.BigDecimal;
 
 import org.jdom.Element;
 
@@ -31,17 +35,21 @@ public class ColumnStyle extends StyleStyle {
         }
     };
 
+    private StyleTableColumnProperties colProps;
+
     public ColumnStyle(final ODPackage pkg, Element tableColElem) {
         super(pkg, tableColElem);
     }
 
-    public final Float getWidth() {
-        final String attr = getFormattingProperties().getAttributeValue("column-width", this.getSTYLE());
-        return attr == null ? null : ODFrame.parseLength(attr, TableStyle.DEFAULT_UNIT);
+    public final StyleTableColumnProperties getTableColumnProperties() {
+        if (this.colProps == null)
+            this.colProps = new StyleTableColumnProperties(this);
+        return this.colProps;
     }
 
-    public final String getBreakBefore() {
-        return getFormattingProperties().getAttributeValue("break-before", this.getNS().getNS("fo"));
+    public final Float getWidth() {
+        final BigDecimal res = this.getTableColumnProperties().getWidth(TableStyle.DEFAULT_UNIT);
+        return res == null ? null : res.floatValue();
     }
 
     void setWidth(float f) {
@@ -52,5 +60,25 @@ public class ColumnStyle extends StyleStyle {
 
     void rmRelWidth() {
         getFormattingProperties().removeAttribute("rel-column-width", this.getSTYLE());
+    }
+
+    // see 17.16 of v1.2-cs01-part1
+    public static class StyleTableColumnProperties extends StyleProperties {
+
+        public StyleTableColumnProperties(StyleStyle style) {
+            super(style, style.getFamily());
+        }
+
+        public final BigDecimal getWidth(final LengthUnit in) {
+            return LengthUnit.parseLength(getAttributeValue("column-width", this.getNS("style")), in);
+        }
+
+        public final String getBreakBefore() {
+            return getAttributeValue("break-before", this.getNS("fo"));
+        }
+
+        public final String getBreakAfter() {
+            return getAttributeValue("break-after", this.getNS("fo"));
+        }
     }
 }

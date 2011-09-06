@@ -13,6 +13,7 @@
  
  package org.openconcerto.openoffice.text;
 
+import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.XMLVersion;
 
 import org.jdom.Element;
@@ -39,7 +40,7 @@ public class Heading extends Paragraph {
     public final int getLevel() {
         final String attr = this.getElement().getAttributeValue("outline-level", this.getElement().getNamespace());
         // see 4.1.1
-        return attr == null ? 1 : Integer.parseInt(attr);
+        return StyleProperties.parseInt(attr, 1);
     }
 
     public final void setLevel(int level) {
