@@ -21,6 +21,7 @@ import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -33,7 +34,7 @@ import java.util.Set;
  */
 public abstract class SQLCreateTableBase<T extends SQLCreateTableBase<T>> extends ChangeTable<T> {
 
-    private String pk;
+    private List<String> pk;
     private boolean tmp;
 
     public SQLCreateTableBase(final SQLSyntax syntax, final String name) {
@@ -44,8 +45,13 @@ public abstract class SQLCreateTableBase<T extends SQLCreateTableBase<T>> extend
     @Override
     public void reset() {
         super.reset();
-        this.pk = null;
+        this.pk = Collections.emptyList();
         this.tmp = false;
+    }
+
+    @Override
+    protected String getConstraintPrefix() {
+        return "";
     }
 
     public final T addColumn(String name, String definition) {
@@ -62,16 +68,12 @@ public abstract class SQLCreateTableBase<T extends SQLCreateTableBase<T>> extend
 
     public final T setPrimaryKey(List<String> fields) {
         this.checkPK();
-        if (fields.size() > 0) {
-            this.pk = "PRIMARY KEY (" + CollectionUtils.join(fields, ",", new ITransformer<String, String>() {
-                @Override
-                public String transformChecked(String input) {
-                    return SQLBase.quoteIdentifier(input);
-                }
-            }) + ")";
-        } else
-            this.pk = null;
+        this.pk = Collections.unmodifiableList(new ArrayList<String>(fields));
         return thisAsT();
+    }
+
+    public List<String> getPrimaryKey() {
+        return this.pk;
     }
 
     protected void checkPK() {
@@ -111,8 +113,13 @@ public abstract class SQLCreateTableBase<T extends SQLCreateTableBase<T>> extend
 
         final List<String> genClauses = new ArrayList<String>(this.getClauses(tableName, types));
         this.modifyClauses(genClauses);
-        if (this.pk != null && types.contains(ClauseType.ADD_COL))
-            genClauses.add(this.pk);
+        if (this.pk.size() > 0 && types.contains(ClauseType.ADD_COL))
+            genClauses.add("PRIMARY KEY (" + CollectionUtils.join(this.pk, ",", new ITransformer<String, String>() {
+                @Override
+                public String transformChecked(String input) {
+                    return SQLBase.quoteIdentifier(input);
+                }
+            }) + ")");
         if (types.contains(ClauseType.ADD_CONSTRAINT)) {
             genClauses.addAll(this.getForeignConstraints(rootName));
         }

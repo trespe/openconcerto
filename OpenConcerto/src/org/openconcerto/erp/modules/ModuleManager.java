@@ -60,8 +60,8 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.logging.Logger;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
@@ -915,7 +915,9 @@ public class ModuleManager {
                     final SQLField f = root.getDesc(field, SQLField.class);
                     // dropped by DROP TABLE
                     if (!tableNames.contains(f.getTable().getName())) {
-                        l.add(new AlterTable(f.getTable()).dropColumn(f.getName()));
+                        // cascade needed since the module might have created constraints
+                        // (e.g. on H2 a foreign column cannot be dropped)
+                        l.add(new AlterTable(f.getTable()).dropColumnCascade(f.getName()));
                     }
                 }
                 for (final String table : tableNames) {

@@ -75,6 +75,7 @@ public abstract class StyleDesc<S extends Style> {
     // need version since each one might have different attributes and elements (plus we need it
     // anyway for the XPath, otherwise it fails when searching for an inexistant namespace)
     private final XMLVersion version;
+    private Namespace elemNS;
     private final String elemName, baseName;
     // { attribute -> element }
     private final CollectionMap<String, String> refElements;
@@ -90,6 +91,7 @@ public abstract class StyleDesc<S extends Style> {
         super();
         this.clazz = clazz;
         this.version = version;
+        this.elemNS = version.getSTYLE();
         this.elemName = elemName;
         this.baseName = baseName;
         this.refElements = new CollectionMap<String, String>();
@@ -106,6 +108,14 @@ public abstract class StyleDesc<S extends Style> {
 
     public final XMLVersion getVersion() {
         return this.version;
+    }
+
+    protected final void setElementNS(Namespace elemNS) {
+        this.elemNS = elemNS;
+    }
+
+    public final Namespace getElementNS() {
+        return this.elemNS;
     }
 
     /**
@@ -163,11 +173,14 @@ public abstract class StyleDesc<S extends Style> {
     }
 
     // e.g. { "text:style-name" -> ["text:h", "text:p"] }
+    // if a property of the style is changed it will affect only the referent element
     protected final CollectionMap<String, String> getRefElementsMap() {
         return this.refElements;
     }
 
     // e.g. { "table:default-cell-style-name" -> ["table:table-column", "table:table-row"] }
+    // if a property of the style is changed it will affect multiple cells even if only one element
+    // (e.g. a column) references the style
     protected final CollectionMap<String, String> getMultiRefElementsMap() {
         return this.multiRefElements;
     }

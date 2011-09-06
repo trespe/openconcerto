@@ -27,7 +27,9 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -121,10 +123,14 @@ public final class DBContext {
     // getter
 
     final List<String> getAddedTables() {
-        final List<String> res = new ArrayList<String>();
+        return new ArrayList<String>(getCreateTables().keySet());
+    }
+
+    final Map<String, SQLCreateTableBase<?>> getCreateTables() {
+        final Map<String, SQLCreateTableBase<?>> res = new LinkedHashMap<String, SQLCreateTableBase<?>>();
         for (final ChangeTable<?> a : this.changeTables) {
             if (a instanceof SQLCreateTableBase<?>) {
-                res.add(a.getName());
+                res.put(a.getName(), (SQLCreateTableBase<?>) a);
             }
         }
         return res;

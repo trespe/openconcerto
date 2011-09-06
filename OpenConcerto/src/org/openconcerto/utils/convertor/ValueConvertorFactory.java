@@ -24,6 +24,7 @@ public final class ValueConvertorFactory {
     static {
         convs = new ArrayList<ValueConvertor<?, ?>>();
         convs.add(new DateTSConvertor());
+        convs.add(new DateToTimeConvertor());
         convs.add(StringClobConvertor.INSTANCE);
     }
 

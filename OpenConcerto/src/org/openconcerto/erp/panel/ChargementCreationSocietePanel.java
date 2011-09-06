@@ -23,6 +23,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -71,26 +72,30 @@ public class ChargementCreationSocietePanel extends JPanel implements StatusList
         this.add(this.progressBar, c);
         this.progressBar.setIndeterminate(true);
 
-        new Thread() {
+        new Thread("Creation de societe") {
             public void run() {
-                creationBase(idSoc);
+                try {
+                    creationBase(idSoc);
 
-                statusChanged("Importation du plan comptable");
-                importationPlanComptable(idSoc, typePCG);
-                statusChanged("Création terminée!");
-                ChargementCreationSocietePanel.this.progressBar.setIndeterminate(false);
-                ChargementCreationSocietePanel.this.progressBar.setString(null);
+                    statusChanged("Importation du plan comptable");
+                    importationPlanComptable(idSoc, typePCG);
+                    statusChanged("Création terminée!");
+                    ChargementCreationSocietePanel.this.progressBar.setIndeterminate(false);
+                    ChargementCreationSocietePanel.this.progressBar.setString(null);
 
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        ((JFrame) SwingUtilities.getRoot(ChargementCreationSocietePanel.this)).dispose();
-                    }
-                });
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            ((JFrame) SwingUtilities.getRoot(ChargementCreationSocietePanel.this)).dispose();
+                        }
+                    });
+                } catch (Throwable e) {
+                    ExceptionHandler.handle("Erreur pendant la création de la base!", e);
+                }
             }
         }.start();
     }
 
-    private void creationBase(int id) {
+    private void creationBase(int id) throws SQLException {
 
         System.err.println("Création de la base");
 
@@ -99,12 +104,9 @@ public class ChargementCreationSocietePanel extends JPanel implements StatusList
         statusChanged("Mise à jour des sociétés");
         SQLRowValues rowVals = new SQLRowValues(Configuration.getInstance().getBase().getTable("SOCIETE_COMMON"));
         rowVals.put("DATABASE_NAME", "OpenConcerto" + id);
-        try {
-            rowVals.update(id);
-        } catch (SQLException e) {
 
-            e.printStackTrace();
-        }
+        rowVals.update(id);
+
     }
 
     private void importationPlanComptable(int id, int typePCG) {

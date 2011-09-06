@@ -163,7 +163,7 @@ public abstract class ComptaBasePropsConfiguration extends PropsConfiguration {
     }
 
     public final DBRoot getRootSociete() {
-        if (this.baseSociete == null)
+        if (this.baseSociete == null && this.rowSociete != null)
             this.baseSociete = this.createSQLBaseSociete();
         return this.baseSociete;
     }

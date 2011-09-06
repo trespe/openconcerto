@@ -15,6 +15,7 @@
 
 import static org.openconcerto.task.config.ComptaBasePropsConfiguration.getStreamStatic;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.config.MainFrame;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.common.ui.StatusPanel;
@@ -36,6 +37,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.UserProps;
+import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.sql.ui.ConnexionPanel;
 import org.openconcerto.sql.users.User;
 import org.openconcerto.sql.users.UserManager;
@@ -45,17 +47,13 @@ import org.openconcerto.sql.users.rights.UserRightsManager.RightTuple;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
-import org.openconcerto.ui.state.WindowStateManager;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.JImage;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
-import java.io.File;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -99,8 +97,20 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                             }
                         });
                     }
-                    final int selectedSociete = NouvelleConnexionAction.this.connexionPanel == null ? UserProps.getInstance().getLastSocieteID() : NouvelleConnexionAction.this.connexionPanel
-                            .getSelectedSociete();
+                    int selectedSociete;
+                    if (NouvelleConnexionAction.this.connexionPanel != null && !Gestion.isMinimalMode()) {
+                        selectedSociete = NouvelleConnexionAction.this.connexionPanel.getSelectedSociete();
+                    } else {
+                        selectedSociete = UserProps.getInstance().getLastSocieteID();
+                        if (selectedSociete < SQLRow.MIN_VALID_ID) {
+                            final SQLElement elem = comptaPropsConfiguration.getDirectory().getElement(comptaPropsConfiguration.getRoot().getTable("SOCIETE_COMMON"));
+                            final List<IComboSelectionItem> comboItems = elem.getComboRequest().getComboItems();
+                            if (comboItems.size() > 0)
+                                selectedSociete = comboItems.get(0).getId();
+                            else
+                                throw new IllegalStateException("No " + elem + " found");
+                        }
+                    }
                     comptaPropsConfiguration.setUpSocieteDataBaseConnexion(selectedSociete);
 
 
@@ -112,14 +122,10 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
 
                             StatusPanel.getInstance().fireStatusChanged();
                             final JFrame f = new MainFrame();
-                            final File f2 = new File(Configuration.getInstance().getConfDir(), "Configuration" + File.separator + "Frame" + File.separator + "mainFrame.xml");
-                            WindowStateManager manager = new WindowStateManager(f, f2);
                             String version = comptaPropsConfiguration.getVersion();
-                            f.setTitle(comptaPropsConfiguration.getAppName() + " " + version + ", " + " [Société " + comptaPropsConfiguration.getRowSociete().getString("NOM") + "]");
-                            f.setMinimumSize(new Dimension(800, 600));
-                            // f.setResizable(false);
+                            final String socTitle = comptaPropsConfiguration.getRowSociete() == null ? "" : ", [Société " + comptaPropsConfiguration.getRowSociete().getString("NOM") + "]";
+                            f.setTitle(comptaPropsConfiguration.getAppName() + " " + version + socTitle);
                             f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
-                            manager.loadState();
 
                             FrameUtil.show(f);
                         }
@@ -173,7 +179,7 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
         c.insets = new Insets(0, 0, 0, 0);
         c.fill = GridBagConstraints.BOTH;
 
-        this.connexionPanel = ConnexionPanel.create(r, image, true);
+        this.connexionPanel = ConnexionPanel.create(r, image, !Gestion.isMinimalMode());
         if (this.connexionPanel == null)
             return null;
 

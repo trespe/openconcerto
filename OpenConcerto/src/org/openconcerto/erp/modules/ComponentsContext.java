@@ -18,13 +18,13 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLName;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.view.DropManager;
 import org.openconcerto.sql.view.FileDropHandler;
 import org.openconcerto.sql.view.SQLMenuItemHelper;
 import org.openconcerto.sql.view.SQLMenuItemHelper.SQLMenuItemAction;
 import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.RowActionFactory;
 import org.openconcerto.utils.CollectionMap;
 
 import java.util.ArrayList;
@@ -36,8 +36,6 @@ import java.util.Set;
 import javax.swing.Action;
 import javax.swing.JMenuItem;
 import javax.swing.text.JTextComponent;
-
-import org.openconcerto.sql.view.list.RowActionFactory;
 
 /**
  * Allow a module to add JComponent to edit fields.
@@ -174,7 +172,7 @@ public final class ComponentsContext {
         return this.menuItems;
     }
 
-    public final void addFileDropHandler(SQLTable table, FileDropHandler handler) {
-        DropManager.getInstance().add(table, handler);
+    public final void addFileDropHandler(final String tableName, FileDropHandler handler) {
+        DropManager.getInstance().add(this.getRoot().getTable(tableName), handler);
     }
 }

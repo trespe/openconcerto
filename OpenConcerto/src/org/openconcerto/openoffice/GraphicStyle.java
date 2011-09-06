@@ -95,19 +95,19 @@ public class GraphicStyle extends StyleStyle {
         }
 
         public final String getHorizontalPosition() {
-            return this.getElement().getAttributeValue("horizontal-pos", this.getElement().getNamespace("style"));
+            return this.getAttributeValue("horizontal-pos", this.getElement().getNamespace("style"));
         }
 
         public final String getHorizontalRelation() {
-            return this.getElement().getAttributeValue("horizontal-rel", this.getElement().getNamespace("style"));
+            return this.getAttributeValue("horizontal-rel", this.getElement().getNamespace("style"));
         }
 
         public final String getVerticalPosition() {
-            return this.getElement().getAttributeValue("vertical-pos", this.getElement().getNamespace("style"));
+            return this.getAttributeValue("vertical-pos", this.getElement().getNamespace("style"));
         }
 
         public final String getVerticalRelation() {
-            return this.getElement().getAttributeValue("vertical-rel", this.getElement().getNamespace("style"));
+            return this.getAttributeValue("vertical-rel", this.getElement().getNamespace("style"));
         }
 
         /**
@@ -116,7 +116,7 @@ public class GraphicStyle extends StyleStyle {
          * @return a list that consists of any of the values content, position, or size.
          */
         public final List<String> getProtected() {
-            final String val = this.getElement().getAttributeValue("protect", this.getElement().getNamespace("style"));
+            final String val = this.getAttributeValue("protect", this.getElement().getNamespace("style"));
             if (val == null || "none".equals(val))
                 return Collections.emptyList();
             else
@@ -124,7 +124,7 @@ public class GraphicStyle extends StyleStyle {
         }
 
         public final boolean isContentPrinted() {
-            return parseBoolean(this.getElement().getAttributeValue("print-content", this.getElement().getNamespace("style")), true);
+            return parseBoolean(this.getAttributeValue("print-content", this.getElement().getNamespace("style")), true);
         }
     }
 }

@@ -14,6 +14,8 @@
  package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.ODDocument;
+import org.openconcerto.openoffice.Style;
+import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.SheetTableModel.MutableTableModel;
 import org.openconcerto.utils.CollectionUtils;
@@ -346,7 +348,15 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
     }
 
     public final CellStyle getStyleAt(int column, int row) {
-        return CellStyle.DESC.findStyle(this.getODDocument().getPackage(), this.getElement().getDocument(), this.getStyleNameAt(column, row));
+        return getCellStyleDesc().findStyle(this.getODDocument().getPackage(), this.getElement().getDocument(), this.getStyleNameAt(column, row));
+    }
+
+    protected StyleStyleDesc<CellStyle> getCellStyleDesc() {
+        return Style.getStyleStyleDesc(CellStyle.class, getODDocument().getVersion());
+    }
+
+    public final CellStyle getDefaultCellStyle() {
+        return getCellStyleDesc().findDefaultStyle(this.getODDocument().getPackage());
     }
 
     /**

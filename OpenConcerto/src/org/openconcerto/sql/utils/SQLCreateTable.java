@@ -21,6 +21,7 @@ import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.SQLKey;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -65,7 +66,14 @@ public class SQLCreateTable extends SQLCreateTableBase<SQLCreateTable> {
     public SQLCreateTable addForeignColumn(String foreignTableN, String suffix) {
         final String fk = SQLKey.PREFIX + foreignTableN + (suffix.length() == 0 ? "" : "_" + suffix);
         final SQLTable foreignTable = this.b.getTable(foreignTableN);
+        if (foreignTable == null)
+            throw new IllegalArgumentException("Unknown table in " + this.b + " : " + foreignTableN);
         return this.addForeignColumn(fk, foreignTable, true);
+    }
+
+    @Override
+    public List<String> getPrimaryKey() {
+        return this.plain ? super.getPrimaryKey() : Collections.singletonList(SQLSyntax.ID_NAME);
     }
 
     protected void checkPK() {

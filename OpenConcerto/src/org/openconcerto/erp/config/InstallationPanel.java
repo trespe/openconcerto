@@ -20,6 +20,7 @@ import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRow;
@@ -49,6 +50,7 @@ import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -180,6 +182,7 @@ public class InstallationPanel extends JPanel {
                                     SQLUtils.executeAtomic(ds, new SQLUtils.SQLFactory<Object>() {
                                         @Override
                                         public Object create() throws SQLException {
+                                            fixUnboundedVarchar(root);
                                             updateSocieteSchema(root);
                                             updateToV1Dot2(root);
                                             return null;
@@ -401,6 +404,36 @@ public class InstallationPanel extends JPanel {
         final JPanel comp = new JPanel();
         comp.setOpaque(false);
         this.add(comp, c);
+    }
+
+    private void fixUnboundedVarchar(DBRoot root) throws SQLException {
+        final Set<String> namesSet = CollectionUtils.createSet("NOM", "PRENOM", "SURNOM", "LOGIN", "PASSWORD");
+        final List<AlterTable> alters = new ArrayList<AlterTable>();
+        for (final SQLTable t : root.getTables()) {
+            final AlterTable alter = new AlterTable(t);
+            for (final SQLField f : t.getFields()) {
+                if (f.getType().getType() == Types.VARCHAR && f.getType().getSize() == Integer.MAX_VALUE) {
+                    final String fName = f.getName();
+                    final int size;
+                    if (namesSet.contains(fName))
+                        size = 64;
+                    else if (fName.equals("TEL") || fName.startsWith("TEL_"))
+                        size = 16;
+                    else
+                        size = 128;
+                    alter.alterColumn(fName, EnumSet.allOf(Properties.class), "varchar(" + size + ")", "''", false);
+                }
+            }
+            if (!alter.isEmpty())
+                alters.add(alter);
+        }
+        if (alters.size() > 0) {
+            final SQLDataSource ds = root.getDBSystemRoot().getDataSource();
+            for (final String sql : ChangeTable.cat(alters, root.getName())) {
+                ds.execute(sql);
+            }
+            root.refetch();
+        }
     }
 
     private void updateToV1Dot2(final DBRoot root) throws SQLException {

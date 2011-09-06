@@ -63,6 +63,11 @@ public class SQLBase extends SQLIdentifier {
      */
     public static final String ALLOW_OBJECT_REMOVAL = "org.openconcerto.sql.identifier.allowRemoval";
 
+    static public final void logCacheError(final DBItemFileCache dir, Exception e) {
+        Log.get().info("invalid files in " + dir + "\n" + e.getMessage());
+        Log.get().config("invalid files in " + dir + "\n" + ExceptionUtils.getStackTrace(e));
+    }
+
     // null is a valid name (MySQL doesn't support schemas)
     private final Map<String, SQLSchema> schemas;
     private int[] dbVersion;
@@ -140,7 +145,7 @@ public class SQLBase extends SQLIdentifier {
                 final long t2 = System.currentTimeMillis();
                 Log.get().config("XML took " + (t2 - t1) + "ms for mapping " + this.getName() + "." + xmlStructSrc.getSchemas());
             } catch (Exception e) {
-                Log.get().info("invalid files in " + dir + "\n" + ExceptionUtils.getStackTrace(e));
+                logCacheError(dir, e);
                 // delete all files not just structure, since every information about obsolete
                 // schemas is obsolete
                 // delete all schemas, otherwise if afterwards we load one file it might be valid

@@ -99,14 +99,13 @@ public abstract class AbstractProps {
         return "";
     }
 
-    public int getIntProperty(String name) {
+    public final int getIntProperty(String name) {
+        return getIntProperty(name, getDefautIntValue());
+    }
+
+    public final int getIntProperty(String name, int defaultVal) {
         final String property = this.getProperty(name);
-        int result;
-        if (property == null)
-            result = getDefautIntValue();
-        else
-            result = Integer.valueOf(property).intValue();
-        return result;
+        return property == null ? defaultVal : Integer.valueOf(property).intValue();
     }
 
     protected int getDefautIntValue() {

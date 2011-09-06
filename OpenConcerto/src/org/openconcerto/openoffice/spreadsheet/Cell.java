@@ -18,9 +18,11 @@ package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODValueType;
+import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.xml.JDOMUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -168,10 +170,13 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
     private String getStringValue(final Element pElem, final boolean ooMode) {
         final StringBuilder sb = new StringBuilder();
         final Namespace textNS = pElem.getNamespace();
+        final OOXML xml = OOXML.get(getODDocument().getFormatVersion());
+        final Element tabElem = xml.getTab();
+        final Element newLineElem = xml.getLineBreak();
         // true if the string ends with a space that wasn't expanded from an XML element (e.g.
         // <tab/> or <text:s/>)
         boolean spaceSuffix = false;
-        final Iterator iter = pElem.getDescendants();
+        final Iterator<?> iter = pElem.getDescendants();
         while (iter.hasNext()) {
             final Object o = iter.next();
             if (o instanceof Text) {
@@ -184,9 +189,9 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
                 spaceSuffix = text.endsWith(" ");
             } else if (o instanceof Element) {
                 final Element elem = (Element) o;
-                if (elem.getName().equals("tab") && elem.getNamespace().equals(textNS)) {
+                if (JDOMUtils.equals(elem, tabElem)) {
                     sb.append("\t");
-                } else if (elem.getName().equals("line-break") && elem.getNamespace().equals(textNS)) {
+                } else if (JDOMUtils.equals(elem, newLineElem)) {
                     sb.append("\n");
                 } else if (elem.getName().equals("s") && elem.getNamespace().equals(textNS)) {
                     final int count = Integer.valueOf(elem.getAttributeValue("c", textNS, "1"));

@@ -20,6 +20,7 @@ import org.openconcerto.openoffice.spreadsheet.ColumnStyle;
 import org.openconcerto.openoffice.spreadsheet.RowStyle;
 import org.openconcerto.openoffice.spreadsheet.TableStyle;
 import org.openconcerto.openoffice.style.PageLayoutStyle;
+import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.openoffice.text.ParagraphStyle;
 import org.openconcerto.openoffice.text.TextStyle;
 import org.openconcerto.utils.CollectionMap;
@@ -48,18 +49,20 @@ public class Style extends ODNode {
     private static final Map<XMLVersion, Map<String, StyleDesc<?>>> elemName2Desc;
     private static final Map<XMLVersion, Map<Class<? extends Style>, StyleDesc<?>>> class2Desc;
     private static boolean descsLoaded = false;
-    private static final Map<XMLVersion, Map<Tuple2<String, String>, StyleDesc<?>>> attribute2Desc;
+    // need a CollectionMap e.g. [ "style:style", "style:data-style-name" ] ->
+    // DataStyle.DATA_STYLES_DESCS
+    private static final Map<XMLVersion, CollectionMap<Tuple2<String, String>, StyleDesc<?>>> attribute2Desc;
     static {
         final int versionsCount = XMLVersion.values().length;
         family2Desc = new HashMap<XMLVersion, Map<String, StyleDesc<?>>>(versionsCount);
         elemName2Desc = new HashMap<XMLVersion, Map<String, StyleDesc<?>>>(versionsCount);
         class2Desc = new HashMap<XMLVersion, Map<Class<? extends Style>, StyleDesc<?>>>(versionsCount);
-        attribute2Desc = new HashMap<XMLVersion, Map<Tuple2<String, String>, StyleDesc<?>>>(versionsCount);
+        attribute2Desc = new HashMap<XMLVersion, CollectionMap<Tuple2<String, String>, StyleDesc<?>>>(versionsCount);
         for (final XMLVersion v : XMLVersion.values()) {
             family2Desc.put(v, new HashMap<String, StyleDesc<?>>());
             elemName2Desc.put(v, new HashMap<String, StyleDesc<?>>());
             class2Desc.put(v, new HashMap<Class<? extends Style>, StyleDesc<?>>());
-            attribute2Desc.put(v, new HashMap<Tuple2<String, String>, StyleDesc<?>>(128));
+            attribute2Desc.put(v, new CollectionMap<Tuple2<String, String>, StyleDesc<?>>(128));
         }
     }
 
@@ -73,6 +76,8 @@ public class Style extends ODNode {
             registerAllVersions(TableStyle.DESC);
             registerAllVersions(TextStyle.DESC);
             registerAllVersions(ParagraphStyle.DESC);
+            for (final StyleDesc<?> d : DataStyle.DATA_STYLES_DESCS)
+                registerAllVersions(d);
             register(GraphicStyle.DESC);
             register(GraphicStyle.DESC_OO);
             register(PageLayoutStyle.DESC);
@@ -128,8 +133,8 @@ public class Style extends ODNode {
      * @param version the version.
      * @return the mapping from attribute to description.
      */
-    private static Map<Tuple2<String, String>, StyleDesc<?>> getAttr2Desc(final XMLVersion version) {
-        final Map<Tuple2<String, String>, StyleDesc<?>> map = attribute2Desc.get(version);
+    private static CollectionMap<Tuple2<String, String>, StyleDesc<?>> getAttr2Desc(final XMLVersion version) {
+        final CollectionMap<Tuple2<String, String>, StyleDesc<?>> map = attribute2Desc.get(version);
         if (map.isEmpty()) {
             for (final StyleDesc<?> desc : getDesc(version)) {
                 fillMap(map, desc, desc.getRefElementsMap());
@@ -140,13 +145,11 @@ public class Style extends ODNode {
         return map;
     }
 
-    private static void fillMap(final Map<Tuple2<String, String>, StyleDesc<?>> map, final StyleDesc<?> desc, final CollectionMap<String, String> elemsByAttrs) {
+    private static void fillMap(final CollectionMap<Tuple2<String, String>, StyleDesc<?>> map, final StyleDesc<?> desc, final CollectionMap<String, String> elemsByAttrs) {
         for (final Entry<String, Collection<String>> e : elemsByAttrs.entrySet()) {
             for (final String elementName : e.getValue()) {
                 final Tuple2<String, String> key = Tuple2.create(elementName, e.getKey());
-                final StyleDesc<?> previous = map.put(key, desc);
-                if (previous != null)
-                    throw new IllegalStateException("Duplicate desc for " + key + " : " + previous + " and " + desc);
+                map.put(key, desc);
             }
         }
     }
@@ -195,17 +198,33 @@ public class Style extends ODNode {
      *         <code><style:page-layout style:name="pm1"></code>.
      */
     public static Element getReferencedStyleElement(final ODPackage pkg, final Attribute styleAttr) {
+        final Style res = getReferencedStyle(pkg, styleAttr);
+        if (res != null)
+            return res.getElement();
+        else
+            return null;
+    }
+
+    public static Style getReferencedStyle(final ODPackage pkg, final Attribute styleAttr) {
+        if (styleAttr == null)
+            return null;
         assert styleAttr.getDocument() == pkg.getDocument(RootElement.CONTENT.getZipEntry()) || styleAttr.getDocument() == pkg.getDocument(RootElement.STYLES.getZipEntry()) : "attribute not defined in either the content or the styles of "
                 + pkg;
-        final StyleDesc<?> desc = getAttr2Desc(pkg.getVersion()).get(Tuple2.create(styleAttr.getParent().getQualifiedName(), styleAttr.getQualifiedName()));
-        if (desc != null) {
-            return pkg.getStyle(styleAttr.getDocument(), desc, styleAttr.getValue());
-        } else
-            return null;
+        final Collection<StyleDesc<?>> descs = getAttr2Desc(pkg.getVersion()).getNonNull(Tuple2.create(styleAttr.getParent().getQualifiedName(), styleAttr.getQualifiedName()));
+        for (final StyleDesc<?> desc : descs) {
+            final Element res = pkg.getStyle(styleAttr.getDocument(), desc, styleAttr.getValue());
+            if (res != null)
+                return desc.create(pkg, res);
+        }
+        return null;
     }
 
     public static <S extends Style> StyleDesc<S> getStyleDesc(Class<S> clazz, final XMLVersion version) {
         return getStyleDesc(clazz, version, true);
+    }
+
+    public static <S extends StyleStyle> StyleStyleDesc<S> getStyleStyleDesc(Class<S> clazz, final XMLVersion version) {
+        return (StyleStyleDesc<S>) getStyleDesc(clazz, version);
     }
 
     @SuppressWarnings("unchecked")
@@ -257,11 +276,19 @@ public class Style extends ODNode {
         this.name = this.getElement().getAttributeValue("name", this.getSTYLE());
         this.ns = this.pkg.getFormatVersion();
         this.desc = getNonNullStyleDesc(this.getClass(), this.ns.getXMLVersion(), styleElem, getName());
-        if (!this.desc.getElementName().equals(this.getElement().getName()))
-            throw new IllegalArgumentException("expected " + this.desc.getElementName() + " but got " + this.getElement().getName() + " for " + styleElem);
+        checkElemName();
         // assert that styleElem is in pkg (and thus have the same version)
         assert this.pkg.getXMLFile(getElement().getDocument()) != null;
         assert this.pkg.getFormatVersion().equals(XMLFormatVersion.get(getElement().getDocument()));
+    }
+
+    protected void checkElemName() {
+        if (!this.desc.getElementName().equals(this.getElement().getName()))
+            throw new IllegalArgumentException("expected " + this.desc.getElementName() + " but got " + this.getElement().getName() + " for " + getElement());
+    }
+
+    protected final ODPackage getPackage() {
+        return this.pkg;
     }
 
     protected final Namespace getSTYLE() {
@@ -291,9 +318,13 @@ public class Style extends ODNode {
      * @return the matching properties, eg &lt;text-properties&gt;.
      */
     public final Element getFormattingProperties(final String family) {
+        return getFormattingProperties(family, true);
+    }
+
+    public final Element getFormattingProperties(final String family, final boolean create) {
         final Element elem = this.ns.getXML().createFormattingProperties(family);
         Element res = this.getElement().getChild(elem.getName(), elem.getNamespace());
-        if (res == null) {
+        if (res == null && create) {
             res = elem;
             this.getElement().addContent(res);
         }
@@ -352,6 +383,8 @@ public class Style extends ODNode {
         final ODXMLDocument xmlFile = this.pkg.getXMLFile(this.getElement().getDocument());
         final String unusedName = xmlFile.findUnusedName(this.desc, this.desc.getBaseName());
         final Element clone = (Element) this.getElement().clone();
+        // needed if this is a default-style
+        clone.setName(this.desc.getElementName());
         clone.setAttribute("name", unusedName, this.getSTYLE());
         JDOMUtils.insertAfter(this.getElement(), singleton(clone));
         return this.desc.create(this.pkg, clone);

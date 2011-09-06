@@ -14,10 +14,12 @@
  package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.style.SideStyleProperties;
+import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.openoffice.text.ParagraphStyle.StyleParagraphProperties;
 import org.openconcerto.openoffice.text.TextStyle.StyleTextProperties;
 
@@ -48,6 +50,10 @@ public class CellStyle extends StyleStyle {
 
     public CellStyle(final ODPackage pkg, Element tableColElem) {
         super(pkg, tableColElem);
+    }
+
+    public final DataStyle getDataStyle() {
+        return (DataStyle) Style.getReferencedStyle(getPackage(), getElement().getAttribute("data-style-name", getSTYLE()));
     }
 
     public final Color getBackgroundColor() {
@@ -84,20 +90,24 @@ public class CellStyle extends StyleStyle {
         }
 
         public final int getRotationAngle() {
-            final String s = this.getElement().getAttributeValue("rotation-angle", this.getElement().getNamespace("style"));
-            return s == null ? 0 : Integer.parseInt(s);
+            final String s = this.getAttributeValue("rotation-angle", this.getElement().getNamespace("style"));
+            return parseInt(s, 0);
         }
 
         public final boolean isContentPrinted() {
-            return parseBoolean(this.getElement().getAttributeValue("print-content", this.getElement().getNamespace("style")), true);
+            return parseBoolean(this.getAttributeValue("print-content", this.getElement().getNamespace("style")), true);
         }
 
         public final boolean isContentRepeated() {
-            return parseBoolean(this.getElement().getAttributeValue("repeat-content", this.getElement().getNamespace("style")), false);
+            return parseBoolean(this.getAttributeValue("repeat-content", this.getElement().getNamespace("style")), false);
         }
 
         public final boolean isShrinkToFit() {
-            return parseBoolean(this.getElement().getAttributeValue("shrink-to-fit", this.getElement().getNamespace("style")), false);
+            return parseBoolean(this.getAttributeValue("shrink-to-fit", this.getElement().getNamespace("style")), false);
+        }
+
+        public final Integer getDecimalPlaces() {
+            return parseInteger(this.getAttributeValue("decimal-places", this.getElement().getNamespace("style")));
         }
     }
 

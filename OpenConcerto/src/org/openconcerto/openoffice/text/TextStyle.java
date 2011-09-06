@@ -16,6 +16,7 @@
 import static java.util.Arrays.asList;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.OOUtils;
+import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyleStyleDesc;
@@ -64,12 +65,12 @@ public class TextStyle extends StyleStyle {
     // cf style-text-properties-content-strict in the relaxNG
     public static class StyleTextProperties extends StyleProperties {
 
-        public StyleTextProperties(StyleStyle style) {
+        public StyleTextProperties(Style style) {
             super(style, DESC.getFamily());
         }
 
         public final Color getColor() {
-            return OOUtils.decodeRGB(this.getElement().getAttributeValue("color", this.getNS("fo")));
+            return OOUtils.decodeRGB(this.getAttributeValue("color", this.getNS("fo")));
         }
 
         public final void setColor(Color color) {
@@ -77,19 +78,19 @@ public class TextStyle extends StyleStyle {
         }
 
         public final String getFontName() {
-            return this.getElement().getAttributeValue("font-name", this.getElement().getNamespace("style"));
+            return this.getAttributeValue("font-name", this.getElement().getNamespace("style"));
         }
 
         public final String getLanguage() {
-            return this.getElement().getAttributeValue("language", this.getNS("fo"));
+            return this.getAttributeValue("language", this.getNS("fo"));
         }
 
         public final String getCountry() {
-            return this.getElement().getAttributeValue("country", this.getNS("fo"));
+            return this.getAttributeValue("country", this.getNS("fo"));
         }
 
         public final String getWeight() {
-            return this.getElement().getAttributeValue("font-weight", this.getNS("fo"));
+            return this.getAttributeValue("font-weight", this.getNS("fo"));
         }
     }
 }

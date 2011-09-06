@@ -161,7 +161,7 @@ public class ReportGeneration<C extends GenerationCommon> {
      */
     @SuppressWarnings("unchecked")
     protected C createCommon(String name) {
-        return (C) new GenerationCommon<ReportGeneration>(this);
+        return (C) new GenerationCommon<ReportGeneration<?>>(this);
     }
 
     /**

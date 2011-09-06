@@ -19,6 +19,7 @@ import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.utils.AlterTable;
+import org.openconcerto.sql.utils.SQLCreateTableBase;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.util.HashSet;
@@ -97,15 +98,20 @@ public final class AlterTableRestricted {
         return this.alter.addDateAndTimeColumn(name);
     }
 
+    public final AlterTable addIntegerColumn(String name, int defaultVal) {
+        addCol(name);
+        return this.alter.addIntegerColumn(name, defaultVal);
+    }
+
     public AlterTable addForeignColumn(String fk, String table) {
         return this.addForeignColumn(fk, new SQLName(table));
     }
 
     public AlterTable addForeignColumn(String fk, SQLName tableName) {
-        if (tableName.getItemCount() == 1 && this.ctxt.getAddedTables().contains(tableName.getFirst())) {
+        SQLCreateTableBase<?> createTable;
+        if (tableName.getItemCount() == 1 && (createTable = this.ctxt.getCreateTables().get(tableName.getFirst())) != null) {
             addCol(fk);
-            // see DBContext.execute()
-            return this.alter.addForeignColumn(fk, tableName, SQLSyntax.ID_NAME, "NULL");
+            return this.alter.addForeignColumn(fk, createTable);
         } else {
             return this.addForeignColumn(fk, this.table.getDesc(tableName, SQLTable.class));
         }

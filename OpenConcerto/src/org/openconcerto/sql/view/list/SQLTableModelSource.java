@@ -191,6 +191,13 @@ public abstract class SQLTableModelSource {
 
     protected abstract SQLTableModelLinesSource _createLinesSource(ITableModel model);
 
+    /**
+     * The maximum graph of the lines returned by {@link #createLinesSource(ITableModel)}.
+     * 
+     * @return the maximum graph of our lines.
+     */
+    public abstract SQLRowValues getMaxGraph();
+
     // * columns
 
     /**

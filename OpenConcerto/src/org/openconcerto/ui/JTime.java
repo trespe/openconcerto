@@ -15,9 +15,11 @@
 
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
+import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
 
 import java.awt.BorderLayout;
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -64,6 +66,7 @@ public final class JTime extends JPanel implements ValueWrapper<Date>, TextCompo
 
     private final boolean fillWithCurrentTime;
     private final JFormattedTextField text;
+    private final ValidChangeSupport validSupp;
 
     /**
      * Create the component, empty.
@@ -79,16 +82,29 @@ public final class JTime extends JPanel implements ValueWrapper<Date>, TextCompo
      *        else empty.
      */
     public JTime(final boolean fillWithCurrentTime) {
+        this(fillWithCurrentTime, false);
+    }
+
+    public JTime(final boolean fillWithCurrentTime, final boolean withSeconds) {
         super(new BorderLayout());
         this.fillWithCurrentTime = fillWithCurrentTime;
 
-        final DateFormatter formatter = new DateFormatter(new SimpleDateFormat("HH:mm"));
+        final DateFormatter formatter = new DateFormatter(new SimpleDateFormat(withSeconds ? "HH:mm:ss" : "HH:mm"));
         formatter.setOverwriteMode(true);
         // don't setAllowsInvalid(false) otherwise we can't replace 07:00 by 21:00
         formatter.setMaximum(dateFromTimeInMillis(DAY_LENGTH - 1));
 
         this.text = new JFormattedTextField(formatter);
         this.add(this.text, BorderLayout.CENTER);
+
+        this.text.addPropertyChangeListener("editValid", new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                setValidated((Boolean) evt.getNewValue());
+            }
+        });
+        // initial value
+        this.validSupp = new ValidChangeSupport(this, this.text.isEditValid());
 
         this.resetValue();
     }
@@ -158,19 +174,23 @@ public final class JTime extends JPanel implements ValueWrapper<Date>, TextCompo
         return this;
     }
 
+    protected final void setValidated(boolean newValue) {
+        this.validSupp.fireValidChange(newValue);
+    }
+
     @Override
     public boolean isValidated() {
-        return true;
+        return this.validSupp.getValidState();
     }
 
     @Override
     public void addValidListener(ValidListener l) {
-        // nothing to do
+        this.validSupp.addValidListener(l);
     }
 
     @Override
     public void removeValidListener(ValidListener l) {
-        // nothing to do
+        this.validSupp.removeValidListener(l);
     }
 
     @Override

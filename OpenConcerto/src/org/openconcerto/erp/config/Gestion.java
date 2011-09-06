@@ -71,6 +71,12 @@ import javax.swing.UIManager.LookAndFeelInfo;
 
 public class Gestion {
 
+    /**
+     * When this system property is set to <code>true</code>, Gestion will hide most of its normal
+     * UI. E.g. no SOCIETE selection in the login panel, minimalist menu bar, etc.
+     */
+    public static final String MINIMAL_PROP = "org.openconcerto.erp.minimal";
+
     private static List<Image> frameIcon;
     // Check that we are on Mac OS X. This is crucial to loading and using the OSXAdapter class.
     static final boolean MAC_OS_X = System.getProperty("os.name").toLowerCase().startsWith("mac os x");
@@ -102,6 +108,10 @@ public class Gestion {
             ExceptionHandler
                     .handle("Impossible d'ouvrir le fichier " + f + ".\nVérifiez qu'un logiciel pour lire les fichiers PDF est installé sur votre ordinateur (http://get.adobe.com/fr/reader).");
         }
+    }
+
+    public static final boolean isMinimalMode() {
+        return Boolean.getBoolean(MINIMAL_PROP);
     }
 
     /**

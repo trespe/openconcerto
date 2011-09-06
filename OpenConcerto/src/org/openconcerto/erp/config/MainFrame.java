@@ -115,8 +115,10 @@ import org.openconcerto.sql.users.rights.LockAdminUserRight;
 import org.openconcerto.sql.users.rights.UserRights;
 import org.openconcerto.task.TodoListPanel;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
+import org.openconcerto.ui.AutoHideTabbedPane;
 import org.openconcerto.ui.MenuUtils;
 import org.openconcerto.ui.SwingThreadUtils;
+import org.openconcerto.ui.state.WindowStateManager;
 import org.openconcerto.utils.JImage;
 import org.openconcerto.utils.OSXAdapter;
 
@@ -128,6 +130,7 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -153,6 +156,7 @@ public class MainFrame extends JFrame {
     public static final String LIST_MENU = "Gestion";
     public static final String CREATE_MENU = "Saisie";
     public static final String FILE_MENU = "Fichier";
+    private static final String HELP_MENU = "Aide";
 
     static private final List<Runnable> runnables = new ArrayList<Runnable>();
     static private MainFrame instance = null;
@@ -192,7 +196,8 @@ public class MainFrame extends JFrame {
         });
     }
 
-    private TodoListPanel todoPanel = new TodoListPanel();
+    private final AutoHideTabbedPane tabContainer;
+    private TodoListPanel todoPanel;
     private JImage image;
 
     public TodoListPanel getTodoPanel() {
@@ -203,7 +208,7 @@ public class MainFrame extends JFrame {
         super();
 
         this.setIconImage(new ImageIcon(this.getClass().getResource("frameicon.png")).getImage());
-        this.setJMenuBar(createMenu());
+        this.setJMenuBar(Gestion.isMinimalMode() ? createMinimalMenu() : createMenu());
         Container co = this.getContentPane();
         co.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -213,35 +218,85 @@ public class MainFrame extends JFrame {
         // // co.add(new RangeSlider(2005), c);
         c.weightx = 1;
         c.weighty = 0;
-        image = new JImage(ComptaBasePropsConfiguration.class.getResource("logo.png"));
-        image.setBackground(Color.WHITE);
-        image.check();
-        co.add(image, c);
+        this.image = new JImage(ComptaBasePropsConfiguration.class.getResource("logo.png"));
+        this.image.setBackground(Color.WHITE);
+        this.image.check();
+        co.add(this.image, c);
         c.weighty = 0;
         c.gridy++;
         c.fill = GridBagConstraints.BOTH;
         co.add(new JSeparator(JSeparator.HORIZONTAL), c);
         c.gridy++;
         c.weighty = 1;
-        co.add(this.todoPanel, c);
+        this.tabContainer = new AutoHideTabbedPane();
+        co.add(this.tabContainer, c);
+        Dimension minSize;
+        final String confSuffix;
+        if (!Gestion.isMinimalMode()) {
+            this.todoPanel = new TodoListPanel();
+            this.getTabbedPane().addTab("Tâches", this.todoPanel);
+            minSize = new Dimension(800, 600);
+            confSuffix = "";
+        } else {
+            minSize = null;
+            confSuffix = "-minimal";
+        }
         c.weighty = 0;
         c.gridy++;
         c.fill = GridBagConstraints.HORIZONTAL;
         co.add(StatusPanel.getInstance(), c);
 
+        if (minSize == null) {
+            this.pack();
+            minSize = new Dimension(this.getSize());
+        }
+        this.setMinimumSize(minSize);
+
+        final File confFile = new File(Configuration.getInstance().getConfDir(), "Configuration" + File.separator + "Frame" + File.separator + "mainFrame" + confSuffix + ".xml");
+        new WindowStateManager(this, confFile).loadState();
+
         registerForMacOSXEvents();
 
         this.addWindowListener(new WindowAdapter() {
+            @Override
             public void windowClosing(WindowEvent arg0) {
                 quit();
             }
         });
 
         setInstance(this);
-        new NewsUpdater(image);
+        new NewsUpdater(this.image);
     }
 
-    public JMenuBar createMenu() {
+    private final JMenuBar createMinimalMenu() {
+        final JMenuBar res = new JMenuBar();
+        final JMenu fileMenu = new JMenu(FILE_MENU);
+        fileMenu.add(new SauvegardeBaseAction());
+        if (!Gestion.MAC_OS_X) {
+            fileMenu.add(new JMenuItem(new AbstractAction("Quitter") {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    quit();
+                }
+            }));
+        }
+        res.add(fileMenu);
+
+        final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
+        if (rights.haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {
+            final JMenu structMenu = new JMenu(STRUCTURE_MENU);
+            structMenu.add(new JMenuItem(new ListeDesUsersCommonAction()));
+            res.add(structMenu);
+        }
+
+        final JMenu helpMenu = new JMenu(HELP_MENU);
+        helpMenu.add(new JMenuItem(AboutAction.getInstance()));
+        res.add(helpMenu);
+
+        return res;
+    }
+
+    private final JMenuBar createMenu() {
         JMenuBar result = new JMenuBar();
 
         JMenu menu;
@@ -284,6 +339,7 @@ public class MainFrame extends JFrame {
         if (!Gestion.MAC_OS_X) {
             menu.add(new JMenuItem(new PreferencesAction()));
             menu.add(new JMenuItem(new AbstractAction("Quitter") {
+                @Override
                 public void actionPerformed(ActionEvent e) {
                     quit();
                 }
@@ -494,7 +550,7 @@ public class MainFrame extends JFrame {
             result.add(menu);
         }
         // Aide
-        menu = new JMenu("Aide");
+        menu = new JMenu(HELP_MENU);
         menu.add(new JMenuItem(AboutAction.getInstance()));
         menu.add(new JMenuItem(new AstuceAction()));
 
@@ -529,7 +585,8 @@ public class MainFrame extends JFrame {
         final JMenu res;
         if (existing == null) {
             res = new JMenu(name);
-            this.getJMenuBar().add(res);
+            // insert before the help menu
+            this.getJMenuBar().add(res, this.getJMenuBar().getComponentCount() - 1);
         } else {
             res = existing;
         }
@@ -578,8 +635,13 @@ public class MainFrame extends JFrame {
     }
 
     public boolean quit() {
-        this.getTodoPanel().stopUpdate();
+        if (this.getTodoPanel() != null)
+            this.getTodoPanel().stopUpdate();
         Gestion.askForExit();
         return false;
+    }
+
+    public final AutoHideTabbedPane getTabbedPane() {
+        return this.tabContainer;
     }
 }

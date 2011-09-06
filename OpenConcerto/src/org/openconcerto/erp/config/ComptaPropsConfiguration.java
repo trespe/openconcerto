@@ -444,13 +444,9 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new SaisieKmItemSQLElement());
         dir.addSQLElement(new EcritureSQLElement());
 
-        dir.addSQLElement(new SharedSQLElement("ACCES_SOCIETE"));
-        dir.addSQLElement(new SharedSQLElement("PREFS_COMPTE"));
         dir.addSQLElement(new SharedSQLElement("EMPLOYEUR_MULTIPLE"));
-        dir.addSQLElement(new SharedSQLElement("REPARTITION_ANALYTIQUE_ELEMENT"));
         dir.addSQLElement(PosteAnalytiqueSQLElement.class);
         dir.addSQLElement(new SharedSQLElement("CLASSE_COMPTE"));
-        dir.addSQLElement(new SharedSQLElement("PREFERENCES"));
 
         dir.addSQLElement(new CaisseCotisationSQLElement());
         dir.addSQLElement(CaisseTicketSQLElement.class);

@@ -51,6 +51,11 @@ public final class AlterTable extends ChangeTable<AlterTable> {
         this.t = null;
     }
 
+    @Override
+    protected String getConstraintPrefix() {
+        return "ADD ";
+    }
+
     public final AlterTable addColumn(String name, String definition) {
         // column keyword is not accepted by H2
         return this.addClause("ADD " + SQLBase.quoteIdentifier(name) + " " + definition, ClauseType.ADD_COL);

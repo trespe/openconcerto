@@ -57,6 +57,30 @@ public final class SimpleXMLPath<T> {
         return create(Arrays.<Step<?>> asList(first, second), lastStep);
     }
 
+    /**
+     * Create a path searching for all descendant attributes with the passed name and namespace.
+     * I.e. in XPath this would be ".//@ns:name".
+     * 
+     * @param name the name of attributes.
+     * @param ns the namespace of attributes.
+     * @return a path searching attributes in all {@link Axis#descendantOrSelf} elements.
+     */
+    public static SimpleXMLPath<Attribute> allAttributes(final String name, final String ns) {
+        return create(Step.createElementStep(Axis.descendantOrSelf, null), Step.createAttributeStep(name, ns));
+    }
+
+    /**
+     * Create a path searching for all descendant elements with the passed name and namespace. I.e.
+     * in XPath this would be ".//ns:name".
+     * 
+     * @param name the name of elements.
+     * @param ns the namespace of elements.
+     * @return a path searching all {@link Axis#descendantOrSelf} elements.
+     */
+    public static SimpleXMLPath<Element> allElements(final String name, final String ns) {
+        return create(Step.createElementStep(Axis.descendantOrSelf, name, ns));
+    }
+
     private final List<Step<?>> items;
     private final Step<T> lastItem;
 
@@ -65,11 +89,11 @@ public final class SimpleXMLPath<T> {
         this.items = new ArrayList<Step<?>>();
     }
 
-    public final SimpleXMLPath add(final String name) {
+    public final SimpleXMLPath<T> add(final String name) {
         return this.add(Step.createElementStep(name, null, null));
     }
 
-    public final SimpleXMLPath add(Step<?> step) {
+    public final SimpleXMLPath<T> add(Step<?> step) {
         this.items.add(step);
         return this;
     }
@@ -183,7 +207,7 @@ public final class SimpleXMLPath<T> {
             if (axis == Axis.ancestor) {
                 step.add(node.getParent(), res);
             } else if (axis == Axis.attribute) {
-                final List attributes = node.getAttributes();
+                final List<?> attributes = node.getAttributes();
                 final int stop = attributes.size();
                 for (int i = 0; i < stop; i++) {
                     step.add(attributes.get(i), res);

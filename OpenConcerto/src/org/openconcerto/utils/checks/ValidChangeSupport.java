@@ -36,6 +36,10 @@ public final class ValidChangeSupport {
         this.validState = initialState;
     }
 
+    public final Boolean getValidState() {
+        return this.validState;
+    }
+
     public final void fireValidChange(final Boolean newValue) {
         if (!newValue.equals(this.validState)) {
             this.validState = newValue;

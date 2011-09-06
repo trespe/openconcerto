@@ -14,6 +14,7 @@
  package org.openconcerto.sql.view.list;
 
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 
 /**
@@ -45,5 +46,10 @@ public class SQLTableModelSourceOffline extends SQLTableModelSource {
     @Override
     protected SQLTableModelLinesSourceOffline _createLinesSource(final ITableModel model) {
         return new SQLTableModelLinesSourceOffline(this, model);
+    }
+
+    @Override
+    public SQLRowValues getMaxGraph() {
+        return this.getFetcher().getGraph();
     }
 }

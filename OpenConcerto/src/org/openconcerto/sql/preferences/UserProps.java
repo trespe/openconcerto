@@ -14,6 +14,7 @@
  package org.openconcerto.sql.preferences;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.ui.preferences.AbstractProps;
 
 import java.io.File;
@@ -42,7 +43,7 @@ public class UserProps extends AbstractProps {
     }
 
     public int getLastSocieteID() {
-        return getIntProperty(UserProps.LAST_SOCIETE);
+        return getIntProperty(UserProps.LAST_SOCIETE, SQLRow.NONEXISTANT_ID);
     }
 
     public void setLastSocieteID(int id) {
