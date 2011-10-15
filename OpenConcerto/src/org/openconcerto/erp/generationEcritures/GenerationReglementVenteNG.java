@@ -212,7 +212,8 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
                 System.out.println("Echéance client");
 
                 // Ajout dans echeance
-                SQLRowValues valEcheance = new SQLRowValues(base.getTable("ECHEANCE_CLIENT"));
+                final SQLTable tableEch = base.getTable("ECHEANCE_CLIENT");
+                SQLRowValues valEcheance = new SQLRowValues(tableEch);
 
                 this.idMvt = getNewMouvement("ECHEANCE_CLIENT", 1, mvtSource.getID(), mvtSource.getInt("ID_PIECE"));
                 valEcheance.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));

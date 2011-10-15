@@ -47,7 +47,12 @@ public class ListeFactureXmlSheet extends AbstractListeSheetXml {
         this.listeIds = listeIds;
         this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
         this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
-        this.modele = "ListeFacture";
+    }
+
+    @Override
+    public String getDefaultModele() {
+        // TODO Raccord de méthode auto-généré
+        return "ListeFacture";
     }
 
     protected void createListeValues() {

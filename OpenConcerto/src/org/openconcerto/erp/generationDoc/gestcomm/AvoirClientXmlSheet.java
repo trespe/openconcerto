@@ -55,11 +55,14 @@ public class AvoirClientXmlSheet extends AbstractSheetXml {
         this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
         this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
 
-        Boolean b = row.getBoolean("AFFACTURE");
-
         this.startName = "Avoir_";
 
-            this.modele = "Avoir";
+    }
+
+    @Override
+    public String getDefaultModele() {
+
+            return "Avoir";
     }
 
     public String getFileName() {

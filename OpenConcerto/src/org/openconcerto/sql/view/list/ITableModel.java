@@ -116,6 +116,7 @@ public class ITableModel extends AbstractTableModel {
     // sleep state
     private SleepState wantedState;
     private SleepState actualState;
+    private int hibernateDelay;
     private TimerTask autoHibernate;
     // number of runnables needing our queue to be awake
     private final AtomicInteger runSleep;
@@ -167,6 +168,7 @@ public class ITableModel extends AbstractTableModel {
         });
         this.actualState = SleepState.AWAKE;
         this.wantedState = this.actualState;
+        this.setHibernateDelay(30);
         this.autoHibernate = null;
         this.runSleep = new AtomicInteger(0);
         this.searchQ = new SearchQueue(new ListAccess(this));
@@ -548,6 +550,16 @@ public class ITableModel extends AbstractTableModel {
         }
     }
 
+    /**
+     * Set the number of seconds between reaching the {@link SleepState#SLEEPING} state and setting
+     * the {@link SleepState#HIBERNATING} state.
+     * 
+     * @param seconds the number of seconds, less than 0 to disable automatic hibernating.
+     */
+    public final void setHibernateDelay(int seconds) {
+        this.hibernateDelay = seconds;
+    }
+
     private void runnableAdded() {
         synchronized (this.runSleep) {
             this.runSleep.incrementAndGet();
@@ -602,13 +614,15 @@ public class ITableModel extends AbstractTableModel {
                 break;
             case SLEEPING:
                 this.updateQ.setSleeping(true);
-                this.autoHibernate = new TimerTask() {
-                    @Override
-                    public void run() {
-                        setSleeping(HIBERNATING);
-                    }
-                };
-                getAutoHibernateTimer().schedule(this.autoHibernate, 30 * 1000);
+                if (this.hibernateDelay >= 0) {
+                    this.autoHibernate = new TimerTask() {
+                        @Override
+                        public void run() {
+                            setSleeping(HIBERNATING);
+                        }
+                    };
+                    getAutoHibernateTimer().schedule(this.autoHibernate, this.hibernateDelay * 1000);
+                }
                 break;
             case HIBERNATING:
                 this.updateQ.putRemoveAll();

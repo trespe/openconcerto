@@ -15,6 +15,7 @@
 
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -138,8 +139,8 @@ public final class JDateTime extends JPanel implements ValueWrapper<Date> {
     }
 
     @Override
-    public boolean isValidated() {
-        return true;
+    public ValidState getValidState() {
+        return ValidState.getTrueInstance();
     }
 
     @Override
@@ -150,10 +151,5 @@ public final class JDateTime extends JPanel implements ValueWrapper<Date> {
     @Override
     public void removeValidListener(ValidListener l) {
         // nothing to do
-    }
-
-    @Override
-    public String getValidationText() {
-        return null;
     }
 }

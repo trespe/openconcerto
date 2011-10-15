@@ -26,6 +26,7 @@ import java.io.File;
 import java.io.IOException;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -37,6 +38,8 @@ public class TemplatePreferencePanel extends DefaultPreferencePanel {
 
     private JTextField textTemplate;
     private JFileChooser fileChooser = null;
+    public static String MULTIMOD = "MultiModele";
+    JCheckBox boxMultiMod = new JCheckBox("Activer la gestion multimodèle");
 
     public TemplatePreferencePanel() {
         this.setLayout(new GridBagLayout());
@@ -57,6 +60,10 @@ public class TemplatePreferencePanel extends DefaultPreferencePanel {
         cPanel.weightx = 0;
         cPanel.fill = GridBagConstraints.NONE;
         this.add(buttonTemplate, cPanel);
+
+        cPanel.gridy++;
+        cPanel.gridx = 0;
+        this.add(boxMultiMod, cPanel);
 
         final JPanel spacer = new JPanel();
         spacer.setOpaque(false);
@@ -83,11 +90,13 @@ public class TemplatePreferencePanel extends DefaultPreferencePanel {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        TemplateNXProps.getInstance().setProperty(MULTIMOD, String.valueOf(this.boxMultiMod.isSelected()));
 
         TemplateNXProps.getInstance().store();
     }
 
     public void restoreToDefaults() {
+        this.boxMultiMod.setSelected(false);
     }
 
     public String getTitleName() {
@@ -103,9 +112,11 @@ public class TemplatePreferencePanel extends DefaultPreferencePanel {
                 this.textTemplate.setForeground(Color.RED);
             }
             this.textTemplate.setText(f.getCanonicalPath());
+
         } catch (IOException e) {
             e.printStackTrace();
         }
+        this.boxMultiMod.setSelected(TemplateNXProps.getInstance().getBooleanValue(MULTIMOD, false));
     }
 
     private void directoryChoose(final String type) {

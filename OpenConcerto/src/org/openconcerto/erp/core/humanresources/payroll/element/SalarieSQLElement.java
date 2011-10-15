@@ -27,6 +27,8 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.warning.JLabelWarning;
+import org.openconcerto.utils.checks.ValidState;
+import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -41,9 +43,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class SalarieSQLElement extends ComptaSQLConfElement {
 
@@ -87,9 +86,8 @@ public class SalarieSQLElement extends ComptaSQLConfElement {
      */
     public SQLComponent createComponent() {
         return new BaseSQLComponent(this) {
-            private final JLabel warningCodeSalLabel = new JLabel();
+            private final JLabel warningCodeSalLabel = new JLabelWarning();
             private final JTextField textCode = new JTextField();
-            private final JLabelWarning labelImgWarning = new JLabelWarning();
 
             private JTabbedPane tabbedPane;
             private final SQLTable tableNum = getTable().getBase().getTable("NUMEROTATION_AUTO");
@@ -145,23 +143,13 @@ public class SalarieSQLElement extends ComptaSQLConfElement {
 
                 c.weightx = 0;
                 c.gridx++;
-                this.add(this.labelImgWarning, c);
-                c.gridx++;
                 this.add(this.warningCodeSalLabel, c);
-                this.labelImgWarning.setVisible(false);
                 this.warningCodeSalLabel.setVisible(false);
 
-                this.textCode.getDocument().addDocumentListener(new DocumentListener() {
-                    public void changedUpdate(DocumentEvent e) {
-                        codeExist();
-                    }
-
-                    public void insertUpdate(DocumentEvent e) {
-                        codeExist();
-                    };
-
-                    public void removeUpdate(DocumentEvent e) {
-                        codeExist();
+                this.textCode.getDocument().addDocumentListener(new SimpleDocumentListener() {
+                    @Override
+                    public void update(DocumentEvent e) {
+                        checkCode();
                     }
                 });
 
@@ -258,24 +246,24 @@ public class SalarieSQLElement extends ComptaSQLConfElement {
                 this.textCode.setText(NumerotationAutoSQLElement.getNextNumero(SalarieSQLElement.class));
             }
 
-            public synchronized boolean isValidated() {
-
-                return super.isValidated() && (!codeExist());
+            @Override
+            public synchronized ValidState getValidState() {
+                return super.getValidState().and(ValidState.createCached(!this.warningCodeSalLabel.isVisible(), this.warningCodeSalLabel.getText()));
             }
 
-            private boolean codeExist() {
-
+            private void checkCode() {
                 SQLSelect selNum = new SQLSelect(getTable().getBase());
-                selNum.addSelect(getTable().getField("ID"));
+                selNum.addSelectFunctionStar("count");
                 selNum.setWhere(new Where(getTable().getField("CODE"), "=", this.textCode.getText().trim()));
                 selNum.andWhere(new Where(getTable().getField("ID"), "!=", getSelectedID()));
 
-                String req = selNum.asString();
-                List l = (List) getTable().getBase().getDataSource().execute(req, new ArrayListHandler());
-
-                this.labelImgWarning.setVisible(l.size() > 0);
-                this.warningCodeSalLabel.setVisible(l.size() > 0);
-                return (l.size() > 0);
+                final Number count = (Number) getTable().getBase().getDataSource().executeScalar(selNum.asString());
+                final boolean isValid = count.intValue() == 0;
+                final boolean currentValid = !this.warningCodeSalLabel.isVisible();
+                if (currentValid != isValid) {
+                    this.warningCodeSalLabel.setVisible(!isValid);
+                    this.fireValidChange();
+                }
             }
 
             @Override
@@ -286,7 +274,7 @@ public class SalarieSQLElement extends ComptaSQLConfElement {
                  * 1, true); this.tabbedPane.setEnabledAt(this.tabbedPane.getTabCount() - 2, true);
                  * }
                  */
-                codeExist();
+                checkCode();
             }
 
             public void update() {

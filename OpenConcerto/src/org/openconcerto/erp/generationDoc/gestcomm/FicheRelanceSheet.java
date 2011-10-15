@@ -42,7 +42,11 @@ public class FicheRelanceSheet extends AbstractListeSheetXml {
         this.row = row;
         this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
         this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
-        this.modele = "FicheRelance";
+    }
+
+    @Override
+    public String getDefaultModele() {
+        return "FicheRelance";
     }
 
     @Override

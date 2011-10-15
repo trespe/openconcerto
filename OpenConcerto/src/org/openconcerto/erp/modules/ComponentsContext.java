@@ -21,10 +21,10 @@ import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.view.DropManager;
 import org.openconcerto.sql.view.FileDropHandler;
-import org.openconcerto.sql.view.SQLMenuItemHelper;
-import org.openconcerto.sql.view.SQLMenuItemHelper.SQLMenuItemAction;
+import org.openconcerto.sql.view.SQLElementEditAction;
+import org.openconcerto.sql.view.SQLElementListAction;
+import org.openconcerto.sql.view.list.IListeAction;
 import org.openconcerto.sql.view.list.RowAction;
-import org.openconcerto.sql.view.list.RowActionFactory;
 import org.openconcerto.utils.CollectionMap;
 
 import java.util.ArrayList;
@@ -121,27 +121,22 @@ public final class ComponentsContext {
 
     // * actions
 
-    public final void addRowAction(final String tableName, final RowAction action) {
+    public final void addListAction(final String tableName, final IListeAction action) {
         final SQLElement elem = getElement(tableName);
         this.rowActions.put(elem, action);
         elem.getRowActions().add(action);
-    }
-
-    public final void addRowActionFactory(final RowActionFactory factory) {
-        final SQLElement elem = getElement(factory.getTableName());
-        elem.getRowActionFactories().add(factory);
     }
 
     final CollectionMap<SQLElement, RowAction> getRowActions() {
         return this.rowActions;
     }
 
-    public final SQLMenuItemAction createEditAction(final String table) {
-        return SQLMenuItemHelper.INSTANCE.createEditAction(getElement(table));
+    public final SQLElementEditAction createEditAction(final String table) {
+        return new SQLElementEditAction(getElement(table));
     }
 
-    public final SQLMenuItemAction createListAction(final String table) {
-        return SQLMenuItemHelper.INSTANCE.createListAction(getElement(table));
+    public final SQLElementListAction createListAction(final String table) {
+        return new SQLElementListAction(getElement(table));
     }
 
     public final void addMenuItem(final Action action, final String menu) {

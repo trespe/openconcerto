@@ -37,7 +37,11 @@ public class FicheClientXmlSheet extends AbstractSheetXml {
         Calendar cal = Calendar.getInstance();
         this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false) + File.separator + cal.get(Calendar.YEAR);
         this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true) + File.separator + cal.get(Calendar.YEAR);
-        this.modele = "FicheClient";
+    }
+
+    @Override
+    public String getDefaultModele() {
+        return "FicheClient";
     }
 
     public String getFileName() {

@@ -13,9 +13,9 @@
  
  package org.openconcerto.ui.table;
 
+import org.openconcerto.ui.PopupMouseListener;
 import org.openconcerto.utils.cc.ITransformer;
 
-import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
@@ -27,7 +27,7 @@ import javax.swing.JTable;
  * 
  * @author Sylvain
  */
-public final class TablePopupMouseListener extends MouseAdapter {
+public final class TablePopupMouseListener extends PopupMouseListener {
 
     /**
      * Add a {@link MouseListener} on <code>t</code> to select on MousePress and display a popup.
@@ -39,35 +39,25 @@ public final class TablePopupMouseListener extends MouseAdapter {
         t.addMouseListener(new TablePopupMouseListener(popup));
     }
 
-    private final ITransformer<MouseEvent, JPopupMenu> popup;
-
     private TablePopupMouseListener(final ITransformer<MouseEvent, JPopupMenu> popup) {
-        this.popup = popup;
+        super(popup);
     }
 
+    @Override
     public void mousePressed(MouseEvent e) {
         // do as other apps : select on MousePress
         // BUTTON1 is already handled by Swing
         if (e.getButton() != MouseEvent.BUTTON1) {
             adjustSelection(e);
         }
-        maybeShowPopup(e);
+        super.mousePressed(e);
     }
 
-    public void mouseReleased(MouseEvent e) {
-        maybeShowPopup(e);
-    }
-
-    private void maybeShowPopup(MouseEvent e) {
-        if (e.isPopupTrigger()) {
-            // select the line where the mouse is now
-            adjustSelection(e);
-            // ne pas afficher un menu vide
-            final JPopupMenu menu = this.popup.transformChecked(e);
-            if (menu != null && menu.getSubElements().length > 0) {
-                menu.show(e.getComponent(), e.getX(), e.getY());
-            }
-        }
+    @Override
+    protected JPopupMenu createPopup(MouseEvent e) {
+        // select the line where the mouse is now
+        adjustSelection(e);
+        return super.createPopup(e);
     }
 
     private void adjustSelection(final MouseEvent e) {

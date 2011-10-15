@@ -16,6 +16,7 @@
 import org.openconcerto.ui.component.IDocument;
 import org.openconcerto.ui.component.text.DocumentComponent;
 import org.openconcerto.ui.component.text.TextComponentUtils;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import javax.swing.JComponent;
@@ -66,8 +67,9 @@ public class TextValueWrapper extends BaseValueWrapper<String> {
         this.doc.setText(val);
     }
 
-    public boolean isValidated() {
-        return true;
+    @Override
+    public ValidState getValidState() {
+        return ValidState.getTrueInstance();
     }
 
 }

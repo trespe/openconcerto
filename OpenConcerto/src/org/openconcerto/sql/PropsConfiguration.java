@@ -63,8 +63,8 @@ import java.util.logging.SimpleFormatter;
 
 import org.apache.commons.collections.Predicate;
 
-import ch.ethz.ssh2.Connection;
-import ch.ethz.ssh2.LocalPortForwarder;
+import com.jcraft.jsch.JSch;
+import com.jcraft.jsch.Session;
 
 /**
  * A configuration which takes its values primarily from Properties. You should also subclass its
@@ -167,8 +167,7 @@ public class PropsConfiguration extends Configuration {
     private final List<Configuration> translationsToAdd;
 
     // SSL
-    private Connection conn;
-    private LocalPortForwarder lpf;
+    private Session conn;
     private boolean isUsingSSH;
 
     public PropsConfiguration() throws IOException {
@@ -340,17 +339,16 @@ public class PropsConfiguration extends Configuration {
             }
             assert origExn != null;
         }
-        this.conn = new Connection(wanAddr, Integer.valueOf(wanPort));
-        this.openSSLConnection();
+        this.openSSLConnection(wanAddr, Integer.valueOf(wanPort));
         this.isUsingSSH = true;
-        log.info("ssl connection to " + this.conn.getHostname() + ":" + this.conn.getPort());
+        log.info("ssl connection to " + this.conn.getHost() + ":" + this.conn.getPort());
         final int localPort = 5436;
         try {
             // TODO add and use server.port
             final String[] serverAndPort = getProperty("server.ip").split(":");
             log.info("ssl tunnel from local port " + localPort + " to remote " + serverAndPort[0] + ":" + serverAndPort[1]);
-            this.lpf = this.conn.createLocalPortForwarder(localPort, serverAndPort[0], Integer.valueOf(serverAndPort[1]));
-        } catch (IOException e1) {
+            this.conn.setPortForwardingL(localPort, serverAndPort[0], Integer.valueOf(serverAndPort[1]));
+        } catch (Exception e1) {
             throw new IllegalStateException("Impossible de créer la liaison sécurisée. Vérifier que le logiciel n'est pas déjà lancé.", e1);
         }
         setProperty("server.ip", "localhost:" + localPort);
@@ -381,12 +379,12 @@ public class PropsConfiguration extends Configuration {
         });
     }
 
-    private void openSSLConnection() {
+    private void openSSLConnection(String addr, int port) {
         final String username = getSSLUserName();
         boolean isAuthenticated = false;
+
+        final JSch jsch = new JSch();
         try {
-            // wait no more than 6 seconds for TCP connection
-            this.conn.connect(null, 6000, 12000);
             final ByteArrayOutputStream out = new ByteArrayOutputStream(700);
             final String name = username + "_dsa";
             final InputStream in = getClass().getResourceAsStream(name);
@@ -394,7 +392,20 @@ public class PropsConfiguration extends Configuration {
                 throw new IllegalStateException("Missing private key " + getClass().getCanonicalName() + "/" + name);
             StreamUtils.copy(in, out);
             in.close();
-            isAuthenticated = this.conn.authenticateWithPublicKey(username, out.toString("UTF-8").toCharArray(), null);
+            jsch.addIdentity(username, out.toByteArray(), null, null);
+
+            this.conn = jsch.getSession(username, addr, port);
+            final Properties config = new Properties();
+            // Set StrictHostKeyChecking property to no to avoid UnknownHostKey issue
+            config.put("StrictHostKeyChecking", "no");
+            // *2 gain
+            config.put("compression.s2c", "zlib@openssh.com,zlib,none");
+            config.put("compression.c2s", "zlib@openssh.com,zlib,none");
+            this.conn.setConfig(config);
+            // wait no more than 6 seconds for TCP connection
+            this.conn.connect(6000);
+
+            isAuthenticated = true;
         } catch (Exception e) {
             throw new IllegalStateException("Connection failed", e);
         }
@@ -407,16 +418,8 @@ public class PropsConfiguration extends Configuration {
     }
 
     private void closeSSLConnection() {
-        if (this.lpf != null)
-            try {
-                this.lpf.close();
-                this.lpf = null;
-            } catch (IOException e) {
-                // tant pis
-                e.printStackTrace();
-            }
         if (this.conn != null) {
-            this.conn.close();
+            this.conn.disconnect();
             this.conn = null;
         }
     }

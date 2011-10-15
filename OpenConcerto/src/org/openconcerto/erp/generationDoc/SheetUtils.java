@@ -15,7 +15,6 @@
 
 import java.awt.Graphics2D;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
@@ -33,8 +32,6 @@ import org.jopendocument.renderer.ODTRenderer;
 import com.lowagie.text.Document;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.pdf.PdfContentByte;
-import com.lowagie.text.pdf.PdfDocument;
-import com.lowagie.text.pdf.PdfTemplate;
 import com.lowagie.text.pdf.PdfWriter;
 
 public class SheetUtils {
@@ -121,6 +118,16 @@ public class SheetUtils {
         return result;
     }
 
+    public static void main(String[] args) {
+        final OpenDocument doc = new OpenDocument(new File("E:/Facture_FACT1108-5785.ods"));
+        try {
+            SheetUtils.getInstance().convert2PDF(doc, new File("E:/test"), "test");
+        } catch (Exception exn) {
+            // TODO Bloc catch auto-généré
+            exn.printStackTrace();
+        }
+    }
+
     public void convert2PDF(final OpenDocument doc, final File f, final String fileName) throws Exception {
 
         SwingUtilities.invokeLater(new Runnable() {
@@ -129,52 +136,58 @@ public class SheetUtils {
                 // TODO Raccord de méthode auto-généré
 
                 // Open the PDF document
-                Document document = new Document(PageSize.A4);
+                Document document = new Document(PageSize.A4, 50, 50, 50, 50);
                 File outFile = new File(f.getParent(), fileName + ".pdf");
-
-                PdfDocument pdf = new PdfDocument();
-                document.addDocListener(pdf);
-
                 FileOutputStream fileOutputStream;
+
                 try {
+
                     fileOutputStream = new FileOutputStream(outFile);
-                    PdfWriter writer = PdfWriter.getInstance(pdf, fileOutputStream);
-                    pdf.addWriter(writer);
+
+                    // Create the writer
+                    PdfWriter writer = PdfWriter.getInstance(document, fileOutputStream);
+                    writer.setPdfVersion(PdfWriter.VERSION_1_6);
+                    writer.setFullCompression();
+                    // writer.setPageEmpty(true);
 
                     document.open();
+                    // System.out.println(writer.getPageNumber());
+                    // // Create a template and a Graphics2D object
+                    // com.itextpdf.text.Rectangle pageSize = document.getPageSize();
+                    // int w = (int) (pageSize.getWidth() * 0.9);
+                    // int h = (int) (pageSize.getHeight() * 0.95);
 
-                    // Create a template and a Graphics2D object
-                    com.lowagie.text.Rectangle pageSize = document.getPageSize();
-                    int w = (int) (pageSize.getWidth() * 0.9);
-                    int h = (int) (pageSize.getHeight() * 0.95);
                     PdfContentByte cb = writer.getDirectContent();
-                    PdfTemplate tp = cb.createTemplate(w, h);
-
-                    Graphics2D g2 = tp.createPrinterGraphics(w, h, null);
-                    // If you want to prevent copy/paste, you can use
-                    // g2 = tp.createGraphicsShapes(w, h, true, 0.9f);
-
-                    tp.setWidth(w);
-                    tp.setHeight(h);
 
                     // Configure the renderer
                     ODTRenderer renderer = new ODTRenderer(doc);
-                    renderer.setIgnoreMargins(true);
+                    renderer.setIgnoreMargins(false);
                     renderer.setPaintMaxResolution(true);
 
                     // Scale the renderer to fit width
-                    renderer.setResizeFactor(renderer.getPrintWidth() / w);
-                    // Render
-                    renderer.paintComponent(g2);
-                    g2.dispose();
+                    renderer.setResizeFactor(renderer.getPrintWidth() / document.getPageSize().getWidth());
 
-                    // Add our spreadsheet in the middle of the page
-                    float offsetX = (pageSize.getWidth() - w) / 2;
-                    float offsetY = (pageSize.getHeight() - h) / 2;
-                    cb.addTemplate(tp, offsetX, offsetY);
+                    // Print pages
+                    for (int i = 0; i < renderer.getPrintedPagesNumber(); i++) {
+
+                        Graphics2D g2 = cb.createGraphics(PageSize.A4.getWidth(), PageSize.A4.getHeight());
+
+                        // If you want to prevent copy/paste, you can use
+                        // g2 = tp.createGraphicsShapes(w, h, true, 0.9f);
+
+                        // Render
+                        renderer.setCurrentPage(i);
+                        renderer.paintComponent(g2);
+                        g2.dispose();
+
+                        // Add our spreadsheet in the middle of the page
+                        if (i < renderer.getPrintedPagesNumber() - 1)
+                            document.newPage();
+
+                    }
                     // Close the PDF document
                     document.close();
-                    writer.close();
+                    // writer.close();
                     fileOutputStream.close();
 
                 } catch (Exception exn) {
@@ -184,5 +197,4 @@ public class SheetUtils {
             }
         });
     }
-
 }

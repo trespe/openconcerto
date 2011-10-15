@@ -16,6 +16,7 @@
 import org.openconcerto.utils.checks.MutableValueObject;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -46,7 +47,7 @@ public final class ValueWrapperFromVO<T> extends BaseValueWrapper<T> {
         });
         if (this.hasValidObject())
             this.getValidObject().addValidListener(new ValidListener() {
-                public void validChange(ValidObject src, boolean newValue) {
+                public void validChange(ValidObject src, ValidState newValue) {
                     firePropertyChange();
                 }
             });
@@ -72,19 +73,12 @@ public final class ValueWrapperFromVO<T> extends BaseValueWrapper<T> {
         this.vo.setValue(val);
     }
 
-    public boolean isValidated() {
-        if (hasValidObject())
-            return this.getValidObject().isValidated();
-        else
-            return true;
-    }
-
     @Override
-    public String getValidationText() {
+    public ValidState getValidState() {
         if (hasValidObject())
-            return this.getValidObject().getValidationText();
+            return this.getValidObject().getValidState();
         else
-            return super.getValidationText();
+            return ValidState.getTrueInstance();
     }
 
 }

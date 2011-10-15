@@ -26,6 +26,7 @@ import org.openconcerto.utils.checks.EmptyObject;
 import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Component;
 import java.awt.GridBagConstraints;
@@ -77,7 +78,7 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
         this.items = new ArrayList<ListItemSQLView>();
 
         this.addValidListener(new ValidListener() {
-            public void validChange(ValidObject src, boolean newValue) {
+            public void validChange(ValidObject src, ValidState newValue) {
                 // compChanged(); FIXME
             }
         });
@@ -254,7 +255,8 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
         this.supp.addPropertyChangeListener(l);
     }
 
-    public boolean isValidated() {
+    @Override
+    public ValidState getValidState() {
         return this.getPool().isValidated();
     }
 
@@ -265,10 +267,6 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
     @Override
     public void removeValidListener(ValidListener l) {
         this.getPool().removeValidListener(l);
-    }
-
-    public String getValidationText() {
-        return null;
     }
 
 }

@@ -66,12 +66,16 @@ public class ITextSelectorCompletionThread extends Thread {
                 // on vide le model
                 model.removeAllElements();
                 model.addAll(l);
-
-                if (l.size() > 1) {
-                    combo.showCompletionPopup();
-                } else if (l.size() == 1) {
-                    String str = l.get(0);
-                    if (str.trim().equalsIgnoreCase(t.trim())) {
+                final String trimedText = t.trim();
+                final int size = l.size();
+                if (size > 0) {
+                    boolean match = false;
+                    for (int i = 0; i < size; i++) {
+                        if (l.get(i).trim().equalsIgnoreCase(trimedText)) {
+                            match = true;
+                        }
+                    }
+                    if (match) {
                         combo.hideCompletionPopup();
                     } else {
                         combo.showCompletionPopup();

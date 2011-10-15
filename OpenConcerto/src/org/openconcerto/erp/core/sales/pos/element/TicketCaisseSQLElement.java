@@ -22,7 +22,6 @@ import java.util.List;
 
 import javax.swing.JTextField;
 
-
 public class TicketCaisseSQLElement extends ComptaSQLConfElement {
 
     public TicketCaisseSQLElement() {
@@ -32,9 +31,10 @@ public class TicketCaisseSQLElement extends ComptaSQLConfElement {
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
         l.add("NUMERO");
-        l.add("TOTAL_TTC");
         l.add("DATE");
-
+        l.add("ID_CAISSE");
+        l.add("TOTAL_HT");
+        l.add("TOTAL_TTC");
         return l;
     }
 

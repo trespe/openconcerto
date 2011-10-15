@@ -45,10 +45,14 @@ public class BalanceAgeeListeSheetXML extends AbstractListeSheetXml {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.deb = deb;
         this.fin = fin;
-        this.modele = "BalanceAgee";
 
         this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
         this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
+    }
+
+    @Override
+    public String getDefaultModele() {
+        return "BalanceAgee";
     }
 
     public String getFileName() {

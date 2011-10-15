@@ -23,7 +23,9 @@ import org.openconcerto.openoffice.OOUtils;
 import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.SheetTableModel.MutableTableModel;
+import org.openconcerto.utils.Tuple2;
 
+import java.awt.Point;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -133,12 +135,32 @@ public class SpreadSheet implements ODDocument {
     // \1 is sheet name, \4 cell address, \6 second sheet name, \9 second cell address
     static final Pattern cellRangePattern = java.util.regex.Pattern.compile("(\\$?([^\\. ']+|'([^']|'')+'))?\\.(\\$?[A-Z]+\\$?[0-9]+)(:(\\$?([^\\. ']+|'([^']|'')+'))?\\.(\\$?[A-Z]+\\$?[0-9]+))?");
 
+    // see 9.2.1 of OpenDocument-v1.2-cs01-part1
+    static final Pattern tableNameQuoteQuotePattern = Pattern.compile("''", Pattern.LITERAL);
+    static final Pattern tableNameQuotePattern = Pattern.compile("'", Pattern.LITERAL);
+    static final Pattern tableNameQuoteNeededPattern = Pattern.compile("[ \t.']");
+
     static protected final String parseSheetName(final String n) {
         if (n == null)
             return null;
 
-        // ToDo handle '' (but OpenOffice doesn't)
-        return n.charAt(0) == '$' ? n.substring(1) : n;
+        String res = n.charAt(0) == '$' ? n.substring(1) : n;
+        if (res.charAt(0) == '\'') {
+            if (res.charAt(res.length() - 1) != '\'')
+                throw new IllegalArgumentException("Missing closing quote");
+            res = tableNameQuoteQuotePattern.matcher(res.substring(1, res.length() - 1)).replaceAll(tableNameQuotePattern.pattern());
+        }
+        return res;
+    }
+
+    static protected final String formatSheetName(final String n) {
+        if (n == null)
+            return null;
+        if (tableNameQuoteNeededPattern.matcher(n).find()) {
+            return "'" + tableNameQuotePattern.matcher(n).replaceAll(tableNameQuoteQuotePattern.pattern()) + "'";
+        } else {
+            return n;
+        }
     }
 
     /**
@@ -175,13 +197,25 @@ public class SpreadSheet implements ODDocument {
      * @return the cell at the passed address.
      */
     public final Cell<SpreadSheet> getCellAt(String ref) {
+        final Tuple2<Sheet, Point> res = this.resolve(ref);
+        return res.get0().getCellAt(res.get1());
+    }
+
+    /**
+     * Resolve a cell address.
+     * 
+     * @param ref an OpenDocument cell address (see 9.2.1 of OpenDocument-v1.2-cs01-part1), e.g.
+     *        "table.B2".
+     * @return the table and the cell coordinates.
+     */
+    public final Tuple2<Sheet, Point> resolve(String ref) {
         final Matcher m = cellPattern.matcher(ref);
         if (!m.matches())
             throw new IllegalArgumentException(ref + " is not a valid cell address: " + m.pattern().pattern());
         final String sheetName = parseSheetName(m.group(1));
         if (sheetName == null)
             throw new IllegalArgumentException("no sheet specified: " + ref);
-        return this.getSheet(sheetName, true).getCellAt(Sheet.resolve(m.group(5), m.group(6)));
+        return Tuple2.create(this.getSheet(sheetName, true), Sheet.resolve(m.group(5), m.group(6)));
     }
 
     public XPath getXPath(String p) throws JDOMException {

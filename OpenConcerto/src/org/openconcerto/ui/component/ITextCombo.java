@@ -23,6 +23,7 @@ import org.openconcerto.ui.valuewrapper.ValueChangeSupport;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.model.ListComboBoxModel;
 import org.openconcerto.utils.text.DocumentFilterList;
 import org.openconcerto.utils.text.SimpleDocumentFilter;
@@ -395,11 +396,13 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
         return this;
     }
 
-    public boolean isValidated() {
+    @Override
+    public ValidState getValidState() {
         // string toujours valide
-        return true;
+        return ValidState.getTrueInstance();
     }
 
+    @Override
     public void addValidListener(ValidListener l) {
         // nothing to do
     }
@@ -407,10 +410,6 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
     @Override
     public void removeValidListener(ValidListener l) {
         // nothing to do
-    }
-
-    public String getValidationText() {
-        return null;
     }
 
     // document

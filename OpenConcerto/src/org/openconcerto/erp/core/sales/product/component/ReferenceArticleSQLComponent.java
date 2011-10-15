@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.DeviseField;
+import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.ui.ArticleDesignationTable;
@@ -138,9 +139,22 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
                 Long vt = (Long) ReferenceArticleSQLComponent.this.textPVHT.getUncheckedValue();
                 Long ha = (Long) ReferenceArticleSQLComponent.this.textPAHT.getUncheckedValue();
                 if (vt != null && ha != null) {
-                    if (ha != 0) {
-                        double d = (double) vt / (double) ha;
-                        double value = (d - 1.0) * 10000.0;
+                    if (vt != 0 && ha != 0) {
+                        // double d = (double) vt / (double) ha;
+                        long margeHT = vt - ha;
+
+                        double value;
+                        if (DefaultNXProps.getInstance().getBooleanValue(TotalPanel.MARGE_MARQUE, false)) {
+                            if (vt > 0) {
+
+                                value = Math.round((double) margeHT / (double) vt * 10000.0);
+                            } else {
+                                value = 0;
+                            }
+                        } else {
+                            value = Math.round((double) margeHT / (double) ha * 10000.0);
+                        }
+
                         if (value > 0) {
                             ReferenceArticleSQLComponent.this.textMarge.setText(GestionDevise.currencyToString(Double.valueOf(value).longValue()));
                         } else {
@@ -164,11 +178,21 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
     private void updateVtFromMarge() {
         if (this.textMarge.getText().trim().length() > 0) {
+
             Long ha = (Long) this.textPAHT.getUncheckedValue();
             if (ha != null && this.textMarge.getText().trim().length() > 0) {
                 final String replaceAll = this.textMarge.getText().replaceAll(",", ".");
                 double d = Double.parseDouble(replaceAll.replaceAll(" ", ""));
-                this.textPVHT.setText(GestionDevise.currencyToString(Double.valueOf(String.valueOf(ha * ((d / 100.0) + 1))).longValue()));
+                if (DefaultNXProps.getInstance().getBooleanValue(TotalPanel.MARGE_MARQUE, false)) {
+                    final double e = 1.0 - (d / 100.0);
+                    if (e == 0) {
+                        this.textPVHT.setText("0");
+                    } else {
+                        this.textPVHT.setText(GestionDevise.currencyToString(Math.round(ha / e)));
+                    }
+                } else {
+                    this.textPVHT.setText(GestionDevise.currencyToString(Math.round(ha * ((d / 100.0) + 1))));
+                }
             }
         }
     }

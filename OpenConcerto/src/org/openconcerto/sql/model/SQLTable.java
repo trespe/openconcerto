@@ -945,6 +945,14 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         }
     }
 
+    public final Number getUndefinedIDNumber() {
+        final int res = this.getUndefinedID();
+        if (res == SQLRow.NONEXISTANT_ID)
+            return null;
+        else
+            return res;
+    }
+
     // save just this table
     private final void save() {
         // (for now save all tables)

@@ -29,6 +29,7 @@ import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObject;
 import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
@@ -277,9 +278,10 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         // TODO Auto-generated method stub
     }
 
-    public boolean isValidated() {
-
-        return true;
+    @Override
+    public ValidState getValidState() {
+        // return "Aucune valeur sélectionnée dans l'arbre";
+        return ValidState.getTrueInstance();
     }
 
     @Override
@@ -454,9 +456,5 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         };
 
         this.element.getTable().addTableListener(listener);
-    }
-
-    public String getValidationText() {
-        return "Aucune valeur sélectionnée dans l'arbre";
     }
 }

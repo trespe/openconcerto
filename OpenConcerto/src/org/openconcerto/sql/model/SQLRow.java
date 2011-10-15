@@ -358,7 +358,6 @@ public class SQLRow extends SQLRowAccessor {
      * @param after whether to look before or after this row.
      * @return a free order, or <code>null</code> if there's no room left.
      */
-    @SuppressWarnings("unchecked")
     public final BigDecimal getOrder(boolean after) {
         final SQLTable t = this.getTable();
         final BigDecimal destOrder = this.getOrder();
@@ -377,6 +376,7 @@ public class SQLRow extends SQLRowAccessor {
 
         final BigDecimal otherOrder;
         final SQLDataSource ds = t.getBase().getDataSource();
+        @SuppressWarnings("unchecked")
         final Map<String, Object> otherMap = ds.execute1(sel.asString());
         if (otherMap != null) {
             final SQLRow otherRow = new SQLRow(t, otherMap);
@@ -552,7 +552,7 @@ public class SQLRow extends SQLRowAccessor {
      */
     public Set<SQLRow> getDistantRows(List<String> path) {
         // on veut tous les champs de la derniere table et rien d'autre
-        final List<List<SQLField>> fields = new ArrayList<List<SQLField>>(Collections.nCopies(path.size() - 1, Collections.<SQLField> emptyList()));
+        final List<List<String>> fields = new ArrayList<List<String>>(Collections.nCopies(path.size() - 1, Collections.<String> emptyList()));
         fields.add(null);
         final Set<List<SQLRow>> s = this.getRowsOnPath(path, fields);
         final Set<SQLRow> res = new LinkedHashSet<SQLRow>(s.size());
@@ -571,12 +571,11 @@ public class SQLRow extends SQLRowAccessor {
      * @param fields un liste de des champs, chaque élément est :
      *        <ul>
      *        <li><code>null</code> pour tous les champs</li>
-     *        <li>une String eg "DESIGNATION,NUMERO"</li>
-     *        <li>une Collection de SQLField ou de nom complet de champs (prefixés)</li>
+     *        <li>une Collection de nom de champs, e.g. ["DESIGNATION","NUMERO"]</li>
      *        </ul>
      * @return un ensemble de List de SQLRow.
      */
-    public Set<List<SQLRow>> getRowsOnPath(final List<String> path, final List<?> fields) {
+    public Set<List<SQLRow>> getRowsOnPath(final List<String> path, final List<? extends Collection<String>> fields) {
         final int pathSize = path.size();
         if (pathSize == 0)
             throw new IllegalArgumentException("path is empty");
@@ -595,18 +594,16 @@ public class SQLRow extends SQLRowAccessor {
 
         final SQLSelect select = new SQLSelect(this.getTable().getBase());
 
-        final List<Collection> fieldsCols = new ArrayList<Collection>(pathSize);
+        final List<Collection<String>> fieldsCols = new ArrayList<Collection<String>>(pathSize);
         for (int i = 0; i < pathSize; i++) {
-            final Object fieldsName = fields.get(i);
+            final Collection<String> tableFields = fields.get(i);
             // +1 car p contient cette ligne
             final SQLTable t = p.getTable(i + 1);
-            final Collection fieldsCol;
-            if (fieldsName == null) {
-                fieldsCol = t.getFields();
-            } else if (fieldsName instanceof String) {
-                fieldsCol = SQLRow.toList((String) fieldsName);
+            final Collection<String> fieldsCol;
+            if (tableFields == null) {
+                fieldsCol = t.getFieldsName();
             } else {
-                fieldsCol = (Collection) fieldsName;
+                fieldsCol = tableFields;
             }
             fieldsCols.add(fieldsCol);
 
@@ -615,10 +612,7 @@ public class SQLRow extends SQLRowAccessor {
                 // toujours mettre l'ID
                 select.addSelect(t.getKey());
                 // plus les champs demandés
-                if (fieldsName instanceof String)
-                    select.addAllSelect(t, fieldsCol);
-                else
-                    select.addAllSelect(fieldsCol);
+                select.addAllSelect(t, fieldsCol);
             }
         }
         // dans tous les cas mettre l'ID de la dernière table
@@ -729,7 +723,6 @@ public class SQLRow extends SQLRowAccessor {
      * @param fields the list of fields the rows will have, <code>null</code> meaning all.
      * @return a List of SQLRow that points to this, eg [BATIMENT[123], BATIMENT[124]].
      */
-    @SuppressWarnings("unchecked")
     public List<SQLRow> getReferentRows(final SQLField refField, final ArchiveMode archived, final Collection<String> fields) {
         final SQLTable foreignTable = refField.getTable().getBase().getGraph().getForeignTable(refField);
         if (!foreignTable.equals(this.getTable())) {
@@ -751,7 +744,7 @@ public class SQLRow extends SQLRowAccessor {
         // - if some other criteria need to be applied, we could pass an SQLRowMode (instead of
         // just ArchiveMode) and modify the SQLSelect accordingly
 
-        return (List<SQLRow>) this.getTable().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(src, true));
+        return SQLRowListRSH.execute(sel);
     }
 
     /**

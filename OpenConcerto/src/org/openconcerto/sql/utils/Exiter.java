@@ -14,8 +14,8 @@
  package org.openconcerto.sql.utils;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.ui.UserExit;
 
-import java.awt.Frame;
 import java.awt.SystemTray;
 import java.awt.TrayIcon;
 import java.awt.Window;
@@ -67,11 +67,6 @@ public class Exiter {
 
     public void closeAll() {
         // dispose of every window (this will call windowClosed())
-        for (final Window f : Frame.getWindows()) {
-            if (f != this.main)
-                f.dispose();
-        }
-        // this is last to exit
-        this.main.dispose();
+        UserExit.closeAllWindows(this.main);
     }
 }

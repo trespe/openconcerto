@@ -27,6 +27,7 @@ import org.openconcerto.ui.ISpinner;
 import org.openconcerto.ui.ISpinnerIntegerModel;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
@@ -328,8 +329,8 @@ public class UserCommonSQLElement extends ConfSQLElement {
             }
 
             @Override
-            public synchronized boolean isValidated() {
-                return super.isValidated() && checkValidityPassword();
+            public synchronized ValidState getValidState() {
+                return super.getValidState().and(ValidState.createCached(checkValidityPassword(), "Les mots de passe ne correspondent pas"));
             }
 
             @Override

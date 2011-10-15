@@ -38,6 +38,10 @@ public class ContactItemTable extends JPanel {
     final RowValuesTableControlPanel comp;
 
     public ContactItemTable(SQLRowValues defaultRow) {
+        this(defaultRow, Configuration.getInstance().getDirectory().getElement(defaultRow.getTable()));
+    }
+
+    private ContactItemTable(SQLRowValues defaultRow, SQLElement elt) {
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
         c.gridwidth = 1;
@@ -47,8 +51,6 @@ public class ContactItemTable extends JPanel {
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1;
         c.weighty = 0;
-
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement("CONTACT");
 
         List<SQLTableElement> list = new Vector<SQLTableElement>();
         SQLTableElement tableElementTitre = new SQLTableElement(elt.getTable().getField("ID_TITRE_PERSONNEL"));

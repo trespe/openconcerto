@@ -98,7 +98,8 @@
 	</TABLE>
 
 	<TABLE name="ARTICLE">
-		<FIELD name="QTE_ACHAT" label="Quantité multiple d'achat à respecter" titlelabel="Quantité multiple d'achat à respecter" />		
+		<FIELD name="QTE_ACHAT" label="Quantité multiple d'achat à respecter"
+			titlelabel="Quantité multiple d'achat à respecter" />
 		<FIELD name="CODE_BARRE" label="Code barres" titlelabel="Code barres" />
 		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
 		<FIELD name="GESTION_STOCK" label="Gérer le stock" titlelabel="Gérer le stock" />
@@ -220,6 +221,7 @@
 	</TABLE>
 
 	<TABLE name="AVOIR_CLIENT_ELEMENT">
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
 		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
 		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
@@ -237,6 +239,7 @@
 		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
 		<FIELD name="T_PA_HT" label="Total HA HT" titlelabel="Poids total" />
 		<FIELD name="T_PV_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
 		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
 		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
@@ -353,6 +356,7 @@
 	</TABLE>
 
 	<TABLE name="BON_RECEPTION_ELEMENT">
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
 		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
 		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
@@ -409,10 +413,12 @@
 		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
 	</TABLE>
 	<TABLE name="BON_DE_LIVRAISON_ELEMENT">
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
 		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
 		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
 		<FIELD name="PV_U_DEVISE" label="Prix devise" titlelabel="Prix devise" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="PV_T_DEVISE" label="Prix devise total" titlelabel="Prix devise total" />
 		<FIELD name="ECOTAXE" label="Ecotaxe" titlelabel="Ecotaxe" />
 		<FIELD name="T_ECOTAXE" label="Dont écotaxe" titlelabel="Dont écotaxe" />
@@ -651,6 +657,22 @@
 		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
 	</TABLE>
 
+	<TABLE name="CONTACT_FOURNISSEUR">
+		<FIELD name="PRENOM" label="Prénom du contact" titlelabel="Prénom du contact" />
+		<FIELD name="NOM" label="Nom du contact" titlelabel="Nom du contact" />
+		<FIELD name="ID_TITRE_PERSONNEL" label="Titre" titlelabel="Titre" />
+		<FIELD name="TEL_DIRECT" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="TEL_PERSONEL" label="Téléphone Personnel"
+			titlelabel="Téléphone Personnel" />
+		<FIELD name="TEL_STANDARD" label="Téléphone du standard"
+			titlelabel="Téléphone du standard" />
+		<FIELD name="TEL_MOBILE" label="Portable" titlelabel="Portable" />
+		<FIELD name="EMAIL" label="Mail" titlelabel="Mail" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="FONCTION" label="Fonction" titlelabel="Fonction" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+	</TABLE>
+
 	<TABLE name="CONTRAT_SALARIE">
 		<FIELD name="NATURE" label="Nature de l'emploi (*)" titlelabel="Nature de l'emploi" />
 		<FIELD name="ID_CODE_EMPLOI" label="Catégorie socioprofessionnelle "
@@ -691,7 +713,7 @@
 		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
 		<FIELD name="PA_DEVISE" label="PA Devise" titlelabel="PA Devise" />
 		<FIELD name="PA_DEVISE_T" label="PA Devise Total" titlelabel="PA Devise Total" />
-
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="ID_COMMANDE" label="Commande" titlelabel="Commande" />
 		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
@@ -745,6 +767,7 @@
 	</TABLE>
 
 	<TABLE name="COMMANDE_CLIENT_ELEMENT">
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="POURCENT_REMISE" label="% remise" titlelabel="% remise" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
 		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
@@ -756,6 +779,7 @@
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
 		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
 		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
 		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
@@ -866,6 +890,7 @@
 	</TABLE>
 
 	<TABLE name="DEVIS">
+		<FIELD name="ID_MODELE" label="Modèle" titlelabel="Modèle" />
 		<FIELD name="DATE_VALIDITE" label="Valable jusqu'au" titlelabel="Valable jusqu'au" />
 		<FIELD name="NUMERO" label="Numéro du devis" titlelabel="Numéro du devis" />
 		<FIELD name="DATE" label="Date" titlelabel="Date" />
@@ -891,6 +916,8 @@
 		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
 	</TABLE>
 	<TABLE name="DEVIS_ELEMENT">
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="POURCENT_REMISE" label="% remise" titlelabel="% remise" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
 		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
@@ -1280,6 +1307,12 @@
 		<FIELD name="NOM" label="Mois" titlelabel="Mois" />
 	</TABLE>
 
+	<TABLE name="MODELE">
+		<FIELD name="NOM" label="Nom" titleLabel="Nom" />
+		<FIELD name="ID_TYPE_MODELE" label="Type de modèle" titleLabel="Type de modèle" />
+	</TABLE>
+
+
 	<TABLE name="MODELE_COURRIER_CLIENT">
 		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
 		<FIELD name="CONTENU" label="Contenu" titlelabel="Contenu" />
@@ -1441,6 +1474,9 @@
 		<FIELD name="ID_ETAT_DEVIS" label="Etat" titlelabel="Etat" />
 		<FIELD name="INFOS_ETAT" label="Suite donnée à la proposition"
 			titlelabel="Suite donnée à la proposition" />
+		<FIELD name="DATE_CMD" label="Date de commande" titlelabel="Date de commande" />
+		<FIELD name="DATE_CONFIRM" label="Date de confirmation"
+			titlelabel="Date de confirmation" />
 	</TABLE>
 
 	<TABLE name="PROPOSITION_ELEMENT">
@@ -1480,6 +1516,7 @@
 		<FIELD name="SITUATION_ADMIN" label="Situation administrative"
 			titlelabel="Situation administrative" />
 		<FIELD name="NOTA" label="Nota" titlelabel="Nota" />
+
 	</TABLE>
 
 	<TABLE name="RAPPORT">
@@ -1689,6 +1726,7 @@
 			titlelabel="Gestion automatique du compte de service" />
 	</TABLE>
 	<TABLE name="SAISIE_VENTE_FACTURE_ELEMENT">
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
 		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
 		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
@@ -1707,6 +1745,7 @@
 		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
 		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
 		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
@@ -1849,6 +1888,7 @@
 
 	<TABLE name="TICKET_CAISSE">
 		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="TOTAL_HT" label="Total HT" titlelabel="Total HT" />
 		<FIELD name="TOTAL_TTC" label="Total TTC" titlelabel="Total TTC" />
 		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
 	</TABLE>

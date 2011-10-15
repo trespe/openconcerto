@@ -15,6 +15,7 @@
 
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.beans.PropertyChangeListener;
 
@@ -41,23 +42,17 @@ public class ISpinner implements ValueWrapper<Integer> {
         // TODO Auto-generated method stub
 
     }
-    
+
     @Override
     public void removeValidListener(ValidListener l) {
         // TODO Auto-generated method stub
-        
+
     }
 
     @Override
-    public String getValidationText() {
+    public ValidState getValidState() {
         // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public boolean isValidated() {
-        // TODO Auto-generated method stub
-        return true;
+        return ValidState.getTrueInstance();
     }
 
     @Override

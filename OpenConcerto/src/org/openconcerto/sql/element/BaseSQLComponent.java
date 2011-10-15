@@ -40,13 +40,20 @@ import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.text.TextBehaviour;
 import org.openconcerto.ui.component.text.TextComponentUtils;
 import org.openconcerto.ui.coreanimation.Animator;
+import org.openconcerto.ui.valuewrapper.ValidatedValueWrapper;
+import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.ui.valuewrapper.ValueWrapperFactory;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.cc.Transformer;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Component;
 import java.awt.Dimension;
@@ -54,6 +61,7 @@ import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeListener;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -83,6 +91,15 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     protected static final String DEC = "notdecorated";
     protected static final String SEP = "noseparator";
 
+    /**
+     * Syntactic sugar for {@link BaseSQLComponent#createRowItemView(String, Class, ITransformer)}.
+     * 
+     * @author Sylvain CUAZ
+     * @param <T> type parameter
+     */
+    public static interface VWTransformer<T> extends ITransformer<ValueWrapper<? extends T>, ValueWrapper<? extends T>> {
+    }
+
     private final SQLRowView requete;
 
     private final Set<SQLRowItemView> required;
@@ -95,7 +112,6 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     private boolean editable;
     private boolean alwaysEditable;
     private final Set<SQLField> hide;
-    private String invalidityCause;
     private FormLayouter additionalFieldsPanel;
 
     public BaseSQLComponent(SQLElement element) {
@@ -117,7 +133,6 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         this.editable = true;
         this.setNonExistantEditable(false);
         this.requete = new SQLRowView(this.getTable());
-        this.invalidityCause = "";
     }
 
     private final SQLRowView getRequest() {
@@ -150,12 +165,22 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
             dobj.setDecorated(parser.isDecorated());
             dobj.showSeparator(parser.showSeparator());
             return this.addView((MutableRowItemView) dobj, field, parser);
-        } else if (getField(field).isKey()) {
-            // foreign
-            return this.addView(new ElementComboBox(), field, spec);
         } else {
-            final JComponent comp;
-            final SQLType type = getField(field).getType();
+            return this.addView(getComp(field).get0(), field, spec);
+        }
+    }
+
+    private Tuple2<JComponent, SQLType> getComp(String field) {
+        if (getElement().getPrivateElement(field) != null)
+            // we create a MutableRowItemView and need SpecParser
+            throw new IllegalArgumentException("Private fields not supported");
+
+        final JComponent comp;
+        final SQLType type = getField(field).getType();
+        if (getField(field).isKey()) {
+            // foreign
+            comp = new ElementComboBox();
+        } else {
             if (Boolean.class.isAssignableFrom(type.getJavaType())) {
                 // TODO hack to view the focus (should try to paint around the button)
                 comp = new JCheckBox(" ");
@@ -166,8 +191,8 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
             else
                 // regular
                 comp = new SQLTextCombo();
-            return this.addView(comp, field, spec);
         }
+        return new Tuple2<JComponent, SQLType>(comp, type);
     }
 
     public final void addSQLObject(JComponent obj, String field) {
@@ -204,15 +229,75 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     static public SimpleRowItemView<?> createRowItemView(JComponent comp, final SQLField field) {
         if (comp == null)
             throw new NullPointerException("comp for " + field + " is null");
-        return createRowItemView(comp, field.getType().getJavaType());
+        if (comp instanceof MutableRowItemView)
+            throw new IllegalStateException("Comp is a MutableRowItemView, creating a SimpleRowItemView would ignore its methods : " + comp);
+        return createRowItemView(createValueWrapper(comp, field.getType(), Object.class));
     }
 
     // just to make javac happy (type parameter for SimpleRowItemView)
-    static private <T> SimpleRowItemView<T> createRowItemView(JComponent comp, final Class<T> javaType) {
-        return new SimpleRowItemView<T>(ValueWrapperFactory.create(comp, javaType));
+    static private <T> SimpleRowItemView<T> createRowItemView(ValueWrapper<T> vw) {
+        return new SimpleRowItemView<T>(vw);
+    }
+
+    static private <T> ValueWrapper<? extends T> createValueWrapper(JComponent comp, final SQLType type, final Class<T> wantedType) {
+        final Class<?> fieldClass = type.getJavaType();
+        ValueWrapper<? extends T> res = ValueWrapperFactory.create(comp, fieldClass.asSubclass(wantedType));
+        if (String.class.isAssignableFrom(fieldClass)) {
+            res = ValidatedValueWrapper.add(res, new ITransformer<T, ValidState>() {
+                @Override
+                public ValidState transformChecked(T t) {
+                    final String s = (String) t;
+                    final boolean ok = s == null || s.length() <= type.getSize();
+                    // only compute string if needed
+                    return ok ? ValidState.getTrueInstance() : ValidState.create(ok, "La valeur fait " + (s.length() - type.getSize()) + " caractère(s) de trop");
+                }
+            });
+            // other numeric SQL types are fixed size like their java counterparts
+        } else if (BigDecimal.class.isAssignableFrom(fieldClass)) {
+            final Integer decimalDigits = type.getDecimalDigits();
+            final int intDigits = type.getSize() - decimalDigits;
+            final String reason = "Nombre trop grand, il doit faire moins de " + intDigits + " chiffre(s) avant la virgule (" + decimalDigits + " après)";
+            res = ValidatedValueWrapper.add(res, new ITransformer<T, ValidState>() {
+                @Override
+                public ValidState transformChecked(T t) {
+                    final BigDecimal bd = (BigDecimal) t;
+                    // round first to get the correct number of integer digits, see
+                    // http://www.postgresql.org/docs/8.4/interactive/datatype-numeric.html
+                    return ValidState.create(bd == null || DecimalUtils.intDigits(DecimalUtils.round(bd, decimalDigits)) <= intDigits, reason);
+                }
+            });
+        }
+        return res;
+    }
+
+    public final <T> SimpleRowItemView<? extends T> createSimpleRowItemView(String fields, Class<T> clazz) {
+        return this.createSimpleRowItemView(fields, clazz, Transformer.<ValueWrapper<? extends T>> nopTransformer());
+    }
+
+    /**
+     * Create and initialize a SimpleRowItemView.
+     * 
+     * @param <T> type of field.
+     * @param field field name.
+     * @param clazz java type for the field.
+     * @param init to initialize the value wrapper.
+     * @return the created row item view.
+     */
+    public final <T> SimpleRowItemView<? extends T> createSimpleRowItemView(String field, Class<T> clazz, final ITransformer<? super ValueWrapper<? extends T>, ValueWrapper<? extends T>> init) {
+        final Tuple2<JComponent, SQLType> compNclass = this.getComp(field);
+        final JComponent comp = compNclass.get0();
+        final SQLType fieldClass = compNclass.get1();
+        if (comp instanceof MutableRowItemView)
+            throw new IllegalStateException("Comp is a MutableRowItemView, creating a SimpleRowItemView would ignore its methods : " + comp);
+        final ValueWrapper<? extends T> vw = createValueWrapper(comp, fieldClass, clazz);
+        return initRIV(createRowItemView(init.transformChecked(vw)), field);
     }
 
     public Component addView(MutableRowItemView rowItemView, String fields, Object specObj) {
+        return this.addInitedView(initRIV(rowItemView, fields), specObj);
+    }
+
+    private final <R extends MutableRowItemView> R initRIV(R rowItemView, String fields) {
         final List<String> fieldListS = SQLRow.toList(fields);
         final Set<SQLField> fieldList = new HashSet<SQLField>(fieldListS.size());
         for (final String fieldName : fieldListS) {
@@ -223,8 +308,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         final String sqlName = fields;
         rowItemView.init(sqlName, fieldList);
         rowItemView.setDescription(this.getLabelFor(sqlName));
-
-        return this.addInitedView(rowItemView, specObj);
+        return rowItemView;
     }
 
     public Component addInitedView(SQLRowItemView v, Object specObj) {
@@ -287,7 +371,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                 }
             });
             v.addValidListener(new ValidListener() {
-                public void validChange(ValidObject src, boolean newValue) {
+                public void validChange(ValidObject src, ValidState newValue) {
                     emptyOrValidChanged((SQLRowItemView) src);
                 }
             });
@@ -355,24 +439,26 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
 
     protected synchronized final void fireValidChange() {
         // ATTN called very often during a select() (for each SQLObject empty & value change)
-        final boolean validated = this.isValidated();
+        final ValidState validated = this.getValidState();
         for (final ValidListener l : this.listeners) {
             l.validChange(this, validated);
         }
     }
 
     private boolean isItemViewValid(final SQLRowItemView v) {
-        return v.isValidated() && !(this.getRequired().contains(v) && v.isEmpty());
+        return v.getValidState().isValid() && !(this.getRequired().contains(v) && v.isEmpty());
     }
 
-    public synchronized boolean isValidated() {
+    @Override
+    public synchronized ValidState getValidState() {
         boolean res = true;
         final List<String> pbs = new ArrayList<String>();
         // tous nos objets sont valides ?
         for (final SQLRowItemView obj : this.getRequest().getViews()) {
-            if (!obj.isValidated()) {
+            final ValidState state = obj.getValidState();
+            if (!state.isValid()) {
                 String explanation = "'" + getDesc(obj) + "' n'est pas valide";
-                final String txt = obj.getValidationText();
+                final String txt = state.getValidationText();
                 if (txt != null)
                     explanation += " (" + txt + ")";
                 pbs.add(explanation);
@@ -384,17 +470,12 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                 res = false;
             }
         }
-        this.invalidityCause = CollectionUtils.join(pbs, "\n");
-        return res;
+        return ValidState.create(res, CollectionUtils.join(pbs, "\n"));
     }
 
     protected static final String getDesc(final SQLRowItemView obj) {
         final String desc = obj.getDescription();
         return desc == null ? obj.getSQLName() : desc;
-    }
-
-    public String getValidationText() {
-        return this.invalidityCause;
     }
 
     /*

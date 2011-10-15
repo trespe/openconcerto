@@ -14,15 +14,11 @@
  package org.openconcerto.erp.generationDoc;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
-import org.openconcerto.sql.model.SQLRowListRSH;
-import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.Nombre;
 
@@ -38,15 +34,26 @@ public class OOXMLTableField extends OOXMLField {
 
     private String type;
     private int filterId, line;
+    private String lineOption;
+    private int idRef;
+    private String style = "";
 
-    public OOXMLTableField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, int filterId, SQLRow rowLanguage) {
+    public OOXMLTableField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, int filterId, SQLRow rowLanguage, int idRef) {
         super(eltField, row, sqlElt, id, rowLanguage);
         this.type = eltField.getAttributeValue("type");
+        this.lineOption = eltField.getAttributeValue("lineOption");
         this.filterId = filterId;
         String s = eltField.getAttributeValue("line");
         this.line = 1;
+        this.idRef = idRef;
+
         if (s != null && s.trim().length() > 0) {
             this.line = Integer.valueOf(s);
+        }
+
+        String style = eltField.getAttributeValue("style");
+        if (style != null && style.trim().length() > 0) {
+            this.style = style;
         }
     }
 
@@ -54,7 +61,9 @@ public class OOXMLTableField extends OOXMLField {
     public Object getValue() {
         Object value = null;
 
-        if (this.type.equalsIgnoreCase("DescriptifArticle")) {
+        if (this.type.equalsIgnoreCase("LineReference")) {
+            return idRef;
+        } else if (this.type.equalsIgnoreCase("DescriptifArticle")) {
             value = getDescriptifArticle(this.row);
         } else if (this.type.equalsIgnoreCase("DateEcheance")) {
             value = getDateEcheance(this.row.getInt("ID_MODE_REGLEMENT"), (Date) this.row.getObject("DATE"));
@@ -77,6 +86,10 @@ public class OOXMLTableField extends OOXMLField {
 
     public int getLine() {
         return this.line;
+    }
+
+    public boolean isLineOption() {
+        return Boolean.valueOf(this.lineOption);
     }
 
     /**
@@ -191,5 +204,10 @@ public class OOXMLTableField extends OOXMLField {
             listBlankStyle = SQLRow.toList(blankOnStyle.trim());
         }
         return listBlankStyle;
+    }
+
+    public String getStyle() {
+
+        return this.style;
     }
 }

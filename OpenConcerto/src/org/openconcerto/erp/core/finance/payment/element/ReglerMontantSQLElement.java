@@ -34,6 +34,7 @@ import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -202,7 +203,8 @@ public class ReglerMontantSQLElement extends ComptaSQLConfElement {
                                             SQLRowValues rowVals = new SQLRowValues(tableModeRegl);
                                             rowVals.put("ID_TYPE_REGLEMENT", idTypeRegl);
                                             rowVals.put("COMPTANT", Boolean.TRUE);
-
+                                            rowVals.put("AJOURS", 0);
+                                            rowVals.put("LENJOUR", 0);
                                             eltModeRegl.setValue(rowVals);
                                         }
                                     }
@@ -256,8 +258,9 @@ public class ReglerMontantSQLElement extends ComptaSQLConfElement {
                 return id;
             }
 
-            public boolean isValidated() {
-                return (super.isValidated() && montantIsValidated());
+            @Override
+            public synchronized ValidState getValidState() {
+                return super.getValidState().and(ValidState.createCached(montantIsValidated(), "Le montant est négatif ou supérieur à l'échéance"));
             }
 
             @Override
@@ -282,32 +285,18 @@ public class ReglerMontantSQLElement extends ComptaSQLConfElement {
 
             // test si le montant est correct par rapport à l'echeance selectionnée
             public boolean montantIsValidated() {
-
-                long montantValue = 0;
-
-                if (this.comboEcheance.isEmpty()) {
-                    this.labelWarning.setVisible(false);
-                    this.labelWarningText.setVisible(false);
-                    return true;
+                final SQLRow echRow = this.comboEcheance.getSelectedRow();
+                final boolean res;
+                if (echRow == null) {
+                    res = true;
+                } else {
+                    final long montantValue = GestionDevise.parseLongCurrency(this.montant.getText().trim());
+                    res = (montantValue > 0) && (montantValue <= echRow.getLong("MONTANT"));
                 }
 
-                montantValue = GestionDevise.parseLongCurrency(this.montant.getText().trim());
-
-                int idEch = this.comboEcheance.getSelectedId();
-
-                if (idEch >= 1) {
-                    SQLRow echRow = getTable().getBase().getTable("ECHEANCE_FOURNISSEUR").getRow(idEch);
-
-                    if ((montantValue > 0) && (montantValue <= ((Long) echRow.getObject("MONTANT")).longValue())) {
-                        this.labelWarning.setVisible(false);
-                        this.labelWarningText.setVisible(false);
-                        return true;
-                    }
-                }
-
-                this.labelWarning.setVisible(true);
-                this.labelWarningText.setVisible(true);
-                return false;
+                this.labelWarning.setVisible(!res);
+                this.labelWarningText.setVisible(!res);
+                return res;
             }
         };
     };

@@ -60,18 +60,27 @@ public class VenteFactureXmlSheet extends AbstractSheetXml {
         cal.setTime((Date) row.getObject("DATE"));
         this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
         this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
+        getDefaultModele();
+    }
+
+    @Override
+    public String getDefaultModele() {
+        String modele;
         if (row.getBoolean("COMPLEMENT")) {
             this.startName = "FactureComplement_";
-            this.modele = "VenteFactureComplement";
+            modele = "VenteFactureComplement";
         } else {
             if (row.getBoolean("ACOMPTE")) {
                 this.startName = "FactureAcompte_";
-                this.modele = "VenteFactureAcompte";
+                modele = "VenteFactureAcompte";
             } else {
                 this.startName = "Facture_";
-                this.modele = "VenteFacture";
+                modele = "VenteFacture";
             }
         }
+
+        return modele;
+
     }
 
     public String getFileName() {

@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.core.sales.pos.model;
 
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -33,7 +32,7 @@ public class Article {
     }
 
     public int getPriceHTInCents() {
-        return priceHTInCents;
+        return this.priceHTInCents;
     }
 
     public void setPriceHTInCents(int priceHTInCents) {
@@ -41,7 +40,7 @@ public class Article {
     }
 
     public int getIdTaxe() {
-        return idTaxe;
+        return this.idTaxe;
     }
 
     public void setIdTaxe(int idTaxe) {
@@ -58,25 +57,25 @@ public class Article {
     }
 
     public int getPriceInCents() {
-        return priceInCents;
+        return this.priceInCents;
     }
 
     public String getName() {
-        return name;
+        return this.name;
     }
 
     public String getCode() {
-        return code;
+        return this.code;
     }
 
     public Categorie getCategorie() {
-        return s;
+        return this.s;
     }
 
     @Override
     public String toString() {
 
-        return "Article:" + name + " " + priceInCents + " cents";
+        return "Article:" + this.name + " " + this.priceInCents + " cents";
     }
 
     public static Article getArticleFromBarcode(String code) {

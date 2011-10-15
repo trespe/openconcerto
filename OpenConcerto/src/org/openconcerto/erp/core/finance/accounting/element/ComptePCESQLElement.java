@@ -18,6 +18,7 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -29,6 +30,7 @@ import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
@@ -70,6 +72,21 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
 
             private boolean isCompteValid = false;
             private JUniqueTextField textNumero = new JUniqueTextField(7);
+
+            @Override
+            public void update() {
+                // TODO Raccord de méthode auto-généré
+                int id = getSelectedID();
+                super.update();
+                SQLElement eltEcr = Configuration.getInstance().getDirectory().getElement("ECRITURE");
+                Configuration
+                        .getInstance()
+                        .getBase()
+                        .getDataSource()
+                        .execute(
+                                "UPDATE " + eltEcr.getTable().getSQLName().quote() + " SET \"COMPTE_NUMERO\"=c.\"NUMERO\",\"COMPTE_NOM\"=c.\"NOM\" FROM " + getTable().getSQLName().quote()
+                                        + " c WHERE c.\"ID\"=\"ID_COMPTE_PCE\" AND c.\"ID\"=" + id);
+            }
 
             public void addViews() {
                 this.setLayout(new GridBagLayout());
@@ -181,8 +198,8 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
             }
 
             @Override
-            public synchronized boolean isValidated() {
-                return super.isValidated() && this.isCompteValid;
+            public synchronized ValidState getValidState() {
+                return super.getValidState().and(ValidState.createCached(this.isCompteValid, "Le numéro de compte ne commence pas par un chiffre entre 1 et 8"));
             }
         };
     }

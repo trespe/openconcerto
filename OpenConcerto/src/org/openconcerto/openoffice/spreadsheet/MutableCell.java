@@ -26,6 +26,7 @@ import org.openconcerto.utils.FileUtils;
 
 import java.awt.Color;
 import java.awt.Image;
+import java.awt.Point;
 import java.io.File;
 import java.io.IOException;
 import java.text.DateFormat;
@@ -86,6 +87,17 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
 
     public final int getY() {
         return this.getRow().getY();
+    }
+
+    public final Point getPoint() {
+        return new Point(getX(), getY());
+    }
+
+    final void setRowsSpanned(final int rowsSpanned) {
+        if (rowsSpanned <= 1)
+            this.getElement().removeAttribute("number-rows-spanned", getNS().getTABLE());
+        else
+            this.getElement().setAttribute("number-rows-spanned", String.valueOf(rowsSpanned), getNS().getTABLE());
     }
 
     // *** setValue

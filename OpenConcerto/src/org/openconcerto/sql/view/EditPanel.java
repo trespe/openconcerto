@@ -15,8 +15,8 @@
 
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
-import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLComponent.Mode;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -28,6 +28,7 @@ import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.doc.Documented;
 
 import java.awt.Container;
@@ -110,7 +111,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
     private final SQLElement element;
     private IListe l;
     // whether our component is valid
-    private boolean valid;
+    private ValidState valid = ValidState.getNoReasonInstance(false);
 
     /**
      * Creates an creation panel
@@ -173,7 +174,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
                 // avant component.uiInit() car il fait un fireValidChange()
                 this.component.addValidListener(new ValidListener() {
                     @Override
-                    public void validChange(ValidObject src, boolean newValue) {
+                    public void validChange(ValidObject src, ValidState newValue) {
                         // expensive so cache it
                         EditPanel.this.valid = newValue;
                         updateBtns();
@@ -206,18 +207,18 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
 
     private void updateBtn(final JButton b, final boolean needValid, final boolean needID, final String desc, final String code) {
         if (b != null) {
-            final String res;
+            final ValidState res;
             final boolean idOK = this.getSQLComponent().getSelectedID() >= SQLRow.MIN_VALID_ID;
             final UserRights rights = UserRightsManager.getCurrentUserRights();
             if (!TableAllRights.hasRight(rights, code, getSQLComponent().getElement().getTable())) {
-                res = "Vous n'avez pas le droit " + desc;
+                res = ValidState.createCached(false, "Vous n'avez pas le droit " + desc);
             } else if (needID && !idOK)
-                res = "cet élément n'existe pas";
-            else if (needValid && !this.valid)
-                res = this.component.getValidationText();
+                res = ValidState.createCached(false, "cet élément n'existe pas");
+            else if (needValid && !this.valid.isValid())
+                res = this.valid;
             else
-                res = null;
-            updateBtn(b, res == null, res);
+                res = ValidState.getTrueInstance();
+            updateBtn(b, res);
         }
     }
 
@@ -437,7 +438,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         // ne pas laisser ajouter par le raccourci clavier quand le bouton est grisé
         if (this.jButtonAjouter.isEnabled()) {
             final int id;
-            if (!Boolean.getBoolean(ADD_AT_THE_END) && this.l != null && this.l.getDesiredRow() != null)
+            if (!Boolean.getBoolean(ADD_AT_THE_END) && this.l != null && !this.l.isDead() && this.l.getDesiredRow() != null)
                 id = this.component.insert(this.l.getDesiredRow());
             else
                 id = this.component.insert();
@@ -493,17 +494,21 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         }
     }
 
-    static void updateBtn(JButton btn, boolean valid, final String cause) {
-        btn.setEnabled(valid);
-        btn.setToolTipText(computeTooltip(valid, cause));
+    static void updateBtn(JButton btn, ValidState validState) {
+        btn.setEnabled(validState.isValid());
+        btn.setToolTipText(computeTooltip(validState));
     }
 
-    static String computeTooltip(boolean valid, final String cause) {
+    static String computeTooltip(ValidState validState) {
+        return computeTooltip(validState.isValid(), validState.getValidationText());
+    }
+
+    static private String computeTooltip(boolean valid, final String cause) {
         final String res;
         if (valid)
             res = null;
         else {
-            final String c = cause.trim();
+            final String c = cause == null ? "" : cause.trim();
             String validationText = "Les champs de saisie ne sont pas remplis correctement.\n\nVous ne pouvez enregistrer les modifications car";
             if (c.length() > 0)
                 validationText += "\n" + c;

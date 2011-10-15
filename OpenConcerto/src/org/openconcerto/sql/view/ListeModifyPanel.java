@@ -17,12 +17,13 @@
 package org.openconcerto.sql.view;
 
 import org.openconcerto.sql.element.SQLComponent;
-import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLComponent.Mode;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Container;
 import java.awt.Dimension;
@@ -41,7 +42,7 @@ public class ListeModifyPanel extends IListPanel implements ValidListener {
     private SQLComponent modifComp;
     // le scrollPane qui contient modifComp
     private JScrollPane scrollPane;
-    private String validText = null;
+    private ValidState compValidity = ValidState.getTrueInstance();
 
     public ListeModifyPanel(SQLElement elem) {
         super(elem);
@@ -72,7 +73,7 @@ public class ListeModifyPanel extends IListPanel implements ValidListener {
         this.btnMngr.setAdditional(this.buttonModifier, new ITransformer<JButton, String>() {
             @Override
             public String transformChecked(JButton input) {
-                return EditPanel.computeTooltip(ListeModifyPanel.this.validText == null, ListeModifyPanel.this.validText);
+                return EditPanel.computeTooltip(ListeModifyPanel.this.compValidity);
             }
         });
 
@@ -107,7 +108,7 @@ public class ListeModifyPanel extends IListPanel implements ValidListener {
         // force buttonModifier update because the super method enables it
         // if a line is selected, then we select the new id, but if the new line
         // has the same empty fields than the previous one, no validChange is fired
-        this.validChange(this.getModifComp(), this.getModifComp().isValidated());
+        this.validChange(this.getModifComp(), this.getModifComp().getValidState());
         this.getModifComp().setEditable(id != -1);
         // have to invokeLater() since the scrollbar is changed after this method return
         // eg DefaultCaret.changeCaretPosition() -- caused by this.modifComp.select(id) -- will
@@ -122,9 +123,10 @@ public class ListeModifyPanel extends IListPanel implements ValidListener {
     /*
      * notre comp de modif à changé d'état
      */
-    public void validChange(ValidObject src, boolean newValue) {
+    @Override
+    public void validChange(ValidObject src, ValidState newValue) {
         // MAYBE add a isAdjusting while changing id
-        this.validText = newValue ? null : this.getModifComp().getValidationText();
+        this.compValidity = newValue;
         this.btnMngr.updateBtn(this.buttonModifier);
     }
 

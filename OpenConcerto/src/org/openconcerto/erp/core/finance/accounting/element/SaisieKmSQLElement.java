@@ -30,11 +30,14 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.warning.JLabelWarning;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Dimension;
@@ -203,120 +206,17 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
         private boolean isCompteExist = false;
         private boolean allLineValid = true;
         private SaisieKmItemTable tableKm;
-        private JLabel labelMotifWarning;
-        final JLabel labelWarning = new JLabelWarning();
+        private final JLabel labelMotifWarning = new JLabelWarning();
         private SQLElement eltKmItem = Configuration.getInstance().getDirectory().getElement("SAISIE_KM_ELEMENT");
         private SQLRowValues defaultEcritureRowVals = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(this.eltKmItem.getTable()));
+
+        // depends on inner table, at creation it's empty and thus valid
+        private ValidState validState = ValidState.getTrueInstance();
 
         private TableModelListener tableListener = new TableModelListener() {
 
             public void tableChanged(TableModelEvent e) {
-
-                SaisieKmComponent.this.totalCred = 0;
-                SaisieKmComponent.this.totalDeb = 0;
-                long totalCredWithNoValid = 0;
-                long totalDebWithNoValid = 0;
-                SaisieKmComponent.this.isCompteExist = true;
-                SaisieKmComponent.this.allLineValid = true;
-                for (int i = 0; i < SaisieKmComponent.this.model.getRowCount(); i++) {
-                    long totalLine = 0;
-                    boolean b = SaisieKmComponent.this.model.isRowValid(i);
-                    Long fTc = ((Long) SaisieKmComponent.this.model.getValueAt(i, SaisieKmComponent.this.creditIndex));
-                    Long fTd = ((Long) SaisieKmComponent.this.model.getValueAt(i, SaisieKmComponent.this.debitIndex));
-                    String numCpt = SaisieKmComponent.this.model.getValueAt(i, SaisieKmComponent.this.model.getColumnIndexForElement(SaisieKmComponent.this.tableKm.getNumeroCompteElement()))
-                            .toString();
-                    SaisieKmComponent.this.isCompteExist = SaisieKmComponent.this.isCompteExist && ComptePCESQLElement.isExist(numCpt);
-                    if (fTc != 0 && fTd != 0) {
-                        return;
-                    }
-
-                    if (fTc != null) {
-                        if (b) {
-                            SaisieKmComponent.this.totalCred += fTc.longValue();
-                        }
-                        totalCredWithNoValid += fTc.longValue();
-                        totalLine += fTc.longValue();
-                    }
-
-                    if (fTd != null) {
-                        if (b) {
-                            SaisieKmComponent.this.totalDeb += fTd.longValue();
-                        }
-                        totalDebWithNoValid += fTd.longValue();
-                        totalLine += fTd.longValue();
-                    }
-
-                    final boolean d = totalLine != 0;
-                    SaisieKmComponent.this.tableKm.setRowDeviseValidAt(d, i);
-                    if (!d) {
-                        SaisieKmComponent.this.allLineValid = false;
-                    }
-                }
-                SaisieKmComponent.this.tableKm.revalidate();
-                SaisieKmComponent.this.tableKm.repaint();
-                // totalCred = (float) new PrixHT(totalCred).getValue();
-                // totalDeb = (float) new PrixHT(totalDeb).getValue();
-
-                SaisieKmComponent.this.labelTotalCredit.setText(GestionDevise.currencyToString(SaisieKmComponent.this.totalCred));
-                SaisieKmComponent.this.labelTotalDebit.setText(GestionDevise.currencyToString(SaisieKmComponent.this.totalDeb));
-
-                long diff = SaisieKmComponent.this.totalDeb - SaisieKmComponent.this.totalCred;
-                long diffWithNoValid = totalDebWithNoValid - totalCredWithNoValid;
-                // System.err.println("Valid ___ " + diff + " NO VALID _____ " +
-                // diffWithNoValid);
-                if (diff == 0) {
-                    SaisieKmComponent.this.labelMotifWarning.setVisible(false);
-                    labelWarning.setVisible(false);
-                } else {
-                    if (diff > 0) {
-                        SaisieKmComponent.this.labelMotifWarning.setText("Le solde des écritures n'est pas nul! Il manque " + GestionDevise.currencyToString(diff) + " en crédit.");
-
-                    } else {
-
-                        SaisieKmComponent.this.labelMotifWarning.setText("Le solde des écritures n'est pas nul! Il manque " + GestionDevise.currencyToString(diff) + " en débit.");
-
-                    }
-                    SaisieKmComponent.this.labelMotifWarning.setVisible(true);
-                    labelWarning.setVisible(true);
-                }
-                if (diffWithNoValid != 0) {
-                    if (diffWithNoValid > 0) {
-                        SaisieKmComponent.this.defaultEcritureRowVals.put("DEBIT", Long.valueOf(0));
-                        SaisieKmComponent.this.defaultEcritureRowVals.put("CREDIT", Long.valueOf(diffWithNoValid));
-                        if (SaisieKmComponent.this.model.isLastRowValid()) {
-                            SaisieKmComponent.this.tableKm.getModel().addRow(new SQLRowValues(SaisieKmComponent.this.defaultEcritureRowVals));
-                            SwingUtilities.invokeLater(new Runnable() {
-                                public void run() {
-                                    if (SaisieKmComponent.this.model.getRowCount() > 0) {
-                                        SaisieKmComponent.this.tableKm.editCellAt(SaisieKmComponent.this.model.getRowCount() - 1, 0);
-                                    }
-                                }
-                            });
-                        }
-                    } else {
-                        SaisieKmComponent.this.defaultEcritureRowVals.put("DEBIT", Long.valueOf(-diffWithNoValid));
-                        SaisieKmComponent.this.defaultEcritureRowVals.put("CREDIT", Long.valueOf(0));
-                        if (SaisieKmComponent.this.model.isLastRowValid()) {
-                            SaisieKmComponent.this.tableKm.getModel().addRow(new SQLRowValues(SaisieKmComponent.this.defaultEcritureRowVals));
-
-                            SwingUtilities.invokeLater(new Runnable() {
-                                public void run() {
-                                    if (SaisieKmComponent.this.model.getRowCount() > 0) {
-                                        SaisieKmComponent.this.tableKm.editCellAt(SaisieKmComponent.this.model.getRowCount() - 1, 0);
-                                    }
-                                }
-                            });
-
-                            // System.err.println("RowValid " + e.getType());
-                        } else {
-                            System.err.println(e.getType());
-                        }
-                    }
-                } else {
-                    SaisieKmComponent.this.defaultEcritureRowVals.put("DEBIT", Long.valueOf(0));
-                    SaisieKmComponent.this.defaultEcritureRowVals.put("CREDIT", Long.valueOf(0));
-                }
-                fireValidChange();
+                SaisieKmComponent.this.tableChanged(e);
             }
         };
 
@@ -420,18 +320,12 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
 
             c.gridy++;
             c.weightx = 0;
-            c.gridwidth = 1;
-            labelWarning.setHorizontalAlignment(SwingConstants.RIGHT);
-            labelWarning.setVisible(false);
-            this.add(labelWarning, c);
-
-            this.labelMotifWarning = new JLabel("Le solde des écritures n'est pas nul!");
+            c.gridwidth = 2;
+            this.labelMotifWarning.setText("Le solde des écritures n'est pas nul!");
             DefaultGridBagConstraints.lockMinimumSize(this.labelMotifWarning);
-            c.gridx++;
-            c.gridwidth = 1;
-            c.weightx = 0;
             this.add(this.labelMotifWarning, c);
             this.labelMotifWarning.setVisible(false);
+            c.gridwidth = 1;
 
             c.gridy--;
             c.gridx = 2;
@@ -470,7 +364,7 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
                 public void actionPerformed(ActionEvent e) {
                     // TODO Auto-generated method stub
                     SaisieKmComponent.this.tableKm.setCreateAutoActive(SaisieKmComponent.this.checkCreateCompte.isSelected());
-                    fireValidChange();
+                    updateValidState();
                 }
             });
 
@@ -479,36 +373,42 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
             DefaultGridBagConstraints.lockMinimumSize(this.comboJrnl);
         }
 
-        public synchronized boolean isValidated() {
-
-            return ((super.isValidated()) && ((this.totalDeb - this.totalCred) == 0) && (this.checkCreateCompte.isSelected() || (!this.checkCreateCompte.isSelected() && this.isCompteExist)))
-                    && this.allLineValid;
-        }
-
         public int insert(SQLRow order) {
-            int id = super.insert(order);
+            final int id = super.insert(order);
 
             this.tableKm.updateField("ID_SAISIE_KM", id);
 
-            GenerationMvtSaisieKm gen = new GenerationMvtSaisieKm(id);
-            int idMvt = gen.genereMouvement();
-
-            // maj de l'id du mouvement correspondant
-            SQLRowValues valEcriture = new SQLRowValues(SaisieKmSQLElement.this.getTable());
-            valEcriture.put("ID_MOUVEMENT", new Integer(idMvt));
             try {
-                if (valEcriture.getInvalid() == null) {
+                SQLUtils.executeAtomic(Configuration.getInstance().getSystemRoot().getDataSource(), new SQLUtils.SQLFactory<Object>() {
+                    @Override
+                    public Object create() throws SQLException {
 
-                    valEcriture.update(id);
-                }
-            } catch (SQLException e) {
-                System.err.println("Erreur à l'insertion dans la table " + valEcriture.getTable().getName() + " : " + e);
-                e.printStackTrace();
+                        GenerationMvtSaisieKm gen = new GenerationMvtSaisieKm(id);
+                        int idMvt = gen.genereMouvement();
+
+                        // maj de l'id du mouvement correspondant
+                        SQLRowValues valEcriture = new SQLRowValues(SaisieKmSQLElement.this.getTable());
+                        valEcriture.put("ID_MOUVEMENT", new Integer(idMvt));
+                        if (valEcriture.getInvalid() == null) {
+
+                            valEcriture.update(id);
+                        }
+
+                        SQLElement eltMvt = Configuration.getInstance().getDirectory().getElement("MOUVEMENT");
+                        final SQLRow rowMvt = eltMvt.getTable().getRow(idMvt);
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                JOptionPane.showMessageDialog(SaisieKmComponent.this, "Numéro de mouvement associé : " + rowMvt.getObject("NUMERO"));
+                            }
+                        });
+                        return null;
+                    }
+                });
+            } catch (SQLException exn) {
+                // TODO Bloc catch auto-généré
+                ExceptionHandler.handle("Erreur lors de la création des écritures associées à la saisie au kilometre.", exn);
             }
-
-            SQLElement eltMvt = Configuration.getInstance().getDirectory().getElement("MOUVEMENT");
-            SQLRow rowMvt = eltMvt.getTable().getRow(idMvt);
-            JOptionPane.showMessageDialog(this, "Numéro de mouvement associé : " + rowMvt.getObject("NUMERO"));
             return id;
         }
 
@@ -558,121 +458,232 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
         }
 
         public void updateEcriture() {
+            try {
+                SQLUtils.executeAtomic(Configuration.getInstance().getSystemRoot().getDataSource(), new SQLUtils.SQLFactory<Object>() {
+                    @Override
+                    public Object create() throws SQLException {
 
-            SQLTable ecritureTable = getTable().getBase().getTable("ECRITURE");
-            SQLElement assocElt = Configuration.getInstance().getDirectory().getElement("ASSOCIATION_ANALYTIQUE");
+                        SQLTable ecritureTable = getTable().getBase().getTable("ECRITURE");
+                        final SQLRow rowSaisieKm = getElement().getTable().getRow(getSelectedID());
+                        List<SQLRow> myListDevisItem = rowSaisieKm.getReferentRows(getTable().getBase().getTable("SAISIE_KM_ELEMENT"));
 
-            final SQLRow rowSaisieKm = getElement().getTable().getRow(getSelectedID());
-            List<SQLRow> myListDevisItem = rowSaisieKm.getReferentRows(getTable().getBase().getTable("SAISIE_KM_ELEMENT"));
+                        List<SQLRow> listEcr = rowSaisieKm.getForeignRow("ID_MOUVEMENT").getReferentRows(ecritureTable);
 
-            List<SQLRow> listEcr = rowSaisieKm.getForeignRow("ID_MOUVEMENT").getReferentRows(ecritureTable);
+                        if (myListDevisItem != null) {
 
-            if (myListDevisItem != null) {
+                            for (SQLRow rowElement : myListDevisItem) {
 
-                for (SQLRow rowElement : myListDevisItem) {
+                                int idCpt = ComptePCESQLElement.getId(rowElement.getString("NUMERO"), rowElement.getString("NOM"));
 
-                    int idCpt = ComptePCESQLElement.getId(rowElement.getString("NUMERO"), rowElement.getString("NOM"));
+                                if (rowElement.getID() > 1) {
+                                    SQLRowValues vals = new SQLRowValues(ecritureTable);
+                                    vals.put("ID_COMPTE_PCE", idCpt);
+                                    vals.put("COMPTE_NUMERO", rowElement.getString("NUMERO"));
+                                    vals.put("COMPTE_NOM", rowElement.getString("NOM"));
+                                    vals.put("DEBIT", rowElement.getObject("DEBIT"));
+                                    vals.put("CREDIT", rowElement.getObject("CREDIT"));
+                                    vals.put("DATE", rowSaisieKm.getObject("DATE"));
+                                    SQLRow rowJournal = rowSaisieKm.getForeignRow("ID_JOURNAL");
+                                    vals.put("ID_JOURNAL", rowJournal.getID());
+                                    vals.put("JOURNAL_NOM", rowJournal.getString("NOM"));
+                                    vals.put("JOURNAL_CODE", rowJournal.getString("CODE"));
+                                    vals.put("NOM", rowElement.getObject("NOM_ECRITURE"));
 
-                    if (rowElement.getID() > 1) {
-                        SQLRowValues vals = new SQLRowValues(ecritureTable);
-                        vals.put("ID_COMPTE_PCE", idCpt);
-                        vals.put("COMPTE_NUMERO", rowElement.getString("NUMERO"));
-                        vals.put("COMPTE_NOM", rowElement.getString("NOM"));
-                        vals.put("DEBIT", rowElement.getObject("DEBIT"));
-                        vals.put("CREDIT", rowElement.getObject("CREDIT"));
-                        vals.put("DATE", rowSaisieKm.getObject("DATE"));
-                        SQLRow rowJournal = rowSaisieKm.getForeignRow("ID_JOURNAL");
-                        vals.put("ID_JOURNAL", rowJournal.getID());
-                        vals.put("JOURNAL_NOM", rowJournal.getString("NOM"));
-                        vals.put("JOURNAL_CODE", rowJournal.getString("CODE"));
-                        vals.put("NOM", rowElement.getObject("NOM_ECRITURE"));
+                                    if (rowElement.getInt("ID_ECRITURE") > 1) {
+                                        SQLRow rowTmp = ecritureTable.getRow(rowElement.getInt("ID_ECRITURE"));
 
-                        if (rowElement.getInt("ID_ECRITURE") > 1) {
-                            SQLRow rowTmp = ecritureTable.getRow(rowElement.getInt("ID_ECRITURE"));
+                                        System.out.println("ID : " + rowElement.getInt("ID_ECRITURE"));
 
-                            System.out.println("ID : " + rowElement.getInt("ID_ECRITURE"));
+                                        try {
 
-                            try {
+                                            if (!rowTmp.getBoolean("VALIDE")) {
+                                                vals.update(rowElement.getInt("ID_ECRITURE"));
+                                            } else {
+                                                System.err.println("Impossible de modifier une ecriture valide");
+                                            }
+                                        } catch (NumberFormatException e) {
 
-                                if (!rowTmp.getBoolean("VALIDE")) {
-                                    vals.update(rowElement.getInt("ID_ECRITURE"));
-                                } else {
-                                    System.err.println("Impossible de modifier une ecriture valide");
+                                            e.printStackTrace();
+                                        } catch (SQLException e) {
+
+                                            e.printStackTrace();
+                                        }
+                                    } else {
+
+                                        vals.put("ID_MOUVEMENT", rowSaisieKm.getObject("ID_MOUVEMENT"));
+
+                                        System.out.println("ID : " + rowElement.getInt("ID_ECRITURE"));
+
+                                        try {
+                                            if (MouvementSQLElement.isEditable(rowSaisieKm.getInt("ID_MOUVEMENT"))) {
+                                                SQLRow rowEcr = vals.insert();
+                                                SQLRowValues rowElementVals = rowElement.createEmptyUpdateRow();
+                                                rowElementVals.put("ID_ECRITURE", rowEcr.getID());
+                                                rowElement = rowElementVals.update();
+                                            }
+                                        } catch (NumberFormatException e) {
+
+                                            e.printStackTrace();
+                                        } catch (SQLException e) {
+
+                                            e.printStackTrace();
+                                        }
+                                    }
+
+                                    List<SQLRow> l = new ArrayList<SQLRow>(listEcr);
+                                    for (SQLRow sqlRow : l) {
+                                        if (sqlRow.getID() == rowElement.getInt("ID_ECRITURE")) {
+                                            listEcr.remove(sqlRow);
+                                        }
+                                    }
                                 }
-                            } catch (NumberFormatException e) {
 
-                                e.printStackTrace();
-                            } catch (SQLException e) {
-
-                                e.printStackTrace();
                             }
-                        } else {
+                        }
 
-                            vals.put("ID_MOUVEMENT", rowSaisieKm.getObject("ID_MOUVEMENT"));
-
-                            System.out.println("ID : " + rowElement.getInt("ID_ECRITURE"));
-
-                            try {
-                                if (MouvementSQLElement.isEditable(rowSaisieKm.getInt("ID_MOUVEMENT"))) {
-                                    SQLRow rowEcr = vals.insert();
-                                    SQLRowValues rowElementVals = rowElement.createEmptyUpdateRow();
-                                    rowElementVals.put("ID_ECRITURE", rowEcr.getID());
-                                    rowElement = rowElementVals.update();
+                        if (!listEcr.isEmpty()) {
+                            EcritureSQLElement e = (EcritureSQLElement) Configuration.getInstance().getDirectory().getElement(ecritureTable);
+                            for (SQLRow sqlRow : listEcr) {
+                                try {
+                                    e.archiveEcriture(sqlRow);
+                                } catch (SQLException e1) {
+                                    // TODO Auto-generated catch block
+                                    e1.printStackTrace();
                                 }
-                            } catch (NumberFormatException e) {
-
-                                e.printStackTrace();
-                            } catch (SQLException e) {
-
-                                e.printStackTrace();
                             }
                         }
-
-                        final List<SQLRow> referentRowsAssocEcr = rowElement.getForeign("ID_ECRITURE").getReferentRows(assocElt.getTable());
-                        for (SQLRow sqlRow : referentRowsAssocEcr) {
-                            try {
-                                assocElt.archive(sqlRow.getID());
-                            } catch (SQLException e) {
-                                // TODO Auto-generated catch block
-                                e.printStackTrace();
-                            }
-                        }
-
-                        for (SQLRow sqlRow : rowElement.getReferentRows(assocElt.getTable())) {
-                            SQLRowValues rowVals = sqlRow.asRowValues();
-                            rowVals.putEmptyLink("ID_SAISIE_KM_ELEMENT");
-                            rowVals.put("ID_ECRITURE", rowElement.getInt("ID_ECRITURE"));
-                            rowVals.setID(SQLRow.NONEXISTANT_ID);
-                            try {
-                                rowVals.commit();
-                            } catch (SQLException e) {
-                                // TODO Auto-generated catch block
-                                e.printStackTrace();
-                            }
-                        }
-
-                        List<SQLRow> l = new ArrayList<SQLRow>(listEcr);
-                        for (SQLRow sqlRow : l) {
-                            if (sqlRow.getID() == rowElement.getInt("ID_ECRITURE")) {
-                                listEcr.remove(sqlRow);
-                            }
-                        }
+                        return null;
                     }
-
-                }
-            }
-
-            if (!listEcr.isEmpty()) {
-                EcritureSQLElement e = (EcritureSQLElement) Configuration.getInstance().getDirectory().getElement(ecritureTable);
-                for (SQLRow sqlRow : listEcr) {
-                    try {
-                        e.archiveEcriture(sqlRow);
-                    } catch (SQLException e1) {
-                        // TODO Auto-generated catch block
-                        e1.printStackTrace();
-                    }
-                }
+                });
+            } catch (SQLException exn) {
+                // TODO Bloc catch auto-généré
+                ExceptionHandler.handle("Erreur lors de la mise à jour des écritures associées à la saisie au kilometre.", exn);
             }
         }
+
+        @Override
+        public synchronized ValidState getValidState() {
+            return super.getValidState().and(this.validState);
+        }
+
+        private void updateValidState() {
+            ValidState state = ValidState.create(!this.labelMotifWarning.isVisible(), this.labelMotifWarning.getText());
+            if (!this.isCompteExist && !this.checkCreateCompte.isSelected())
+                state = state.and(ValidState.createCached(false, "Certains comptes n'existent pas"));
+            if (!this.allLineValid)
+                state = state.and(ValidState.createCached(false, "Certaines lignes n'ont pas de crédit ni de débit"));
+            this.setValidState(state);
+        }
+
+        private void setValidState(final ValidState state) {
+            if (!state.equals(this.validState)) {
+                this.validState = state;
+                fireValidChange();
+            }
+        }
+
+        private void setTotals(final long totalCred, final long totalDeb) {
+            this.totalCred = totalCred;
+            this.totalDeb = totalDeb;
+            this.labelTotalCredit.setText(GestionDevise.currencyToString(this.totalCred));
+            this.labelTotalDebit.setText(GestionDevise.currencyToString(this.totalDeb));
+
+            final long diff = this.totalDeb - this.totalCred;
+            final String reason;
+            if (diff == 0) {
+                reason = null;
+            } else if (diff > 0) {
+                reason = "Le solde des écritures n'est pas nul! Il manque " + GestionDevise.currencyToString(diff) + " en crédit.";
+            } else {
+                reason = "Le solde des écritures n'est pas nul! Il manque " + GestionDevise.currencyToString(diff) + " en débit.";
+            }
+            this.labelMotifWarning.setVisible(reason != null);
+            if (reason != null)
+                this.labelMotifWarning.setText(reason);
+        }
+
+        private void tableChanged(TableModelEvent e) {
+            long totalCred = 0;
+            long totalDeb = 0;
+            long totalCredWithNoValid = 0;
+            long totalDebWithNoValid = 0;
+            boolean isCompteExist = true;
+            boolean allLineValid = true;
+            for (int i = 0; i < this.model.getRowCount(); i++) {
+                final boolean rowValid = this.model.isRowValid(i);
+                final long fTc = ((Number) this.model.getValueAt(i, this.creditIndex)).longValue();
+                final long fTd = ((Number) this.model.getValueAt(i, this.debitIndex)).longValue();
+                String numCpt = this.model.getValueAt(i, this.model.getColumnIndexForElement(this.tableKm.getNumeroCompteElement())).toString();
+                isCompteExist &= ComptePCESQLElement.isExist(numCpt);
+                // see SaisieKmItemTable RowValuesTableModel, one of the values will be zeroed
+                if (fTc != 0 && fTd != 0)
+                    return;
+
+                if (rowValid)
+                    totalCred += fTc;
+                totalCredWithNoValid += fTc;
+
+                if (rowValid)
+                    totalDeb += fTd;
+                totalDebWithNoValid += fTd;
+
+                final boolean emptyAmount = fTc == 0 && fTd == 0;
+                this.tableKm.setRowDeviseValidAt(!emptyAmount, i);
+                allLineValid &= !emptyAmount;
+            }
+            this.tableKm.revalidate();
+            this.tableKm.repaint();
+            // totalCred = (float) new PrixHT(totalCred).getValue();
+            // totalDeb = (float) new PrixHT(totalDeb).getValue();
+
+            this.isCompteExist = isCompteExist;
+            this.allLineValid = allLineValid;
+            this.setTotals(totalCred, totalDeb);
+
+            updateValidState();
+
+            // add a row to balance totals
+            final long diffWithNoValid = totalDebWithNoValid - totalCredWithNoValid;
+            // System.err.println("Valid ___ " + diff + " NO VALID _____ " +
+            // diffWithNoValid);
+            if (diffWithNoValid != 0) {
+                if (diffWithNoValid > 0) {
+                    this.defaultEcritureRowVals.put("DEBIT", Long.valueOf(0));
+                    this.defaultEcritureRowVals.put("CREDIT", Long.valueOf(diffWithNoValid));
+                    if (this.model.isLastRowValid()) {
+                        this.tableKm.getModel().addRow(new SQLRowValues(this.defaultEcritureRowVals));
+                        SwingUtilities.invokeLater(new Runnable() {
+                            public void run() {
+                                if (SaisieKmComponent.this.model.getRowCount() > 0) {
+                                    SaisieKmComponent.this.tableKm.editCellAt(SaisieKmComponent.this.model.getRowCount() - 1, 0);
+                                }
+                            }
+                        });
+                    }
+                } else {
+                    this.defaultEcritureRowVals.put("DEBIT", Long.valueOf(-diffWithNoValid));
+                    this.defaultEcritureRowVals.put("CREDIT", Long.valueOf(0));
+                    if (this.model.isLastRowValid()) {
+                        this.tableKm.getModel().addRow(new SQLRowValues(this.defaultEcritureRowVals));
+
+                        SwingUtilities.invokeLater(new Runnable() {
+                            public void run() {
+                                if (SaisieKmComponent.this.model.getRowCount() > 0) {
+                                    SaisieKmComponent.this.tableKm.editCellAt(SaisieKmComponent.this.model.getRowCount() - 1, 0);
+                                }
+                            }
+                        });
+
+                        // System.err.println("RowValid " + e.getType());
+                    } else {
+                        System.err.println(e.getType());
+                    }
+                }
+            } else {
+                this.defaultEcritureRowVals.put("DEBIT", Long.valueOf(0));
+                this.defaultEcritureRowVals.put("CREDIT", Long.valueOf(0));
+            }
+        }
+
     }
 }

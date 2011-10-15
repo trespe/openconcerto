@@ -21,6 +21,7 @@ import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -96,6 +97,12 @@ public class HistoriqueClientFrame {
                 bilanPanel.updateTotalVente(id);
             }
         }, "SAISIE_VENTE_FACTURE");
+
+        SQLTable tableEch = Configuration.getInstance().getRoot().findTable("ECHEANCE_CLIENT");
+        Where wNotRegle = new Where(tableEch.getField("REGLE"), "=", Boolean.FALSE);
+        wNotRegle = wNotRegle.and(new Where(tableEch.getField("REG_COMPTA"), "=", Boolean.FALSE));
+
+        this.listPanel.addWhere("FiltreEcheance", wNotRegle);
 
         this.panelFrame = new PanelFrame(this.listPanel, "Historique client");
         this.panelFrame.addWindowListener(new WindowAdapter() {

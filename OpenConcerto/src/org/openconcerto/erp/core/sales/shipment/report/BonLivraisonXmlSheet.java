@@ -55,7 +55,11 @@ public class BonLivraisonXmlSheet extends AbstractSheetXml {
         cal.setTime((Date) row.getObject("DATE"));
         this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
         this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
-        this.modele = "BonLivraison";
+    }
+
+    @Override
+    public String getDefaultModele() {
+        return "BonLivraison";
     }
 
     public String getFileName() {

@@ -17,6 +17,7 @@ import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.BorderLayout;
 import java.beans.PropertyChangeEvent;
@@ -104,7 +105,7 @@ public final class JTime extends JPanel implements ValueWrapper<Date>, TextCompo
             }
         });
         // initial value
-        this.validSupp = new ValidChangeSupport(this, this.text.isEditValid());
+        this.validSupp = new ValidChangeSupport(this, ValidState.getNoReasonInstance(this.text.isEditValid()));
 
         this.resetValue();
     }
@@ -175,11 +176,11 @@ public final class JTime extends JPanel implements ValueWrapper<Date>, TextCompo
     }
 
     protected final void setValidated(boolean newValue) {
-        this.validSupp.fireValidChange(newValue);
+        this.validSupp.fireValidChange(ValidState.getNoReasonInstance(newValue));
     }
 
     @Override
-    public boolean isValidated() {
+    public ValidState getValidState() {
         return this.validSupp.getValidState();
     }
 
@@ -191,11 +192,6 @@ public final class JTime extends JPanel implements ValueWrapper<Date>, TextCompo
     @Override
     public void removeValidListener(ValidListener l) {
         this.validSupp.removeValidListener(l);
-    }
-
-    @Override
-    public String getValidationText() {
-        return null;
     }
 
     @Override

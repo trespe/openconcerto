@@ -36,6 +36,7 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -550,9 +551,10 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
                 return ((this.dernAnnee == 0) ? true : annee > this.dernAnnee) || ((this.dernMois == 0 || this.dernMois == 13) ? true : mois > this.dernMois);
             }
 
-            public synchronized boolean isValidated() {
-
-                return super.isValidated() && isDateValid();
+            @Override
+            public synchronized ValidState getValidState() {
+                // FIXME add fireValidChange()
+                return super.getValidState().and(ValidState.createCached(isDateValid(), "Date invalide"));
             }
 
             public int insert(SQLRow order) {

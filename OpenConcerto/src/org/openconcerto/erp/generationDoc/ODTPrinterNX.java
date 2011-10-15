@@ -17,6 +17,9 @@ import java.awt.print.PrinterException;
 import java.awt.print.PrinterJob;
 
 import javax.print.PrintService;
+import javax.print.attribute.HashPrintRequestAttributeSet;
+import javax.print.attribute.PrintRequestAttributeSet;
+import javax.print.attribute.standard.MediaSizeName;
 
 import org.jopendocument.model.OpenDocument;
 import org.jopendocument.print.ODTPrinterXML;
@@ -60,31 +63,33 @@ public class ODTPrinterNX extends ODTPrinterXML {
             }
         }
 
+        final PrintRequestAttributeSet pras = new HashPrintRequestAttributeSet();
+        // FIXME l'impression est forcée en A4, pour Agronis sur OpenSuse le format est en
+        // Letter par défaut alors que l'imprimante est en A4 dans le système
+        pras.add(MediaSizeName.ISO_A4);
         Thread t;
         if (myService == null) {
             t = new Thread(new Runnable() {
                 public void run() {
-                    if (printJob.printDialog()) {
+                    if (printJob.printDialog(pras)) {
                         try {
                             printJob.print();
                         } catch (PrinterException e) {
                             e.printStackTrace();
                         }
                     }
-
                 }
             });
         } else {
             t = new Thread(new Runnable() {
                 public void run() {
                     try {
-                        printJob.print();
+                        printJob.print(pras);
                     } catch (PrinterException e) {
                         e.printStackTrace();
                     }
                 }
             });
-
         }
         t.setName("ODTDPrinter Thread");
         t.setDaemon(true);

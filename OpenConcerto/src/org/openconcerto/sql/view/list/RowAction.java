@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.cc.IPredicate;
 
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
@@ -25,14 +26,17 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.Icon;
+import javax.swing.JButton;
+import javax.swing.JMenuItem;
 
 /**
- * An action that act on rows of a {@link IListe}.
+ * An action that act on rows of a {@link IListe}. Either {@link #enabledFor(IListeEvent)} or
+ * {@link #enabledFor(List)} must be overloaded.
  * 
  * @author Sylvain CUAZ
- * @see IListe#addRowAction(RowAction)
+ * @see IListe#addIListeAction(RowAction)
  */
-public abstract class RowAction {
+public abstract class RowAction implements IListeAction {
 
     public static Action createAction(String name, Icon icon, final IClosure<List<SQLRowAccessor>> action) {
         return new AbstractAction(name, icon) {
@@ -43,39 +47,29 @@ public abstract class RowAction {
         };
     }
 
-    public static class LimitedSizeRowAction extends RowAction {
-        private int minSize = 1;
-        private int maxSize = Integer.MAX_VALUE;
+    public static class PredicateRowAction extends RowAction {
+        private IPredicate<? super IListeEvent> pred = null;
 
-        public LimitedSizeRowAction(Action action, boolean header) {
+        public PredicateRowAction(Action action, boolean header) {
             super(action, header);
         }
 
-        public LimitedSizeRowAction(Action action, boolean header, boolean popupMenu) {
+        public PredicateRowAction(Action action, boolean header, boolean popupMenu) {
             super(action, header, popupMenu);
         }
 
-        public final int getMinSize() {
-            return this.minSize;
-        }
-
-        public final LimitedSizeRowAction setMinSize(int minSize) {
-            this.minSize = minSize;
+        public final PredicateRowAction setPredicate(IPredicate<? super IListeEvent> pred) {
+            this.pred = pred;
             return this;
         }
 
-        public final int getMaxSize() {
-            return this.maxSize;
-        }
-
-        public final LimitedSizeRowAction setMaxSize(int maxSize) {
-            this.maxSize = maxSize;
-            return this;
+        public final IPredicate<? super IListeEvent> getPredicate() {
+            return this.pred;
         }
 
         @Override
-        public boolean enabledFor(List<SQLRowAccessor> selection) {
-            return selection.size() >= this.minSize && selection.size() <= this.maxSize;
+        public boolean enabledFor(IListeEvent evt) {
+            return this.pred.evaluateChecked(evt);
         }
     }
 
@@ -121,5 +115,45 @@ public abstract class RowAction {
         return this.path;
     }
 
-    public abstract boolean enabledFor(List<SQLRowAccessor> selection);
+    public boolean enabledFor(List<SQLRowAccessor> selection) {
+        throw new UnsupportedOperationException("Should overload this method or enabledFor(IListeEvent)");
+    }
+
+    /**
+     * Whether the action should be enabled in the header or in the popup.
+     * 
+     * @param evt the state of the IListe.
+     * @return <code>true</code> if the action can be performed.
+     */
+    public boolean enabledFor(IListeEvent evt) {
+        return this.enabledFor(evt.getSelectedRows());
+    }
+
+    @Override
+    public ButtonsBuilder getHeaderButtons() {
+        return !this.inHeader() ? ButtonsBuilder.emptyInstance() : new ButtonsBuilder().add(new JButton(getAction()), new IPredicate<IListeEvent>() {
+            @Override
+            public boolean evaluateChecked(IListeEvent evt) {
+                return enabledFor(evt);
+            }
+        });
+    }
+
+    @Override
+    public Action getDefaultAction(IListeEvent evt) {
+        return null;
+    }
+
+    @Override
+    public PopupBuilder getPopupContent(PopupEvent evt) {
+        if (this.inPopupMenu() && evt.isClickOnRows()) {
+            final JMenuItem mi = new JMenuItem(getAction());
+            mi.setEnabled(this.enabledFor(evt));
+            final PopupBuilder res = new PopupBuilder();
+            res.getMenu().addItem(mi, getPath());
+            return res;
+        } else {
+            return PopupBuilder.emptyInstance();
+        }
+    }
 }

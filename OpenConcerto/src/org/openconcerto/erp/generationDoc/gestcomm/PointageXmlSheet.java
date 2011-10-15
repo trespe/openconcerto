@@ -53,7 +53,12 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
         this.c.set(Calendar.MINUTE, 0);
         this.c.set(Calendar.SECOND, 0);
         this.c.set(Calendar.MILLISECOND, 1);
-        this.modele = "Pointage";
+
+    }
+
+    @Override
+    public String getDefaultModele() {
+        return "Pointage";
     }
 
     private long oneHour = 3600000;

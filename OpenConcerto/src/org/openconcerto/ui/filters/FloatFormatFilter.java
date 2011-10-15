@@ -13,17 +13,24 @@
  
  package org.openconcerto.ui.filters;
 
-public class FloatFormatFilter extends DecimalFormatFilter {
+import java.text.DecimalFormat;
+
+public class FloatFormatFilter extends NumberFormatFilter<Number> {
+
+    static public final DecimalFormat floatFormat = (DecimalFormat) DecimalFormatFilter.floatFormat.clone();
+    static {
+        floatFormat.setParseBigDecimal(false);
+    }
 
     public FloatFormatFilter() {
-        super();
+        super(floatFormat, Number.class);
     }
 
     /**
      * Format.format() prints the exact value (eg 1.09999985) toString() prints a more human
      * representation (eg 1.1) see {@link Float#toString(float)}.
      */
-    public String format(Object o) {
+    public String format(Number o) {
         return o.toString();
     }
 

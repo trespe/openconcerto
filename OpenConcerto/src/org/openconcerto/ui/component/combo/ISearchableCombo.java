@@ -28,6 +28,7 @@ import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
 import org.openconcerto.utils.model.IListModel;
 import org.openconcerto.utils.model.IMutableListModel;
@@ -917,6 +918,8 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         this.text.add(this.getBtn());
         this.updateMargin();
         this.add(this.text);
+        // needed otherwise it grows but never shrinks
+        this.setMinimumSize(new Dimension(this.getMinimumSize()));
 
         // listeners
         this.text.getDocument().addDocumentListener(new SimpleDocumentListener() {
@@ -1065,12 +1068,10 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
 
     // * valid
 
-    public boolean isValidated() {
-        return this.getMode() != LOCKED || !this.invalidEdit;
-    }
-
-    public String getValidationText() {
-        return "la valeur ne fait pas partie des choix";
+    @Override
+    public ValidState getValidState() {
+        final boolean res = this.getMode() != LOCKED || !this.invalidEdit;
+        return ValidState.createCached(res, "la valeur ne fait pas partie des choix");
     }
 
     public void addValidListener(final ValidListener l) {

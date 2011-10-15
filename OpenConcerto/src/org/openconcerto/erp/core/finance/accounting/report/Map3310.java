@@ -38,7 +38,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 
-
 public class Map3310 extends Thread {
 
     private Map<String, Object> m;
@@ -146,21 +145,21 @@ public class Map3310 extends Thread {
         this.m = new HashMap<String, Object>();
 
         long v010 = -this.sommeCompte.soldeCompte(70, 70, true, this.dateDebut, this.dateFin);
-        this.m.put("A01", GestionDevise.currencyToString(v010, false));
+        this.m.put("A01", GestionDevise.round(v010));
 
         // long vA02 = this.sommeCompte.soldeCompte(70, 70, true, this.dateDebut, this.dateFin);
         this.m.put("A02", "");
         long tvaIntra = -this.sommeCompte.sommeCompteFils(rowCompteTVAIntra.getString("NUMERO"), new Date(100, 0, 1), this.dateFin);
         long achatsIntra = this.sommeCompte.sommeCompteFils(rowCompteAchatIntra.getString("NUMERO"), this.dateDebut, this.dateFin);
-        this.m.put("A03", GestionDevise.currencyToString(achatsIntra, false));
+        this.m.put("A03", GestionDevise.round(achatsIntra));
         this.m.put("A04", "");
         this.m.put("A05", "");
         this.m.put("A06", "");
         this.m.put("A07", "");
 
         long tvaCol = -this.sommeCompte.sommeCompteFils(rowCompteTVACol.getString("NUMERO"), new Date(100, 0, 1), this.dateFin) + tvaIntra;
-        this.m.put("B08", GestionDevise.currencyToString(tvaCol, false));
-        this.m.put("B08HT", GestionDevise.currencyToString(Math.round(tvaCol / 0.196), false));
+        this.m.put("B08", GestionDevise.round(tvaCol));
+        this.m.put("B08HT", GestionDevise.round(Math.round(tvaCol / 0.196)));
         this.m.put("B09", "");
         this.m.put("B09HT", "");
         this.m.put("B09B", "");
@@ -178,26 +177,28 @@ public class Map3310 extends Thread {
         this.m.put("B14HT", "");
 
         this.m.put("B15", "");
-        this.m.put("B16", GestionDevise.currencyToString(tvaCol, false));
-        this.m.put("B17", GestionDevise.currencyToString(tvaIntra, false));
+        this.m.put("B16", GestionDevise.round(tvaCol));
+        this.m.put("B17", GestionDevise.round(tvaIntra));
         this.m.put("B18", "");
-        this.m.put("B19", "");
+        long tvaImmo = this.sommeCompte.sommeCompteFils(rowCompteTVAImmo.getString("NUMERO"), new Date(100, 0, 1), this.dateFin);
+        this.m.put("B19", GestionDevise.round(tvaImmo));
 
-        long tvaDed = this.sommeCompte.sommeCompteFils(rowCompteTVADed.getString("NUMERO"), new Date(100, 0, 1), this.dateFin);
-        this.m.put("B20", GestionDevise.currencyToString(tvaDed, false));
+        long tvaAutre = this.sommeCompte.sommeCompteFils(rowCompteTVADed.getString("NUMERO"), new Date(100, 0, 1), this.dateFin);
+        this.m.put("B20", GestionDevise.round(tvaAutre));
         this.m.put("B21", "");
         this.m.put("B22", "");
         this.m.put("B23", "");
-        this.m.put("B24", GestionDevise.currencyToString(tvaDed, false));
+        long tvaDed = tvaAutre + tvaImmo;
+        this.m.put("B24", GestionDevise.round(tvaDed));
 
         this.m.put("C25", "");
         this.m.put("C26", "");
         this.m.put("C27", "");
-        this.m.put("C28", GestionDevise.currencyToString(tvaCol - tvaDed, false));
+        this.m.put("C28", GestionDevise.round(tvaCol - tvaDed));
         this.m.put("C29", "");
         this.m.put("C30", "");
         this.m.put("C31", "");
-        this.m.put("C32", GestionDevise.currencyToString(tvaCol - tvaDed, false));
+        this.m.put("C32", GestionDevise.round(tvaCol - tvaDed));
 
         p.generateFrom(this.m);
 

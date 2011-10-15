@@ -25,6 +25,7 @@ import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueChangeSupport;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.model.ListComboBoxModel;
 
 import java.awt.Color;
@@ -367,10 +368,12 @@ public class ITextSelector extends JPanel implements ValueWrapper<String>, Docum
         return this;
     }
 
-    public boolean isValidated() {
-        return true;
+    @Override
+    public ValidState getValidState() {
+        return ValidState.getTrueInstance();
     }
 
+    @Override
     public void addValidListener(final ValidListener l) {
         this.supp.addValidListener(l);
     }
@@ -386,11 +389,6 @@ public class ITextSelector extends JPanel implements ValueWrapper<String>, Docum
             return null;
 
         return this.text.getDocument();
-    }
-
-    public String getValidationText() {
-        // TODO Auto-generated method stub
-        return null;
     }
 
     ITextSelectorCompletionThread th = null;

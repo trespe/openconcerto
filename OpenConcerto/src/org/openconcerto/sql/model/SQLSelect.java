@@ -22,7 +22,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -176,10 +175,8 @@ public final class SQLSelect {
         // si c'est null, ca marche
         Where archive = this.where;
         // ne pas exclure les archivés et les indéfinis des joins : SQLSelectJoin does it
-        final Collection fromAliases = CollectionUtils.substract(this.declaredTables.getAliases(), this.joinAliases);
-        final Iterator fromIter = fromAliases.iterator();
-        while (fromIter.hasNext()) {
-            final String alias = (String) fromIter.next();
+        final Collection<String> fromAliases = CollectionUtils.substract(this.declaredTables.getAliases(), this.joinAliases);
+        for (final String alias : fromAliases) {
             final SQLTable fromTable = this.declaredTables.getTable(alias);
             // on ignore les lignes archivées
             archive = Where.and(getArchiveWhere(fromTable, alias), archive);
@@ -393,18 +390,12 @@ public final class SQLSelect {
     /**
      * Permet d'ajouter plusieurs champs.
      * 
-     * @param s une collection soit de SQLField, soit de nom complet de champs.
+     * @param s une collection de FieldRef.
      * @return this pour pouvoir chaîner.
      */
-    public SQLSelect addAllSelect(Collection s) {
-        for (Iterator iter = s.iterator(); iter.hasNext();) {
-            final Object element = iter.next();
-            if (element instanceof FieldRef)
-                this.addSelect((FieldRef) element);
-            else if (element instanceof String)
-                this.addSelect((String) element);
-            else
-                throw new ClassCastException("expecting SQLField or String, got :" + element);
+    public SQLSelect addAllSelect(Collection<? extends FieldRef> s) {
+        for (final FieldRef element : s) {
+            this.addSelect(element);
         }
         return this;
     }
@@ -416,9 +407,8 @@ public final class SQLSelect {
      * @param s une collection de nom de champs, eg "NOM".
      * @return this pour pouvoir chaîner.
      */
-    public SQLSelect addAllSelect(SQLTable t, Collection s) {
-        for (Iterator iter = s.iterator(); iter.hasNext();) {
-            final String fieldName = (String) iter.next();
+    public SQLSelect addAllSelect(SQLTable t, Collection<String> s) {
+        for (final String fieldName : s) {
             this.addSelect(t.getField(fieldName));
         }
         return this;
@@ -458,7 +448,7 @@ public final class SQLSelect {
      */
     public SQLSelect addRawSelect(String expr, String alias) {
         if (alias != null) {
-            expr += " as \"" + alias + "\"";
+            expr += " as " + SQLBase.quoteIdentifier(alias);
         }
         this.select.add(expr);
         return this;
@@ -556,9 +546,7 @@ public final class SQLSelect {
         // une solution : ne calculer le from que dans asString() => marche pas car on s'en
         // sert dans addOrder
         if (this.whereAddToFrom && w != null) {
-            Iterator iter = w.getFields().iterator();
-            while (iter.hasNext()) {
-                FieldRef f = (FieldRef) iter.next();
+            for (final FieldRef f : w.getFields()) {
                 this.from.add(this.declaredTables.add(f));
             }
         }

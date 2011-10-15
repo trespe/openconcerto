@@ -20,13 +20,13 @@ public final class ValidChangeSupport {
 
     private final ValidObject target;
     private final List<ValidListener> listeners;
-    private Boolean validState;
+    private ValidState validState;
 
     public ValidChangeSupport(final ValidObject target) {
         this(target, null);
     }
 
-    public ValidChangeSupport(final ValidObject target, final Boolean initialState) {
+    public ValidChangeSupport(final ValidObject target, final ValidState initialState) {
         super();
         if (target == null)
             throw new NullPointerException("null target");
@@ -36,11 +36,11 @@ public final class ValidChangeSupport {
         this.validState = initialState;
     }
 
-    public final Boolean getValidState() {
+    public final ValidState getValidState() {
         return this.validState;
     }
 
-    public final void fireValidChange(final Boolean newValue) {
+    public final void fireValidChange(final ValidState newValue) {
         if (!newValue.equals(this.validState)) {
             this.validState = newValue;
             for (final ValidListener l : this.listeners) {

@@ -26,6 +26,7 @@ import org.openconcerto.ui.table.AlternateTableCellRenderer;
 import org.openconcerto.ui.table.XTableColumnModel;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Component;
 import java.awt.Dimension;
@@ -404,14 +405,14 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
     }
 
     @Override
-    public String getValidationText() {
-        final SQLFieldTranslator trans = Configuration.getInstance().getTranslator();
-        return "au moins " + this.model.getSQLElement().getSingularName() + " n'a pas le champ requis \"" + trans.getLabelFor(this.model.getRequiredField()) + "\" rempli";
-    }
-
-    @Override
-    public boolean isValidated() {
-        return this.model.isValidated();
+    public ValidState getValidState() {
+        if (this.model.isValidated()) {
+            return ValidState.getTrueInstance();
+        } else {
+            final SQLFieldTranslator trans = Configuration.getInstance().getTranslator();
+            final String text = "au moins " + this.model.getSQLElement().getSingularName() + " n'a pas le champ requis \"" + trans.getLabelFor(this.model.getRequiredField()) + "\" rempli";
+            return new ValidState(false, text);
+        }
     }
 
     @Override

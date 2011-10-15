@@ -17,7 +17,6 @@ import static java.util.Collections.singletonList;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
-import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
@@ -344,7 +343,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @see #addForeignColumn(String, SQLName, String, String)
      */
     public T addForeignColumn(String fk, SQLTable foreignTable, final boolean absolute) {
-        final String defaultVal = foreignTable.getUndefinedID() == SQLRow.NONEXISTANT_ID ? "NULL" : foreignTable.getUndefinedID() + "";
+        final String defaultVal = foreignTable.getKey().getType().toString(foreignTable.getUndefinedIDNumber());
         final SQLName n = absolute ? foreignTable.getSQLName() : new SQLName(foreignTable.getName());
         return this.addForeignColumn(fk, n, foreignTable.getKey().getName(), defaultVal);
     }

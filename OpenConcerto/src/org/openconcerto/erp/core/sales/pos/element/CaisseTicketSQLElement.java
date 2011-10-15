@@ -16,12 +16,12 @@
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.UISQLComponent;
+import org.openconcerto.utils.CollectionMap;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JTextField;
-
 
 public class CaisseTicketSQLElement extends ComptaSQLConfElement {
 
@@ -41,6 +41,15 @@ public class CaisseTicketSQLElement extends ComptaSQLConfElement {
         l.add("NUMERO");
         l.add("NOM");
         return l;
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        final CollectionMap<String, String> res = new CollectionMap<String, String>();
+        res.put(null, "NUMERO");
+        res.put(null, "NOM");
+        return res;
+
     }
 
     /*

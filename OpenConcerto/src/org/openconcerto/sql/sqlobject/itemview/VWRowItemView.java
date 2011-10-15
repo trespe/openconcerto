@@ -23,6 +23,7 @@ import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.EmptyObjFromVO;
 import org.openconcerto.utils.checks.EmptyObjHelper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Component;
 import java.beans.PropertyChangeListener;
@@ -107,8 +108,9 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
 
     // *** validObj
 
-    public final boolean isValidated() {
-        return this.getWrapper().isValidated();
+    @Override
+    public ValidState getValidState() {
+        return this.getWrapper().getValidState();
     }
 
     public final void addValidListener(ValidListener l) {
@@ -118,10 +120,6 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
     @Override
     public void removeValidListener(ValidListener l) {
         this.getWrapper().removeValidListener(new ChainValidListener(this, l));
-    }
-
-    public String getValidationText() {
-        return this.getWrapper().getValidationText();
     }
 
     public final Component getComp() {

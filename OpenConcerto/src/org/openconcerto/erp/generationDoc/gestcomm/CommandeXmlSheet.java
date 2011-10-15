@@ -51,7 +51,13 @@ public class CommandeXmlSheet extends AbstractSheetXml {
         cal.setTime((Date) row.getObject("DATE"));
         this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
         this.locationPDF = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
-        this.modele = "Commande";
+
+    }
+
+    @Override
+    public String getDefaultModele() {
+
+        return "Commande";
     }
 
     public String getFileName() {

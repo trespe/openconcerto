@@ -13,7 +13,10 @@
  
  package org.openconcerto.ui.filters;
 
+import org.openconcerto.utils.Tuple2;
+
 import java.math.BigDecimal;
+import java.text.DecimalFormat;
 import java.text.Format;
 import java.text.ParsePosition;
 
@@ -23,32 +26,43 @@ import javax.swing.text.Document;
 import javax.swing.text.DocumentFilter;
 
 /**
- * A document filter to restrict a document to a specific format.
+ * A document filter to restrict a document to a specific format. Since this actually prevents
+ * characters to be input, it's best if the filter is light. E.g. allow to enter too long numbers
+ * and check them elsewhere.
  * 
+ * @param <T> type this class can format and parse
  * @author Sylvain
  */
-public class FormatFilter extends DocumentFilter {
+public class FormatFilter<T> extends DocumentFilter {
 
     /**
-     * Utility method to create a filter to allow only <code>clazz</code>.
+     * Utility method to create a filter to allow only <code>clazz</code>. Return
+     * <code>&lt;? super T&gt;</code> because of some {@link Format} like
+     * {@link DecimalFormat#parse(String, ParsePosition)}.
      * 
-     * @param clazz the type of object to retrict to.
+     * @param clazz the type of object to restrict to.
      * @return a suitable FormatFilter.
      * @throws IllegalArgumentException if no suitable filter is found.
      */
-    static public final FormatFilter create(Class<?> clazz) {
+    static public final <T> FormatFilter<? super T> create(Class<T> clazz) {
+        final FormatFilter<?> res;
         if (clazz.equals(BigDecimal.class))
-            return new DecimalFormatFilter();
-        if (clazz.equals(Float.class) || clazz.equals(Double.class))
-            return new FloatFormatFilter();
+            res = new DecimalFormatFilter();
+        else if (clazz.equals(Float.class) || clazz.equals(Double.class))
+            res = new FloatFormatFilter();
         else if (clazz.equals(Integer.class) || clazz.equals(Long.class))
-            return new IntFormatFilter();
+            res = new IntFormatFilter();
         else
             throw new IllegalArgumentException("no format filter for " + clazz);
+
+        assert res.getValueClass().isAssignableFrom(clazz);
+        @SuppressWarnings("unchecked")
+        final FormatFilter<? super T> casted = (FormatFilter<? super T>) res;
+        return casted;
     }
 
     static public final boolean isValid(Format f, String s) {
-        return isValid(s, f, Object.class);
+        return isValid(s, f, Object.class).get0();
     }
 
     /**
@@ -58,15 +72,16 @@ public class FormatFilter extends DocumentFilter {
      * @param s the string to test.
      * @param f the format s must use.
      * @param c the class of the object returned by f.
-     * @return <code>true</code> if s is valid.
+     * @return whether <code>s</code> is valid and if it is, its parsed value.
      */
-    static public final boolean isValid(String s, Format f, Class<?> c) {
+    static public final <T> Tuple2<Boolean, T> isValid(String s, Format f, Class<T> c) {
         if (s.isEmpty())
-            return true;
+            return Tuple2.create(true, null);
 
         final ParsePosition pp = new ParsePosition(0);
         final Object o = f.parseObject(s, pp);
-        return c.isInstance(o) && pp.getIndex() == s.length();
+        final boolean ok = c.isInstance(o) && pp.getIndex() == s.length();
+        return ok ? Tuple2.create(ok, c.cast(o)) : Tuple2.create(false, (T) null);
     }
 
     static private final String subString(Document doc, int offset) throws BadLocationException {
@@ -74,7 +89,7 @@ public class FormatFilter extends DocumentFilter {
     }
 
     private final Format format;
-    private final Class<?> c;
+    private final Class<T> c;
 
     /**
      * Create a new instance.
@@ -82,7 +97,7 @@ public class FormatFilter extends DocumentFilter {
      * @param f the format the document has to comply.
      * @param c the class the format has to parse to.
      */
-    public FormatFilter(Format f, final Class<?> c) {
+    public FormatFilter(Format f, final Class<T> c) {
         this.format = f;
         this.c = c;
     }
@@ -104,6 +119,10 @@ public class FormatFilter extends DocumentFilter {
     }
 
     public final boolean isCompleteValid(String s) {
+        return parse(s).get0();
+    }
+
+    public final Tuple2<Boolean, T> parse(String s) {
         return isValid(s, this.getFormat(), this.c);
     }
 
@@ -124,6 +143,10 @@ public class FormatFilter extends DocumentFilter {
         return s + " n'est que partiellement valide";
     }
 
+    public final Class<T> getValueClass() {
+        return this.c;
+    }
+
     public final Format getFormat() {
         return this.format;
     }
@@ -135,7 +158,7 @@ public class FormatFilter extends DocumentFilter {
      * @param o the object to format.
      * @return its string representation.
      */
-    public String format(Object o) {
+    public String format(T o) {
         return this.getFormat().format(o);
     }
 

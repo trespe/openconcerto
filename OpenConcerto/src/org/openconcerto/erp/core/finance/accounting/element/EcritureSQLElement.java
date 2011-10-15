@@ -75,6 +75,7 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
         final List<String> l = new ArrayList<String>();
 
         l.add("ID");
+        l.add("VALIDE");
         l.add("ID_MOUVEMENT");
         // l.add("ID_COMPTE_PCE");
         l.add("COMPTE_NUMERO");

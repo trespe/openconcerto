@@ -20,16 +20,38 @@ import java.util.List;
 
 public final class ValueConvertorFactory {
 
+    @SuppressWarnings("rawtypes")
+    private static final ValueConvertor IdentityConvertor = new ValueConvertor() {
+        @Override
+        public Object convert(Object o) {
+            return o;
+        }
+
+        @Override
+        public Object unconvert(Object o) {
+            return o;
+        }
+    };
+
+    @SuppressWarnings("unchecked")
+    public static final <T> ValueConvertor<T, T> getIdentityConvertor() {
+        return (ValueConvertor<T, T>) IdentityConvertor;
+    }
+
     private static final List<ValueConvertor<?, ?>> convs;
     static {
         convs = new ArrayList<ValueConvertor<?, ?>>();
         convs.add(new DateTSConvertor());
         convs.add(new DateToTimeConvertor());
         convs.add(StringClobConvertor.INSTANCE);
+        convs.add(NumberConvertor.INT_TO_LONG);
+        convs.add(NumberConvertor.SHORT_TO_INT);
     }
 
     @SuppressWarnings("unchecked")
     public static final <T, U> ValueConvertor<T, U> find(Class<T> c1, Class<U> c2) {
+        if (c1 == c2)
+            return (ValueConvertor<T, U>) getIdentityConvertor();
         for (final ValueConvertor<?, ?> vc : convs) {
             final List<Class<?>> args = ReflectUtils.getTypeArguments(vc, ValueConvertor.class);
             if (args.size() != 2)
@@ -40,6 +62,9 @@ public final class ValueConvertorFactory {
                 return new ReverseConvertor<T, U>((ValueConvertor<U, T>) vc);
             }
         }
+        if (Number.class.isAssignableFrom(c1) && Number.class.isAssignableFrom(c2))
+            return (ValueConvertor<T, U>) NumberConvertor.create(c1.asSubclass(Number.class), c2.asSubclass(Number.class), true);
+
         return null;
     }
 }

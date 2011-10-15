@@ -22,6 +22,15 @@ public class ConstantFactory<E> implements IFactory<E> {
         return (ConstantFactory<F>) nullFactory;
     }
 
+    static public final <E, F> ITransformer<E, F> createTransformer(final F obj) {
+        return new ITransformer<E, F>() {
+            @Override
+            public F transformChecked(E input) {
+                return obj;
+            }
+        };
+    }
+
     private final E obj;
 
     public ConstantFactory(E obj) {

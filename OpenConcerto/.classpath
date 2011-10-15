@@ -27,5 +27,6 @@
 	<classpathentry kind="lib" path="lib/xercesImpl.jar"/>
 	<classpathentry kind="lib" path="lib/postgresql-9.0-801.jdbc4.jar"/>
 	<classpathentry kind="lib" path="lib/poi-3.8-beta3-20110606.jar"/>
+	<classpathentry kind="lib" path="lib/jsch-0.1.44.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

@@ -104,6 +104,9 @@ public class InstallationPanel extends JPanel {
                             System.err.println("SystemRoot:" + conf.getSystemRoot());
                             System.err.println("Root:" + conf.getRoot());
 
+                            // FixUnbounded varchar
+                            fixUnboundedVarchar(conf.getRoot());
+
                             // Mise à jour des taux
                             final SQLTable table = conf.getRoot().getTable("VARIABLE_PAYE");
                             System.out.println("InstallationPanel.InstallationPanel() UPDATE PAYE");
@@ -135,6 +138,48 @@ public class InstallationPanel extends JPanel {
                                     });
                                 } catch (Exception ex) {
                                     throw new IllegalStateException("Erreur lors de la création de la table DEVISE", ex);
+                                }
+                            }
+
+                            if (!table.getDBRoot().contains("TYPE_MODELE")) {
+                                System.out.println("InstallationPanel.InstallationPanel() ADD TYPE_MODELE");
+                                try {
+                                    SQLUtils.executeAtomic(ds, new SQLUtils.SQLFactory<Object>() {
+                                        @Override
+                                        public Object create() throws SQLException {
+                                            final SQLCreateTable createTypeModele = new SQLCreateTable(table.getDBRoot(), "TYPE_MODELE");
+                                            createTypeModele.addVarCharColumn("NOM", 128);
+                                            createTypeModele.addVarCharColumn("TABLE", 128);
+                                            createTypeModele.addVarCharColumn("DEFAULT_MODELE", 128);
+                                            ds.execute(createTypeModele.asString());
+
+                                            insertUndef(createTypeModele);
+
+                                            conf.getRoot().getSchema().updateVersion();
+
+                                            conf.getRoot().refetch();
+
+                                            return null;
+                                        }
+                                    });
+                                    final String[] type = new String[] { "Avoir client", "AVOIR_CLIENT", "Avoir", "Bon de livraison", "BON_DE_LIVRAISON", "BonLivraison", "Commande Client",
+                                            "COMMANDE_CLIENT", "CommandeClient", "Devis", "DEVIS", "Devis", "Facture", "SAISIE_VENTE_FACTURE", "VenteFacture" };
+                                    // ('FR', 'Français', 1.000), ('EN', 'Anglais', 2.000)
+                                    final List<String> values = new ArrayList<String>();
+                                    final SQLBase base = table.getDBRoot().getBase();
+
+                                    for (int i = 0; i < type.length; i += 3) {
+                                        final int order = values.size() + 1;
+                                        values.add("(" + base.quoteString(type[i]) + ", " + base.quoteString(type[i + 1]) + ", " + base.quoteString(type[i + 2]) + ", " + order + ")");
+                                    }
+                                    final String valuesStr = CollectionUtils.join(values, ", ");
+                                    final String insertVals = "INSERT INTO " + conf.getRoot().getTable("TYPE_MODELE").getSQLName().quote() + "(" + SQLBase.quoteIdentifier("NOM") + ", "
+                                            + SQLBase.quoteIdentifier("TABLE") + ", " + SQLBase.quoteIdentifier("DEFAULT_MODELE") + ", " + SQLBase.quoteIdentifier(SQLSyntax.ORDER_NAME) + ") VALUES"
+                                            + valuesStr;
+
+                                    ds.execute(insertVals);
+                                } catch (Exception ex) {
+                                    throw new IllegalStateException("Erreur lors de la création de la table TYPE_MODELE", ex);
                                 }
                             }
 
@@ -416,11 +461,17 @@ public class InstallationPanel extends JPanel {
                     final String fName = f.getName();
                     final int size;
                     if (namesSet.contains(fName))
-                        size = 64;
-                    else if (fName.equals("TEL") || fName.startsWith("TEL_"))
-                        size = 16;
-                    else
                         size = 128;
+                    else if (fName.equals("TEL") || fName.startsWith("TEL_"))
+                        size = 32;
+                    else if (fName.contains("INFO"))
+                        size = 2048;
+                    else if (fName.contains("FORMULE"))
+                        size = 1024;
+                    else if (fName.equals("CONTENU"))
+                        size = 2048;
+                    else
+                        size = 256;
                     alter.alterColumn(fName, EnumSet.allOf(Properties.class), "varchar(" + size + ")", "''", false);
                 }
             }
@@ -575,6 +626,48 @@ public class InstallationPanel extends JPanel {
             ds.execute(insertVals);
         }
 
+        // Création de la table Modéle
+        if (!root.contains("MODELE")) {
+
+            SQLCreateTable createModele = new SQLCreateTable(root, "MODELE");
+            createModele.addVarCharColumn("NOM", 256);
+            createModele.addForeignColumn("ID_TYPE_MODELE", root.findTable("TYPE_MODELE"));
+            try {
+                ds.execute(createModele.asString());
+                insertUndef(createModele);
+                tableDevis.getSchema().updateVersion();
+                refetchRoot = true;
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table MODELE", ex);
+            }
+        }
+
+        // Création de la table Modéle
+        if (!root.contains("CONTACT_FOURNISSEUR")) {
+
+            SQLCreateTable createModele = new SQLCreateTable(root, "CONTACT_FOURNISSEUR");
+            createModele.addVarCharColumn("NOM", 256);
+            createModele.addVarCharColumn("PRENOM", 256);
+            createModele.addVarCharColumn("TEL_DIRECT", 256);
+            createModele.addVarCharColumn("TEL_MOBILE", 256);
+            createModele.addVarCharColumn("EMAIL", 256);
+            createModele.addVarCharColumn("FAX", 256);
+            createModele.addVarCharColumn("FONCTION", 256);
+            createModele.addVarCharColumn("TEL_PERSONEL", 256);
+            createModele.addVarCharColumn("TEL_STANDARD", 256);
+            createModele.addForeignColumn("ID_TITRE_PERSONNEL", root.findTable("TITRE_PERSONNEL"));
+            createModele.addForeignColumn("ID_FOURNISSEUR", root.findTable("FOURNISSEUR"));
+
+            try {
+                ds.execute(createModele.asString());
+                insertUndef(createModele);
+                tableDevis.getSchema().updateVersion();
+                refetchRoot = true;
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table MODELE", ex);
+            }
+        }
+
         // Création de la table Tarif
         if (!root.contains("TARIF")) {
 
@@ -663,19 +756,27 @@ public class InstallationPanel extends JPanel {
         addDeviseHAField(tableCommande, root);
 
         {
+            addTotalDeviseField(tableDevis, root);
+            addModeleField(tableDevis, root);
+
             SQLTable tableVF = root.getTable("SAISIE_VENTE_FACTURE");
             addTotalDeviseField(tableVF, root);
+            addModeleField(tableVF, root);
 
             addTotalDeviseField(tableDevis, root);
+            addModeleField(tableDevis, root);
 
             SQLTable tableCmd = root.getTable("COMMANDE_CLIENT");
             addTotalDeviseField(tableCmd, root);
+            addModeleField(tableCmd, root);
 
             SQLTable tableBon = root.getTable("BON_DE_LIVRAISON");
             addTotalDeviseField(tableBon, root);
+            addModeleField(tableBon, root);
 
             SQLTable tableAvoir = root.getTable("AVOIR_CLIENT");
             addTotalDeviseField(tableAvoir, root);
+            addModeleField(tableAvoir, root);
         }
         // Change client
         {
@@ -858,6 +959,25 @@ public class InstallationPanel extends JPanel {
 
     }
 
+    private void addModeleField(SQLTable table, DBRoot root) throws SQLException {
+        boolean alter = false;
+        AlterTable t = new AlterTable(table);
+        if (!table.getFieldsName().contains("ID_MODELE")) {
+            t.addForeignColumn("ID_MODELE", root.findTable("MODELE"));
+            alter = true;
+        }
+
+        if (alter) {
+            try {
+                table.getBase().getDataSource().execute(t.asString());
+                table.getSchema().updateVersion();
+                table.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
+            }
+        }
+    }
+
     private void addTotalDeviseField(SQLTable table, DBRoot root) throws SQLException {
         boolean alter = false;
         AlterTable t = new AlterTable(table);
@@ -900,8 +1020,16 @@ public class InstallationPanel extends JPanel {
             t.addVarCharColumn("CODE_DOUANIER", 256);
             alter = true;
         }
+        if (!table.getFieldsName().contains("DESCRIPTIF")) {
+            t.addVarCharColumn("DESCRIPTIF", 2048);
+            alter = true;
+        }
         if (!table.getFieldsName().contains("ID_PAYS")) {
             t.addForeignColumn("ID_PAYS", root.findTable("PAYS"));
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("MARGE_HT")) {
+            t.addColumn("MARGE_HT", "bigint default 0");
             alter = true;
         }
 

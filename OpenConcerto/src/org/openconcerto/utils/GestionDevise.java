@@ -140,6 +140,20 @@ public class GestionDevise {
         return DECIMAL_FORMAT.format(currency);
     }
 
+    public final static String round(long cents) {
+        if (cents == 0) {
+            return "0";
+        }
+
+        final long truncated = cents / 100;
+        final long rounded;
+        if (cents % 100 >= 50)
+            rounded = truncated + 1;
+        else
+            rounded = truncated;
+        return String.valueOf(rounded);
+    }
+
     /**
      * 
      * @param cents long representant des cents

@@ -13,12 +13,12 @@
  
  package org.openconcerto.ui.filters;
 
-import java.text.Format;
+import java.text.NumberFormat;
 
-public class NumberFormatFilter extends FormatFilter {
+public class NumberFormatFilter<T extends Number> extends FormatFilter<T> {
 
-    public NumberFormatFilter(Format f) {
-        super(f, Number.class);
+    public NumberFormatFilter(NumberFormat f, Class<T> clazz) {
+        super(f, clazz);
     }
 
     public boolean isPartialValid(String s) {

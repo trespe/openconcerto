@@ -57,9 +57,12 @@ public class ListeVenteXmlSheet extends AbstractListeSheetXml {
         this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
         this.du = du;
         this.au = au;
-        this.modele = "ListeVentes";
         this.bar = bar;
     }
+
+    public String getDefaultModele() {
+        return "ListeVentes";
+    };
 
     SQLElement eltAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
     SQLElement eltEnc = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");

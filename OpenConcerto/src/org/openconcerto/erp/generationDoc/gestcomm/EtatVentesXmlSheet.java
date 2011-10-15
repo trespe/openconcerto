@@ -61,10 +61,14 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
         this.du = new Timestamp(du.getTime());
         this.au = new Timestamp(au.getTime());
 
-        this.modele = "EtatVentes";
-
         this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
         this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
+    }
+
+    @Override
+    public String getDefaultModele() {
+
+        return "EtatVentes";
     }
 
     public String getFileName() {

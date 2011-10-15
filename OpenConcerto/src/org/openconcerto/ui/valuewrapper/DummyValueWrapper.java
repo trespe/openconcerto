@@ -13,6 +13,8 @@
  
  package org.openconcerto.ui.valuewrapper;
 
+import org.openconcerto.utils.checks.ValidState;
+
 import javax.swing.JComponent;
 
 /**
@@ -30,8 +32,9 @@ public class DummyValueWrapper<T> extends BaseValueWrapper<T> {
         return null;
     }
 
-    public boolean isValidated() {
-        return true;
+    @Override
+    public ValidState getValidState() {
+        return ValidState.getTrueInstance();
     }
 
     public void setValue(T val) {

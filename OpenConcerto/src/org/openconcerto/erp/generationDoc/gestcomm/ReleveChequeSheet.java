@@ -59,7 +59,11 @@ public class ReleveChequeSheet extends AbstractListeSheetXml {
         this.date = date;
         this.apercu = apercu;
         this.listeIds = listeIds;
-        this.modele = "ReleveCheque";
+    }
+
+    @Override
+    public String getDefaultModele() {
+        return "ReleveCheque";
     }
 
     private static final SQLTable tableCheque = base.getTable("CHEQUE_A_ENCAISSER");

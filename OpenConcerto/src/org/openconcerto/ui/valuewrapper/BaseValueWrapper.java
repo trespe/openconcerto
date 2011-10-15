@@ -52,10 +52,6 @@ abstract public class BaseValueWrapper<T> implements ValueWrapper<T> {
         this.supp.removeValidListener(l);
     }
 
-    public String getValidationText() {
-        return null;
-    }
-
     public void resetValue() {
         this.setValue(null);
     }

@@ -135,13 +135,19 @@ public class OOXMLField extends OOXMLElement {
                     String field2 = this.elt.getAttributeValue("name2");
                     String typeComp = this.elt.getAttributeValue("type");
                     Number o = (Number) this.row.getObject(field);
-                    Number o2 = (Number) this.row.getObject(field2);
+
+                    Number o2;
+                    if (field2 != null && field2.trim().length() > 0) {
+                        o2 = (Number) this.row.getObject(field2);
+                    } else {
+                        o2 = Double.parseDouble(this.elt.getAttributeValue("number"));
+                    }
 
                     if (typeComp != null && typeComp.trim().length() > 0) {
 
                         // Devise en Long transformée en double
                         if (typeComp.equalsIgnoreCase("Devise")) {
-                            long result = calcul(o, o2, this.op).longValue();
+                            long result = Math.round(calcul(o, o2, this.op).doubleValue());
                             return Double.valueOf(GestionDevise.currencyToString(result, false));
                         }
                     }
@@ -173,26 +179,24 @@ public class OOXMLField extends OOXMLElement {
                 String condField = this.elt.getAttributeValue("conditionField");
                 String condValue = this.elt.getAttributeValue("conditionExpValue");
 
-                boolean bIsBooleanCondValid;
-
-                if (condField == null) {
-                    bIsBooleanCondValid = true;
-                } else {
-                    if (this.row.getTable().getField(condField).getType().getJavaType() == Boolean.class) {
-                        final Boolean boolean1 = this.row.getBoolean(condField);
-                        if (boolean1 != null && boolean1) {
-                            bIsBooleanCondValid = true;
-                        } else {
-                            return null;
-                            // bIsBooleanCondValid = false;
-                        }
-                    } else {
-                        bIsBooleanCondValid = false;
-                    }
-                }
-
                 boolean bIsCondValid = condValue == null || this.row.getObject(condField).toString().equalsIgnoreCase(condValue);
-                if (bIsBooleanCondValid || !bIsCondValid) {
+                if (condValue == null) {
+                    boolean bIsBooleanCondValid = false;
+                    if (condField == null) {
+                        bIsBooleanCondValid = true;
+                    } else {
+                        if (this.row.getTable().getField(condField).getType().getJavaType() == Boolean.class) {
+                            final Boolean boolean1 = this.row.getBoolean(condField);
+                            if (boolean1 != null && boolean1) {
+                                bIsBooleanCondValid = true;
+                            }
+                        }
+                    }
+                    bIsCondValid = bIsCondValid && bIsBooleanCondValid;
+                }else {
+                    System.err.println();
+                }
+                if (bIsCondValid) {
 
                     // Type du champ
                     String typeComp = this.elt.getAttributeValue("type");
@@ -509,7 +513,7 @@ public class OOXMLField extends OOXMLElement {
         Nombre n2 = new Nombre(decimal.intValue(), langue);
 
         // result.append(n1.getText() + " euros");
-        result.append(n1.getText() + deviseName.get0());
+        result.append(n1.getText() + " " + deviseName.get0().trim());
 
         if (decimal.intValue() > 0) {
             // result.append(" et " + n2.getText() + " cents");

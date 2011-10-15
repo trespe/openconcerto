@@ -21,6 +21,7 @@ import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
 import org.openconcerto.erp.core.sales.quote.ui.DevisItemTable;
+import org.openconcerto.erp.panel.PanelOOSQLComponent;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -57,7 +58,6 @@ import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -76,13 +76,12 @@ public class DevisSQLComponent extends BaseSQLComponent {
     private DevisItemTable table;
     private JUniqueTextField numeroUniqueDevis;
     private final SQLTable tableNum = getTable().getBase().getTable("NUMEROTATION_AUTO");
-    private final JCheckBox checkImpression = new JCheckBox("Imprimer");
-    private final JCheckBox checkVisu = new JCheckBox("Visualiser");
     private final ITextArea infos = new ITextArea();
     private final RadioButtons radioEtat = new RadioButtons("NOM");
     private JTextField textPourcentRemise, textPoidsTotal;
     private DeviseField textRemiseHT;
     private DeviseField fieldHT;
+    private PanelOOSQLComponent panelOO;
 
     public DevisSQLComponent(final SQLElement elt) {
         super(elt);
@@ -414,11 +413,9 @@ public class DevisSQLComponent extends BaseSQLComponent {
         c.weighty = 0;
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.SOUTHEAST;
-        final JPanel panelOO = new JPanel();
-        panelOO.setOpaque(false);
-        panelOO.add(this.checkImpression, c);
-        panelOO.add(this.checkVisu, c);
-        this.add(panelOO, c);
+
+        this.panelOO = new PanelOOSQLComponent(this);
+        this.add(this.panelOO, c);
 
         textPortHT.getDocument().addDocumentListener(new SimpleDocumentListener() {
 
@@ -466,8 +463,6 @@ public class DevisSQLComponent extends BaseSQLComponent {
         addRequiredSQLObject(this.radioEtat, "ID_ETAT_DEVIS");
         addRequiredSQLObject(this.numeroUniqueDevis, "NUMERO");
         addSQLObject(this.infos, "INFOS");
-
-        this.checkVisu.setSelected(true);
 
         DefaultGridBagConstraints.lockMinimumSize(comboCommercial);
         DefaultGridBagConstraints.lockMinimumSize(comboClient);
@@ -547,7 +542,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
             // generation du document
 
             final DevisXmlSheet sheet = new DevisXmlSheet(getTable().getRow(idDevis));
-            sheet.genere(this.checkVisu.isSelected(), this.checkImpression.isSelected());
+            sheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
 
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(DevisSQLElement.class).equalsIgnoreCase(this.numeroUniqueDevis.getText().trim())) {
@@ -604,7 +599,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
         // generation du document
         final DevisXmlSheet dSheet = new DevisXmlSheet(getTable().getRow(getSelectedID()));
-        dSheet.genere(this.checkVisu.isSelected(), this.checkImpression.isSelected());
+        dSheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
     }
 
     /**

@@ -16,10 +16,12 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
+import org.openconcerto.erp.core.common.ui.ListeViewPanel;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
+import org.openconcerto.erp.core.sales.pos.ui.TextAreaTicketPanel;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -31,11 +33,13 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.EditPanel.EditMode;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.ui.PanelFrame;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.TableSorter;
 import org.openconcerto.utils.cc.IClosure;
@@ -230,45 +234,88 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
             }
         });
 
-            // Tab Vente comptoir
-            final ListeGestCommEltPanel listeVC = new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_COMPTOIR"), true);
-            listeVC.getListe().setSQLEditable(false);
-            listeVC.setOpaque(false);
 
-            final JTable table = listeVC.getListe().getJTable();
-            for (int i = 0; i < table.getColumnCount(); i++) {
-                if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
-                    table.getColumnModel().getColumn(i).setCellRenderer(rend);
-                }
+            {
+                // Tab Vente caisse
+                ListeViewPanel panelTicket = new ListeViewPanel(Configuration.getInstance().getDirectory().getElement("TICKET_CAISSE")) {
+                    @Override
+                    protected void handleAction(JButton source, ActionEvent evt) {
+                        if (source == this.buttonModifier) {
+                            new PanelFrame(new TextAreaTicketPanel(this.getListe().getSelectedRow()), "Ticket").setVisible(true);
+                        } else {
+                            super.handleAction(source, evt);
+                        }
+                    }
+                };
+
+                JPanel panel = new JPanel(new GridBagLayout());
+                GridBagConstraints cc = new DefaultGridBagConstraints();
+                cc.weightx = 1;
+                cc.weighty = 1;
+                cc.fill = GridBagConstraints.BOTH;
+                panel.add(panelTicket, cc);
+
+                final List<SQLField> l2 = new ArrayList<SQLField>();
+                l2.add(panelTicket.getElement().getTable().getField("TOTAL_HT"));
+                l2.add(panelTicket.getElement().getTable().getField("TOTAL_TTC"));
+                final IListTotalPanel total2 = new IListTotalPanel(panelTicket.getListe(), l2, null, null);
+                cc.weighty = 0;
+                cc.fill = GridBagConstraints.NONE;
+                cc.gridy++;
+                cc.anchor = GridBagConstraints.EAST;
+                total2.setOpaque(false);
+                panel.add(total2, cc);
+
+                IListFilterDatePanel filterDate2 = new IListFilterDatePanel(panelTicket.getListe(), panelTicket.getElement().getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
+                cc.weighty = 0;
+                cc.fill = GridBagConstraints.HORIZONTAL;
+                cc.gridy++;
+                filterDate2.setOpaque(false);
+                panel.add(filterDate2, cc);
+
+                tabbedPane.add("Ventes caisse", panel);
+
             }
+            // Tab Vente comptoir
+            {
+                final ListeGestCommEltPanel listeVC = new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_COMPTOIR"), true);
+                listeVC.getListe().setSQLEditable(false);
+                listeVC.setOpaque(false);
 
-            JPanel panelComptoir = new JPanel(new GridBagLayout());
-            GridBagConstraints cc = new DefaultGridBagConstraints();
-            cc.weightx = 1;
-            cc.weighty = 1;
-            cc.fill = GridBagConstraints.BOTH;
-            panelComptoir.add(listeVC, cc);
+                final JTable table = listeVC.getListe().getJTable();
+                for (int i = 0; i < table.getColumnCount(); i++) {
+                    if (table.getColumnClass(i) == Long.class || table.getColumnClass(i) == BigInteger.class) {
+                        table.getColumnModel().getColumn(i).setCellRenderer(rend);
+                    }
+                }
 
-            final List<SQLField> l2 = new ArrayList<SQLField>();
-            l2.add(listeVC.getElement().getTable().getField("MONTANT_HT"));
-            l2.add(listeVC.getElement().getTable().getField("MONTANT_TTC"));
-            final IListTotalPanel total2 = new IListTotalPanel(listeVC.getListe(), l2, null, null);
-            cc.weighty = 0;
-            cc.fill = GridBagConstraints.NONE;
-            cc.gridy++;
-            cc.anchor = GridBagConstraints.EAST;
-            total2.setOpaque(false);
-            panelComptoir.add(total2, cc);
+                JPanel panelComptoir = new JPanel(new GridBagLayout());
+                GridBagConstraints cc = new DefaultGridBagConstraints();
+                cc.weightx = 1;
+                cc.weighty = 1;
+                cc.fill = GridBagConstraints.BOTH;
+                panelComptoir.add(listeVC, cc);
 
-            IListFilterDatePanel filterDate2 = new IListFilterDatePanel(listeVC.getListe(), listeVC.getElement().getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
-            cc.weighty = 0;
-            cc.fill = GridBagConstraints.HORIZONTAL;
-            cc.gridy++;
-            filterDate2.setOpaque(false);
-            panelComptoir.add(filterDate2, cc);
+                final List<SQLField> l2 = new ArrayList<SQLField>();
+                l2.add(listeVC.getElement().getTable().getField("MONTANT_HT"));
+                l2.add(listeVC.getElement().getTable().getField("MONTANT_TTC"));
+                final IListTotalPanel total2 = new IListTotalPanel(listeVC.getListe(), l2, null, null);
+                cc.weighty = 0;
+                cc.fill = GridBagConstraints.NONE;
+                cc.gridy++;
+                cc.anchor = GridBagConstraints.EAST;
+                total2.setOpaque(false);
+                panelComptoir.add(total2, cc);
 
-            tabbedPane.add("Ventes comptoir", panelComptoir);
+                IListFilterDatePanel filterDate2 = new IListFilterDatePanel(listeVC.getListe(), listeVC.getElement().getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
+                cc.weighty = 0;
+                cc.fill = GridBagConstraints.HORIZONTAL;
+                cc.gridy++;
+                filterDate2.setOpaque(false);
+                panelComptoir.add(filterDate2, cc);
 
+                tabbedPane.add("Ventes comptoir", panelComptoir);
+            }
         this.add(tabbedPane, c);
     }
 

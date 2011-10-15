@@ -13,7 +13,7 @@
  
  package org.openconcerto.sql.changer;
 
-import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.DBStructureItem;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -24,7 +24,7 @@ public class Convert extends Change {
         super();
     }
 
-    public Convert(DBRoot root) {
+    public Convert(DBStructureItem<?> root) {
         super(root);
     }
 

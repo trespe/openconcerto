@@ -51,6 +51,10 @@ public class MenuUtils {
      * @throws IllegalArgumentException if path length is not odd.
      */
     static public <C extends JComponent & MenuElement> JMenuItem addMenuItem(final Action action, final C topLevelMenu, final List<String> path) throws IllegalArgumentException {
+        return addMenuItem(new JMenuItem(action), topLevelMenu, path);
+    }
+
+    static public <C extends JComponent & MenuElement> JMenuItem addMenuItem(final JMenuItem mi, final C topLevelMenu, final List<String> path) throws IllegalArgumentException {
         if (path.size() == 0 || path.size() % 2 == 0)
             throw new IllegalArgumentException("Path should be of the form group/menu/group/... : " + path);
         JComponent menu = topLevelMenu;
@@ -60,7 +64,7 @@ public class MenuUtils {
             menu = addChild(menu, groupName, new JMenu(menuName), JMenu.class, false);
         }
         final String actionGroupName = path.get(path.size() - 1);
-        return addChild(menu, actionGroupName, new JMenuItem(action), JMenuItem.class, true);
+        return addChild(menu, actionGroupName, mi, JMenuItem.class, true);
     }
 
     static private Component[] getChildren(final Container c) {

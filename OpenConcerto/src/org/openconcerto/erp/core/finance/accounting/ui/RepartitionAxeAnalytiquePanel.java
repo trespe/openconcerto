@@ -19,8 +19,8 @@ import org.openconcerto.erp.element.objet.Repartition;
 import org.openconcerto.erp.element.objet.RepartitionElement;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.table.CloseTableHeaderRenderer;
-import org.openconcerto.ui.table.PopUpTableManager;
-import org.openconcerto.ui.table.TablePopupMenuProvider;
+import org.openconcerto.ui.table.TablePopupMouseListener;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -33,7 +33,8 @@ import java.awt.event.FocusListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
-import java.util.ArrayList;
+import java.awt.event.MouseEvent;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Vector;
 
@@ -42,6 +43,7 @@ import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
@@ -50,7 +52,7 @@ import javax.swing.SwingUtilities;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 
-public class RepartitionAxeAnalytiquePanel extends JPanel implements TablePopupMenuProvider {
+public class RepartitionAxeAnalytiquePanel extends JPanel {
 
     private int idAxe;
     private AnalytiqueModel model;
@@ -176,7 +178,17 @@ public class RepartitionAxeAnalytiquePanel extends JPanel implements TablePopupM
             }
         };
 
-        new PopUpTableManager(this.listeRepartitions, this);
+        TablePopupMouseListener.add(this.listeRepartitions, new ITransformer<MouseEvent, JPopupMenu>() {
+            @Override
+            public JPopupMenu transformChecked(MouseEvent input) {
+                final JPopupMenu res = new JPopupMenu();
+                final JTable table = (JTable) input.getSource();
+                for (final Action a : getActions(table, table.getSelectedRow())) {
+                    res.add(a);
+                }
+                return res;
+            }
+        });
 
         JScrollPane scrollPane = new JScrollPane(this.listeRepartitions);
 
@@ -212,7 +224,7 @@ public class RepartitionAxeAnalytiquePanel extends JPanel implements TablePopupM
     /***********************************************************************************************
      * Action click droit sur les éléments de la liste
      **********************************************************************************************/
-    public List getActions(final JTable table, final int row) {
+    public List<Action> getActions(final JTable table, final int row) {
         Action a = new AbstractAction("Supprimer ligne " + row) {
 
             public void actionPerformed(ActionEvent e) {
@@ -231,10 +243,7 @@ public class RepartitionAxeAnalytiquePanel extends JPanel implements TablePopupM
             }
         };
 
-        List v = new ArrayList<Action>();
-        v.add(a);
-        v.add(a2);
-        return v;
+        return Arrays.asList(a, a2);
     }
 
     /***********************************************************************************************

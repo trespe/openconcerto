@@ -38,6 +38,7 @@ import java.beans.PropertyChangeListener;
 import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
@@ -64,7 +65,7 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
         IListe liste = new IListe(elt.createTableSource(getWhere(panelFam)));
         final ListeAddPanel panel = new ListeAddPanel(elt, liste);
 
-        JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, panelFam, panel);
+        JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(panelFam), panel);
         JPanel panelAll = new JPanel(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.BOTH;

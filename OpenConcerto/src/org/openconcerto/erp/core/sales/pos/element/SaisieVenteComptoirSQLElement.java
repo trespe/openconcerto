@@ -42,6 +42,10 @@ import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.checks.EmptyListener;
+import org.openconcerto.utils.checks.EmptyObj;
+import org.openconcerto.utils.checks.ValidState;
+import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -65,7 +69,6 @@ import java.util.Map;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -128,17 +131,15 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             private ElementComboBox comboAvoir;
             private ElementComboBox comboClient;
 
-            private final JLabel labelImgWarning = new JLabelWarning();
-
-            private final JLabel labelWarning = new JLabel("le montant du service ne peut pas dépasser le total HT!");
-            private final JPanel panelWarning = new JPanel();
+            private final JLabel labelWarning = new JLabelWarning("le montant du service ne peut pas dépasser le total HT!");
+            private ValidState validState = ValidState.getTrueInstance();
             private Where w;
             private DocumentListener docTTCListen;
             private PropertyChangeListener propertyChangeListener = new PropertyChangeListener() {
 
                 public void propertyChange(PropertyChangeEvent evt) {
 
-                    if ((nomArticle.isValidated()) && (!nomArticle.isEmpty())) {
+                    if ((nomArticle.getValidState().isValid()) && (!nomArticle.isEmpty())) {
                         int idArticle = nomArticle.getValue().intValue();
 
                         SQLTable tableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
@@ -157,9 +158,6 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             public void addViews() {
                 this.setLayout(new GridBagLayout());
                 final GridBagConstraints c = new DefaultGridBagConstraints();
-
-                this.panelWarning.add(this.labelImgWarning);
-                this.panelWarning.add(this.labelWarning);
 
                 this.docTTCListen = new DocumentListener() {
                     public void changedUpdate(DocumentEvent e) {
@@ -366,8 +364,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 c.gridx++;
                 c.gridwidth = GridBagConstraints.REMAINDER;
-                this.add(this.panelWarning, c);
-                this.panelWarning.setVisible(false);
+                this.add(this.labelWarning, c);
+                this.labelWarning.setVisible(false);
 
                 /***********************************************************************************
                  * * MODE DE REGLEMENT
@@ -416,7 +414,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                         textEcheance.setEditable(b);
                         textEcheance.setEnabled(b);
 
-                        fireValidChange();
+                        updateValidState();
                     };
                 });
 
@@ -513,32 +511,18 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                     }
                 });
 
-                this.textMontantService.getDocument().addDocumentListener(new DocumentListener() {
-
-                    public void insertUpdate(DocumentEvent e) {
-                        fireValidChange();
+                final SimpleDocumentListener docL = new SimpleDocumentListener() {
+                    @Override
+                    public void update(DocumentEvent e) {
+                        updateValidState();
                     }
-
-                    public void removeUpdate(DocumentEvent e) {
-                        fireValidChange();
-                    }
-
-                    public void changedUpdate(DocumentEvent e) {
-                        fireValidChange();
-                    }
-                });
-                this.textMontantHT.getDocument().addDocumentListener(new DocumentListener() {
-
-                    public void insertUpdate(DocumentEvent e) {
-                        fireValidChange();
-                    }
-
-                    public void removeUpdate(DocumentEvent e) {
-                        fireValidChange();
-                    }
-
-                    public void changedUpdate(DocumentEvent e) {
-                        fireValidChange();
+                };
+                this.textMontantService.getDocument().addDocumentListener(docL);
+                this.textMontantHT.getDocument().addDocumentListener(docL);
+                this.comboFournisseur.addEmptyListener(new EmptyListener() {
+                    @Override
+                    public void emptyChange(EmptyObj src, boolean newValue) {
+                        updateValidState();
                     }
                 });
 
@@ -600,7 +584,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                     }
                 }
 
-                this.panelWarning.setVisible(!b);
+                this.labelWarning.setVisible(!b);
                 System.err.println("Montant service is valid ? " + b + " --> HT val " + montantHT + " --> service val " + montant);
 
                 return b;
@@ -695,11 +679,29 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 this.labelEcheancejours.setText("jours, soit le " + dateFormat.format(this.dateEch));
             }
 
-            public boolean isValidated() {
+            private void updateValidState() {
+                this.setValidState(this.computeValidState());
+            }
 
-                // MAYBE verifier que quelque chose est saisie dans les TextField de l'article
-                return (super.isValidated() && isMontantServiceValid() && ((this.checkCommande.isSelected() && !this.comboFournisseur.isEmpty()) || (!this.checkCommande.isSelected())));
+            private ValidState computeValidState() {
+                ValidState res = ValidState.getTrueInstance();
+                if (!this.isMontantServiceValid())
+                    res = res.and(ValidState.createCached(false, this.labelWarning.getText()));
+                if (this.checkCommande.isSelected())
+                    res = res.and(ValidState.createCached(!this.comboFournisseur.isEmpty(), "Fournisseur non renseigné"));
+                return res;
+            }
 
+            private final void setValidState(ValidState validState) {
+                if (!validState.equals(this.validState)) {
+                    this.validState = validState;
+                    this.fireValidChange();
+                }
+            }
+
+            @Override
+            public synchronized ValidState getValidState() {
+                return super.getValidState().and(this.validState);
             }
 
             public int insert(SQLRow order) {

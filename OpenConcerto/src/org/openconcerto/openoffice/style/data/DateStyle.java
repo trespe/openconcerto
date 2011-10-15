@@ -46,8 +46,9 @@ public class DateStyle extends DataStyle {
         }
     };
 
-    private static final boolean isShort(final Element elem) {
-        return "short".equals(elem.getAttributeValue("style", elem.getNamespace("number")));
+    static final boolean isShort(final Element elem) {
+        // in OOo the default is short
+        return !"long".equals(elem.getAttributeValue("style", elem.getNamespace("number")));
     }
 
     public static final Locale getLocale(final Element elem) {
@@ -87,6 +88,21 @@ public class DateStyle extends DataStyle {
             res = GREGORIAN_LOCALE;
         }
         return res;
+    }
+
+    static String formatSecondFraction(final Locale styleLocale, final BigDecimal seconds, final int decPlaces) {
+        if (decPlaces > 0) {
+            final DecimalFormat decFormat = new DecimalFormat();
+            decFormat.setDecimalFormatSymbols(new DecimalFormatSymbols(styleLocale));
+            decFormat.setMinimumIntegerDigits(0);
+            decFormat.setMaximumIntegerDigits(0);
+            decFormat.setMinimumFractionDigits(decPlaces);
+            decFormat.setMaximumFractionDigits(decPlaces);
+            // .12 or .578
+            return decFormat.format(seconds);
+        } else {
+            return "";
+        }
     }
 
     public DateStyle(final ODPackage pkg, Element elem) {
@@ -160,15 +176,9 @@ public class DateStyle extends DataStyle {
                         // use styleLocale since <seconds> hasn't @calendar
                         final Calendar cal = Calendar.getInstance(styleLocale);
                         cal.setTime(d);
-                        final DecimalFormat decFormat = new DecimalFormat();
-                        decFormat.setDecimalFormatSymbols(new DecimalFormatSymbols(styleLocale));
-                        decFormat.setMinimumIntegerDigits(0);
-                        decFormat.setMinimumFractionDigits(decPlaces);
-                        decFormat.setMaximumFractionDigits(decPlaces);
                         final BigDecimal secondFractions = new BigDecimal(cal.get(Calendar.MILLISECOND)).movePointLeft(3);
                         assert secondFractions.compareTo(BigDecimal.ONE) < 0;
-                        // .12 or .578
-                        final String fractionPart = decFormat.format(secondFractions);
+                        final String fractionPart = formatSecondFraction(styleLocale, secondFractions, decPlaces);
                         DataStyle.addStringLiteral(sb, fractionPart);
                     }
                 }

@@ -433,7 +433,16 @@ public abstract class SQLSyntax {
                 sqlType = "text";
             } else {
                 final String type = typeName.contains("var") ? "varchar" : "char";
-                sqlType = type + "(" + t.getSize() + ")";
+                final int size = t.getSize();
+                if (size < Integer.MAX_VALUE) {
+                    sqlType = type + "(" + size + ")";
+                } else {
+                    Log.get().warning("Unbounded varchar for " + f.getSQLName());
+                    if (this.getSystem() == SQLSystem.MYSQL)
+                        throw new IllegalStateException("MySQL doesn't support unbounded varchar and might truncate data if reducing size of " + f.getSQLName());
+                    // don't specify size
+                    sqlType = type;
+                }
             }
         } else if (t.getJavaType() == BigDecimal.class) {
             sqlType = "DECIMAL(" + t.getSize() + "," + t.getDecimalDigits() + ")";
