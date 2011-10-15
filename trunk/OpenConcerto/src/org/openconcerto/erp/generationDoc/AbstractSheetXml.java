@@ -19,6 +19,9 @@ import java.io.File;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+
 public abstract class AbstractSheetXml extends SheetXml {
 
     public AbstractSheetXml(SQLRow row) {
@@ -30,7 +33,22 @@ public abstract class AbstractSheetXml extends SheetXml {
             @Override
             public File call() throws Exception {
                 try {
-                    File fGen = OOgenerationXML.genere(AbstractSheetXml.this.modele, AbstractSheetXml.this.locationOO, getFileName(), AbstractSheetXml.this.row, getRowLanguage());
+                    String modele = getModele();
+                    final String modeleFinal = modele;
+                    try {
+                        OOgenerationXML.getOOTemplate(modele, getRowLanguage());
+                    } catch (Exception e) {
+                        SwingUtilities.invokeLater(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                // TODO Raccord de méthode auto-généré
+                                JOptionPane.showMessageDialog(null, "Impossible de trouver le modele " + modeleFinal + ". \n Le modéle par défaut sera utilisé!");
+                            }
+                        });
+                        modele = getDefaultModele();
+                    }
+                    File fGen = OOgenerationXML.genere(modele, AbstractSheetXml.this.locationOO, getFileName(), AbstractSheetXml.this.row, getRowLanguage());
                     AbstractSheetXml.this.f = fGen;
                     useOO(fGen, visu, impression, getFileName());
                     return fGen;

@@ -31,6 +31,7 @@ import org.openconcerto.erp.core.customerrelationship.customer.element.ModeleCou
 import org.openconcerto.erp.core.customerrelationship.customer.element.ReferenceClientSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.RelanceSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.TypeLettreRelanceSQLElement;
+import org.openconcerto.erp.core.customerrelationship.customer.element.ContactSQLElement.ContactFournisseurSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.AnalytiqueSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.AssociationAnalytiqueSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.AssociationCompteAnalytiqueSQLElement;
@@ -127,6 +128,8 @@ import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElem
 import org.openconcerto.erp.core.supplychain.stock.element.StockSQLElement;
 import org.openconcerto.erp.core.supplychain.supplier.element.EcheanceFournisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.supplier.element.FournisseurSQLElement;
+import org.openconcerto.erp.generationDoc.element.ModeleSQLElement;
+import org.openconcerto.erp.generationDoc.element.TypeModeleSQLElement;
 import org.openconcerto.erp.injector.ArticleCommandeEltSQLInjector;
 import org.openconcerto.erp.injector.BonFactureSQLInjector;
 import org.openconcerto.erp.injector.BrFactureAchatSQLInjector;
@@ -431,6 +434,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new AdresseCommonSQLElement());
         dir.addSQLElement(new ExerciceCommonSQLElement());
         dir.addSQLElement(DeviseSQLElement.class);
+        dir.addSQLElement(TypeModeleSQLElement.class);
         dir.addSQLElement(new SocieteCommonSQLElement());
         return dir;
     }
@@ -439,6 +443,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         SQLElementDirectory dir = Configuration.getInstance().getDirectory();
         dir.addSQLElement(ArticleTarifSQLElement.class);
         dir.addSQLElement(ArticleDesignationSQLElement.class);
+        dir.addSQLElement(ContactFournisseurSQLElement.class);
         dir.addSQLElement(new TitrePersonnelSQLElement());
         dir.addSQLElement(new ContactSQLElement());
         dir.addSQLElement(new SaisieKmItemSQLElement());
@@ -452,6 +457,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(CaisseTicketSQLElement.class);
 
         dir.addSQLElement(new ImpressionRubriqueSQLElement());
+
+        dir.addSQLElement(ModeleSQLElement.class);
 
         dir.addSQLElement(new ProfilPayeSQLElement());
         dir.addSQLElement(new ProfilPayeElementSQLElement());

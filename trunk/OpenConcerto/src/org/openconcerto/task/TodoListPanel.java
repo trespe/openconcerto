@@ -29,11 +29,11 @@ import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.table.AlternateTableCellRenderer;
 import org.openconcerto.ui.table.IconTableCellRenderer;
 import org.openconcerto.ui.table.JCheckBoxTableCellRender;
-import org.openconcerto.ui.table.PopUpTableManager;
-import org.openconcerto.ui.table.TablePopupMenuProvider;
+import org.openconcerto.ui.table.TablePopupMouseListener;
 import org.openconcerto.ui.table.TimestampTableCellEditor;
 import org.openconcerto.ui.table.TimestampTableCellRenderer;
 import org.openconcerto.utils.TableSorter;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -72,6 +72,7 @@ import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
@@ -83,14 +84,13 @@ import javax.swing.event.AncestorListener;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
 import org.apache.commons.dbutils.ResultSetHandler;
-
-import javax.swing.table.DefaultTableCellRenderer;
 
 public class TodoListPanel extends JPanel implements ModelStateListener {
 
@@ -510,15 +510,18 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
     }
 
     void initPopUp() {
-        new PopUpTableManager(this.t, new TablePopupMenuProvider() {
+        TablePopupMouseListener.add(this.t, new ITransformer<MouseEvent, JPopupMenu>() {
 
-            public List getActions(final JTable table, final int row) {
-                List<Action> v = new Vector<Action>(3);
+            @Override
+            public JPopupMenu transformChecked(MouseEvent evt) {
+                final JTable table = (JTable) evt.getSource();
+                final int modelIndex = TodoListPanel.this.sorter.modelIndex(table.getSelectedRow());
+                final JPopupMenu res = new JPopupMenu();
 
                 // Avancer d'un jour
                 Action act = new AbstractAction() {
                     public void actionPerformed(ActionEvent e) {
-                        final TodoListElement element = TodoListPanel.this.model.getTaskAtRow(TodoListPanel.this.sorter.modelIndex(row));
+                        final TodoListElement element = TodoListPanel.this.model.getTaskAtRow(modelIndex);
                         if (element != null) {
                             final Date ts = element.getExpectedDate();
                             final Calendar cal = Calendar.getInstance();
@@ -536,12 +539,12 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                     }
                 };
                 act.putValue(Action.NAME, "Avancer d'un jour");
-                v.add(act);
+                res.add(act);
 
                 // Marquer comme réalisé
                 act = new AbstractAction() {
                     public void actionPerformed(ActionEvent e) {
-                        TodoListElement element = TodoListPanel.this.model.getTaskAtRow(TodoListPanel.this.sorter.modelIndex(row));
+                        TodoListElement element = TodoListPanel.this.model.getTaskAtRow(modelIndex);
                         if (element != null) {
                             element.setDone(true);
                             element.commitChangesAndWait();
@@ -550,28 +553,28 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                     }
                 };
                 act.putValue(Action.NAME, "Marquer comme réalisé");
-                v.add(act);
+                res.add(act);
 
                 // Suppression
                 act = new AbstractAction() {
                     public void actionPerformed(ActionEvent e) {
-                        TodoListPanel.this.model.deleteTaskAtIndex(TodoListPanel.this.sorter.modelIndex(row));
+                        TodoListPanel.this.model.deleteTaskAtIndex(modelIndex);
                         table.repaint();
                     }
                 };
                 act.putValue(Action.NAME, "Supprimer");
-                v.add(act);
+                res.add(act);
 
-                final TodoListElement element = TodoListPanel.this.model.getTaskAtRow(TodoListPanel.this.sorter.modelIndex(row));
+                final TodoListElement element = TodoListPanel.this.model.getTaskAtRow(modelIndex);
                 SQLRowValues rowTache = element.getRowValues();
 
                 List<AbstractAction> actions = TacheActionManager.getInstance().getActionsForTaskRow(rowTache);
 
                 for (AbstractAction abstractAction : actions) {
-                    v.add(abstractAction);
+                    res.add(abstractAction);
                 }
 
-                return v;
+                return res;
             }
         });
     }

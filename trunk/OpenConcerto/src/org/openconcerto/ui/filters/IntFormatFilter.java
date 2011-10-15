@@ -14,14 +14,14 @@
  package org.openconcerto.ui.filters;
 
 import java.text.DecimalFormat;
-import java.text.Format;
+import java.text.NumberFormat;
 
-public class IntFormatFilter extends NumberFormatFilter {
+public class IntFormatFilter extends NumberFormatFilter<Number> {
 
-    static public final Format intFormat = new DecimalFormat("#");
+    static public final NumberFormat intFormat = new DecimalFormat("#");
 
     public IntFormatFilter() {
-        super(intFormat);
+        super(intFormat, Number.class);
     }
 
 }

@@ -31,7 +31,8 @@ public final class ChainValidListener implements ValidListener {
         this.delegate = delegate;
     }
 
-    public void validChange(ValidObject src, boolean newValue) {
+    @Override
+    public void validChange(ValidObject src, ValidState newValue) {
         this.delegate.validChange(this.target, newValue);
     }
 

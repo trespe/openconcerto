@@ -16,44 +16,46 @@
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.request.ComboSQLRequest;
+import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
+import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.util.Map;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
 public class RowValuesPanel extends JPanel {
 
-    public RowValuesPanel(SQLRowValues sqlRowValues) {
+    public RowValuesPanel(final SQLRowValues sqlRowValues) {
         this.setLayout(new GridBagLayout());
-        GridBagConstraints c = new DefaultGridBagConstraints();
-        Map<String, Object> m = sqlRowValues.getAbsolutelyAll();
-        String[] p = m.keySet().toArray(new String[0]);
+        final GridBagConstraints c = new DefaultGridBagConstraints();
+        final Map<String, Object> m = sqlRowValues.getAbsolutelyAll();
+        final String[] p = m.keySet().toArray(new String[0]);
 
         for (int i = 0; i < p.length; i++) {
             c.gridx = 0;
             c.weightx = 0;
-
-            String key = p[i];
-            SQLField f = sqlRowValues.getTable().getField(key);
+            c.anchor = GridBagConstraints.BASELINE;
+            final String key = p[i];
+            final SQLField f = sqlRowValues.getTable().getField(key);
             String name = Configuration.getTranslator(f.getTable()).getDescFor(f.getTable(), f.getName()).getLabel();
             if (name == null) {
                 name = key;
             }
 
-            String value = "null";
-            if (m.get(key) != null) {
-                if (m.get(key) instanceof SQLRowValues) {
-                    SQLRowValues rv = (SQLRowValues) m.get(key);
-
-                    this.add(new JLabel(name, SwingConstants.RIGHT), c);
+            final Object object = m.get(key);
+            if (object != null && !object.toString().isEmpty()) {
+                final JLabel label = new JLabel(name, SwingConstants.LEFT);
+                label.setForeground(Color.GRAY);
+                if (object instanceof SQLRowValues) {
+                    final SQLRowValues rv = (SQLRowValues) object;
+                    this.add(label, c);
                     c.gridx++;
-
                     c.weightx = 1;
                     final RowValuesPanel comp = new RowValuesPanel(rv);
                     comp.setOpaque(false);
@@ -61,20 +63,31 @@ public class RowValuesPanel extends JPanel {
 
                 } else {
                     c.gridwidth = 1;
-                    value = m.get(key).toString();
-                    this.add(new JLabel(name, SwingConstants.RIGHT), c);
-                    c.gridx++;
-                    c.weightx = 1;
-
-                    final JTextField comp = new JTextField(20);
-                    comp.setText(value);
-                    comp.setEditable(false);
-                    this.add(comp, c);
+                    final String value;
+                    if (f.getTable().getForeignKeys().contains(f)) {
+                        // TODO remove from AWT thread
+                        final ComboSQLRequest comboRequest = Configuration.getInstance().getDirectory().getElement(f.getTable().getForeignTable(f.getName())).getComboRequest();
+                        final int intValue = ((Number) object).intValue();
+                        final IComboSelectionItem comboItem = comboRequest.getComboItem(intValue);
+                        if (comboItem == null) {
+                            value = null;
+                        } else {
+                            value = comboItem.getLabel();
+                        }
+                    } else {
+                        value = object.toString();
+                    }
+                    if (value != null) {
+                        this.add(label, c);
+                        c.gridx++;
+                        c.weightx = 1;
+                        final JLabel comp = new JLabel();
+                        comp.setText(value);
+                        this.add(comp, c);
+                    }
                 }
             }
-
             c.gridy++;
-
         }
     }
 }

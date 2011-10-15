@@ -14,6 +14,7 @@
  package org.openconcerto.ui.preferences;
 
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Component;
@@ -191,13 +192,8 @@ public abstract class DefaultPreferencePanel extends JPanel implements Preferenc
     // * ValidObject
 
     @Override
-    public boolean isValidated() {
-        return true;
-    }
-
-    @Override
-    public String getValidationText() {
-        return null;
+    public ValidState getValidState() {
+        return ValidState.getTrueInstance();
     }
 
     @Override

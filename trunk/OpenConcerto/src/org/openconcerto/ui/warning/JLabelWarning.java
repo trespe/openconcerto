@@ -24,8 +24,13 @@ import javax.swing.JOptionPane;
  * 
  */
 public class JLabelWarning extends JLabel {
+
     public JLabelWarning() {
-        super(ImageIconWarning.getInstance());
+        this(null);
+    }
+
+    public JLabelWarning(final String text) {
+        super(text, ImageIconWarning.getInstance(), text == null ? CENTER : LEADING);
         this.addMouseListener(new MouseAdapter() {
 
             @Override

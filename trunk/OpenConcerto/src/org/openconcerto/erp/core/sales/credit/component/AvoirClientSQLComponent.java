@@ -49,8 +49,8 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.component.ITextArea;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
@@ -199,26 +199,6 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
 
     public AvoirClientSQLComponent() {
         super(Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT"));
-    }
-
-    @Override
-    public String getValidationText() {
-        String s = super.getValidationText();
-
-        final Date value = this.date.getValue();
-        final boolean after = (value == null) ? false : value.after(SocieteCommonSQLElement.getDateDebutExercice());
-
-        if (!after) {
-            String validText = "La date est incorrecte, cette période est cloturée.";
-
-            if (s != null && s.trim().length() != 0) {
-                return (s + "\n" + validText);
-            } else {
-                return validText;
-            }
-        } else {
-            return s;
-        }
     }
 
     public void addViews() {
@@ -595,12 +575,16 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         return panel;
     }
 
-    public synchronized boolean isValidated() {
-
+    @Override
+    public synchronized ValidState getValidState() {
+        final ValidState selfState;
         final Date value = this.date.getValue();
-        final boolean after = (value == null) ? false : value.after(SocieteCommonSQLElement.getDateDebutExercice());
-
-        return (super.isValidated() && after);
+        if (value != null && value.after(SocieteCommonSQLElement.getDateDebutExercice())) {
+            selfState = ValidState.getTrueInstance();
+        } else {
+            selfState = ValidState.createCached(false, "La date est incorrecte, cette période est cloturée.");
+        }
+        return super.getValidState().and(selfState);
     }
 
     private void setCompteServiceVisible(boolean b) {

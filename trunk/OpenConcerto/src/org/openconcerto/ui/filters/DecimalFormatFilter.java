@@ -13,20 +13,22 @@
  
  package org.openconcerto.ui.filters;
 
+import java.math.BigDecimal;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 
-public class DecimalFormatFilter extends NumberFormatFilter {
+public class DecimalFormatFilter extends NumberFormatFilter<BigDecimal> {
 
     static public final DecimalFormat floatFormat = new DecimalFormat("0.########");
     static {
         final DecimalFormatSymbols decimalFormatSymbols = floatFormat.getDecimalFormatSymbols();
         decimalFormatSymbols.setDecimalSeparator('.');
         floatFormat.setDecimalFormatSymbols(decimalFormatSymbols);
+        floatFormat.setParseBigDecimal(true);
     }
 
     public DecimalFormatFilter() {
-        super(floatFormat);
+        super(floatFormat, BigDecimal.class);
     }
 
 }

@@ -119,7 +119,7 @@
 		
 		<element location="J" type="fill">
 			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="ID_TAXE">
-				<field base="Societe" table="TAXE" name="TAUX" suffix="%"/>
+				<field base="Societe" table="TAXE" name="TAUX" op="/" number="100.0"/>
 			</field>
 		</element>	
 		

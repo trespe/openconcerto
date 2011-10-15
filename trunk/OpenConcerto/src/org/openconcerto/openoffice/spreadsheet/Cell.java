@@ -48,7 +48,8 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
 
     // from §5.12 of OpenDocument-v1.2-cs01-part2
     // Error ::= '#' [A-Z0-9]+ ([!?] | ('/' ([A-Z] | ([0-9] [!?]))))
-    // we added an optional space before the marks to support OpenOffice/LibreOffice (at least until 3.4)
+    // we added an optional space before the marks to support OpenOffice/LibreOffice (at least until
+    // 3.4)
     private static final Pattern ErrorPattern = Pattern.compile("#[A-Z0-9]+( ?[!?]|(/([A-Z]|([0-9] ?[!?]))))");
 
     /**
@@ -232,7 +233,11 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
     }
 
     public boolean isValid() {
-        return !this.getElement().getName().equals("covered-table-cell");
+        return !this.isCovered();
+    }
+
+    protected final boolean isCovered() {
+        return this.getElement().getName().equals("covered-table-cell");
     }
 
     public final boolean isEmpty() {

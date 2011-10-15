@@ -17,7 +17,6 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
@@ -441,15 +440,11 @@ public class RowValuesTableModel extends AbstractTableModel {
         SQLRowValues row = this.rowValues.get(index);
 
         if (this.requiredField.isKey()) {
-            SQLRowAccessor rowAccess = row.getForeign(this.requiredField.getName());
-            return (rowAccess != null && rowAccess.getID() > rowAccess.getTable().getUndefinedID());
+            return !row.isForeignEmpty(this.requiredField.getName());
+        } else {
+            final Object object = row.getObject(this.requiredField.getName());
+            return object != null && object.toString().trim().length() > 0;
         }
-
-        final Object object = row.getObject(this.requiredField.getName());
-        if (object != null && object.toString().trim().length() > 0) {
-            return true;
-        }
-        return false;
     }
 
     public boolean isValidated() {

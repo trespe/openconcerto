@@ -38,6 +38,7 @@ import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
@@ -404,20 +405,24 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
     }
 
     @Override
-    public synchronized boolean isValidated() {
-        boolean b = true;
-        if (this.montant.getMontantTTC() != null && this.montant.getMontantTTC().getUncheckedValue() != null) {
+    public ValidState getValidState() {
+        ValidState result = super.getValidState();
+        if (result.isValid()) {
+            if (this.montant.getMontantTTC() != null && this.montant.getMontantTTC().getUncheckedValue() != null) {
 
-            long l = ((Long) this.montant.getMontantTTC().getUncheckedValue());
+                long l = ((Long) this.montant.getMontantTTC().getUncheckedValue());
 
-            if (this.comboAvoir != null && !this.comboAvoir.isEmpty() && this.comboAvoir.getSelectedId() > 1) {
-                SQLElement eltAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_FOURNISSEUR");
-                SQLRow rowAvoir = eltAvoir.getTable().getRow(this.comboAvoir.getSelectedId());
-                l -= ((Number) rowAvoir.getObject("MONTANT_TTC")).longValue();
+                if (this.comboAvoir != null && !this.comboAvoir.isEmpty() && this.comboAvoir.getSelectedId() > 1) {
+                    SQLElement eltAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_FOURNISSEUR");
+                    SQLRow rowAvoir = eltAvoir.getTable().getRow(this.comboAvoir.getSelectedId());
+                    l -= ((Number) rowAvoir.getObject("MONTANT_TTC")).longValue();
+                }
+                if (l < 0) {
+                    result = new ValidState(false, "Le montant est négatif");
+                }
             }
-            b = l >= 0;
         }
-        return super.isValidated() && b;
+        return result;
     }
 
     /***********************************************************************************************

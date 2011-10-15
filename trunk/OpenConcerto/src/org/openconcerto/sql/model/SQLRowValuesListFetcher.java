@@ -471,7 +471,6 @@ public class SQLRowValuesListFetcher {
         return this.fetch(true);
     }
 
-    @SuppressWarnings("unchecked")
     private final List<SQLRowValues> fetch(final boolean merge) {
         final SQLSelect req = this.getReq();
         // getName() would take 5% of ResultSetHandler.handle()
@@ -495,6 +494,7 @@ public class SQLRowValuesListFetcher {
         });
         assert l.size() == graphSize : "All nodes weren't explored once : " + l.size() + " != " + graphSize;
 
+        @SuppressWarnings("unchecked")
         final List<SQLRowValues> res = (List<SQLRowValues>) table.getBase().getDataSource().execute(req.asString(), new ResultSetHandler() {
             @Override
             public Object handle(final ResultSet rs) throws SQLException {

@@ -173,8 +173,17 @@ public class DataImporter {
         }
         final Sheet sheet = spreadSheet.getSheet(0);
         final int rowCount = sheet.getRowCount();
-        final int columnCount = sheet.getColumnCount();
-
+        int columnCount = 0;
+        if (rowCount > 0) {
+            final int maxColumnCount = sheet.getColumnCount();
+            for (int j = 0; j < maxColumnCount; j++) {
+                final Object valueAt = sheet.getValueAt(j, 0);
+                if (valueAt == null || valueAt.toString().trim().isEmpty()) {
+                    break;
+                }
+                columnCount++;
+            }
+        }
         int start = 0;
         if (skipFirstLine) {
             start = 1;
@@ -189,7 +198,6 @@ public class DataImporter {
         }
 
         return new ArrayTableModel(rows);
-
     }
 
     public ArrayTableModel createModelFromXLS(File xlsFile) throws IOException {

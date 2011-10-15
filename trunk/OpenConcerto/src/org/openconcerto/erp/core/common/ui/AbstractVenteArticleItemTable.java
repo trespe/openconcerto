@@ -49,7 +49,7 @@ import javax.swing.table.TableCellRenderer;
 
 public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemTable {
 
-    private static final String ARTICLE_SHOW_DEVISE = "ArticleShowDevise";
+    public static final String ARTICLE_SHOW_DEVISE = "ArticleShowDevise";
     private static final String ARTICLE_SERVICE = "ArticleService";
 
     public AbstractVenteArticleItemTable() {
@@ -78,6 +78,11 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         // Désignation de l'article
         final SQLTableElement tableElementNom = new SQLTableElement(e.getTable().getField("NOM"));
         list.add(tableElementNom);
+
+        if (e.getTable().getFieldsName().contains("DESCRIPTIF")) {
+            final SQLTableElement tableElementDesc = new SQLTableElement(e.getTable().getField("DESCRIPTIF"));
+            list.add(tableElementDesc);
+        }
 
         if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
             // Code Douanier
@@ -190,7 +195,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         // DeviseCellEditor());
         // list.add(tableElement_PrixMetrique1_AchatHT);
         // Quantité
-        this.qte = new SQLTableElement(e.getTable().getField("QTE"), Integer.class) {
+        this.qte = new SQLTableElement(e.getTable().getField("QTE"), Integer.class, new QteCellEditor()) {
             protected Object getDefaultNullValue() {
                 return Integer.valueOf(0);
             }
@@ -253,8 +258,35 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             tableElementTotalDevise.setRenderer(new DeviseNiceTableCellRenderer());
             list.add(tableElementTotalDevise);
         }
-        // Total HT
+
+        // Marge HT
         this.totalHT = new SQLTableElement(e.getTable().getField("T_PV_HT"), Long.class, new DeviseCellEditor());
+
+        if (e.getTable().getFieldsName().contains("MARGE_HT")) {
+
+            SQLTableElement marge = new SQLTableElement(e.getTable().getField("MARGE_HT"), Long.class, new DeviseCellEditor());
+            marge.setRenderer(new MargeTableCellRenderer());
+            marge.setEditable(false);
+            list.add(marge);
+            this.totalHT.addModificationListener(marge);
+            totalHA.addModificationListener(marge);
+            marge.setModifier(new CellDynamicModifier() {
+                @Override
+                public Object computeValueFrom(SQLRowValues row) {
+
+                    Long vt = row.getLong("T_PV_HT");
+
+                    Long ha = row.getLong("T_PA_HT");
+
+                    Long r = Long.valueOf(vt - ha);
+                    return r;
+                }
+
+            });
+
+        }
+
+        // Total HT
         this.totalHT.setRenderer(new DeviseNiceTableCellRenderer());
         list.add(this.totalHT);
         // Total TTC
@@ -304,6 +336,9 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         m.fill("PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_2");
         m.fill("PRIX_METRIQUE_VT_3", "PRIX_METRIQUE_VT_3");
         m.fill("SERVICE", "SERVICE");
+        if (getSQLElement().getTable().getFieldsName().contains("DESCRIPTIF")) {
+            m.fill("DESCRIPTIF", "DESCRIPTIF");
+        }
         if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
             m.fill("ID_DEVISE", "ID_DEVISE");
         }
@@ -333,6 +368,9 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         }
         if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
             m2.fill("ID_PAYS", "ID_PAYS");
+        }
+        if (getSQLElement().getTable().getFieldsName().contains("DESCRIPTIF")) {
+            m2.fill("DESCRIPTIF", "DESCRIPTIF");
         }
         m2.fill("PA_HT", "PA_HT");
         m2.fill("PV_HT", "PV_HT");
@@ -396,12 +434,18 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
             this.qte.addModificationListener(tableElementTotalDevise);
             eltUnitDevise.addModificationListener(tableElementTotalDevise);
+            tableElementRemise.addModificationListener(this.tableElementTotalDevise);
             tableElementTotalDevise.setModifier(new CellDynamicModifier() {
                 @Override
                 public Object computeValueFrom(SQLRowValues row) {
+                    final Object o2 = row.getObject("POURCENT_REMISE");
+                    double lremise = (o2 == null) ? 0 : ((BigDecimal) o2).doubleValue();
                     int qte = Integer.parseInt(row.getObject("QTE").toString());
                     Number f = (Number) row.getObject("PV_U_DEVISE");
                     long r = f.longValue() * qte;
+                    if (lremise > 0 && lremise != 100) {
+                        r = Math.round(r * (100.0 - lremise) / 100.0);
+                    }
                     return Long.valueOf(r);
                 }
             });
@@ -414,8 +458,8 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         this.tableElementTotalTTC.setModifier(new CellDynamicModifier() {
             @Override
             public Object computeValueFrom(SQLRowValues row) {
-                int qte = Integer.parseInt(row.getObject("QTE").toString());
-                Number f = (Number) row.getObject("PV_HT");
+
+                Number f = (Number) row.getObject("T_PV_HT");
                 int idTaux = Integer.parseInt(row.getObject("ID_TAXE").toString());
 
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(idTaux);
@@ -432,7 +476,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                     }
                 }
 
-                PrixHT pHT = new PrixHT(f.longValue() * qte);
+                PrixHT pHT = new PrixHT(f.longValue());
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
                 editorPVHT.setTaxe(resultTaux);
                 Long r = Long.valueOf(pHT.calculLongTTC(taux / 100f));
@@ -440,6 +484,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             }
 
         });
+
         // Calcul automatique du poids unitaire
         tableElement_ValeurMetrique1.addModificationListener(tableElementPoids);
         tableElement_ValeurMetrique2.addModificationListener(tableElementPoids);
@@ -518,27 +563,23 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
         this.table.readState();
 
-        hideColumn(this.model.getColumnForField("T_PA_HT"));
+        setColumnVisible(this.model.getColumnForField("T_PA_HT"), false);
 
         // Mode Gestion article avancé
-        if (!DefaultNXProps.getInstance().getBooleanValue("ArticleModeVenteAvance", false)) {
-            hideColumn(this.model.getColumnForField("VALEUR_METRIQUE_1"));
-            hideColumn(this.model.getColumnForField("VALEUR_METRIQUE_2"));
-            hideColumn(this.model.getColumnForField("VALEUR_METRIQUE_3"));
-            hideColumn(this.model.getColumnForField("PV_HT"));
-            hideColumn(this.model.getColumnForField("ID_MODE_VENTE_ARTICLE"));
-        }
+        final boolean modeAvance = DefaultNXProps.getInstance().getBooleanValue("ArticleModeVenteAvance", false);
+        setColumnVisible(this.model.getColumnForField("VALEUR_METRIQUE_1"), modeAvance);
+        setColumnVisible(this.model.getColumnForField("VALEUR_METRIQUE_2"), modeAvance);
+        setColumnVisible(this.model.getColumnForField("VALEUR_METRIQUE_3"), modeAvance);
+        setColumnVisible(this.model.getColumnForField("PV_HT"), modeAvance);
+        setColumnVisible(this.model.getColumnForField("ID_MODE_VENTE_ARTICLE"), modeAvance);
 
         // Voir le poids
-        if (!DefaultNXProps.getInstance().getBooleanValue("ArticleShowPoids", false)) {
-            hideColumn(this.model.getColumnForField("POIDS"));
-            hideColumn(this.model.getColumnForField("T_POIDS"));
+        final boolean showPoids = DefaultNXProps.getInstance().getBooleanValue("ArticleShowPoids", false);
+        setColumnVisible(this.model.getColumnForField("POIDS"), showPoids);
+        setColumnVisible(this.model.getColumnForField("T_POIDS"), showPoids);
 
-        }
         // Voir le style
-        if (!DefaultNXProps.getInstance().getBooleanValue("ArticleShowStyle", false)) {
-            hideColumn(this.model.getColumnForField("ID_STYLE"));
-        }
+        setColumnVisible(this.model.getColumnForField("ID_STYLE"), DefaultNXProps.getInstance().getBooleanValue("ArticleShowStyle", false));
 
         // On réécrit la configuration au cas ou les preferences aurait changé (ajout ou suppression
         // du mode de vente specifique)
@@ -598,10 +639,10 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         return null;
     }
 
-    private void hideColumn(int col) {
+    private void setColumnVisible(int col, boolean visible) {
         if (col >= 0) {
             XTableColumnModel columnModel = this.table.getColumnModel();
-            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(col), false);
+            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(col), visible);
         }
     }
 

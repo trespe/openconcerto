@@ -13,13 +13,21 @@
  
  package org.openconcerto.openoffice;
 
+import org.openconcerto.utils.FormatGroup;
+import org.openconcerto.utils.XMLDateFormat;
+
 import java.math.BigDecimal;
+import java.text.Format;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+
+import javax.xml.datatype.DatatypeConfigurationException;
+import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.Duration;
 
 /**
  * A type of value, as per 16.1 "Data Types" and 6.7.1 "Variable Value Types and Values"
@@ -76,7 +84,7 @@ public enum ODValueType {
         @Override
         public String format(Object o) {
             final Date d = o instanceof Calendar ? ((Calendar) o).getTime() : (Date) o;
-            return OOUtils.DATE_FORMAT.format(d);
+            return DATE_FORMAT.format(d);
         }
 
         @Override
@@ -85,7 +93,7 @@ public enum ODValueType {
                 return null;
             else {
                 try {
-                    return (Date) OOUtils.DATE_FORMAT.parseObject(date);
+                    return (Date) DATE_FORMAT.parseObject(date);
                 } catch (ParseException e) {
                     throw new IllegalStateException("wrong date: " + date, e);
                 }
@@ -93,34 +101,29 @@ public enum ODValueType {
         }
 
     },
-    TIME("time-value", Calendar.class) {
-        // FIXME
+    TIME("time-value", Duration.class, Calendar.class) {
+
         @Override
         public String format(Object o) {
-            final Calendar cal = (Calendar) o;
-            // adjust the format TZ to the calendar's
-            // that way even you pass a non default Calendar, if you did
-            // myCal.set(HOUR_OF_DAY, 22), the string will have "22H"
-            final SimpleDateFormat fmt = (SimpleDateFormat) OOUtils.TIME_FORMAT.clone();
-            fmt.setTimeZone(cal.getTimeZone());
-            return fmt.format(cal.getTime());
+            if (o instanceof Duration) {
+                return o.toString();
+            } else {
+                final Calendar cal = (Calendar) o;
+                // adjust the format TZ to the calendar's
+                // that way even you pass a non default Calendar, if you did
+                // myCal.set(HOUR_OF_DAY, 22), the string will have "22H"
+                final SimpleDateFormat fmt = (SimpleDateFormat) TIME_FORMAT.clone();
+                fmt.setTimeZone(cal.getTimeZone());
+                return fmt.format(cal.getTime());
+            }
         }
 
         @Override
-        public Calendar parse(String date) {
+        public Duration parse(String date) {
             if (date.length() == 0)
                 return null;
             else {
-                // take the calendar from the format, that way if date contains "22H"
-                // returnedCal.get(HOUR_OF_DAY) will return 22 (even if TIME_FORMAT wasn't set to
-                // the default TZ)
-                final Calendar cal = (Calendar) OOUtils.TIME_FORMAT.getCalendar().clone();
-                try {
-                    cal.setTime((Date) OOUtils.TIME_FORMAT.parseObject(date));
-                } catch (ParseException e) {
-                    throw new IllegalStateException("wrong date: " + date, e);
-                }
-                return cal;
+                return getTypeFactory().newDuration(date);
             }
         }
 
@@ -211,7 +214,7 @@ public enum ODValueType {
             return BOOLEAN;
         else if (o instanceof String)
             return STRING;
-        else if (o instanceof Calendar && !((Calendar) o).isSet(Calendar.DATE))
+        else if (o instanceof Duration || o instanceof Calendar && !((Calendar) o).isSet(Calendar.DATE))
             return TIME;
         else if (DATE.canFormat(o.getClass()))
             return DATE;
@@ -219,4 +222,26 @@ public enum ODValueType {
             return null;
     }
 
+    // see http://www.w3.org/TR/2004/REC-xmlschema-2-20041028/#isoformats
+
+    // time means Duration for OpenDocument (see 6.7.1)
+    static private final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("'PT'HH'H'mm'M'ss.S'S'");
+    static private final Format DATE_FORMAT;
+    static {
+        // first date and time so we don't loose time information on format() or parse()
+        // MAYBE add HH':'mm':'ss,SSS for OOo 1
+        DATE_FORMAT = new FormatGroup(new XMLDateFormat(), new SimpleDateFormat("yyyy-MM-dd'T'HH':'mm':'ss"), new SimpleDateFormat("yyyy-MM-dd"));
+    }
+
+    static private DatatypeFactory typeFactory = null;
+
+    static public final DatatypeFactory getTypeFactory() {
+        if (typeFactory == null)
+            try {
+                typeFactory = DatatypeFactory.newInstance();
+            } catch (DatatypeConfigurationException e) {
+                throw new IllegalStateException(e);
+            }
+        return typeFactory;
+    }
 }

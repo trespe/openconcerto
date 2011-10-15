@@ -24,13 +24,15 @@ public class VWFormatValueWrapper<T> extends FormatValueWrapper<T> {
     private final ValueWrapper<String> vw;
 
     public VWFormatValueWrapper(final ValueWrapper<String> b, final Class<T> c) {
-        super(b.getComp(), FormatFilter.create(c));
+        super(b.getComp(), FormatFilter.create(c), c);
         this.vw = b;
         this.vw.addValueListener(new PropertyChangeListener() {
             public void propertyChange(PropertyChangeEvent evt) {
-                firePropertyChange();
+                textChanged();
             }
         });
+        // initial values
+        this.textChanged();
     }
 
     protected String getText() {

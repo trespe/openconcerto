@@ -28,6 +28,7 @@ import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Component;
 import java.beans.PropertyChangeListener;
@@ -72,7 +73,7 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
         this.comp.setNonExistantEditable(true);
         // only uiInit() comp when necessary
         this.comp.addValidListener(new ValidListener() {
-            public void validChange(ValidObject src, boolean newValue) {
+            public void validChange(ValidObject src, ValidState newValue) {
                 // don't fire if our objects change (eg combo reloading) while we're uncreated
                 if (isCreated()) {
                     ElementSQLObject.this.supp.firePropertyChange("value", null, null);
@@ -82,7 +83,7 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
         });
 
         this.addValidListener(new ValidListener() {
-            public void validChange(ValidObject src, boolean newValue) {
+            public void validChange(ValidObject src, ValidState newValue) {
                 compChanged();
             }
         });
@@ -144,7 +145,7 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
         super.init(sqlName, fields);
         this.helper = new EmptyObjectHelper(this, new Predicate() {
             public boolean evaluate(Object object) {
-                return !getSQLChild().isInited() || !getSQLChild().isValidated();
+                return !getSQLChild().isInited() || !getSQLChild().getValidState().isValid();
             }
         });
     }
@@ -271,19 +272,15 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
         }
     }
 
-    public boolean isValidated() {
-        final boolean res;
+    @Override
+    public ValidState getValidState() {
+        final ValidState res;
         if (isCreated()) {
-            res = this.comp.isValidated();
+            res = this.comp.getValidState();
         } else {
-            res = true;
+            res = ValidState.getTrueInstance();
         }
         return res;
-    }
-
-    public String getValidationText() {
-        // TODO this.comp.getValidationText()
-        return null;
     }
 
     public void addValidListener(ValidListener l) {
@@ -296,7 +293,7 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
     }
 
     private void fireValidChange() {
-        this.validSupp.fireValidChange(isValidated());
+        this.validSupp.fireValidChange(getValidState());
     }
 
     public void setEditable(boolean enabled) {

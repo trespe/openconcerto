@@ -14,16 +14,19 @@
  package org.openconcerto.sql.changer;
 
 import org.openconcerto.sql.PropsConfiguration;
-import org.openconcerto.sql.model.DBRoot;
-import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.DBStructureItem;
+import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.utils.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 public abstract class Change {
 
@@ -33,22 +36,14 @@ public abstract class Change {
         props.put(PropsConfiguration.JDBC_CONNECTION + "allowMultiQueries", "true");
     }
 
-    protected final DBRoot root;
+    protected final DBStructureItem<?> root;
 
-    protected Change(final DBRoot root) {
+    protected Change(final DBStructureItem<?> root) {
         this.root = root;
     }
 
     public Change() throws IOException {
         this(new PropsConfiguration(new File("changeBase.properties"), props).getRoot());
-    }
-
-    protected final DBRoot getRoot() {
-        return this.root;
-    }
-
-    protected final SQLBase getBase() {
-        return this.getRoot().getBase();
     }
 
     protected final void exec(String... nameNparams) throws SQLException {
@@ -69,11 +64,24 @@ public abstract class Change {
     }
 
     public void exec(final Class<? extends Changer> changer, String... params) throws SQLException {
-        if (params.length == 0)
+        if (params.length == 0) {
             Changer.change(this.root, changer);
-        else
-            for (final String table : params)
-                Changer.change(this.root.getTable(table), changer);
+        } else {
+            final List<SQLName> names = new ArrayList<SQLName>(params.length);
+            final Set<String> children = new HashSet<String>();
+            for (final String name : params) {
+                final SQLName n = SQLName.parse(name);
+                names.add(n);
+                children.add(n.getFirst());
+            }
+            if (this.root instanceof DBSystemRoot) {
+                final DBSystemRoot sysRoot = (DBSystemRoot) this.root;
+                if (!sysRoot.getRootsToMap().containsAll(children))
+                    sysRoot.addRoots(new ArrayList<String>(children));
+            }
+            for (final SQLName name : names)
+                Changer.change(this.root.getDescendant(name), changer);
+        }
     }
 
     public final Class<? extends Changer> findClass(final String converter) {

@@ -31,7 +31,7 @@ public class CommandeClientXmlSheet extends AbstractSheetXml {
     public static Tuple2<String, String> getTuple2Location() {
         return tuple;
     }
-    
+
     @Override
     public String getReference() {
         return this.row.getString("NOM");
@@ -57,8 +57,11 @@ public class CommandeClientXmlSheet extends AbstractSheetXml {
         cal.setTime((Date) row.getObject("DATE"));
         this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
         this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
+    }
 
-        this.modele = "CommandeClient";
+    @Override
+    public String getDefaultModele() {
+        return "CommandeClient";
     }
 
     public String getFileName() {

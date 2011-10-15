@@ -82,8 +82,6 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
     }
 
     protected boolean showMdr = true;
-    private ElementComboBox boxPays = null;
-    final ElementComboBox boxTarif = new ElementComboBox();
 
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
@@ -142,6 +140,9 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
         return new BaseSQLComponent(this) {
             int idDefaultCompteClient = 1;
             JCheckBox checkAdrLivraison, checkAdrFacturation;
+
+            private ElementComboBox boxPays = null;
+            final ElementComboBox boxTarif = new ElementComboBox();
 
             private JTabbedPane tabbedAdresse = new JTabbedPane() {
                 public void insertTab(String title, Icon icon, Component component, String tip, int index) {

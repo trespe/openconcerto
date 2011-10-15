@@ -35,8 +35,7 @@ import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
-import org.openconcerto.sql.view.list.RowAction;
-import org.openconcerto.sql.view.list.RowActionFactory;
+import org.openconcerto.sql.view.list.IListeAction;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
@@ -52,7 +51,6 @@ import org.openconcerto.utils.change.ListChangeIndex;
 import org.openconcerto.utils.change.ListChangeRecorder;
 
 import java.awt.Component;
-import java.awt.Container;
 import java.lang.reflect.Constructor;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -105,8 +103,7 @@ public abstract class SQLElement {
     private ComboSQLRequest combo;
     private ListSQLRequest list;
     private SQLTableModelSourceOnline tableSrc;
-    private final ListChangeRecorder<RowAction> rowActions;
-    private final List<RowActionFactory> rowActionFactories;
+    private final ListChangeRecorder<IListeAction> rowActions;
     // foreign fields
     private Set<String> normalFF;
     private String parentFF;
@@ -132,8 +129,7 @@ public abstract class SQLElement {
         this.primaryTable = primaryTable;
         this.combo = null;
         this.list = null;
-        this.rowActions = new ListChangeRecorder<RowAction>(new ArrayList<RowAction>());
-        this.rowActionFactories = new ArrayList<RowActionFactory>();
+        this.rowActions = new ListChangeRecorder<IListeAction>(new ArrayList<IListeAction>());
         this.actions = new HashMap<String, ReferenceAction>();
         this.resetRelationships();
 
@@ -919,19 +915,15 @@ public abstract class SQLElement {
 
     abstract protected List<String> getListFields();
 
-    public final Collection<RowAction> getRowActions() {
+    public final Collection<IListeAction> getRowActions() {
         return this.rowActions;
     }
 
-    public List<RowActionFactory> getRowActionFactories() {
-        return this.rowActionFactories;
-    }
-
-    public final void addRowActionsListener(final IClosure<ListChangeIndex<RowAction>> listener) {
+    public final void addRowActionsListener(final IClosure<ListChangeIndex<IListeAction>> listener) {
         this.rowActions.getRecipe().addListener(listener);
     }
 
-    public final void removeRowActionsListener(final IClosure<ListChangeIndex<RowAction>> listener) {
+    public final void removeRowActionsListener(final IClosure<ListChangeIndex<IListeAction>> listener) {
         this.rowActions.getRecipe().rmListener(listener);
     }
 

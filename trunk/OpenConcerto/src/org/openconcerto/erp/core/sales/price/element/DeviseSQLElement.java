@@ -66,7 +66,7 @@ public class DeviseSQLElement extends ConfSQLElement {
                 final GridBagConstraints c = new DefaultGridBagConstraints();
 
                 // Nom
-                JLabel labelCode = new JLabel("CODE");
+                JLabel labelCode = new JLabel(getLabelFor("CODE"));
                 JTextField textCode = new JTextField();
                 this.add(labelCode, c);
                 c.gridx++;
@@ -74,7 +74,7 @@ public class DeviseSQLElement extends ConfSQLElement {
                 this.add(textCode, c);
 
                 // Nom
-                JLabel labelNom = new JLabel("NOM");
+                JLabel labelNom = new JLabel(getLabelFor("NOM"));
                 JTextField textNom = new JTextField();
                 c.gridx++;
                 c.weightx = 0;
@@ -84,7 +84,7 @@ public class DeviseSQLElement extends ConfSQLElement {
                 this.add(textNom, c);
 
                 // Nom
-                JLabel labelTaux = new JLabel("TAUX");
+                JLabel labelTaux = new JLabel(getLabelFor("TAUX"));
                 JTextField textTaux = new JTextField();
                 c.gridx++;
                 c.weightx = 0;
@@ -94,7 +94,7 @@ public class DeviseSQLElement extends ConfSQLElement {
                 this.add(textTaux, c);
 
                 // Nom
-                JLabel labelNomDevise = new JLabel("LIBELLE");
+                JLabel labelNomDevise = new JLabel(getLabelFor("LIBELLE"));
                 JTextField textNomDevise = new JTextField();
                 c.gridx = 0;
                 c.gridy++;
@@ -105,7 +105,7 @@ public class DeviseSQLElement extends ConfSQLElement {
                 this.add(textNomDevise, c);
 
                 // Nom
-                JLabel labelNomCent = new JLabel("LIBELLE_CENT");
+                JLabel labelNomCent = new JLabel(getLabelFor("LIBELLE_CENT"));
                 JTextField textNomCent = new JTextField();
                 c.gridx++;
                 c.weightx = 0;
@@ -114,12 +114,11 @@ public class DeviseSQLElement extends ConfSQLElement {
                 c.weightx = 1;
                 this.add(textNomCent, c);
 
-                this.addView(textCode, "CODE");
-                this.addView(textNomDevise, "LIBELLE");
-                this.addView(textNomCent, "LIBELLE_CENT");
-                this.addView(textNom, "NOM");
-                this.addRequiredSQLObject(textTaux, "TAUX");
-
+                this.addView(textCode, "CODE", REQ);
+                this.addView(textNomDevise, "LIBELLE", REQ);
+                this.addView(textNomCent, "LIBELLE_CENT", REQ);
+                this.addView(textNom, "NOM", REQ);
+                this.addView(textTaux, "TAUX", REQ);
             }
         };
     }

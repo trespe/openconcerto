@@ -19,6 +19,7 @@ package org.openconcerto.sql.element;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -60,7 +61,7 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         super(parent, comp);
 
         this.addValidListener(new ValidListener() {
-            public void validChange(ValidObject src, boolean newValue) {
+            public void validChange(ValidObject src, ValidState newValue) {
                 compChanged();
             }
         });
@@ -195,7 +196,7 @@ public class DefaultElementSQLObject extends ElementSQLObject {
     }
 
     protected void compChanged() {
-        this.expandBtn.setEnabled(this.getCurrentID() != SQLRow.NONEXISTANT_ID && this.isValidated());
+        this.expandBtn.setEnabled(this.getCurrentID() != SQLRow.NONEXISTANT_ID && this.getValidState().isValid());
     }
 
     private final boolean isExpanded() {

@@ -16,6 +16,7 @@
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.beans.PropertyChangeListener;
 import java.util.Calendar;
@@ -94,8 +95,9 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         return this;
     }
 
-    public boolean isValidated() {
-        return true;
+    @Override
+    public ValidState getValidState() {
+        return ValidState.getTrueInstance();
     }
 
     public void addValidListener(ValidListener l) {
@@ -105,10 +107,6 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
     @Override
     public void removeValidListener(ValidListener l) {
         // nothing to do
-    }
-
-    public String getValidationText() {
-        return null;
     }
 
     public JTextComponent getTextComp() {

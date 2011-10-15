@@ -34,6 +34,7 @@ import org.openconcerto.utils.checks.EmptyChangeSupport;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
 
 import java.awt.Component;
@@ -85,7 +86,7 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     protected final ISearchableCombo<IComboSelectionItem> combo;
 
     // supports
-    private final ValueChangeSupport supp;
+    private final ValueChangeSupport<Integer> supp;
     private final EmptyChangeSupport emptySupp;
 
     // le mode actuel
@@ -149,8 +150,12 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         this.uiInit(new IComboModel(req));
     }
 
+    private boolean hasModel() {
+        return this.req != null;
+    }
+
     public final void uiInit(final IComboModel req) {
-        if (this.req != null)
+        if (hasModel())
             throw new IllegalStateException(this + " already inited.");
 
         this.req = req;
@@ -222,6 +227,9 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         // synchronize with the state of req (after adding our value listener)
         this.modelValueChanged();
 
+        // getValidSate() depends on this.req
+        this.supp.fireValidChange();
+
         this.uiLayout();
 
         // *without* : resetValue() => doUpdateAll() since it was never filled
@@ -249,7 +257,7 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     }
 
     protected void updateListeners() {
-        if (this.req != null) {
+        if (hasModel()) {
             this.req.setRunning(this.isDisplayable());
         }
     }
@@ -457,11 +465,14 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         this.req.rmItemsListener(l);
     }
 
-    public final boolean isValidated() {
-        // ok, since we fire every time the combo does (see our ctor)
-        return this.combo.isValidated();
+    @Override
+    public ValidState getValidState() {
+        // OK, since we fire every time the combo does (see our ctor)
+        // we are valid if we can return a value and getValue() needs this.req
+        return ValidState.getNoReasonInstance(hasModel()).and(this.combo.getValidState());
     }
 
+    @Override
     public final void addValidListener(ValidListener l) {
         this.supp.addValidListener(l);
     }
@@ -469,10 +480,6 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     @Override
     public void removeValidListener(ValidListener l) {
         this.supp.removeValidListener(l);
-    }
-
-    public String getValidationText() {
-        return null;
     }
 
     private Icon getIconFor(IComboSelectionItem value) {

@@ -27,6 +27,7 @@ import java.awt.event.ActionListener;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 
 public class FamilleArticlePanel extends JPanel {
@@ -43,7 +44,7 @@ public class FamilleArticlePanel extends JPanel {
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.insets = new Insets(0, 0, 0, 0);
         treeSel.init(null);
-        this.add(treeSel, c);
+        this.add(new JScrollPane(treeSel), c);
         // Separateur
         c.weighty = 0;
         c.gridy++;

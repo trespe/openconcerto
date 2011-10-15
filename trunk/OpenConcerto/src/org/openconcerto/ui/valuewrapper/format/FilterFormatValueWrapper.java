@@ -17,8 +17,8 @@ import org.openconcerto.ui.component.IDocument;
 import org.openconcerto.ui.component.text.DocumentComponent;
 import org.openconcerto.ui.filters.FormatFilter;
 import org.openconcerto.utils.text.DocumentFilterList;
-import org.openconcerto.utils.text.SimpleDocumentListener;
 import org.openconcerto.utils.text.DocumentFilterList.FilterType;
+import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import javax.swing.JComponent;
 import javax.swing.event.DocumentEvent;
@@ -38,15 +38,18 @@ public final class FilterFormatValueWrapper<T> extends FormatValueWrapper<T> {
     }
 
     FilterFormatValueWrapper(final JComponent b, final AbstractDocument doc, final Class<T> c) {
-        super(b, FormatFilter.create(c));
+        super(b, FormatFilter.create(c), c);
         this.doc = new IDocument(doc);
         doc.addDocumentListener(new SimpleDocumentListener() {
             public void update(DocumentEvent e) {
-                firePropertyChange();
+                textChanged();
             }
         });
         // FormatFilter only blocks invalid input
         DocumentFilterList.add(doc, FormatFilter.create(c), FilterType.SIMPLE_FILTER);
+        
+        // initial values
+        this.textChanged();
     }
 
     protected String getText() {

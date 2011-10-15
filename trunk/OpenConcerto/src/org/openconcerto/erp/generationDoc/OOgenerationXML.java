@@ -147,7 +147,7 @@ public class OOgenerationXML {
                     parseTableauXML(tableChild, row, spreadSheet, rowLanguage);
                 }
             } catch (Exception e) {
-                ExceptionHandler.handle("Impossible de remplir le document " + modele + " " + rowLanguage.getString("CHEMIN"), e);
+                ExceptionHandler.handle("Impossible de remplir le document " + modele + " " + ((rowLanguage == null) ? "" : rowLanguage.getString("CHEMIN")), e);
             }
             // Sauvegarde du fichier
             return saveSpreadSheet(spreadSheet, new File(pathDest), fileDest, modele, rowLanguage);
@@ -336,8 +336,9 @@ public class OOgenerationXML {
         List<Element> listElts = tableau.getChildren("element");
 
         // on remplit chaque ligne à partir des rows recuperées
+        int numeroRef = 0;
         for (SQLRowAccessor rowElt : rowsEltCache.get(ref)) {
-
+            numeroRef++;
             if (!cache && rowElt.getTable().getFieldRaw("ID_TAXE") != null) {
                 SQLRowAccessor rowTaxe = getForeignRow(rowElt, rowElt.getTable().getField("ID_TAXE"));
                 long ht = 0;
@@ -387,20 +388,30 @@ public class OOgenerationXML {
 
                 int tableLine = 1;
                 int toAdd = 0;
-                // on remplit chaque cellule de la ligne
+
+                Map<Element, Object> mapValues = new HashMap<Element, Object>();
                 for (Element e : listElts) {
 
                     OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId(),
-                            rowLanguage);
+                            rowLanguage, numeroRef);
+                    final Object value = tableField.getValue();
 
-                    // On teste si on sort du tableau
-                    final int fill = fill("A1", "test", sheet, false, null, tmp, true, tableField.isMultilineAuto());
+                    mapValues.put(e, value);
+                    fill("A1", value, sheet, false, null, tmp, true, tableField.isMultilineAuto());
+                    final int fill = fill("A1", value, sheet, false, null, tmp, true, tableField.isMultilineAuto());
                     if ((currentLine + fill) > (tableElement.getEndPageLine() * nbPage)) {
                         currentLine = currentLineTmp + tableElement.getEndPageLine();
                         // currentLine = nbPage * endLine + fisrtLine;
                         currentLineTmp = currentLine;
                         nbPage++;
                     }
+                }
+
+                // on remplit chaque cellule de la ligne
+                for (Element e : listElts) {
+
+                    OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId(),
+                            rowLanguage, numeroRef);
 
                     if (!test && styleName != null && tableElement.getListBlankLineStyle().contains(styleName) && first) {
                         toAdd++;
@@ -428,9 +439,8 @@ public class OOgenerationXML {
 
                     if (styleName == null || !listBlankStyle.contains(styleName)) {
 
-                        Object value = tableField.getValue();
-
                         try {
+                            Object value = mapValues.get(e);
                             // if (value != null && value.toString().trim().length() > 0) {
                             if (tableField.isNeeding2Lines() && tableField.getLine() == 1) {
                                 loc = e.getAttributeValue("location").trim() + (currentLine + 1);
@@ -438,7 +448,13 @@ public class OOgenerationXML {
                             }
                             final Point resolveHint = sheet.resolveHint(loc);
                             if (test || sheet.isCellValid(resolveHint.x, resolveHint.y)) {
-                                Map<Integer, String> mTmp = styleName == null ? null : mapStyle.get(styleName);
+
+                                String styleNameTmp = styleName;
+                                if (tableField.getStyle().trim().length() > 0) {
+                                    styleNameTmp = tableField.getStyle();
+                                }
+
+                                Map<Integer, String> mTmp = styleName == null ? null : mapStyle.get(styleNameTmp);
                                 String styleOO = null;
                                 if (mTmp != null) {
 
@@ -449,7 +465,7 @@ public class OOgenerationXML {
                                 int tmpCelluleAffect = fill(test ? "A1" : loc, value, sheet, tableField.isTypeReplace(), null, styleOO, test, tableField.isMultilineAuto());
                                 // tmpCelluleAffect = Math.max(tmpCelluleAffect,
                                 // tableField.getLine());
-                                if (tableField.getLine() != 1) {
+                                if (tableField.getLine() != 1 && (!tableField.isLineOption() || (value != null && value.toString().trim().length() > 0))) {
                                     if (nbCellule >= tableField.getLine()) {
                                         tmpCelluleAffect = tmpCelluleAffect + nbCellule;
                                     } else {
@@ -615,7 +631,7 @@ public class OOgenerationXML {
                                 MutableCell c = sheet.getCellAt(p.x, p.y + y);
                                 setCellValue(c, string, replace, replacePattern);
                                 if (styleOO != null) {
-                                    cell.setStyleName(styleOO);
+                                    c.setStyleName(styleOO);
                                 }
                                 y++;
                             } catch (IllegalArgumentException e) {

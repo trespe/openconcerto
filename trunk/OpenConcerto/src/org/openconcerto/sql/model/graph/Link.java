@@ -153,11 +153,11 @@ public class Link extends DirectedEdge<SQLTable> {
         pWriter.print("\"");
     }
 
-    @SuppressWarnings("unchecked")
     static Link fromXML(final SQLTable t, final Element linkElem) {
         final SQLName to = SQLName.parse(linkElem.getAttributeValue("to"));
         final SQLTable foreignTable = t.getDBSystemRoot().getDesc(to, SQLTable.class);
         final String linkName = linkElem.getAttributeValue("name");
+        @SuppressWarnings("unchecked")
         final List<Element> lElems = linkElem.getAttribute("col") != null ? singletonList(linkElem) : linkElem.getChildren("l");
         final List<SQLField> cols = new ArrayList<SQLField>();
         final List<SQLField> refcols = new ArrayList<SQLField>();

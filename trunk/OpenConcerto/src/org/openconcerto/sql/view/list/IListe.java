@@ -29,12 +29,17 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.FileTransfertHandler;
 import org.openconcerto.sql.view.IListener;
-import org.openconcerto.sql.view.list.RowAction.LimitedSizeRowAction;
+import org.openconcerto.sql.view.list.IListeAction.ButtonsBuilder;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.IListeAction.PopupBuilder;
+import org.openconcerto.sql.view.list.IListeAction.PopupEvent;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.sql.view.search.ColumnSearchSpec;
 import org.openconcerto.sql.view.search.SearchList;
 import org.openconcerto.ui.FontUtils;
 import org.openconcerto.ui.FormatEditor;
 import org.openconcerto.ui.MenuUtils;
+import org.openconcerto.ui.PopupMouseListener;
 import org.openconcerto.ui.SwingThreadUtils;
 import org.openconcerto.ui.list.selection.ListSelection;
 import org.openconcerto.ui.list.selection.ListSelectionState;
@@ -50,6 +55,7 @@ import org.openconcerto.utils.FormatGroup;
 import org.openconcerto.utils.TableModelSelectionAdapter;
 import org.openconcerto.utils.TableSorter;
 import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.convertor.StringClobConvertor;
 
@@ -81,10 +87,12 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.EventObject;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractAction;
@@ -155,7 +163,7 @@ public final class IListe extends JPanel implements AncestorListener {
         FORCE_ALT_CELL_RENDERER = force;
     }
 
-    public static final IListe get(ActionEvent evt) {
+    public static final IListe get(EventObject evt) {
         return SwingThreadUtils.getAncestorOrSelf(IListe.class, (Component) evt.getSource());
     }
 
@@ -173,9 +181,9 @@ public final class IListe extends JPanel implements AncestorListener {
     private boolean adjustVisible;
     private ColumnSizeAdjustor tcsa;
 
-    private final Map<RowAction, JButton> rowActions;
+    private final Map<IListeAction, ButtonsBuilder> rowActions;
     // double-click
-    private RowAction defaultRowAction;
+    private IListeAction defaultRowAction;
     private final JPanel btnPanel;
 
     // * selection
@@ -193,7 +201,8 @@ public final class IListe extends JPanel implements AncestorListener {
 
     private final ListSelectionState state;
     private final JTableStateManager tableStateManager;
-    private List<RowActionFactory> rowActionFactories = new ArrayList<RowActionFactory>(0);
+
+    private int retainCount = 0;
 
     public IListe(final ListSQLRequest req) {
         this(req, null);
@@ -215,7 +224,7 @@ public final class IListe extends JPanel implements AncestorListener {
         if (req == null)
             throw new NullPointerException("Création d'une IListe avec une requete null");
 
-        this.rowActions = new LinkedHashMap<RowAction, JButton>();
+        this.rowActions = new LinkedHashMap<IListeAction, ButtonsBuilder>();
         this.supp = new PropertyChangeSupport(this);
         this.listeners = new ArrayList<IListener>();
         this.naListeners = new ArrayList<IListener>();
@@ -303,7 +312,7 @@ public final class IListe extends JPanel implements AncestorListener {
         TablePopupMouseListener.add(this.jTable, new ITransformer<MouseEvent, JPopupMenu>() {
             @Override
             public JPopupMenu transformChecked(MouseEvent input) {
-                return updatePopupMenu();
+                return updatePopupMenu(true);
             }
         });
         this.jTable.addMouseListener(new MouseAdapter() {
@@ -363,6 +372,14 @@ public final class IListe extends JPanel implements AncestorListener {
         // donc on ne peut faire aucune action pendant les maj
 
         this.btnPanel = new JPanel(new FlowLayout(FlowLayout.LEADING));
+        this.addModelListener(new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                // let the header buttons know that the rows have changed
+                if ("updating".equals(evt.getPropertyName()) && Boolean.FALSE.equals(evt.getNewValue()))
+                    updateButtons();
+            }
+        });
 
         uiInit();
     }
@@ -378,111 +395,128 @@ public final class IListe extends JPanel implements AncestorListener {
 
     public final RowAction addRowAction(Action action) {
         // for backward compatibility don't put in header
-        final RowAction res = new LimitedSizeRowAction(action, false, true);
-        this.addRowAction(res);
+        final RowAction res = new PredicateRowAction(action, false, true).setPredicate(IListeEvent.getSingleSelectionPredicate());
+        this.addIListeAction(res);
         return res;
     }
 
-    public final void addRowActions(Collection<RowAction> actions) {
-        for (final RowAction a : actions)
-            this.addRowAction(a);
+    public final void addIListeActions(Collection<? extends IListeAction> actions) {
+        for (final IListeAction a : actions)
+            this.addIListeAction(a);
     }
 
-    public void addRowActionFactories(List<RowActionFactory> rowActionFactories) {
-        this.rowActionFactories.addAll(rowActionFactories);
+    private final int findGroupIndex(final String groupName) {
+        if (groupName != null) {
+            final Component[] components = this.btnPanel.getComponents();
+            for (int i = components.length - 1; i >= 0; i--) {
+                final JComponent comp = (JComponent) components[i];
+                if (groupName.equals(comp.getClientProperty(ButtonsBuilder.GROUPNAME_PROPNAME))) {
+                    return i + 1;
+                }
+            }
+        }
+        return -1;
     }
 
-    public final void addRowAction(RowAction action) {
-        final JButton headerBtn = action.inHeader() ? new JButton(action.getAction()) : null;
-        this.rowActions.put(action, headerBtn);
-        if (headerBtn != null) {
-            this.updateButton(action, getSelectedRows());
-            this.btnPanel.add(headerBtn);
+    public final void addIListeAction(IListeAction action) {
+        // we need to handle addition of an already added action at least for setDefaultRowAction()
+        if (this.rowActions.containsKey(action))
+            return;
+        final ButtonsBuilder headerBtns = action.getHeaderButtons();
+        this.rowActions.put(action, headerBtns);
+        if (headerBtns.getContent().size() > 0) {
+            updateButton(headerBtns, new IListeEvent(this));
+            for (final JButton headerBtn : headerBtns.getContent().keySet()) {
+                this.btnPanel.add(headerBtn, findGroupIndex((String) headerBtn.getClientProperty(ButtonsBuilder.GROUPNAME_PROPNAME)));
+            }
             this.btnPanel.setVisible(true);
         }
     }
 
-    public final void removeRowActions(Collection<RowAction> actions) {
-        for (final RowAction a : actions)
-            this.removeRowAction(a);
+    public final void removeIListeActions(Collection<? extends IListeAction> actions) {
+        for (final IListeAction a : actions)
+            this.removeIListeAction(a);
     }
 
-    public final void removeRowAction(RowAction action) {
-        final JButton headerBtn = this.rowActions.remove(action);
-        if (headerBtn != null) {
+    public final void removeIListeAction(IListeAction action) {
+        final ButtonsBuilder headerBtns = this.rowActions.remove(action);
+        // handle the removal of inexistent action (ButtonsBuilder can not be null)
+        if (headerBtns == null)
+            return;
+        for (final JButton headerBtn : headerBtns.getContent().keySet()) {
             this.btnPanel.remove(headerBtn);
             if (this.btnPanel.getComponentCount() == 0)
                 this.btnPanel.setVisible(false);
             this.btnPanel.revalidate();
         }
         if (action.equals(this.defaultRowAction))
-            this.defaultRowAction = null;
-    }
-
-    public void removeRowActionFactories(List<RowActionFactory> rowActionFactories2) {
-        // TODO Auto-generated method stub
+            this.setDefaultRowAction(null);
     }
 
     private void updateButtons() {
-        final List<SQLRowAccessor> selectedRows = getSelectedRows();
-        for (final RowAction action : this.rowActions.keySet()) {
-            this.updateButton(action, selectedRows);
+        final IListeEvent evt = new IListeEvent(this);
+        for (final ButtonsBuilder btns : this.rowActions.values()) {
+            this.updateButton(btns, evt);
         }
     }
 
-    private JButton updateButton(final RowAction action, List<SQLRowAccessor> selectedRows) {
-        final JButton btn = this.rowActions.get(action);
-        if (btn != null) {
-            btn.setEnabled(action.enabledFor(selectedRows));
+    private void updateButton(final ButtonsBuilder btns, final IListeEvent evt) {
+        for (final Entry<JButton, IPredicate<IListeEvent>> e : btns.getContent().entrySet()) {
+            e.getKey().setEnabled(e.getValue().evaluateChecked(evt));
         }
-        return btn;
     }
 
-    private JPopupMenu updatePopupMenu() {
+    private JPopupMenu updatePopupMenu(final boolean onRows) {
         this.popup.removeAll();
-        final List<SQLRowAccessor> selectedRows = getSelectedRows();
-        List<RowAction> actions = new ArrayList<RowAction>();
-        actions.addAll(this.rowActions.keySet());
-        final int size = this.rowActionFactories.size();
-        for (int i = 0; i < size; i++) {
-            RowActionFactory f = this.rowActionFactories.get(i);
-            List<RowAction> l = f.createActions(selectedRows);
-            if (l != null) {
-                actions.addAll(l);
+        final PopupEvent evt = new PopupEvent(this, onRows);
+        final Action defaultAction = this.defaultRowAction != null ? this.defaultRowAction.getDefaultAction(evt) : null;
+        final VirtualMenu menu = VirtualMenu.createRoot(null);
+        for (final IListeAction a : this.rowActions.keySet()) {
+            final PopupBuilder popupContent = a.getPopupContent(evt);
+            if (defaultAction != null && a == this.defaultRowAction) {
+                // Cannot compare actions since menu items are not required to have an action
+                // If popup actions are ["Dial 03", "Dial 06"] then getDefaultAction() cannot always
+                // return the same instance "if land line is default then Dial 03 else Dial 06"
+                // otherwise we can't find its matching menu item in the popup
+                final JMenuItem defaultMI = popupContent.getRootMenuItem(defaultAction);
+                if (defaultMI == null)
+                    Log.get().warning("Default action not found at the root level of popup for " + this);
+                else
+                    defaultMI.setFont(defaultMI.getFont().deriveFont(Font.BOLD));
             }
+            menu.merge(popupContent.getMenu());
         }
 
-        for (final RowAction a : actions) {
-            if (a.inPopupMenu()) {
-                final JMenuItem menuItem = MenuUtils.addMenuItem(a.getAction(), this.popup, a.getPath());
-                if (a.equals(this.defaultRowAction))
-                    menuItem.setFont(menuItem.getFont().deriveFont(Font.BOLD));
-                menuItem.setEnabled(a.enabledFor(selectedRows));
-            }
+        for (final Entry<JMenuItem, List<String>> e : menu.getContent().entrySet()) {
+            MenuUtils.addMenuItem(e.getKey(), this.popup, e.getValue());
         }
 
         return this.popup;
     }
 
     /**
-     * Set the action performed when double-clicking a row. This method calls
-     * {@link #addRowAction(Action)} and the popup display this action distinctively.
+     * Set the action performed when double-clicking a row.
      * 
-     * @param action the default action.
+     * @param action the default action, can be <code>null</code>.
      */
-    public final void setDefaultRowAction(final RowAction action) {
-        if (action != null && !this.rowActions.containsKey(action))
-            this.addRowAction(action);
+    public final void setDefaultRowAction(final IListeAction action) {
         this.defaultRowAction = action;
+        if (action != null)
+            this.addIListeAction(action);
     }
 
-    public final RowAction getDefaultRowAction() {
+    public final IListeAction getDefaultRowAction() {
         return this.defaultRowAction;
     }
 
     private void performDefaultAction(MouseEvent e) {
-        if (this.defaultRowAction != null && this.defaultRowAction.enabledFor(getSelectedRows()))
-            this.defaultRowAction.getAction().actionPerformed(new ActionEvent(e.getSource(), e.getID(), null, e.getWhen(), e.getModifiers()));
+        // special method needed since sometimes getPopupContent() can access the DB (optionally
+        // creating threads) or be slow
+        if (this.defaultRowAction != null) {
+            final Action defaultAction = this.defaultRowAction.getDefaultAction(new IListeEvent(this));
+            if (defaultAction != null)
+                defaultAction.actionPerformed(new ActionEvent(e.getSource(), e.getID(), null, e.getWhen(), e.getModifiers()));
+        }
     }
 
     private void uiInit() {
@@ -593,6 +627,12 @@ public final class IListe extends JPanel implements AncestorListener {
 
         final JScrollPane scrollPane = new JScrollPane(this.jTable);
         scrollPane.setFocusable(false);
+        scrollPane.addMouseListener(new PopupMouseListener() {
+            @Override
+            protected JPopupMenu createPopup(MouseEvent e) {
+                return updatePopupMenu(false);
+            }
+        });
 
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new GridBagConstraints(0, 0, 1, 1, 1.0, 0.0, GridBagConstraints.CENTER, GridBagConstraints.BOTH, new Insets(0, 0, 0, 0), 0, 0);
@@ -924,18 +964,26 @@ public final class IListe extends JPanel implements AncestorListener {
 
     // *** Ancestors ***//
 
+    @Override
     public void ancestorAdded(AncestorEvent event) {
-        if (event.getAncestor().isVisible())
-            this.getModel().setSleeping(false);
+        // there was an if added in r989, but from the javadoc it isn't needed
+        assert event.getAncestor().isVisible();
+        // ancestorAdded means we've just been added to a visible hierarchy, not that we were added
+        // to our parent
+        this.getModel().setSleeping(false);
     }
 
+    @Override
     public void ancestorRemoved(AncestorEvent event) {
         // test isDead() since in JComponent.removeNotify() first setDisplayable(false) (in super)
         // then firePropertyChange("ancestor", null).
-        if (!this.isDead() && !event.getAncestor().isVisible())
+        // thus we can still be visible while not displayable anymore
+        assert !event.getAncestor().isVisible() || !event.getAncestor().isDisplayable();
+        if (!this.isDead())
             this.getModel().setSleeping(true);
     }
 
+    @Override
     public void ancestorMoved(AncestorEvent event) {
         // nothing to do
     }
@@ -1064,11 +1112,28 @@ public final class IListe extends JPanel implements AncestorListener {
      * listener of SQLTable which will never be gc'd.
      */
     private final void dispChanged() {
-        if (!this.isDisplayable()) {
+        final boolean requiredToLive = this.isDisplayable() || this.retainCount > 0;
+        if (!requiredToLive && !this.isDead()) {
             this.setTableModel(null);
-        } else {
-            this.setSource(this.src);
+        } else if (requiredToLive && this.isDead()) {
+            this.setTableModel(new ITableModel(this.src));
         }
+    }
+
+    /**
+     * Allow this to stay alive even if undisplayable. Attention, you must call {@link #release()}
+     * for each {@link #retain()} otherwise this instance will never be garbage collected.
+     */
+    public final void retain() {
+        this.retainCount++;
+        this.dispChanged();
+    }
+
+    public final void release() {
+        if (this.retainCount == 0)
+            throw new IllegalStateException("Unbalanced release");
+        this.retainCount--;
+        this.dispChanged();
     }
 
     public JTable getJTable() {

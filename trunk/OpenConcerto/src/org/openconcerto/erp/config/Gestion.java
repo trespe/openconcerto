@@ -138,7 +138,8 @@ public class Gestion {
         System.setProperty("sun.java2d.pmoffscreen", "false");
 
         System.setProperty("org.openconcerto.editpanel.noborder", "true");
-        System.setProperty("org.openconcerto.editpanel.separator", "true");
+        System.setProperty("org.openconcerto.editpanel.noborder", "true");
+        System.setProperty("org.openconcerto.sql.editpanel.endAdd", "true");
         System.setProperty("org.openconcerto.sql.listPanel.deafEditPanel", "true");
         System.setProperty("org.openconcerto.ui.addComboButton", "true");
         System.setProperty("org.openconcerto.sql.structure.useXML", "true");

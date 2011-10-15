@@ -97,9 +97,10 @@ public class ListeFactureRenderer extends TableCellRendererDecorator {
                 // System.err.println("Column " + column + " Fields : " + fields);
                 if (fields.contains(tableModeReglement.getField("AJOURS"))) {
                     final SQLRowAccessor foreignRow = rowAt.getForeign("ID_MODE_REGLEMENT");
-                    if (foreignRow != null) {
-                        int ajours = foreignRow.getInt("AJOURS");
-                        int njour = foreignRow.getInt("LENJOUR");
+                    if (foreignRow != null && !foreignRow.isUndefined()) {
+
+                        int ajours = (foreignRow.getObject("AJOURS") == null) ? 0 : foreignRow.getInt("AJOURS");
+                        int njour = (foreignRow.getObject("LENJOUR") == null) ? 0 : foreignRow.getInt("LENJOUR");
 
                         if (ajours == 0 && njour == 0) {
                             label.setText("Comptant");

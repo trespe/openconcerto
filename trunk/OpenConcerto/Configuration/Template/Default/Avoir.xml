@@ -120,7 +120,7 @@
 				
 		<element location="K" type="fill" blankOnStyle="Normal">
 			<field base="Societe" table="AVOIR_CLIENT_ELEMENT" name="ID_TAXE" conditionField="PV_HT" conditionExpValue="0">
-				<field base="Societe" table="TAXE" name="TAUX"/>
+				<field base="Societe" table="TAXE" name="TAUX" op="/" number="100.0" />
 			</field>
 		</element>	
 

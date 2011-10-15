@@ -339,9 +339,9 @@ public class Ticket {
             if (paiement.getType() == Paiement.CB) {
                 type = "Paiement CB";
             } else if (paiement.getType() == Paiement.CHEQUE) {
-                type = "Paiment par chèque";
+                type = "Paiement par chèque";
             } else if (paiement.getType() == Paiement.ESPECES) {
-                type = "Paiment en espèces";
+                type = "Paiement en espèces";
             }
             int montantInCents = paiement.getMontantInCents();
             if (montantInCents > 0) {

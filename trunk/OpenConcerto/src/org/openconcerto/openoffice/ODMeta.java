@@ -13,7 +13,6 @@
  
  package org.openconcerto.openoffice;
 
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -268,17 +267,13 @@ public class ODMeta extends ODNode {
             return null;
         else {
             final Calendar cal = Calendar.getInstance();
-            try {
-                cal.setTime((Date) OOUtils.DATE_FORMAT.parseObject(date));
-            } catch (ParseException e) {
-                throw new IllegalStateException("wrong date: " + date, e);
-            }
+            cal.setTime((Date) ODValueType.DATE.parse(date));
             return cal;
         }
     }
 
     private final void setDateChild(final Calendar cal, final String name, final Namespace ns) {
-        this.getChild(name, ns).setText(OOUtils.DATE_FORMAT.format(cal.getTime()));
+        this.getChild(name, ns).setText(ODValueType.DATE.format(cal.getTime()));
     }
 
 }

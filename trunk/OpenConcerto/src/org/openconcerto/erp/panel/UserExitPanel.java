@@ -19,8 +19,8 @@ import org.openconcerto.erp.preferences.BackupNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.utils.BackupPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.UserExit;
 
-import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -127,12 +127,7 @@ public class UserExitPanel extends JPanel {
     PostgreSQLFrame pgFrame = null;
 
     private void closeGNx() {
-        Frame[] frames = JFrame.getFrames();
-        for (int i = 0; i < frames.length; i++) {
-            if (frames[i] != null) {
-                frames[i].dispose();
-            }
-        }
+        UserExit.closeAllWindows(null);
         ComptaPropsConfiguration.closeOOConnexion();
         // ((JFrame) SwingUtilities.getRoot(UserExitingPanel.this)).dispose();
         if (Gestion.pgFrameStart != null) {

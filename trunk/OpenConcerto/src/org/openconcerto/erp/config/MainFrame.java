@@ -33,6 +33,7 @@ import org.openconcerto.erp.core.finance.accounting.action.EtatBalanceAction;
 import org.openconcerto.erp.core.finance.accounting.action.EtatChargeAction;
 import org.openconcerto.erp.core.finance.accounting.action.EtatGrandLivreAction;
 import org.openconcerto.erp.core.finance.accounting.action.EtatJournauxAction;
+import org.openconcerto.erp.core.finance.accounting.action.ExportRelationExpertAction;
 import org.openconcerto.erp.core.finance.accounting.action.GenerePointageAction;
 import org.openconcerto.erp.core.finance.accounting.action.GestionPlanComptableEAction;
 import org.openconcerto.erp.core.finance.accounting.action.ImpressionLivrePayeAction;
@@ -74,6 +75,7 @@ import org.openconcerto.erp.core.sales.credit.action.ListeDesAvoirsClientsAction
 import org.openconcerto.erp.core.sales.credit.action.NouveauAvoirClientAction;
 import org.openconcerto.erp.core.sales.invoice.action.EtatVenteAction;
 import org.openconcerto.erp.core.sales.invoice.action.GenListeVenteAction;
+import org.openconcerto.erp.core.sales.invoice.action.ListeDebiteursAction;
 import org.openconcerto.erp.core.sales.invoice.action.ListeDesElementsFactureAction;
 import org.openconcerto.erp.core.sales.invoice.action.ListeDesVentesAction;
 import org.openconcerto.erp.core.sales.invoice.action.ListeSaisieVenteFactureAction;
@@ -102,6 +104,7 @@ import org.openconcerto.erp.core.supplychain.receipt.action.ListeDesBonsReceptio
 import org.openconcerto.erp.core.supplychain.receipt.action.NouveauBonReceptionAction;
 import org.openconcerto.erp.core.supplychain.stock.action.ListeDesMouvementsStockAction;
 import org.openconcerto.erp.core.supplychain.stock.action.NouvelleSaisieMouvementStockAction;
+import org.openconcerto.erp.core.supplychain.supplier.action.ListeDesContactsFournisseursAction;
 import org.openconcerto.erp.core.supplychain.supplier.action.ListeDesFournisseursAction;
 import org.openconcerto.erp.core.supplychain.supplier.action.ListesFacturesFournImpayeesAction;
 import org.openconcerto.erp.core.supplychain.supplier.action.NouvelHistoriqueListeFournAction;
@@ -320,6 +323,7 @@ public class MainFrame extends JFrame {
         final ComptaPropsConfiguration configuration = (ComptaPropsConfiguration) Configuration.getInstance();
 
             menu.add(new SauvegardeBaseAction());
+            menu.add(new ExportRelationExpertAction());
 
         // if (rights.haveRight(NXRights.LOCK_MENU_TEST.getCode())) {
         // menu.add(new GenerateEcrFactAction());
@@ -412,6 +416,7 @@ public class MainFrame extends JFrame {
 
             menu.add(new JSeparator());
             menu.add(new ListeDesFournisseursAction());
+            menu.add(new ListeDesContactsFournisseursAction());
                 menu.add(new NouvelHistoriqueListeFournAction());
             if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
                     menu.add(new ListeDesCommandesAction());
@@ -479,6 +484,7 @@ public class MainFrame extends JFrame {
         }
 
         menu.add(new ListesFacturesClientsImpayeesAction());
+        menu.add(new ListeDebiteursAction());
         if (rights.haveRight(NXRights.GESTION_ENCAISSEMENT.getCode())) {
             menu.add(new ListeDesEncaissementsAction());
             menu.add(new ListeDesRelancesAction());

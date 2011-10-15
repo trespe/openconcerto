@@ -14,6 +14,8 @@
  package org.openconcerto.erp.core.sales.product.ui;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable;
+import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -35,6 +37,7 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
 
     private final JCheckBox checkModeVente, checkLongueur, checkLargeur, checkPoids, checkGestionStockMin;
     private final JCheckBox checkService, checkVenteComptoir, checkShowPoids, checkShowStyle, checkSFE;
+    private final JCheckBox checkDevise, checkMarge;
 
     public GestionArticlePreferencePanel() {
         super();
@@ -53,8 +56,14 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         this.checkModeVente = new JCheckBox("Activer le mode de vente spécifique");
         this.checkVenteComptoir = new JCheckBox("Activer le mode vente comptoir");
         this.checkShowPoids = new JCheckBox("Voir le Poids");
+        this.checkDevise = new JCheckBox("Gérer les devise");
+        this.checkMarge = new JCheckBox("Afficher le taux de marque au lieu du taux de marge");
 
 
+        this.add(this.checkDevise, c);
+        c.gridy++;
+        this.add(this.checkMarge, c);
+        c.gridy++;
         this.add(this.checkGestionStockMin, c);
         c.gridy++;
         this.add(this.checkService, c);
@@ -101,19 +110,23 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         props.setProperty("ArticleSFE", String.valueOf(this.checkSFE.isSelected()));
         props.setProperty("ArticleVenteComptoir", String.valueOf(this.checkVenteComptoir.isSelected()));
         props.setProperty("ArticleStockMin", String.valueOf(this.checkGestionStockMin.isSelected()));
+        props.setProperty(AbstractVenteArticleItemTable.ARTICLE_SHOW_DEVISE, String.valueOf(this.checkDevise.isSelected()));
+        props.setProperty(TotalPanel.MARGE_MARQUE, String.valueOf(this.checkMarge.isSelected()));
         props.store();
     }
 
     @Override
     public void restoreToDefaults() {
         this.checkModeVente.setSelected(false);
-        this.checkShowPoids.setSelected(true);
-        this.checkShowStyle.setSelected(true);
+        this.checkShowPoids.setSelected(false);
+        this.checkShowStyle.setSelected(false);
         enableAdvancedMode(false);
         this.checkService.setSelected(true);
         this.checkSFE.setSelected(false);
         this.checkVenteComptoir.setSelected(false);
         this.checkGestionStockMin.setSelected(true);
+        this.checkDevise.setSelected(false);
+        this.checkMarge.setSelected(false);
     }
 
     @Override
@@ -154,14 +167,16 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         this.checkPoids.setSelected(bPoids == null || bPoids.booleanValue());
 
         // Show Poids
-        final String showPoids = props.getStringProperty("ArticleShowPoids");
-        final Boolean bShowPoids = Boolean.valueOf(showPoids);
-        this.checkShowPoids.setSelected(bShowPoids == null || bShowPoids.booleanValue());
+        this.checkShowPoids.setSelected(props.getBooleanValue("ArticleShowPoids", false));
 
         // Show Style
-        final String showStyle = props.getStringProperty("ArticleShowStyle");
-        final Boolean bShowStyle = !showStyle.equalsIgnoreCase("false");
-        this.checkShowStyle.setSelected(bShowStyle == null || bShowStyle.booleanValue());
+        this.checkShowStyle.setSelected(props.getBooleanValue("ArticleShowStyle", false));
+
+        // Devise
+        this.checkDevise.setSelected(props.getBooleanValue(AbstractVenteArticleItemTable.ARTICLE_SHOW_DEVISE, false));
+
+        // Devise
+        this.checkMarge.setSelected(props.getBooleanValue(TotalPanel.MARGE_MARQUE, false));
 
         // Show Style
         final String gestionStockMin = props.getStringProperty("ArticleStockMin");

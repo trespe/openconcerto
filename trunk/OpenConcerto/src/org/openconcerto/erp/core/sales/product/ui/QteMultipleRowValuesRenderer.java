@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.core.sales.product.ui;
 
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
@@ -22,11 +21,13 @@ import org.openconcerto.utils.CollectionUtils;
 
 import java.awt.Color;
 import java.awt.Component;
-import java.util.List;
 
+import javax.swing.JLabel;
 import javax.swing.JTable;
+import javax.swing.SwingConstants;
+import javax.swing.table.DefaultTableCellRenderer;
 
-public class QteMultipleRowValuesRenderer extends DeviseNiceTableCellRenderer {
+public class QteMultipleRowValuesRenderer extends DefaultTableCellRenderer {
 
     // Red
     private static final Color red = new Color(255, 31, 52);
@@ -45,7 +46,7 @@ public class QteMultipleRowValuesRenderer extends DeviseNiceTableCellRenderer {
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 
         Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-
+        ((JLabel) comp).setHorizontalAlignment(SwingConstants.RIGHT);
         if (table instanceof RowValuesTable) {
 
             RowValuesTableModel model = ((RowValuesTable) table).getRowValuesTableModel();

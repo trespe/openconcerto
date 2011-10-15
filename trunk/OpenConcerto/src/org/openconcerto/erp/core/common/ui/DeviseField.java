@@ -24,6 +24,7 @@ import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObject;
 import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.doc.Documented;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
@@ -371,9 +372,11 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
         return this.field;
     }
 
-    public boolean isValidated() {
+    @Override
+    public ValidState getValidState() {
         // TODO
-        return true;
+        // return "Le montant saisi n'est pas correct";
+        return ValidState.getTrueInstance();
     }
 
     public void addValidListener(ValidListener l) {
@@ -426,10 +429,5 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
 
     public boolean isDocTransversable() {
         return false;
-    }
-
-    public String getValidationText() {
-        // TODO Auto-generated method stub
-        return "Le montant saisi n'est pas correct";
     }
 }

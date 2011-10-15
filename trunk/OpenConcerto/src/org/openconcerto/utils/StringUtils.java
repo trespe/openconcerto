@@ -237,7 +237,7 @@ public class StringUtils {
             char charAt = s.charAt(i);
             if (charAt == '\n') {
                 lastString.append(charAt);
-                result.append(charAt);
+                result.append(lastString);
                 lastString = new StringBuffer();
             } else {
 

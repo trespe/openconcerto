@@ -14,6 +14,7 @@
  package org.openconcerto.map.ui;
 
 import org.openconcerto.map.model.Ville;
+import org.openconcerto.ui.PopupMouseListener;
 import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.ITextSelector;
 import org.openconcerto.ui.component.text.DocumentComponent;
@@ -25,13 +26,12 @@ import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObject;
 import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
@@ -142,25 +142,7 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
         });
         popupMenu.add(menuItem);
 
-        this.text.getTextComp().addMouseListener(new MouseAdapter() {
-            private void maybeShowPopup(final MouseEvent e) {
-
-                if (e.isPopupTrigger()) {
-                    popupMenu.show(e.getComponent(), e.getX(), e.getY());
-                }
-            }
-
-            @Override
-            public void mousePressed(final MouseEvent e) {
-                this.maybeShowPopup(e);
-            }
-
-            @Override
-            public void mouseReleased(final MouseEvent e) {
-                this.maybeShowPopup(e);
-            }
-
-        });
+        this.text.getTextComp().addMouseListener(new PopupMouseListener(popupMenu));
 
     }
 
@@ -203,10 +185,6 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
         return this.getValue();
     }
 
-    public String getValidationText() {
-        return this.getValue() + " n'existe pas";
-    }
-
     // *** text
 
     public String getValue() {
@@ -218,13 +196,16 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
         return this.emptyHelper.isEmpty();
     }
 
-    public boolean isValidated() {
+    @Override
+    public ValidState getValidState() {
         final Ville villeFromVilleEtCode = Ville.getVilleFromVilleEtCode(this.getValue());
         final boolean b = villeFromVilleEtCode != null;
         if (b) {
             this.cache.setLastGood(villeFromVilleEtCode);
+            return ValidState.getTrueInstance();
+        } else {
+            return new ValidState(b, this.getValue() + " n'existe pas");
         }
-        return b;
     }
 
     public void resetValue() {

@@ -35,12 +35,13 @@ import org.jdom.xpath.XPath;
  * ForEach tag: repeats a document element for each item in a collection. <br>
  * Attributes:
  * <ul>
- * <li><b>element </b> (required): the document element to which this tag applies, e.g. "table-row"
- * </li>
+ * <li><b>element </b> (required): the document element to which this tag applies, e.g. "table-row"</li>
  * <li><b>items </b> (required): expression evaluating to a Collection to be iterated</li>
  * <li><b>var </b> (required): variable name where the current iteration item is stored</li>
  * <li><b>alternate </b> (optional): number of document elements to be alternated during iteration,
- * tipically used for alternating row background colors with a value of "2"</li>
+ * typically used for alternating row background colors with a value of "2"</li>
+ * <li><b>multiple </b> (optional): number of document elements to be copied during iteration, not
+ * compatible with "alternate".</li>
  * </ul>
  */
 public class ForEach extends BaseStatement {

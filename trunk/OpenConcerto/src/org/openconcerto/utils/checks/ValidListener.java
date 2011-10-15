@@ -24,6 +24,6 @@ package org.openconcerto.utils.checks;
  */
 public interface ValidListener {
 
-    public void validChange(ValidObject src, boolean newValue);
+    public void validChange(ValidObject src, ValidState newValue);
 
 }

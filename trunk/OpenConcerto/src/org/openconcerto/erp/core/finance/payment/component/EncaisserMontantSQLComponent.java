@@ -30,7 +30,6 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
@@ -60,15 +59,12 @@ import javax.swing.event.TableModelListener;
 
 public class EncaisserMontantSQLComponent extends BaseSQLComponent {
 
-    private SQLElement eltEch = Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT");
     private EncaisseMontantTable table = new EncaisseMontantTable();
-    final Where wRegle = new Where(eltEch.getTable().getField("REGLE"), "=", Boolean.FALSE);
 
     private JTextField nom = new JTextField();
     private DeviseField montant = new DeviseField(6);
-    private JLabel labelWarning = new JLabelWarning();
+    private JLabel labelWarning = new JLabelWarning("Le montant est trop élevé!");
 
-    private JLabel labelWarningText = new JLabel("Le montant est trop élevé!");
     private JDate date;
 
     public EncaisserMontantSQLComponent(SQLElement elt) {
@@ -150,11 +146,9 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
 
         // Warning
         c.gridx++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
         this.labelWarning.setHorizontalAlignment(SwingConstants.RIGHT);
         this.add(this.labelWarning, c);
-        c.gridx++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        this.add(this.labelWarningText, c);
 
         /***********************************************************************************
          * * MODE DE REGLEMENT
@@ -235,6 +229,9 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
                     }
 
                 }
+                if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() == model.getColumnIndexForElement(table.getMontantAReglerElement())) {
+                    updateWarning();
+                }
             }
         };
 
@@ -245,7 +242,7 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
                 table.getRowValuesTable().getRowValuesTableModel().removeTableModelListener(tableListener);
                 updateMontant(montant.getText());
                 table.getRowValuesTable().getRowValuesTableModel().addTableModelListener(tableListener);
-                fireValidChange();
+                updateWarning();
 
             }
         });
@@ -373,20 +370,14 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
         return vals;
     }
 
-    @Override
-    public synchronized boolean isValidated() {
-        return (super.isValidated() && montantIsValidated());
-    }
-
     // test si le montant est correct par rapport à l'echeance selectionnée
-    public boolean montantIsValidated() {
+    private final void updateWarning() {
 
         long montantValue = 0;
 
         if (this.table.getRowValuesTable().getRowCount() == 0) {
             this.labelWarning.setVisible(false);
-            this.labelWarningText.setVisible(false);
-            return true;
+            return;
         }
 
         try {
@@ -407,15 +398,7 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
             total += nHT.longValue();
         }
 
-        if ((montantValue > 0) && (montantValue <= total)) {
-            this.labelWarning.setVisible(false);
-            this.labelWarningText.setVisible(false);
-            return true;
-        }
-
-        this.labelWarning.setVisible(true);
-        this.labelWarningText.setVisible(true);
-        return true;
+        this.labelWarning.setVisible(montantValue <= 0 || montantValue > total);
     }
 
     public void loadEcheancesFromRows(List<SQLRow> rows) {

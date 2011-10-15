@@ -36,6 +36,7 @@ import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.EmptyObject;
 import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.doc.Documented;
 
 import java.awt.Dimension;
@@ -284,8 +285,9 @@ public class ISQLElementWithCodeSelector extends JPanel implements ValueWrapper<
     }
 
     @Override
-    public boolean isValidated() {
-        return true;
+    public ValidState getValidState() {
+        // return "aucun champ n'est sélectionné";
+        return ValidState.getTrueInstance();
     }
 
     @Override
@@ -434,12 +436,6 @@ public class ISQLElementWithCodeSelector extends JPanel implements ValueWrapper<
     public JButton getViewButton() {
 
         return this.viewButton;
-    }
-
-    @Override
-    public String getValidationText() {
-        // TODO Auto-generated method stub
-        return "aucun champ n'est sélectionné";
     }
 
     /**

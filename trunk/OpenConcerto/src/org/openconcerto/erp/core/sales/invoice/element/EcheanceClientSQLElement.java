@@ -67,6 +67,7 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
             protected void customizeToFetch(SQLRowValues graphToFetch) {
                 super.customizeToFetch(graphToFetch);
                 graphToFetch.put("REG_COMPTA", null);
+                graphToFetch.put("REGLE", null);
             }
         };
     }

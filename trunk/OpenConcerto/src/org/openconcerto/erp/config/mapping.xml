@@ -50,9 +50,10 @@
 	</TABLE>
 
 	<TABLE name="DEVISE">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
 		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
 		<FIELD name="LIBELLE" label="Libellé" titlelabel="Libellé" />
-		<FIELD name="LIBELLE_CENT" label="Code" titlelabel="Code" />
+		<FIELD name="LIBELLE_CENT" label="Libellé centimes" titlelabel="Libellé centimes" />
 		<FIELD name="TAUX" label="Taux" titlelabel="Taux" />
 	</TABLE>
 
@@ -98,6 +99,8 @@
 		<FIELD name="NOVEMBRE" label="Novembre" titlelabel="Novembre" />
 		<FIELD name="DECEMBRE" label="Décembre" titlelabel="Décembre" />
 	</TABLE>
+
+	
 
 	<TABLE name="PERIODE_VALIDITE">
 		<FIELD name="JANVIER" label="Janvier" titlelabel="Janvier" />
@@ -240,6 +243,12 @@
 		<FIELD name="TYPE" label="Type" titlelabel="Type" />
 		<FIELD name="NUMERO_URSSAF" label="Numéro URSSAF" titlelabel="Numéro URSSAF" />
 	</TABLE>
+
+	<TABLE name="TYPE_MODELE">
+		<FIELD name="NOM" label="Nom" titleLabel="Nom" />
+		<FIELD name="TABLE" label="Table" titleLabel="Table" />
+	</TABLE>
+
 
 	<TABLE name="VARIABLE_PAYE">
 		<FIELD name="VALEUR" label="Valeur" titlelabel="Valeur" />

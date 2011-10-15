@@ -21,6 +21,7 @@ import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
 import org.openconcerto.erp.core.sales.order.ui.CommandeClientItemTable;
+import org.openconcerto.erp.panel.PanelOOSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -43,14 +44,12 @@ import org.openconcerto.ui.preferences.DefaultProps;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Color;
-import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -68,10 +67,9 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
     private CommandeClientItemTable table;
     private JUniqueTextField numeroUniqueCommande;
     private final SQLTable tableNum = getTable().getBase().getTable("NUMEROTATION_AUTO");
-    private final JCheckBox checkImpression = new JCheckBox("Imprimer");
-    private final JCheckBox checkVisu = new JCheckBox("Visualiser");
     private final ITextArea infos = new ITextArea(3, 3);
     private ElementComboBox comboCommercial, comboDevis, comboClient;
+    private PanelOOSQLComponent panelOO;
 
     private final SQLTextCombo textObjet = new SQLTextCombo();
 
@@ -310,19 +308,15 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
         this.add(totalTTC, c);
 
-        JPanel panelOO = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        this.panelOO = new PanelOOSQLComponent(this);
         c.gridwidth = 1;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.anchor = GridBagConstraints.EAST;
         c.gridx = 0;
         c.gridy += 3;
         c.weightx = 0;
-
-        // c.gridx++;
-        panelOO.add(this.checkImpression, c);
-        panelOO.add(this.checkVisu, c);
         c.gridwidth = GridBagConstraints.REMAINDER;
-        this.add(panelOO, c);
+        this.add(this.panelOO, c);
 
         textPortHT.getDocument().addDocumentListener(new DocumentListener() {
             public void changedUpdate(DocumentEvent e) {
@@ -392,7 +386,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
             // generation du document
             CommandeClientXmlSheet sheet = new CommandeClientXmlSheet(getTable().getRow(idCommande));
-            sheet.genere(this.checkVisu.isSelected(), this.checkImpression.isSelected());
+            sheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
 
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
@@ -450,7 +444,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
         // generation du document
         CommandeClientXmlSheet dSheet = new CommandeClientXmlSheet(getTable().getRow(getSelectedID()));
-        dSheet.genere(this.checkVisu.isSelected(), this.checkImpression.isSelected());
+        dSheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
     }
 
     public void setDefaults() {

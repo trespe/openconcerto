@@ -19,6 +19,7 @@ import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -44,7 +45,6 @@ public abstract class JavaPrefPreferencePanel extends JPanel implements Preferen
     private final Set<PrefView<?>> views;
     private boolean modified;
     private final ValidChangeSupport validSupp;
-    private String invalidityCause;
 
     public JavaPrefPreferencePanel(final String title, final Preferences prefs) {
         this.title = title;
@@ -53,7 +53,6 @@ public abstract class JavaPrefPreferencePanel extends JPanel implements Preferen
         this.views = new HashSet<PrefView<?>>();
         this.modified = false;
         this.validSupp = new ValidChangeSupport(this);
-        this.invalidityCause = null;
     }
 
     public final void setPrefs(Preferences prefs) {
@@ -97,8 +96,8 @@ public abstract class JavaPrefPreferencePanel extends JPanel implements Preferen
         });
         vw.addValidListener(new ValidListener() {
             @Override
-            public void validChange(ValidObject src, boolean newValue) {
-                JavaPrefPreferencePanel.this.validSupp.fireValidChange(isValidated());
+            public void validChange(ValidObject src, ValidState newValue) {
+                JavaPrefPreferencePanel.this.validSupp.fireValidChange(getValidState());
             }
         });
     }
@@ -158,26 +157,21 @@ public abstract class JavaPrefPreferencePanel extends JPanel implements Preferen
     // ValidObject
 
     @Override
-    public final boolean isValidated() {
+    public ValidState getValidState() {
         boolean res = true;
         final List<String> pbs = new ArrayList<String>();
         for (final PrefView<?> v : this.views) {
-            if (!v.getVW().isValidated()) {
+            final ValidState validState = v.getVW().getValidState();
+            if (!validState.isValid()) {
                 String explanation = "'" + v.getName() + "' n'est pas valide";
-                final String txt = v.getVW().getValidationText();
+                final String txt = validState.getValidationText();
                 if (txt != null)
                     explanation += " (" + txt + ")";
                 pbs.add(explanation);
                 res = false;
             }
         }
-        this.invalidityCause = res ? null : CollectionUtils.join(pbs, "\n");
-        return res;
-    }
-
-    @Override
-    public final String getValidationText() {
-        return this.invalidityCause;
+        return ValidState.create(res, CollectionUtils.join(pbs, "\n"));
     }
 
     @Override

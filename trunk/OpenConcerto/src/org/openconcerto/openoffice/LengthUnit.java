@@ -81,6 +81,10 @@ public enum LengthUnit {
         }
     }
 
+    public final String format(final BigDecimal d) {
+        return d.toPlainString() + getSymbol();
+    }
+
     public static final LengthUnit fromSymbol(final String s) {
         for (final LengthUnit lu : values())
             if (lu.symbol.equals(s))

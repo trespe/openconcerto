@@ -35,6 +35,8 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.checks.ValidState;
+import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Component;
 import java.awt.Dimension;
@@ -64,7 +66,6 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.tree.TreePath;
 
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
@@ -72,6 +73,10 @@ import org.jedit.CTokenMarker;
 
 // FIXME retirer le scrolling de l'edit frame pour scroller uniquement sur l'arbre des variables
 public class VariablePayeSQLElement extends ConfSQLElement {
+
+    private final static ValidState VAR_ALREADY_EXIST = ValidState.createInvalid("Cette variable existe déjà !");
+    private final static ValidState VAR_NAME_NOT_CORRECT = ValidState.createInvalid("Nom de variable incorrect !");
+    private final static ValidState VAR_NO_NAME = ValidState.createInvalid("Aucun nom attribué !");
 
     private static SQLTable tableVarSal = null;
 
@@ -105,6 +110,16 @@ public class VariablePayeSQLElement extends ConfSQLElement {
         final List<String> l = new ArrayList<String>();
         l.add("NOM");
         return l;
+    }
+
+    static final boolean isForbidden(final String code) {
+        final List<String> l = getForbiddenVarName();
+        for (int i = 0; i < l.size(); i++) {
+            if (l.get(i).trim().equalsIgnoreCase(code)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // Liste des variables deja definit
@@ -266,10 +281,7 @@ public class VariablePayeSQLElement extends ConfSQLElement {
 
         return new BaseSQLComponent(this) {
 
-            private boolean validVarName;
-            private final static String VAR_ALREADY_EXIST = "Cette variable existe déjà!";
-            private final static String VAR_NAME_NOT_CORRECT = "Nom de variable incorrect!";
-            private final static String VAR_NO_NAME = "Aucun nom attribué!";
+            private ValidState validVarName;
             private JRadioButton radioVal = new JRadioButton("Valeur");
             private JRadioButton radioFormule = new JRadioButton("Formule");
 
@@ -277,8 +289,7 @@ public class VariablePayeSQLElement extends ConfSQLElement {
             // private final ITextArea textFormule = new ITextArea();
             private final VariableTree treeVariable = new VariableTree();
             private final JTextField textNom = new JTextField();
-            private final JLabel labelImgWarningBadVar = new JLabelWarning();
-            private final JLabel labelWarningBadVar = new JLabel(VAR_NO_NAME);
+            private final JLabel labelWarningBadVar = new JLabelWarning();
             private ElementComboBox comboSelSal;
             private EditFrame edit = null;
             private final SQLJavaEditor textFormule = new SQLJavaEditor(getMapTree());
@@ -287,14 +298,10 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 this.setLayout(new GridBagLayout());
                 final GridBagConstraints c = new DefaultGridBagConstraints();
 
-                this.validVarName = false;
+                this.validVarName = null;
                 this.textFormule.setEditable(false);
 
                 // Arbre des variables
-                c.gridheight = GridBagConstraints.REMAINDER;
-                c.anchor = GridBagConstraints.NORTHWEST;
-                c.fill = GridBagConstraints.BOTH;
-
                 JScrollPane sc = new JScrollPane(this.treeVariable);
                 sc.setPreferredSize(new Dimension(150, sc.getPreferredSize().height));
 
@@ -363,7 +370,9 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 JLabel labelCategorie = new JLabel("Catégorie");
                 panelDroite.add(labelCategorie, c);
                 c.gridx++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
                 panelDroite.add(textCategorie, c);
+                c.gridwidth = 1;
 
                 // Nom
                 c.fill = GridBagConstraints.HORIZONTAL;
@@ -374,26 +383,18 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 panelDroite.add(labelNom, c);
 
                 c.gridx++;
+                c.weightx = 1;
                 panelDroite.add(this.textNom, c);
 
-                this.textNom.getDocument().addDocumentListener(new DocumentListener() {
-
-                    public void insertUpdate(DocumentEvent e) {
-                        validVarName = isValidVarName();
-                    }
-
-                    public void removeUpdate(DocumentEvent e) {
-                        validVarName = isValidVarName();
-                    }
-
-                    public void changedUpdate(DocumentEvent e) {
-                        validVarName = isValidVarName();
+                this.textNom.getDocument().addDocumentListener(new SimpleDocumentListener() {
+                    @Override
+                    public void update(DocumentEvent e) {
+                        updateValidVarName();
                     }
                 });
 
                 c.gridx++;
-                panelDroite.add(this.labelImgWarningBadVar, c);
-                c.gridx++;
+                c.weightx = 0;
                 panelDroite.add(this.labelWarningBadVar, c);
 
                 // Description
@@ -402,9 +403,11 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 c.gridy++;
                 c.gridx = 1;
                 c.gridwidth = 1;
+                c.weightx = 0;
                 panelDroite.add(labelInfos, c);
                 c.gridx++;
                 c.gridwidth = GridBagConstraints.REMAINDER;
+                c.weightx = 1;
                 c.weighty = 0;
                 panelDroite.add(textInfos, c);
 
@@ -412,9 +415,11 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 c.gridx = 1;
                 c.gridy++;
                 c.gridwidth = 1;
+                c.weightx = 0;
                 panelDroite.add(this.radioVal, c);
 
                 c.gridx++;
+                c.weightx = 1;
                 c.gridwidth = GridBagConstraints.REMAINDER;
                 panelDroite.add(this.textValeur, c);
 
@@ -461,7 +466,10 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 this.comboSelSal.init(new SalarieSQLElement());
 
                 c.gridx++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                c.weightx = 0;
                 panelDroite.add(this.comboSelSal, c);
+                c.gridwidth = 1;
 
                 JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sc, panelDroite);
 
@@ -486,8 +494,9 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 });
             }
 
-            public synchronized boolean isValidated() {
-                return super.isValidated() && this.validVarName;
+            @Override
+            public synchronized ValidState getValidState() {
+                return super.getValidState().and(this.validVarName);
             }
 
             private void setFormuleEnabled(boolean b) {
@@ -506,37 +515,41 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 this.treeVariable.setEditable(b);
             }
 
-            private boolean isValidVarName() {
+            private void setValidVarName(ValidState s) {
+                if (!s.equals(this.validVarName)) {
+                    this.validVarName = s;
+                    final boolean warningVisible = !s.isValid();
+                    if (warningVisible)
+                        this.labelWarningBadVar.setText(s.getValidationText());
+                    this.labelWarningBadVar.setVisible(warningVisible);
+                    this.fireValidChange();
+                }
+            }
 
+            private void updateValidVarName() {
+                this.setValidVarName(this.computeValidVarName());
+            }
+
+            private ValidState computeValidVarName() {
                 // on vérifie si la syntaxe de la variable est correct (chiffre lettre et _)
-                String varName = this.textNom.getText();
+                final String varName = this.textNom.getText().trim();
 
                 System.err.println("Verification de la validité du nom de la variable.");
 
                 if (varName.length() == 0) {
-                    System.err.println("--> nom vide");
-
-                    this.labelImgWarningBadVar.setVisible(true);
-
-                    this.labelWarningBadVar.setText(VAR_NO_NAME);
-                    this.labelWarningBadVar.setVisible(true);
-                    return false;
+                    return VAR_NO_NAME;
                 }
 
                 // ne contient que des chiffre lettre et _ et ne commence pas par un chiffre
                 if (!isJavaVar(varName)) {
-                    System.err.println("nom invalide");
-                    this.labelImgWarningBadVar.setVisible(true);
-                    this.labelWarningBadVar.setText(VAR_NAME_NOT_CORRECT);
-                    this.labelWarningBadVar.setVisible(true);
-                    return false;
+                    return VAR_NAME_NOT_CORRECT;
                 }
 
                 // on vérifie que la variable n'existe pas déja
                 SQLSelect selAllVarName = new SQLSelect(getTable().getBase());
 
                 selAllVarName.addSelect(VariablePayeSQLElement.this.getTable().getField("ID"));
-                Where w = new Where(VariablePayeSQLElement.this.getTable().getField("NOM"), "=", this.textNom.getText().trim());
+                Where w = new Where(VariablePayeSQLElement.this.getTable().getField("NOM"), "=", varName);
                 w = w.and(new Where(VariablePayeSQLElement.this.getTable().getKey(), "!=", getSelectedID()));
                 selAllVarName.setWhere(w);
 
@@ -545,31 +558,15 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 Object[] objKeysRowName = ((List) getTable().getBase().getDataSource().execute(reqAllVarName, new ArrayListHandler())).toArray();
 
                 if (objKeysRowName.length > 0) {
-                    this.labelImgWarningBadVar.setVisible(true);
-                    this.labelWarningBadVar.setText(VAR_ALREADY_EXIST);
-                    this.labelWarningBadVar.setVisible(true);
-                    System.err.println("---------<<>>>>>>>  length > 0");
-                    return false;
+                    return VAR_ALREADY_EXIST;
                 } else {
 
                     // Impossible de créer une variable du meme nom qu'un champ du salarie
-                    List l = getForbiddenVarName();
-                    for (int i = 0; i < l.size(); i++) {
+                    if (isForbidden(varName))
+                        return VAR_ALREADY_EXIST;
 
-                        if (l.get(i).toString().trim().compareToIgnoreCase(this.textNom.getText().trim()) == 0) {
-
-                            this.labelImgWarningBadVar.setVisible(true);
-                            this.labelWarningBadVar.setText(VAR_ALREADY_EXIST);
-                            this.labelWarningBadVar.setVisible(true);
-                            System.err.println("---------<<>>>>>>>  forbidenn var");
-                            return false;
-                        }
-                    }
-
-                    this.labelImgWarningBadVar.setVisible(false);
-                    this.labelWarningBadVar.setVisible(false);
-                    this.textFormule.setVarAssign(this.textNom.getText());
-                    return true;
+                    this.textFormule.setVarAssign(varName);
+                    return ValidState.getTrueInstance();
                 }
             }
 
@@ -608,11 +605,7 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                     this.textFormule.setVarAssign(r.getString("NOM"));
                 }
 
-                this.validVarName = true;
-
-                this.labelImgWarningBadVar.setVisible(false);
-                this.labelWarningBadVar.setVisible(false);
-
+                this.updateValidVarName();
             }
         };
     }

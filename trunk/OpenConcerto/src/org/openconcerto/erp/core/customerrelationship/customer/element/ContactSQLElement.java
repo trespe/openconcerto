@@ -28,8 +28,18 @@ import java.util.Set;
 
 public class ContactSQLElement extends ConfSQLElement {
 
+    static public class ContactFournisseurSQLElement extends ContactSQLElement {
+        public ContactFournisseurSQLElement() {
+            super("CONTACT_FOURNISSEUR", "un contact fournisseur", "contacts fournisseurs");
+        }
+    }
+
     public ContactSQLElement() {
-        super("CONTACT", "un contact", "contacts");
+        this("CONTACT", "un contact", "contacts");
+    }
+
+    protected ContactSQLElement(String tableName, String singular, String plural) {
+        super(tableName, singular, plural);
     }
 
     protected List<String> getListFields() {
@@ -39,6 +49,10 @@ public class ContactSQLElement extends ConfSQLElement {
         l.add("FONCTION");
         if (getTable().contains("ID_CLIENT")) {
             l.add("ID_CLIENT");
+        }
+
+        if (getTable().contains("ID_FOURNISSEUR")) {
+            l.add("ID_FOURNISSEUR");
         }
         l.add("TEL_STANDARD");
         l.add("TEL_DIRECT");
@@ -54,6 +68,9 @@ public class ContactSQLElement extends ConfSQLElement {
             l.add("ID_SITE");
         if (getTable().contains("ID_CLIENT"))
             l.add("ID_CLIENT");
+        if (getTable().contains("ID_FOURNISSEUR")) {
+            l.add("ID_FOURNISSEUR");
+        }
         return l;
     }
 
@@ -87,6 +104,9 @@ public class ContactSQLElement extends ConfSQLElement {
         public void addViews() {
             if (getTable().contains("ID_CLIENT")) {
                 this.addView("ID_CLIENT");
+            }
+            if (getTable().contains("ID_FOURNISSEUR")) {
+                this.addView("ID_FOURNISSEUR");
             }
             if (getTable().contains("ID_TITRE_PERSONNEL")) {
                 this.addView("ID_TITRE_PERSONNEL", "1");

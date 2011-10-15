@@ -23,7 +23,6 @@ import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
-import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSyntax;
@@ -120,9 +119,9 @@ public class MergeTable extends Changer<SQLTable> {
                 // copy all data of t into destTable
                 final List<Number> insertedIDs = SQLRowValues.insertIDs(MergeTable.this.destTable, fields + " " + sel.asString());
                 // handle undefined
-                insertedIDs.add(0, MergeTable.this.destTable.getUndefinedID() == SQLRow.NONEXISTANT_ID ? null : MergeTable.this.destTable.getUndefinedID());
+                insertedIDs.add(0, MergeTable.this.destTable.getUndefinedIDNumber());
                 final List<Number> oldIDs = ds.executeCol(selOldIDs.asString());
-                final Integer oldUndef = t.getUndefinedID() == SQLRow.NONEXISTANT_ID ? null : t.getUndefinedID();
+                final Number oldUndef = t.getUndefinedIDNumber();
                 if (oldUndef == null)
                     // MAYBE should do a second update with "where %n is NULL"
                     throw new UnsupportedOperationException("old undef is null, not yet supported");

@@ -14,6 +14,7 @@
  package org.openconcerto.ui.valuewrapper;
 
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
@@ -36,7 +37,7 @@ public final class ValueChangeSupport<T> {
     private final PropertyChangeSupport supp;
 
     private final List<ValidListener> validListeners;
-    private Boolean valid;
+    private ValidState valid;
     private boolean signalInvalid;
 
     public ValueChangeSupport(ValueWrapper<T> vw) {
@@ -48,10 +49,10 @@ public final class ValueChangeSupport<T> {
     }
 
     public final void fireValueChange() {
-        final boolean newValid = this.vw.isValidated();
+        final ValidState newValid = this.vw.getValidState();
 
         // check the validity (eg '-' for a number wrapper is an unvalid change)
-        if (newValid)
+        if (newValid.isValid())
             this.supp.firePropertyChange("value", null, this.vw.getValue());
         else if (this.signalInvalid)
             this.supp.firePropertyChange(INVALID_VALUE, null, null);
@@ -63,10 +64,10 @@ public final class ValueChangeSupport<T> {
      * Some components do not fire a value change when becoming invalid.
      */
     public final void fireValidChange() {
-        this.setValid(this.vw.isValidated());
+        this.setValid(this.vw.getValidState());
     }
 
-    private final void setValid(final Boolean newValid) {
+    private final void setValid(final ValidState newValid) {
         if (!newValid.equals(this.valid)) {
             this.valid = newValid;
             for (final ValidListener l : this.validListeners) {

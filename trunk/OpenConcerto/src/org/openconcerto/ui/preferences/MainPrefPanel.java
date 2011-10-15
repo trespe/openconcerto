@@ -16,6 +16,7 @@
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Component;
 import java.awt.Font;
@@ -61,9 +62,9 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
     private final JButton buttonApply = new JButton("Appliquer");
     private final ValidListener validListener = new ValidListener() {
         @Override
-        public void validChange(ValidObject src, boolean newValue) {
-            MainPrefPanel.this.buttonApply.setEnabled(newValue);
-            MainPrefPanel.this.buttonApply.setToolTipText(src.getValidationText());
+        public void validChange(ValidObject src, ValidState newValue) {
+            MainPrefPanel.this.buttonApply.setEnabled(newValue.isValid());
+            MainPrefPanel.this.buttonApply.setToolTipText(newValue.getValidationText());
         }
     };
 
@@ -245,7 +246,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
             this.currentPanel = p;
             this.currentPanel.addValidListener(this.validListener);
             // initial value
-            this.validListener.validChange(this.currentPanel, this.currentPanel.isValidated());
+            this.validListener.validChange(this.currentPanel, this.currentPanel.getValidState());
             this.add((JComponent) this.currentPanel, c);
             this.revalidate();
             this.repaint();

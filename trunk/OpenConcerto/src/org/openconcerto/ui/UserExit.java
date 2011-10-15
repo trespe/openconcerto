@@ -14,10 +14,10 @@
  package org.openconcerto.ui;
 
 import java.awt.Component;
-import java.awt.Frame;
+import java.awt.Window;
 
-import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 /**
  * Utility class for asking the user to exit an application. If the answer is no, nothing happen,
@@ -26,6 +26,19 @@ import javax.swing.JOptionPane;
  * @author Sylvain
  */
 public final class UserExit {
+
+    static public void closeAllWindows(final Window last) {
+        // dispose of every window (this will call windowClosed())
+        for (final Window f : Window.getWindows()) {
+            // check isDisplayable() to avoid triggering a second HierarchyEvent with the same
+            // displayability which can confuse some listeners
+            if (f != last && f.isDisplayable())
+                f.dispose();
+        }
+        // this is last to exit
+        if (last != null)
+            last.dispose();
+    }
 
     private final Component comp;
     private final Runnable r;
@@ -38,10 +51,7 @@ public final class UserExit {
     public UserExit(final Component comp) {
         this(comp, new Runnable() {
             public void run() {
-                for (final Frame f : JFrame.getFrames()) {
-                    if (f != null)
-                        f.dispose();
-                }
+                closeAllWindows(comp == null ? null : SwingUtilities.getWindowAncestor(comp));
             }
         });
     }

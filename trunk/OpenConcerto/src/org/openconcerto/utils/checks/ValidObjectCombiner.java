@@ -13,8 +13,6 @@
  
  package org.openconcerto.utils.checks;
 
-import org.openconcerto.utils.CollectionUtils;
-
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -50,7 +48,7 @@ public class ValidObjectCombiner implements ValidObject {
 
         for (final ValidObject o : this.objects) {
             o.addValidListener(new ValidListener() {
-                public void validChange(ValidObject src, boolean newValue) {
+                public void validChange(ValidObject src, ValidState newValue) {
                     validChanged();
                 }
             });
@@ -58,24 +56,16 @@ public class ValidObjectCombiner implements ValidObject {
     }
 
     protected final void validChanged() {
-        this.supp.fireValidChange(this.isValidated());
+        this.supp.fireValidChange(this.getValidState());
     }
 
-    public final boolean isValidated() {
-        boolean res = true;
+    @Override
+    public ValidState getValidState() {
+        ValidState res = ValidState.getTrueInstance();
         for (final ValidObject o : this.objects) {
-            res = res && o.isValidated();
+            res = res.and(o.getValidState(), " ; ");
         }
         return res;
-    }
-
-    public String getValidationText() {
-        final List<String> res = new ArrayList<String>();
-        for (final ValidObject o : this.objects) {
-            if (!o.isValidated())
-                res.add(o.getValidationText());
-        }
-        return CollectionUtils.join(res, " ; ");
     }
 
     public void addValidListener(ValidListener l) {

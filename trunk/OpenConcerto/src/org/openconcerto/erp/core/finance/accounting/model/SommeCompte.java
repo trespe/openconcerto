@@ -47,6 +47,7 @@ public class SommeCompte {
         if (this.rowAnalytique != null) {
             SQLTable tableAssoc = ecritureTable.getTable("ASSOCIATION_ANALYTIQUE");
             Where join = new Where(tableAssoc.getField("ID_ECRITURE"), "=", ecritureTable.getKey());
+            join = join.and(new Where(tableAssoc.getField("ID_POSTE_ANALYTIQUE"), "=", this.rowAnalytique.getID()));
             sel.addJoin("RIGHT", ecritureTable.getTable("ASSOCIATION_ANALYTIQUE"), join);
         }
     }

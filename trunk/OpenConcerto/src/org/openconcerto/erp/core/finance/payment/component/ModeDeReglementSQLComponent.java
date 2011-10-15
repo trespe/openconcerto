@@ -28,6 +28,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
+import org.openconcerto.sql.sqlobject.SQLSearchableTextCombo;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
@@ -60,7 +61,7 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
     private final SQLRequestComboBox comboTypeReglement = new SQLRequestComboBox();
     private ITextCombo comboA;
     private ITextCombo comboLe = new SQLTextCombo();
-    private ITextCombo comboBanque = new SQLTextCombo();
+    private SQLSearchableTextCombo comboBanque = new SQLSearchableTextCombo();
     private JRadioButton buttonFinMois = new JRadioButton("fin de mois");
     private JRadioButton buttonDateFacture = new JRadioButton("date de facturation");
     private JRadioButton buttonLe = new JRadioButton("le");
@@ -106,7 +107,7 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
             this.checkboxComptant.setSelected(true);
         }
 
-        setEcheanceEnabled(!boolean2);
+        setEcheanceEnabled(!this.checkboxComptant.isSelected());
 
         // Si cheque et comptant
         boolean chequeComptant = (rowTypeRegl.getID() == TypeReglementSQLElement.CHEQUE && this.checkboxComptant.isSelected());

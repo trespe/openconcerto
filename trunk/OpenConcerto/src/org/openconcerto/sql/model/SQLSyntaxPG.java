@@ -49,6 +49,20 @@ import java.util.regex.Pattern;
 import org.apache.commons.dbcp.DelegatingConnection;
 import org.postgresql.PGConnection;
 
+/**
+ * To require SSL, set the "ssl" connection property to "true" (note: for now any value, including
+ * "false" enables it), to disable server validation set "sslfactory" to
+ * "org.postgresql.ssl.NonValidatingFactory". To check the connection status, install the
+ * contrib/sslinfo extension and execute "select ssl_is_used();". SSL Compression might be supported
+ * if we can find a good sslfactory : see this <a
+ * href="http://archives.postgresql.org/pgsql-general/2010-08/thrd5.php#00003">thread</a>.
+ * <p>
+ * To enable SSL on the server see http://www.postgresql.org/docs/current/static/ssl-tcp.html
+ * (already set up on Ubuntu).
+ * <p>
+ * 
+ * @author Sylvain CUAZ
+ */
 class SQLSyntaxPG extends SQLSyntax {
 
     SQLSyntaxPG() {

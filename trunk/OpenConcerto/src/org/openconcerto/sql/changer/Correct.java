@@ -13,7 +13,7 @@
  
  package org.openconcerto.sql.changer;
 
-import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.DBStructureItem;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -24,7 +24,7 @@ public class Correct extends Change {
         super();
     }
 
-    public Correct(DBRoot root) {
+    public Correct(DBStructureItem<?> root) {
         super(root);
     }
 

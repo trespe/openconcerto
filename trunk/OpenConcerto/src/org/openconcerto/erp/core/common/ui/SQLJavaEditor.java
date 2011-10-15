@@ -22,6 +22,7 @@ import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 import interpreterDJava.JavaEditor;
 
@@ -134,8 +135,9 @@ public class SQLJavaEditor extends JavaEditor implements ValueWrapper<String> {
         this.supp.removePropertyChangeListener(l);
     }
 
-    public boolean isValidated() {
-        return this.isCodeValid();
+    @Override
+    public ValidState getValidState() {
+        return ValidState.createCached(this.isCodeValid(), "la formule n'est pas valide");
     }
 
     public void addValidListener(ValidListener l) {
@@ -149,10 +151,6 @@ public class SQLJavaEditor extends JavaEditor implements ValueWrapper<String> {
 
     public JComponent getComp() {
         return this;
-    }
-
-    public String getValidationText() {
-        return "la formule n'est pas valide";
     }
 
     /**
@@ -319,7 +317,7 @@ public class SQLJavaEditor extends JavaEditor implements ValueWrapper<String> {
     @Override
     protected void setCodeValid(boolean codeValid) {
         super.setCodeValid(codeValid);
-        this.validSupp.fireValidChange(codeValid);
+        this.validSupp.fireValidChange(this.getValidState());
     }
 
     public void setSalarieID(int id) {

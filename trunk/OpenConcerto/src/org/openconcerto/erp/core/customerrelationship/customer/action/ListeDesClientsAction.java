@@ -23,21 +23,19 @@ import org.openconcerto.ql.LabelCreator;
 import org.openconcerto.ql.QLPrinter;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
-import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.utils.cc.IClosure;
 
 import java.awt.Font;
-import java.awt.event.ActionEvent;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.util.List;
 import java.util.Set;
 
-import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 
 public class ListeDesClientsAction extends CreateFrameAbstractAction {
@@ -69,56 +67,40 @@ public class ListeDesClientsAction extends CreateFrameAbstractAction {
         }
 
         final String property = PrinterNXProps.getInstance().getProperty("QLPrinter");
-            panel.getListe().getJTable().addMouseListener(new MouseAdapter() {
-                @Override
-                public void mousePressed(MouseEvent e) {
-                    final SQLRow row = panel.getListe().getSelectedRow();
-                    // Gestion du clic droit
-                    if (row != null && e.getButton() == MouseEvent.BUTTON3) {
-                        JPopupMenu menuDroit = new JPopupMenu();
-                        if (property != null && property.trim().length() > 0) {
-                            menuDroit.add(new AbstractAction("Imprimer l'étiquette client") {
+            if (property != null && property.trim().length() > 0) {
+                panel.getListe().addRowAction(RowAction.createAction("Imprimer l'étiquette client", null, new IClosure<List<SQLRowAccessor>>() {
+                    @Override
+                    public void executeChecked(List<SQLRowAccessor> input) {
+                        final SQLRowAccessor row = input.get(0);
+                        final LabelCreator c = new LabelCreator(720);
+                        c.setLeftMargin(10);
+                        c.setTopMargin(10);
+                        c.setDefaultFont(new Font("Verdana", Font.PLAIN, 50));
 
-                                public void actionPerformed(ActionEvent e) {
-                                    final LabelCreator c = new LabelCreator(720);
-                                    c.setLeftMargin(10);
-                                    c.setTopMargin(10);
-                                    c.setDefaultFont(new Font("Verdana", Font.PLAIN, 50));
-
-                                    c.addLineBold(row.getString("NOM"));
-                                    final SQLRow foreignRow = row.getForeignRow("ID_ADRESSE");
-                                    final String string = foreignRow.getString("RUE");
-                                    String[] s = string.split("\n");
-                                    for (String string2 : s) {
-                                        System.err.println(string2);
-                                        c.addLineNormal(string2);
-                                    }
-
-                                    Ville v = Ville.getVilleFromVilleEtCode(foreignRow.getString("VILLE"));
-                                    c.addLineNormal(v.getCodepostal() + " " + v.getName());
-
-                                    System.err.println("\"" + property + "\"");
-                                    final QLPrinter prt = new QLPrinter(property);
-                                    try {
-                                        prt.print(c.getImage());
-                                    } catch (Exception ex) {
-                                        ex.printStackTrace();
-                                    }
-
-                                }
-                            });
+                        c.addLineBold(row.getString("NOM"));
+                        final SQLRowAccessor foreignRow = row.getForeign("ID_ADRESSE");
+                        final String string = foreignRow.getString("RUE");
+                        String[] s = string.split("\n");
+                        for (String string2 : s) {
+                            System.err.println(string2);
+                            c.addLineNormal(string2);
                         }
-                        menuDroit.add(new AbstractAction("Créer la fiche client") {
 
-                            public void actionPerformed(ActionEvent e) {
-                                FicheClientXmlSheet sheet = new FicheClientXmlSheet(row);
-                                sheet.genere(true, false);
-                            }
-                        });
-                        menuDroit.show(e.getComponent(), e.getX(), e.getY());
+                        Ville v = Ville.getVilleFromVilleEtCode(foreignRow.getString("VILLE"));
+                        c.addLineNormal(v.getCodepostal() + " " + v.getName());
+
+                        System.err.println("\"" + property + "\"");
+                        final QLPrinter prt = new QLPrinter(property);
+                        try {
+                            prt.print(c.getImage());
+                        } catch (Exception ex) {
+                            ex.printStackTrace();
+                        }
                     }
-                }
-            });
+                }));
+            }
+
+
         panel.setSearchFullMode(true);
         panel.setSelectRowOnAdd(false);
         return frame;

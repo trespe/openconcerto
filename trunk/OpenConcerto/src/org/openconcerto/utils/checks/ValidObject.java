@@ -13,7 +13,6 @@
  
  /*
  * Créé le 3 févr. 2005
- * 
  */
 package org.openconcerto.utils.checks;
 
@@ -24,16 +23,9 @@ package org.openconcerto.utils.checks;
  */
 public interface ValidObject {
 
-    public boolean isValidated();
+    public ValidState getValidState();
 
     public void addValidListener(ValidListener l);
-    
-    public void removeValidListener(ValidListener l);
 
-    /**
-     * Why isValidated() returns its value.
-     * 
-     * @return an explanation, eg "value is negative", can be <code>null</code>.
-     */
-    public String getValidationText();
+    public void removeValidListener(ValidListener l);
 }

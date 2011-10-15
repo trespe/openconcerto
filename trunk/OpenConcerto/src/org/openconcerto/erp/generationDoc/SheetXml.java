@@ -16,6 +16,7 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.FastPrintAskFrame;
 import org.openconcerto.erp.core.common.ui.PreviewFrame;
+import org.openconcerto.erp.generationDoc.element.TypeModeleSQLElement;
 import org.openconcerto.erp.preferences.TemplateNXProps;
 import org.openconcerto.openoffice.OOUtils;
 import org.jopendocument.link.Component;
@@ -61,9 +62,6 @@ public abstract class SheetXml {
 
     // emplacement du fichier PDF généré
     protected String locationPDF;
-
-    // nom du modele sans extension
-    protected String modele;
 
     protected File f;
 
@@ -142,6 +140,29 @@ public abstract class SheetXml {
             e.printStackTrace();
             ExceptionHandler.handle("Impossible de charger le document OpenOffice", e);
         }
+    }
+
+    public abstract String getDefaultModele();
+
+    // nom du modele sans extension
+    public String getModele() {
+        if (this.row.getTable().getFieldsName().contains("ID_MODELE")) {
+            SQLRow rowModele = this.row.getForeignRow("ID_MODELE");
+            if (rowModele.isUndefined()) {
+                TypeModeleSQLElement typeModele = Configuration.getInstance().getDirectory().getElement(TypeModeleSQLElement.class);
+                String modele = typeModele.getTemplateMapping().get(this.row.getTable());
+                if (modele == null) {
+                    System.err.println("No default modele in table TYPE_MODELE for table " + this.row.getTable().getName());
+                    Thread.dumpStack();
+                    return getDefaultModele();
+                } else {
+                    return modele;
+                }
+            } else {
+                return rowModele.getString("NOM");
+            }
+        }
+        return getDefaultModele();
     }
 
     public abstract Future<File> genere(final boolean visu, final boolean impression);
@@ -223,6 +244,9 @@ public abstract class SheetXml {
     }
 
     public void showPreviewDocument() {
+        if (!isFileOOExist()) {
+            genere(false, false);
+        }
         final File f = getFile();
         PreviewFrame.show(f);
     }

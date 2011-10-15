@@ -14,16 +14,12 @@
  package org.openconcerto.openoffice;
 
 import org.openconcerto.utils.FileUtils;
-import org.openconcerto.utils.FormatGroup;
-import org.openconcerto.utils.XMLDateFormat;
 import org.openconcerto.xml.JDOMUtils;
 
 import java.awt.Color;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
-import java.text.Format;
-import java.text.SimpleDateFormat;
 
 import org.jdom.Document;
 import org.jdom.JDOMException;
@@ -34,17 +30,6 @@ import org.xml.sax.EntityResolver;
 import org.xml.sax.InputSource;
 
 public class OOUtils {
-    // as per 16.1 "Data Types" and 6.7.1 "Variable Value Types and Values"
-    // see http://www.w3.org/TR/2004/REC-xmlschema-2-20041028/#isoformats
-
-    // time means Duration for OpenDocument (see 6.7.1)
-    public static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("'PT'HH'H'mm'M'ss'S'");
-    static public final Format DATE_FORMAT;
-    static {
-        // first date and time so we don't loose time information on format() or parse()
-        // MAYBE add HH':'mm':'ss,SSS for OOo 1
-        DATE_FORMAT = new FormatGroup(new XMLDateFormat(), new SimpleDateFormat("yyyy-MM-dd'T'HH':'mm':'ss"), new SimpleDateFormat("yyyy-MM-dd"));
-    }
 
     // MAYBE configurable
     static private final String[] executables = { "ooffice2", "ooffice", "soffice" };

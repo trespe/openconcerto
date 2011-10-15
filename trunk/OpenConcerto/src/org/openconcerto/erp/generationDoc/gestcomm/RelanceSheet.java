@@ -99,6 +99,7 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         // Date relance
         Date d = (Date) this.rowRelance.getObject("DATE");
         map.put("RelanceDate", dateFormat.format(d));
+        map.put("RelanceNumero", this.rowRelance.getString("NUMERO"));
 
         SQLRow rowFacture = this.rowRelance.getForeignRow("ID_SAISIE_VENTE_FACTURE");
 

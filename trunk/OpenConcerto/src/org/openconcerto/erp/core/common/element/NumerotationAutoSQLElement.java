@@ -39,14 +39,17 @@ import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.Tuple2;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.DecimalFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -527,8 +530,6 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         };
     }
 
-    protected static final SQLTable TABLE_NUM = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("NUMEROTATION_AUTO");
-
     // Format du type 'Fact'yyyy-MM-dd0000
     public static final String getNextNumero(Class<? extends SQLElement> clazz) {
         SQLRow rowNum = TABLE_NUM.getRow(2);
@@ -538,42 +539,46 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         return getNextNumero(format, start);
     }
 
-    protected static final String getNextNumero(String format, int start) {
-        if (start < 0) {
-            return null;
-        }
+    private static final Tuple2<String, String> getPrefixAndSuffix(String format, Date d) {
+
+        String prefix = "";
+        String suffix = "";
         int c = format.indexOf('0');
         if (format.trim().length() > 0) {
             if (c >= 0) {
-                String prefix = format.substring(0, c);
-                String suffix = format.substring(c, format.length());
-                String d = prefix;
+                prefix = format.substring(0, c);
+                suffix = format.substring(c, format.length());
 
                 try {
                     DateFormat dateFormat = new SimpleDateFormat(prefix);
-                    d = dateFormat.format(new Date());
+                    prefix = dateFormat.format(d);
                 } catch (IllegalArgumentException e) {
                     System.err.println("pattern incorrect");
                 }
 
-                DecimalFormat numberFormat = new DecimalFormat(suffix);
-                String n = numberFormat.format(start);
-
-                return d + n;
             } else {
 
-                String d = format;
                 try {
                     DateFormat dateFormat = new SimpleDateFormat(format);
-                    d = dateFormat.format(new Date());
+                    prefix = dateFormat.format(d);
                 } catch (IllegalArgumentException e) {
                     System.err.println("pattern incorrect");
                 }
-                return d + String.valueOf(start);
+
             }
-        } else {
-            return String.valueOf(start);
         }
+
+        return Tuple2.create(prefix, suffix);
+    }
+
+    protected static final String getNextNumero(String format, Integer start) {
+        if (start != null && start < 0) {
+            return null;
+        }
+
+        Tuple2<String, String> t = getPrefixAndSuffix(format, new Date());
+        DecimalFormat decimalFormat = new DecimalFormat(t.get1());
+        return t.get0() + decimalFormat.format(start);
     }
 
     public static final String getNextCodeLettrage() {
@@ -627,6 +632,54 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         System.err.println("NumerotationAutoSQLElement.isNumeroExist() " + sel.asString());
         List<SQLRow> liste = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(elt.getTable(), true));
         return liste.size() > 0;
+    }
+
+    protected static final SQLTable TABLE_NUM = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("NUMEROTATION_AUTO");
+
+    public static void main(String[] args) {
+
+        List<String> l = Arrays.asList("2011/05/001", "2011/05/002", "2011/05/003", "2011/05/004");
+        DecimalFormat format = new DecimalFormat("'2011/05/'000");
+        for (String string : l) {
+            Number n;
+            try {
+                n = format.parse(string);
+                System.err.println(n);
+            } catch (ParseException exn) {
+                // TODO Bloc catch auto-généré
+                exn.printStackTrace();
+            }
+        }
+
+    }
+
+    public static String getNextForMonth(Class<? extends SQLElement> clazz, SQLTable table, Date d) {
+
+        SQLRow rowNum = TABLE_NUM.getRow(2);
+        String s = map.get(clazz);
+        String pattern = rowNum.getString(s + FORMAT);
+        Tuple2<String, String> t = getPrefixAndSuffix(pattern, d);
+        SQLSelect sel = new SQLSelect(table.getBase());
+        sel.addSelect(table.getField("NUMERO"));
+        sel.addSelect(table.getKey());
+        sel.setWhere(new Where(table.getField("NUMERO"), "LIKE", "%" + t.get0() + "%"));
+        List<SQLRow> l = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
+
+        DecimalFormat format = new DecimalFormat("'" + t.get0() + "'" + t.get1());
+        int value = 0;
+        for (SQLRow sqlRow : l) {
+            Number n;
+            try {
+                n = format.parse(sqlRow.getString("NUMERO"));
+                value = Math.max(value, n.intValue());
+            } catch (ParseException exn) {
+                // TODO Bloc catch auto-généré
+                exn.printStackTrace();
+            }
+        }
+        final String format2 = format.format(value + 1);
+        System.err.println(format2);
+        return format2;
     }
 
     private static String getPattern(SQLElement elt, int num) {

@@ -40,7 +40,12 @@ public class AvoirFournisseurXmlSheet extends AbstractSheetXml {
         cal.setTime((Date) row.getObject("DATE"));
         this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
         this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
-        this.modele = "AvoirF";
+    }
+
+    @Override
+    public String getDefaultModele() {
+        // TODO Raccord de méthode auto-généré
+        return "AvoirF";
     }
 
     public String getFileName() {

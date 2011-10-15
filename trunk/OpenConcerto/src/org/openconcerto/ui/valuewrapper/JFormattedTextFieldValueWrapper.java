@@ -13,6 +13,8 @@
  
  package org.openconcerto.ui.valuewrapper;
 
+import org.openconcerto.utils.checks.ValidState;
+
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
@@ -63,8 +65,8 @@ public class JFormattedTextFieldValueWrapper<Z> extends BaseValueWrapper<Z> {
     }
 
     @Override
-    public boolean isValidated() {
-        return this.tf.isEditValid();
+    public ValidState getValidState() {
+        return ValidState.getNoReasonInstance(this.tf.isEditValid());
     }
 
     @Override

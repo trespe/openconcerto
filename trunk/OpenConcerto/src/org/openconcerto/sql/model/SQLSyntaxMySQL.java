@@ -15,9 +15,9 @@
 
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLTable.Index;
-import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
+import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
@@ -47,11 +47,17 @@ import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 
 import org.apache.commons.dbcp.DelegatingConnection;
 
+/**
+ * MySQL can enable compression with the "useCompression" connection property. Compression status
+ * can be checked with "show global status like 'Compression';".
+ * 
+ * @author Sylvain CUAZ
+ */
 class SQLSyntaxMySQL extends SQLSyntax {
 
     SQLSyntaxMySQL() {

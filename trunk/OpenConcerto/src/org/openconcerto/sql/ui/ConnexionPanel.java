@@ -311,7 +311,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         if (this.textLogin == null || this.textLogin.isEmpty() || this.textPassWord == null) {
             return false;
         } else {
-            return this.textLogin.isValidated();
+            return this.textLogin.getValidState().isValid();
         }
     }
 

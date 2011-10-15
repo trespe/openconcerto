@@ -14,6 +14,7 @@
  package org.openconcerto.ui.valuewrapper;
 
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.convertor.ValueConvertor;
 
 import java.beans.PropertyChangeListener;
@@ -27,7 +28,7 @@ public class ConvertorValueWrapper<T, U> implements ValueWrapper<T> {
 
     public ConvertorValueWrapper(ValueWrapper<U> delegate, ValueConvertor<T, U> conv) {
         super();
-        if(delegate == null || conv == null)
+        if (delegate == null || conv == null)
             throw new NullPointerException();
         this.delegate = delegate;
         this.conv = conv;
@@ -42,18 +43,15 @@ public class ConvertorValueWrapper<T, U> implements ValueWrapper<T> {
     public void addValidListener(ValidListener l) {
         this.delegate.addValidListener(l);
     }
-    
+
     @Override
     public void removeValidListener(ValidListener l) {
-        this.delegate.removeValidListener(l);  
+        this.delegate.removeValidListener(l);
     }
 
-    public String getValidationText() {
-        return this.delegate.getValidationText();
-    }
-
-    public boolean isValidated() {
-        return this.delegate.isValidated();
+    @Override
+    public ValidState getValidState() {
+        return this.delegate.getValidState();
     }
 
     // * value

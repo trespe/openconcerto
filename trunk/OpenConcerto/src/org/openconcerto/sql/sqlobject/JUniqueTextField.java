@@ -28,6 +28,7 @@ import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.doc.Documented;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
@@ -336,8 +337,9 @@ public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Do
         this.supp.addValueListener(l);
     }
 
-    public synchronized boolean isValidated() {
-        return this.isValidated;
+    @Override
+    public ValidState getValidState() {
+        return ValidState.createCached(this.isValidated, "Le numéro existe déjà");
     }
 
     private synchronized void runValidationThread() {
@@ -426,10 +428,6 @@ public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Do
         return false;
     }
 
-    public String getValidationText() {
-        return "Le numéro existe déjà";
-    }
-
     public JTextComponent getTextComp() {
         return this.textField;
     }
@@ -438,6 +436,7 @@ public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Do
         return this;
     }
 
+    @Override
     public void addValidListener(ValidListener l) {
         this.supp.addValidListener(l);
     }

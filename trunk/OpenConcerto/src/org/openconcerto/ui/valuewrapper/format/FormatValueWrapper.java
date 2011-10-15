@@ -17,17 +17,17 @@ import org.openconcerto.ui.component.text.TextComponentUtils;
 import org.openconcerto.ui.filters.FormatFilter;
 import org.openconcerto.ui.valuewrapper.BaseValueWrapper;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
-import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidObjectCombiner;
-
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.text.Format;
-import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.List;
+import org.openconcerto.utils.checks.ValidState;
+import org.openconcerto.utils.convertor.NumberConvertor.OverflowException;
+import org.openconcerto.utils.convertor.NumberConvertor.RoundingException;
+import org.openconcerto.utils.convertor.ValueConvertor;
+import org.openconcerto.utils.convertor.ValueConvertorFactory;
 
 import javax.swing.JComponent;
 import javax.swing.text.AbstractDocument;
@@ -57,101 +57,139 @@ public abstract class FormatValueWrapper<T> extends BaseValueWrapper<T> {
         return text == null || text.length() == 0;
     }
 
+    // class only needed to please Java (captures F)
+    private static class FilterAndConvertor<F, T extends F> {
+        public static <U, T extends U> FilterAndConvertor<U, T> create(final FormatFilter<U> formatFilter, final Class<T> clazz) {
+            return new FilterAndConvertor<U, T>(formatFilter, clazz);
+        }
+
+        private final Class<T> valueClass;
+        private final FormatFilter<F> formatFilter;
+        private final ValueConvertor<F, T> convertor;
+
+        public FilterAndConvertor(final FormatFilter<F> formatFilter, final Class<T> clazz) {
+            this.valueClass = clazz;
+            this.formatFilter = formatFilter;
+            this.convertor = ValueConvertorFactory.find(formatFilter.getValueClass(), clazz);
+            if (this.convertor == null)
+                throw new IllegalArgumentException("No convertor found between " + clazz + " and " + formatFilter.getValueClass());
+        }
+
+        public final Class<T> getValueClass() {
+            return this.valueClass;
+        }
+
+        public final FormatFilter<F> getFormatFilter() {
+            return this.formatFilter;
+        }
+
+        public final Tuple2<ValidState, T> parseText(final String text) {
+            ValidState newState;
+            T newValue;
+            if (isNull(text)) {
+                newState = ValidState.getTrueInstance();
+                newValue = null;
+            } else {
+                final Tuple2<Boolean, F> res = this.getFormatFilter().parse(text);
+                if (!res.get0()) {
+                    newState = ValidState.create(false, this.getFormatFilter().getValidationText(text));
+                    newValue = null;
+                } else {
+                    try {
+                        newValue = this.convertor.convert(res.get1());
+                        newState = ValidState.getTrueInstance();
+                    } catch (Exception e) {
+                        final String msg;
+                        if (e instanceof OverflowException)
+                            msg = "Nombre trop grand";
+                        else if (e instanceof RoundingException)
+                            msg = "Entier attendu";
+                        else if (e instanceof ClassCastException)
+                            msg = "Mauvais type, attendu " + this.getValueClass();
+                        else {
+                            e.printStackTrace();
+                            msg = e.getLocalizedMessage();
+                        }
+                        newValue = null;
+                        newState = ValidState.create(false, msg);
+                    }
+                }
+            }
+            return Tuple2.create(newState, newValue);
+        }
+    }
+
     private final JComponent comp;
-    private final FormatFilter formatFilter;
+    private final FilterAndConvertor<? super T, T> formatFilter;
 
+    private final ValidChangeSupport selfValidSupp;
     private final ValidObjectCombiner comb;
+    private T value;
 
-    protected FormatValueWrapper(final JComponent b, final FormatFilter f) {
+    protected FormatValueWrapper(final JComponent b, final FormatFilter<? super T> f, final Class<T> clazz) {
         this.comp = b;
-        this.formatFilter = f;
+        this.formatFilter = FilterAndConvertor.create(f, clazz);
 
         // this validObject is the combination of comp & this format
+        final ValidChangeSupport validSupp = new ValidChangeSupport(this);
+        this.selfValidSupp = validSupp;
         this.comb = ValidObjectCombiner.create(this, this.comp, new ValidObject() {
-
-            private final List<ValidListener> listeners = new ArrayList<ValidListener>();
-
-            {
-                // isValidated() depends on getText(), ie the value
-                FormatValueWrapper.this.addValueListener(new PropertyChangeListener() {
-                    public void propertyChange(PropertyChangeEvent evt) {
-                        fireValidChange();
-                    }
-                });
-            }
-
-            private void fireValidChange() {
-                for (final ValidListener l : this.listeners)
-                    l.validChange(this, this.isValidated());
-            }
-
             @Override
             public void addValidListener(final ValidListener l) {
-                this.listeners.add(l);
+                validSupp.addValidListener(l);
             }
 
             @Override
             public void removeValidListener(ValidListener l) {
-                this.listeners.remove(l);
+                validSupp.removeValidListener(l);
             }
 
-            public String getValidationText() {
-                return f.getValidationText(getText());
-            }
-
-            public boolean isValidated() {
-                return isFormatValidated();
+            @Override
+            public ValidState getValidState() {
+                return validSupp.getValidState();
             }
         });
         // if any of comb objects change, we change
         this.comb.addValidListener(new ValidListener() {
-            public void validChange(ValidObject src, boolean newValue) {
-                firePropertyChange();
+            public void validChange(ValidObject src, ValidState newValue) {
+                FormatValueWrapper.this.supp.fireValidChange();
             }
         });
+        // ATTN must call textChanged() but subclass might not yet be initialized
+    }
+
+    protected final void textChanged() {
+        final Tuple2<ValidState, T> newState = this.formatFilter.parseText(getText());
+        this.selfValidSupp.fireValidChange(newState.get0());
+        this.setSelfValue(newState.get1());
+    }
+
+    private final void setSelfValue(T val) {
+        if (!CompareUtils.equals(this.value, val)) {
+            this.value = val;
+            this.supp.fireValueChange();
+        }
     }
 
     public final JComponent getComp() {
         return this.comp;
     }
 
-    public final Format getFormat() {
-        return this.formatFilter.getFormat();
-    }
-
-    @SuppressWarnings("unchecked")
     public final T getValue() {
-        final String text = this.getText();
-        try {
-            if (isNull(text) || this.formatFilter.isPartialValid(text))
-                return null;
-            else
-                return (T) this.getFormat().parseObject(text);
-        } catch (ParseException e) {
-            throw ExceptionUtils.createExn(IllegalStateException.class, "unable to parse " + text, e);
-        }
+        return this.value;
     }
 
     public final void setValue(T val) {
-        this.setText(val == null ? "" : this.formatFilter.format(val));
+        this.setText(val == null ? "" : this.formatFilter.getFormatFilter().format(val));
     }
 
     abstract protected String getText();
 
     abstract protected void setText(String s);
 
-    public final boolean isValidated() {
-        return this.comb.isValidated();
-    }
-
-    private final boolean isFormatValidated() {
-        final String text = this.getText();
-        return isNull(text) || this.formatFilter.isCompleteValid(text);
-    }
-
     @Override
-    public String getValidationText() {
-        return this.comb.getValidationText();
+    public ValidState getValidState() {
+        return this.comb.getValidState();
     }
 
     @Override

@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
+import org.openconcerto.erp.core.customerrelationship.customer.element.ContactItemTable;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.model.ISQLCompteSelector;
 import org.openconcerto.erp.preferences.ModeReglementDefautPrefPanel;
@@ -28,6 +29,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
@@ -35,6 +37,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionListener;
@@ -105,6 +108,9 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
             JCheckBox checkEnlevement;
             ElementSQLObject comp2;
             TitledSeparator sep2;
+            private ContactItemTable table;
+            private SQLTable contactTable = Configuration.getInstance().getDirectory().getElement("CONTACT_FOURNISSEUR").getTable();
+            private SQLRowValues defaultContactRowVals = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(this.contactTable));
 
             public void addViews() {
                 this.setLayout(new GridBagLayout());
@@ -281,6 +287,24 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                     };
                 });
 
+                // Contact
+                final TitledSeparator sepContact = new TitledSeparator("Contacts fournisseurs");
+                c.weightx = 1;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                c.gridx = 0;
+                c.gridy++;
+                this.add(sepContact, c);
+                this.table = new ContactItemTable(this.defaultContactRowVals);
+                this.table.setPreferredSize(new Dimension(this.table.getSize().width, 150));
+
+                c.gridx = 0;
+                c.gridy++;
+                c.anchor = GridBagConstraints.WEST;
+                c.fill = GridBagConstraints.BOTH;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                c.weighty = 0.8;
+                this.add(this.table, c);
+
                 // Mode de régelement
                 TitledSeparator reglSep = new TitledSeparator(getLabelFor("ID_MODE_REGLEMENT"));
                 c.gridwidth = GridBagConstraints.REMAINDER;
@@ -386,7 +410,28 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                     this.sep2.setVisible(true);
                 }
 
+                if (r != null) {
+                    this.table.insertFrom("ID_FOURNISSEUR", r.getID());
+                    this.defaultContactRowVals.put("TEL_DIRECT", r.getString("TEL"));
+                    this.defaultContactRowVals.put("FAX", r.getString("FAX"));
+                }
+
                 super.select(r);
+            }
+
+            @Override
+            public void update() {
+                // TODO Raccord de méthode auto-généré
+                super.update();
+                this.table.updateField("ID_FOURNISSEUR", getSelectedID());
+            }
+
+            @Override
+            public int insert(SQLRow order) {
+                // TODO Raccord de méthode auto-généré
+                int id = super.insert(order);
+                this.table.updateField("ID_FOURNISSEUR", id);
+                return id;
             }
 
             @Override

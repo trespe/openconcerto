@@ -13,20 +13,14 @@
  
  package org.openconcerto.erp.generationDoc;
 
-import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
-import org.openconcerto.sql.model.SQLRowListRSH;
-import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.Where;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import org.jdom.Element;
 
@@ -45,6 +39,7 @@ public class OOXMLTableElement {
         this.tableau = tableau;
         this.foreignTableWhere = tableau.getAttributeValue("tableForeignWhere");
         this.fieldWhere = tableau.getAttributeValue("fieldWhere");
+
         if (this.fieldWhere != null) {
             this.filterId = row.getInt(this.fieldWhere);
         }
@@ -172,5 +167,4 @@ public class OOXMLTableElement {
     public String getFieldWhere() {
         return this.fieldWhere;
     }
-
 }

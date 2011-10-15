@@ -31,6 +31,7 @@ import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElem
 import org.openconcerto.erp.generationEcritures.GenerationMvtSaisieVenteFacture;
 import org.openconcerto.erp.model.BanqueModifiedListener;
 import org.openconcerto.erp.model.ISQLCompteSelector;
+import org.openconcerto.erp.panel.PanelOOSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.ModeReglementDefautPrefPanel;
 import org.openconcerto.sql.Configuration;
@@ -70,6 +71,7 @@ import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.math.BigDecimal;
+import java.sql.Date;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -101,7 +103,8 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
     private ElementComboBox comboClient, comboAdresse;
     private ISQLCompteSelector compteSel;
     private final SQLTable tableNum = this.factureElt.getTable().getBase().getTable("NUMEROTATION_AUTO");
-    private JCheckBox checkImpr, checkVisu, checkCompteServiceAuto, checkPrevisionnelle, checkComplement, checkAcompte, checkCT;
+    private JCheckBox checkCompteServiceAuto, checkPrevisionnelle, checkComplement, checkAcompte, checkCT;
+    private PanelOOSQLComponent panelOO;
     private ElementComboBox selAvoir, selAffaire;
     private ElementSQLObject eltModeRegl;
     private static final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
@@ -511,18 +514,13 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         DefaultGridBagConstraints.lockMinimumSize(comp);
         this.add(comp, c);
 
-        final JPanel panelImpression = new JPanel();
-        this.checkImpr = new JCheckBox("Imprimer");
-        panelImpression.add(this.checkImpr);
-        this.checkVisu = new JCheckBox("Visualiser");
-        panelImpression.add(this.checkVisu);
-
+        this.panelOO = new PanelOOSQLComponent(this);
         c.gridy++;
         c.gridx = 0;
         c.weightx = 1;
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.NORTHEAST;
-        this.add(panelImpression, c);
+        this.add(this.panelOO, c);
 
         this.addSQLObject(this.textSource, "SOURCE");
         this.addSQLObject(this.textAvoirTTC, "T_AVOIR_TTC");
@@ -774,25 +772,25 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         }
     }
 
-    @Override
-    public synchronized boolean isValidated() {
-        // TODO Auto-generated method stub
-        boolean b = true;
-        // if (fieldTTC != null && fieldTTC.getUncheckedValue() != null) {
-        //
-        // long l = ((Long) fieldTTC.getUncheckedValue());
-        //
-        // if (this.selAvoir != null && !this.selAvoir.isEmpty() && this.selAvoir.getSelectedId() >
-        // 1) {
-        // SQLElement eltAvoir =
-        // Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
-        // SQLRow rowAvoir = eltAvoir.getTable().getRow(this.selAvoir.getSelectedId());
-        // l -= ((Number) rowAvoir.getObject("MONTANT_TTC")).longValue();
-        // }
-        // b = l >= 0;
-        // }
-        return super.isValidated() && b;
-    }
+    // @Override
+    // public synchronized boolean isValidated() {
+    // // TODO Auto-generated method stub
+    // boolean b = true;
+    // if (fieldTTC != null && fieldTTC.getUncheckedValue() != null) {
+    //
+    // long l = ((Long) fieldTTC.getUncheckedValue());
+    //
+    // if (this.selAvoir != null && !this.selAvoir.isEmpty() && this.selAvoir.getSelectedId() >
+    // 1) {
+    // SQLElement eltAvoir =
+    // Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
+    // SQLRow rowAvoir = eltAvoir.getTable().getRow(this.selAvoir.getSelectedId());
+    // l -= ((Number) rowAvoir.getObject("MONTANT_TTC")).longValue();
+    // }
+    // b = l >= 0;
+    // }
+    // return super.isValidated() && b;
+    // }
 
     public int insert(SQLRow order) {
 
@@ -930,7 +928,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
 
             // generation du document
             VenteFactureXmlSheet sheet = new VenteFactureXmlSheet(rowFacture);
-            sheet.genere(this.checkVisu.isSelected(), this.checkImpr.isSelected());
+            sheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
 
             int idMvt = -1;
             if (getMode() == Mode.MODIFICATION) {
@@ -1297,6 +1295,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
 
     public void setDefaults() {
         this.resetValue();
+
         this.textNumeroUnique.setText(NumerotationAutoSQLElement.getNextNumero(SaisieVenteFactureSQLElement.class));
         this.tableFacture.getModel().clearRows();
     }

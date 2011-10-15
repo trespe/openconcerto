@@ -23,7 +23,9 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.ui.EmailComposer;
 import org.openconcerto.utils.ExceptionHandler;
 
@@ -264,13 +266,13 @@ public class MouseSheetXmlListeListener implements MouseListener {
             if (this.showIsVisible) {
                 l.add(new RowAction(new AbstractAction(this.showString) {
                     public void actionPerformed(ActionEvent ev) {
-                        createAbstractSheet(liste.getSelectedRow()).showDocument();
+                        createAbstractSheet(IListe.get(ev).getSelectedRow()).showDocument();
                     }
 
                 }, false) {
                     @Override
-                    public boolean enabledFor(List<SQLRowAccessor> selection) {
-                        return createAbstractSheet(liste.getSelectedRow()).isFileODSExist();
+                    public boolean enabledFor(IListeEvent evt) {
+                        return createAbstractSheet(evt.getSelectedRow().asRow()).isFileODSExist();
                     }
                 });
 
@@ -303,12 +305,7 @@ public class MouseSheetXmlListeListener implements MouseListener {
             for (AbstractAction abstractAction : list) {
                 // JMenuItem itemItalic = new JMenuItem(abstractAction);
                 // itemItalic.setFont(itemItalic.getFont().deriveFont(Font.ITALIC));
-                l.add(new RowAction(abstractAction, false) {
-                    @Override
-                    public boolean enabledFor(List<SQLRowAccessor> selection) {
-                        return selection != null && selection.size() > 0;
-                    }
-                });
+                l.add(new PredicateRowAction(abstractAction, false).setPredicate(IListeEvent.getNonEmptySelectionPredicate()));
             }
         }
 

@@ -43,6 +43,7 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 
 public class TotalPanel extends JPanel implements TableModelListener {
+    public static String MARGE_MARQUE = "MargeMarque";
     private RowValuesTable table;
     private int columnIndexHT, columnIndexTTC, columnIndexService, columnIndexHA, columnIndexQte, columnIndexDevise, columnIndexPoids;
     private DeviseField textTotalHT, textTotalHTSel;
@@ -498,7 +499,18 @@ public class TotalPanel extends JPanel implements TableModelListener {
                 long d = 0;
                 if (totalHA > 0) {
                     d = totalHT - valRemiseHT - totalHA;
-                    m = Math.round(((double) d / (double) totalHA) * 10000.0) / 100.0;
+                    if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
+                        m = Math.round(((double) d / (double) totalHT) * 10000.0) / 100.0;
+                    } else {
+                        m = Math.round(((double) d / (double) totalHA) * 10000.0) / 100.0;
+                    }
+                }
+                if (d <= 0) {
+                    this.marge.setForeground(Color.red);
+                    this.marge.setDisabledTextColor(Color.RED);
+                } else {
+                    this.marge.setForeground(this.textTotalTTC.getForeground());
+                    this.marge.setDisabledTextColor(this.textTotalTTC.getForeground());
                 }
                 this.marge.setText("(" + m + "%) " + GestionDevise.currencyToString(d));
 
@@ -508,9 +520,20 @@ public class TotalPanel extends JPanel implements TableModelListener {
                 long e = 0;
                 if (totalHASel > 0) {
                     e = totalHTSel - totalHASel;
-                    m2 = Math.round(((double) e / (double) totalHASel) * 10000.0) / 100.0;
+                    if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
+                        m2 = Math.round(((double) e / (double) totalHTSel) * 10000.0) / 100.0;
+                    } else {
+                        m2 = Math.round(((double) e / (double) totalHASel) * 10000.0) / 100.0;
+                    }
                 }
                 this.margeSel.setText("(" + m2 + "%) " + GestionDevise.currencyToString(e));
+                if (e <= 0) {
+                    this.margeSel.setForeground(Color.red);
+                    this.margeSel.setDisabledTextColor(Color.RED);
+                } else {
+                    this.margeSel.setForeground(this.textTotalTTC.getForeground());
+                    this.margeSel.setDisabledTextColor(this.textTotalTTC.getForeground());
+                }
 
             }
             this.supp.firePropertyChange("value", null, null);

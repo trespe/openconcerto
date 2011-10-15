@@ -53,7 +53,7 @@ public class TarifSQLElement extends ComptaSQLConfElement {
 
     @Override
     public CollectionMap<String, String> getShowAs() {
-        CollectionMap<String, String> map = new CollectionMap<String, String>();
+        final CollectionMap<String, String> map = new CollectionMap<String, String>();
         map.put(null, "NOM");
         return map;
     }
@@ -66,8 +66,8 @@ public class TarifSQLElement extends ComptaSQLConfElement {
                 final GridBagConstraints c = new DefaultGridBagConstraints();
 
                 // Nom
-                JLabel labelNom = new JLabel(getLabelFor("NOM"));
-                JTextField textNom = new JTextField();
+                final JLabel labelNom = new JLabel(getLabelFor("NOM"));
+                final JTextField textNom = new JTextField();
 
                 this.add(labelNom, c);
                 c.gridx++;
@@ -75,9 +75,10 @@ public class TarifSQLElement extends ComptaSQLConfElement {
                 this.add(textNom, c);
 
                 // Devise
-                JLabel labelDevise = new JLabel(getLabelFor("ID_DEVISE"));
-                ElementComboBox boxDevise = new ElementComboBox();
-                c.gridx++;
+                final JLabel labelDevise = new JLabel(getLabelFor("ID_DEVISE"));
+                final ElementComboBox boxDevise = new ElementComboBox();
+                c.gridx = 0;
+                c.gridy++;
                 c.weightx = 0;
                 this.add(labelDevise, c);
                 c.gridx++;
@@ -85,9 +86,10 @@ public class TarifSQLElement extends ComptaSQLConfElement {
                 this.add(boxDevise, c);
 
                 // Devise
-                JLabel labelTaxe = new JLabel(getLabelFor("ID_TAXE"));
-                ElementComboBox boxTaxe = new ElementComboBox();
-                c.gridx++;
+                final JLabel labelTaxe = new JLabel(getLabelFor("ID_TAXE"));
+                final ElementComboBox boxTaxe = new ElementComboBox();
+                c.gridx = 0;
+                c.gridy++;
                 c.weightx = 0;
                 this.add(labelTaxe, c);
                 c.gridx++;

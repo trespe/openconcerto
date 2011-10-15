@@ -13,6 +13,8 @@
  
  package org.openconcerto.ui.valuewrapper;
 
+import org.openconcerto.utils.checks.ValidState;
+
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
@@ -43,8 +45,8 @@ public class BooleanValueWrapper extends BaseValueWrapper<Boolean> {
         this.b.setSelected(val == null ? false : val);
     }
 
-    public boolean isValidated() {
-        return true;
+    @Override
+    public ValidState getValidState() {
+        return ValidState.getTrueInstance();
     }
-
 }

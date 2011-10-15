@@ -19,6 +19,7 @@ import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -120,8 +121,9 @@ public class ExerciceCommonSQLElement extends ConfSQLElement {
                 return vals;
             }
 
-            public boolean isValidated() {
-                return (super.isValidated() && (this.dateDeb.getValue()).before(this.dateFin.getValue()));
+            @Override
+            public synchronized ValidState getValidState() {
+                return super.getValidState().and(ValidState.createCached(this.dateDeb.getValue().before(this.dateFin.getValue()), "Date de début après date de fin"));
             }
         };
     }

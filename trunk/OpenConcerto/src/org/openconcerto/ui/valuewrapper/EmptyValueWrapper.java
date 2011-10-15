@@ -18,6 +18,7 @@ import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.EmptyObjFromVO;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.beans.PropertyChangeListener;
 
@@ -65,12 +66,9 @@ public class EmptyValueWrapper<T> implements ValueWrapper<T>, EmptyObj {
         return this.vw.getValue();
     }
 
-    public boolean isValidated() {
-        return this.vw.isValidated();
-    }
-
-    public String getValidationText() {
-        return this.vw.getValidationText();
+    @Override
+    public ValidState getValidState() {
+        return this.vw.getValidState();
     }
 
     public void rmValueListener(final PropertyChangeListener l) {

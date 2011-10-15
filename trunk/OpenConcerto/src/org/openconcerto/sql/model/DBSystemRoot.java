@@ -60,13 +60,13 @@ public final class DBSystemRoot extends DBStructureItemDB {
 
         this.supp = new PropertyChangeSupport(this);
         this.coherenceListener = new PropertyChangeListener() {
-            @SuppressWarnings("unchecked")
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
                 if (isIncoherentPath())
                     // our path is empty so nothing can be removed
                     setRootPathFromDS();
                 else {
+                    @SuppressWarnings("unchecked")
                     final Collection<String> newVal = (Collection<String>) evt.getNewValue();
                     final Collection<String> inexistant = CollectionUtils.substract(getRootPath(), newVal);
                     if (inexistant.size() > 0) {

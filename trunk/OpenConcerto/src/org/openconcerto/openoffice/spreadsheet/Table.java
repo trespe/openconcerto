@@ -13,6 +13,7 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
+import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleStyleDesc;
@@ -21,15 +22,18 @@ import org.openconcerto.openoffice.spreadsheet.SheetTableModel.MutableTableModel
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.xml.JDOMUtils;
+import org.openconcerto.xml.SimpleXMLPath;
 
 import java.awt.Point;
+import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.swing.table.TableModel;
 
@@ -178,8 +182,6 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         this.duplicateRows(rowDuplicated, 1, nbDuplicate);
     }
 
-    private static Pattern regexp = Pattern.compile("((^.*)\\.(\\D*))((\\d*)$)");
-
     /**
      * Clone a range of rows. Eg if you want to copy once rows 2 through 5, you call
      * <code>duplicateRows(2, 4, 1)</code>.
@@ -188,73 +190,137 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      * @param count the number of rows after <code>start</code> to clone.
      * @param copies the number of copies of the range to make.
      */
-
     public final synchronized void duplicateRows(int start, int count, int copies) {
+        this.duplicateRows(start, count, copies, true);
+    }
+
+    public final synchronized void duplicateRows(int start, int count, int copies, boolean updateCellAddresses) {
         final int stop = start + count;
+        // should not change merged status
+        final Map<Point, Integer> coverOrigins = new HashMap<Point, Integer>();
+        final List<Point> coverOriginsToUpdate = new ArrayList<Point>();
+        final int colCount = this.getColumnCount();
+        for (int x = 0; x < colCount;) {
+            int y = start;
+            while (y < stop) {
+                final Point coverOrigin = this.getCoverOrigin(x, y);
+                if (coverOrigin == null) {
+                    y++;
+                } else {
+                    final int lastCoveredCellRow;
+                    // if we have already encountered this merged cell, skip it
+                    if (coverOrigins.containsKey(coverOrigin)) {
+                        lastCoveredCellRow = coverOrigins.get(coverOrigin);
+                    } else {
+                        final Cell<D> covering = this.getImmutableCellAt(coverOrigin.x, coverOrigin.y);
+                        lastCoveredCellRow = coverOrigin.y + covering.getRowsSpanned() - 1;
+                        if (coverOrigin.y < start) {
+                            if (lastCoveredCellRow < stop - 1)
+                                throw new IllegalArgumentException("Span starts before the duplicated rows and doesn't extend past the end of duplicated rows at " + getAddress(coverOrigin));
+                        } else {
+                            if (lastCoveredCellRow > stop - 1)
+                                throw new IllegalArgumentException("Span starts in the duplicated rows and extend past the end of duplicated rows at " + getAddress(coverOrigin));
+                        }
+
+                        coverOrigins.put(coverOrigin, lastCoveredCellRow);
+                        // merged cells inside the duplicated rows don't need to be updated
+                        if (coverOrigin.y < start || lastCoveredCellRow > stop - 1)
+                            coverOriginsToUpdate.add(coverOrigin);
+                    }
+                    y = lastCoveredCellRow + 1;
+                }
+            }
+            x++;
+        }
+
         // clone xml elements and add them to our tree
         final List<Element> clones = new ArrayList<Element>(count * copies);
         for (int i = 0; i < copies; i++) {
             for (int l = start; l < stop; l++) {
                 final Element r = this.rows.get(l).getElement();
-                Element c = (Element) r.clone();
-                List<Element> children = (List<Element>) c.getChildren("table-cell", c.getNamespace());
-                for (Element element : children) {
-                    System.err.println("--------get table cell");
-                    List<Element> lChild = (List<Element>) element.getChildren("frame", element.getNamespace("frame"));
-                    for (Element element2 : lChild) {
-                        System.err.println("---------get frame");
-                        Attribute attribute = element2.getAttribute("end-cell-address", c.getNamespace());
-                        final String value = attribute.getValue();
-                        System.err.println(value);
-                        final Matcher matcher = regexp.matcher(value);
-                        if (matcher.matches() && matcher.groupCount() == 5) {
-                            String result = matcher.group(1);
-                            int val = Integer.parseInt(matcher.group(4));
-                            val = val + (count * (i + 1));
-                            result += val;
-
-                            attribute.setValue(result);
-                            System.err.println(attribute.getValue());
-                        }
-                    }
-                }
-                clones.add(c);
+                clones.add((Element) r.clone());
             }
         }
         // works anywhere its XML element is
         JDOMUtils.insertAfter(this.rows.get(stop - 1).getElement(), clones);
 
+        for (final Point coverOrigin : coverOriginsToUpdate) {
+            final MutableCell<D> coveringCell = getCellAt(coverOrigin);
+            coveringCell.setRowsSpanned(coveringCell.getRowsSpanned() + count * copies);
+        }
+
         // synchronize our rows with our new tree
         this.readRows();
 
-        // Fix image if after
-        for (int i = (start + (count * (copies + 1))); i < this.rows.size(); i++) {
-            final Element r = this.rows.get(i).getElement();
+        // 19.627 in OpenDocument-v1.2-cs01-part1 : The table:end-cell-address attribute specifies
+        // end position of the shape if it is included in a spreadsheet document.
+        if (updateCellAddresses && getODDocument() instanceof SpreadSheet) {
+            final SpreadSheet ssheet = (SpreadSheet) getODDocument();
+            final SimpleXMLPath<Attribute> descAttrs = SimpleXMLPath.allAttributes("end-cell-address", "table");
+            for (final Attribute endCellAttr : descAttrs.selectNodes(getElement())) {
+                final Tuple2<Sheet, Point> resolved = ssheet.resolve(endCellAttr.getValue());
+                final Sheet endCellSheet = resolved.get0();
+                if (endCellSheet != this)
+                    throw new UnsupportedOperationException("End sheet is not this : " + endCellSheet);
+                final Point endCellPoint = resolved.get1();
+                // if the end point is before the copied rows, nothing to do
+                if (endCellPoint.y >= start) {
+                    final Element endCellParentElem = endCellAttr.getParent();
 
-            List<Element> children = (List<Element>) r.getChildren("table-cell", r.getNamespace());
-            for (Element element : children) {
-                System.err.println("--------get table cell");
-                List<Element> lChild = (List<Element>) element.getChildren("frame", element.getNamespace("frame"));
-                for (Element element2 : lChild) {
-                    System.err.println("---------get frame");
-                    Attribute attribute = element2.getAttribute("end-cell-address", r.getNamespace());
-                    final String value = attribute.getValue();
-                    System.err.println(value);
-                    final Matcher matcher = regexp.matcher(value);
-                    if (matcher.matches() && matcher.groupCount() == 5) {
-                        String result = matcher.group(1);
-                        int val = Integer.parseInt(matcher.group(4));
-                        val = val + (count * copies);
-                        result += val;
-
-                        attribute.setValue(result);
-                        System.err.println(attribute.getValue());
+                    // find row index of the shape
+                    final Element rowElem = JDOMUtils.getAncestor(endCellParentElem, "table-row", getTABLE());
+                    if (rowElem == null)
+                        throw new IllegalStateException("Not in a row : " + JDOMUtils.output(endCellParentElem));
+                    int startRowIndex = -1;
+                    final int rowCount = getRowCount();
+                    for (int i = 0; i < rowCount; i++) {
+                        if (getRow(i).getElement() == rowElem) {
+                            startRowIndex = i;
+                            break;
+                        }
                     }
+                    if (startRowIndex < 0)
+                        throw new IllegalStateException("Row not found for " + JDOMUtils.output(endCellParentElem));
+                    final int newEndY;
+                    if (startRowIndex >= start + (copies + 1) * count) {
+                        // if the shape doesn't span over the copied rows, only need to offset
+                        // end-cell-address
+                        newEndY = endCellPoint.y + copies * count;
+                    } else if (startRowIndex >= start + count && endCellPoint.y < start + count) {
+                        // if the shape was copied and its end cell too, translate it
+                        // find in which copy the shape is in, ATTN the truncation is important
+                        // since the shape might not be in the first copied row
+                        final int nth = (startRowIndex - start) / count;
+                        newEndY = endCellPoint.y + nth * count;
+                    } else {
+                        // we must use height to compute new values for end-cell-address and end-y
+
+                        // find the height of the shape
+                        final LengthUnit unit = LengthUnit.MM;
+                        final BigDecimal[] coordinates = getODDocument().getFormatVersion().getXML().getCoordinates(endCellParentElem, unit, false, true);
+                        if (coordinates == null)
+                            throw new IllegalStateException("Couldn't find the height of the shape : " + JDOMUtils.output(endCellParentElem));
+                        final BigDecimal endYFromAnchor = coordinates[3];
+                        assert endYFromAnchor != null : "getCoordinates() should never return null BigDecimal (unless requested by horizontal/vertical)";
+                        // find the end row
+                        int rowIndex = startRowIndex;
+                        BigDecimal cellEndYFromAnchor = getRow(rowIndex).getStyle().getTableRowProperties().getHeight(unit);
+                        while (endYFromAnchor.compareTo(cellEndYFromAnchor) > 0) {
+                            rowIndex++;
+                            cellEndYFromAnchor = cellEndYFromAnchor.add(getRow(rowIndex).getStyle().getTableRowProperties().getHeight(unit));
+                        }
+                        // find the end-y
+                        final BigDecimal cellStartYFromAnchor = cellEndYFromAnchor.subtract(getRow(rowIndex).getStyle().getTableRowProperties().getHeight(unit));
+                        final BigDecimal endY = endYFromAnchor.subtract(cellStartYFromAnchor);
+                        assert endY.signum() >= 0;
+
+                        newEndY = rowIndex;
+                        endCellParentElem.setAttribute("end-y", unit.format(endY), getTABLE());
+                    }
+                    endCellAttr.setValue(SpreadSheet.formatSheetName(endCellSheet.getName()) + "." + Table.getAddress(new Point(endCellPoint.x, newEndY)));
                 }
             }
         }
-        // synchronize our rows with our new tree
-        this.readRows();
     }
 
     private synchronized void addRow(Element child) {
@@ -316,6 +382,49 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
     protected final Cell<D> getImmutableCellAt(String ref) {
         final Point p = resolveHint(ref);
         return this.getImmutableCellAt(p.x, p.y);
+    }
+
+    /**
+     * Return the origin of a merged cell.
+     * 
+     * @param x the column.
+     * @param y the row.
+     * @return the point of origin, <code>null</code> if there's no merged cell at the passed
+     *         coordinates.
+     */
+    public final Point getCoverOrigin(final int x, final int y) {
+        // can't return a Cell, since it has no x
+        // don't return a MutableCell since it is costly
+
+        final Cell<D> c = this.getImmutableCellAt(x, y);
+        if (c.coversOtherCells()) {
+            return new Point(x, y);
+        } else if (!c.isCovered()) {
+            return null;
+        } else {
+            final Row<D> row = this.getRow(y);
+            Cell<D> currentCell = c;
+            int currentX = x;
+            while (currentX > 0 && currentCell.isCovered()) {
+                currentX--;
+                currentCell = row.getCellAt(currentX);
+            }
+            if (currentCell.coversOtherCells())
+                return new Point(currentX, y);
+
+            if (!currentCell.isCovered()) {
+                currentX++;
+                currentCell = row.getCellAt(currentX);
+            }
+            assert currentCell.isCovered();
+
+            int currentY = y;
+            while (!currentCell.coversOtherCells()) {
+                currentY--;
+                currentCell = this.getImmutableCellAt(currentX, currentY);
+            }
+            return new Point(currentX, currentY);
+        }
     }
 
     /**

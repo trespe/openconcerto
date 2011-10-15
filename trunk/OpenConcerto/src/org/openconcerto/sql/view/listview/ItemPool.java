@@ -17,6 +17,7 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.util.Collection;
 import java.util.HashSet;
@@ -122,19 +123,19 @@ public abstract class ItemPool {
 
     protected synchronized final void fireValidChange() {
         // ATTN called very often during a select() (for each SQLObject empty & value change)
-        final boolean validated = this.isValidated();
+        final ValidState validated = this.isValidated();
         for (final ValidListener l : this.validListeners) {
             l.validChange(this.getPanel(), validated);
         }
     }
 
-    final boolean isValidated() {
+    final ValidState isValidated() {
         // si la liste est vide, elle est valide
-        boolean res = true;
+        ValidState res = ValidState.getTrueInstance();
         final Iterator<SQLRowItemView> iter = this.getItems().iterator();
-        while (iter.hasNext() && res) {
+        while (iter.hasNext()) {
             final SQLRowItemView v = iter.next();
-            res = v.isValidated();
+            res = res.and(v.getValidState());
         }
         return res;
     }

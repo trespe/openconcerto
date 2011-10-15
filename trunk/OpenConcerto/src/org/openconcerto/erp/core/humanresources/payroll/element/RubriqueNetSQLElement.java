@@ -16,18 +16,12 @@
 import org.openconcerto.erp.core.common.ui.SQLJavaEditor;
 import org.openconcerto.erp.core.humanresources.payroll.component.FormuleTreeNode;
 import org.openconcerto.erp.core.humanresources.payroll.component.VariableTree;
-import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.ElementSQLObject;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.SQLRowAccessor;
-import org.openconcerto.sql.model.SQLSelect;
-import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
-import org.openconcerto.ui.warning.JLabelWarning;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -50,13 +44,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
 import javax.swing.SwingConstants;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.tree.TreePath;
-
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 // TODO FRAIS NATURE
 // FIXME rubrique.code must have a java var syntax
@@ -99,68 +88,12 @@ public class RubriqueNetSQLElement extends ConfSQLElement {
      * @see org.openconcerto.devis.SQLElement#getComponent()
      */
     public SQLComponent createComponent() {
-        return new BaseSQLComponent(this) {
+        return new RubriqueSQLComponent(this) {
 
-            private JTextField textCode = new JTextField();
-            private JTextField textLibelle = new JTextField();
             private SQLJavaEditor formuleBase, formuleTaux, formuleMontant;
-            private JLabel labelWarningBadName, labelBadName;
-            private boolean validCode;
 
-            public void addViews() {
-
-                this.labelWarningBadName = new JLabelWarning();
-                this.labelBadName = new JLabel("Code déjà attribué.");
-                this.validCode = true;
-
-                this.setLayout(new GridBagLayout());
-                final GridBagConstraints c = new DefaultGridBagConstraints();
-
-                // Code
-                JLabel labelCode = new JLabel(getLabelFor("CODE"));
-                labelCode.setHorizontalAlignment(SwingConstants.RIGHT);
-                this.add(labelCode, c);
-
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textCode, c);
-                c.weightx = 0;
-                this.textCode.getDocument().addDocumentListener(new DocumentListener() {
-
-                    public void insertUpdate(DocumentEvent e) {
-                        isValidCodeName();
-                    }
-
-                    public void removeUpdate(DocumentEvent e) {
-                        isValidCodeName();
-                    }
-
-                    public void changedUpdate(DocumentEvent e) {
-                        isValidCodeName();
-                    }
-                });
-
-                c.gridx++;
-                this.add(this.labelWarningBadName);
-                this.labelWarningBadName.setVisible(false);
-                c.gridx++;
-                this.add(this.labelBadName);
-                this.labelBadName.setVisible(false);
-
-                // Libelle
-                c.gridy++;
-                c.gridx = 0;
-                JLabel labelNom = new JLabel(getLabelFor("NOM"));
-                labelNom.setHorizontalAlignment(SwingConstants.RIGHT);
-                this.add(labelNom, c);
-
-                c.gridx++;
-                c.gridwidth = GridBagConstraints.REMAINDER;
-                c.weightx = 1;
-                this.add(this.textLibelle, c);
-                c.weightx = 0;
-                c.gridwidth = 1;
-
+            @Override
+            protected void addViews(GridBagConstraints c) {
                 /***********************************************************************************
                  * PANEL CALCUL
                  **********************************************************************************/
@@ -387,15 +320,12 @@ public class RubriqueNetSQLElement extends ConfSQLElement {
                 tab.add("Propriétés", panelProp);
 
                 c.gridwidth = GridBagConstraints.REMAINDER;
-                c.gridy++;
                 c.gridx = 0;
                 c.fill = GridBagConstraints.BOTH;
                 c.weightx = 1;
                 c.weighty = 1;
                 this.add(tab, c);
 
-                this.addRequiredSQLObject(this.textCode, "CODE");
-                this.addSQLObject(this.textLibelle, "NOM");
                 this.addSQLObject(this.formuleBase, "BASE");
                 this.addSQLObject(this.formuleTaux, "TAUX");
                 this.addSQLObject(this.formuleMontant, "MONTANT");
@@ -416,66 +346,6 @@ public class RubriqueNetSQLElement extends ConfSQLElement {
                         formuleMontant.setSalarieID(selSalarie.getSelectedId());
                     }
                 });
-            }
-
-            private void isValidCodeName() {
-                System.err.println("Changed valid");
-                // on vérifie que la variable n'existe pas déja
-                SQLSelect selAllCodeName = new SQLSelect(getTable().getBase());
-
-                selAllCodeName.addSelect(getTable().getField("ID"));
-                selAllCodeName.setWhere("RUBRIQUE_NET.CODE", "=", this.textCode.getText().trim());
-
-                int idSelected = this.getSelectedID();
-                if (idSelected > 1) {
-                    selAllCodeName.andWhere(new Where(getTable().getField("ID"), "!=", idSelected));
-                }
-
-                String reqAllCodeName = selAllCodeName.asString();
-
-                Object[] objCodeID = ((List) getTable().getBase().getDataSource().execute(reqAllCodeName, new ArrayListHandler())).toArray();
-
-                SQLSelect selAllVarName = new SQLSelect(getTable().getBase());
-
-                SQLTable tableVar = getTable().getBase().getTable("VARIABLE_PAYE");
-                selAllVarName.addSelect(tableVar.getField("ID"));
-                selAllVarName.setWhere("VARIABLE_PAYE.NOM", "=", this.textCode.getText().trim());
-                String reqAllVarName = selAllVarName.asString();
-                Object[] objVarID = ((List) getTable().getBase().getDataSource().execute(reqAllVarName, new ArrayListHandler())).toArray();
-
-                // System.err.println("nb var same " + objVarID.length + " --- nb code same " +
-                // objCodeID.length);
-                if ((objCodeID.length > 0) || (objVarID.length > 0)) {
-                    this.labelWarningBadName.setVisible(true);
-                    this.labelBadName.setVisible(true);
-                    this.validCode = false;
-                } else {
-
-                    List l = VariablePayeSQLElement.getForbiddenVarName();
-                    for (int i = 0; i < l.size(); i++) {
-                        if (l.get(i).toString().trim().equals(this.textCode.getText().trim())) {
-                            this.labelWarningBadName.setVisible(true);
-                            this.labelBadName.setVisible(true);
-                            this.validCode = false;
-                            return;
-                        }
-                    }
-
-                    this.labelWarningBadName.setVisible(false);
-                    this.labelBadName.setVisible(false);
-                    this.validCode = true;
-                }
-
-            }
-
-            public synchronized boolean isValidated() {
-                return super.isValidated() && this.validCode;
-            }
-
-            @Override
-            public void select(SQLRowAccessor r) {
-                super.select(r);
-                isValidCodeName();
             }
         };
     }

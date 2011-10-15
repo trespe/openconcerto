@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.core.finance.accounting.ui;
 
-
 public class ReglementCompteVentePreferencePanel extends AbstractReglementComptePreferencePanel {
 
     @Override
@@ -38,7 +37,6 @@ public class ReglementCompteVentePreferencePanel extends AbstractReglementCompte
 
     @Override
     public String getComptePCEEspeces() {
-        // FIXME: URGENT: verifier cette valeur (avec s ou pas?)
         return "VenteEspece";
     }
 

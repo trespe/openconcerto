@@ -21,6 +21,7 @@ import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonItemSQLEle
 import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonSQLElement;
 import org.openconcerto.erp.core.sales.shipment.report.BonLivraisonXmlSheet;
 import org.openconcerto.erp.core.sales.shipment.ui.BonDeLivraisonItemTable;
+import org.openconcerto.erp.panel.PanelOOSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -56,7 +57,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JButton;
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -73,7 +73,7 @@ import org.apache.commons.dbutils.handlers.ArrayListHandler;
 public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
     private BonDeLivraisonItemTable tableBonItem;
     private ElementComboBox selectCommande, comboClient;
-    private JCheckBox checkImpr, checkVisu;
+    private PanelOOSQLComponent panelOO;
     private JUniqueTextField textNumeroUnique;
     private final SQLTable tableNum = getTable().getBase().getTable("NUMEROTATION_AUTO");
     private final DeviseField textTotalHT = new DeviseField(6);
@@ -89,7 +89,6 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
     @Override
     protected SQLRowValues createDefaults() {
         this.textNumeroUnique.setText(NumerotationAutoSQLElement.getNextNumero(BonDeLivraisonSQLElement.class));
-        this.checkVisu.setSelected(true);
         this.tableBonItem.getModel().clearRows();
         return super.createDefaults();
     }
@@ -363,8 +362,6 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         textInfos.setBorder(null);
         DefaultGridBagConstraints.lockMinimumSize(scrollPane);
 
-        this.checkImpr = new JCheckBox("Imprimer");
-
         c.gridx = 0;
         c.gridy++;
         c.gridheight = 1;
@@ -373,12 +370,9 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         c.weighty = 0;
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.EAST;
-        // this.checkImpr.setSelected(true);
-        this.checkVisu = new JCheckBox("Visualiser");
-        final JPanel panelOO = new JPanel();
-        panelOO.add(this.checkImpr, c);
-        panelOO.add(this.checkVisu, c);
-        this.add(panelOO, c);
+
+        this.panelOO = new PanelOOSQLComponent(this);
+        this.add(this.panelOO, c);
 
         this.addRequiredSQLObject(date, "DATE");
         this.addSQLObject(textInfos, "INFOS");
@@ -429,7 +423,7 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
             // generation du document
             BonLivraisonXmlSheet bSheet = new BonLivraisonXmlSheet(getTable().getRow(idBon));
-            bSheet.genere(this.checkVisu.isSelected(), this.checkImpr.isSelected());
+            bSheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
 
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(BonDeLivraisonSQLElement.class).equalsIgnoreCase(this.textNumeroUnique.getText().trim())) {
@@ -466,8 +460,6 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         super.select(r);
         if (r != null) {
             this.tableBonItem.insertFrom("ID_BON_DE_LIVRAISON", r.getID());
-            this.checkVisu.setSelected(true);
-
         }
     }
 
@@ -488,7 +480,7 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
         // generation du document
         BonLivraisonXmlSheet bSheet = new BonLivraisonXmlSheet(getTable().getRow(getSelectedID()));
-        bSheet.genere(this.checkVisu.isSelected(), this.checkImpr.isSelected());
+        bSheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
     }
 
     private void updateTotal() {
