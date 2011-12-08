@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?> 
+
+<contentDocument>
+
+	<element location="B1" type="fill">
+		<field base="Common" table="SOCIETE_COMMON" name="TYPE"/>
+		<field base="Common" table="SOCIETE_COMMON" name="NOM"/>
+	</element>
+
+	<element location="B2" type="fill">
+		<field base="Common" table="SOCIETE_COMMON" name="ID_ADRESSE_COMMON">
+			<field base="Common" table="ADRESSE_COMMON" name="RUE"/>
+		</field>
+	</element>
+
+	<element location="B3" type="fill">
+		<field base="Common" table="SOCIETE_COMMON" name="ID_ADRESSE_COMMON">			
+			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="villeCP"/>
+			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="ville"/>
+			<field base="Common" table="ADRESSE_COMMON" name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX"/>
+		</field>
+	</element>
+	
+	<element location="B7" type="replace" replacePattern="_">
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_NII"/>
+	</element>
+	
+	<element location="B8" type="replace" replacePattern="_">
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_TEL"/>
+	</element>
+	
+	<element location="B9" type="replace" replacePattern="_">
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_FAX"/>
+	</element>
+	
+	<element location="B10" type="replace" replacePattern="_">
+		<field base="Common" table="SOCIETE_COMMON" name="MAIL"/>
+	</element>
+	
+	
+	<element location="B16" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="ID_COMMERCIAL">
+			<field base="Societe" table="COMMERCIAL" name="NOM"/>
+		</field>
+	</element>
+
+	<element location="B13" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="NUMERO"/>
+	</element>	
+	
+	<element location="C13" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="DATE"/>
+	</element>	
+	
+	<element location="C16" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="NOM"/>
+	</element>
+	
+	
+	<element location="H10" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="ID_CLIENT">
+			<field base="Societe" table="CLIENT" name="FORME_JURIDIQUE"/>
+			<field base="Societe" table="CLIENT" name="NOM"/>
+		</field>
+	</element>
+	
+	<element location="H11" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="ID_CLIENT">
+			<field base="Societe" table="CLIENT" name="ID_ADRESSE">
+				<field base="Societe" table="ADRESSE" name="RUE"/>
+			</field>
+		</field>
+	</element>
+	
+	<element location="H13" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="ID_CLIENT">
+			<field base="Societe" table="CLIENT" name="ID_ADRESSE">
+				<field base="Societe" table="ADRESSE" name="VILLE" type="villeCP"/>
+				<field base="Societe" table="ADRESSE" name="VILLE" type="ville"/>
+				<field base="Societe" table="ADRESSE" name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX"/>
+			</field>
+		</field>
+	</element>
+
+
+	<element location="L54" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="T_HT" type="devise"/>
+	</element>
+	
+	<element location="L55" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="T_TVA" type="devise"/>
+	</element>
+	
+	<element location="L56" type="fill">
+		<field base="Societe" table="COMMANDE_CLIENT" name="T_TTC" type="devise"/>
+	</element>
+
+	
+	<table endPageLine="56" firstLine="21" endLine="51" lastColumn="L" base="Societe" table="COMMANDE_CLIENT_ELEMENT">
+		<element location="B" type="fill">
+			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="NOM"/>
+		</element>
+			
+		
+		<element location="G" type="fill">
+			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="QTE"/>
+		</element>
+		
+		<element location="H" type="fill">
+			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="PRIX_METRIQUE_VT_1" type="devise"/>
+			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="ID_MODE_VENTE_ARTICLE">
+				<field base="Societe" table="MODE_VENTE_ARTICLE" name="CODE" prefix="€/"/>
+			</field>
+		</element>
+		
+		<element location="I" type="fill">
+			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="PV_HT" type="devise"/>
+		</element>
+		
+		<element location="J" type="fill">
+			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="ID_TAXE">
+				<field base="Societe" table="TAXE" name="TAUX" op="/" number="100.0"/>
+			</field>
+		</element>	
+		
+		<element location="K" type="fill">
+			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="T_POIDS"/>
+		</element>
+		
+		<element location="L" type="fill">
+			<field base="Societe" table="COMMANDE_CLIENT_ELEMENT" name="T_PV_HT" type="devise"/>
+		</element>
+			
+	</table>
+</contentDocument>

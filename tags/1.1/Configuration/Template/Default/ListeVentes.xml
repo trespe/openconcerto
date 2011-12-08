@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?> 
+
+<contentDocument>	
+	
+	<element location="A3" type="Value" ValueName="DATE">
+	</element>
+
+
+	<table firstLine="6" endLine="57" endPageLine="57" lastColumn="F" base="Societe" table="SAISIE_VENTE_FACTURE" groupSousTotalColumn="A">
+		<element location="A" type="fill">
+			<field base="Societe" name="DATE"/>
+		</element>
+
+		<element location="B" type="fill">
+			<field base="Societe" name="NUMERO"/>
+		</element>
+
+		<element location="C" type="fill" controleMultiline="false">
+			<field base="Societe" name="CLIENT"/>
+		</element>	
+
+		<element location="D" type="fill" controleMultiline="false">
+			<field base="Societe" name="TYPE_REGLEMENT"/>
+			<field base="Societe" name="DATE_REGLEMENT"/>
+		</element>	
+
+		<element location="E" type="fill" sousTotal="true" total="true">
+			<field base="Societe" name="MONTANT_HT"/>
+		</element>
+
+		<element location="F" type="fill" sousTotal="true" total="true">
+			<field base="Societe" name="MONTANT_TVA"/>
+		</element>
+					
+		<element location="G" type="fill" sousTotal="true" total="true">
+			<field base="Societe" name="MONTANT_TTC"/>
+		</element>
+	</table>
+	
+</contentDocument>

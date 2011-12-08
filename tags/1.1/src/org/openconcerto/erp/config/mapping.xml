@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+	<TABLE name="ACCES_SOCIETE">
+		<FIELD name="USER_COMMON" label="Utilisateur" titlelabel="Utilisateur" />
+		<FIELD name="ID_SOCIETE_COMMON" label="Accés à la société"
+			titlelabel="Accés à la société" />
+	</TABLE>
+
+	<TABLE name="ADRESSE_COMMON">
+		<FIELD name="RAISON_SOCIALE" label="Raison sociale" titlelabel="Raison sociale" />
+		<FIELD name="RUE" label="Rue" titlelabel="Rue" />
+		<FIELD name="PAYS" label="Pays" titlelabel="Pays" />
+		<FIELD name="CODE_POSTAL" label="Code postal" titlelabel="Code postal" />
+		<FIELD name="VILLE" label="Ville" titlelabel="Ville" />
+		<FIELD name="CEDEX" label="Cedex" titlelabel="Cedex" />
+		<FIELD name="HAS_CEDEX" label="Cedex" titlelabel="Cedex" />
+		<FIELD name="NUMERO_CANTON" label="Numéro canton" titlelabel="Numéro canton" />
+		<FIELD name="NUMERO_COMMUNE" label="Numéro commune" titlelabel="Numéro commune" />
+	</TABLE>
+
+
+	<TABLE name="BANQUE_POLE_PRODUIT">
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="NUMERO_RUE" label="Numéro de rue" titlelabel="Numéro de rue" />
+		<FIELD name="VOIE" label="Voie" titlelabel="Voie" />
+		<FIELD name="RUE" label="Rue" titlelabel="Rue" />
+		<FIELD name="VILLE" label="Ville" titlelabel="Ville" />
+		<FIELD name="CODE_ETS" label="Code Ets" titlelabel="Code Ets" />
+		<FIELD name="CODE_GUICHET" label="Code guichet" titlelabel="Code guichet" />
+		<FIELD name="NUMERO_COMPTE" label="N° compte" titlelabel="N° compte" />
+		<FIELD name="CLE_RICE" label="Clé rice" titlelabel="Clé rice" />
+		<FIELD name="DOMICILIATION" label="Domiciliation" titlelabel="Domiciliation" />
+		<FIELD name="BIC" label="BIC" titlelabel="BIC" />
+		<FIELD name="IBAN" label="IBAN" titlelabel="IBAN" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+	</TABLE>
+
+	<TABLE name="CAISSE_COTISATION">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_ADRESSE_COMMON" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="TEL" label="Téléphone" titlelabel="Tél." />
+		<FIELD name="MAIL" label="Courriel" titlelabel="Courriel" />
+		<FIELD name="TEL_PORTABLE" label="Téléphone portable"
+			titlelabel="Tél. portable" />
+		<FIELD name="ID_COMPTE_PCE_TIERS" label="Compte tiers"
+			titlelabel="Compte tiers" />
+		<FIELD name="ID_COMPTE_PCE_CHARGE" label="Compte charges"
+			titlelabel="Compte charges" />
+	</TABLE>
+
+	<TABLE name="DEVISE">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="LIBELLE" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="LIBELLE_CENT" label="Libellé centimes" titlelabel="Libellé centimes" />
+		<FIELD name="TAUX" label="Taux" titlelabel="Taux" />
+	</TABLE>
+
+	<TABLE name="DISCIPLINE">
+		<FIELD name="NOM" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="LABEL" label="Domaine" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NUMERO" label="Code" />
+		<FIELD name="CONDITION" label="Conditions" titlelabel="Conditions" />
+		<FIELD name="Q18" label="Extension Q18" titlelabel="Extension Q18" />
+	</TABLE>
+
+	<TABLE name="ECHANTILLON">
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="PV_HT" label="Prix HT" titlelabel="Prix HT" />
+		<FIELD name="PV_TTC" label="Prix TTC" titlelabel="Prix TTC" />
+	</TABLE>
+
+	<TABLE name="EXERCICE_COMMON">
+		<FIELD name="NUMERO" label="Nom" titlelabel="Nom" />
+		<FIELD name="DATE_DEB" label="Date de début" titlelabel="Début" />
+		<FIELD name="DATE_FIN" label="Date de fin" titlelabel="Fin" />
+		<FIELD name="CLOTURE" label="Cloture" titlelabel="Cloture" />
+		<FIELD name="DATE_CLOTURE" label="Cloturé jusqu'au" titlelabel="Cloturé jusqu'au" />
+	</TABLE>
+
+	<TABLE name="IMPRESSION_RUBRIQUE">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="INDICE">
+		<FIELD name="ANNEE" label="Année" titlelabel="Année" />
+		<FIELD name="JANVIER" label="Janvier" titlelabel="Janvier" />
+		<FIELD name="FEVRIER" label="Février" titlelabel="Février" />
+		<FIELD name="MARS" label="Mars" titlelabel="Mars" />
+		<FIELD name="AVRIL" label="Avril" titlelabel="Avril" />
+		<FIELD name="MAI" label="Mai" titlelabel="Mai" />
+		<FIELD name="JUIN" label="Juin" titlelabel="Juin" />
+		<FIELD name="JUILLET" label="Juillet" titlelabel="Juillet" />
+		<FIELD name="AOUT" label="Aout" titlelabel="Aout" />
+		<FIELD name="SEPTEMBRE" label="Septembre" titlelabel="Septembre" />
+		<FIELD name="OCTOBRE" label="Octobre" titlelabel="Octobre" />
+		<FIELD name="NOVEMBRE" label="Novembre" titlelabel="Novembre" />
+		<FIELD name="DECEMBRE" label="Décembre" titlelabel="Décembre" />
+	</TABLE>
+
+	
+
+	<TABLE name="PERIODE_VALIDITE">
+		<FIELD name="JANVIER" label="Janvier" titlelabel="Janvier" />
+		<FIELD name="FEVRIER" label="Février" titlelabel="Février" />
+		<FIELD name="MARS" label="Mars" titlelabel="Mars" />
+		<FIELD name="AVRIL" label="Avril" titlelabel="Avril" />
+		<FIELD name="MAI" label="Mai" titlelabel="Mai" />
+		<FIELD name="JUIN" label="Juin" titlelabel="Juin" />
+		<FIELD name="JUILLET" label="Juillet" titlelabel="Juillet" />
+		<FIELD name="AOUT" label="Aout" titlelabel="Aout" />
+		<FIELD name="SEPTEMBRE" label="Septembre" titlelabel="Septembre" />
+		<FIELD name="OCTOBRE" label="Octobre" titlelabel="Octobre" />
+		<FIELD name="NOVEMBRE" label="Novembre" titlelabel="Novembre" />
+		<FIELD name="DECEMBRE" label="Décembre" titlelabel="Décembre" />
+	</TABLE>
+
+	<TABLE name="OBJET">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Objet" titlelabel="Objet" />
+		<FIELD name="QUALIFICATION" label="Qualification" titlelabel="Qualification" />
+		<FIELD name="ID_DOMAINE" label="Domaine" titlelabel="Domaine" />
+	</TABLE>
+
+
+	<TABLE name="POINTAGE">
+		<FIELD name="ACTION" label="Action" titlelabel="Action" />
+		<FIELD name="ID_USER_COMMON" label="Utilisateur" titlelabel="Utilisateur" />
+		<FIELD name="CARTE" label="Carte" titlelabel="Carte" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+	</TABLE>
+
+	<TABLE name="POLE_PRODUIT">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="TEL" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="MAIL" label="E-Mail" titlelabel="E-Mail" />
+		<FIELD name="NOM_SECRETAIRE" label="Nom secrétaire" titlelabel="Nom secrétaire" />
+		<FIELD name="NOM_DIRECTEUR" label="Nom directeur" titlelabel="Nom directeur" />
+		<FIELD name="ID_ADRESSE_COMMON" label="Adresse" titlelabel="Adresse" />
+	</TABLE>
+
+	<TABLE name="PROFIL_PAYE">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+	<TABLE name="PROFIL_PAYE_ELEMENT">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_PROFIL_PAYE" label="Profil" titlelabel="Profil" />
+		<FIELD name="SOURCE" label="Source" titlelabel="Source" />
+		<FIELD name="IDSOURCE" label="ID Source" titlelabel="ID Source" />
+		<FIELD name="POSITION" label="Position" titlelabel="Position" />
+	</TABLE>
+
+	<TABLE name="RUBRIQUE_NET">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="BASE" label="Montant de base (BASE)" titlelabel="Montant de base (BASE)" />
+		<FIELD name="TAUX" label="Taux (TAUX)" titlelabel="Taux (TAUX)" />
+		<FIELD name="MONTANT" label="Montant (MONTANT)" titlelabel="Montant (MONTANT)" />
+		<FIELD name="BRUT" label="Brut" titlelabel="Brut" />
+		<FIELD name="IMPOSABLE" label="Imposable" titlelabel="Imposable" />
+		<FIELD name="FRAIS_PERS" label="Frais personnel" titlelabel="Frais personnel" />
+		<FIELD name="ID_PERIODE_VALIDITE" label="Période de validité"
+			titlelabel="Période de validité" />
+		<FIELD name="ID_TYPE_RUBRIQUE_NET" label="Type" titlelabel="Type" />
+		<FIELD name="ID_IMPRESSION_RUBRIQUE" label="Impression"
+			titlelabel="Impression" />
+	</TABLE>
+	<TABLE name="RUBRIQUE_BRUT">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="BASE" label="Montant de base (BASE)" titlelabel="Montant de base (BASE)" />
+		<FIELD name="TAUX" label="Taux (TAUX)" titlelabel="Taux (TAUX)" />
+		<FIELD name="MONTANT" label="Montant (MONTANT)" titlelabel="Montant (MONTANT)" />
+		<FIELD name="ID_PERIODE_VALIDITE" label="Période de validité"
+			titlelabel="Période de validité" />
+		<FIELD name="ID_TYPE_RUBRIQUE_BRUT" label="Type" titlelabel="Type" />
+		<FIELD name="ID_IMPRESSION_RUBRIQUE" label="Impression"
+			titlelabel="Impression" />
+		<FIELD name="IMPOSABLE" label="Imposable" titlelabel="Imposable" />
+		<FIELD name="PART_BRUT" label="Participe à la base brut"
+			titlelabel="Participe à la base brut" />
+		<FIELD name="PART_CP" label="Participe aux congés payés"
+			titlelabel="Participe aux congés payés" />
+	</TABLE>
+	<TABLE name="RUBRIQUE_COMM">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="NB_BASE" label="Montant de base (BASE)" titlelabel="Montant de base (BASE)" />
+		<FIELD name="TAUX_SAL" label="Taux Sal.(SAL)" titlelabel="Taux Sal.(SAL)" />
+		<FIELD name="MONTANT_SAL_AJ" label="Montant sal. à ajouter(MONTANT)"
+			titlelabel="Montant sal. à ajouter(MONTANT)" />
+		<FIELD name="MONTANT_SAL_DED" label="Montant sal. à déduire(MONTANT)"
+			titlelabel="Montant sal. à déduire(MONTANT)" />
+		<FIELD name="TAUX_PAT" label="Taux Sal.(PAT)" titlelabel="Taux Sal.(PAT)" />
+		<FIELD name="MONTANT_PAT" label="Montant pat.(MONTANT)"
+			titlelabel="Montant pat.(MONTANT)" />
+		<FIELD name="ID_IMPRESSION_RUBRIQUE" label="Impression"
+			titlelabel="Impression" />
+		<FIELD name="ID_PERIODE_VALIDITE" label="Période de validité"
+			titlelabel="Période de validité" />
+		<FIELD name="NOM_VISIBLE" label="Afficher le nom de la rubrique"
+			titlelabel="Afficher le nom de la rubrique" />
+	</TABLE>
+
+	<TABLE name="RUBRIQUE_COTISATION">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_CAISSE_COTISATION" label="Caisse de cotisation"
+			titlelabel="Caisse de cotisation" />
+		<FIELD name="BASE" label="Montant de base (BASE)" titlelabel="Montant de base (BASE)" />
+		<FIELD name="TX_SAL" label="Taux salarié (SAL) en %" titlelabel="Taux salarié (SAL) en %" />
+		<FIELD name="TX_PAT" label="Taux patronal (PAT) en %"
+			titlelabel="Taux patronal (PAT) en %" />
+		<FIELD name="PART_CSG" label="Part CSG CRDS" titlelabel="Part CSG CRDS" />
+		<FIELD name="BRUT" label="Brut" titlelabel="Brut" />
+		<FIELD name="IMPOSABLE" label="Imposable" titlelabel="Imposable" />
+		<FIELD name="ID_IMPRESSION_RUBRIQUE" label="Impression"
+			titlelabel="Impression" />
+		<FIELD name="ID_PERIODE_VALIDITE" label="Période de validité"
+			titlelabel="Période de validité" />
+	</TABLE>
+
+	<TABLE name="SOCIETE_COMMON">
+		<FIELD name="DATABASE_NAME" label="Nom" titlelabel="Nom" />
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="ADRESSE" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="DATE_DEB_EX" label="Date de début d'excercice"
+			titlelabel="Date de début d'excercice" />
+		<FIELD name="DATE_FIN_EX" label="Date de fin d'excercice"
+			titlelabel="Date de fin d'excercice" />
+		<FIELD name="NUM_SIRET" label="Numéro de Siret" titlelabel="Numéro de Siret" />
+		<FIELD name="NUM_NII" label="Numéro NII" titlelabel="Numéro NII" />
+		<FIELD name="NUM_APE" label="Numéro APE" titlelabel="Numéro APE" />
+		<FIELD name="ID_EXERCICE_COMMON" label="Exercice" titlelabel="Exercice" />
+		<FIELD name="NUM_TEL" label="Numéro de téléphone" titlelabel="N° Téléphone" />
+		<FIELD name="NUM_FAX" label="Numéro de fax" titlelabel="N° Fax" />
+		<FIELD name="MAIL" label="Adresse mail" titlelabel="Adresse mail" />
+		<FIELD name="ID_ADRESSE_COMMON" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="TYPE" label="Type" titlelabel="Type" />
+		<FIELD name="NUMERO_URSSAF" label="Numéro URSSAF" titlelabel="Numéro URSSAF" />
+	</TABLE>
+
+	<TABLE name="TYPE_MODELE">
+		<FIELD name="NOM" label="Nom" titleLabel="Nom" />
+		<FIELD name="TABLE" label="Table" titleLabel="Table" />
+	</TABLE>
+
+
+	<TABLE name="VARIABLE_PAYE">
+		<FIELD name="VALEUR" label="Valeur" titlelabel="Valeur" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="CATEGORIE" label="Catégorie" titlelabel="Catégorie" />
+		<FIELD name="FORMULE" label="Formule" titlelabel="Formule" />
+		<FIELD name="INFOS" label="Description" titlelabel="Description" />
+	</TABLE>
+</ROOT>
