@@ -144,6 +144,7 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
 
     private final void addBtn(String btnLabel, V id) {
         final JRadioButton btn = new JRadioButton(btnLabel);
+        btn.setOpaque(false);
         for (final MouseListener l : this.mouseListeners) {
             btn.addMouseListener(l);
         }

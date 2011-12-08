@@ -13,17 +13,17 @@
  
  /*
  * Créé le 21 mai 2005
- * 
  */
 package org.openconcerto.sql.navigator;
 
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.IResultSetHandler;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
-import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableEvent;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 
 import java.util.List;
@@ -31,7 +31,7 @@ import java.util.Set;
 
 import org.apache.commons.dbutils.ResultSetHandler;
 
-public class RowsSQLListModel extends SQLListModel<SQLRow> implements SQLTableListener {
+public class RowsSQLListModel extends SQLListModel<SQLRow> implements SQLTableModifiedListener {
 
     private final SQLElement element;
     private final ResultSetHandler handler;
@@ -40,11 +40,11 @@ public class RowsSQLListModel extends SQLListModel<SQLRow> implements SQLTableLi
         super();
         this.element = element;
         this.handler = new SQLRowListRSH(this.getElement().getTable(), true);
-        this.getElement().getTable().addTableListener(this);
+        this.getElement().getTable().addTableModifiedListener(this);
     }
 
-    @SuppressWarnings("unchecked")
-    protected void reload() {
+    @Override
+    protected void reload(final boolean noCache) {
         final Set<Number> ids = getIds();
         final String key = this.getElement().getParentForeignField();
 
@@ -60,7 +60,19 @@ public class RowsSQLListModel extends SQLListModel<SQLRow> implements SQLTableLi
 
         // cannot just use a SwingWorker, cause some methods (like SQLBrowser#selectPath())
         // expect reload() to by synchronous.
-        this.setAll((List<SQLRow>) source.execute(sel.asString(), this.handler));
+        @SuppressWarnings("unchecked")
+        final List<SQLRow> rows = (List<SQLRow>) source.execute(sel.asString(), new IResultSetHandler(this.handler) {
+            @Override
+            public boolean readCache() {
+                return !noCache;
+            }
+
+            @Override
+            public boolean writeCache() {
+                return true;
+            }
+        });
+        this.setAll(rows);
     }
 
     /**
@@ -86,16 +98,8 @@ public class RowsSQLListModel extends SQLListModel<SQLRow> implements SQLTableLi
         return this.element;
     }
 
-    public void rowAdded(SQLTable table, int id) {
-        this.reload();
-    }
-
-    public void rowModified(SQLTable table, int id) {
-        // TODO test if that concern us
-        this.reload();
-    }
-
-    public void rowDeleted(SQLTable table, int id) {
+    @Override
+    public void tableModified(SQLTableEvent evt) {
         // TODO test if that concern us
         this.reload();
     }
@@ -105,7 +109,7 @@ public class RowsSQLListModel extends SQLListModel<SQLRow> implements SQLTableLi
     }
 
     protected void die() {
-        this.getElement().getTable().removeTableListener(this);
+        this.getElement().getTable().removeTableModifiedListener(this);
     }
 
     @Override

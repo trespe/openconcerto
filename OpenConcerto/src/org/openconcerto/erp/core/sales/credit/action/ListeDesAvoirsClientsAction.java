@@ -66,7 +66,7 @@ public class ListeDesAvoirsClientsAction extends CreateFrameAbstractAction {
         c.anchor = GridBagConstraints.CENTER;
         frame.getPanel().add(datePanel, c);
 
-        frame.getPanel().getListe().getJTable().addMouseListener(new MouseSheetXmlListeListener(frame.getPanel().getListe(), AvoirClientXmlSheet.class));
+        frame.getPanel().getListe().addIListeActions(new MouseSheetXmlListeListener(AvoirClientXmlSheet.class).getRowActions());
 
         frame.getPanel().getListe().setSQLEditable(false);
         return frame;

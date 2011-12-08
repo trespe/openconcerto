@@ -28,6 +28,7 @@ import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
 import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
 import org.openconcerto.erp.core.sales.shipment.report.BonLivraisonXmlSheet;
+import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirClientXmlSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirFournisseurXmlSheet;
@@ -74,47 +75,15 @@ public class SauvegardeBaseAction extends CreateFrameAbstractAction {
             locations.add(serverIp.substring(5));
         }
 
+        final DocumentLocalStorageManager storage = DocumentLocalStorageManager.getInstance();
+
         locations.add(defaultLocation);
-        locations.add(SheetXml.getLocationForTuple(DevisXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(DevisXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(VenteFactureXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(VenteFactureXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(CommandeClientXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(CommandeClientXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(BonLivraisonXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(BonLivraisonXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(AvoirClientXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(AvoirClientXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(AvoirFournisseurXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(AvoirFournisseurXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(CommandeXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(CommandeXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(EtatVentesXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(EtatVentesXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(FicheClientXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(FicheClientXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(FicheRelanceSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(FicheRelanceSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(ReleveChequeSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(ReleveChequeSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(ReleveChequeEmisSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(ReleveChequeEmisSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(ListeFactureXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(ListeFactureXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(ListeVenteXmlSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(ListeVenteXmlSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(EtatChargesPayeSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(EtatChargesPayeSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(FichePayeSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(FichePayeSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(LivrePayeSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(LivrePayeSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(BalanceSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(BalanceSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(GrandLivreSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(GrandLivreSheet.getTuple2Location(), false));
-        locations.add(SheetXml.getLocationForTuple(JournauxSheet.getTuple2Location(), true));
-        locations.add(SheetXml.getLocationForTuple(JournauxSheet.getTuple2Location(), false));
+        for (File f : storage.getAllDocumentDirectories()) {
+            locations.add(f.getAbsolutePath());
+        }
+        for (File f : storage.getAllPDFDirectories()) {
+            locations.add(f.getAbsolutePath());
+        }
 
         for (String string : locations) {
 

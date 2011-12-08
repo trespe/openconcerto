@@ -13,42 +13,29 @@
  
  package org.openconcerto.erp.generationDoc.gestcomm;
 
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
+import org.openconcerto.erp.generationDoc.AbstractSheetXMLWithDate;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
-import java.util.Calendar;
-import java.util.Date;
+public class AvoirFournisseurXmlSheet extends AbstractSheetXMLWithDate {
 
-public class AvoirFournisseurXmlSheet extends AbstractSheetXml {
-
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationAvoirF", "Avoir Fournisseur");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
-    }
+    public static final String TEMPLATE_ID = "AvoirF";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationAvoirF";
 
     public AvoirFournisseurXmlSheet(SQLRow row) {
         super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.elt = Configuration.getInstance().getDirectory().getElement("AVOIR_FOURNISSEUR");
-        Calendar cal = Calendar.getInstance();
-        cal.setTime((Date) row.getObject("DATE"));
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
     }
 
     @Override
-    public String getDefaultModele() {
-        // TODO Raccord de méthode auto-généré
-        return "AvoirF";
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     }
 
-    public String getFileName() {
-        return getValidFileName("AvoirF_" + this.row.getID());
+    @Override
+    public String getName() {
+        return "AvoirF_" + this.row.getID();
     }
 }

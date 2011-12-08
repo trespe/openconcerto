@@ -14,11 +14,9 @@
  package org.openconcerto.erp.generationDoc.gestcomm;
 
 import org.openconcerto.erp.generationDoc.AbstractListeSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.GestionDevise;
-import org.openconcerto.utils.Tuple2;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -31,29 +29,23 @@ import java.util.Map;
 public class FicheRelanceSheet extends AbstractListeSheetXml {
 
     private static final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yy");
-    private SQLRow row;
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tupleDefault;
-    }
+    public static final String TEMPLATE_ID = "FicheRelance";
+    public static final String TEMPLATE_PROPERTY_NAME = DEFAULT_PROPERTY_NAME;
 
     public FicheRelanceSheet(SQLRow row) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.row = row;
-        this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
     }
 
     @Override
-    public String getDefaultModele() {
-        return "FicheRelance";
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     }
 
     @Override
     protected void createListeValues() {
-        // TODO Auto-generated method stub
         final Map<String, Object> values = new HashMap<String, Object>();
-        List<Map<String, Object>> listValues = new ArrayList<Map<String, Object>>();
+        final List<Map<String, Object>> listValues = new ArrayList<Map<String, Object>>();
 
         final SQLRow clientRow = this.row.getForeignRow("ID_CLIENT");
         final SQLRow factureRow = this.row.getForeignRow("ID_SAISIE_VENTE_FACTURE");
@@ -70,8 +62,9 @@ public class FicheRelanceSheet extends AbstractListeSheetXml {
 
     }
 
-    public String getFileName() {
-        return getValidFileName("FicheRelance" + new Date().getTime());
+    @Override
+    public String getName() {
+        return "FicheRelance" + new Date().getTime();
     }
 
 }

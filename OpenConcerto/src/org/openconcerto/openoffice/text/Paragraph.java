@@ -13,8 +13,8 @@
  
  package org.openconcerto.openoffice.text;
 
+import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.XMLVersion;
-import org.openconcerto.openoffice.ODSingleXMLDocument;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -55,8 +55,12 @@ public class Paragraph extends TextNode<ParagraphStyle> {
         return res;
     }
 
+    Paragraph(Element elem, TextDocument parent) {
+        super(elem, ParagraphStyle.class, parent);
+    }
+
     public Paragraph(Element elem) {
-        super(elem, ParagraphStyle.class);
+        this(elem, null);
     }
 
     public Paragraph(XMLVersion ns) {
@@ -70,6 +74,21 @@ public class Paragraph extends TextNode<ParagraphStyle> {
     public Paragraph(String text) {
         this();
         addContent(text);
+    }
+
+    // MAYBE add updateStyle() which evaluates the conditions in style:map of the conditional style
+    // to update style-name
+    /**
+     * A style containing conditions and maps to other styles.
+     * 
+     * @return the conditional style or <code>null</code> if none or if this isn't in a document.
+     */
+    public final ParagraphStyle getConditionalStyle() {
+        final String condName = this.getElement().getAttributeValue("cond-style-name", this.getElement().getNamespace());
+        if (condName == null)
+            return null;
+        else
+            return getStyle(condName);
     }
 
     public final void setStyle(String styleName) {
@@ -99,11 +118,12 @@ public class Paragraph extends TextNode<ParagraphStyle> {
         return getTextStyles(getElement());
     }
 
-    protected void checkDocument(ODSingleXMLDocument doc) {
-        if (this.getStyleName() != null && getStyle(doc.getPackage(), doc.getDocument()) == null)
+    @Override
+    protected void checkDocument(ODDocument doc) {
+        if (this.getStyleName() != null && getStyle(doc.getPackage(), doc.getContentDocument()) == null)
             throw new IllegalArgumentException("unknown style " + getStyleName() + " in " + doc);
         for (final String styleName : this.getUsedTextStyles()) {
-            if (doc.getStyle(TextStyle.DESC, styleName) == null) {
+            if (doc.getPackage().getStyle(TextStyle.DESC, styleName) == null) {
                 throw new IllegalArgumentException(this + " is using a text:span with an undefined style : " + styleName);
             }
         }

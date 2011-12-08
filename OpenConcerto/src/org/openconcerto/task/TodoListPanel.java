@@ -236,8 +236,9 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         }
 
         this.addButton = new JButton("Ajouter une tâche");
-
+        this.addButton.setOpaque(false);
         this.removeButton = new JButton("Effacer");
+        this.removeButton.setOpaque(false);
         this.removeButton.setEnabled(false);
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -263,6 +264,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         c.anchor = GridBagConstraints.EAST;
         c.gridx++;
         JMenuBar b = new JMenuBar();
+        b.setOpaque(false);
         b.setBorderPainted(false);
         b.add(this.comboUser);
         // Pour que le menu ne disparaisse pas quand on rapetisse trop la fenetre en bas
@@ -273,12 +275,14 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         c.gridx++;
         c.weightx = 1;
         this.detailCheckBox = new JCheckBox("Affichage détaillé");
+        this.detailCheckBox.setOpaque(false);
         this.detailCheckBox.setSelected(false);
         this.add(this.detailCheckBox, c);
 
         //
         c.gridx++;
         this.hideOldCheckBox = new JCheckBox("Masquer l'historique");
+        this.hideOldCheckBox.setOpaque(false);
         this.hideOldCheckBox.setSelected(true);
         this.add(this.hideOldCheckBox, c);
 
@@ -286,6 +290,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
 
         c.weightx = 0;
         c.anchor = GridBagConstraints.EAST;
+        this.reloadPanel.setOpaque(false);
         this.add(this.reloadPanel, c);
 
         // Table
@@ -503,7 +508,10 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         this.t.setBlockEventOnColumn(false);
         this.t.setBlockRepaint(false);
         this.t.getColumnModel().getColumn(1).setCellRenderer(this.iconRenderer);
-
+        // Better look
+        this.t.setShowHorizontalLines(false);
+        this.t.setGridColor(new Color(230, 230, 230));
+        this.t.setRowHeight(this.t.getRowHeight() + 4);
         AlternateTableCellRenderer.UTILS.setAllColumns(this.t);
         this.t.repaint();
 

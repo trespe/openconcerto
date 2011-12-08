@@ -257,6 +257,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         this.p.getVerticalScrollBar().setUnitIncrement(9);
         this.p.setOpaque(false);
         this.p.getViewport().setOpaque(false);
+        this.p.setMinimumSize(new Dimension(60, 60));
 
         container.add(this.p, c);
 

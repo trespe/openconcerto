@@ -42,7 +42,11 @@ public class ImmutableDocStyledNode<S extends StyleStyle, D extends ODDocument> 
      * @param styleClass our class of style, cannot be <code>null</code>.
      */
     public ImmutableDocStyledNode(D parent, Element local, final Class<S> styleClass) {
-        super(local, styleClass);
+        this(parent, local, getStyleDesc(local, styleClass));
+    }
+
+    protected ImmutableDocStyledNode(D parent, Element local, StyleDesc<S> styleDesc) {
+        super(local, styleDesc);
         this.parent = parent;
         assert getDocuments(this.parent.getPackage()).contains(local.getDocument()) : "Local not in parent: " + parent;
     }

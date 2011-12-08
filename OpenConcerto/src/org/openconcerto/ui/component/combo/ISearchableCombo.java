@@ -26,13 +26,16 @@ import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueChangeSupport;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.cc.IdentityHashSet;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
 import org.openconcerto.utils.model.IListModel;
 import org.openconcerto.utils.model.IMutableListModel;
 import org.openconcerto.utils.model.ListComboBoxModel;
+import org.openconcerto.utils.model.Reloadable;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Color;
@@ -64,6 +67,7 @@ import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 
@@ -408,7 +412,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
 
     /**
      * Returns the actions added at the end of the list of items. The name of the action will be
-     * displayed and its actionPerformed() invoked when choosed.
+     * displayed and its actionPerformed() invoked when chosen.
      * 
      * @return the list of actions
      */
@@ -436,6 +440,8 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
             if (!(acache instanceof IMutableListModel))
                 throw new IllegalArgumentException(this + " is unlocked but " + acache + " is not mutable");
             final IMutableListModel<T> mutable = (IMutableListModel<T>) acache;
+            final boolean isReloadable = mutable instanceof Reloadable;
+            final Reloadable rel = isReloadable ? (Reloadable) mutable : null;
             new MutableListComboPopupListener(new MutableListCombo() {
                 public ComboLockedMode getMode() {
                     return ISearchableCombo.this.getMode();
@@ -453,6 +459,16 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
 
                 public void removeCurrentText() {
                     mutable.removeElement(getValue());
+                }
+
+                @Override
+                public boolean canReload() {
+                    return isReloadable;
+                }
+
+                @Override
+                public void reload() {
+                    rel.reload();
                 }
             }).listen();
         }
@@ -497,10 +513,29 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     }
 
     private void addItems(final int index, final Collection<T> originalItems) {
+        // selection cannot change
+        assert SwingUtilities.isEventDispatchThread();
+        final ISearchableComboItem<T> sel = getSelection();
+        final T selOriginal = sel == null ? null : sel.getOriginal();
+
         final List<ISearchableComboItem<T>> toAdd = new ArrayList<ISearchableComboItem<T>>(originalItems.size());
         for (final T originalItem : originalItems) {
-            final ISearchableComboItem<T> textSelectorItem = createItem(originalItem);
-            this.itemsByOriginalItem.put(originalItem, textSelectorItem);
+            final ISearchableComboItem<T> textSelectorItem;
+            if (this.itemsByOriginalItem.containsKey(originalItem)) {
+                // allow another item with the same original : add another item to our model, but
+                // keep the first one in itemsByOriginalItem (this map is only used in setValue() to
+                // quickly find the ISearchableComboItem)
+                textSelectorItem = createItem(originalItem);
+                // see ISearchableComboPopup.validateSelection()
+                assert !textSelectorItem.equals(this.itemsByOriginalItem.get(originalItem)) : "Have to not be equal to be able to choose one or the other";
+            } else {
+                // reuse the selected value, otherwise the popup will select nothing
+                if (sel != null && CompareUtils.equals(selOriginal, originalItem))
+                    textSelectorItem = sel;
+                else
+                    textSelectorItem = createItem(originalItem);
+                this.itemsByOriginalItem.put(originalItem, textSelectorItem);
+            }
             toAdd.add(textSelectorItem);
         }
         // only 1 fire
@@ -510,7 +545,8 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     private void rmItemsFromModel(final int index0, final int index1) {
         getModel().removeElementsAt(index0, index1);
         // remove from our map
-        this.itemsByOriginalItem.keySet().retainAll(getCache().getList());
+        // ATTN for ~35000 items, new HashSet() got us from 6000ms to 8ms !
+        this.itemsByOriginalItem.keySet().retainAll(new HashSet<T>(getCache().getList()));
     }
 
     // conversion
@@ -579,7 +615,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     // set
 
     public void resetValue() {
-        this.setValue(null);
+        this.setValue((T) null);
     }
 
     public final void setValue(final T val) {
@@ -603,15 +639,20 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         }
     }
 
-    private final void setValue(final T val, final boolean valid) {
-        log("entering " + this.getClass().getSimpleName() + ".setValue " + val + " valid: " + valid);
+    private final boolean setValid(final boolean valid) {
         final boolean invalidChange = this.invalidEdit != !valid;
         if (invalidChange) {
             this.invalidEdit = !valid;
             this.text.setForeground(this.invalidEdit ? Color.GRAY : Color.BLACK);
         }
+        return invalidChange;
+    }
 
-        if (this.getValue() != val) {
+    private final void setValue(final T val, final boolean valid) {
+        log("entering " + this.getClass().getSimpleName() + ".setValue " + val + " valid: " + valid);
+        final boolean invalidChange = this.setValid(valid);
+
+        if (!CompareUtils.equals(this.getValue(), val)) {
             log("this.getValue() != val :" + this.getValue());
             if (val == null)
                 this.setSelection(null);
@@ -627,6 +668,24 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
             }
         } else if (invalidChange) {
             log("this.getValue() == val and invalidChange");
+            // since val hasn't changed the model won't fire and thus our selectionChanged()
+            // will not be called, but it has to since invalidEdit did change
+            // so the text must be changed, and listeners notified
+            this.selectionChanged();
+        }
+    }
+
+    // perhaps try to factor with the other setValue()
+    final void setValue(final ISearchableComboItem<T> val) {
+        log("entering " + this.getClass().getSimpleName() + ".setValue(ISearchableComboItem) " + val);
+        assert new IdentityHashSet<ISearchableComboItem<T>>(this.getModelValues()).contains(val) : "Item not in model, perhaps use setValue(T)";
+        // valid since val is in our model
+        final boolean invalidChange = this.setValid(true);
+
+        if (!CompareUtils.equals(this.getSelection(), val)) {
+            this.setSelection(val);
+        } else if (invalidChange) {
+            log("this.getSelection() == val and invalidChange");
             // since val hasn't changed the model won't fire and thus our selectionChanged()
             // will not be called, but it has to since invalidEdit did change
             // so the text must be changed, and listeners notified
@@ -787,8 +846,8 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
      * with the desired rows.
      * 
      * @param rows the new row count.
-     * @param textArea <code>true</code> if the editor should be a text area (ie can have more than
-     *        one line), <code>null</code> to retain the current editor, ignored if
+     * @param textArea <code>true</code> if the editor should be a text area (i.e. can have more
+     *        than one line), <code>null</code> to retain the current editor, ignored if
      *        <code>rows</code> >= 2.
      */
     public final void setRows(int rows, final Boolean textArea) {

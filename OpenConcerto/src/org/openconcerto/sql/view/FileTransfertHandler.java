@@ -19,29 +19,13 @@ import org.openconcerto.sql.model.SQLTable;
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
 import java.io.File;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.StringTokenizer;
 
 import javax.swing.JComponent;
 import javax.swing.TransferHandler;
 
 public class FileTransfertHandler extends TransferHandler {
-
-    static private DataFlavor URIListFlavor = null;
-
-    static public DataFlavor getURIListFlavor() {
-        if (URIListFlavor == null) {
-            try {
-                URIListFlavor = new DataFlavor("text/uri-list;class=java.lang.String");
-            } catch (ClassNotFoundException e) {
-                throw new IllegalStateException(e);
-            }
-        }
-        return URIListFlavor;
-    }
 
     private final SQLTable tableName;
 
@@ -59,7 +43,7 @@ public class FileTransfertHandler extends TransferHandler {
             if (hasFileFlavor(t.getTransferDataFlavors())) {
                 list.addAll((List<File>) t.getTransferData(DataFlavor.javaFileListFlavor));
             } else if (hasURIListFlavor(t.getTransferDataFlavors())) {
-                list.addAll(textURIListToFileList((String) t.getTransferData(getURIListFlavor())));
+                list.addAll(AbstractFileTransfertHandler.textURIListToFileList((String) t.getTransferData(AbstractFileTransfertHandler.getURIListFlavor())));
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -122,7 +106,7 @@ public class FileTransfertHandler extends TransferHandler {
 
     private boolean hasURIListFlavor(DataFlavor[] flavors) {
         for (int i = 0; i < flavors.length; i++) {
-            if (getURIListFlavor().equals(flavors[i])) {
+            if (AbstractFileTransfertHandler.getURIListFlavor().equals(flavors[i])) {
                 return true;
             }
         }
@@ -133,24 +117,4 @@ public class FileTransfertHandler extends TransferHandler {
         return DropManager.getInstance().getHandlerForTable(this.tableName);
     }
 
-    private static List<File> textURIListToFileList(String data) {
-        final List<File> list = new ArrayList<File>(1);
-        for (StringTokenizer st = new StringTokenizer(data, "\r\n"); st.hasMoreTokens();) {
-            String s = st.nextToken();
-            if (s.startsWith("#")) {
-                // the line is a comment (as per the RFC 2483)
-                continue;
-            }
-            try {
-                final URI uri = new URI(s);
-                final File file = new File(uri);
-                list.add(file);
-            } catch (URISyntaxException e) {
-                e.printStackTrace();
-            } catch (IllegalArgumentException e) {
-                e.printStackTrace();
-            }
-        }
-        return list;
-    }
 }

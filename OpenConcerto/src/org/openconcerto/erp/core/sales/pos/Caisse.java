@@ -41,6 +41,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.utils.DesktopEnvironment;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
@@ -55,6 +56,7 @@ import java.util.List;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 import org.jdom.Document;
@@ -107,7 +109,7 @@ public class Caisse {
         return document;
     }
 
-    private static File getConfigFile() {
+    public static File getConfigFile() {
         return getConfigFile(ComptaPropsConfiguration.APP_NAME, new File("."));
     }
 
@@ -132,117 +134,136 @@ public class Caisse {
         }
     }
 
-    public static void commitAll(List<Ticket> tickets) {
+    public static void commitAll(final List<Ticket> tickets) {
         // createConnexion();
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement("TICKET_CAISSE");
-        SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
-        SQLElement eltEnc = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
-        SQLElement eltMode = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
-        for (Ticket ticket : tickets) {
-            SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
-            sel.addSelect(elt.getTable().getField("NUMERO"));
-            sel.setWhere(new Where(elt.getTable().getField("NUMERO"), "=", ticket.getCode()));
-            List<?> l = Configuration.getInstance().getBase().getDataSource().executeCol(sel.asString());
-            if (l != null && l.size() == 0) {
+        try {
+            SQLUtils.executeAtomic(Configuration.getInstance().getSystemRoot().getDataSource(), new SQLUtils.SQLFactory<Object>() {
+                @Override
+                public Object create() throws SQLException {
+                    SQLElement elt = Configuration.getInstance().getDirectory().getElement("TICKET_CAISSE");
+                    SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
+                    SQLElement eltEnc = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
+                    SQLElement eltMode = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
+                    for (Ticket ticket : tickets) {
+                        SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
+                        sel.addSelect(elt.getTable().getField("NUMERO"));
+                        sel.setWhere(new Where(elt.getTable().getField("NUMERO"), "=", ticket.getCode()));
+                        List<?> l = Configuration.getInstance().getBase().getDataSource().executeCol(sel.asString());
+                        if (l != null && l.size() == 0) {
 
-                SQLRowValues rowVals = new SQLRowValues(elt.getTable());
-                rowVals.put("NUMERO", ticket.getCode());
-                rowVals.put("DATE", ticket.getCreationDate());
-                rowVals.put("ID_CAISSE", getID());
-                long total = 0;
-                long totalHT = 0;
+                            SQLRowValues rowVals = new SQLRowValues(elt.getTable());
+                            rowVals.put("NUMERO", ticket.getCode());
+                            rowVals.put("DATE", ticket.getCreationDate());
+                            rowVals.put("ID_CAISSE", getID());
+                            long total = 0;
+                            long totalHT = 0;
 
-                // Articles
-                for (Pair<Article, Integer> item : ticket.getArticles()) {
-                    SQLRowValues rowValsElt = new SQLRowValues(eltFact.getTable());
+                            // Articles
+                            for (Pair<Article, Integer> item : ticket.getArticles()) {
+                                SQLRowValues rowValsElt = new SQLRowValues(eltFact.getTable());
 
-                    rowValsElt.put("QTE", item.getSecond());
-                    rowValsElt.put("PV_HT", Long.valueOf(item.getFirst().getPriceInCents()));
-                    final long value = Long.valueOf(item.getFirst().getPriceInCents()) * item.getSecond();
-                    final long valueHT = Long.valueOf(item.getFirst().getPriceHTInCents()) * item.getSecond();
-                    total += value;
-                    totalHT += valueHT;
-                    rowValsElt.put("T_PV_HT", valueHT);
-                    rowValsElt.put("T_PV_TTC", value);
-                    rowValsElt.put("ID_TAXE", item.getFirst().getIdTaxe());
-                    rowValsElt.put("CODE", item.getFirst().getCode());
-                    rowValsElt.put("NOM", item.getFirst().getName());
-                    rowValsElt.put("ID_TICKET_CAISSE", rowVals);
+                                rowValsElt.put("QTE", item.getSecond());
+                                rowValsElt.put("PV_HT", Long.valueOf(item.getFirst().getPriceInCents()));
+                                final long value = Long.valueOf(item.getFirst().getPriceInCents()) * item.getSecond();
+                                final long valueHT = Long.valueOf(item.getFirst().getPriceHTInCents()) * item.getSecond();
+                                total += value;
+                                totalHT += valueHT;
+                                rowValsElt.put("T_PV_HT", valueHT);
+                                rowValsElt.put("T_PV_TTC", value);
+                                rowValsElt.put("ID_TAXE", item.getFirst().getIdTaxe());
+                                rowValsElt.put("CODE", item.getFirst().getCode());
+                                rowValsElt.put("NOM", item.getFirst().getName());
+                                rowValsElt.put("ID_TICKET_CAISSE", rowVals);
+                            }
+                            rowVals.put("TOTAL_HT", totalHT);
+
+                            rowVals.put("TOTAL_TTC", total);
+                            rowVals.put("TOTAL_TVA", total - totalHT);
+
+                            // Paiements
+                            for (Paiement paiement : ticket.getPaiements()) {
+                                if (paiement.getMontantInCents() > 0) {
+                                    SQLRowValues rowValsElt = new SQLRowValues(eltEnc.getTable());
+                                    SQLRowValues rowValsEltMode = new SQLRowValues(eltMode.getTable());
+                                    if (paiement.getType() == Paiement.CB) {
+                                        rowValsEltMode.put("ID_TYPE_REGLEMENT", TypeReglementSQLElement.CB);
+                                    } else if (paiement.getType() == Paiement.CHEQUE) {
+                                        rowValsEltMode.put("ID_TYPE_REGLEMENT", TypeReglementSQLElement.CHEQUE);
+                                    } else if (paiement.getType() == Paiement.ESPECES) {
+                                        rowValsEltMode.put("ID_TYPE_REGLEMENT", TypeReglementSQLElement.ESPECE);
+                                    }
+
+                                    rowValsElt.put("ID_MODE_REGLEMENT", rowValsEltMode);
+                                    try {
+                                        rowValsElt.put("ID_CLIENT", getClientCaisse().getID());
+                                    } catch (SQLException e) {
+                                        // TODO Auto-generated catch block
+                                        e.printStackTrace();
+                                    }
+                                    long montant = Long.valueOf(paiement.getMontantInCents());
+                                    if (ticket.getPaiements().size() == 1 && paiement.getType() == Paiement.ESPECES) {
+                                        montant = total;
+                                    }
+                                    rowValsElt.put("MONTANT", montant);
+                                    rowValsElt.put("NOM", "Ticket " + ticket.getCode());
+                                    rowValsElt.put("DATE", ticket.getCreationDate());
+                                    rowValsElt.put("ID_TICKET_CAISSE", rowVals);
+                                }
+                            }
+
+                            SQLRow rowFinal = rowVals.insert();
+                            Thread t = new Thread(new GenerationMvtTicketCaisse(rowFinal));
+                            t.start();
+                            try {
+                                t.join();
+                            } catch (InterruptedException exn) {
+                                // TODO Bloc catch auto-généré
+                                exn.printStackTrace();
+                            }
+
+                            // msie à jour du mouvement
+                            rowFinal = rowFinal.getTable().getRow(rowFinal.getID());
+                            List<SQLRow> rowsEnc = rowFinal.getReferentRows(eltEnc.getTable());
+                            long totalEnc = 0;
+                            for (SQLRow sqlRow : rowsEnc) {
+                                long montant = sqlRow.getLong("MONTANT");
+                                PrixTTC ttc = new PrixTTC(montant);
+                                totalEnc += montant;
+                                new GenerationReglementVenteNG("Règlement " + sqlRow.getForeignRow("ID_MODE_REGLEMENT").getForeignRow("ID_TYPE_REGLEMENT").getString("NOM") + " Ticket "
+                                        + rowFinal.getString("NUMERO"), getClientCaisse(), ttc, sqlRow.getDate("DATE").getTime(), sqlRow.getForeignRow("ID_MODE_REGLEMENT"), rowFinal, rowFinal
+                                        .getForeignRow("ID_MOUVEMENT"), false);
+                            }
+                            if (totalEnc > total) {
+                                final SQLTable table = Configuration.getInstance().getDirectory().getElement("TYPE_REGLEMENT").getTable();
+                                int idComptePceCaisse = table.getRow(TypeReglementSQLElement.ESPECE).getInt("ID_COMPTE_PCE_CLIENT");
+                                if (idComptePceCaisse == table.getUndefinedID()) {
+                                    idComptePceCaisse = ComptePCESQLElement.getId(ComptePCESQLElement.getComptePceDefault("VenteEspece"));
+                                }
+                                new GenerationMvtVirement(idComptePceCaisse, getClientCaisse().getInt("ID_COMPTE_PCE"), 0, totalEnc - total, "Rendu sur règlement " + " Ticket "
+                                        + rowFinal.getString("NUMERO"), new Date(), JournalSQLElement.CAISSES, " Ticket " + rowFinal.getString("NUMERO")).genereMouvement();
+                            }
+
+                            updateStock(rowFinal.getID());
+
+                        }
+                    }
+                    SwingUtilities.invokeLater(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            // TODO Raccord de méthode auto-généré
+
+                            JOptionPane.showMessageDialog(null, "Clôture de la caisse terminée.");
+                        }
+                    });
+                    return null;
                 }
-                rowVals.put("TOTAL_HT", totalHT);
-
-                rowVals.put("TOTAL_TTC", total);
-                rowVals.put("TOTAL_TVA", total - totalHT);
-
-                // Paiements
-                for (Paiement paiement : ticket.getPaiements()) {
-                    if (paiement.getMontantInCents() > 0) {
-                        SQLRowValues rowValsElt = new SQLRowValues(eltEnc.getTable());
-                        SQLRowValues rowValsEltMode = new SQLRowValues(eltMode.getTable());
-                        if (paiement.getType() == Paiement.CB) {
-                            rowValsEltMode.put("ID_TYPE_REGLEMENT", TypeReglementSQLElement.CB);
-                        } else if (paiement.getType() == Paiement.CHEQUE) {
-                            rowValsEltMode.put("ID_TYPE_REGLEMENT", TypeReglementSQLElement.CHEQUE);
-                        } else if (paiement.getType() == Paiement.ESPECES) {
-                            rowValsEltMode.put("ID_TYPE_REGLEMENT", TypeReglementSQLElement.ESPECE);
-                        }
-
-                        rowValsElt.put("ID_MODE_REGLEMENT", rowValsEltMode);
-                        try {
-                            rowValsElt.put("ID_CLIENT", getClientCaisse().getID());
-                        } catch (SQLException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
-                        long montant = Long.valueOf(paiement.getMontantInCents());
-                        if (ticket.getPaiements().size() == 1 && paiement.getType() == Paiement.ESPECES) {
-                            montant = total;
-                        }
-                        rowValsElt.put("MONTANT", montant);
-                        rowValsElt.put("NOM", "Ticket " + ticket.getCode());
-                        rowValsElt.put("DATE", ticket.getCreationDate());
-                        rowValsElt.put("ID_TICKET_CAISSE", rowVals);
-                    }
-                }
-                try {
-                    SQLRow rowFinal = rowVals.insert();
-                    Thread t = new Thread(new GenerationMvtTicketCaisse(rowFinal));
-                    t.start();
-                    try {
-                        t.join();
-                    } catch (InterruptedException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
-                    // msie à jour du mouvement
-                    rowFinal = rowFinal.getTable().getRow(rowFinal.getID());
-                    List<SQLRow> rowsEnc = rowFinal.getReferentRows(eltEnc.getTable());
-                    long totalEnc = 0;
-                    for (SQLRow sqlRow : rowsEnc) {
-                        long montant = sqlRow.getLong("MONTANT");
-                        PrixTTC ttc = new PrixTTC(montant);
-                        totalEnc += montant;
-                        new GenerationReglementVenteNG("Règlement " + sqlRow.getForeignRow("ID_MODE_REGLEMENT").getForeignRow("ID_TYPE_REGLEMENT").getString("NOM") + " Ticket "
-                                + rowFinal.getString("NUMERO"), getClientCaisse(), ttc, sqlRow.getDate("DATE").getTime(), sqlRow.getForeignRow("ID_MODE_REGLEMENT"), rowFinal,
-                                rowFinal.getForeignRow("ID_MOUVEMENT"), false);
-                    }
-                    if (totalEnc > total) {
-                        final SQLTable table = Configuration.getInstance().getDirectory().getElement("TYPE_REGLEMENT").getTable();
-                        int idComptePceCaisse = table.getRow(TypeReglementSQLElement.ESPECE).getInt("ID_COMPTE_PCE_CLIENT");
-                        if (idComptePceCaisse == table.getUndefinedID()) {
-                            idComptePceCaisse = ComptePCESQLElement.getId(ComptePCESQLElement.getComptePceDefault("VenteEspece"));
-                        }
-                        new GenerationMvtVirement(idComptePceCaisse, getClientCaisse().getInt("ID_COMPTE_PCE"), 0, totalEnc - total,
-                                "Rendu sur règlement " + " Ticket " + rowFinal.getString("NUMERO"), new Date(), JournalSQLElement.CAISSES, " Ticket " + rowFinal.getString("NUMERO")).genereMouvement();
-                    }
-
-                    updateStock(rowFinal.getID());
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
+            });
+        } catch (Exception exn) {
+            // TODO Bloc catch auto-généré
+            ExceptionHandler.handle("Une erreur est survenue pendant la clôture.", exn);
         }
-        JOptionPane.showMessageDialog(null, "Clôture de la caisse terminée.");
+
     }
 
     private static SQLRow rowClient = null;
@@ -341,7 +362,7 @@ public class Caisse {
 
     public static int getID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("caisseID", "2"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("caisseID", "-1"));
     }
 
     public static void setID(int caisseId) {
@@ -364,7 +385,7 @@ public class Caisse {
 
     public static int getUserID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("userID", "2"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("userID", "-1"));
     }
 
     public static void setUserID(int userId) {
@@ -374,7 +395,7 @@ public class Caisse {
 
     public static int getSocieteID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("societeID", "42"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("societeID", "-1"));
     }
 
     public static void setSocieteID(int societeId) {

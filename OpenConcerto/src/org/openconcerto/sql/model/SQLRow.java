@@ -400,10 +400,12 @@ public class SQLRow extends SQLRowAccessor {
         }
     }
 
+    @Override
     public SQLRow getForeign(String fieldName) {
         return this.getForeignRow(fieldName);
     }
 
+    @Override
     public boolean isForeignEmpty(String fieldName) {
         final SQLRow foreignRow = this.getForeignRow(fieldName, SQLRowMode.NO_CHECK);
         return foreignRow == null || foreignRow.isUndefined();
@@ -413,7 +415,7 @@ public class SQLRow extends SQLRowAccessor {
      * Retourne la ligne sur laquelle pointe le champ passé. Elle peut être archivé ou indéfinie.
      * 
      * @param field le nom de la clef externe.
-     * @return la ligne sur laquelle pointe le champ passé, jamais <code>null</code>.
+     * @return la ligne sur laquelle pointe le champ passé.
      * @throws IllegalArgumentException si <code>field</code> n'est pas une clef étrangère de la
      *         table de cette ligne.
      * @throws IllegalStateException si <code>field</code> contient l'ID d'une ligne inexistante.
@@ -949,7 +951,8 @@ public class SQLRow extends SQLRowAccessor {
             return path.split(",");
     }
 
-    public SQLTableListener createTableListener(SQLDataListener l) {
+    @Override
+    public SQLTableModifiedListener createTableListener(SQLDataListener l) {
         return new SQLTableListenerData<SQLRow>(this, l);
     }
 

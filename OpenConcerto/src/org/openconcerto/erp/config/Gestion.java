@@ -37,7 +37,6 @@ import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.component.WaitIndeterminatePanel;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
-import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.protocol.Helper;
 
 import java.awt.AWTEvent;
@@ -70,6 +69,8 @@ import javax.swing.UIManager;
 import javax.swing.UIManager.LookAndFeelInfo;
 
 public class Gestion {
+
+    public static final File MODULES_DIR = new File("Modules");
 
     /**
      * When this system property is set to <code>true</code>, Gestion will hide most of its normal
@@ -212,16 +213,6 @@ public class Gestion {
         } catch (Exception e) {
             System.out.println("Init phase 1 error:" + (System.currentTimeMillis() - t4) + "ms");
             ExceptionHandler.die("Erreur de connexion à la base de données", e);
-            // since we're not in the EDT, the previous call doesn't block,
-            // so return (it won't quit the VM since a dialog is displaying)
-            return;
-        }
-        try {
-            final File moduleDir = new File("Modules");
-            moduleDir.mkdir();
-            ModuleManager.getInstance().addFactories(moduleDir);
-        } catch (Throwable e) {
-            ExceptionHandler.handle("Erreur d'accès aux modules", e);
         }
         System.out.println("Init phase 1:" + (System.currentTimeMillis() - t1) + "ms");
         SwingUtilities.invokeLater(new Runnable() {
@@ -283,20 +274,11 @@ public class Gestion {
 
         // needed so that we can uninstall modules
         System.setProperty(SQLBase.ALLOW_OBJECT_REMOVAL, "true");
-        ModuleManager.getInstance().invoke(new IClosure<ModuleManager>() {
-            @Override
-            public void executeChecked(ModuleManager mngr) {
-                try {
-                    final Exception exn = mngr.setup();
-                    // OK to continue without all modules started
-                    if (exn != null)
-                        ExceptionHandler.handle(MainFrame.getInstance(), "Impossible de démarrer les modules", exn);
-                } catch (Exception e) {
-                    // not OK to continue without required elements
-                    ExceptionHandler.die("Impossible de démarrer les modules requis", e);
-                }
-            }
-        });
+        try {
+            ModuleManager.getInstance().addFactories(MODULES_DIR);
+        } catch (Throwable e) {
+            ExceptionHandler.handle("Erreur d'accès aux modules", e);
+        }
     }
 
     /**

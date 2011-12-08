@@ -23,6 +23,7 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.Tuple2;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -33,25 +34,26 @@ import java.util.List;
 import java.util.Map;
 
 public class ListeFactureXmlSheet extends AbstractListeSheetXml {
+    public static final String TEMPLATE_ID = "ListeFacture";
+    public static final String TEMPLATE_PROPERTY_NAME = DEFAULT_PROPERTY_NAME;
 
     private List<Map<String, Object>> listValues;
     private static final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yy");
-    private List<Integer> listeIds;
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tupleDefault;
-    }
+    private List<Integer> listeIds;
 
     public ListeFactureXmlSheet(List<Integer> listeIds) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.listeIds = listeIds;
-        this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
     }
 
     @Override
-    public String getDefaultModele() {
-        // TODO Raccord de méthode auto-généré
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
+    }
+
+    @Override
+    public String getName() {
         return "ListeFacture";
     }
 
@@ -100,7 +102,4 @@ public class ListeFactureXmlSheet extends AbstractListeSheetXml {
         this.listAllSheetValues.put(0, this.listValues);
     }
 
-    public String getFileName() {
-        return getValidFileName("ListeFacture");
-    }
 }

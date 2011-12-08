@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.IResultSetHandler;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -85,20 +86,32 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
             return this.t.getDBSystemRoot().getDataSource();
         }
 
-        @SuppressWarnings("unchecked")
-        public List<String> loadCache() {
+        public List<String> loadCache(final boolean dsCache) {
             final SQLSelect sel = new SQLSelect(this.t.getBase());
             sel.addSelect(this.t.getField("LABEL"));
             sel.setWhere(new Where(this.t.getField("CHAMP"), "=", this.field));
+            // ignore DS cache to allow the fetching of rows modified by another VM
+            @SuppressWarnings("unchecked")
+            final List<String> items = (List<String>) this.getDS().execute(sel.asString(), new IResultSetHandler(SQLDataSource.COLUMN_LIST_HANDLER) {
+                @Override
+                public boolean readCache() {
+                    return dsCache;
+                }
+
+                @Override
+                public boolean writeCache() {
+                    return true;
+                }
+            });
             this.cache.clear();
-            this.cache.addAll(this.getDS().executeCol(sel.asString()));
+            this.cache.addAll(items);
 
             return this.cache;
         }
 
         public List<String> getCache() {
             if (!this.loadedOnce) {
-                this.loadCache();
+                this.loadCache(true);
                 this.loadedOnce = true;
             }
             return this.cache;

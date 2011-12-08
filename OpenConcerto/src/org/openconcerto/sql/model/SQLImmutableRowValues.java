@@ -80,10 +80,6 @@ public class SQLImmutableRowValues extends SQLRowAccessor {
         return this.delegate.isForeignEmpty(fieldName);
     }
 
-    public boolean isEmptyLink(String fieldName) {
-        return this.delegate.isEmptyLink(fieldName);
-    }
-
     public boolean isDefault(String fieldName) {
         return this.delegate.isDefault(fieldName);
     }
@@ -116,7 +112,7 @@ public class SQLImmutableRowValues extends SQLRowAccessor {
     }
 
     @Override
-    public SQLTableListener createTableListener(SQLDataListener l) {
+    public SQLTableModifiedListener createTableListener(SQLDataListener l) {
         return this.delegate.createTableListener(l);
     }
 

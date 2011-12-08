@@ -222,7 +222,7 @@ public class StringUtils {
 
             if (lastString.length() == nbCharMaxLine) {
                 int esp = lastString.lastIndexOf(" ");
-                if (result.length() > 0) {
+                if (result.length() > 0 && result.charAt(result.length() - 1) != '\n') {
                     result.append("\n");
                 }
                 if (esp > 0) {
@@ -232,6 +232,7 @@ public class StringUtils {
                     result.append(lastString.toString().trim());
                     lastString = new StringBuffer();
                 }
+                result.append("\n");
             }
 
             char charAt = s.charAt(i);
@@ -240,12 +241,11 @@ public class StringUtils {
                 result.append(lastString);
                 lastString = new StringBuffer();
             } else {
-
                 lastString.append(charAt);
             }
         }
 
-        if (result.length() > 0) {
+        if (result.length() > 0 && result.charAt(result.length() - 1) != '\n') {
             result.append("\n");
         }
 
@@ -338,4 +338,21 @@ public class StringUtils {
         }
     }
 
+    public static String rightAlign(String s, int width) {
+        String r = s;
+        int n = width - s.length();
+        for (int i = 0; i < n; i++) {
+            r = ' ' + r;
+        }
+        return r;
+    }
+
+    public static String leftAlign(String s, int width) {
+        String r = s;
+        int n = width - s.length();
+        for (int i = 0; i < n; i++) {
+            r += ' ';
+        }
+        return r;
+    }
 }

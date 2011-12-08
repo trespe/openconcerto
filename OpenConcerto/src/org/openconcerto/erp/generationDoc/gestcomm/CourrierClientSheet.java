@@ -15,12 +15,10 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.generationDoc.AbstractJOOReportsSheet;
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.Tuple2;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -31,24 +29,21 @@ public class CourrierClientSheet extends AbstractJOOReportsSheet {
 
     private SQLRow rowCourrier;
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationCourrier", "Courrier");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
-    }
+    public static final String TEMPLATE_ID = "Courrier";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationCourrier";
 
     public CourrierClientSheet(SQLRow row) {
         super();
         this.rowCourrier = row;
         Date d = (Date) this.rowCourrier.getObject("DATE");
         String year = yearFormat.format(d);
-        init(year, "Courrier.odt", "CourrierPrinter", tuple);
+        init(year, "Courrier.odt", "CourrierPrinter");
     }
 
     /**
      * @return une Map contenant les valeurs à remplacer dans la template
      */
-    protected Map createMap() {
+    protected Map<String, Object> createMap() {
 
         Map<String, Object> m = new HashMap<String, Object>();
 
@@ -84,8 +79,7 @@ public class CourrierClientSheet extends AbstractJOOReportsSheet {
     }
 
     public String getFileName() {
-        String fileName = "Courrier_" + AbstractSheetXml.getValidFileName(this.rowCourrier.getString("NUMERO"));
-        return fileName;
+        return "Courrier_" + this.rowCourrier.getString("NUMERO");
     }
 
 }

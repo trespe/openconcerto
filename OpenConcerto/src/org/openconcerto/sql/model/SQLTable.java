@@ -26,6 +26,7 @@ import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 import org.openconcerto.xml.JDOMUtils;
@@ -42,6 +43,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -172,9 +174,6 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     // always immutable so that fire can iterate safely ; to modify it, simply copy it before
     // (adding listeners is a lot less common than firing events)
     private List<SQLTableModifiedListener> tableModifiedListeners;
-    private final List<SQLTableListener> listeners;
-    // copy of listeners while dispatching, so that a listener can modify it
-    private final List<SQLTableListener> dispatchingListeners;
     // the id that foreign keys pointing to this, can use instead of NULL
     // a null value meaning not yet known
     private Integer undefinedID;
@@ -186,8 +185,6 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     SQLTable(SQLSchema schema, String name) {
         super(schema, name);
         this.tableModifiedListeners = Collections.emptyList();
-        this.listeners = new ArrayList<SQLTableListener>();
-        this.dispatchingListeners = new ArrayList<SQLTableListener>();
         // ne pas se soucier de la casse
         this.fields = createMap();
         // order matters (eg for indexes)
@@ -971,18 +968,61 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      */
 
     public void addTableModifiedListener(SQLTableModifiedListener l) {
-        synchronized (this.listeners) {
-            final List<SQLTableModifiedListener> newListeners = new ArrayList<SQLTableModifiedListener>(this.tableModifiedListeners);
-            newListeners.add(l);
+        this.addTableModifiedListener(l, false);
+    }
+
+    public void addPremierTableModifiedListener(SQLTableModifiedListener l) {
+        this.addTableModifiedListener(l, true);
+    }
+
+    private void addTableModifiedListener(SQLTableModifiedListener l, final boolean before) {
+        synchronized (this) {
+            final List<SQLTableModifiedListener> newListeners = new ArrayList<SQLTableModifiedListener>(this.tableModifiedListeners.size() + 1);
+            if (before)
+                newListeners.add(l);
+            newListeners.addAll(this.tableModifiedListeners);
+            if (!before)
+                newListeners.add(l);
             this.tableModifiedListeners = Collections.unmodifiableList(newListeners);
         }
     }
 
     public void removeTableModifiedListener(SQLTableModifiedListener l) {
-        synchronized (this.listeners) {
+        synchronized (this) {
             final List<SQLTableModifiedListener> newListeners = new ArrayList<SQLTableModifiedListener>(this.tableModifiedListeners);
             if (newListeners.remove(l))
                 this.tableModifiedListeners = Collections.unmodifiableList(newListeners);
+        }
+    }
+
+    private static final class BridgeListener implements SQLTableModifiedListener {
+
+        private final SQLTableListener l;
+
+        private BridgeListener(SQLTableListener l) {
+            super();
+            this.l = l;
+        }
+
+        @Override
+        public void tableModified(SQLTableEvent evt) {
+            final Mode mode = evt.getMode();
+            if (mode == Mode.ROW_ADDED)
+                this.l.rowAdded(evt.getTable(), evt.getId());
+            else if (mode == Mode.ROW_UPDATED)
+                this.l.rowModified(evt.getTable(), evt.getId());
+            else if (mode == Mode.ROW_DELETED)
+                this.l.rowDeleted(evt.getTable(), evt.getId());
+        }
+
+        @Override
+        public int hashCode() {
+            return this.l.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof BridgeListener && this.l.equals(((BridgeListener) obj).l);
         }
     }
 
@@ -993,31 +1033,12 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @deprecated use {@link #addTableModifiedListener(SQLTableModifiedListener)}
      */
     public void addTableListener(SQLTableListener l) {
-        synchronized (this.listeners) {
-            if (!this.listeners.contains(l)) {
-                this.listeners.add(l);
-            } else
-                Log.get().fine(l + " already in");
-        }
-    }
-
-    public void addPremierTableListener(SQLTableListener l) {
-        synchronized (this.listeners) {
-            if (!this.listeners.contains(l)) {
-                this.listeners.add(0, l);
-            } else
-                throw new IllegalStateException(l + " is already listener of " + this);
-        }
+        this.addTableModifiedListener(new BridgeListener(l));
     }
 
     public void removeTableListener(SQLTableListener l) {
-        synchronized (this.listeners) {
-            this.listeners.remove(l);
-        }
+        this.removeTableModifiedListener(new BridgeListener(l));
     }
-
-    private static final int NOT_DISPATCHING = -2;
-    private int dispatchingID = NOT_DISPATCHING;
 
     /**
      * Previent tous les listeners de la table qu'il y a eu une modification ou ajout si modif de
@@ -1046,61 +1067,55 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     public final void fire(SQLTableEvent evt) {
-        final int id = evt.getId();
-        synchronized (this.dispatchingListeners) {
-            // FIXME peut laisser tomber des changements si un notifié rechange la même ligne
-            if (this.dispatchingID != id) {
-                this.dispatchingID = id;
-                final Mode mode = evt.getMode();
-                this.dispatchingListeners.clear();
-                synchronized (this.listeners) {
-                    this.dispatchingListeners.addAll(this.listeners);
-                }
-                final int size = this.dispatchingListeners.size();
-                for (int i = 0; i < size; i++) {
-                    final SQLTableListener obj = this.dispatchingListeners.get(i);
-                    if (mode == Mode.ROW_UPDATED)
-                        obj.rowModified(this, id);
-                    else if (mode == Mode.ROW_ADDED)
-                        obj.rowAdded(this, id);
-                    else if (mode == Mode.ROW_DELETED)
-                        obj.rowDeleted(this, id);
-                    else
-                        throw new IllegalArgumentException("unknown mode: " + mode);
-                }
-                this.fireTableModified(evt);
-                this.dispatchingID = NOT_DISPATCHING;
-            } else {
-                System.err.println("dropping a SQLTable.fire() : fired in the listener");
-                Thread.dumpStack();
+        this.fireTableModified(evt);
+    }
+
+    static private final ThreadLocal<LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>>> events = new ThreadLocal<LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>>>() {
+        @Override
+        protected LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>> initialValue() {
+            return new LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>>();
+        }
+    };
+
+    // allow to maintain the dispatching of events in order when a listener itself fires an event
+    static private void fireTableModified(Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent> newTuple) {
+        final LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>> linkedList = events.get();
+        // add new event
+        linkedList.addLast(newTuple);
+        // process all pending events
+        Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent> currentTuple;
+        while ((currentTuple = linkedList.peekFirst()) != null) {
+            final Iterator<SQLTableModifiedListener> iter = currentTuple.get0();
+            final SQLTableEvent currentEvt = currentTuple.get1();
+            while (iter.hasNext()) {
+                final SQLTableModifiedListener l = iter.next();
+                l.tableModified(currentEvt);
             }
+            // not removeFirst() since the item might have been already removed
+            linkedList.pollFirst();
         }
     }
 
     private void fireTableModified(final SQLTableEvent evt) {
+        // no need to copy since this.tableModifiedListeners is immutable
         final List<SQLTableModifiedListener> dispatchingListeners;
-        synchronized (this.listeners) {
+        synchronized (this) {
             dispatchingListeners = this.tableModifiedListeners;
         }
-        // no need to synchronize since dispatchingListeners is immutable
-        // even better, it also works if the same thread calls fireTableModified() in a callback
-        // (although in that case some listeners might have events in the wrong order)
-        for (final SQLTableModifiedListener l : dispatchingListeners) {
-            l.tableModified(evt);
-        }
+        fireTableModified(Tuple2.create(dispatchingListeners.iterator(), evt));
     }
 
     @SuppressWarnings("unchecked")
     public String toXML() {
         final StringBuilder sb = new StringBuilder(16000);
         sb.append("<table name=\"");
-        sb.append(this.getName());
+        sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(this.getName()));
         sb.append("\"");
 
         final String schemaName = this.getSchema().getName();
         if (schemaName != null) {
             sb.append(" schema=\"");
-            sb.append(schemaName);
+            sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(schemaName));
             sb.append('"');
         }
 
@@ -1114,7 +1129,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
 
         if (getType() != null) {
             sb.append(" type=\"");
-            sb.append(getType());
+            sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(getType()));
             sb.append('"');
         }
 
@@ -1152,21 +1167,13 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return sb.toString();
     }
 
-    public SQLTableListener createTableListener(final SQLDataListener l) {
-        return new SQLTableListener() {
-
-            public void rowModified(SQLTable table, int id) {
+    @Override
+    public SQLTableModifiedListener createTableListener(final SQLDataListener l) {
+        return new SQLTableModifiedListener() {
+            @Override
+            public void tableModified(SQLTableEvent evt) {
                 l.dataChanged();
             }
-
-            public void rowAdded(SQLTable table, int id) {
-                l.dataChanged();
-            }
-
-            public void rowDeleted(SQLTable table, int id) {
-                l.dataChanged();
-            }
-
         };
     }
 

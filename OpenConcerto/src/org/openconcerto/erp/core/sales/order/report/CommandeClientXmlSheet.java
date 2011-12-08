@@ -13,23 +13,22 @@
  
  package org.openconcerto.erp.core.sales.order.report;
 
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
+import org.openconcerto.erp.generationDoc.AbstractSheetXMLWithDate;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
-import java.util.Calendar;
-import java.util.Date;
+public class CommandeClientXmlSheet extends AbstractSheetXMLWithDate {
 
-public class CommandeClientXmlSheet extends AbstractSheetXml {
+    public static final String TEMPLATE_ID = "CommandeClient";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationCmdCli";
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationCmdCli", "Commande client");
+    // FIXME Prefs printer location
+    public CommandeClientXmlSheet(SQLRow row) {
+        super(row);
+        this.printer = PrinterNXProps.getInstance().getStringProperty("cmdCliPrinter");
+        this.elt = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
     }
 
     @Override
@@ -47,24 +46,13 @@ public class CommandeClientXmlSheet extends AbstractSheetXml {
         }
     }
 
-    // FIXME Prefs printer location
-    public CommandeClientXmlSheet(SQLRow row) {
-        super(row);
-        this.printer = PrinterNXProps.getInstance().getStringProperty("cmdCliPrinter");
-        this.elt = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
-
-        Calendar cal = Calendar.getInstance();
-        cal.setTime((Date) row.getObject("DATE"));
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
+    @Override
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     }
 
     @Override
-    public String getDefaultModele() {
-        return "CommandeClient";
-    }
-
-    public String getFileName() {
-        return getValidFileName("CommandeClient_" + this.row.getString("NUMERO"));
+    public String getName() {
+        return "CommandeClient_" + this.row.getString("NUMERO");
     }
 }

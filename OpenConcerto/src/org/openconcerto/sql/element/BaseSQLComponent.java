@@ -170,7 +170,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         }
     }
 
-    private Tuple2<JComponent, SQLType> getComp(String field) {
+    protected Tuple2<JComponent, SQLType> getComp(String field) {
         if (getElement().getPrivateElement(field) != null)
             // we create a MutableRowItemView and need SpecParser
             throw new IllegalArgumentException("Private fields not supported");
@@ -192,6 +192,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                 // regular
                 comp = new SQLTextCombo();
         }
+        comp.setOpaque(false);
         return new Tuple2<JComponent, SQLType>(comp, type);
     }
 

@@ -14,8 +14,8 @@
  package org.openconcerto.erp.core.humanresources.payroll.report;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetInterface;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.generationDoc.SpreadSheetGeneratorGestComm;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.map.model.Ville;
@@ -26,7 +26,6 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.Tuple2;
 
 import java.io.File;
 import java.text.DateFormat;
@@ -163,26 +162,38 @@ public class FichePayeSheet extends SheetInterface {
 
     // Emplacement des fichiers générés
     public static String getLocation(int id, int type) {
-
         return getLocation(tableFiche.getRow(id), type);
     }
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationFichePaye", "Fiche de paye");
+    public static final String TEMPLATE_ID = "Fiche de paye";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationFichePaye";
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
+    @Override
+    public String getTemplateId() {
+        return TEMPLATE_ID;
+    }
+
+    @Override
+    protected String getYear() {
+        // TODO Auto-generated method stub
+        return this.row.getString("ANNEE");
     }
 
     public static String getLocation(SQLRow r, int type) {
+        DocumentLocalStorageManager storage = DocumentLocalStorageManager.getInstance();
+        String path;
+        if (type == FichePayeSheet.typeOO) {
+            path = storage.getDocumentOutputDirectory(TEMPLATE_ID).getAbsolutePath();
+        } else {
+            path = storage.getPDFOutputDirectory(TEMPLATE_ID).getAbsolutePath();
+        }
 
-        return SheetXml.getLocationForTuple(tuple, !(type == FichePayeSheet.typeOO)) + File.separator + r.getString("ANNEE");
+        return path + File.separator + r.getString("ANNEE");
     }
 
     private void init() {
         this.modele = "FichePaye.ods";
         this.printer = PrinterNXProps.getInstance().getStringProperty("FichePayePrinter");
-        this.locationOO = getLocation(this.row, typeOO);
-        this.locationPDF = getLocation(this.row, typePDF);
     }
 
     protected void createMap() {

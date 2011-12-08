@@ -29,11 +29,12 @@ public class VenteComptoirSheet extends SheetInterface {
     private static final SQLTable tableComptoir = base.getTable("SAISIE_VENTE_COMPTOIR");
     private static final SQLTable tableClient = base.getTable("CLIENT");
     private static final SQLTable tableAdresse = base.getTable("ADRESSE");
-    private final static SQLTable tableAdresseCommon = Configuration.getInstance().getBase().getTable("ADRESSE_COMMON");
     private static final SQLTable tableArticle = base.getTable("ARTICLE");
     private static final SQLTable tableTaxe = base.getTable("TAXE");
     private static final SQLTable tableModeRegl = base.getTable("MODE_REGLEMENT");
     private static final SQLTable tableTypeRegl = base.getTable("TYPE_REGLEMENT");
+    public static final String TEMPLATE_ID = "VenteComptoir";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationVenteComptoir";
 
     public VenteComptoirSheet(int idFact) {
         super(idFact, tableComptoir);
@@ -41,6 +42,16 @@ public class VenteComptoirSheet extends SheetInterface {
 
     public VenteComptoirSheet(SQLRow rowSaisie) {
         super(rowSaisie);
+    }
+
+    @Override
+    protected String getYear() {
+        return "";
+    }
+
+    @Override
+    public String getTemplateId() {
+        return TEMPLATE_ID;
     }
 
     protected void createMap() {
@@ -89,4 +100,5 @@ public class VenteComptoirSheet extends SheetInterface {
 
         this.mCell.put("A35", this.row.getObject("INFOS"));
     }
+
 }

@@ -154,7 +154,7 @@ public class ListeHistoriquePanel extends JPanel {
                     for (TableModelListener listener : l) {
                         liste.getListe().getTableModel().addTableModelListener(listener);
                         if (elementSheet.get(liste.getElement()) != null) {
-                            liste.getListe().getJTable().addMouseListener(new MouseSheetXmlListeListener(liste.getListe(), elementSheet.get(liste.getElement())));
+                            liste.getListe().addIListeActions(new MouseSheetXmlListeListener(elementSheet.get(liste.getElement())).getRowActions());
                         }
                     }
                 }
@@ -228,7 +228,7 @@ public class ListeHistoriquePanel extends JPanel {
 
             setRenderer(liste);
             if (elementSheet.get(liste.getElement()) != null) {
-                liste.getListe().getJTable().addMouseListener(new MouseSheetXmlListeListener(liste.getListe(), elementSheet.get(liste.getElement())));
+                liste.getListe().addIListeActions(new MouseSheetXmlListeListener(elementSheet.get(liste.getElement())).getRowActions());
             }
             liste.getListe().setSQLEditable(false);
             liste.setOpaque(false);

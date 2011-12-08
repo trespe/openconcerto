@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.preferences;
 
+import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.utils.FileUtility;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -238,7 +239,7 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
         final Color foregroundColor = UIManager.getColor("TextField.foreground");
 
         for (final Entry<String, JTextField> entry : this.mapKeyTextOO.entrySet()) {
-            final File f = new File(SheetXml.getLocationForTuple(Tuple2.create("GetDefault", this.mapKeyLabel.get(entry.getKey())), false));
+            final File f = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory("Default");
             final JTextField textField = entry.getValue();
             if (f.exists()) {
                 textField.setForeground(foregroundColor);
@@ -254,7 +255,7 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
         }
 
         for (final Entry<String, JTextField> entry : this.mapKeyTextPDF.entrySet()) {
-            final File f = new File(SheetXml.getLocationForTuple(Tuple2.create("GetDefault", this.mapKeyLabel.get(entry.getKey())), true));
+            final File f = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory("Default");
             final JTextField textField = entry.getValue();
             if (f.exists()) {
                 textField.setForeground(foregroundColor);
@@ -264,7 +265,6 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
             try {
                 textField.setText(f.getCanonicalPath());
             } catch (IOException e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }
@@ -281,8 +281,14 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
 
     private void updateTextFields(final Map<String, JTextField> map, final String format) throws IOException {
         final Color foregroundColor = UIManager.getColor("TextField.foreground");
+        final DocumentLocalStorageManager storage = DocumentLocalStorageManager.getInstance();
         for (final Entry<String, JTextField> entry : map.entrySet()) {
-            final File f = new File(SheetXml.getLocationForTuple(Tuple2.create(entry.getKey(), this.mapKeyLabel.get(entry.getKey())), format.equalsIgnoreCase("PDF")));
+            final File f;
+            if (format.equalsIgnoreCase("PDF")) {
+                f = storage.getPDFOutputDirectory(entry.getKey());
+            } else {
+                f = storage.getDocumentOutputDirectory(entry.getKey());
+            }
             final JTextField textField = entry.getValue();
             if (f.exists()) {
                 textField.setForeground(foregroundColor);

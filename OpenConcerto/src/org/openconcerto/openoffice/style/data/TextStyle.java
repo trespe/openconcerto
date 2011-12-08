@@ -14,6 +14,7 @@
  package org.openconcerto.openoffice.style.data;
 
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.CellStyle;
 
@@ -33,7 +34,12 @@ public class TextStyle extends DataStyle {
     };
 
     public TextStyle(final ODPackage pkg, Element elem) {
-        super(pkg, elem, Object.class);
+        super(pkg, elem, ODValueType.STRING);
+    }
+
+    @Override
+    protected String convertNonNull(Object o) {
+        return o.toString();
     }
 
     @Override

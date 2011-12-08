@@ -14,7 +14,6 @@
  package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.LengthUnit;
-import org.openconcerto.openoffice.ODFrame;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.StyleStyle;

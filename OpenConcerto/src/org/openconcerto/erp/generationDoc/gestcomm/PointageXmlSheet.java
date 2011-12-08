@@ -14,7 +14,6 @@
  package org.openconcerto.erp.generationDoc.gestcomm;
 
 import org.openconcerto.erp.generationDoc.AbstractListeSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -36,16 +35,18 @@ import java.util.Map;
 
 public class PointageXmlSheet extends AbstractListeSheetXml {
 
+    public static final String TEMPLATE_ID = "Pointage";
+    public static final String TEMPLATE_PROPERTY_NAME = DEFAULT_PROPERTY_NAME;
     private Map<Integer, List<Map<String, Object>>> listAllSheetValues;
     private Map<Integer, Map<Integer, String>> styleAllSheetValues;
     private Map<Integer, Map<String, Object>> mapAllSheetValues;
     private Calendar c = Calendar.getInstance();
+    private Date date = new Date();
+    private final long MILLIS_IN_HOUR = 3600000;
 
     public PointageXmlSheet(int mois, int year) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.mapAllSheetValues = new HashMap<Integer, Map<String, Object>>();
-        this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
         this.c.set(Calendar.DAY_OF_MONTH, 1);
         this.c.set(Calendar.YEAR, year);
         this.c.set(Calendar.MONTH, mois);
@@ -57,11 +58,14 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
     }
 
     @Override
-    public String getDefaultModele() {
-        return "Pointage";
+    public String getName() {
+        return "Pointage" + this.date;
     }
 
-    private long oneHour = 3600000;
+    @Override
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
+    }
 
     protected void createListeValues() {
         SQLElement eltPointage = Configuration.getInstance().getDirectory().getElement("POINTAGE");
@@ -124,6 +128,7 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
         sel.setHaving(Where.createRaw("COUNT (\"POINTAGE\".\"ID_USER_COMMON\") > 0", tablePointage.getField("ID_USER_COMMON")));
         sel.addFieldOrder(tableUser.getField("NOM"));
         System.err.println(sel.asString());
+        @SuppressWarnings("unchecked")
         List<SQLRow> listUser = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel, tableUser));
 
         String entete = "Horaires de travail du mois de " + formatMonth.format(d1);
@@ -142,7 +147,7 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
             mapSheetValue.put("A1", userName);
             mapSheetValue.put("F1", entete);
 
-            long tempsDePause = this.oneHour;
+            long tempsDePause = this.MILLIS_IN_HOUR;
 
             // calcul du temps de pause si possible
             if (row.getObject("HEURE_MATIN_D") != null && row.getObject("MINUTE_MATIN_D") != null && row.getObject("HEURE_MIDI_A") != null && row.getObject("MINUTE_MIDI_A") != null) {
@@ -173,8 +178,8 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
                 // Temps travaillé dans la semaine
                 if (semaine > 0 && semaine != this.c.get(Calendar.WEEK_OF_YEAR)) {
                     Map<String, Object> mValues2 = new HashMap<String, Object>();
-                    long hour = heureTotalSemaine / this.oneHour;
-                    long minute = (heureTotalSemaine % this.oneHour) / 60000;
+                    long hour = heureTotalSemaine / this.MILLIS_IN_HOUR;
+                    long minute = (heureTotalSemaine % this.MILLIS_IN_HOUR) / 60000;
                     mValues2.put("HEURE_TOTAL", hour + "h" + minute);
                     heureTotalSemaine = 0;
                     listValues.add(mValues2);
@@ -207,6 +212,7 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
                 sel2.setWhere(wDay);
                 sel2.addFieldOrder(table2.getField("DATE"));
 
+                @SuppressWarnings("unchecked")
                 List<SQLRow> list2 = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel2.asString(), SQLRowListRSH.createFromSelect(sel2, table2));
 
                 if (list2.size() > 2) {
@@ -258,8 +264,8 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
                     System.err.println("time " + time + " Worked :" + timeWorked);
                     heureTotalSemaine += timeWorked;
                     heureTotalMois += timeWorked;
-                    long hour = timeWorked / this.oneHour;
-                    long minute = (timeWorked % this.oneHour) / 60000;
+                    long hour = timeWorked / this.MILLIS_IN_HOUR;
+                    long minute = (timeWorked % this.MILLIS_IN_HOUR) / 60000;
                     mValues.put("HEURE_TOTAL", hour + "h" + minute);
 
                 } else {
@@ -278,8 +284,8 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
 
             // Heure de la derniere semaine
             Map<String, Object> mValues2 = new HashMap<String, Object>();
-            long hour = heureTotalSemaine / this.oneHour;
-            long minute = (heureTotalSemaine % this.oneHour) / 60000;
+            long hour = heureTotalSemaine / this.MILLIS_IN_HOUR;
+            long minute = (heureTotalSemaine % this.MILLIS_IN_HOUR) / 60000;
             mValues2.put("HEURE_TOTAL", hour + "h" + minute);
             heureTotalSemaine = 0;
             listValues.add(mValues2);
@@ -289,8 +295,8 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
 
             // Heure total du mois
             Map<String, Object> mValuesMois = new HashMap<String, Object>();
-            hour = heureTotalMois / this.oneHour;
-            minute = (heureTotalMois % this.oneHour) / 60000;
+            hour = heureTotalMois / this.MILLIS_IN_HOUR;
+            minute = (heureTotalMois % this.MILLIS_IN_HOUR) / 60000;
             mValuesMois.put("HEURE_TOTAL", hour + "h" + minute);
             heureTotalMois = 0;
 
@@ -315,9 +321,4 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
 
     }
 
-    Date date = new Date();
-
-    public String getFileName() {
-        return getValidFileName("Pointage" + this.date);
-    }
 }

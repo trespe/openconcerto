@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.generationDoc;
 
+import org.openconcerto.utils.ExceptionHandler;
+
 import java.awt.Graphics2D;
 import java.io.File;
 import java.io.FileOutputStream;
@@ -36,16 +38,8 @@ import com.lowagie.text.pdf.PdfWriter;
 
 public class SheetUtils {
 
-    static SheetUtils instance;
-
-    public static SheetUtils getInstance() {
-        if (instance == null) {
-            instance = new SheetUtils();
-        }
-        return instance;
-    }
-
-    public File convertToOldFile(String fileName, File pathDest, File fDest) {
+    public static File convertToOldFile(String fileName, File pathDest, File fDest) {
+        // FIXME: !!!!!!!!
         return convertToOldFile(fileName, pathDest, fDest, ".ods");
     }
 
@@ -57,7 +51,7 @@ public class SheetUtils {
      * @param fDest
      * @return
      */
-    public File convertToOldFile(String fileName, File pathDest, File fDest, String extension) {
+    public static File convertToOldFile(String fileName, File pathDest, File fDest, String extension) {
         if (fDest.exists()) {
             int i = 0;
             String destName = fileName;
@@ -92,7 +86,7 @@ public class SheetUtils {
         return fDest;
     }
 
-    public List<File> getHistorique(final String fileName, File pathDest) {
+    public static List<File> getHistorique(final String fileName, File pathDest) {
         File pathOld = new File(pathDest, "Historique");
         File[] files = pathOld.listFiles(new FilenameFilter() {
 
@@ -118,44 +112,24 @@ public class SheetUtils {
         return result;
     }
 
-    public static void main(String[] args) {
-        final OpenDocument doc = new OpenDocument(new File("E:/Facture_FACT1108-5785.ods"));
-        try {
-            SheetUtils.getInstance().convert2PDF(doc, new File("E:/test"), "test");
-        } catch (Exception exn) {
-            // TODO Bloc catch auto-généré
-            exn.printStackTrace();
-        }
-    }
+    public static void convert2PDF(final OpenDocument doc, final File pdfFileToCreate) throws Exception {
 
-    public void convert2PDF(final OpenDocument doc, final File f, final String fileName) throws Exception {
-
-        SwingUtilities.invokeLater(new Runnable() {
+        SwingUtilities.invokeAndWait(new Runnable() {
             @Override
             public void run() {
-                // TODO Raccord de méthode auto-généré
-
                 // Open the PDF document
                 Document document = new Document(PageSize.A4, 50, 50, 50, 50);
-                File outFile = new File(f.getParent(), fileName + ".pdf");
-                FileOutputStream fileOutputStream;
 
                 try {
 
-                    fileOutputStream = new FileOutputStream(outFile);
+                    FileOutputStream fileOutputStream = new FileOutputStream(pdfFileToCreate);
 
                     // Create the writer
                     PdfWriter writer = PdfWriter.getInstance(document, fileOutputStream);
                     writer.setPdfVersion(PdfWriter.VERSION_1_6);
                     writer.setFullCompression();
-                    // writer.setPageEmpty(true);
 
                     document.open();
-                    // System.out.println(writer.getPageNumber());
-                    // // Create a template and a Graphics2D object
-                    // com.itextpdf.text.Rectangle pageSize = document.getPageSize();
-                    // int w = (int) (pageSize.getWidth() * 0.9);
-                    // int h = (int) (pageSize.getHeight() * 0.95);
 
                     PdfContentByte cb = writer.getDirectContent();
 
@@ -190,11 +164,27 @@ public class SheetUtils {
                     // writer.close();
                     fileOutputStream.close();
 
-                } catch (Exception exn) {
-                    // TODO Bloc catch auto-généré
-                    exn.printStackTrace();
+                } catch (Exception originalExn) {
+                    ExceptionHandler.handle("Impossible de créer le PDF " + pdfFileToCreate.getAbsolutePath(), originalExn);
                 }
             }
         });
+    }
+
+    /**
+     * Get a new file with an other extension
+     * 
+     * @param the file (ex: Test.ods)
+     * @param the extension (ex: pdf)
+     * */
+    static File getFileWithExtension(File file, String extension) {
+        if (!extension.startsWith(".")) {
+            extension = "." + extension;
+        }
+        String name = file.getName();
+        int i = name.lastIndexOf(".");
+        name = name.substring(0, i) + extension;
+        final File f = new File(file.getParent(), name);
+        return f;
     }
 }

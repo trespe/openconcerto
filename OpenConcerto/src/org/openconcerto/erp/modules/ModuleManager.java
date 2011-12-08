@@ -17,9 +17,11 @@ import org.openconcerto.erp.config.MainFrame;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
+import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
 import org.openconcerto.sql.model.DBFileCache;
 import org.openconcerto.sql.model.DBItemFileCache;
 import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRow;
@@ -27,6 +29,7 @@ import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSyntax;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.DirectedEdge;
@@ -37,13 +40,14 @@ import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 import org.openconcerto.sql.view.list.RowAction;
-import org.openconcerto.task.config.ComptaBasePropsConfiguration;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.IdentityHashSet;
+import org.openconcerto.utils.cc.IdentitySet;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -60,10 +64,9 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Logger;
-import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import javax.swing.JMenuItem;
@@ -83,7 +86,6 @@ public class ModuleManager {
     private static final Logger L = Logger.getLogger(ModuleManager.class.getPackage().getName());
 
     private static final int MIN_VERSION = 0;
-    private static final int NO_VERSION = MIN_VERSION - 1;
     private static final String MODULE_COLNAME = "MODULE_NAME";
     private static final String MODULE_VERSION_COLNAME = "MODULE_VERSION";
     private static final String TABLE_COLNAME = "TABLE";
@@ -105,6 +107,9 @@ public class ModuleManager {
     private final Map<String, ComponentsContext> modulesComponents;
     private final DirectedGraph<ModuleFactory, DirectedEdge<ModuleFactory>> dependencyGraph;
 
+    private DBRoot root;
+    private Configuration conf;
+
     public ModuleManager() {
         this.factories = new HashMap<String, ModuleFactory>();
         this.runningModules = new HashMap<String, AbstractModule>();
@@ -116,13 +121,16 @@ public class ModuleManager {
         });
         this.modulesElements = new HashMap<String, Collection<SQLElement>>();
         this.modulesComponents = new HashMap<String, ComponentsContext>();
+
+        this.root = null;
+        this.conf = null;
     }
 
     // *** factories (thread-safe)
 
     public final int addFactories(final File dir) {
         if (!dir.exists()) {
-            System.err.println("Warning: module factory directory not found: " + dir.getAbsolutePath());
+            L.warning("Module factory directory not found: " + dir.getAbsolutePath());
             return 0;
         }
         final File[] jars = dir.listFiles(new FileFilter() {
@@ -138,7 +146,7 @@ public class ModuleManager {
                     this.addFactory(new JarModuleFactory(jar));
                     i++;
                 } catch (Exception e) {
-                    System.err.println("Couldn't add " + jar);
+                    L.warning("Couldn't add " + jar);
                     e.printStackTrace();
                 }
             }
@@ -168,7 +176,9 @@ public class ModuleManager {
 
     private final String addFactory(final ModuleFactory f, final boolean start, final boolean persistent) {
         synchronized (this.factories) {
-            this.factories.put(f.getID(), f);
+            final ModuleFactory prev = this.factories.put(f.getID(), f);
+            if (prev != null)
+                L.info("Changing the factory for " + f.getID() + "\nfrom\t" + prev + "\nto\t" + f);
         }
         if (start)
             this.invoke(new IClosure<ModuleManager>() {
@@ -185,11 +195,16 @@ public class ModuleManager {
     }
 
     public final Map<String, ModuleFactory> getFactories() {
-        return Collections.unmodifiableMap(this.factories);
+        synchronized (this.factories) {
+            return new HashMap<String, ModuleFactory>(this.factories);
+        }
     }
 
     private ModuleFactory getFactory(final String id) {
-        final ModuleFactory res = this.factories.get(id);
+        final ModuleFactory res;
+        synchronized (this.factories) {
+            res = this.factories.get(id);
+        }
         if (res == null)
             throw new IllegalArgumentException("No factory for " + id);
         return res;
@@ -235,8 +250,10 @@ public class ModuleManager {
     // *** modules (in EDT)
 
     /**
-     * Call the passed closure at a time when modules can be started. In particular the
-     * {@link MainFrame#getInstance() main frame} has been created.
+     * Call the passed closure at a time when modules can be started. In particular this manager has
+     * been set up and the {@link MainFrame#getInstance() main frame} has been created.
+     * 
+     * @param c the closure to execute.
      */
     public void invoke(final IClosure<ModuleManager> c) {
         MainFrame.invoke(new Runnable() {
@@ -251,14 +268,14 @@ public class ModuleManager {
     // (e.g. if a module created a child table, as long as the table is in the database it needs to
     // be archived along its parent)
     private void registerRequiredModules() throws Exception {
-        assert SwingUtilities.isEventDispatchThread();
         final List<String> modulesToStart = new ArrayList<String>();
         try {
+            final Map<String, ModuleFactory> factories = this.getFactories();
             for (final Entry<String, ModuleVersion> e : this.getDBInstalledModules().entrySet()) {
                 final String moduleID = e.getKey();
                 // modules that just add non-key fields are not required
                 if (this.areElementsNeeded(moduleID)) {
-                    final ModuleFactory moduleFactory = this.getFactories().get(moduleID);
+                    final ModuleFactory moduleFactory = factories.get(moduleID);
                     final String error;
                     if (moduleFactory == null)
                         error = "Module '" + moduleID + "' non disponible.";
@@ -269,45 +286,54 @@ public class ModuleManager {
                         error = null;
                     if (error != null) {
                         // TODO open GUI to resolve the issue
-                        ExceptionHandler.handle(error);
-                        return;
+                        throw new Exception(error);
                     } else {
                         modulesToStart.add(moduleID);
                     }
                 }
             }
         } catch (Exception e) {
-            ExceptionHandler.die("Impossible de déterminer les modules requis", e);
-            return;
+            throw new Exception("Impossible de déterminer les modules requis", e);
         }
-        final Tuple2<Map<String, AbstractModule>, Set<String>> modules = this.createModules(modulesToStart, false);
+        final Tuple2<Map<String, AbstractModule>, Set<String>> modules = this.createModules(modulesToStart, false, true);
         if (modules.get1().size() > 0)
-            ExceptionHandler.die("Impossible de créer les modules " + modules.get1());
+            throw new Exception("Impossible de créer les modules " + modules.get1());
         for (final AbstractModule m : modules.get0().values())
             this.registerSQLElements(m);
     }
 
     /**
-     * Initialize the module manager.
+     * Initialise the module manager.
      * 
-     * @return the exception, if any, thrown when starting previously running modules.
+     * @param root the root where the modules install.
+     * @param conf the configuration the modules change.
      * @throws Exception if required modules couldn't be registered.
      */
-    public final Exception setup() throws Exception {
-        this.registerRequiredModules();
+    public synchronized final void setup(final DBRoot root, final Configuration conf) throws Exception {
+        if (root == null || conf == null)
+            throw new NullPointerException();
+        if (this.root != null || getConf() != null)
+            throw new IllegalStateException("Already setup");
+        // modulesElements can be non empty, if a previous setup() failed
+        assert this.runningModules.isEmpty() && this.modulesComponents.isEmpty() : "Modules cannot start without root & conf";
+        this.root = root;
+        this.conf = conf;
         try {
-            this.startPreviouslyRunningModules();
-            return null;
+            this.registerRequiredModules();
         } catch (Exception e) {
-            return e;
+            // allow setup() to be called again
+            this.root = null;
+            this.conf = null;
+            throw e;
         }
+        assert this.runningModules.isEmpty() && this.modulesComponents.isEmpty() : "registerRequiredModules() should not start modules";
     }
 
     private Preferences getPrefs() {
         // modules are installed per business entity (perhaps we could add a per user option, i.e.
         // for all businesses of all databases)
         final StringBuilder path = new StringBuilder(32);
-        for (final String item : DBFileCache.getJDBCAncestorNames(Configuration.getInstance().getRoot(), true)) {
+        for (final String item : DBFileCache.getJDBCAncestorNames(getRoot(), true)) {
             path.append(StringUtils.getBoundedLengthString(DBItemFileCache.encode(item), Preferences.MAX_NAME_LENGTH));
             path.append('/');
         }
@@ -320,47 +346,54 @@ public class ModuleManager {
         return getPrefs().node("toRun");
     }
 
-    private Preferences getInstalledPrefs() {
-        return getPrefs().node("installed");
-    }
-
     protected final boolean isModuleInstalledLocally(String id) {
-        return getInstalledPrefs().getLong(id, NO_VERSION) != NO_VERSION;
+        return getLocalVersionFile(id).exists();
     }
 
     protected final ModuleVersion getModuleVersionInstalledLocally(String id) {
-        final long v = getInstalledPrefs().getLong(id, NO_VERSION);
-        return v == NO_VERSION ? null : new ModuleVersion(v);
-    }
-
-    public final Collection<String> getModulesInstalledLocally() {
-        try {
-            return Arrays.asList(getInstalledPrefs().keys());
-        } catch (BackingStoreException e) {
-            throw new IllegalStateException("Couldn't fetch installed preferences", e);
+        final File versionFile = getLocalVersionFile(id);
+        if (versionFile.exists()) {
+            try {
+                return new ModuleVersion(Long.valueOf(FileUtils.read(versionFile)));
+            } catch (IOException e) {
+                throw new IllegalStateException("Couldn't get installed version of " + id, e);
+            }
+        } else {
+            return null;
         }
     }
 
+    public final Collection<String> getModulesInstalledLocally() {
+        return getModulesVersionInstalledLocally().keySet();
+    }
+
     public final Map<String, ModuleVersion> getModulesVersionInstalledLocally() {
-        final Preferences prefs = getInstalledPrefs();
         final Map<String, ModuleVersion> res = new HashMap<String, ModuleVersion>();
-        try {
-            for (final String key : prefs.keys())
-                res.put(key, new ModuleVersion(prefs.getLong(key, NO_VERSION)));
-        } catch (BackingStoreException e) {
-            throw new IllegalStateException("Couldn't fetch installed preferences", e);
+        final File dir = getLocalDirectory();
+        for (final File d : dir.listFiles()) {
+            final String id = d.getName();
+            final ModuleVersion version = getModuleVersionInstalledLocally(id);
+            if (version != null)
+                res.put(id, version);
         }
         return res;
     }
 
     private void setModuleInstalledLocally(ModuleFactory f, boolean b) {
-        if (b) {
-            final ModuleVersion vers = f.getVersion();
-            if (vers.getMerged() < MIN_VERSION)
-                throw new IllegalStateException("Invalid version : " + vers);
-            getInstalledPrefs().putLong(f.getID(), vers.getMerged());
-        } else {
-            getInstalledPrefs().remove(f.getID());
+        try {
+            if (b) {
+                final ModuleVersion vers = f.getVersion();
+                if (vers.getMerged() < MIN_VERSION)
+                    throw new IllegalStateException("Invalid version : " + vers);
+                final File versionFile = getLocalVersionFile(f.getID());
+                FileUtils.mkdir_p(versionFile.getParentFile());
+                FileUtils.write(String.valueOf(vers.getMerged()), versionFile);
+            } else {
+                // perhaps add a parameter to only remove the versionFile
+                FileUtils.rm_R(getLocalDirectory(f.getID()));
+            }
+        } catch (IOException e) {
+            throw new IllegalStateException("Couldn't change installed status of " + f, e);
         }
     }
 
@@ -381,7 +414,7 @@ public class ModuleManager {
 
             createTable.addUniqueConstraint("uniqModule", Arrays.asList(MODULE_COLNAME, TABLE_COLNAME, FIELD_COLNAME));
 
-            SQLUtils.executeAtomic(Configuration.getInstance().getSystemRoot().getDataSource(), new SQLFactory<Object>() {
+            SQLUtils.executeAtomic(getDS(), new SQLFactory<Object>() {
                 @Override
                 public Object create() throws SQLException {
                     r.getDBSystemRoot().getDataSource().execute(createTable.asString());
@@ -395,8 +428,32 @@ public class ModuleManager {
         return r.getTable(FWK_MODULE_TABLENAME);
     }
 
-    private DBRoot getRoot() {
-        return ((ComptaBasePropsConfiguration) Configuration.getInstance()).getRootSociete();
+    protected final DBRoot getRoot() {
+        return this.root;
+    }
+
+    private SQLDataSource getDS() {
+        return getRoot().getDBSystemRoot().getDataSource();
+    }
+
+    protected final Configuration getConf() {
+        return this.conf;
+    }
+
+    private SQLElementDirectory getDirectory() {
+        return getConf().getDirectory();
+    }
+
+    private final File getLocalDirectory() {
+        return new File(this.getConf().getConfDir(getRoot()), "modules");
+    }
+
+    protected final File getLocalDirectory(final String id) {
+        return new File(this.getLocalDirectory(), id);
+    }
+
+    private final File getLocalVersionFile(final String id) {
+        return new File(this.getLocalDirectory(id), "version");
     }
 
     public final ModuleVersion getDBInstalledModuleVersion(final String id) throws SQLException {
@@ -531,56 +588,109 @@ public class ModuleManager {
         return (Boolean) installedTable.getDBSystemRoot().getDataSource().executeScalar(sel.asString());
     }
 
-    private void install(final AbstractModule module) throws SQLException {
+    private void install(final AbstractModule module) throws Exception {
         final ModuleFactory factory = module.getFactory();
-        if (!isModuleInstalledLocally(factory.getID())) {
-            final ModuleVersion lastInstalledVersion = getDBInstalledModuleVersion(factory.getID());
-            if (lastInstalledVersion != null && module.getFactory().getVersion().compareTo(lastInstalledVersion) < 0)
-                throw new IllegalArgumentException("Module older than the one installed in the DB : " + module.getFactory().getVersion() + " < " + lastInstalledVersion);
-            SQLUtils.executeAtomic(Configuration.getInstance().getSystemRoot().getDataSource(), new SQLFactory<Object>() {
-                @Override
-                public Object create() throws SQLException {
-                    final Tuple2<Set<String>, Set<SQLName>> alreadyCreatedItems = getCreatedItems(factory.getID());
-                    final DBContext ctxt = new DBContext(lastInstalledVersion, getRoot(), alreadyCreatedItems.get0(), alreadyCreatedItems.get1());
-                    module.install(ctxt);
-
-                    // install local
-                    setModuleInstalledLocally(factory, true);
-                    // install in DB
-                    ctxt.execute();
-                    updateModuleFields(factory, ctxt);
-
-                    return null;
+        final ModuleVersion localVersion = getModuleVersionInstalledLocally(factory.getID());
+        final ModuleVersion lastInstalledVersion = getDBInstalledModuleVersion(factory.getID());
+        final ModuleVersion moduleVersion = module.getFactory().getVersion();
+        if (lastInstalledVersion != null && moduleVersion.compareTo(lastInstalledVersion) < 0)
+            throw new IllegalArgumentException("Module older than the one installed in the DB : " + moduleVersion + " < " + lastInstalledVersion);
+        if (localVersion != null && moduleVersion.compareTo(localVersion) < 0)
+            throw new IllegalArgumentException("Module older than the one installed locally : " + moduleVersion + " < " + localVersion);
+        if (!moduleVersion.equals(localVersion) || !moduleVersion.equals(lastInstalledVersion)) {
+            // local
+            final File localDir = getLocalDirectory(factory.getID());
+            // There are 2 choices to handle the update of files :
+            // 1. copy dir to a new one and pass it to DBContext, then either rename it to dir or
+            // rename it failed
+            // 2. copy dir to a backup, pass dir to DBContext, then either remove backup or rename
+            // it to dir
+            // Choice 2 is simpler since the module deals with the same directory in both install()
+            // and start()
+            final File backupDir;
+            // check if we need a backup
+            if (localDir.exists()) {
+                backupDir = FileUtils.addSuffix(localDir, ".backup");
+                FileUtils.rm_R(backupDir);
+                FileUtils.copyDirectory(localDir, backupDir);
+            } else {
+                backupDir = null;
+                FileUtils.mkdir_p(localDir);
+            }
+            assert localDir.exists();
+            try {
+                SQLUtils.executeAtomic(getDS(), new ConnectionHandlerNoSetup<Object, IOException>() {
+                    @Override
+                    public Object handle(SQLDataSource ds) throws SQLException, IOException {
+                        final Tuple2<Set<String>, Set<SQLName>> alreadyCreatedItems = getCreatedItems(factory.getID());
+                        final DBContext ctxt = new DBContext(localDir, localVersion, getRoot(), lastInstalledVersion, alreadyCreatedItems.get0(), alreadyCreatedItems.get1());
+                        // install local
+                        module.install(ctxt);
+                        if (!localDir.exists())
+                            throw new IOException("Modules shouldn't remove their directory");
+                        // install in DB
+                        ctxt.execute();
+                        updateModuleFields(factory, ctxt);
+                        return null;
+                    }
+                });
+            } catch (Exception e) {
+                // install did not complete successfully
+                if (getRoot().getServer().getSQLSystem() == SQLSystem.MYSQL)
+                    L.warning("MySQL cannot rollback DDL statements");
+                // keep failed install files and restore previous files
+                final File failed = FileUtils.addSuffix(localDir, ".failed");
+                if (failed.exists() && !FileUtils.rmR(failed))
+                    L.warning("Couldn't remove " + failed);
+                if (!localDir.renameTo(failed)) {
+                    L.warning("Couldn't move " + localDir + " to " + failed);
+                } else {
+                    assert !localDir.exists();
+                    // restore if needed
+                    if (backupDir != null && !backupDir.renameTo(localDir))
+                        L.warning("Couldn't restore " + backupDir + " to " + localDir);
                 }
-            });
+                throw e;
+            }
+            // DB transaction was committed, remove backup files
+            assert localDir.exists();
+            if (backupDir != null)
+                FileUtils.rm_R(backupDir);
+            setModuleInstalledLocally(factory, true);
         }
+        assert moduleVersion.equals(getModuleVersionInstalledLocally(factory.getID())) && moduleVersion.equals(getDBInstalledModuleVersion(factory.getID()));
     }
 
     private void registerSQLElements(final AbstractModule module) {
         final String id = module.getFactory().getID();
-        if (!this.modulesElements.containsKey(id)) {
-            final SQLElementDirectory dir = Configuration.getInstance().getDirectory();
-            final Map<SQLTable, SQLElement> beforeElements = new HashMap<SQLTable, SQLElement>(dir.getElementsMap());
-            module.setupElements(dir);
-            final Collection<SQLElement> elements = new ArrayList<SQLElement>();
-            final Collection<SQLElement> newElements = CollectionUtils.substract(new IdentityHashSet<SQLElement>(dir.getElements()), new IdentityHashSet<SQLElement>(beforeElements.values()));
-            for (final SQLElement elem : newElements) {
-                // don't let elements be replaced (it's tricky to restore in unregister())
-                if (beforeElements.containsKey(elem.getTable())) {
-                    L.warning("Trying to replace element for " + elem.getTable() + " with " + elem);
-                    dir.addSQLElement(beforeElements.get(elem.getTable()));
-                } else {
-                    elements.add(elem);
+        synchronized (this.modulesElements) {
+            if (!this.modulesElements.containsKey(id)) {
+                final SQLElementDirectory dir = getDirectory();
+                final Map<SQLTable, SQLElement> beforeElements = new HashMap<SQLTable, SQLElement>(dir.getElementsMap());
+                module.setupElements(dir);
+                final Collection<SQLElement> elements = new ArrayList<SQLElement>();
+                // use IdentitySet so as not to call equals() since it triggers initFF()
+                final IdentitySet<SQLElement> beforeElementsSet = new IdentityHashSet<SQLElement>(beforeElements.values());
+                for (final SQLElement elem : dir.getElements()) {
+                    if (!beforeElementsSet.contains(elem)) {
+                        // don't let elements be replaced (it's tricky to restore in unregister())
+                        if (beforeElements.containsKey(elem.getTable())) {
+                            L.warning("Trying to replace element for " + elem.getTable() + " with " + elem);
+                            dir.addSQLElement(beforeElements.get(elem.getTable()));
+                        } else {
+                            elements.add(elem);
+                        }
+                    }
                 }
+                this.modulesElements.put(id, elements);
             }
-            this.modulesElements.put(id, elements);
         }
     }
 
     private void setupComponents(final AbstractModule module) throws SQLException {
         final String id = module.getFactory().getID();
         if (!this.modulesComponents.containsKey(id)) {
-            final SQLElementDirectory dir = Configuration.getInstance().getDirectory();
+            final SQLElementDirectory dir = getDirectory();
             final Tuple2<Set<String>, Set<SQLName>> alreadyCreatedItems = getCreatedItems(id);
             final ComponentsContext ctxt = new ComponentsContext(dir, getRoot(), alreadyCreatedItems.get0(), alreadyCreatedItems.get1());
             module.setupComponents(ctxt);
@@ -588,7 +698,7 @@ public class ModuleManager {
         }
     }
 
-    protected final void startPreviouslyRunningModules() throws Exception {
+    public final void startPreviouslyRunningModules() throws Exception {
         final List<String> ids = Arrays.asList(getRunningIDsPrefs().keys());
         startModules(ids);
     }
@@ -615,15 +725,16 @@ public class ModuleManager {
     }
 
     private final Set<String> startModules(final Collection<String> ids) throws Exception {
-        return this.createModules(ids, true).get1();
+        return this.createModules(ids, true, false).get1();
     }
 
     // modules created, and the ones that couldn't
     // i.e. if a module was already created it's in neither
-    private final Tuple2<Map<String, AbstractModule>, Set<String>> createModules(final Collection<String> ids, final boolean start) throws Exception {
-        assert SwingUtilities.isEventDispatchThread();
+    private final Tuple2<Map<String, AbstractModule>, Set<String>> createModules(final Collection<String> ids, final boolean start, final boolean inSetup) throws Exception {
+        // in setup we're not in the EDT, but it's OK since by definition no modules are started
+        assert SwingUtilities.isEventDispatchThread() || inSetup && this.runningModules.isEmpty();
         // add currently running modules so that ModuleFactory can use them
-        final Map<String, AbstractModule> modules = new LinkedHashMap<String, AbstractModule>(this.runningModules);
+        final Map<String, AbstractModule> modules = inSetup ? new LinkedHashMap<String, AbstractModule>(ids.size() * 2) : new LinkedHashMap<String, AbstractModule>(this.runningModules);
         final Set<String> cannotCreate = new HashSet<String>();
         final LinkedHashMap<ModuleFactory, Boolean> map = new LinkedHashMap<ModuleFactory, Boolean>();
         synchronized (this.factories) {
@@ -640,7 +751,8 @@ public class ModuleManager {
             }
         }
         // only keep modules created by this method
-        modules.keySet().removeAll(this.runningModules.keySet());
+        if (!inSetup)
+            modules.keySet().removeAll(this.runningModules.keySet());
 
         if (start) {
             for (final AbstractModule module : modules.values())
@@ -667,7 +779,7 @@ public class ModuleManager {
                 final InputStream labels = module.getClass().getResourceAsStream("labels.xml");
                 if (labels != null) {
                     try {
-                        Configuration.getInstance().getTranslator().load(getRoot(), labels);
+                        getConf().getTranslator().load(getRoot(), labels);
                     } finally {
                         labels.close();
                     }
@@ -735,11 +847,13 @@ public class ModuleManager {
 
     private void unregisterSQLElements(final AbstractModule module) {
         final String id = module.getFactory().getID();
-        if (this.modulesElements.containsKey(id)) {
-            final Collection<SQLElement> elements = this.modulesElements.remove(id);
-            final SQLElementDirectory dir = Configuration.getInstance().getDirectory();
-            for (final SQLElement elem : elements)
-                dir.removeSQLElement(elem);
+        synchronized (this.modulesElements) {
+            if (this.modulesElements.containsKey(id)) {
+                final Collection<SQLElement> elements = this.modulesElements.remove(id);
+                final SQLElementDirectory dir = getDirectory();
+                for (final SQLElement elem : elements)
+                    dir.removeSQLElement(elem);
+            }
         }
     }
 
@@ -893,22 +1007,22 @@ public class ModuleManager {
 
         final AbstractModule module;
         if (!this.isModuleRunning(id)) {
-            module = this.createModules(Collections.singleton(id), false).get0().get(id);
+            module = this.createModules(Collections.singleton(id), false, false).get0().get(id);
         } else {
             module = this.runningModules.get(id);
             this.stopModule(id, true);
         }
 
-        SQLUtils.executeAtomic(Configuration.getInstance().getSystemRoot().getDataSource(), new SQLFactory<Object>() {
+        SQLUtils.executeAtomic(getDS(), new SQLFactory<Object>() {
             @Override
             public Object create() throws SQLException {
-                module.uninstall();
+                final DBRoot root = getRoot();
+                module.uninstall(root);
                 unregisterSQLElements(module);
                 setModuleInstalledLocally(module.getFactory(), false);
 
                 // uninstall from DB
                 final Tuple2<Set<String>, Set<SQLName>> createdItems = getCreatedItems(id);
-                final DBRoot root = getRoot();
                 final List<ChangeTable<?>> l = new ArrayList<ChangeTable<?>>();
                 final Set<String> tableNames = createdItems.get0();
                 for (final SQLName field : createdItems.get1()) {

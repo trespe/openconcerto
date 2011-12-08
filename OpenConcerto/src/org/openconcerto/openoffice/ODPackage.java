@@ -15,15 +15,21 @@
 
 import static org.openconcerto.openoffice.ODPackage.RootElement.CONTENT;
 import static org.openconcerto.openoffice.ODPackage.RootElement.META;
-import static org.openconcerto.openoffice.ODPackage.RootElement.SETTINGS;
 import static org.openconcerto.openoffice.ODPackage.RootElement.STYLES;
+import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
 import org.openconcerto.openoffice.text.ParagraphStyle;
+import org.openconcerto.openoffice.text.TextDocument;
+import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CopyUtils;
+import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.StringInputStream;
+import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.Zip;
 import org.openconcerto.utils.ZippedFilesProcessor;
+import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.Validator;
 
 import java.io.BufferedInputStream;
@@ -37,14 +43,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 
+import org.jdom.Attribute;
 import org.jdom.DocType;
 import org.jdom.Document;
 import org.jdom.Element;
@@ -62,6 +73,7 @@ public class ODPackage {
 
     // use raw format, otherwise spaces are added to every spreadsheet cell
     private static final XMLOutputter OUTPUTTER = new XMLOutputter(Format.getRawFormat());
+    static final String MIMETYPE_ENTRY = "mimetype";
     /** Normally mimetype contains only ASCII characters */
     static final Charset MIMETYPE_ENC = Charset.forName("UTF-8");
 
@@ -89,6 +101,10 @@ public class ODPackage {
             return EnumSet.of(CONTENT, STYLES, META, SETTINGS);
         }
 
+        public final static RootElement fromDocument(final Document doc) {
+            return fromElementName(doc.getRootElement().getName());
+        }
+
         public final static RootElement fromElementName(final String name) {
             for (final RootElement e : values()) {
                 if (e.getElementName().equals(name))
@@ -98,8 +114,7 @@ public class ODPackage {
         }
 
         static final Document createSingle(final Document from) {
-            final XMLFormatVersion version = XMLFormatVersion.get(from);
-            return SINGLE_CONTENT.createDocument(version.getXMLVersion(), version.getOfficeVersion());
+            return SINGLE_CONTENT.createDocument(XMLFormatVersion.get(from));
         }
 
         private final String nsPrefix;
@@ -120,20 +135,25 @@ public class ODPackage {
             return this.name;
         }
 
-        public final Document createDocument(final XMLVersion version, final String officeVersion) {
+        public final Document createDocument(final XMLFormatVersion fv) {
+            final XMLVersion version = fv.getXMLVersion();
             final Element root = new Element(getElementName(), version.getNS(getElementNSPrefix()));
             // 19.388 office:version identifies the version of ODF specification
-            if (officeVersion != null)
-                root.setAttribute("version", officeVersion, version.getOFFICE());
+            if (fv.getOfficeVersion() != null)
+                root.setAttribute("version", fv.getOfficeVersion(), version.getOFFICE());
             // avoid declaring namespaces in each child
             for (final Namespace ns : version.getALL())
                 root.addNamespaceDeclaration(ns);
 
-            final Document res = new Document(root);
+            return new Document(root, createDocType(version));
+        }
+
+        public final DocType createDocType(final XMLVersion version) {
             // OpenDocument use relaxNG
             if (version == XMLVersion.OOo)
-                res.setDocType(new DocType(getElementNSPrefix() + ":" + getElementName(), "-//OpenOffice.org//DTD OfficeDocument 1.0//EN", "office.dtd"));
-            return res;
+                return new DocType(getElementNSPrefix() + ":" + getElementName(), "-//OpenOffice.org//DTD OfficeDocument 1.0//EN", "office.dtd");
+            else
+                return null;
         }
 
         /**
@@ -162,17 +182,69 @@ public class ODPackage {
      * @return <code>true</code> if <code>name</code> is a standard file, eg <code>true</code>.
      */
     public static final boolean isStandardFile(final String name) {
-        return name.equals("mimetype") || subdocNames.contains(name) || name.startsWith("Thumbnails") || name.startsWith("META-INF") || name.startsWith("Configurations");
+        return name.equals(MIMETYPE_ENTRY) || subdocNames.contains(name) || name.startsWith("Thumbnails") || name.startsWith("META-INF") || name.startsWith("Configurations");
+    }
+
+    /**
+     * Create a package from a collection of sub-documents.
+     * 
+     * @param content the content.
+     * @param style the styles, can be <code>null</code>.
+     * @return a package containing the XML documents.
+     */
+    public static ODPackage createFromDocuments(Document content, Document style) {
+        return createFromDocuments(null, content, style, null, null);
+    }
+
+    public static ODPackage createFromDocuments(final ContentTypeVersioned type, Document content, Document style, Document meta, Document settings) {
+        final ODPackage pkg = new ODPackage();
+        if (type != null)
+            pkg.setContentType(type);
+        pkg.putFile(RootElement.CONTENT.getZipEntry(), content);
+        pkg.putFile(RootElement.STYLES.getZipEntry(), style);
+        pkg.putFile(RootElement.META.getZipEntry(), meta);
+        pkg.putFile(RootElement.SETTINGS.getZipEntry(), settings);
+        return pkg;
+    }
+
+    static private XMLVersion getVersion(final XMLFormatVersion fv, final ContentTypeVersioned ct) {
+        final XMLVersion v;
+        if (ct == null && fv == null)
+            v = null;
+        else if (ct != null)
+            v = ct.getVersion();
+        else
+            v = fv.getXMLVersion();
+        assert fv == null || ct == null || fv.getXMLVersion() == ct.getVersion();
+        return v;
+    }
+
+    static private <T> void checkVersion(final Class<T> clazz, final String s, final T actual, final T required) {
+        if (actual != null && required != null) {
+            final boolean ok;
+            if (actual instanceof ContentTypeVersioned) {
+                // we can change our template status since it doesn't affect our content
+                ok = ((ContentTypeVersioned) actual).getNonTemplate().equals(((ContentTypeVersioned) required).getNonTemplate());
+            } else {
+                ok = actual.equals(required);
+            }
+            if (!ok)
+                throw new IllegalArgumentException("Cannot change " + s + " from " + required + " to " + actual);
+        }
     }
 
     private final Map<String, ODPackageEntry> files;
     private ContentTypeVersioned type;
+    private XMLFormatVersion version;
     private File file;
+    private ODDocument doc;
 
     public ODPackage() {
         this.files = new HashMap<String, ODPackageEntry>();
         this.type = null;
+        this.version = null;
         this.file = null;
+        this.doc = null;
     }
 
     public ODPackage(InputStream ins) throws IOException {
@@ -186,7 +258,7 @@ public class ODPackage {
                 final Object res;
                 if (subdocNames.contains(name)) {
                     try {
-                        res = new ODXMLDocument(OOUtils.getBuilder().build(in));
+                        res = OOUtils.getBuilder().build(in);
                     } catch (JDOMException e) {
                         // always correct
                         throw new IllegalStateException("parse error", e);
@@ -244,7 +316,9 @@ public class ODPackage {
             this.putFile(name, myData, entry.getType(), entry.isCompressed());
         }
         this.type = o.type;
+        this.version = o.version;
         this.file = o.file;
+        this.doc = null;
     }
 
     public final File getFile() {
@@ -269,16 +343,11 @@ public class ODPackage {
      * @return the version of this package, can be <code>null</code>.
      */
     public final XMLVersion getVersion() {
-        final XMLFormatVersion res = getFormatVersion();
-        return res == null ? null : res.getXMLVersion();
+        return getVersion(this.version, this.type);
     }
 
     public final XMLFormatVersion getFormatVersion() {
-        final ODXMLDocument content = this.getContent();
-        if (content == null)
-            return null;
-        else
-            return content.getFormatVersion();
+        return this.version;
     }
 
     /**
@@ -287,23 +356,88 @@ public class ODPackage {
      * @return the type of this package, can be <code>null</code>.
      */
     public final ContentTypeVersioned getContentType() {
-        if (this.type == null) {
-            if (this.files.containsKey("mimetype"))
-                this.type = ContentTypeVersioned.fromMime(new String(this.getBinaryFile("mimetype"), MIMETYPE_ENC));
-            else if (this.getVersion().equals(XMLVersion.OOo)) {
-                final Element contentRoot = this.getContent().getDocument().getRootElement();
-                final String docClass = contentRoot.getAttributeValue("class", contentRoot.getNamespace("office"));
-                this.type = ContentTypeVersioned.fromClass(docClass);
-            } else if (this.getVersion().equals(XMLVersion.OD)) {
-                final Element bodyChild = (Element) this.getContent().getChild("body").getChildren().get(0);
-                this.type = ContentTypeVersioned.fromBody(bodyChild.getName());
+        return this.type;
+    }
+
+    public final void setContentType(final ContentTypeVersioned newType) {
+        this.putFile(MIMETYPE_ENTRY, newType.getMimeType().getBytes(MIMETYPE_ENC));
+    }
+
+    private void updateTypeAndVersion(final String entry, ODXMLDocument xml) {
+        this.setTypeAndVersion(entry.equals(CONTENT.getZipEntry()) ? ContentTypeVersioned.fromContent(xml) : null, xml.getFormatVersion(), entry);
+    }
+
+    private void updateTypeAndVersion(byte[] mimetype) {
+        this.setTypeAndVersion(ContentTypeVersioned.fromMime(mimetype), null, MIMETYPE_ENTRY);
+    }
+
+    private final void setTypeAndVersion(final ContentTypeVersioned ct, final XMLFormatVersion fv, final String entry) {
+        final Tuple3<XMLVersion, ContentTypeVersioned, XMLFormatVersion> requiredByPkg = this.getRequired(entry);
+        if (requiredByPkg != null) {
+            checkVersion(XMLVersion.class, "version", getVersion(fv, ct), requiredByPkg.get0());
+            checkVersion(ContentTypeVersioned.class, "type", ct, requiredByPkg.get1());
+            checkVersion(XMLFormatVersion.class, "format version", fv, requiredByPkg.get2());
+        }
+
+        // since we're adding "entry" never set attributes to null
+        if (fv != null && !fv.equals(this.version))
+            this.version = fv;
+        // don't let non-template from content overwrite the correct one
+        if (ct != null && !ct.equals(this.type) && (this.type == null || entry.equals(MIMETYPE_ENTRY)))
+            this.type = ct;
+    }
+
+    // find the versions required by the package without the passed entry
+    private final Tuple3<XMLVersion, ContentTypeVersioned, XMLFormatVersion> getRequired(final String entryToIgnore) {
+        if (this.files.size() == 0 || (this.files.size() == 1 && this.files.containsKey(entryToIgnore)))
+            return null;
+
+        final byte[] mimetype;
+        if (this.files.containsKey(MIMETYPE_ENTRY) && !MIMETYPE_ENTRY.equals(entryToIgnore)) {
+            mimetype = this.getBinaryFile(MIMETYPE_ENTRY);
+        } else {
+            mimetype = null;
+        }
+        XMLFormatVersion fv = null;
+        final Map<String, Object> versionFiles = new HashMap<String, Object>();
+        for (final String e : subdocNames) {
+            if (this.files.containsKey(e) && !e.equals(entryToIgnore)) {
+                final ODXMLDocument xmlFile = this.getXMLFile(e);
+                versionFiles.put(e, xmlFile);
+                if (fv == null)
+                    fv = xmlFile.getFormatVersion();
+                else
+                    assert fv.equals(xmlFile.getFormatVersion()) : "Incoherence";
             }
         }
-        return this.type;
+        final ODXMLDocument content = (ODXMLDocument) versionFiles.get(CONTENT.getZipEntry());
+
+        final ContentTypeVersioned ct;
+        if (mimetype != null)
+            ct = ContentTypeVersioned.fromMime(mimetype);
+        else if (content != null)
+            ct = ContentTypeVersioned.fromContent(content);
+        else
+            ct = null;
+
+        return Tuple3.create(getVersion(fv, ct), ct, fv);
     }
 
     public final String getMimeType() {
         return this.getContentType().getMimeType();
+    }
+
+    public final boolean isTemplate() {
+        return this.getContentType().isTemplate();
+    }
+
+    public final void setTemplate(boolean b) {
+        if (this.type == null)
+            throw new IllegalStateException("No type");
+        final ContentTypeVersioned newType = b ? this.type.getTemplate() : this.type.getNonTemplate();
+        if (newType == null)
+            throw new IllegalStateException("Missing " + (b ? "" : "non-") + "template for " + this.type);
+        this.setContentType(newType);
     }
 
     /**
@@ -313,18 +447,54 @@ public class ODPackage {
      *         if validation couldn't occur.
      */
     public final Map<String, String> validateSubDocuments() {
+        return this.validateSubDocuments(true);
+    }
+
+    public final Map<String, String> validateSubDocuments(final boolean allowChangeToValidate) {
         final OOXML ooxml = this.getFormatVersion().getXML();
         if (!ooxml.canValidate())
             return null;
         final Map<String, String> res = new HashMap<String, String>();
         for (final String s : subdocNames) {
-            if (this.getEntries().contains(s)) {
-                final String valid = ooxml.getValidator(this.getDocument(s)).isValid();
+            final Document doc = this.getDocument(s);
+            if (doc != null) {
+                if (allowChangeToValidate) {
+                    // OpenOffice do not generate DocType declaration
+                    final DocType docType = RootElement.fromDocument(doc).createDocType(ooxml.getVersion());
+                    if (docType != null && doc.getDocType() == null)
+                        doc.setDocType(docType);
+                }
+                final String valid = ooxml.getValidator(doc).isValid();
                 if (valid != null)
                     res.put(s, valid);
             }
         }
         return res;
+    }
+
+    public final ODDocument getODDocument() {
+        // cache ODDocument otherwise a second one can modify the XML (e.g. remove rows) without the
+        // first one knowing
+        if (this.doc == null) {
+            final ContentType ct = this.getContentType().getType();
+            if (ct.equals(ContentType.SPREADSHEET))
+                this.doc = SpreadSheet.get(this);
+            else if (ct.equals(ContentType.TEXT))
+                this.doc = TextDocument.get(this);
+        }
+        return this.doc;
+    }
+
+    public final boolean hasODDocument() {
+        return this.doc != null;
+    }
+
+    public final SpreadSheet getSpreadSheet() {
+        return (SpreadSheet) this.getODDocument();
+    }
+
+    public final TextDocument getTextDocument() {
+        return (TextDocument) this.getODDocument();
     }
 
     // *** getter on files
@@ -447,6 +617,97 @@ public class ODPackage {
         return getStyles().getDefaultStyle(desc);
     }
 
+    /**
+     * Verify that styles referenced by this document are indeed defined. NOTE this method is not
+     * perfect : not all problems are detected.
+     * 
+     * @return <code>null</code> if no problem has been found, else a String describing it.
+     */
+    public final String checkStyles() {
+        final ODXMLDocument stylesDoc = this.getStyles();
+        final ODXMLDocument contentDoc = this.getContent();
+        final Element styles;
+        if (stylesDoc != null) {
+            styles = stylesDoc.getChild("styles");
+            // check styles.xml
+            final String res = checkStyles(stylesDoc, styles);
+            if (res != null)
+                return res;
+        } else {
+            styles = contentDoc.getChild("styles");
+        }
+
+        // check content.xml
+        return checkStyles(contentDoc, styles);
+    }
+
+    static private final String checkStyles(ODXMLDocument doc, Element styles) {
+        try {
+            final CollectionMap<String, String> stylesNames = getStylesNames(doc, styles, doc.getChild("automatic-styles"));
+            // text:style-name : text:p, text:span
+            // table:style-name : table:table, table:row, table:column, table:cell
+            // draw:style-name : draw:text-box
+            // style:data-style-name : <style:style style:family="table-cell">
+            // TODO check by family
+            final Set<String> names = new HashSet<String>(stylesNames.values());
+            final Iterator attrs = doc.getXPath(".//@text:style-name | .//@table:style-name | .//@draw:style-name | .//@style:data-style-name | .//@style:list-style-name")
+                    .selectNodes(doc.getDocument()).iterator();
+            while (attrs.hasNext()) {
+                final Attribute attr = (Attribute) attrs.next();
+                if (!names.contains(attr.getValue()))
+                    return "unknown style referenced by " + attr.getName() + " in " + JDOMUtils.output(attr.getParent());
+            }
+            // TODO check other references like page-*-name (§3 of #prefix())
+        } catch (IllegalStateException e) {
+            return ExceptionUtils.getStackTrace(e);
+        } catch (JDOMException e) {
+            return ExceptionUtils.getStackTrace(e);
+        }
+        return null;
+    }
+
+    static private final CollectionMap<String, String> getStylesNames(final ODXMLDocument doc, final Element styles, final Element autoStyles) throws IllegalStateException {
+        // section 14.1 § Style Name : style:family + style:name is unique
+        final CollectionMap<String, String> res = new CollectionMap<String, String>(HashSet.class);
+
+        final List<Element> nodes = new ArrayList<Element>();
+        if (styles != null)
+            nodes.add(styles);
+        if (autoStyles != null)
+            nodes.add(autoStyles);
+
+        try {
+            {
+                final Iterator iter = doc.getXPath("./style:style/@style:name").selectNodes(nodes).iterator();
+                while (iter.hasNext()) {
+                    final Attribute attr = (Attribute) iter.next();
+                    final String styleName = attr.getValue();
+                    final String family = attr.getParent().getAttributeValue("family", attr.getNamespace());
+                    if (res.getNonNull(family).contains(styleName))
+                        throw new IllegalStateException("duplicate style in " + family + " :  " + styleName);
+                    res.put(family, styleName);
+                }
+            }
+            {
+                final List<String> dataStyles = Arrays.asList("number-style", "currency-style", "percentage-style", "date-style", "time-style", "boolean-style", "text-style");
+                final String xpDataStyles = org.openconcerto.utils.CollectionUtils.join(dataStyles, " | ", new ITransformer<String, String>() {
+                    @Override
+                    public String transformChecked(String input) {
+                        return "./number:" + input;
+                    }
+                });
+                final Iterator listIter = doc.getXPath("./text:list-style | " + xpDataStyles).selectNodes(nodes).iterator();
+                while (listIter.hasNext()) {
+                    final Element elem = (Element) listIter.next();
+                    res.put(elem.getQualifiedName(), elem.getAttributeValue("name", doc.getVersion().getSTYLE()));
+                }
+            }
+        } catch (JDOMException e) {
+            throw new IllegalStateException(e);
+        }
+        return res;
+    }
+
     // *** setter
 
     public void putFile(String entry, Object data) {
@@ -460,27 +721,52 @@ public class ODPackage {
     public void putFile(final String entry, final Object data, final String mediaType, final boolean compress) {
         if (entry == null)
             throw new NullPointerException("null name");
+        if (data == null) {
+            this.rmFile(entry);
+            return;
+        }
         final Object myData;
         if (subdocNames.contains(entry)) {
             final ODXMLDocument oodoc;
             if (data instanceof Document)
-                oodoc = new ODXMLDocument((Document) data);
+                oodoc = ODXMLDocument.create((Document) data);
             else
                 oodoc = (ODXMLDocument) data;
-            // si le package est vide n'importe quelle version convient
-            if (this.getVersion() != null && !oodoc.getVersion().equals(this.getVersion()))
-                throw new IllegalArgumentException("version mismatch " + this.getVersion() + " != " + oodoc);
+            checkEntryForDocument(entry);
+            this.updateTypeAndVersion(entry, oodoc);
             myData = oodoc;
-        } else if (data != null && !(data instanceof byte[]))
+        } else if (!(data instanceof byte[])) {
             throw new IllegalArgumentException("should be byte[] for " + entry + ": " + data);
-        else
+        } else {
+            if (entry.equals(MIMETYPE_ENTRY))
+                this.updateTypeAndVersion((byte[]) data);
             myData = data;
+        }
         final String inferredType = mediaType != null ? mediaType : FileUtils.findMimeType(entry);
         this.files.put(entry, new ODPackageEntry(entry, inferredType, myData, compress));
     }
 
+    // Perhaps add a clearODDocument() method to set doc to null and in ODDocument set pkg to null
+    // (after having verified !hasDocument()). For now just copy the package.
+    private void checkEntryForDocument(final String entry) {
+        if (this.hasODDocument() && (entry.equals(RootElement.CONTENT.getZipEntry()) || entry.equals(RootElement.STYLES.getZipEntry())))
+            throw new IllegalArgumentException("Cannot change content or styles with existing ODDocument");
+    }
+
     public void rmFile(String entry) {
+        this.checkEntryForDocument(entry);
         this.files.remove(entry);
+        if (entry.equals(MIMETYPE_ENTRY) || subdocNames.contains(entry)) {
+            final Tuple3<XMLVersion, ContentTypeVersioned, XMLFormatVersion> required = this.getRequired(entry);
+            this.type = required == null ? null : required.get1();
+            this.version = required == null ? null : required.get2();
+        }
+    }
+
+    public void clear() {
+        this.files.clear();
+        this.type = null;
+        this.version = null;
     }
 
     /**
@@ -491,26 +777,13 @@ public class ODPackage {
      */
     public ODSingleXMLDocument toSingle() {
         if (!this.isSingle()) {
-            // this removes xml files used by OOSingleXMLDocument
-            final Document content = removeAndGetDoc(CONTENT.getZipEntry());
-            final Document styles = removeAndGetDoc(STYLES.getZipEntry());
-            final Document settings = removeAndGetDoc(SETTINGS.getZipEntry());
-            final Document meta = removeAndGetDoc(META.getZipEntry());
-
-            return ODSingleXMLDocument.createFromDocument(content, styles, settings, meta, this);
+            return ODSingleXMLDocument.create(this);
         } else
             return (ODSingleXMLDocument) this.getContent();
     }
 
     public final boolean isSingle() {
         return this.getContent() instanceof ODSingleXMLDocument;
-    }
-
-    private Document removeAndGetDoc(String name) {
-        if (!this.files.containsKey(name))
-            return null;
-        final ODXMLDocument xmlDoc = (ODXMLDocument) this.files.remove(name).getData();
-        return xmlDoc == null ? null : xmlDoc.getDocument();
     }
 
     /**
@@ -554,12 +827,12 @@ public class ODPackage {
         final Zip z = new Zip(out);
 
         // magic number, see section 17.4
-        z.zipNonCompressed("mimetype", this.getMimeType().getBytes(MIMETYPE_ENC));
+        z.zipNonCompressed(MIMETYPE_ENTRY, this.getMimeType().getBytes(MIMETYPE_ENC));
 
         final Manifest manifest = new Manifest(this.getVersion(), this.getMimeType());
         for (final String name : this.files.keySet()) {
             // added at the end
-            if (name.equals("mimetype") || name.equals(Manifest.ENTRY_NAME))
+            if (name.equals(MIMETYPE_ENTRY) || name.equals(Manifest.ENTRY_NAME))
                 continue;
 
             final ODPackageEntry entry = this.files.get(name);

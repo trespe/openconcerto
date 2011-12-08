@@ -193,7 +193,7 @@ public abstract class SpreadSheetGenerator implements Runnable {
                 return null;
             }
         }
-        final SpreadSheet res = SpreadSheet.create(new ODPackage(f));
+        final SpreadSheet res = new ODPackage(f).getSpreadSheet();
         f.close();
         return res;
     }
@@ -250,9 +250,9 @@ public abstract class SpreadSheetGenerator implements Runnable {
 
         this.modele = sheet.modele;
         this.mCell = sheet.mCell;
-        this.destDirOO = new File(sheet.locationOO);
+        this.destDirOO = sheet.getDocumentOutputDirectory();
         this.destDirOO.mkdirs();
-        this.destDirPDF = new File(sheet.locationPDF);
+        this.destDirPDF = sheet.getPDFOutputDirectory();
         this.destDirPDF.mkdirs();
         this.nbPage = sheet.nbPage;
         this.nbRowsPerPage = sheet.nbRowsPerPage;
@@ -272,14 +272,15 @@ public abstract class SpreadSheetGenerator implements Runnable {
         try {
 
             f = generateWithStyle();
-
+            final File pdfFileToCreate = new File(this.destDirPDF.getAbsolutePath(), this.destFileName + ".pdf");
             try {
 
                 if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
 
                     final Component doc = ComptaPropsConfiguration.getOOConnexion().loadDocument(f, !this.visu);
                     if (this.exportPDF) {
-                        doc.saveToPDF(new File(this.destDirPDF.getAbsolutePath(), this.destFileName + ".pdf"));
+
+                        doc.saveToPDF(pdfFileToCreate);
                     }
 
                     if (this.impression) {
@@ -295,7 +296,7 @@ public abstract class SpreadSheetGenerator implements Runnable {
                         PreviewFrame.show(f);
                     }
 
-                    SheetUtils.getInstance().convert2PDF(doc, f, this.destFileName);
+                    SheetUtils.convert2PDF(doc, pdfFileToCreate);
                     if (this.impression) {
                         // Print !
                         DefaultNXDocumentPrinter printer = new DefaultNXDocumentPrinter();

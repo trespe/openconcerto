@@ -79,7 +79,22 @@ public class ConfigCaissePanel extends JPanel {
         setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.weighty = 0;
+        // Fichier
+        c.weightx = 0;
+        this.add(new JLabel("Fichier de configuration", SwingConstants.RIGHT), c);
+        c.gridx++;
+        c.gridwidth = 3;
+        c.weightx = 1;
+        JTextField textConfigurationFile = new JTextField("");
+        if (Caisse.getConfigFile() != null) {
+            textConfigurationFile.setText(Caisse.getConfigFile().getAbsolutePath());
+        }
+        textConfigurationFile.setEditable(false);
+        this.add(textConfigurationFile, c);
+
         // Connexion
+        c.gridy++;
+        c.gridx = 0;
         final JLabelBold titleConnexion = new JLabelBold("Connexion");
         c.gridwidth = 2;
         this.add(titleConnexion, c);
@@ -275,7 +290,7 @@ public class ConfigCaissePanel extends JPanel {
         try {
             System.out.println("Reloading POS information from: " + config);
             SQLServer server = config.createServer("Common");
-            DBSystemRoot r = server.getSystemRoot("OpenConcerto");
+            DBSystemRoot r = server.getSystemRoot(config.getSystemRoot());
             DBRoot root = r.getRoot("Common");
             // Sociétés
             SQLSelect sel = new SQLSelect(root.getBase());
@@ -287,18 +302,19 @@ public class ConfigCaissePanel extends JPanel {
             if (societes.size() > 0) {
                 final String name = societes.get(0).getString("DATABASE_NAME");
                 server = config.createServer(name);
-                r = server.getSystemRoot("OpenConcerto");
+                r = server.getSystemRoot(config.getSystemRoot());
                 root = r.getRoot(name);
                 // Caisses
                 sel = new SQLSelect(root.getBase());
                 sel.addSelectStar(root.getTable("CAISSE"));
                 final List<SQLRow> caisses = SQLRowListRSH.execute(sel);
-
                 server.destroy();
-
+                // Stock l'id de la caisse pour que la reslectionne soit correcte
+                final int idCaisseToSelect = this.caisseId;
                 SwingUtilities.invokeLater(new Runnable() {
                     @Override
                     public void run() {
+                        ConfigCaissePanel.this.caisseId = idCaisseToSelect;
                         if (caisses.isEmpty()) {
                             JOptionPane.showMessageDialog(ConfigCaissePanel.this, "Pas de caisses définies dans la société " + name);
                         }
@@ -314,7 +330,7 @@ public class ConfigCaissePanel extends JPanel {
                         }
                         for (int i = 0; i < stop; i++) {
                             final SQLRow r = (SQLRow) model.getElementAt(i);
-                            if (r.getID() == ConfigCaissePanel.this.caisseId) {
+                            if (r.getID() == idCaisseToSelect) {
                                 ConfigCaissePanel.this.comboCaisse.setSelectedItem(r);
                                 break;
                             }
@@ -375,11 +391,10 @@ public class ConfigCaissePanel extends JPanel {
                             JOptionPane.showMessageDialog(ConfigCaissePanel.this, "Impossible de se connecter au serveur");
                             return;
                         }
-                        String result = "Erreur de connexion. \n";
                         try {
 
                             final SQLServer server = config.createServer("Common");
-                            final DBSystemRoot r = server.getSystemRoot("OpenConcerto");
+                            final DBSystemRoot r = server.getSystemRoot(config.getSystemRoot());
                             final DBRoot root = r.getRoot("Common");
                             // Sociétés
                             SQLSelect sel = new SQLSelect(root.getBase());
@@ -402,30 +417,49 @@ public class ConfigCaissePanel extends JPanel {
                                     ConfigCaissePanel.this.comboSociete.setEnabled(true);
                                     ConfigCaissePanel.this.comboUtilisateur.setEnabled(true);
 
+                                    // Societe
                                     ComboBoxModel model = ConfigCaissePanel.this.comboSociete.getModel();
                                     int stop = model.getSize();
+                                    boolean societeFound = false;
                                     for (int i = 0; i < stop; i++) {
                                         final SQLRow r = (SQLRow) model.getElementAt(i);
                                         if (r.getID() == ConfigCaissePanel.this.societeId) {
                                             ConfigCaissePanel.this.comboSociete.setSelectedItem(r);
+                                            ConfigCaissePanel.this.societeId = r.getID();
+                                            societeFound = true;
                                             break;
                                         }
                                     }
+
+                                    if (!societeFound && stop > 0) {
+                                        ConfigCaissePanel.this.comboSociete.setSelectedItem(model.getElementAt(0));
+                                        ConfigCaissePanel.this.societeId = ((SQLRow) model.getElementAt(0)).getID();
+                                    }
+                                    // Utilisateur
                                     model = ConfigCaissePanel.this.comboUtilisateur.getModel();
                                     stop = model.getSize();
+                                    boolean utilisateurFound = false;
                                     for (int i = 0; i < stop; i++) {
                                         final SQLRow r = (SQLRow) model.getElementAt(i);
                                         if (r.getID() == ConfigCaissePanel.this.userId) {
                                             ConfigCaissePanel.this.comboUtilisateur.setSelectedItem(r);
+                                            ConfigCaissePanel.this.userId = r.getID();
+                                            utilisateurFound = true;
                                             break;
                                         }
                                     }
+
+                                    if (!utilisateurFound && stop > 0) {
+                                        ConfigCaissePanel.this.comboUtilisateur.setSelectedItem(model.getElementAt(0));
+                                        ConfigCaissePanel.this.userId = ((SQLRow) model.getElementAt(0)).getID();
+                                    }
+
+                                    reloadCaisses();
                                 }
 
                             });
 
                         } catch (final Exception e) {
-                            result += e.getMessage();
                             e.printStackTrace();
                         }
 
@@ -435,6 +469,12 @@ public class ConfigCaissePanel extends JPanel {
                 t.start();
             }
         });
+    }
+
+    public void dumpConfiguration() {
+        System.out.println("Societe: id:" + this.societeId);
+        System.out.println("Caisse: id:" + this.caisseId);
+        System.out.println("Utilisateur:  id:" + this.userId);
     }
 
     public void saveConfiguration() {

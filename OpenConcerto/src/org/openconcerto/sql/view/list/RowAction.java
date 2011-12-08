@@ -59,6 +59,9 @@ public abstract class RowAction implements IListeAction {
         }
 
         public final PredicateRowAction setPredicate(IPredicate<? super IListeEvent> pred) {
+            if (pred == null) {
+                throw new IllegalArgumentException("null predicate");
+            }
             this.pred = pred;
             return this;
         }
@@ -69,6 +72,9 @@ public abstract class RowAction implements IListeAction {
 
         @Override
         public boolean enabledFor(IListeEvent evt) {
+            if (pred == null) {
+                throw new IllegalStateException("No predicate for action:" + this.getAction() + ":" + this.getAction().getValue(Action.NAME));
+            }
             return this.pred.evaluateChecked(evt);
         }
     }

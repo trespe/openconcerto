@@ -18,10 +18,11 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.utils.StringUtils;
 
+import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
-
 
 public abstract class SheetInterface {
 
@@ -46,12 +47,6 @@ public abstract class SheetInterface {
     // modele du document
     protected String modele;
 
-    // emplacement du fichier OO généré
-    protected String locationOO;
-
-    // emplacement du fichier PDF généré
-    protected String locationPDF;
-
     // nom du futur fichier
     protected String fileName;
 
@@ -63,14 +58,6 @@ public abstract class SheetInterface {
     public static final int typeNoExtension = 3;
 
     protected static final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-
-    public String getLocationOO() {
-        return this.locationOO;
-    }
-
-    public String getLocationPDF() {
-        return this.locationPDF;
-    }
 
     public int getNbPage() {
         return this.nbPage;
@@ -114,6 +101,17 @@ public abstract class SheetInterface {
         return this.mCell;
     }
 
+    protected abstract String getYear();
+
+    public File getDocumentOutputDirectory() {
+        return new File(DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(this.getTemplateId()), getYear());
+    }
+
+    public File getPDFOutputDirectory() {
+        return new File(DocumentLocalStorageManager.getInstance().getPDFOutputDirectory(this.getTemplateId()), getYear());
+    }
+
     protected abstract void createMap();
 
+    public abstract String getTemplateId();
 }

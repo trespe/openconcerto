@@ -118,6 +118,7 @@ public abstract class SQLElement {
     private SQLCache<SQLRowAccessor, Object> modelCache;
 
     private final Map<String, JComponent> additionalFields;
+    private final List<SQLTableModelColumn> additionalListCols;
 
     public SQLElement(String singular, String plural, SQLTable primaryTable) {
         super();
@@ -136,6 +137,7 @@ public abstract class SQLElement {
         this.modelCache = null;
 
         this.additionalFields = new HashMap<String, JComponent>();
+        this.additionalListCols = new ArrayList<SQLTableModelColumn>();
     }
 
     /**
@@ -327,6 +329,15 @@ public abstract class SQLElement {
      * @return fields that cannot be modified.
      */
     public Set<String> getReadOnlyFields() {
+        return Collections.emptySet();
+    }
+
+    /**
+     * Fields that cannot be empty.
+     * 
+     * @return fields that cannot be empty.
+     */
+    public Set<String> getRequiredFields() {
         return Collections.emptySet();
     }
 
@@ -759,7 +770,8 @@ public abstract class SQLElement {
         // shared must be RESTRICT, parent at least CASCADE (to avoid child without a parent),
         // normal is free
         if (action.compareTo(ReferenceAction.RESTRICT) < 0 && !this.getNormalForeignFields().contains(ff))
-            throw new IllegalArgumentException(ff + " is not normal: " + this.getNormalForeignFields());
+            // getField() checks if the field exists
+            throw new IllegalArgumentException(getTable().getField(ff).getSQLName() + " is not a normal foreign field : " + this.getNormalForeignFields());
         this.getActions().put(ff, action);
     }
 
@@ -877,6 +889,7 @@ public abstract class SQLElement {
 
     private final SQLTableModelSourceOnline createAndInitTableSource() {
         final SQLTableModelSourceOnline res = this.createTableSource();
+        res.getColumns().addAll(this.additionalListCols);
         return initTableSource(res);
     }
 
@@ -914,6 +927,15 @@ public abstract class SQLElement {
     }
 
     abstract protected List<String> getListFields();
+
+    public final void addListFields(final List<String> fields) {
+        for (final String f : fields)
+            this.addListColumn(new SQLTableModelColumnPath(getTable().getField(f)));
+    }
+
+    public final void addListColumn(SQLTableModelColumn col) {
+        this.additionalListCols.add(col);
+    }
 
     public final Collection<IListeAction> getRowActions() {
         return this.rowActions;
@@ -1365,7 +1387,8 @@ public abstract class SQLElement {
 
     public final int hashCode() {
         // ne pas mettre getParent car des fois null
-        return this.getTable().hashCode() + this.getSharedForeignFields().hashCode() + this.getPrivateForeignFields().hashCode();
+        return this.getTable().hashCode(); // + this.getSharedForeignFields().hashCode() +
+                                           // this.getPrivateForeignFields().hashCode();
     }
 
     @Override

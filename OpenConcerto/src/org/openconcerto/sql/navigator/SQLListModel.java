@@ -74,7 +74,11 @@ public abstract class SQLListModel<T> extends AbstractListModel {
         // more efficient than reload())
     }
 
-    protected abstract void reload();
+    protected final void reload() {
+        this.reload(false);
+    }
+
+    protected abstract void reload(final boolean noCache);
 
     // *** items
 

@@ -71,6 +71,14 @@ public class ExceptionHandler extends RuntimeException {
         clipboard.setContents(data, data);
     }
 
+    /**
+     * Display the passed message. Note: this method doesn't block.
+     * 
+     * @param comp the modal parent of the error window.
+     * @param msg the message to display.
+     * @param originalExn the cause, can be <code>null</code>.
+     * @return an exception.
+     */
     static public RuntimeException handle(Component comp, String msg, Throwable originalExn) {
         return new ExceptionHandler(comp, msg, originalExn, false);
     }
@@ -83,6 +91,14 @@ public class ExceptionHandler extends RuntimeException {
         return handle(msg, null);
     }
 
+    /**
+     * Display the passed message and quit. Note: this method blocks until the user closes the
+     * window (then exits).
+     * 
+     * @param msg the message to display.
+     * @param originalExn the cause, can be <code>null</code>.
+     * @return an exception.
+     */
     static public RuntimeException die(String msg, Throwable originalExn) {
         return new ExceptionHandler(null, msg, originalExn);
     }
@@ -115,12 +131,23 @@ public class ExceptionHandler extends RuntimeException {
         if (!GraphicsEnvironment.isHeadless() || forceUI) {
             if (SwingUtilities.isEventDispatchThread()) {
                 showMsg(msg, error);
-            } else
-                SwingUtilities.invokeLater(new Runnable() {
+            } else {
+                final Runnable run = new Runnable() {
                     public void run() {
                         showMsg(msg, error);
                     }
-                });
+                };
+                if (error) {
+                    try {
+                        SwingUtilities.invokeAndWait(run);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        System.exit(1);
+                    }
+                } else {
+                    SwingUtilities.invokeLater(run);
+                }
+            }
         }
     }
 

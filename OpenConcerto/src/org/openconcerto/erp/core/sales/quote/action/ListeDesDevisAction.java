@@ -21,6 +21,7 @@ import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.report.DevisTextSheet;
 import org.openconcerto.erp.core.sales.quote.ui.ListeDesDevisPanel;
+import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetUtils;
 import org.jopendocument.link.OOConnexion;
 import org.openconcerto.sql.Configuration;
@@ -91,7 +92,8 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
             openItem.setFont(openItem.getFont().deriveFont(Font.BOLD));
             menu.add(openItem);
 
-            List<File> files = SheetUtils.getInstance().getHistorique(s.getFileName(), new File(s.getLocationOO()));
+            final File outpuDirectory = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(s.getTemplateId());
+            List<File> files = SheetUtils.getHistorique(s.getFileName(), outpuDirectory);
             if (files.size() > 0) {
                 JMenu item = new JMenu("Historique");
                 int i = 0;

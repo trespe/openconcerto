@@ -21,7 +21,6 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.Map;
 
 import org.apache.commons.collections.Transformer;
@@ -35,6 +34,7 @@ public abstract class RowBacked {
 
     protected static abstract class PropExtractor implements Transformer {
 
+        @Override
         public final Object transform(Object input) {
             return this.extract((SQLRowAccessor) input);
         }
@@ -51,9 +51,7 @@ public abstract class RowBacked {
         this.propExtractors = new HashMap<String, PropExtractor>();
         this.values = new HashMap<String, Object>();
 
-        final Iterator iter = PolymorphFK.findPolymorphFK(this.getTable()).iterator();
-        while (iter.hasNext()) {
-            final PolymorphFK f = (PolymorphFK) iter.next();
+        for (final PolymorphFK f : PolymorphFK.findPolymorphFK(this.getTable())) {
             this.addPolymorphFK(f);
         }
     }
@@ -110,6 +108,7 @@ public abstract class RowBacked {
 
     protected final void addPolymorphFK(final PolymorphFK fk) {
         this.putExtractor(fk.getName(), new PropExtractor() {
+            @Override
             public Object extract(SQLRowAccessor r) {
                 final String tableName = r.getString(fk.getTableField().getName());
                 final SQLTable foreignT = tableName == null ? null : r.getTable().getBase().getTable(tableName);

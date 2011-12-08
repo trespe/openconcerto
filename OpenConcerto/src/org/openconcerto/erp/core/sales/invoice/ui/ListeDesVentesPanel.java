@@ -33,7 +33,10 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.EditPanel.EditMode;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.ITableModel;
+import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
@@ -186,45 +189,45 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
         panelFacture.add(filterDate, cFacture);
         tabbedPane.add("Ventes avec facture", panelFacture);
 
-        tableFact.addMouseListener(new MouseSheetXmlListeListener(this.listeFact.getListe(), VenteFactureXmlSheet.class) {
+        this.listeFact.getListe().addIListeActions(new MouseSheetXmlListeListener(VenteFactureXmlSheet.class) {
             EditFrame edit;
 
             @Override
-            public List<AbstractAction> addToMenu() {
+            public List<RowAction> addToMenu() {
 
-                final SQLRow rowFacture = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("SAISIE_VENTE_FACTURE")
-                        .getRow(ListeDesVentesPanel.this.listeFact.getListe().getSelectedId());
-                AbstractAction actionAvoir = new AbstractAction("Transférer en avoir") {
+                PredicateRowAction actionAvoir = new PredicateRowAction(new AbstractAction("Transférer en avoir") {
                     public void actionPerformed(ActionEvent e) {
                         SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                        elt.transfertAvoir(rowFacture.getID());
+                        elt.transfertAvoir(IListe.get(e).getSelectedId());
                     }
-                };
+                }, false);
 
-                AbstractAction actionCommande = new AbstractAction("Transférer en commande") {
+                PredicateRowAction actionCommande = new PredicateRowAction(new AbstractAction("Transférer en commande") {
                     public void actionPerformed(ActionEvent e) {
                         SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                        elt.transfertCommande(rowFacture.getID());
+                        elt.transfertCommande(IListe.get(e).getSelectedId());
                     }
-                };
+                }, false);
 
-                AbstractAction actionClient = new AbstractAction("Détails client") {
+                PredicateRowAction actionClient = new PredicateRowAction(new AbstractAction("Détails client") {
                     public void actionPerformed(ActionEvent e) {
                         if (edit == null) {
                             edit = new EditFrame(eltClient, EditMode.READONLY);
                         }
-                        edit.selectionId(rowFacture.getInt("ID_CLIENT"));
+                        edit.selectionId(IListe.get(e).getSelectedRow().getInt("ID_CLIENT"));
                         edit.setVisible(true);
                     }
-                };
-
-                List<AbstractAction> l = new ArrayList<AbstractAction>(1);
+                }, false);
+                actionAvoir.setPredicate(IListeEvent.getSingleSelectionPredicate());
+                actionCommande.setPredicate(IListeEvent.getSingleSelectionPredicate());
+                actionClient.setPredicate(IListeEvent.getSingleSelectionPredicate());
+                List<RowAction> l = new ArrayList<RowAction>(3);
                 l.add(actionAvoir);
                 l.add(actionCommande);
                 l.add(actionClient);
                 return l;
             }
-        });
+        }.getRowActions());
         this.listeFact.getListe().addIListener(new org.openconcerto.sql.view.IListener() {
 
             public void selectionId(int id, int field) {

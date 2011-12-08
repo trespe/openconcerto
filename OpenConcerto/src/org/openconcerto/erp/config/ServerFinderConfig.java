@@ -31,6 +31,7 @@ public class ServerFinderConfig {
     private String ip;
     private File file;
     private String port;
+    private String systemRoot = "OpenConcerto";
 
     private String dbLogin;
     private String dbPassword;
@@ -39,6 +40,14 @@ public class ServerFinderConfig {
     private String openconcertoPassword = "openconcerto";
     private String product;
     private String error;
+
+    public String getSystemRoot() {
+        return systemRoot;
+    }
+
+    public void setSystemRoot(String systemRoot) {
+        this.systemRoot = systemRoot;
+    }
 
     public String getType() {
         return type;
@@ -245,4 +254,5 @@ public class ServerFinderConfig {
         return this.getType() + ":" + this.getIp() + ":" + this.getPort() + " file:" + this.getFile() + " " + this.getOpenconcertoLogin() + "/" + this.getOpenconcertoPassword() + " ["
                 + this.getDbLogin() + "/" + this.getDbPassword() + "]";
     }
+
 }

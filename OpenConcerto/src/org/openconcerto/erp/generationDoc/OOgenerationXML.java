@@ -73,15 +73,15 @@ public class OOgenerationXML {
 
     private static int answer = JOptionPane.NO_OPTION;
 
-    public static synchronized File genere(String modele, String pathDest, final String fileDest, SQLRow row, SQLRow rowLanguage) {
-
+    public static synchronized File createDocument(String templateId, File outputDirectory, final String expectedFileName, SQLRow row, SQLRow rowLanguage) {
+        final String langage = rowLanguage != null ? rowLanguage.getString("CHEMIN") : null;
         cacheStyle.clear();
         OOXMLCache.clearCache();
         rowsEltCache.clear();
         taxe.clear();
         cacheForeign.clear();
 
-        File fDest = new File(pathDest, fileDest + ".ods");
+        File fDest = new File(outputDirectory, expectedFileName);
 
         if (fDest.exists()) {
 
@@ -112,20 +112,20 @@ public class OOgenerationXML {
         SAXBuilder builder = new SAXBuilder();
         try {
 
-            if (needAnnexe(modele, row, rowLanguage)) {
-                try {
-                    // check if it exists
-                    getOOTemplate(modele + "_annexe", rowLanguage);
-                    modele += "_annexe";
-                    System.err.println("modele With annexe " + modele);
-                } catch (FileNotFoundException e) {
-
+            if (needAnnexe(templateId, row, rowLanguage)) {
+                // check if it exists
+                final String annexeTemplateId = templateId + "_annexe";
+                InputStream annexeStream = TemplateManager.getInstance().getTemplate(annexeTemplateId, langage, null);
+                if (annexeStream != null) {
+                    templateId = annexeTemplateId;
+                    System.err.println("modele With annexe " + templateId);
                 }
             }
 
-            System.err.println("modele " + modele);
+            System.err.println("Using template id: " + templateId);
+            final InputStream xmlConfiguration = TemplateManager.getInstance().getTemplateConfiguration(templateId, langage, null);
 
-            Document doc = builder.build(getXmlTemplate(modele, rowLanguage));
+            Document doc = builder.build(xmlConfiguration);
 
             // On initialise un nouvel élément racine avec l'élément racine du document.
             Element racine = doc.getRootElement();
@@ -134,7 +134,9 @@ public class OOgenerationXML {
             List<Element> listElts = racine.getChildren("element");
 
             // Création et génération du fichier OO
-            SpreadSheet spreadSheet = SpreadSheet.create(new ODPackage(getOOTemplate(modele, rowLanguage)));
+            final InputStream template = TemplateManager.getInstance().getTemplate(templateId, langage, null);
+
+            final SpreadSheet spreadSheet = new ODPackage(template).getSpreadSheet();
             try {
                 // On remplit les cellules de la feuille
                 parseElementsXML(listElts, row, spreadSheet);
@@ -147,17 +149,17 @@ public class OOgenerationXML {
                     parseTableauXML(tableChild, row, spreadSheet, rowLanguage);
                 }
             } catch (Exception e) {
-                ExceptionHandler.handle("Impossible de remplir le document " + modele + " " + ((rowLanguage == null) ? "" : rowLanguage.getString("CHEMIN")), e);
+                ExceptionHandler.handle("Impossible de remplir le document " + templateId + " " + ((rowLanguage == null) ? "" : rowLanguage.getString("CHEMIN")), e);
             }
             // Sauvegarde du fichier
-            return saveSpreadSheet(spreadSheet, new File(pathDest), fileDest, modele, rowLanguage);
+            return saveSpreadSheet(spreadSheet, outputDirectory, expectedFileName, templateId, rowLanguage);
 
         } catch (final JDOMException e) {
 
             e.printStackTrace();
             SwingUtilities.invokeLater(new Runnable() {
                 public void run() {
-                    ExceptionHandler.handle("Erreur lors de la génération du fichier " + fileDest, e);
+                    ExceptionHandler.handle("Erreur lors de la génération du fichier " + expectedFileName, e);
                 }
             });
         } catch (final IOException e) {
@@ -165,7 +167,7 @@ public class OOgenerationXML {
             e.printStackTrace();
             SwingUtilities.invokeLater(new Runnable() {
                 public void run() {
-                    ExceptionHandler.handle("Erreur lors de la création du fichier " + fileDest, e);
+                    ExceptionHandler.handle("Erreur lors de la création du fichier " + expectedFileName, e);
                 }
             });
         }
@@ -706,8 +708,9 @@ public class OOgenerationXML {
      * @return un File pointant sur le fichier créé
      * @throws IOException
      */
-    private static File saveSpreadSheet(SpreadSheet ssheet, File pathDest, String fileName, String modele, SQLRow rowLanguage) throws IOException {
 
+    private static File saveSpreadSheet(SpreadSheet ssheet, File pathDest, String fileName, String templateId, SQLRow rowLanguage) throws IOException {
+        final String langage = rowLanguage != null ? rowLanguage.getString("CHEMIN") : null;
         // Test des arguments
         if (ssheet == null || pathDest == null || fileName.trim().length() == 0) {
             throw new IllegalArgumentException();
@@ -720,7 +723,7 @@ public class OOgenerationXML {
             pathDest.mkdirs();
         }
 
-        fDest = SheetUtils.getInstance().convertToOldFile(fileName, pathDest, fDest);
+        fDest = SheetUtils.convertToOldFile(fileName, pathDest, fDest);
 
         // Sauvegarde
         try {
@@ -743,7 +746,7 @@ public class OOgenerationXML {
         // Copie de l'odsp
         try {
             File odspOut = new File(pathDest, fileName + ".odsp");
-            InputStream odspIn = getTemplate(modele + ".odsp", rowLanguage);
+            final InputStream odspIn = TemplateManager.getInstance().getTemplatePrintConfiguration(templateId, langage, null);
             if (odspIn != null) {
                 StreamUtils.copy(odspIn, odspOut);
             }
@@ -751,18 +754,6 @@ public class OOgenerationXML {
             System.err.println("Le fichier odsp n'existe pas.");
         }
         return fDest;
-    }
-
-    public static InputStream getOOTemplate(String name, SQLRow language) throws FileNotFoundException {
-        return OOgenerationListeXML.getOOTemplate(name, language);
-    }
-
-    public static InputStream getXmlTemplate(String name, SQLRow language) throws FileNotFoundException {
-        return OOgenerationListeXML.getXmlTemplate(name, language);
-    }
-
-    public static InputStream getTemplate(String name, SQLRow language) throws FileNotFoundException {
-        return OOgenerationListeXML.getTemplate(name, language);
     }
 
     /**
@@ -827,14 +818,15 @@ public class OOgenerationXML {
         return mapStyleDef;
     }
 
-    public static boolean needAnnexe(String modele, SQLRow row, SQLRow rowLanguage) {
-
-        SAXBuilder builder = new SAXBuilder();
+    public static boolean needAnnexe(String templateId, SQLRow row, SQLRow rowLanguage) {
+        final String langage = rowLanguage != null ? rowLanguage.getString("CHEMIN") : null;
+        final SAXBuilder builder = new SAXBuilder();
         try {
+            final InputStream xmlConfiguration = TemplateManager.getInstance().getTemplateConfiguration(templateId, langage, null);
+            final Document doc = builder.build(xmlConfiguration);
+            final InputStream template = TemplateManager.getInstance().getTemplate(templateId, langage, null);
 
-            Document doc = builder.build(getXmlTemplate(modele, rowLanguage));
-
-            SpreadSheet spreadSheet = SpreadSheet.create(new ODPackage(getOOTemplate(modele, rowLanguage)));
+            final SpreadSheet spreadSheet = new ODPackage(template).getSpreadSheet();
 
             // On initialise un nouvel élément racine avec l'élément racine du document.
             Element racine = doc.getRootElement();

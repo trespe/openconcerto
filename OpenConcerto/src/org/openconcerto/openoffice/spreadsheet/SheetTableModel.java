@@ -14,6 +14,7 @@
  package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.ODDocument;
+import org.openconcerto.utils.CompareUtils;
 
 import javax.swing.table.AbstractTableModel;
 
@@ -74,6 +75,50 @@ public class SheetTableModel<D extends ODDocument> extends AbstractTableModel {
             throw new IndexOutOfBoundsException("row :" + rowIndex + " not between 0 and " + (this.getRowCount() - 1));
         if (columnIndex < 0 || columnIndex >= this.getColumnCount())
             throw new IndexOutOfBoundsException("column: " + columnIndex + " not between 0 and " + (this.getColumnCount() - 1));
+    }
+
+    @Override
+    public int hashCode() {
+        final int rowCount = getRowCount();
+        final int columnCount = getColumnCount();
+        final int prime = 17;
+        int result = 1;
+        result = prime * result + rowCount;
+        result = prime * result + columnCount;
+        // use some of the values
+        final int maxX = Math.min(4, columnCount);
+        final int maxY = Math.min(8, rowCount);
+        for (int y = 0; y < maxY; y++) {
+            for (int x = 0; x < maxX; x++) {
+                final Object v = this.getValueAt(x, y);
+                result = prime * result + (v == null ? 0 : v.hashCode());
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (!(obj instanceof SheetTableModel))
+            return false;
+        final SheetTableModel<?> other = (SheetTableModel<?>) obj;
+
+        final int rowCount = this.getRowCount();
+        final int columnCount = this.getColumnCount();
+        if (other.getRowCount() != rowCount || other.getColumnCount() != columnCount)
+            return false;
+
+        for (int y = 0; y < rowCount; y++) {
+            for (int x = 0; x < columnCount; x++) {
+                if (!CompareUtils.equals(this.getValueAt(x, y), other.getValueAt(x, y)))
+                    return false;
+            }
+        }
+        return true;
     }
 
     static public final class MutableTableModel<D extends ODDocument> extends SheetTableModel<D> {

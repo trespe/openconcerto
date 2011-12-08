@@ -15,8 +15,9 @@
 
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableEvent;
+import org.openconcerto.sql.model.SQLTableEvent.Mode;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 
 import java.util.HashMap;
@@ -31,7 +32,7 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
     private Object toSelect;
     private boolean isLoading = false;
     private final SQLElement el;
-    static final Map<SQLElement, Map<Integer, IComboSelectionItem>> cacheMap = new HashMap<SQLElement, Map<Integer, IComboSelectionItem>>();
+    static private final Map<SQLElement, Map<Integer, IComboSelectionItem>> cacheMap = new HashMap<SQLElement, Map<Integer, IComboSelectionItem>>();
 
     public KeyTableCellRenderer(final SQLElement el) {
         super();
@@ -93,20 +94,14 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
                     m.put(comboSelectionItem.getId(), comboSelectionItem);
                 }
                 cacheMap.put(KeyTableCellRenderer.this.el, m);
-                KeyTableCellRenderer.this.el.getTable().addPremierTableListener(new SQLTableListener() {
+                KeyTableCellRenderer.this.el.getTable().addPremierTableModifiedListener(new SQLTableModifiedListener() {
                     @Override
-                    public void rowAdded(SQLTable table, int id) {
-                        m.put(id, KeyTableCellRenderer.this.el.getComboRequest().getComboItem(id));
-                    }
-
-                    @Override
-                    public void rowDeleted(SQLTable table, int id) {
-                        m.remove(id);
-                    }
-
-                    @Override
-                    public void rowModified(SQLTable table, int id) {
-                        m.put(id, KeyTableCellRenderer.this.el.getComboRequest().getComboItem(id));
+                    public void tableModified(SQLTableEvent evt) {
+                        final int id = evt.getId();
+                        if (evt.getMode() == Mode.ROW_DELETED)
+                            m.remove(id);
+                        else
+                            m.put(id, KeyTableCellRenderer.this.el.getComboRequest().getComboItem(id));
                     }
                 });
 

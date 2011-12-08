@@ -18,6 +18,7 @@ import java.util.List;
 public interface DatabaseAccessor {
 
     public void store(Ville v);
+    public void delete(Ville v);
 
     public List<Ville> read();
 }

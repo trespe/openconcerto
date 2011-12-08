@@ -13,21 +13,17 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
-import static org.openconcerto.openoffice.ODPackage.RootElement.CONTENT;
-import static org.openconcerto.openoffice.ODPackage.RootElement.STYLES;
 import org.openconcerto.openoffice.ContentType;
 import org.openconcerto.openoffice.ContentTypeVersioned;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.OOUtils;
 import org.openconcerto.openoffice.XMLFormatVersion;
-import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.SheetTableModel.MutableTableModel;
 import org.openconcerto.utils.Tuple2;
 
 import java.awt.Point;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +35,6 @@ import java.util.regex.Pattern;
 
 import javax.swing.table.TableModel;
 
-import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
 import org.jdom.xpath.XPath;
@@ -49,14 +44,20 @@ import org.jdom.xpath.XPath;
  * 
  * @author Sylvain
  */
-public class SpreadSheet implements ODDocument {
+public class SpreadSheet extends ODDocument {
 
     public static SpreadSheet createFromFile(File f) throws IOException {
-        return create(new ODPackage(f));
+        return new ODPackage(f).getSpreadSheet();
     }
 
-    public static SpreadSheet create(final ODPackage fd) {
-        return new SpreadSheet(fd.getDocument(CONTENT.getZipEntry()), fd.getDocument(STYLES.getZipEntry()), fd);
+    /**
+     * This method should be avoided, use {@link ODPackage#getSpreadSheet()}.
+     * 
+     * @param fd a package.
+     * @return the spreadsheet.
+     */
+    public static SpreadSheet get(final ODPackage fd) {
+        return fd.hasODDocument() ? fd.getSpreadSheet() : new SpreadSheet(fd);
     }
 
     public static SpreadSheet createEmpty(TableModel t) throws IOException {
@@ -65,7 +66,7 @@ public class SpreadSheet implements ODDocument {
 
     public static SpreadSheet createEmpty(TableModel t, XMLFormatVersion ns) throws IOException {
         final ContentTypeVersioned ct = ContentType.SPREADSHEET.getVersioned(ns.getXMLVersion());
-        final SpreadSheet spreadSheet = create(ct.createPackage(ns));
+        final SpreadSheet spreadSheet = ct.createPackage(ns).getSpreadSheet();
         spreadSheet.getBody().addContent(Sheet.createEmpty(ns.getXMLVersion()));
         spreadSheet.getSheet(0).merge(t, 0, 0, true);
         return spreadSheet;
@@ -85,44 +86,12 @@ public class SpreadSheet implements ODDocument {
         return SpreadSheet.createEmpty(t, ns).saveAs(f);
     }
 
-    private final ODPackage originalFile;
     private final Map<Element, Sheet> sheets;
 
-    public SpreadSheet(Document doc, Document styles) {
-        this(doc, styles, null);
-    }
-
-    private SpreadSheet(final Document doc, final Document styles, final ODPackage orig) {
-        if (orig != null) {
-            // ATTN OK because this is our private instance (see createFromFile())
-            this.originalFile = orig;
-        } else {
-            this.originalFile = new ODPackage();
-        }
-        this.originalFile.putFile("content.xml", doc);
-        if (styles != null)
-            this.originalFile.putFile("styles.xml", styles);
-
+    private SpreadSheet(final ODPackage orig) {
+        super(orig);
         // map Sheet by XML elements so has not to depend on ordering or name
         this.sheets = new HashMap<Element, Sheet>();
-    }
-
-    final Document getContent() {
-        return this.getPackage().getContent().getDocument();
-    }
-
-    @Override
-    public final XMLVersion getVersion() {
-        return this.getPackage().getVersion();
-    }
-
-    @Override
-    public XMLFormatVersion getFormatVersion() {
-        return this.getPackage().getFormatVersion();
-    }
-
-    private Element getBody() {
-        return ContentType.SPREADSHEET.getVersioned(getVersion()).getBody(getContent());
     }
 
     // ** from 8.3.1 Referencing Table Cells (just double the backslash for . and escape the $)
@@ -334,17 +303,4 @@ public class SpreadSheet implements ODDocument {
         parentElement.addContent(getContentIndex(toIndex), sheet.getElement());
         // no need to update this.sheets since it doesn't depend on order
     }
-
-    // *** Files
-
-    public File saveAs(File file) throws FileNotFoundException, IOException {
-        this.getPackage().setFile(file);
-        return this.getPackage().save();
-    }
-
-    @Override
-    public final ODPackage getPackage() {
-        return this.originalFile;
-    }
-
 }

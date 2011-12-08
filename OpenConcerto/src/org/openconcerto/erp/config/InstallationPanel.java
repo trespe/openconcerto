@@ -228,6 +228,7 @@ public class InstallationPanel extends JPanel {
                                         @Override
                                         public Object create() throws SQLException {
                                             fixUnboundedVarchar(root);
+                                            fixUnboundedNumeric(root);
                                             updateSocieteSchema(root);
                                             updateToV1Dot2(root);
                                             return null;
@@ -424,8 +425,46 @@ public class InstallationPanel extends JPanel {
 
         // c.gridy++;
         // this.add(bd, c);
+
         c.gridy++;
         c.weightx = 1;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.insets = new Insets(10, 3, 2, 2);
+        this.add(new JLabelBold("Paramètrages de la base de données"), c);
+        c.gridy++;
+        c.weightx = 0;
+        c.anchor = GridBagConstraints.EAST;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.fill = GridBagConstraints.NONE;
+        c.insets = DefaultGridBagConstraints.getDefaultInsets();
+        JButton buttonPL = new JButton("Lancer");
+        buttonPL.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (!finderPanel.getServerConfig().getType().equals(ServerFinderConfig.POSTGRESQL)) {
+
+                } else {
+                    final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create(true);
+                    try {
+                        final SQLDataSource ds = conf.getSystemRoot().getDataSource();
+                        ds.execute("CREATE FUNCTION plpgsql_call_handler() RETURNS language_handler AS '$libdir/plpgsql' LANGUAGE C;" + "\n"
+                                + "CREATE FUNCTION plpgsql_validator(oid) RETURNS void AS '$libdir/plpgsql' LANGUAGE C;" + "\n"
+                                + "CREATE TRUSTED PROCEDURAL LANGUAGE plpgsql HANDLER plpgsql_call_handler VALIDATOR plpgsql_validator;");
+                    } catch (Exception ex) {
+                        System.err.println("Impossible d'ajouter le langage PLPGSQL. Peut etre est il déjà installé.");
+                    }
+                }
+                JOptionPane.showConfirmDialog(null, "Paramètrage terminé.");
+            }
+        });
+        this.add(buttonPL, c);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.anchor = GridBagConstraints.WEST;
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.insets = new Insets(10, 3, 2, 2);
         this.add(new JLabelBold("Mise à niveau de la base OpenConcerto"), c);
@@ -449,6 +488,64 @@ public class InstallationPanel extends JPanel {
         final JPanel comp = new JPanel();
         comp.setOpaque(false);
         this.add(comp, c);
+    }
+
+    private void fixUnboundedNumeric(DBRoot root) throws SQLException {
+
+        final List<AlterTable> alters = new ArrayList<AlterTable>();
+        {
+            SQLTable tableAvoir = root.getTable("AVOIR_CLIENT_ELEMENT");
+            final AlterTable alter = new AlterTable(tableAvoir);
+            SQLField fieldAcompteAvoir = tableAvoir.getField("POURCENT_ACOMPTE");
+            if (fieldAcompteAvoir.getType().getSize() > 500) {
+                final String fName = fieldAcompteAvoir.getName();
+                alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "100", false);
+            }
+
+            SQLField fieldRemiseAvoir = tableAvoir.getField("POURCENT_REMISE");
+            if (fieldRemiseAvoir.getType().getSize() > 500) {
+                final String fName = fieldRemiseAvoir.getName();
+                alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "0", false);
+            }
+
+            if (!alter.isEmpty())
+                alters.add(alter);
+        }
+
+        {
+            SQLTable tableFacture = root.getTable("SAISIE_VENTE_FACTURE_ELEMENT");
+            final AlterTable alter = new AlterTable(tableFacture);
+            SQLField fieldAcompteFacture = tableFacture.getField("POURCENT_ACOMPTE");
+            if (fieldAcompteFacture.getType().getSize() > 500) {
+                final String fName = fieldAcompteFacture.getName();
+                alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "100", false);
+            }
+
+            SQLField fieldRemiseFacture = tableFacture.getField("POURCENT_REMISE");
+            if (fieldRemiseFacture.getType().getSize() > 500) {
+                final String fName = fieldRemiseFacture.getName();
+                alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "0", false);
+            }
+
+            if (tableFacture.getFieldsName().contains("REPARTITION_POURCENT")) {
+                SQLField fieldRepFacture = tableFacture.getField("REPARTITION_POURCENT");
+                if (fieldRepFacture.getType().getSize() > 500) {
+                    final String fName = fieldRepFacture.getName();
+                    alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "0", false);
+                }
+            }
+
+            if (!alter.isEmpty())
+                alters.add(alter);
+
+        }
+        if (alters.size() > 0) {
+            final SQLDataSource ds = root.getDBSystemRoot().getDataSource();
+            for (final String sql : ChangeTable.cat(alters, root.getName())) {
+                ds.execute(sql);
+            }
+            root.refetch();
+        }
     }
 
     private void fixUnboundedVarchar(DBRoot root) throws SQLException {

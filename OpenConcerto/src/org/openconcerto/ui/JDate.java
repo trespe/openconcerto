@@ -18,10 +18,12 @@ import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidState;
 
+import java.awt.Component;
 import java.beans.PropertyChangeListener;
 import java.util.Calendar;
 import java.util.Date;
 
+import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.text.JTextComponent;
 
@@ -61,6 +63,16 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         this.setMonthView(monthView);
 
         this.resetValue();
+    }
+
+    @Override
+    public void updateUI() {
+        super.updateUI();
+        // can't change BasicDatePickerUI behavior, so do it here
+        for (final Component child : this.getComponents()) {
+            if (child instanceof JButton)
+                ((JComponent) child).setOpaque(false);
+        }
     }
 
     public final void resetValue() {

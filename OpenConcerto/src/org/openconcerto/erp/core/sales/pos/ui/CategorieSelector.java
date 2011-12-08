@@ -62,8 +62,6 @@ public class CategorieSelector extends JPanel implements ListSelectionListener, 
         this.add(this.list, c);
         this.list.getSelectionModel().addListSelectionListener(this);
 
-        this.comp.setModel(this.model);
-
         this.comp.addMouseListener(new MouseAdapter() {
 
             @Override

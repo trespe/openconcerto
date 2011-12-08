@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
 import org.openconcerto.erp.generationDoc.AbstractListeSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -23,7 +22,6 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.utils.Tuple2;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -34,33 +32,26 @@ import java.util.Map;
 
 public class BalanceAgeeListeSheetXML extends AbstractListeSheetXml {
 
-    // private final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yy");
     private Date deb, fin;
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tupleDefault;
-    }
+    public static String TEMPLATE_ID = "Balance agée";
 
     public BalanceAgeeListeSheetXML(Date deb, Date fin) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.deb = deb;
         this.fin = fin;
-
-        this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
     }
 
     @Override
-    public String getDefaultModele() {
+    public String getDefaultTemplateId() {
         return "BalanceAgee";
     }
 
-    public String getFileName() {
-        return getValidFileName("BalanceAgee" + new Date().getTime());
+    @Override
+    public String getName() {
+        return "BalanceAgee" + new Date().getTime();
     }
 
     protected void createListeValues() {
-
         SQLElement ecr = Configuration.getInstance().getDirectory().getElement("ECRITURE");
         SQLElement cpt = Configuration.getInstance().getDirectory().getElement("COMPTE_PCE");
         SQLElement fact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
@@ -106,7 +97,6 @@ public class BalanceAgeeListeSheetXML extends AbstractListeSheetXml {
             long time = c.getTimeInMillis() - date;
             long day = time / 86400000;
             if (day < 0) {
-                // System.err.println("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
                 continue;
             }
             final SQLRow rowCpt = sqlRow.getForeignRow("ID_COMPTE_PCE");
@@ -185,7 +175,7 @@ public class BalanceAgeeListeSheetXML extends AbstractListeSheetXml {
                 valuesTab.add(e);
             }
         }
-        Map<String, Object> totalMap = new HashMap<String, Object>();
+        final Map<String, Object> totalMap = new HashMap<String, Object>();
         totalMap.put("NOM", "TOTAL");
         totalMap.put("30", total30 / 100.0);
         totalMap.put("60", total60 / 100.0);
@@ -194,29 +184,7 @@ public class BalanceAgeeListeSheetXML extends AbstractListeSheetXml {
         totalMap.put("TOTAL", totalFull / 100.0);
         valuesTab.add(totalMap);
 
-        // Map<String, Object> values = this.mapAllSheetValues.get(0);
-        // if (values == null) {
-        // values = new HashMap<String, Object>();
-        // }
-        // valuesHA.put("TOTAL", totalHA);
-        // valuesE.put("TOTAL_HA", totalHA);
-        // valuesE.put("TOTAL", totalE);
-        // valuesE.put("TOTAL_VT", totalTPVTTC);
-        // values.put("TOTAL", totalVC);
-        // values.put("TOTAL_MARGE", totalTPVTTC - totalTPA);
-        //
-        // valuesE.put("TOTAL_GLOBAL", totalTPVTTC + totalHA);
-        // values.put("TOTAL_PA", totalTPA);
-        // values.put("TOTAL_PV_TTC", totalTPVTTC);
-        //
-        // String periode = "Période Du " + dateFormat.format(this.du) + " au " +
-        // dateFormat.format(this.au);
-        // values.put("DATE", periode);
-        // valuesHA.put("DATE", periode);
-        // valuesE.put("DATE", periode);
-
         this.listAllSheetValues.put(0, valuesTab);
-        // this.mapAllSheetValues.put(0, values);
 
     }
 }

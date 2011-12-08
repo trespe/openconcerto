@@ -137,18 +137,10 @@ public class EtatVentesPanel extends JPanel implements ActionListener {
 
             EtatVentesXmlSheet sheet = new EtatVentesXmlSheet(this.du.getDate(), this.au.getDate());
             try {
-                sheet.genere(false, false).get();
-                // FIXME Probleme avec l'odsviewer
-                if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
-                    sheet.showDocument();
-                } else {
-                    sheet.showPreviewDocument();
-                }
-            } catch (InterruptedException e1) {
-                // TODO Auto-generated catch block
-                e1.printStackTrace();
-            } catch (ExecutionException e1) {
-                // TODO Auto-generated catch block
+                // FIXME probleme de rendu avec le viewer
+                sheet.createDocumentAsynchronous().get();
+                sheet.openDocument(false);
+            } catch (Exception e1) {
                 e1.printStackTrace();
             }
 

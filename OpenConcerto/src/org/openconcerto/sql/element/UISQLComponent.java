@@ -153,6 +153,8 @@ public abstract class UISQLComponent extends BaseSQLComponent {
             this.add(this.tabbedPane);
         }
         this.currentPanel = new JPanel();
+        // from Guillaume : tabs shouldn't be opaque in Windows L&F
+        this.currentPanel.setOpaque(false);
         this.tabbedPane.addTab(tabTitle, this.currentPanel);
         this.setLayouter(w, d);
     }

@@ -53,7 +53,7 @@ public final class SQLSchema extends SQLIdentifier {
                 sb.append(' ');
                 sb.append(VERSION_XMLATTR);
                 sb.append("=\"");
-                sb.append(version);
+                sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(version));
                 sb.append('"');
             } catch (IOException e) {
                 throw new IllegalStateException("Couldn't append version of " + schema, e);
@@ -218,7 +218,7 @@ public final class SQLSchema extends SQLIdentifier {
         sb.append("<schema ");
         if (this.getName() != null) {
             sb.append(" name=\"");
-            sb.append(this.getName());
+            sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(this.getName()));
             sb.append('"');
         }
         getVersionAttr(this, sb);

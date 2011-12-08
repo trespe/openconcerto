@@ -18,8 +18,6 @@ import org.openconcerto.utils.cc.IPredicate;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 
-import org.apache.commons.collections.Predicate;
-
 /**
  * Implement EmptyObj with a ValueObject and a predicate.
  * 
@@ -28,21 +26,20 @@ import org.apache.commons.collections.Predicate;
  */
 public class EmptyObjFromVO<V> implements EmptyObj {
 
+    /**
+     * A predicate returning <code>true</code> if the passed object is <code>null</code> or the
+     * empty string.
+     * 
+     * @param <T> type of the value object.
+     * @return a predicate returning <code>true</code> if the object is empty.
+     */
+    @SuppressWarnings("unchecked")
     public static final <T> IPredicate<T> getDefaultPredicate() {
-        return new IPredicate<T>() {
-            @Override
-            public boolean evaluateChecked(T input) {
-                return DEFAULT_PREDICATE.evaluate(input);
-            }
-        };
+        return (IPredicate<T>) DEFAULT_PREDICATE;
     }
 
-    /**
-     * This predicate returns <code>true</code> if the passed object is <code>null</code> or the
-     * empty string.
-     */
-    public static final Predicate DEFAULT_PREDICATE = new Predicate() {
-        public boolean evaluate(Object object) {
+    private static final IPredicate<Object> DEFAULT_PREDICATE = new IPredicate<Object>() {
+        public boolean evaluateChecked(Object object) {
             if (object instanceof String)
                 return ((String) object).length() == 0;
             else

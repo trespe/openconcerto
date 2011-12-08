@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.core.finance.accounting.ui;
 
-
 import org.openconcerto.erp.generationDoc.gestcomm.PointageXmlSheet;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -69,7 +68,6 @@ public class GenerationPointagePanel extends JPanel implements ActionListener {
 
         this.add(this.spinYear, c);
 
-       
         JPanel panelButton = new JPanel();
         panelButton.add(this.gen);
         panelButton.add(this.close);
@@ -100,7 +98,8 @@ public class GenerationPointagePanel extends JPanel implements ActionListener {
             int mois = this.combo.getValue() - 2;
             int year = Integer.valueOf(this.spinYear.getValue().toString());
             PointageXmlSheet sheet = new PointageXmlSheet(mois, year);
-            sheet.genere(true, false);
+            sheet.createDocumentAsynchronous();
+            sheet.showPrintAndExportAsynchronous(true, false, true);
         } else {
             if (e.getSource() == this.close) {
                 ((JFrame) SwingUtilities.getRoot(this)).dispose();

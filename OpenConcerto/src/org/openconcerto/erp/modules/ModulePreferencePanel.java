@@ -15,7 +15,6 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.DBRoot;
-import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.sqlobject.SQLSearchableTextCombo;
 import org.openconcerto.sql.sqlobject.SQLSearchableTextCombo.ISQLListModel;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
@@ -27,18 +26,17 @@ import org.openconcerto.ui.preferences.PrefView;
 import org.openconcerto.utils.PrefType;
 
 import java.util.Date;
-import java.util.prefs.Preferences;
 
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 
 public abstract class ModulePreferencePanel extends JavaPrefPreferencePanel {
 
-    static private DBRoot getRoot() {
+    static public DBRoot getRoot() {
         return Configuration.getInstance().getRoot();
     }
 
-    static private String getAppPrefPath() {
+    static String getAppPrefPath() {
         return Configuration.getInstance().getAppID() + '/';
     }
 
@@ -89,8 +87,6 @@ public abstract class ModulePreferencePanel extends JavaPrefPreferencePanel {
     }
 
     public final void init(final ModuleFactory module, final boolean local) {
-        final Preferences rootPrefs = local ? Preferences.userRoot() : new SQLPreferences(getRoot());
-        // ID is a package name, transform to path to avoid bumping into the size limit
-        this.setPrefs(rootPrefs.node(getAppPrefPath() + module.getID().replace('.', '/')));
+        this.setPrefs(module.getPreferences(local, getRoot()));
     }
 }

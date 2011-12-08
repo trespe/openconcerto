@@ -31,16 +31,20 @@ import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.LogUtils;
+import org.openconcerto.utils.MultipleOutputStream;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.cc.IClosure;
 
+import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileDescriptor;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -512,6 +516,10 @@ public class PropsConfiguration extends Configuration {
         this.setupLogging(dirName, Boolean.getBoolean(REDIRECT_TO_FILE));
     }
 
+    protected boolean keepStandardStreamsWhenRedirectingToFile() {
+        return true;
+    }
+
     public void setupLogging(final String dirName, final boolean redirectToFile) {
         final File logDir;
         try {
@@ -542,9 +550,17 @@ public class PropsConfiguration extends Configuration {
             logFile.getParentFile().mkdirs();
             try {
                 System.out.println("Log file: " + logFile.getAbsolutePath());
-                final PrintStream ps = new PrintStream(new FileOutputStream(logFile, true));
-                System.setErr(ps);
-                System.setOut(ps);
+                final OutputStream fileOut = new FileOutputStream(logFile, true);
+                final OutputStream out, err;
+                if (this.keepStandardStreamsWhenRedirectingToFile()) {
+                    out = new MultipleOutputStream(fileOut, new FileOutputStream(FileDescriptor.out));
+                    err = new MultipleOutputStream(fileOut, new FileOutputStream(FileDescriptor.err));
+                } else {
+                    out = fileOut;
+                    err = fileOut;
+                }
+                System.setErr(new PrintStream(new BufferedOutputStream(err, 128), true));
+                System.setOut(new PrintStream(new BufferedOutputStream(out, 128), true));
             } catch (FileNotFoundException e) {
                 throw new IllegalStateException("unable to write to log file", e);
             }

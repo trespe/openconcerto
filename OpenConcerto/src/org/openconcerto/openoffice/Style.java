@@ -105,6 +105,7 @@ public class Style extends ODNode {
             if (elemName2Desc.get(desc.getVersion()).put(desc.getElementName(), desc) != null)
                 throw new IllegalStateException(desc.getElementName() + " duplicate element name");
         }
+        assert desc != null : "Will need containsKey() in getStyleDesc()";
         if (class2Desc.get(desc.getVersion()).put(desc.getStyleClass(), desc) != null)
             throw new IllegalStateException(desc.getStyleClass() + " duplicate");
     }
@@ -184,7 +185,7 @@ public class Style extends ODNode {
 
     public static <S extends Style> S getStyle(final ODPackage pkg, final Class<S> clazz, final String name) {
         final StyleDesc<S> styleDesc = getStyleDesc(clazz, pkg.getVersion());
-        return styleDesc.create(pkg, pkg.getStyle(styleDesc, name));
+        return styleDesc.findStyleWithName(pkg, pkg.getContent().getDocument(), name);
     }
 
     /**
@@ -227,16 +228,14 @@ public class Style extends ODNode {
         return (StyleStyleDesc<S>) getStyleDesc(clazz, version);
     }
 
-    @SuppressWarnings("unchecked")
     private static <S extends Style> StyleDesc<S> getStyleDesc(Class<S> clazz, final XMLVersion version, final boolean mustExist) {
         loadDescs();
         final Map<Class<? extends Style>, StyleDesc<?>> map = class2Desc.get(version);
-        if (map.containsKey(clazz))
-            return (StyleDesc<S>) map.get(clazz);
-        else if (mustExist)
+        @SuppressWarnings("unchecked")
+        final StyleDesc<S> res = (StyleDesc<S>) map.get(clazz);
+        if (res == null && mustExist)
             throw new IllegalArgumentException("unregistered " + clazz + " for version " + version);
-        else
-            return null;
+        return res;
     }
 
     protected static <S extends Style> StyleDesc<S> getNonNullStyleDesc(final Class<S> clazz, final XMLVersion version, final Element styleElem, final String styleName) {

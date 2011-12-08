@@ -66,18 +66,9 @@ public class BalanceAgeePanel extends JPanel {
                 BalanceAgeeListeSheetXML l = new BalanceAgeeListeSheetXML(dateDeb.getDate(), dateFin.getDate());
 
                 try {
-                    l.genere(false, false).get();
-                    // FIXME Probleme avec l'odsviewer
-                    if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
-                        l.showDocument();
-                    } else {
-                        l.showPreviewDocument();
-                    }
-                } catch (InterruptedException e1) {
-                    // TODO Auto-generated catch block
-                    e1.printStackTrace();
-                } catch (ExecutionException e1) {
-                    // TODO Auto-generated catch block
+                    l.createDocument();
+                    l.openDocument(false);
+                } catch (Exception e1) {
                     e1.printStackTrace();
                 }
             }

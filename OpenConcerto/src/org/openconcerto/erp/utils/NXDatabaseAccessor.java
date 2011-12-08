@@ -21,12 +21,13 @@ import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
-
+// TODO use the one from Nego
 public class NXDatabaseAccessor implements DatabaseAccessor {
     @SuppressWarnings("unchecked")
     public List<Ville> read() {
@@ -63,6 +64,12 @@ public class NXDatabaseAccessor implements DatabaseAccessor {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
+    }
 
+    @Override
+    public void delete(Ville v) {
+        SQLTable villeT = Configuration.getInstance().getBase().getTable("VILLE");
+        final Where w = new Where(villeT.getField("NOM"), "=", v.getName()).and(new Where(villeT.getField("CODE_POSTAL"), "=", v.getCodepostal()));
+        villeT.getDBSystemRoot().getDataSource().execute("DELETE FROM " + villeT.getSQLName().quote() + " WHERE " + w);
     }
 }

@@ -14,8 +14,10 @@
  package org.openconcerto.erp.generationDoc;
 
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.utils.StringUtils;
 
 import java.io.File;
+import java.io.InputStream;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
 
@@ -23,35 +25,36 @@ import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 public abstract class AbstractSheetXml extends SheetXml {
+    private File generatedOpenDocumentFile;
 
     public AbstractSheetXml(SQLRow row) {
         this.row = row;
     }
 
-    public final Future<File> genere(final boolean visu, final boolean impression) {
-        Callable<File> c = new Callable<File>() {
+    @Override
+    public final Future<SheetXml> createDocumentAsynchronous() {
+        Callable<SheetXml> c = new Callable<SheetXml>() {
             @Override
-            public File call() throws Exception {
+            public SheetXml call() throws Exception {
                 try {
-                    String modele = getModele();
-                    final String modeleFinal = modele;
-                    try {
-                        OOgenerationXML.getOOTemplate(modele, getRowLanguage());
-                    } catch (Exception e) {
+                    String templateId = getTemplateId();
+                    final String modeleFinal = templateId;
+
+                    String langage = getRowLanguage() != null ? getRowLanguage().getString("CHEMIN") : null;
+                    InputStream templateStream = TemplateManager.getInstance().getTemplate(templateId, langage, getType());
+                    if (templateStream == null) {
                         SwingUtilities.invokeLater(new Runnable() {
 
                             @Override
                             public void run() {
-                                // TODO Raccord de méthode auto-généré
                                 JOptionPane.showMessageDialog(null, "Impossible de trouver le modele " + modeleFinal + ". \n Le modéle par défaut sera utilisé!");
                             }
                         });
-                        modele = getDefaultModele();
+                        templateId = getDefaultTemplateId();
                     }
-                    File fGen = OOgenerationXML.genere(modele, AbstractSheetXml.this.locationOO, getFileName(), AbstractSheetXml.this.row, getRowLanguage());
-                    AbstractSheetXml.this.f = fGen;
-                    useOO(fGen, visu, impression, getFileName());
-                    return fGen;
+                    AbstractSheetXml.this.generatedOpenDocumentFile = OOgenerationXML.createDocument(templateId, getDocumentOutputDirectory(), getValidFileName(getName()), AbstractSheetXml.this.row,
+                            getRowLanguage());
+
                 } catch (Exception e) {
                     DEFAULT_HANDLER.uncaughtException(null, e);
                     // rethrow exception so that the unsuspecting caller can use this as the
@@ -59,11 +62,27 @@ public abstract class AbstractSheetXml extends SheetXml {
                     throw e;
                 } catch (Throwable e) {
                     DEFAULT_HANDLER.uncaughtException(null, e);
-                    return null;
-                }
 
+                }
+                return AbstractSheetXml.this;
             }
         };
         return runnableQueue.submit(c);
+    }
+
+    public String getType() {
+        return null;
+    }
+
+    @Override
+    public String getStoragePathP() {
+        return StringUtils.firstUp(elt.getPluralName());
+    }
+
+    @Override
+    public File getGeneratedFile() {
+        if (this.generatedOpenDocumentFile == null)
+            this.generatedOpenDocumentFile = new File(getDocumentOutputDirectory(), getValidFileName(getName()) + ".ods");
+        return generatedOpenDocumentFile;
     }
 }

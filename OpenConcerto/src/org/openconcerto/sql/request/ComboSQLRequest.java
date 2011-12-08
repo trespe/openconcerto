@@ -143,6 +143,10 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
     }
 
     public final List<IComboSelectionItem> getComboItems() {
+        return this.getComboItems(true);
+    }
+
+    public final List<IComboSelectionItem> getComboItems(final boolean readCache) {
         if (this.comboFields.isEmpty())
             throw new IllegalStateException("La liste des items listitems est vide!! Ils faut utiliser addComboItem...");
 
@@ -151,14 +155,17 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         final SQLRowValuesListFetcher comboSelect = this.getFetcher(null).freeze();
 
         final CacheKey cacheKey = new CacheKey(comboSelect, this.fieldSeparator, this.undefLabel, this.customizeItem);
-        final CacheResult<List<IComboSelectionItem>> l = cache.check(cacheKey);
-        if (l.getState() == CacheResult.State.INTERRUPTED)
-            throw new RTInterruptedException("interrupted while waiting for the cache");
-        else if (l.getState() == CacheResult.State.VALID)
-            return l.getRes();
+        if (readCache) {
+            final CacheResult<List<IComboSelectionItem>> l = cache.check(cacheKey);
+            if (l.getState() == CacheResult.State.INTERRUPTED)
+                throw new RTInterruptedException("interrupted while waiting for the cache");
+            else if (l.getState() == CacheResult.State.VALID)
+                return l.getRes();
+        }
 
         try {
             final List<IComboSelectionItem> result = new ArrayList<IComboSelectionItem>();
+            // SQLRowValuesListFetcher don't cache
             for (final SQLRowValues vals : comboSelect.fetch()) {
                 if (Thread.currentThread().isInterrupted())
                     throw new RTInterruptedException("interrupted in fill");

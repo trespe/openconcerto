@@ -19,7 +19,9 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableEvent;
+import org.openconcerto.sql.model.SQLTableEvent.Mode;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.ui.SwingThreadUtils;
 
 import java.awt.Component;
@@ -49,7 +51,7 @@ public class SQLRowView extends BaseSQLRequest {
 
     // la table cible de cette requete
     private final SQLTable table;
-    private final SQLTableListener tableListener;
+    private final SQLTableModifiedListener tableListener;
     // l'id affiché ou SQLRow.NONEXISTANT_ID si les valeurs affichées ne sont pas liées à une ligne
     // dans la base
     private int selectedID;
@@ -74,7 +76,15 @@ public class SQLRowView extends BaseSQLRequest {
         this.filling = false;
         this.updating = false;
         this.selectedID = SQLRow.NONEXISTANT_ID;
-        this.tableListener = new SQLTableListener() {
+        this.tableListener = new SQLTableModifiedListener() {
+            @Override
+            public void tableModified(SQLTableEvent evt) {
+                if (evt.getMode() == Mode.ROW_UPDATED)
+                    this.rowModified(evt.getTable(), evt.getId());
+                else if (evt.getMode() == Mode.ROW_DELETED)
+                    this.rowDeleted(evt.getTable(), evt.getId());
+                // else don't care
+            }
 
             public void rowModified(SQLTable t, int id) {
                 if (!isUpdating() && existsInDB()) {
@@ -86,10 +96,6 @@ public class SQLRowView extends BaseSQLRequest {
                         select(id);
                     }
                 }
-            }
-
-            public void rowAdded(SQLTable t, int id) {
-                // don't care
             }
 
             public void rowDeleted(SQLTable t, int id) {
@@ -115,12 +121,12 @@ public class SQLRowView extends BaseSQLRequest {
 
     public final void activate(boolean b) {
         if (b) {
-            this.table.addTableListener(this.tableListener);
+            this.table.addTableModifiedListener(this.tableListener);
             if (this.existsInDB())
                 // to catch up to the changes which happened while we weren't listening
                 this.select(this.getSelectedID());
         } else
-            this.table.removeTableListener(this.tableListener);
+            this.table.removeTableModifiedListener(this.tableListener);
     }
 
     /**

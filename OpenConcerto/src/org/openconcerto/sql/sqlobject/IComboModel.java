@@ -16,7 +16,8 @@
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableEvent;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.view.search.SearchSpec;
 import org.openconcerto.sql.view.search.SearchSpecUtils;
@@ -27,7 +28,6 @@ import org.openconcerto.utils.checks.EmptyChangeSupport;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.MutableValueObject;
-import org.openconcerto.utils.model.DefaultIListModel;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
 
 import java.beans.PropertyChangeEvent;
@@ -52,7 +52,7 @@ import javax.swing.event.ListDataListener;
  * 
  * @author Sylvain CUAZ
  */
-public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> implements SQLTableListener, MutableValueObject<IComboSelectionItem>, EmptyObj {
+public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> implements SQLTableModifiedListener, MutableValueObject<IComboSelectionItem>, EmptyObj {
 
     private final ComboSQLRequest req;
 
@@ -72,8 +72,6 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     // true from when the combo is filled with the sole "dots" item until it is loaded with actual
     // items, no need to synchronize (EDT)
     private boolean updating;
-    // true if the items being changed are for display only and do not reflect the db
-    private boolean uiItems;
     // l'id à sélectionner à la fin du updateAll
     private int idToSelect;
 
@@ -100,7 +98,6 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         this.search = null;
         this.runnables = new ArrayList<Runnable>();
         this.setWillUpdate(null);
-        this.uiItems = false;
         this.itemsByID = new HashMap<Integer, IComboSelectionItem>();
         this.addMissingItem = true;
 
@@ -166,7 +163,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
                     // selection change
                     comboValueChanged();
                 } else {
-                    itemsChanged(((DefaultIListModel) e.getSource()).getList());
+                    itemsChanged();
                 }
             }
         });
@@ -230,14 +227,14 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
      * Reload this combo. This method is thread-safe.
      */
     public synchronized final void fillCombo() {
-        this.fillCombo(null);
+        this.fillCombo(null, true);
     }
 
-    public synchronized final void fillCombo(final Runnable r) {
+    public synchronized final void fillCombo(final Runnable r, final boolean readCache) {
         // wholly synch otherwise we might get onScreen after the if
         // and thus completely ignore that fillCombo()
         if (!this.isSleepAllowed() || this.isOnScreen() || r != null) {
-            this.doUpdateAll(r);
+            this.doUpdateAll(r, readCache);
         } else {
             this.isADirtyDrityGirl = true;
         }
@@ -260,14 +257,12 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
 
             this.setUpdating(true);
 
-            this.uiItems = true;
-            this.removeAllItems();
-            addItem(new IComboSelectionItem(SQLRow.NONEXISTANT_ID, "...."));
-            this.uiItems = false;
+            // Like ITableModel, don't remove all items, so that if the request fails we still
+            // keep old items (we used to have uiItems=true while setting the list to "Loading...")
         }
     }
 
-    private void doUpdateAll(final Runnable r) {
+    private void doUpdateAll(final Runnable r, final boolean readCache) {
         log("entering doUpdateAll");
         synchronized (this) {
             this.isADirtyDrityGirl = false;
@@ -290,52 +285,62 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
                 protected List<IComboSelectionItem> doInBackground() throws InterruptedException {
                     // attends 1 peu pour voir si on va pas être annulé
                     Thread.sleep(50);
-                    return SearchSpecUtils.filter(IComboModel.this.req.getComboItems(), search);
+                    return SearchSpecUtils.filter(IComboModel.this.req.getComboItems(readCache), search);
                 }
 
                 // Runs on the event-dispatching thread.
                 @Override
                 public void done() {
-                    try {
-                        synchronized (IComboModel.this) {
-                            // if cancel() is called after doInBackground() nothing happens
-                            // but updating is set to a new instance
-                            if (this.isCancelled() || IComboModel.this.willUpdate != this)
-                                // une autre maj arrive
-                                return;
+                    synchronized (IComboModel.this) {
+                        // if cancel() is called after doInBackground() nothing happens
+                        // but updating is set to a new instance
+                        if (this.isCancelled() || IComboModel.this.willUpdate != this)
+                            // une autre maj arrive
+                            return;
 
-                            final List<IComboSelectionItem> items = this.get();
+                        final boolean firstFill = !IComboModel.this.filledOnce;
+                        // store before removing since it can trigger a selection change
+                        final int idToSelect = IComboModel.this.idToSelect;
+                        List<IComboSelectionItem> items = null;
+                        try {
+                            items = this.get();
                             removeAllItems();
                             addAllItems(items);
-                            final boolean firstFill = !IComboModel.this.filledOnce;
                             IComboModel.this.filledOnce = true;
+                        } catch (InterruptedException e) {
+                            // ne devrait pas arriver puisque done() appelée après doInBackground()
+                            e.printStackTrace();
+                        } catch (CancellationException e) {
+                            // ne devrait pas arriver puisqu'on teste isCancelled()
+                            e.printStackTrace();
+                        } catch (ExecutionException e) {
+                            if (!(e.getCause() instanceof RTInterruptedException))
+                                // pas normal
+                                e.printStackTrace();
+                        } finally {
+                            // always clear willUpdate otherwise the combo can't recover
+                            assert IComboModel.this.willUpdate == this;
                             IComboModel.this.setWillUpdate(null);
-
+                        }
+                        // check if items could be retrieved
+                        // TODO otherwise show the error to the user so he knows that items are
+                        // stale and he could reload them
+                        if (items != null) {
                             // restaurer l'état
                             // if there's only one item in the list and no previous ID to select
                             // and org.openconcerto.sql.sqlCombo.selectSoleItem=true,select the item
-                            final boolean noSelection = IComboModel.this.idToSelect == SQLRow.NONEXISTANT_ID;
+                            final boolean noSelection = idToSelect == SQLRow.NONEXISTANT_ID;
                             if (items.size() == 1 && noSelection && Boolean.getBoolean("org.openconcerto.sql.sqlCombo.selectSoleItem"))
                                 IComboModel.this.setSelectedItem(items.get(0));
                             else if (noSelection && firstFill && getFirstFillSelection() != null)
                                 IComboModel.this.setSelectedItem(getFirstFillSelection().transformChecked(items));
                             else
-                                selectID(IComboModel.this.idToSelect);
+                                selectID(idToSelect);
 
                             for (final Runnable r : IComboModel.this.runnables)
                                 r.run();
                             IComboModel.this.runnables.clear();
                         }
-                    } catch (InterruptedException e) {
-                        // ne devrait pas arriver puisque done() appelée après doInBackground()
-                        e.printStackTrace();
-                    } catch (CancellationException e) {
-                        // ne devrait pas arriver puisqu'on teste isCancelled()
-                        e.printStackTrace();
-                    } catch (ExecutionException e) {
-                        if (!(e.getCause() instanceof RTInterruptedException))
-                            // pas normal
-                            e.printStackTrace();
                     }
                 }
             };
@@ -401,10 +406,9 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         }
     }
 
-    private final void itemsChanged(final List newVal) {
+    private final void itemsChanged() {
+        final List<IComboSelectionItem> newVal = this.getList();
         this.propSupp.firePropertyChange("items", null, newVal);
-        if (!this.uiItems)
-            this.propSupp.firePropertyChange("dataItems", null, newVal);
     }
 
     // *** value
@@ -484,17 +488,10 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         log("entering selectID " + id);
         assert SwingUtilities.isEventDispatchThread();
 
-        // selectID() caused by the removeAll() of updateAllBegun()
-        // so we don't want to forget the selection
-        if (this.uiItems) {
-            assert id == SQLRow.NONEXISTANT_ID;
-            return;
-        }
-
         // no need to launch another updateAll() if one is already underway
         if (this.neverBeenFilled() && !isUpdating())
             // don't use fillCombo() which won't really update unless we're on screen
-            this.doUpdateAll(null);
+            this.doUpdateAll(null, true);
 
         if (this.isUpdating()) {
             this.idToSelect = id;
@@ -624,7 +621,8 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
      *        ones (e.g. adding a '-- loading --' item).
      */
     public final void addItemsListener(PropertyChangeListener l, final boolean all) {
-        this.addListener(all ? "items" : "dataItems", l);
+        // there's no uiItems anymore, so ignore the boolean
+        this.addListener("items", l);
     }
 
     public final void rmItemsListener(PropertyChangeListener l) {
@@ -633,39 +631,13 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
 
     // *** une table que nous affichons a changé
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.openconcerto.sql.model.SQLTableListener2#rowModified(org.openconcerto.sql.model.SQLTable, int)
-     */
-    public void rowModified(SQLTable table, int id) {
-        if (id >= SQLRow.MIN_VALID_ID && this.getForeignTable().equals(table)) {
+    @Override
+    public void tableModified(SQLTableEvent evt) {
+        final int id = evt.getId();
+        if (id >= SQLRow.MIN_VALID_ID && this.getForeignTable().equals(evt.getTable())) {
             this.reloadComboItem(id);
         } else
             this.fillCombo();
-    }
-
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.openconcerto.sql.model.SQLTableListener2#rowAdded(org.openconcerto.sql.model.SQLTable, int)
-     */
-    public void rowAdded(SQLTable table, int id) {
-        this.fillCombo();
-    }
-
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.openconcerto.sql.model.SQLTableListener2#rowDeleted(org.openconcerto.sql.model.SQLTable, int)
-     */
-    public void rowDeleted(SQLTable table, int id) {
-        if (this.getForeignTable().equals(table)) {
-            // delete even if we're not on screen, since it takes next to no time
-            this.reloadComboItem(id);
-        } else {
-            this.fillCombo();
-        }
     }
 
     // *** search

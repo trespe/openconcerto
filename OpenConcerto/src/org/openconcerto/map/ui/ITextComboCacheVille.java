@@ -21,7 +21,6 @@ import java.util.List;
 
 import javax.swing.JOptionPane;
 
-
 public class ITextComboCacheVille implements ITextComboCache {
     final ArrayList<String> villesNames = Ville.getVillesNames();
     private Ville lastGood;
@@ -44,6 +43,11 @@ public class ITextComboCacheVille implements ITextComboCache {
         return v;
     }
 
+    @Override
+    public boolean isValid() {
+        return this.villesNames.size() > 0;
+    }
+
     public void addToCache(String string) {
         Ville v = this.createVilleFrom(string);
         if (v != null) {
@@ -55,6 +59,9 @@ public class ITextComboCacheVille implements ITextComboCache {
     }
 
     public void deleteFromCache(String string) {
+        final Ville v = Ville.getVilleFromVilleEtCode(string);
+        if (v != null)
+            Ville.removeVille(v);
     }
 
     public List<String> getCache() {
@@ -64,7 +71,8 @@ public class ITextComboCacheVille implements ITextComboCache {
         return villesNames;
     }
 
-    public List<String> loadCache() {
+    @Override
+    public List<String> loadCache(final boolean readCache) {
         return villesNames;
     }
 

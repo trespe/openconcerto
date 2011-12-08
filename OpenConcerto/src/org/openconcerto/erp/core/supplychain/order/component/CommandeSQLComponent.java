@@ -35,6 +35,7 @@ import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
@@ -78,6 +79,17 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
     public void addViews() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
+
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
 
         // Numero du commande
         c.gridx = 0;
@@ -311,7 +323,6 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
         panel.add(totalTTC, c);
 
-
         table.getModel().addTableModelListener(new TableModelListener() {
 
             public void tableChanged(TableModelEvent e) {
@@ -362,15 +373,16 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             this.table.createArticle(idCommande, this.getElement());
 
             // generation du document
-            CommandeXmlSheet sheet = new CommandeXmlSheet(getTable().getRow(idCommande));
-            sheet.genere(this.checkVisu.isSelected(), this.checkImpression.isSelected());
+            final CommandeXmlSheet sheet = new CommandeXmlSheet(getTable().getRow(idCommande));
+            sheet.createDocumentAsynchronous();
+            sheet.showPrintAndExportAsynchronous(this.checkVisu.isSelected(), this.checkImpression.isSelected(), true);
 
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
                 SQLRowValues rowVals = new SQLRowValues(this.tableNum);
-                int val = this.tableNum.getRow(2).getInt("COMMANDE_CLIENT_START");
+                int val = this.tableNum.getRow(2).getInt("COMMANDE_START");
                 val++;
-                rowVals.put("COMMANDE_CLIENT_START", new Integer(val));
+                rowVals.put("COMMANDE_START", new Integer(val));
 
                 try {
                     rowVals.update(2);
@@ -419,8 +431,10 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         this.table.createArticle(getSelectedID(), this.getElement());
 
         // generation du document
-        CommandeXmlSheet dSheet = new CommandeXmlSheet(getTable().getRow(getSelectedID()));
-        dSheet.genere(this.checkVisu.isSelected(), this.checkImpression.isSelected());
+        final CommandeXmlSheet sheet = new CommandeXmlSheet(getTable().getRow(getSelectedID()));
+        sheet.createDocumentAsynchronous();
+        sheet.showPrintAndExportAsynchronous(this.checkVisu.isSelected(), this.checkImpression.isSelected(), true);
+
     }
 
     public void setDefaults() {
@@ -454,6 +468,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         rowVals.put("T_SERVICE", Long.valueOf(0));
         rowVals.put("T_TVA", Long.valueOf(0));
         rowVals.put("T_TTC", Long.valueOf(0));
+        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class));
 
         return rowVals;
     }

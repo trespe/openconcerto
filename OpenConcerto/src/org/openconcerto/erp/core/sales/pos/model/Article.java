@@ -22,7 +22,8 @@ public class Article {
     int priceInCents;
     int idTaxe;
     int priceHTInCents;
-    String code = "empty barcode";
+    String barCode = "empty barcode";
+    String code = "";
     private static Map<String, Article> codes = new HashMap<String, Article>();
 
     public Article(Categorie s1, String string) {
@@ -48,7 +49,7 @@ public class Article {
     }
 
     public void setBarCode(String bar) {
-        this.code = bar;
+        this.barCode = bar;
         codes.put(bar, this);
     }
 
@@ -64,8 +65,16 @@ public class Article {
         return this.name;
     }
 
+    public void setCode(String code) {
+        this.code = code;
+    }
+
     public String getCode() {
         return this.code;
+    };
+
+    public String getBarCode() {
+        return this.barCode;
     }
 
     public Categorie getCategorie() {

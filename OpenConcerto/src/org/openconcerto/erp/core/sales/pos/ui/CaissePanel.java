@@ -41,11 +41,10 @@ import javax.swing.JPanel;
 
 public class CaissePanel extends JPanel implements CaisseListener {
     private CaisseControler controler;
-    private CaisseFrame caisseFrame;
+
     private StatusBar st;
 
     public CaissePanel(final CaisseFrame caisseFrame) {
-        this.caisseFrame = caisseFrame;
         this.setLayout(new GridBagLayout());
         this.setBackground(Color.WHITE);
         this.setOpaque(isOpaque());
@@ -152,6 +151,7 @@ public class CaissePanel extends JPanel implements CaisseListener {
             if (s1 != null) {
                 Article a = new Article(s1, row.getString("NOM"));
                 a.setBarCode(row.getString("CODE_BARRE"));
+                a.setCode(row.getString("CODE"));
                 a.setIdTaxe(row.getInt("ID_TAXE"));
                 a.setPriceHTInCents((int) row.getLong("PV_HT"));
                 a.setPriceInCents((int) row.getLong("PV_TTC"));
@@ -224,8 +224,8 @@ public class CaissePanel extends JPanel implements CaisseListener {
         Rectangle2D r;
         g.setFont(g.getFont().deriveFont(66f));
         final int total = this.controler.getTotal();
-        euros = this.controler.getEuros(total) + ".";
-        cents = this.controler.getCents(total);
+        euros = CaisseControler.getEuros(total) + ".";
+        cents = CaisseControler.getCents(total);
         r = g.getFontMetrics().getStringBounds(euros, g);
         x = x - (int) r.getWidth();
         g.drawString(euros, x, y);
@@ -235,8 +235,8 @@ public class CaissePanel extends JPanel implements CaisseListener {
         y += 40;
         x = 300;
         final int paye = this.controler.getPaidTotal();
-        euros = this.controler.getEuros(paye) + ".";
-        cents = this.controler.getCents(paye);
+        euros = CaisseControler.getEuros(paye) + ".";
+        cents = CaisseControler.getCents(paye);
 
         g.setFont(g.getFont().deriveFont(18f));
         Rectangle2D r2 = g.getFontMetrics().getStringBounds("Payé", g);
@@ -266,8 +266,8 @@ public class CaissePanel extends JPanel implements CaisseListener {
                 aRendre = -aRendre;
             }
 
-            euros = this.controler.getEuros(aRendre) + ".";
-            cents = this.controler.getCents(aRendre);
+            euros = CaisseControler.getEuros(aRendre) + ".";
+            cents = CaisseControler.getCents(aRendre);
 
             g.setFont(g.getFont().deriveFont(18f));
             Rectangle2D r3 = g.getFontMetrics().getStringBounds(label, g);

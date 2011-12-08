@@ -56,6 +56,7 @@ import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
@@ -182,6 +183,17 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         this.textSource = new JTextField();
         this.textIdSource = new JTextField();
         this.textAvoirTTC = new DeviseField();
+
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
 
         /*******************************************************************************************
          * * RENSEIGNEMENTS
@@ -927,8 +939,14 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
 
 
             // generation du document
-            VenteFactureXmlSheet sheet = new VenteFactureXmlSheet(rowFacture);
-            sheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
+            final VenteFactureXmlSheet sheet = new VenteFactureXmlSheet(rowFacture);
+
+            try {
+                sheet.createDocumentAsynchronous();
+                sheet.showPrintAndExportAsynchronous(panelOO.isVisualisationSelected(), panelOO.isImpressionSelected(), true);
+            } catch (Exception e) {
+                ExceptionHandler.handle("Impossible de générer la facture", e);
+            }
 
             int idMvt = -1;
             if (getMode() == Mode.MODIFICATION) {

@@ -128,7 +128,7 @@ public enum ContentTypeVersioned {
      * 
      * @param version the version.
      * @return the body of the created document.
-     * @see #createContent(boolean)
+     * @see #createContent(XMLFormatVersion, boolean)
      */
     public final Element createContent(final XMLFormatVersion version) {
         return this.createContent(version, false);
@@ -141,12 +141,12 @@ public enum ContentTypeVersioned {
      * @param singleXML <code>true</code> for {@link RootElement#SINGLE_CONTENT}, <code>false</code>
      *        for {@link RootElement#CONTENT}.
      * @return the body of the created document.
-     * @see #createPackage()
+     * @see #createPackage(XMLFormatVersion)
      */
     public Element createContent(final XMLFormatVersion version, final boolean singleXML) {
         checkVersion(version);
         final RootElement rootElement = singleXML ? RootElement.SINGLE_CONTENT : RootElement.CONTENT;
-        final Document doc = rootElement.createDocument(getVersion(), version.getOfficeVersion());
+        final Document doc = rootElement.createDocument(version);
         final Namespace officeNS = getVersion().getOFFICE();
         setType(doc, rootElement, officeNS);
         // don't forget that, otherwise OO crash
@@ -170,7 +170,7 @@ public enum ContentTypeVersioned {
     }
 
     public void setType(final Document doc) {
-        this.setType(doc, RootElement.fromElementName(doc.getRootElement().getName()), getVersion().getOFFICE());
+        this.setType(doc, RootElement.fromDocument(doc), getVersion().getOFFICE());
     }
 
     // not safe
@@ -199,7 +199,7 @@ public enum ContentTypeVersioned {
     public Document createStyles(final XMLFormatVersion version) {
         checkVersion(version);
         final Namespace officeNS = getVersion().getOFFICE();
-        final Document styles = RootElement.STYLES.createDocument(getVersion(), version.getOfficeVersion());
+        final Document styles = RootElement.STYLES.createDocument(version);
         // some consumers demand empty children
         styles.getRootElement().addContent(asList(new Element("styles", officeNS), new Element("automatic-styles", officeNS), new Element("master-styles", officeNS)));
         return styles;
@@ -212,12 +212,7 @@ public enum ContentTypeVersioned {
      * @return a new package with minimal {@link RootElement#CONTENT} and {@link RootElement#STYLES}
      */
     public ODPackage createPackage(final XMLFormatVersion version) {
-        final ODPackage res = new ODPackage();
-        res.putFile(RootElement.CONTENT.getZipEntry(), this.createContent(version, false).getDocument());
-        res.putFile(RootElement.STYLES.getZipEntry(), this.createStyles(version));
-        // add mimetype since ODPackage cannot find out about templates
-        res.putFile("mimetype", this.getMimeType().getBytes(ODPackage.MIMETYPE_ENC));
-        return res;
+        return ODPackage.createFromDocuments(this, this.createContent(version, false).getDocument(), this.createStyles(version), null, null);
     }
 
     // *** static
@@ -236,6 +231,27 @@ public enum ContentTypeVersioned {
             if (t.getMimeType().equals(mime))
                 return t;
         return null;
+    }
+
+    static public ContentTypeVersioned fromMime(byte[] mime) {
+        return fromMime(new String(mime, ODPackage.MIMETYPE_ENC));
+    }
+
+    static ContentTypeVersioned fromContent(final ODXMLDocument content) {
+        final ContentTypeVersioned res;
+        final XMLVersion vers = content.getVersion();
+        if (vers.equals(XMLVersion.OOo)) {
+            final Element contentRoot = content.getDocument().getRootElement();
+            final String docClass = contentRoot.getAttributeValue("class", contentRoot.getNamespace("office"));
+            res = ContentTypeVersioned.fromClass(docClass);
+        } else if (vers.equals(XMLVersion.OD)) {
+            final Element bodyChild = (Element) content.getChild("body").getChildren().get(0);
+            res = ContentTypeVersioned.fromBody(bodyChild.getName());
+        } else {
+            throw new IllegalStateException("Unknown content version : " + vers);
+        }
+        assert !res.isTemplate() : "template status cannot be inferred from content";
+        return res;
     }
 
     static ContentTypeVersioned fromClass(String name) {

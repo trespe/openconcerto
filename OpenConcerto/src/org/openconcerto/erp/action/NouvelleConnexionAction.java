@@ -22,6 +22,7 @@ import org.openconcerto.erp.core.common.ui.StatusPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.humanresources.payroll.element.CaisseCotisationSQLElement;
 import org.openconcerto.erp.element.objet.ClasseCompte;
+import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.panel.ComptaTipsFrame;
 import org.openconcerto.erp.utils.NXDatabaseAccessor;
 import org.openconcerto.map.model.Ville;
@@ -113,6 +114,15 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                     }
                     comptaPropsConfiguration.setUpSocieteDataBaseConnexion(selectedSociete);
 
+                    // finish filling the configuration before going any further, otherwise the
+                    // SQLElementDirectory is not coherent
+                    try {
+                        ModuleManager.getInstance().setup(comptaPropsConfiguration.getRootSociete(), comptaPropsConfiguration);
+                    } catch (Exception e) {
+                        // not OK to continue without required elements
+                        ExceptionHandler.die("Impossible de démarrer les modules requis", e);
+                    }
+
 
                     SwingUtilities.invokeLater(new Runnable() {
                         @Override
@@ -126,6 +136,15 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                             final String socTitle = comptaPropsConfiguration.getRowSociete() == null ? "" : ", [Société " + comptaPropsConfiguration.getRowSociete().getString("NOM") + "]";
                             f.setTitle(comptaPropsConfiguration.getAppName() + " " + version + socTitle);
                             f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+
+                            // start modules before displaying the frame (e.g. avoid modifying a
+                            // visible menu bar)
+                            try {
+                                ModuleManager.getInstance().startPreviouslyRunningModules();
+                            } catch (Exception exn) {
+                                // OK to continue without all modules started
+                                ExceptionHandler.handle(f, "Impossible de démarrer les modules", exn);
+                            }
 
                             FrameUtil.show(f);
                         }

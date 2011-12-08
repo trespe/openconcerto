@@ -37,6 +37,7 @@ import org.openconcerto.sql.ui.RadioButtons;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.VFlowLayout;
@@ -92,6 +93,16 @@ public class DevisSQLComponent extends BaseSQLComponent {
         setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
 
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
         final JLabel labelNumero = new JLabel(getLabelFor("NUMERO"));
         labelNumero.setHorizontalAlignment(SwingConstants.RIGHT);
         this.add(labelNumero, c);
@@ -530,7 +541,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
     @Override
     public int insert(final SQLRow order) {
 
-        int idDevis = getSelectedID();
+        final int idDevis;
         // on verifie qu'un devis du meme numero n'a pas été inséré entre temps
         if (this.numeroUniqueDevis.checkValidation()) {
 
@@ -540,9 +551,13 @@ public class DevisSQLComponent extends BaseSQLComponent {
             this.table.createArticle(idDevis, getElement());
 
             // generation du document
-
-            final DevisXmlSheet sheet = new DevisXmlSheet(getTable().getRow(idDevis));
-            sheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
+            try {
+                final DevisXmlSheet sheet = new DevisXmlSheet(getTable().getRow(idDevis));
+                sheet.createDocumentAsynchronous();
+                sheet.showPrintAndExportAsynchronous(DevisSQLComponent.this.panelOO.isVisualisationSelected(), DevisSQLComponent.this.panelOO.isImpressionSelected(), true);
+            } catch (Exception e) {
+                ExceptionHandler.handle("Impossible de créer le devis", e);
+            }
 
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(DevisSQLElement.class).equalsIgnoreCase(this.numeroUniqueDevis.getText().trim())) {
@@ -550,7 +565,6 @@ public class DevisSQLComponent extends BaseSQLComponent {
                 int val = this.tableNum.getRow(2).getInt("DEVIS_START");
                 val++;
                 rowVals.put("DEVIS_START", new Integer(val));
-
                 try {
                     rowVals.update(2);
                 } catch (final SQLException e) {
@@ -558,6 +572,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
                 }
             }
         } else {
+            idDevis = getSelectedID();
             ExceptionHandler.handle("Impossible d'ajouter, numéro de devis existant.");
             final Object root = SwingUtilities.getRoot(this);
             if (root instanceof EditFrame) {
@@ -598,8 +613,15 @@ public class DevisSQLComponent extends BaseSQLComponent {
         this.table.createArticle(getSelectedID(), getElement());
 
         // generation du document
-        final DevisXmlSheet dSheet = new DevisXmlSheet(getTable().getRow(getSelectedID()));
-        dSheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
+
+        try {
+            final DevisXmlSheet sheet = new DevisXmlSheet(getTable().getRow(getSelectedID()));
+            sheet.createDocumentAsynchronous();
+            sheet.showPrintAndExportAsynchronous(DevisSQLComponent.this.panelOO.isVisualisationSelected(), DevisSQLComponent.this.panelOO.isImpressionSelected(), true);
+        } catch (Exception e) {
+            ExceptionHandler.handle("Impossible de créer le devis", e);
+        }
+
     }
 
     /**

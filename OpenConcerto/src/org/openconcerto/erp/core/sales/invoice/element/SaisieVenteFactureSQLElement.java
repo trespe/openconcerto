@@ -50,8 +50,10 @@ import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
+    public static final String TABLENAME = "SAISIE_VENTE_FACTURE";
+
     public SaisieVenteFactureSQLElement() {
-        super("SAISIE_VENTE_FACTURE", "une facture", "factures");
+        super(TABLENAME, "une facture", "factures");
     }
 
     protected List<String> getListFields() {
@@ -244,7 +246,7 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
             SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
             SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
             SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticleFind));
-
+            rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
             rowValsElt.put("QTE", sqlRow.getObject("QTE"));
             rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
 

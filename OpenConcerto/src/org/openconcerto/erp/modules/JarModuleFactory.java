@@ -105,4 +105,9 @@ public final class JarModuleFactory extends ModuleFactory {
     public AbstractModule createModule(Map<String, AbstractModule> alreadyCreated) throws Exception {
         return createModule(new ModuleClassLoader(alreadyCreated).loadClass(this.getMainClass()));
     }
+
+    @Override
+    public String toString() {
+        return super.toString() + " from " + this.jar;
+    }
 }

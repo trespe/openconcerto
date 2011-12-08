@@ -29,6 +29,7 @@ import java.beans.PropertyChangeListener;
 import java.util.HashSet;
 import java.util.Set;
 
+import javax.swing.AbstractAction;
 import javax.swing.JComboBox;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
@@ -130,6 +131,14 @@ public class MutableListComboPopupListener {
                     MutableListComboPopupListener.this.combo.removeCurrentText();
                 }
             });
+
+            if (this.combo.canReload()) {
+                this.popup.add(new JMenuItem(new AbstractAction("Recharger la liste") {
+                    public void actionPerformed(ActionEvent e) {
+                        MutableListComboPopupListener.this.combo.reload();
+                    }
+                }));
+            }
         }
         // popups are never closed in a JComboBox (except when choosing a menu item)
         if (SwingThreadUtils.getAncestorOrSelf(JComboBox.class, this.combo.getPopupComp()) != null)

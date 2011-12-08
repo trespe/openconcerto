@@ -104,6 +104,14 @@ public final class SQLElementDirectory {
         for (final DirectoryListener dl : this.listeners) {
             dl.elementAdded(elem);
         }
+        String canonicalName = elem.getClass().getCanonicalName();
+        if (canonicalName.contains("erp.core") && canonicalName.contains(".element")) {
+            int i = canonicalName.indexOf("erp.core") + 9;
+            int j = canonicalName.indexOf(".element");
+            canonicalName = canonicalName.substring(i, j);
+        }
+        ElementMapper.getInstance().map(canonicalName + ".element", elem);
+        ElementMapper.getInstance().map(canonicalName + ".list.table", elem.getTable().getName());
     }
 
     public synchronized final boolean contains(SQLTable t) {

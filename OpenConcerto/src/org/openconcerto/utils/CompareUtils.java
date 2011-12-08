@@ -57,6 +57,32 @@ public class CompareUtils {
     }
 
     /**
+     * Compare two objects if they're numbers or comparable.
+     * 
+     * @param o1 first object.
+     * @param o2 second object.
+     * @return a negative integer, zero, or a positive integer as o1 is less than, equal to, or
+     *         greater than o2.
+     * @throws ClassCastException if o1 is neither a {@link Number} nor a {@link Comparable}, or if
+     *         o2's type prevents it from being compared to o1.
+     * @throws NullPointerException if o1 or o2 is <code>null</code>.
+     * @see Comparable#compareTo(Object)
+     * @see NumberUtils#compare(Number, Number)
+     */
+    static public final int compare(final Object o1, final Object o2) throws ClassCastException {
+        if (o1 == null || o2 == null)
+            throw new NullPointerException();
+        if (o1 instanceof Number && o2 instanceof Number) {
+            return NumberUtils.compare((Number) o1, (Number) o2);
+        } else {
+            // see Arrays.mergeSort()
+            @SuppressWarnings({ "rawtypes", "unchecked" })
+            final int res = ((Comparable) o1).compareTo(o2);
+            return res;
+        }
+    }
+
+    /**
      * Renvoie un comparateur qui utilise successivement la liste passée tant que les objets sont
      * égaux.
      * 

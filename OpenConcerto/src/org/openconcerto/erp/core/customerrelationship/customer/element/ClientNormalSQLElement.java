@@ -44,6 +44,7 @@ import org.openconcerto.sql.sqlobject.ITextWithCompletion;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 
@@ -86,8 +87,11 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
             l.add("CODE");
-            l.add("FORME_JURIDIQUE");
+            // l.add("FORME_JURIDIQUE");
         l.add("NOM");
+        if (getTable().getFieldsName().contains("LOCALISATION")) {
+            l.add("LOCALISATION");
+        }
             l.add("RESPONSABLE");
         l.add("ID_ADRESSE");
         l.add("TEL");
@@ -115,9 +119,13 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
     protected List<String> getComboFields() {
         final List<String> l = new ArrayList<String>();
-        l.add("FORME_JURIDIQUE");
+        // l.add("FORME_JURIDIQUE");
         l.add("NOM");
-        l.add("CODE");
+        if (getTable().getFieldsName().contains("LOCALISATION")) {
+            l.add("LOCALISATION");
+        } else {
+            l.add("CODE");
+        }
         return l;
     }
 
@@ -234,7 +242,20 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
                     this.add(boxPays, c);
                     this.addView(boxPays, "ID_PAYS");
                 }
-
+                if (getTable().getFieldsName().contains("LOCALISATION")) {
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.weightx = 0;
+                    JLabel comp2 = new JLabel(getLabelFor("LOCALISATION"));
+                    comp2.setHorizontalAlignment(SwingConstants.RIGHT);
+                    this.add(comp2, c);
+                    JTextField loc = new JTextField();
+                    c.gridx++;
+                    c.weightx = 1;
+                    // DefaultGridBagConstraints.lockMinimumSize(boxPays);
+                    this.add(loc, c);
+                    this.addView(loc, "LOCALISATION");
+                }
                 // Numero intracomm
                 JLabel labelIntraComm = new JLabel("N° TVA");
                 labelIntraComm.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -379,6 +400,17 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                 // Secteur activité
                 final boolean customerIsKD;
+
+                // Champ Module
+                c.gridx = 0;
+                c.gridy++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                final JPanel addP = new JPanel();
+                this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+                this.add(addP, c);
+
+                c.gridy++;
+                c.gridwidth = 1;
 
                 // Adresse
                 c.gridx = 0;

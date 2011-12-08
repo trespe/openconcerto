@@ -32,7 +32,6 @@ import java.util.logging.Logger;
 import javax.swing.JFrame;
 import javax.swing.UIManager;
 
-
 public class Ville {
 
     private static Map<String, Ville> map = new HashMap<String, Ville>();
@@ -127,6 +126,16 @@ public class Ville {
     public static synchronized void addVille(final Ville v) {
         addVilleSilently(v);
         accessor.store(v);
+        // FIXME: fire missing
+    }
+
+    public static synchronized void removeVille(final Ville v) {
+        villes.remove(v);
+        final String villeEtCode = v.getVilleEtCode();
+        villesNames.remove(villeEtCode);
+        map.remove(villeEtCode);
+
+        accessor.delete(v);
         // FIXME: fire missing
     }
 
@@ -371,7 +380,7 @@ public class Ville {
 
     long population;
 
-    // 
+    //
     private long minimumZoom;
 
     private Color color = null;

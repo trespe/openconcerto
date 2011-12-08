@@ -95,8 +95,8 @@
 	<element location="B63" type="fill">
 		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_MODE_REGLEMENT">
 
-			<field base="Societe" table="MODE_REGLEMENT" name="NOM" prefix="Règlement souhaité" conditionField="COMPTANT" conditionExpValue="false" display="false"/>
-			<field base="Societe" table="MODE_REGLEMENT" name="NOM" prefix="Facture acquitée par" conditionField="COMPTANT" conditionExpValue="true" display="false"/>
+			<field base="Societe" table="MODE_REGLEMENT" name="NOM" prefix="Règlement souhaité" conditionField="COMPTANT" conditionExpValue="true" display="false"/>
+			<field base="Societe" table="MODE_REGLEMENT" name="NOM" prefix="Facture acquitée par" conditionField="COMPTANT" conditionExpValue="false" display="false"/>
 
 			<field base="Societe" table="MODE_REGLEMENT" name="ID_TYPE_REGLEMENT">
 				<field base="Societe" table="TYPE_REGLEMENT" name="NOM"  valuesExpected="Indéfini"/>
@@ -109,17 +109,17 @@
 			<field base="Societe" table="MODE_REGLEMENT" name="ETS" prefix="Banque " valuesExpected=""/>
 		</field>
 	</element>
-
 	
+
+	<element location="B64" type="fill">
+		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="DATE" type="DateEcheance" prefix="Règlement de cette facture au plus tard le " valuesExpected=" "/>
+	</element>
+
 	<element location="B64" type="fill">
 		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_MODE_REGLEMENT">
 
 			<field base="Societe" table="MODE_REGLEMENT" name="NOM" prefix="Règlement à date de réception de facture" conditionField="COMPTANT" conditionExpValue="false" display="false"/>
 		</field>
-	</element>
-
-	<element location="B64" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="DATE" type="DateEcheance" prefix="Règlement de cette facture au plus tard le " valuesExpected=" "/>
 	</element>
 	
 

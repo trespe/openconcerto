@@ -35,6 +35,7 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.SwingConstants;
+import javax.swing.UIManager;
 
 /**
  * A default ElementSQLObject that displays a button to create, and when created a button to delete
@@ -61,6 +62,7 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         super(parent, comp);
 
         this.addValidListener(new ValidListener() {
+            @Override
             public void validChange(ValidObject src, ValidState newValue) {
                 compChanged();
             }
@@ -69,24 +71,29 @@ public class DefaultElementSQLObject extends ElementSQLObject {
 
     public void showSeparator(boolean visible) {
         this.isSeparatorVisible = visible;
-        if (separator != null)
+        if (this.separator != null)
             this.separator.setVisible(visible);
     }
 
     public void setDecorated(boolean decorated) {
         this.isDecorated = decorated;
-        if (expandBtn != null)
+        if (this.expandBtn != null)
             this.expandBtn.setVisible(decorated);
-        if (supprBtn != null)
+        if (this.supprBtn != null)
             this.supprBtn.setVisible(decorated);
-        if (createBtn != null)
+        if (this.createBtn != null)
             this.createBtn.setVisible(decorated);
     }
 
+    @Override
     protected void uiInit() {
+        final boolean isPlastic = UIManager.getLookAndFeel().getClass().getName().startsWith("com.jgoodies.plaf.plastic");
+
         this.expandBtn = new JButton("+/-");
         this.expandBtn.setEnabled(false);
+        this.expandBtn.setOpaque(false);
         this.expandBtn.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 toggleExpand();
             }
@@ -95,8 +102,10 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         this.supprBtn = new JButton(new ImageIcon(this.getClass().getResource("delete.png")));
         this.supprBtn.setToolTipText("Supprimer");
         this.supprBtn.setOpaque(false);
-        this.supprBtn.setBorder(null);
+        if (isPlastic)
+            this.supprBtn.setBorder(null);
         this.supprBtn.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 if ((e.getModifiers() & ActionEvent.SHIFT_MASK) != 0 || this.confirm())
                     setCreated(false);
@@ -107,7 +116,10 @@ public class DefaultElementSQLObject extends ElementSQLObject {
             }
         });
         this.createBtn = new JButton("Créer " + this.getSQLChild().getElement().getSingularName());
+        // false leaves only a line for the button under Plastic3DLookAndFeel
+        this.createBtn.setOpaque(isPlastic);
         this.createBtn.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 setCreated(true);
             }
@@ -116,6 +128,7 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         this.setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
     }
 
+    @Override
     protected final void setCreatePanel() {
         if (this.editP != null)
             this.editP.setVisible(false);
@@ -138,6 +151,7 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         return this.createP;
     }
 
+    @Override
     protected final void setEditPanel() {
         this.supprBtn.setVisible(!this.required && this.isDecorated);
         if (this.createP != null)
@@ -195,6 +209,7 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         return this.editP;
     }
 
+    @Override
     protected void compChanged() {
         this.expandBtn.setEnabled(this.getCurrentID() != SQLRow.NONEXISTANT_ID && this.getValidState().isValid());
     }
@@ -219,6 +234,7 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         this.expand(!this.isExpanded());
     }
 
+    @Override
     public void setEditable(boolean enabled) {
         super.setEditable(enabled);
         this.createBtn.setEnabled(enabled);

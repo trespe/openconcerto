@@ -14,9 +14,11 @@
  package org.openconcerto.openoffice.style.data;
 
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.CellStyle;
+import org.openconcerto.utils.convertor.NumberConvertor;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -24,6 +26,7 @@ import java.text.DecimalFormatSymbols;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.List;
 import java.util.Locale;
 
@@ -35,9 +38,9 @@ import org.jdom.Namespace;
 public class DateStyle extends DataStyle {
 
     // see http://download.oracle.com/javase/6/docs/technotes/guides/intl/calendar.doc.html
-    private static final Locale BUDDHIST_LOCALE = new Locale("th", "TH");
-    private static final Locale JAPANESE_LOCALE = new Locale("ja", "JP", "JP");
-    private static final Locale GREGORIAN_LOCALE = new Locale("fr", "FR");
+    private static final Calendar BUDDHIST_CAL = Calendar.getInstance(new Locale("th", "TH"));
+    private static final Calendar JAPANESE_CAL = Calendar.getInstance(new Locale("ja", "JP", "JP"));
+    private static final Calendar GREGORIAN_CAL = new GregorianCalendar();
 
     public static final DataStyleDesc<DateStyle> DESC = new DataStyleDesc<DateStyle>(DateStyle.class, XMLVersion.OD, "date-style", "N") {
         @Override
@@ -63,29 +66,19 @@ public class DateStyle extends DataStyle {
         return res;
     }
 
-    private static final Locale getCalendarLocale(final Element elem, Locale defaultLocale) {
-        final Locale res;
+    private static final Calendar getCalendar(final Element elem, Calendar defaultCal) {
+        final Calendar res;
         final String cal = elem.getAttributeValue("calendar", elem.getNamespace());
         if (cal == null) {
-            res = defaultLocale;
+            res = defaultCal;
         } else if ("buddhist".equals(cal)) {
-            res = BUDDHIST_LOCALE;
+            res = BUDDHIST_CAL;
         } else if ("gengou".equals(cal)) {
-            res = JAPANESE_LOCALE;
+            res = JAPANESE_CAL;
         } else if ("gregorian".equals(cal)) {
-            res = GREGORIAN_LOCALE;
+            res = GREGORIAN_CAL;
         } else {
             throw new IllegalArgumentException("Unsupported calendar : " + cal);
-        }
-        return res;
-    }
-
-    private static final Locale getCalendarLocale(final Locale locale) {
-        final Locale res;
-        if (locale.equals(BUDDHIST_LOCALE) || locale.equals(JAPANESE_LOCALE)) {
-            res = locale;
-        } else {
-            res = GREGORIAN_LOCALE;
         }
         return res;
     }
@@ -106,7 +99,24 @@ public class DateStyle extends DataStyle {
     }
 
     public DateStyle(final ODPackage pkg, Element elem) {
-        super(pkg, elem, Date.class);
+        super(pkg, elem, ODValueType.DATE);
+    }
+
+    @Override
+    protected Object convertNonNull(Object o) {
+        if (o instanceof Number)
+            return getEpoch().getDate(NumberConvertor.toBigDecimal((Number) o));
+        else
+            return null;
+    }
+
+    private final void format(final StringBuilder res, final StringBuilder pattern, final Locale styleLocale, final Calendar currentCalendar, final Date d) {
+        if (pattern.length() > 0) {
+            final SimpleDateFormat fmt = new SimpleDateFormat(pattern.toString(), styleLocale);
+            pattern.setLength(0);
+            fmt.setCalendar((Calendar) currentCalendar.clone());
+            res.append(fmt.format(d));
+        }
     }
 
     @Override
@@ -114,23 +124,20 @@ public class DateStyle extends DataStyle {
         final Date d = o instanceof Calendar ? ((Calendar) o).getTime() : (Date) o;
         final Namespace numberNS = this.getElement().getNamespace();
         final Locale styleLocale = getLocale(getElement());
-        final Locale styleCalendarLocale = getCalendarLocale(styleLocale);
+        final Calendar styleCalendar = Calendar.getInstance(styleLocale);
         final StringBuilder res = new StringBuilder();
 
-        Locale currentCalendarLocale = styleCalendarLocale;
+        Calendar currentCalendar = styleCalendar;
         final StringBuilder sb = new StringBuilder();
 
         @SuppressWarnings("unchecked")
         final List<Element> children = this.getElement().getChildren();
         for (final Element elem : children) {
             if (elem.getNamespace().equals(numberNS)) {
-                final Locale calendarLocaleElem = getCalendarLocale(elem, styleCalendarLocale);
-                if (!calendarLocaleElem.equals(currentCalendarLocale)) {
-                    if (sb.length() > 0) {
-                        res.append(new SimpleDateFormat(sb.toString(), currentCalendarLocale).format(d));
-                        sb.setLength(0);
-                    }
-                    currentCalendarLocale = calendarLocaleElem;
+                final Calendar calendarLocaleElem = getCalendar(elem, styleCalendar);
+                if (!calendarLocaleElem.equals(currentCalendar)) {
+                    format(res, sb, styleLocale, currentCalendar, d);
+                    currentCalendar = calendarLocaleElem;
                 }
 
                 if (elem.getName().equals("text")) {
@@ -140,7 +147,11 @@ public class DateStyle extends DataStyle {
                 } else if (elem.getName().equals("year")) {
                     sb.append(isShort(elem) ? "yy" : "yyyy");
                 } else if (elem.getName().equals("quarter")) {
-                    final int quarter = Calendar.getInstance(GREGORIAN_LOCALE).get(Calendar.MONTH) / 3 + 1;
+                    final Calendar cal = (Calendar) currentCalendar.clone();
+                    cal.setTime(d);
+                    final double quarterLength = cal.getActualMaximum(Calendar.MONTH) / 4.0;
+                    final int quarter = (int) (cal.get(Calendar.MONTH) / quarterLength + 1);
+                    assert quarter >= 1 && quarter <= 4;
                     // TODO localize and honor short/long style
                     reportError("Quarters are not localized", lenient);
                     DataStyle.addStringLiteral(sb, isShort(elem) ? "Q" + quarter : "Q" + quarter);
@@ -184,6 +195,7 @@ public class DateStyle extends DataStyle {
                 }
             }
         }
-        return new SimpleDateFormat(sb.toString(), currentCalendarLocale).format(d);
+        format(res, sb, styleLocale, currentCalendar, d);
+        return res.toString();
     }
 }

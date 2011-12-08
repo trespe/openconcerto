@@ -39,7 +39,9 @@ import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -50,10 +52,13 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.Icon;
 import javax.swing.JLabel;
@@ -94,317 +99,66 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
     public SQLComponent createComponent() {
         return new BaseSQLComponent(this) {
 
-            private JTextField textDevisFormat = new JTextField(16);
-            private JTextField textDevisStart = new JTextField(6);
-            private JTextField textFactStart = new JTextField(6);
-            private JTextField textFactFormat = new JTextField(16);
-            private JTextField textBonFormat = new JTextField(16);
-            private JTextField textBonStart = new JTextField(6);
-            private JTextField textBonRFormat = new JTextField(16);
-            private JTextField textBonRStart = new JTextField(6);
-            private JTextField textSalarieFormat = new JTextField(16);
-            private JTextField textSalarieStart = new JTextField(6);
-            private JTextField textPropositionFormat = new JTextField(16);
-            private JTextField textPropositionStart = new JTextField(6);
-            private JTextField textRelanceFormat = new JTextField(16);
-            private JTextField textRelanceStart = new JTextField(6);
-            private JTextField textCmdCliFormat = new JTextField(16);
-            private JTextField textCmdCliStart = new JTextField(6);
-            private JTextField textCmdFormat = new JTextField(16);
-            private JTextField textCmdStart = new JTextField(6);
-            private JTextField textAffaireFormat = new JTextField(16);
-            private JTextField textAffaireStart = new JTextField(6);
-            private JTextField textAvoirFormat = new JTextField(16);
-            private JTextField textAvoirStart = new JTextField(6);
-            private JTextField textCourrierFormat = new JTextField(16);
-            private JTextField textCourrierStart = new JTextField(6);
-
             private Icon iconWarning = ImageIconWarning.getInstance();
-
-            private JLabel labelNumDevis, labelNumFact, labelNumBon, labelNumSalarie;
-            private JLabel labelNumRelance, labelNumProposition, labelNumCmdCli;
-            private JLabel labelNumCmd, labelNumBonR, labelNumAffaire, labelNumAvoir, labelNumCourrier;
-            // private JLabel labelNextCodeLettrage;
-            private DocumentListener listenText = new DocumentListener() {
-
-                public void insertUpdate(DocumentEvent e) {
-                    updateLabels();
-                }
-
-                public void removeUpdate(DocumentEvent e) {
-                    updateLabels();
-                }
-
-                public void changedUpdate(DocumentEvent e) {
-                    updateLabels();
-                }
-            };
 
             public void addViews() {
                 this.setLayout(new GridBagLayout());
                 final GridBagConstraints c = new DefaultGridBagConstraints();
 
-                // Avoir
-                JLabel labelAvoirFormat = new JLabel("Avoir " + getLabelFor("AVOIR_FORMAT"));
-                this.add(labelAvoirFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textAvoirFormat, c);
+                Set<Class<? extends SQLElement>> s = map.keySet();
 
-                JLabel labelAvoirStart = new JLabel(getLabelFor("AVOIR_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelAvoirStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textAvoirStart, c);
+                final ArrayList<Class<? extends SQLElement>> list = new ArrayList<Class<? extends SQLElement>>(s);
+                Collections.sort(list, new Comparator<Class<? extends SQLElement>>() {
+                    public int compare(Class<? extends SQLElement> o1, Class<? extends SQLElement> o2) {
+                        return o1.toString().compareTo(o2.toString());
+                    };
+                });
 
-                this.labelNumAvoir = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumAvoir, c);
+                for (Class<? extends SQLElement> class1 : list) {
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.weightx = 0;
+                    String prefix = map.get(class1);
+                    SQLElement elt = Configuration.getInstance().getDirectory().getElement(class1);
+                    // Avoir
+                    JLabel labelAvoirFormat = new JLabel(StringUtils.firstUp(elt.getPluralName()) + " " + getLabelFor(prefix + FORMAT));
+                    this.add(labelAvoirFormat, c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    final JTextField fieldFormat = new JTextField();
+                    this.add(fieldFormat, c);
 
-                // Devis
-                JLabel labelDevisFormat = new JLabel("Devis " + getLabelFor("DEVIS_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelDevisFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textDevisFormat, c);
+                    final JLabel labelAvoirStart = new JLabel(getLabelFor(prefix + START));
+                    c.gridx++;
+                    c.weightx = 0;
+                    this.add(labelAvoirStart, c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    final JTextField fieldStart = new JTextField();
+                    this.add(fieldStart, c);
 
-                JLabel labelDevisStart = new JLabel(getLabelFor("DEVIS_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelDevisStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textDevisStart, c);
+                    final JLabel labelResult = new JLabel();
+                    c.gridx++;
+                    c.weightx = 0;
+                    this.add(labelResult, c);
 
-                this.labelNumDevis = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumDevis, c);
+                    // Affichage dynamique du résultat
+                    SimpleDocumentListener listener = new SimpleDocumentListener() {
 
-                // Commande Client
-                JLabel labelCmdCliFormat = new JLabel("Commande client " + getLabelFor("COMMANDE_CLIENT_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelCmdCliFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textCmdCliFormat, c);
+                        @Override
+                        public void update(DocumentEvent e) {
+                            updateLabel(fieldStart, fieldFormat, labelResult);
 
-                JLabel labelCmdCliStart = new JLabel(getLabelFor("COMMANDE_CLIENT_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelCmdCliStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textCmdCliStart, c);
+                        }
+                    };
 
-                this.labelNumCmdCli = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumCmdCli, c);
+                    fieldFormat.getDocument().addDocumentListener(listener);
+                    fieldStart.getDocument().addDocumentListener(listener);
 
-                // Commande
-                JLabel labelCmdFormat = new JLabel("Commande " + getLabelFor("COMMANDE_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelCmdFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textCmdFormat, c);
+                    this.addRequiredSQLObject(fieldFormat, prefix + FORMAT);
+                    this.addRequiredSQLObject(fieldStart, prefix + START);
 
-                JLabel labelCmdStart = new JLabel(getLabelFor("COMMANDE_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelCmdStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textCmdStart, c);
-
-                this.labelNumCmd = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumCmd, c);
-
-                // Bon
-                JLabel labelBonFormat = new JLabel("Bon de livraison" + getLabelFor("BON_L_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelBonFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textBonFormat, c);
-
-                JLabel labelBonStart = new JLabel(getLabelFor("BON_L_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelBonStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textBonStart, c);
-
-                this.labelNumBon = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumBon, c);
-
-                // Bon Reception
-                JLabel labelBonRFormat = new JLabel("Bon de réception" + getLabelFor("BON_R_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelBonRFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textBonRFormat, c);
-
-                JLabel labelBonRStart = new JLabel(getLabelFor("BON_R_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelBonRStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textBonRStart, c);
-
-                this.labelNumBonR = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumBonR, c);
-
-                // Facture
-                JLabel labelFactFormat = new JLabel("Facture " + getLabelFor("FACT_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelFactFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textFactFormat, c);
-
-                JLabel labelFactStart = new JLabel(getLabelFor("FACT_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelFactStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textFactStart, c);
-
-                this.labelNumFact = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumFact, c);
-
-                // Salarie
-                JLabel labelSalarieFormat = new JLabel("Salarié " + getLabelFor("SALARIE_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelSalarieFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textSalarieFormat, c);
-
-                JLabel labelSalarieStart = new JLabel(getLabelFor("SALARIE_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelSalarieStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textSalarieStart, c);
-
-                this.labelNumSalarie = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumSalarie, c);
-
-                // Affaire
-                JLabel labelAffaireFormat = new JLabel("Affaire " + getLabelFor("AFFAIRE_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelAffaireFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textAffaireFormat, c);
-
-                JLabel labelAffaireStart = new JLabel(getLabelFor("AFFAIRE_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelAffaireStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textAffaireStart, c);
-
-                this.labelNumAffaire = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumAffaire, c);
-
-                // Proposition
-                JLabel labelPropositionFormat = new JLabel("Proposition " + getLabelFor("PROPOSITION_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelPropositionFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textPropositionFormat, c);
-
-                JLabel labelPropositionStart = new JLabel(getLabelFor("PROPOSITION_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelPropositionStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textPropositionStart, c);
-
-                this.labelNumProposition = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumProposition, c);
-
-                // Proposition
-                JLabel labelCourrierFormat = new JLabel("Courrier " + getLabelFor("COURRIER_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelCourrierFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textCourrierFormat, c);
-
-                JLabel labelCourrierStart = new JLabel(getLabelFor("COURRIER_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelCourrierStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textCourrierStart, c);
-
-                this.labelNumCourrier = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumCourrier, c);
-
-                // Relance
-                JLabel labelRelanceFormat = new JLabel("Relance " + getLabelFor("RELANCE_FORMAT"));
-                c.gridy++;
-                c.gridx = 0;
-                this.add(labelRelanceFormat, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textRelanceFormat, c);
-
-                JLabel labelRelanceStart = new JLabel(getLabelFor("RELANCE_START"));
-                c.gridx++;
-                c.weightx = 0;
-                this.add(labelRelanceStart, c);
-                c.gridx++;
-                c.weightx = 1;
-                this.add(this.textRelanceStart, c);
-
-                this.labelNumRelance = new JLabel();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.labelNumRelance, c);
+                }
 
                 // JLabel labelCodeLettrage = new JLabel(getLabelFor("CODE_LETTRAGE"));
                 // c.gridy++;
@@ -428,87 +182,14 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
                 c.anchor = GridBagConstraints.NORTHWEST;
                 this.add(labelExemple, c);
 
-                this.textBonFormat.getDocument().addDocumentListener(this.listenText);
-                this.textBonStart.getDocument().addDocumentListener(this.listenText);
-                this.textDevisFormat.getDocument().addDocumentListener(this.listenText);
-                this.textDevisStart.getDocument().addDocumentListener(this.listenText);
-                this.textFactFormat.getDocument().addDocumentListener(this.listenText);
-                this.textFactStart.getDocument().addDocumentListener(this.listenText);
-                this.textSalarieFormat.getDocument().addDocumentListener(this.listenText);
-                this.textSalarieStart.getDocument().addDocumentListener(this.listenText);
-                this.textPropositionFormat.getDocument().addDocumentListener(this.listenText);
-                this.textPropositionStart.getDocument().addDocumentListener(this.listenText);
-                this.textRelanceFormat.getDocument().addDocumentListener(this.listenText);
-                this.textRelanceStart.getDocument().addDocumentListener(this.listenText);
-                this.textCmdCliFormat.getDocument().addDocumentListener(this.listenText);
-                this.textCmdCliStart.getDocument().addDocumentListener(this.listenText);
-                this.textCmdFormat.getDocument().addDocumentListener(this.listenText);
-                this.textCmdStart.getDocument().addDocumentListener(this.listenText);
-                this.textBonRFormat.getDocument().addDocumentListener(this.listenText);
-                this.textBonRStart.getDocument().addDocumentListener(this.listenText);
-                this.textAffaireFormat.getDocument().addDocumentListener(this.listenText);
-                this.textAffaireStart.getDocument().addDocumentListener(this.listenText);
-                this.textAvoirFormat.getDocument().addDocumentListener(this.listenText);
-                this.textAvoirStart.getDocument().addDocumentListener(this.listenText);
-                this.textCourrierFormat.getDocument().addDocumentListener(this.listenText);
-                this.textCourrierStart.getDocument().addDocumentListener(this.listenText);
                 // this.textCodeLettrage.getDocument().addDocumentListener(this.listenText);
 
-                this.addRequiredSQLObject(this.textBonFormat, "BON_L_FORMAT");
-                this.addRequiredSQLObject(this.textBonStart, "BON_L_START");
-                this.addRequiredSQLObject(this.textDevisFormat, "DEVIS_FORMAT");
-                this.addRequiredSQLObject(this.textDevisStart, "DEVIS_START");
-                this.addRequiredSQLObject(this.textFactFormat, "FACT_FORMAT");
-                this.addRequiredSQLObject(this.textFactStart, "FACT_START");
-                this.addRequiredSQLObject(this.textSalarieFormat, "SALARIE_FORMAT");
-                this.addRequiredSQLObject(this.textSalarieStart, "SALARIE_START");
-
-                this.addRequiredSQLObject(this.textPropositionFormat, "PROPOSITION_FORMAT");
-                this.addRequiredSQLObject(this.textPropositionStart, "PROPOSITION_START");
-                this.addRequiredSQLObject(this.textRelanceFormat, "RELANCE_FORMAT");
-                this.addRequiredSQLObject(this.textRelanceStart, "RELANCE_START");
-
-                this.addRequiredSQLObject(this.textCmdCliFormat, "COMMANDE_CLIENT_FORMAT");
-                this.addRequiredSQLObject(this.textCmdCliStart, "COMMANDE_CLIENT_START");
-
-                this.addRequiredSQLObject(this.textCmdFormat, "COMMANDE_FORMAT");
-                this.addRequiredSQLObject(this.textCmdStart, "COMMANDE_START");
-
-                this.addRequiredSQLObject(this.textBonRFormat, "BON_R_FORMAT");
-                this.addRequiredSQLObject(this.textBonRStart, "BON_R_START");
-
-                this.addRequiredSQLObject(this.textAffaireFormat, "AFFAIRE_FORMAT");
-                this.addRequiredSQLObject(this.textAffaireStart, "AFFAIRE_START");
-
-                this.addRequiredSQLObject(this.textAvoirFormat, "AVOIR_FORMAT");
-                this.addRequiredSQLObject(this.textAvoirStart, "AVOIR_START");
-
-                this.addRequiredSQLObject(this.textCourrierFormat, "COURRIER_FORMAT");
-                this.addRequiredSQLObject(this.textCourrierStart, "COURRIER_START");
-
-                updateLabels();
             }
 
             // private void updateLabelNextCode() {
             // String s = getNextCodeLetrrage(this.textCodeLettrage.getText());
             // this.labelNextCodeLettrage.setText(donne + " " + s);
             // }
-
-            private void updateLabels() {
-                updateLabel(this.textDevisStart, this.textDevisFormat, this.labelNumDevis);
-                updateLabel(this.textBonStart, this.textBonFormat, this.labelNumBon);
-                updateLabel(this.textBonRStart, this.textBonRFormat, this.labelNumBonR);
-                updateLabel(this.textFactStart, this.textFactFormat, this.labelNumFact);
-                updateLabel(this.textSalarieStart, this.textSalarieFormat, this.labelNumSalarie);
-                updateLabel(this.textPropositionStart, this.textPropositionFormat, this.labelNumProposition);
-                updateLabel(this.textRelanceStart, this.textRelanceFormat, this.labelNumRelance);
-                updateLabel(this.textCmdCliStart, this.textCmdCliFormat, this.labelNumCmdCli);
-                updateLabel(this.textCmdStart, this.textCmdFormat, this.labelNumCmd);
-                updateLabel(this.textAffaireStart, this.textAffaireFormat, this.labelNumAffaire);
-                updateLabel(this.textAvoirStart, this.textAvoirFormat, this.labelNumAvoir);
-                updateLabel(this.textCourrierStart, this.textCourrierFormat, this.labelNumCourrier);
-
-            }
 
             private void updateLabel(JTextField textStart, JTextField textFormat, JLabel label) {
                 if (textStart.getText().trim().length() > 0) {
@@ -761,6 +442,17 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         map.put(RelanceSQLElement.class, "RELANCE");
         map.put(SalarieSQLElement.class, "SALARIE");
 
+    }
+
+    /**
+     * Permet d'ajouter la gestion de la numérotation automatique. Attention à bien créer les champs
+     * name_FORMAT et name_START dans la table NUMEROTATION_AUTO
+     * 
+     * @param elt
+     * @param name
+     */
+    public static void addClass(Class<? extends SQLElement> elt, String name) {
+        map.put(elt, name);
     }
 
     public static void addListeners() {

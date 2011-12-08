@@ -123,6 +123,9 @@ public class ExerciceCommonSQLElement extends ConfSQLElement {
 
             @Override
             public synchronized ValidState getValidState() {
+                if (this.dateDeb.getValue() == null || this.dateFin.getValue() == null) {
+                    return new ValidState(false, "Date de début ou de fin d'exercice non définie");
+                }
                 return super.getValidState().and(ValidState.createCached(this.dateDeb.getValue().before(this.dateFin.getValue()), "Date de début après date de fin"));
             }
         };

@@ -16,7 +16,6 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.generationDoc.SheetInterface;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.Configuration;
@@ -28,10 +27,8 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.GestionDevise;
-import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
 
-import java.io.File;
 import java.text.DateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -66,6 +63,9 @@ public class GrandLivreSheet extends SheetInterface {
     private boolean centralFourn = false;
     int idJrnlExclude = -1;
 
+    public static String TEMPLATE_ID = "Grand Livre";
+    public static String TEMPLATE_PROPERTY_NAME = "LocationGrandLivre";
+
     public static void setSize(int debut, int fin) {
         debutFill = debut;
         endFill = fin;
@@ -75,10 +75,9 @@ public class GrandLivreSheet extends SheetInterface {
         setSize(7, 69);
     }
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationGrandLivre", "Grand Livre");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
+    @Override
+    protected String getYear() {
+        return "";
     }
 
     public GrandLivreSheet(Date du, Date au, String compteDep, String compteEnd, int lettrage, boolean cumul, boolean excludeCptSolde, boolean centralClient, boolean centralFourn, int idJrnlExclude) {
@@ -89,8 +88,6 @@ public class GrandLivreSheet extends SheetInterface {
         this.idJrnlExclude = idJrnlExclude;
         this.printer = PrinterNXProps.getInstance().getStringProperty("GrandLivrePrinter");
         this.modele = "GrandLivre.ods";
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
         this.dateAu = au;
         this.dateDu = du;
         this.compteDeb = compteDep.trim();
@@ -620,5 +617,11 @@ public class GrandLivreSheet extends SheetInterface {
         }
 
         return map;
+    }
+
+    @Override
+    public String getTemplateId() {
+        // TODO Auto-generated method stub
+        return TEMPLATE_ID;
     }
 }

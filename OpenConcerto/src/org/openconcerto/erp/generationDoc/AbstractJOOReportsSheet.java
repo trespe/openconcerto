@@ -41,7 +41,6 @@ import java.util.Map;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
-
 public abstract class AbstractJOOReportsSheet {
     private static final String defaultLocationTemplate = SpreadSheetGenerator.defaultLocationTemplate;
     protected static final DateFormat dateFormat = new SimpleDateFormat("dd MMMM yyyy");
@@ -49,8 +48,7 @@ public abstract class AbstractJOOReportsSheet {
     protected static final DateFormat yearFormat = new SimpleDateFormat("yyyy");
     private String year;
     protected String locationTemplate = TemplateNXProps.getInstance().getStringProperty("LocationTemplate");
-    private String locationOO, locationPDF;
-    protected String templateFileName;
+    protected String templateId;
     private String printer;
     protected boolean askOverwriting = false;
 
@@ -61,11 +59,9 @@ public abstract class AbstractJOOReportsSheet {
 
     abstract public String getFileName();
 
-    protected void init(String year, String templateFileName, String attributePrinter, Tuple2<String, String> t) {
+    protected void init(String year, String templateId, String attributePrinter) {
         this.year = year;
-        this.templateFileName = templateFileName;
-        this.locationOO = SheetXml.getLocationForTuple(t, false) + File.separator + this.year;
-        this.locationPDF = SheetXml.getLocationForTuple(t, true) + File.separator + this.year;
+        this.templateId = templateId;
         this.printer = PrinterNXProps.getInstance().getStringProperty(attributePrinter);
     }
 
@@ -88,27 +84,23 @@ public abstract class AbstractJOOReportsSheet {
         try {
 
             String fileName = getFileName();
-            final InputStream fileTemplate = getStream(this.templateFileName, this.locationTemplate, defaultLocationTemplate);
-
-            File fileOutOO = new File(this.locationOO, fileName + ".odt");
-            // File fileOutPDF = new File(locationPropositionPDF, fileName);
-
+            final InputStream fileTemplate = TemplateManager.getInstance().getTemplate(this.templateId);
+            File outputDir = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(this.templateId);
+            File fileOutOO = getDocumentFile();
             if (fileOutOO.exists() && overwrite) {
                 if (this.askOverwriting) {
                     int answer = JOptionPane.showConfirmDialog(null, "Voulez vous écraser le document ?", "Remplacement d'un document", JOptionPane.YES_NO_OPTION);
                     if (answer == JOptionPane.YES_OPTION) {
-                        SheetUtils.getInstance().convertToOldFile(fileName, new File(this.locationOO), fileOutOO, ".odt");
+                        SheetUtils.convertToOldFile(fileName, outputDir, fileOutOO, ".odt");
                     }
                 } else {
-                    SheetUtils.getInstance().convertToOldFile(fileName, new File(this.locationOO), fileOutOO, ".odt");
+                    SheetUtils.convertToOldFile(fileName, outputDir, fileOutOO, ".odt");
                 }
             }
 
             if (!fileOutOO.exists()) {
                 fileOutOO.getParentFile().mkdirs();
-                Template template;
-                // try {
-                template = new Template(new BufferedInputStream(fileTemplate));
+                Template template = new Template(new BufferedInputStream(fileTemplate));
 
                 // creation du document
                 final Map createMap = createMap();
@@ -116,11 +108,7 @@ public abstract class AbstractJOOReportsSheet {
 
                 model.putAll(createMap);
                 template.createDocument(model).saveAs(fileOutOO);
-                // template.createDocument(model, new BufferedOutputStream(new
-                // FileOutputStream(fileOutOO)));
-                // } catch (JDOMException e) {
-                // e.printStackTrace();
-                // }
+
             }
 
             // ouverture de OO
@@ -133,9 +121,10 @@ public abstract class AbstractJOOReportsSheet {
                     }
                     final Component doc = ooConnexion.loadDocument(fileOutOO, !show);
 
-                    if (this.savePDF())
-                        doc.saveToPDF(new File(this.locationPDF, fileName + ".pdf"), "writer_pdf_Export");
-
+                    if (this.savePDF()) {
+                        File pdfOutputDir = DocumentLocalStorageManager.getInstance().getPDFOutputDirectory(templateId);
+                        doc.saveToPDF(new File(pdfOutputDir, fileName + ".pdf"), "writer_pdf_Export");
+                    }
                     if (print) {
                         Map<String, Object> map = new HashMap<String, Object>();
                         map.put("Name", printer);
@@ -164,7 +153,7 @@ public abstract class AbstractJOOReportsSheet {
     }
 
     public void showDocument() {
-        File fileOutOO = new File(this.locationOO, getFileName() + ".odt");
+        File fileOutOO = getDocumentFile();
         if (fileOutOO.exists()) {
             try {
                 final OOConnexion ooConnexion = ComptaPropsConfiguration.getOOConnexion();
@@ -183,8 +172,13 @@ public abstract class AbstractJOOReportsSheet {
         }
     }
 
+    private File getDocumentFile() {
+        File outputDir = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(templateId);
+        return new File(outputDir, getFileName() + ".odt");
+    }
+
     public void printDocument() {
-        File fileOutOO = new File(this.locationOO, getFileName() + ".odt");
+        File fileOutOO = getDocumentFile();
         if (fileOutOO.exists()) {
 
             try {
@@ -211,7 +205,7 @@ public abstract class AbstractJOOReportsSheet {
 
     public void fastPrintDocument() {
 
-        final File f = new File(this.locationOO, getFileName() + ".odt");
+        final File f = getDocumentFile();
 
         if (!f.exists()) {
             generate(true, false, this.printer);
@@ -239,13 +233,6 @@ public abstract class AbstractJOOReportsSheet {
         }
     }
 
-    public boolean exists() {
-
-        String fileName = getFileName();
-        File fileOutOO = new File(this.locationOO, fileName + ".odt");
-        return fileOutOO.exists();
-    }
-
     protected String getInitiales(SQLRow row) {
         String init = "";
         if (row != null) {
@@ -264,9 +251,10 @@ public abstract class AbstractJOOReportsSheet {
     public void exportToPdf() {
 
         // Export vers PDF
-        String fileName = getFileName();
-        File fileOutOO = new File(this.locationOO, fileName + ".odt");
-        File fileOutPDF = new File(this.locationPDF, fileName);
+        final String fileName = getFileName();
+        final File fileOutOO = getDocumentFile();
+        final File outputPDFDirectory = DocumentLocalStorageManager.getInstance().getPDFOutputDirectory(this.templateId);
+        final File fileOutPDF = new File(outputPDFDirectory, fileName + ".pdf");
 
         if (!fileOutOO.exists()) {
             generate(false, false, "");
@@ -290,7 +278,7 @@ public abstract class AbstractJOOReportsSheet {
         int result = JOptionPane.showOptionDialog(null, "Ouvrir le pdf ?", "Ouverture du PDF", JOptionPane.YES_NO_OPTION, JOptionPane.QUESTION_MESSAGE, null, null, null);
 
         if (result == JOptionPane.YES_OPTION) {
-            Gestion.openPDF(new File(fileOutPDF.getAbsolutePath() + ".pdf"));
+            Gestion.openPDF(fileOutPDF);
         } else {
             try {
                 FileUtils.openFile(fileOutPDF.getParentFile());
@@ -315,10 +303,6 @@ public abstract class AbstractJOOReportsSheet {
             return null;
         }
         return ville.getName();
-    }
-
-    public String getLocationOO() {
-        return locationOO;
     }
 
     protected static String getVilleCP(String name) {

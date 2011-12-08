@@ -44,7 +44,8 @@ public class ElementsSQLListModel extends SQLListModel<SQLElement> {
         this.elements = new ArrayList<SQLElement>(elements);
     }
 
-    protected void reload() {
+    @Override
+    protected void reload(boolean noCache) {
         this.counts.clear();
         final List<SQLElement> res = new ArrayList<SQLElement>(this.elements.size());
         for (final SQLElement elem : this.elements) {

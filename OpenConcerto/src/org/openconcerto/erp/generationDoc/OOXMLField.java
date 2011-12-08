@@ -179,7 +179,7 @@ public class OOXMLField extends OOXMLElement {
                 String condField = this.elt.getAttributeValue("conditionField");
                 String condValue = this.elt.getAttributeValue("conditionExpValue");
 
-                boolean bIsCondValid = condValue == null || this.row.getObject(condField).toString().equalsIgnoreCase(condValue);
+                boolean bIsCondValid = condValue == null || !this.row.getObject(condField).toString().equalsIgnoreCase(condValue);
                 if (condValue == null) {
                     boolean bIsBooleanCondValid = false;
                     if (condField == null) {
@@ -193,7 +193,7 @@ public class OOXMLField extends OOXMLElement {
                         }
                     }
                     bIsCondValid = bIsCondValid && bIsBooleanCondValid;
-                }else {
+                } else {
                     System.err.println();
                 }
                 if (bIsCondValid) {

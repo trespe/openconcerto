@@ -25,6 +25,7 @@ import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLCo
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
 import org.openconcerto.erp.core.sales.invoice.report.ListeFactureXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
+import org.openconcerto.erp.core.sales.invoice.ui.DateEnvoiRenderer;
 import org.openconcerto.erp.core.sales.invoice.ui.ListeFactureRenderer;
 import org.openconcerto.erp.generationEcritures.GenerationMvtRetourNatexis;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
@@ -46,11 +47,16 @@ import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.EditPanelListener;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
+import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.IClosure;
 
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
@@ -60,7 +66,9 @@ import java.awt.event.ActionListener;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 
+import javax.sql.rowset.Predicate;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.BorderFactory;
@@ -69,6 +77,7 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.border.Border;
+import javax.swing.table.TableColumn;
 
 public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
 
@@ -90,12 +99,37 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
         final SQLTableModelSourceOnline src = eltFacture.getTableSource(true);
 
         for (SQLTableModelColumn column : src.getColumns()) {
-            // if (column.getValueClass() == Long.class || column.getValueClass() ==
+            // if (column.getValueClass() == Long.class ||
+            // column.getValueClass() ==
             // BigInteger.class || column.getValueClass() == BigDecimal.class)
             column.setRenderer(ListeFactureRenderer.UTILS.getRenderer(column.getRenderer()));
-
+            if (column.getClass().isAssignableFrom(SQLTableModelColumnPath.class)) {
+                ((SQLTableModelColumnPath) column).setEditable(false);
+            }
         }
+            final SQLTableModelColumn dateEnvoiCol = src.getColumn(eltFacture.getTable().getField("DATE_ENVOI"));
 
+            ((SQLTableModelColumnPath) dateEnvoiCol).setEditable(true);
+
+            final SQLTableModelColumn dateReglCol = src.getColumn(eltFacture.getTable().getField("DATE_REGLEMENT"));
+            ((SQLTableModelColumnPath) dateReglCol).setEditable(true);
+
+            dateEnvoiCol.setColumnInstaller(new IClosure<TableColumn>() {
+                @Override
+                public void executeChecked(TableColumn columnDateEnvoi) {
+                    columnDateEnvoi.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
+                    columnDateEnvoi.setCellRenderer(new DateEnvoiRenderer());
+                }
+            });
+
+            // Edition des dates de reglement
+            dateReglCol.setColumnInstaller(new IClosure<TableColumn>() {
+                @Override
+                public void executeChecked(TableColumn columnDateReglement) {
+                    columnDateReglement.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
+                    columnDateReglement.setCellRenderer(new DateEnvoiRenderer());
+                }
+            });
         this.listeAddPanel = new ListeGestCommEltPanel(eltFacture, new IListe(src)) {
 
 
@@ -146,35 +180,49 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
         this.frame = new IListFrame(this.listeAddPanel);
 
         // FIXME Maybe Stock rowSelection in new List
-        final MouseSheetXmlListeListener mouseListener = new MouseSheetXmlListeListener(this.listeAddPanel.getListe(), VenteFactureXmlSheet.class) {
+        final MouseSheetXmlListeListener mouseListener = new MouseSheetXmlListeListener(VenteFactureXmlSheet.class) {
             @Override
-            public List<AbstractAction> addToMenu() {
+            public List<RowAction> addToMenu() {
 
-                final SQLRow row = liste.getSelectedRow();
-                List<AbstractAction> l = new ArrayList<AbstractAction>(5);
-                if (row != null) {
-                    AbstractAction actionAvoir = new AbstractAction("Transférer en avoir") {
+                // final SQLRow row = liste.getSelectedRow();
+                List<RowAction> l = new ArrayList<RowAction>(5);
+                    PredicateRowAction actionBL = new PredicateRowAction(new AbstractAction("Transférer en bon de livraison") {
                         public void actionPerformed(ActionEvent e) {
                             SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                            elt.transfertAvoir(row.getID());
+                            elt.transfertBL(IListe.get(e).getSelectedId());
                         }
-                    };
-                    l.add(actionAvoir);
-                    AbstractAction actionBL = new AbstractAction("Transférer en bon de livraison") {
-                        public void actionPerformed(ActionEvent e) {
-                            SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                            elt.transfertBL(row.getID());
-                        }
-                    };
+                    }, false);
+                    actionBL.setPredicate(IListeEvent.getSingleSelectionPredicate());
                     l.add(actionBL);
-                }
+                PredicateRowAction actionClone = new PredicateRowAction(new AbstractAction("Créer à partir de ...") {
+                    public void actionPerformed(ActionEvent e) {
+
+                        SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                        EditFrame editFrame = new EditFrame(eltFact, EditPanel.CREATION);
+
+                        ((SaisieVenteFactureSQLComponent) editFrame.getSQLComponent()).loadFactureExistante(IListe.get(e).getSelectedId());
+                        editFrame.setVisible(true);
+                    }
+                }, false);
+                actionClone.setPredicate(IListeEvent.getSingleSelectionPredicate());
+                l.add(actionClone);
+
+                PredicateRowAction actionAvoir = new PredicateRowAction(new AbstractAction("Transférer en avoir") {
+                    public void actionPerformed(ActionEvent e) {
+                        SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                        elt.transfertAvoir(IListe.get(e).getSelectedId());
+                    }
+                }, false);
+                actionAvoir.setPredicate(IListeEvent.getSingleSelectionPredicate());
+                l.add(actionAvoir);
+
                 return l;
                 // return super.addToMenu();
 
             }
         };
         // this.frame.getPanel().getListe().addRowActions(mouseListener.getRowActions());
-        this.frame.getPanel().getListe().getJTable().addMouseListener(mouseListener);
+        this.frame.getPanel().getListe().addIListeActions(mouseListener.getRowActions());
 
 
         return this.frame;

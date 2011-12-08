@@ -65,7 +65,7 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
 
     /**
      * The predicate testing whether the value is empty or not. This implementation returns
-     * {@link EmptyObjFromVO#DEFAULT_PREDICATE}
+     * {@link EmptyObjFromVO#getDefaultPredicate()}
      * 
      * @return the predicate testing whether the value is empty.
      */

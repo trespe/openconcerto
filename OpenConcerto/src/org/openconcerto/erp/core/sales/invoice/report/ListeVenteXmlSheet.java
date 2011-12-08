@@ -26,6 +26,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.Tuple2;
 
+import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -42,31 +43,33 @@ public class ListeVenteXmlSheet extends AbstractListeSheetXml {
 
     private static final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yy");
 
+    public static final String TEMPLATE_ID = "ListeVentes";
+    public static final String TEMPLATE_PROPERTY_NAME = DEFAULT_PROPERTY_NAME;
+
     private Date du, au;
     private List<SQLRow> listeIds;
-    JProgressBar bar;
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tupleDefault;
-    }
+    private JProgressBar bar;
+    private SQLElement eltAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
+    private SQLElement eltEnc = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
+    private SQLElement eltEncElt = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT_ELEMENT");
 
     public ListeVenteXmlSheet(List<SQLRow> listeIds, Date du, Date au, JProgressBar bar) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.listeIds = listeIds;
-        this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
         this.du = du;
         this.au = au;
         this.bar = bar;
     }
 
-    public String getDefaultModele() {
-        return "ListeVentes";
+    @Override
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     };
 
-    SQLElement eltAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
-    SQLElement eltEnc = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
-    SQLElement eltEncElt = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT_ELEMENT");
+    @Override
+    public String getName() {
+        return "JournalVentes";
+    }
 
     protected void createListeValues() {
 
@@ -172,7 +175,4 @@ public class ListeVenteXmlSheet extends AbstractListeSheetXml {
         this.mapAllSheetValues.put(0, values);
     }
 
-    public String getFileName() {
-        return getValidFileName("JournalVentes");
-    }
 }

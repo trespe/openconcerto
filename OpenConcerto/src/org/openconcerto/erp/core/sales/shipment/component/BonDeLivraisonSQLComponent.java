@@ -36,6 +36,7 @@ import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.TitledSeparator;
@@ -103,6 +104,17 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         this.setLayout(new GridBagLayout());
 
         final GridBagConstraints c = new DefaultGridBagConstraints();
+
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
 
         // Numero
         JLabel labelNum = new JLabel(getLabelFor("NUMERO"));
@@ -423,7 +435,8 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
             // generation du document
             BonLivraisonXmlSheet bSheet = new BonLivraisonXmlSheet(getTable().getRow(idBon));
-            bSheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
+            bSheet.createDocumentAsynchronous();
+            bSheet.showPrintAndExportAsynchronous(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected(), true);
 
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(BonDeLivraisonSQLElement.class).equalsIgnoreCase(this.textNumeroUnique.getText().trim())) {
@@ -480,7 +493,9 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
         // generation du document
         BonLivraisonXmlSheet bSheet = new BonLivraisonXmlSheet(getTable().getRow(getSelectedID()));
-        bSheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
+        bSheet.createDocumentAsynchronous();
+        bSheet.showPrintAndExportAsynchronous(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected(), true);
+
     }
 
     private void updateTotal() {

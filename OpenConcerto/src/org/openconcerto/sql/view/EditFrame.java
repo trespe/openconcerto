@@ -40,6 +40,11 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
 
     public static final EditMode MODIFICATION = EditPanel.MODIFICATION;
     public static final EditMode CREATION = EditPanel.CREATION;
+    /**
+     * If this system property is true, then the minimum size of an edit frame will match the one
+     * from its content pane.
+     */
+    public final static String SMALL_MIN_SIZE = "org.openconcerto.sql.editFrame.smallMinSize";
 
     private boolean frameResize;
 
@@ -103,8 +108,17 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
         // The minimum size of the frame must be the size when packed
         this.pack();
         Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
-        int w = Math.min(d.width - 100, getWidth());
-        int h = Math.min(d.height - 100, getHeight());
+        final int wantedW, wantedH;
+        if (Boolean.getBoolean(SMALL_MIN_SIZE)) {
+            final Dimension minimumSize = this.getMinimumSize();
+            wantedW = minimumSize.width;
+            wantedH = minimumSize.height;
+        } else {
+            wantedW = getWidth();
+            wantedH = getHeight();
+        }
+        final int w = Math.min(d.width - 100, wantedW);
+        final int h = Math.min(d.height - 100, wantedH);
         setMinimumSize(new Dimension(w, h));
 
         // View resized

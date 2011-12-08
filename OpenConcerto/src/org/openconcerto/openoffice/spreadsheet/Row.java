@@ -16,10 +16,13 @@
  */
 package org.openconcerto.openoffice.spreadsheet;
 
-import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.ODDocument;
+import org.openconcerto.openoffice.StyleDesc;
+import org.openconcerto.openoffice.StyleProperties;
+import org.openconcerto.openoffice.StyleStyleDesc;
+import org.openconcerto.openoffice.XMLVersion;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.jdom.Element;
@@ -39,17 +42,31 @@ public class Row<D extends ODDocument> extends TableCalcNode<RowStyle, D> {
 
     private final Table<D> parent;
     private final int index;
+    private int repeated;
     // the same immutable cell instance is repeated, but each MutableCell is only once
     // ATTN MutableCell have their index as attribute
-    private final List<Cell<D>> cells;
+    // array is faster than List
+    private Cell<D>[] cells;
+    private int cellCount;
 
-    Row(Table<D> parent, Element tableRowElem, int index) {
-        super(parent.getODDocument(), tableRowElem, RowStyle.class);
+    Row(Table<D> parent, Element tableRowElem, int index, StyleDesc<RowStyle> styleDesc, StyleDesc<CellStyle> cellStyleDesc) {
+        super(parent.getODDocument(), tableRowElem, styleDesc);
         this.parent = parent;
         this.index = index;
-        this.cells = new ArrayList<Cell<D>>();
+        this.repeated = Axis.ROW.getRepeated(getElement());
+        @SuppressWarnings("unchecked")
+        final Cell<D>[] unsafe = new Cell[parent.getColumnCount()];
+        this.cells = unsafe;
+        this.cellCount = 0;
         for (final Element cellElem : this.getCellElements()) {
-            addCellElem(cellElem);
+            addCellElem(cellElem, cellStyleDesc);
+        }
+    }
+
+    private final void ensureRoom(int additionalItems) {
+        final int requiredSize = this.getCellCount() + additionalItems;
+        if (requiredSize > this.cells.length) {
+            this.cells = Arrays.copyOf(this.cells, requiredSize);
         }
     }
 
@@ -57,26 +74,45 @@ public class Row<D extends ODDocument> extends TableCalcNode<RowStyle, D> {
         return this.parent;
     }
 
+    // ATTN index of the first row
     final int getY() {
         return this.index;
     }
 
-    // plain Cell instances have multiple indexes (if repeated) but MutableCell are unique
-    final int getX(MutableCell<D> c) {
-        return this.cells.indexOf(c);
+    // inclusive
+    final int getLastY() {
+        return this.getY() + this.getRepeated() - 1;
     }
 
-    private void addCellElem(final Element cellElem) {
-        final Cell<D> cell = new Cell<D>(this, cellElem);
-        this.cells.add(cell);
+    final int getRepeated() {
+        return this.repeated;
+    }
 
-        final String repeatedS = cellElem.getAttributeValue("number-columns-repeated", this.getSheet().getTABLE());
-        if (repeatedS != null) {
-            final int toRepeat = Integer.parseInt(repeatedS) - 1;
-            for (int i = 0; i < toRepeat; i++) {
-                this.cells.add(cell);
-            }
+    final void setRepeated(int newRepeated) {
+        Axis.ROW.setRepeated(getElement(), newRepeated);
+        this.repeated = newRepeated;
+    }
+
+    // plain Cell instances have multiple indexes (if repeated) but MutableCell are unique
+    final int getX(MutableCell<D> c) {
+        final int stop = this.getCellCount();
+        for (int i = 0; i < stop; i++) {
+            final Cell<D> item = this.cells[i];
+            if (c.equals(item))
+                return i;
         }
+        return -1;
+    }
+
+    private void addCellElem(final Element cellElem, StyleDesc<CellStyle> cellStyleDesc) {
+        final Cell<D> cell = new Cell<D>(this, cellElem, cellStyleDesc);
+        final String repeatedS = cellElem.getAttributeValue("number-columns-repeated", this.getTABLE());
+        final int toRepeat = StyleProperties.parseInt(repeatedS, 1);
+        final int stop = this.cellCount + toRepeat;
+        for (int i = this.cellCount; i < stop; i++) {
+            this.cells[i] = cell;
+        }
+        this.cellCount = stop;
     }
 
     /**
@@ -90,8 +126,16 @@ public class Row<D extends ODDocument> extends TableCalcNode<RowStyle, D> {
         return this.getElement().getChildren();
     }
 
+    protected final int getCellCount() {
+        return this.cellCount;
+    }
+
+    private final List<Cell<D>> getCellsAsList() {
+        return Arrays.asList(this.cells);
+    }
+
     protected final Cell<D> getCellAt(int col) {
-        return this.cells.get(col);
+        return this.cells[col];
     }
 
     protected final Cell<D> getValidCellAt(int col) {
@@ -102,68 +146,41 @@ public class Row<D extends ODDocument> extends TableCalcNode<RowStyle, D> {
     }
 
     public final MutableCell<D> getMutableCellAt(final int col) {
-        final Cell c = this.getValidCellAt(col);
+        final Cell<D> c = this.getValidCellAt(col);
         if (!(c instanceof MutableCell)) {
-            final Element element = c.getElement();
-            final String repeatedS = element.getAttributeValue("number-columns-repeated", this.getSheet().getTABLE());
-            if (repeatedS != null) {
-                final int repeated = Integer.parseInt(repeatedS);
-                final int firstIndex = this.cells.indexOf(c);
-                final int lastIndex = firstIndex + repeated - 1;
-
-                final int preRepeated = col - firstIndex;
-                final int postRepeated = lastIndex - col;
-
-                casse(element, firstIndex, preRepeated, true);
-                element.removeAttribute("number-columns-repeated", this.getSheet().getTABLE());
-                casse(element, col + 1, postRepeated, false);
-            }
-            this.cells.set(col, new MutableCell<D>(this, element));
+            RepeatedBreaker.<D> getCellBreaker().breakRepeated(this, getCellsAsList(), col);
         }
         return (MutableCell<D>) this.getValidCellAt(col);
     }
 
-    private final void casse(Element element, int firstIndex, int repeat, boolean before) {
-        if (repeat > 0) {
-            final Element newElem = (Element) element.clone();
-            element.getParentElement().addContent(element.getParent().indexOf(element) + (before ? 0 : 1), newElem);
-            newElem.setAttribute("number-columns-repeated", repeat + "", this.getSheet().getTABLE());
-            final Cell<D> preCell = new Cell<D>(this, newElem);
-            for (int i = 0; i < repeat; i++) {
-                this.cells.set(firstIndex + i, preCell);
-            }
-        }
-    }
-
     // rempli cette ligne avec autant de cellules vides qu'il faut
-    void columnCountChanged() {
-        final int diff = this.getSheet().getColumnCount() - this.cells.size();
+    void columnCountChanged(StyleStyleDesc<CellStyle> cellStyleDesc) {
+        final int diff = this.getSheet().getColumnCount() - getCellCount();
         if (diff < 0) {
             throw new IllegalStateException("should have used Table.removeColumn()");
         } else if (diff > 0) {
             final Element e = Cell.createEmpty(this.getSheet().getODDocument().getVersion(), diff);
             this.getElement().addContent(e);
-            addCellElem(e);
+            this.ensureRoom(diff);
+            addCellElem(e, cellStyleDesc);
         }
-        if (this.cells.size() != this.getSheet().getColumnCount())
-            throw new IllegalStateException();
+        assert this.getCellCount() == this.getSheet().getColumnCount();
     }
 
     void checkRemove(int firstIndex, int lastIndexExcl) {
-        if (lastIndexExcl > this.cells.size()) {
-            throw new IndexOutOfBoundsException(lastIndexExcl + " > " + this.cells.size());
+        if (lastIndexExcl > getCellCount()) {
+            throw new IndexOutOfBoundsException(lastIndexExcl + " > " + getCellCount());
         }
         if (!this.getCellAt(firstIndex).isValid())
             throw new IllegalArgumentException("unable to remove covered cell at " + firstIndex);
     }
 
+    // ATTN unsafe, must call checkRemove() first
     void removeCells(int firstIndex, int lastIndexExcl) {
-        checkRemove(firstIndex, lastIndexExcl);
-
         this.getMutableCellAt(firstIndex).unmerge();
 
         // if lastIndex == size, nothing to do
-        if (lastIndexExcl < this.cells.size()) {
+        if (lastIndexExcl < getCellCount()) {
             if (!this.getCellAt(lastIndexExcl - 1).isValid()) {
                 int currentCol = lastIndexExcl - 2;
                 // the covering cell is on this row since last cells of previous rows have been
@@ -182,8 +199,13 @@ public class Row<D extends ODDocument> extends TableCalcNode<RowStyle, D> {
         for (int i = firstIndex; i < lastIndexExcl; i++) {
             // ok to detach multiple times the same element (since repeated cells share the same XML
             // element)
-            this.cells.remove(firstIndex).getElement().detach();
+            this.cells[firstIndex].getElement().detach();
         }
+        final int movedCount = getCellCount() - lastIndexExcl;
+        System.arraycopy(this.cells, lastIndexExcl, this.cells, firstIndex, movedCount);
+        this.cells = Arrays.copyOfRange(this.cells, 0, firstIndex + movedCount);
+        this.cellCount = this.cells.length;
+        assert this.getCellCount() == this.getSheet().getColumnCount();
     }
 
 }

@@ -29,6 +29,11 @@ public class ImmutableITextComboCache implements ITextComboCache {
     }
 
     @Override
+    public boolean isValid() {
+        return true;
+    }
+
+    @Override
     public final void addToCache(String string) {
         throw new UnsupportedOperationException();
     }
@@ -40,11 +45,11 @@ public class ImmutableITextComboCache implements ITextComboCache {
 
     @Override
     public final List<String> getCache() {
-        return this.loadCache();
+        return this.loadCache(true);
     }
 
     @Override
-    public List<String> loadCache() {
+    public List<String> loadCache(final boolean dsCache) {
         return this.cache;
     }
 }

@@ -22,6 +22,10 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
@@ -68,20 +72,21 @@ public class ListeDesBonsDeLivraisonAction extends CreateFrameAbstractAction {
             table.getColumnModel().getColumn(i).setCellRenderer(rend);
         }
 
-        table.addMouseListener(new MouseSheetXmlListeListener(edit1.getPanel().getListe(), BonLivraisonXmlSheet.class) {
+        edit1.getPanel().getListe().addIListeActions(new MouseSheetXmlListeListener(BonLivraisonXmlSheet.class) {
             @Override
-            public List<AbstractAction> addToMenu() {
-                AbstractAction actionTransfertFacture = new AbstractAction("Transfert en facture") {
+            public List<RowAction> addToMenu() {
+                PredicateRowAction actionTransfertFacture = new PredicateRowAction(new AbstractAction("Transfert en facture") {
                     public void actionPerformed(ActionEvent ev) {
-                        transfertFactureClient(edit1.getPanel().getListe().getSelectedRow());
+                        transfertFactureClient(IListe.get(ev).getSelectedRow());
                     }
-                };
-                List<AbstractAction> l = new ArrayList<AbstractAction>();
+                }, false);
+                actionTransfertFacture.setPredicate(IListeEvent.getSingleSelectionPredicate());
+                List<RowAction> l = new ArrayList<RowAction>();
                 l.add(actionTransfertFacture);
 
                 return l;
             }
-        });
+        }.getRowActions());
 
         return edit1;
     }
