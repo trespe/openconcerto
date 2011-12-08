@@ -59,6 +59,8 @@ import org.openconcerto.erp.core.finance.tax.action.DeclarationTVAAction;
 import org.openconcerto.erp.core.humanresources.employe.action.ListeDesCommerciauxAction;
 import org.openconcerto.erp.core.humanresources.employe.action.ListeDesSalariesAction;
 import org.openconcerto.erp.core.humanresources.employe.action.ListeDesSecretairesAction;
+import org.openconcerto.erp.core.humanresources.employe.action.N4DSAction;
+import org.openconcerto.erp.core.humanresources.employe.report.N4DS;
 import org.openconcerto.erp.core.humanresources.payroll.action.ClotureMensuellePayeAction;
 import org.openconcerto.erp.core.humanresources.payroll.action.EditionFichePayeAction;
 import org.openconcerto.erp.core.humanresources.payroll.action.ListeDesProfilsPayeAction;
@@ -456,6 +458,7 @@ public class MainFrame extends JFrame {
         menu.add(new JSeparator());
         menu.add(new EtatChargeAction());
         menu.add(new CompteResultatBilanAction());
+        menu.add(new N4DSAction());
         if (rights.haveRight(ComptaUserRight.MENU)) {
             result.add(menu);
         }

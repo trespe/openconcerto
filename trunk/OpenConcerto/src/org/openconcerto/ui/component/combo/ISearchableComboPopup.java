@@ -13,8 +13,6 @@
  
  package org.openconcerto.ui.component.combo;
 
-import org.openconcerto.utils.model.SimpleListDataListener;
-
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -36,7 +34,6 @@ import javax.swing.JScrollPane;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.ScrollPaneConstants;
-import javax.swing.event.ListDataEvent;
 
 public class ISearchableComboPopup<T> extends JPopupMenu {
 
@@ -53,25 +50,6 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
         uiInit();
         // Listeners
         this.list.addMouseMotionListener(new ListMouseMotionHandler());
-        // JList always displays visibleRowCount even when fewer items exists
-        // so if we put a high number we get a big blank popup
-        // instead listen to model change to adjust row count
-        this.getListModel().addListDataListener(new SimpleListDataListener() {
-            @Override
-            public void contentsChanged(ListDataEvent e) {
-                // ATTN row count always gets back to zero when the contents change (because of
-                // removeAll())
-                final int rowCount = Math.min(getListModel().getSize(), 30);
-                // checking if rowCount changes doesn't work (one reason is probably that we're
-                // called before Swing and so setVisible displays an empty list)
-                ISearchableComboPopup.this.list.setVisibleRowCount(rowCount);
-                if (rowCount > 0 && isVisible()) {
-                    // since "visible row count" is not dynamic
-                    setVisible(false);
-                    setVisible(true);
-                }
-            }
-        });
     }
 
     private ISearchableCombo<T> getCombo() {
@@ -98,6 +76,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
                 final JLabel comp = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 comp.setFont(getCombo().getFont());
                 if (value instanceof Action) {
+                    comp.setFont(comp.getFont().deriveFont(Font.ITALIC));
                     comp.setText((String) ((Action) value).getValue(Action.NAME));
                     comp.setIcon(null);
                 } else {
@@ -207,7 +186,9 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
         // if no selection, don't change the combo
         if (sel != null) {
             if (sel instanceof ISearchableComboItem) {
-                this.getCombo().setValue(((ISearchableComboItem<T>) sel).getOriginal());
+                // don't call setValue() with sel.getOriginal() to handle list with the same item
+                // multiple times.
+                this.getCombo().setValue((ISearchableComboItem<T>) sel);
             } else if (sel instanceof Action) {
                 ((Action) sel).actionPerformed(new ActionEvent(this.getCombo(), ActionEvent.ACTION_PERFORMED, this.getCombo().getName()));
             } else
@@ -217,6 +198,24 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
     }
 
     public void open() {
+        // JList always displays visibleRowCount even when fewer items exists
+        // so if we put a high number we get a big blank popup
+        // handle this in open() and not with a SimpleListDataListener since :
+        // 1. open() is called only once whereas add is called multiple times in
+        // ISearchableCombo.setMatchingCompletions().
+        // 2. open() is always called when the list is modified.
+        final int size = getListModel().getSize();
+        // rowCount == 0 looks like a bug so show 3 empty rows
+        final int rowCount = size == 0 ? 3 : Math.min(size, 30);
+        if (this.list.getVisibleRowCount() != rowCount) {
+            // checking if rowCount changes doesn't work (one reason is probably that we're
+            // called before Swing and so setVisible displays an empty list)
+            this.list.setVisibleRowCount(rowCount);
+            if (this.isShowing()) {
+                // since "visible row count" is not dynamic
+                setVisible(false);
+            }
+        }
         // si on est pas déjà affiché
         // afficher même qd pas d'items : si l'user clique il faut qu'il voit la liste même vide
         if (!this.isShowing())

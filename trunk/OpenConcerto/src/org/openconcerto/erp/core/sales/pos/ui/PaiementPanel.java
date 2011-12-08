@@ -31,7 +31,6 @@ import java.awt.geom.Rectangle2D;
 import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 
-
 public class PaiementPanel extends JPanel implements CaisseListener, MouseListener, BarcodeListener {
     private static final int OFFSETY = 50;
     private static final int LINE_HEIGHT = 64;
@@ -90,13 +89,14 @@ public class PaiementPanel extends JPanel implements CaisseListener, MouseListen
             y += LINE_HEIGHT;
         }
         drawCalculator(g);
-        // drawGrid(g);
+        if (Boolean.getBoolean("sales.pos.debug")) {
+            drawGrid(g);
+        }
         super.paint(g);
     }
 
     private void drawGrid(Graphics g) {
         g.setColor(Color.RED);
-        Graphics2D g2 = (Graphics2D) g;
         for (int x = 0; x < 320; x += 80) {
             for (int y = 28; y < 900; y += 72) {
                 g.drawLine(x, y, x + 2, y + 2);

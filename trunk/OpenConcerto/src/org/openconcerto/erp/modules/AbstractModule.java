@@ -14,8 +14,11 @@
  package org.openconcerto.erp.modules;
 
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
+import org.openconcerto.sql.model.DBRoot;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -53,8 +56,20 @@ public abstract class AbstractModule {
     }
 
     /**
-     * Should create permanent items. NOTE: all items created through <code>ctxt</code> will be
-     * dropped automatically, i.e. no action is necessary in {@link #uninstall()}.
+     * The directory this module should use while running. During installation use
+     * {@link DBContext#getLocalDirectory()}.
+     * 
+     * @return the directory for this module.
+     */
+    protected final File getLocalDirectory() {
+        return ModuleManager.getInstance().getLocalDirectory(this.getFactory().getID());
+    }
+
+    /**
+     * Should create permanent items. NOTE: all structure items created through <code>ctxt</code>
+     * will be dropped automatically, and similarly all files created in
+     * {@link DBContext#getLocalDirectory()} will be deleted automatically, i.e. no action is
+     * necessary in {@link #uninstall(DBRoot)}.
      * 
      * @param ctxt to create database objects.
      */
@@ -64,9 +79,9 @@ public abstract class AbstractModule {
 
     /**
      * Should add elements for the tables of this module. It's also the place to
-     * {@link SQLElement#setAction(String, org.openconcerto.sql.element.SQLElement.ReferenceAction)set actions}
-     * for foreign keys of this module. NOTE: this method is called as long as the module is
-     * installed in the database, even if it is stopped.
+     * {@link SQLElement#setAction(String, SQLElement.ReferenceAction) set actions} for foreign keys
+     * of this module. NOTE: this method is called as long as the module is installed in the
+     * database, even if it is stopped.
      * 
      * @param dir the directory where to add elements.
      */
@@ -105,7 +120,7 @@ public abstract class AbstractModule {
 
     protected abstract void stop();
 
-    protected void uninstall() {
+    protected void uninstall(DBRoot root) {
 
     }
 }

@@ -14,26 +14,15 @@
  package org.openconcerto.erp.generationDoc.gestcomm;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
+import org.openconcerto.erp.generationDoc.AbstractSheetXMLWithDate;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
-import java.util.Calendar;
-import java.util.Date;
+public class AvoirClientXmlSheet extends AbstractSheetXMLWithDate {
 
-public class AvoirClientXmlSheet extends AbstractSheetXml {
-
-    private String startName;
-
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationAvoir", "Avoir");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
-    }
+    public static final String TEMPLATE_ID = "Avoir";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationAvoir";
 
     @Override
     public SQLRow getRowLanguage() {
@@ -49,24 +38,16 @@ public class AvoirClientXmlSheet extends AbstractSheetXml {
         super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.elt = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
+    }
 
-        Calendar cal = Calendar.getInstance();
-        cal.setTime((Date) row.getObject("DATE"));
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
 
-        this.startName = "Avoir_";
-
+    @Override
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     }
 
     @Override
-    public String getDefaultModele() {
-
-            return "Avoir";
-    }
-
-    public String getFileName() {
-
-        return getValidFileName(this.startName + this.row.getString("NUMERO"));
+    public String getName() {
+        return "Avoir_" + this.row.getString("NUMERO");
     }
 }

@@ -172,7 +172,7 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
             SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
             SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
             SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticleFind));
-
+            rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
             rowValsElt.put("QTE", sqlRow.getObject("QTE"));
             rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
             rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));

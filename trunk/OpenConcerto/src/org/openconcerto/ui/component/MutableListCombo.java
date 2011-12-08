@@ -28,6 +28,10 @@ public interface MutableListCombo {
 
     void removeCurrentText();
 
+    boolean canReload();
+
+    void reload();
+
     /**
      * The component and where the popup should appear.
      * 

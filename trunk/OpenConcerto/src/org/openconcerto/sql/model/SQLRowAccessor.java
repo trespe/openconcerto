@@ -167,6 +167,14 @@ public abstract class SQLRowAccessor implements SQLData {
         return res;
     }
 
+    /**
+     * Return the foreign row, if any, for the passed field.
+     * 
+     * @param fieldName name of the foreign field.
+     * @return <code>null</code> if the value of <code>fieldName</code> is <code>null</code>,
+     *         otherwise a SQLRowAccessor with the value of <code>fieldName</code> as its ID.
+     * @throws IllegalArgumentException if fieldName is not a foreign field.
+     */
     public abstract SQLRowAccessor getForeign(String fieldName);
 
     public abstract boolean isForeignEmpty(String fieldName);

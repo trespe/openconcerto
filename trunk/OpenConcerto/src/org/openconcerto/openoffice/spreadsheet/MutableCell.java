@@ -18,11 +18,13 @@ import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODFrame;
 import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.OOXML;
+import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ByteArrayProducer;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ImageProducer;
 import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.Tuple3;
 
 import java.awt.Color;
 import java.awt.Image;
@@ -35,6 +37,9 @@ import java.text.NumberFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+
+import javax.xml.datatype.DatatypeConstants;
+import javax.xml.datatype.Duration;
 
 import org.jdom.Attribute;
 import org.jdom.Element;
@@ -51,6 +56,7 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
 
     static private final DateFormat TextPDateFormat = DateFormat.getDateInstance();
     static private final DateFormat TextPTimeFormat = DateFormat.getTimeInstance();
+    static private final NumberFormat TextPMinuteSecondFormat = new DecimalFormat("00.###");
     static private final NumberFormat TextPFloatFormat = DecimalFormat.getNumberInstance();
     static private final NumberFormat TextPPercentFormat = DecimalFormat.getPercentInstance();
     static private final NumberFormat TextPCurrencyFormat = DecimalFormat.getCurrencyInstance();
@@ -76,8 +82,8 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
         }
     }
 
-    MutableCell(Row<D> parent, Element elem) {
-        super(parent, elem);
+    MutableCell(Row<D> parent, Element elem, StyleDesc<CellStyle> styleDesc) {
+        super(parent, elem, styleDesc);
     }
 
     // ask our column to our row so we don't have to update anything when columns are removed/added
@@ -142,24 +148,23 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
     }
 
     public void setValue(Object obj) {
+        this.setValue(obj, true);
+    }
+
+    public void setValue(Object obj, final boolean allowTypeChange) throws UnsupportedOperationException {
         final ODValueType type;
         final ODValueType currentType = getValueType();
         // try to keep current type, since for example a Number can work with FLOAT, PERCENTAGE
         // and CURRENCY
         if (currentType != null && currentType.canFormat(obj.getClass())) {
             type = currentType;
-        } else if (obj instanceof Number) {
-            type = ODValueType.FLOAT;
-        } else if (obj instanceof Date || obj instanceof Calendar) {
-            type = ODValueType.DATE;
-        } else if (obj instanceof Boolean) {
-            type = ODValueType.BOOLEAN;
-        } else if (obj instanceof String) {
-            type = ODValueType.STRING;
         } else {
+            type = ODValueType.forObject(obj);
+        }
+        if (type == null) {
             throw new IllegalArgumentException("Couldn't infer type of " + obj);
         }
-        this.setValue(obj, type, true);
+        this.setValue(obj, type, allowTypeChange, true);
     }
 
     /**
@@ -167,16 +172,20 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
      * 
      * @param obj the new cell value.
      * @param vt the value type.
+     * @param allowTypeChange if <code>true</code> <code>obj</code> and <code>vt</code> might be
+     *        changed to allow the data style to format, e.g. from Boolean.FALSE to 0.
      * @param lenient <code>false</code> to throw an exception if we can't format according to the
      *        ODF, <code>true</code> to try best-effort.
      * @throws UnsupportedOperationException if <code>obj</code> couldn't be formatted.
      */
-    public void setValue(final Object obj, final ODValueType vt, final boolean lenient) throws UnsupportedOperationException {
+    public void setValue(Object obj, ODValueType vt, final boolean allowTypeChange, final boolean lenient) throws UnsupportedOperationException {
         final String text;
-        final String formatted = format(obj, lenient);
+        final Tuple3<String, ODValueType, Object> formatted = format(obj, vt, !allowTypeChange, lenient);
+        vt = formatted.get1();
+        obj = formatted.get2();
 
-        if (formatted != null) {
-            text = formatted;
+        if (formatted.get0() != null) {
+            text = formatted.get0();
         } else {
             // either there were no format or formatting failed
             if (vt == ODValueType.FLOAT) {
@@ -186,9 +195,21 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
             } else if (vt == ODValueType.CURRENCY) {
                 text = formatCurrency((Number) obj, getDefaultStyle());
             } else if (vt == ODValueType.DATE) {
-                text = TextPDateFormat.format(obj);
+                final Date d;
+                if (obj instanceof Calendar) {
+                    d = ((Calendar) obj).getTime();
+                } else {
+                    d = (Date) obj;
+                }
+                text = TextPDateFormat.format(d);
             } else if (vt == ODValueType.TIME) {
-                text = TextPTimeFormat.format(obj);
+                if (obj instanceof Duration) {
+                    final Duration normalized = getODDocument().getEpoch().normalizeToHours((Duration) obj);
+                    text = "" + normalized.getHours() + ':' + TextPMinuteSecondFormat.format(normalized.getMinutes()) + ':'
+                            + TextPMinuteSecondFormat.format(normalized.getField(DatatypeConstants.SECONDS));
+                } else {
+                    text = TextPTimeFormat.format(((Calendar) obj).getTime());
+                }
             } else if (vt == ODValueType.BOOLEAN) {
                 if (lenient)
                     text = obj.toString();
@@ -203,26 +224,36 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
         this.setValue(vt, obj, text);
     }
 
-    // return null if no data style exists, or if one exists but we couldn't use it
-    private String format(Object obj, boolean lenient) {
+    // return null String if no data style exists, or if one exists but we couldn't use it
+    private Tuple3<String, ODValueType, Object> format(Object obj, ODValueType valueType, boolean onlyCast, boolean lenient) {
+        String res = null;
         try {
-            final DataStyle ds = getDataStyle();
-            // act like OO, that is if we set a String to a Date cell, change the value and
-            // value-type but leave the data-style untouched
-            if (ds != null && ds.canFormat(obj.getClass()))
-                return ds.format(obj, getDefaultStyle(), lenient);
+            final Tuple3<DataStyle, ODValueType, Object> ds = getDataStyleAndValue(obj, valueType, onlyCast);
+            if (ds != null) {
+                obj = ds.get2();
+                valueType = ds.get1();
+                // act like OO, that is if we set a String to a Date cell, change the value and
+                // value-type but leave the data-style untouched
+                if (ds.get0().canFormat(obj.getClass()))
+                    res = ds.get0().format(obj, getDefaultStyle(), lenient);
+            }
         } catch (UnsupportedOperationException e) {
             if (lenient)
                 Log.get().warning(ExceptionUtils.getStackTrace(e));
             else
                 throw e;
         }
-        return null;
+        return Tuple3.create(res, valueType, obj);
     }
 
     public final DataStyle getDataStyle() {
+        final Tuple3<DataStyle, ODValueType, Object> s = this.getDataStyleAndValue(this.getValue(), this.getValueType(), true);
+        return s != null ? s.get0() : null;
+    }
+
+    private final Tuple3<DataStyle, ODValueType, Object> getDataStyleAndValue(Object obj, ODValueType valueType, boolean onlyCast) {
         final CellStyle s = this.getStyle();
-        return s != null ? getStyle().getDataStyle() : null;
+        return s != null ? getStyle().getDataStyle(obj, valueType, onlyCast) : null;
     }
 
     protected final CellStyle getDefaultStyle() {

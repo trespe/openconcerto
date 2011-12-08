@@ -16,13 +16,11 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
 import org.openconcerto.erp.generationDoc.AbstractJOOReportsSheet;
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
-import org.openconcerto.utils.Tuple2;
 
 import java.util.Date;
 import java.util.HashMap;
@@ -33,11 +31,9 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
 
     private SQLRow rowRelance;
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationRelance", "Relance");
+    public static final String TEMPLATE_ID = "Relance";
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
-    }
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationRelance";
 
     /**
      * @return une Map contenant les valeurs à remplacer dans la template
@@ -122,10 +118,11 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         sel.addSelect(this.rowRelance.getTable().getKey());
         sel.setWhere(new Where(this.rowRelance.getTable().getField("ID_SAISIE_VENTE_FACTURE"), "=", this.rowRelance.getInt("ID_SAISIE_VENTE_FACTURE")));
         sel.addFieldOrder(this.rowRelance.getTable().getField("DATE").getFullName());
-        List<Map> listResult = Configuration.getInstance().getBase().getDataSource().execute(sel.asString());
+        @SuppressWarnings("unchecked")
+        List<Map<String, Number>> listResult = Configuration.getInstance().getBase().getDataSource().execute(sel.asString());
         if (listResult != null && listResult.size() > 0) {
-            Map o = listResult.get(0);
-            Number n = (Number) o.get(this.rowRelance.getTable().getKey().getName());
+            Map<String, Number> o = listResult.get(0);
+            Number n = o.get(this.rowRelance.getTable().getKey().getName());
             SQLRow rowOldRelance = this.rowRelance.getTable().getRow(n.intValue());
             Date dOldRelance = (Date) rowOldRelance.getObject("DATE");
             map.put("DatePremiereRelance", dateFormat2.format(dOldRelance));
@@ -144,7 +141,7 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
 
         final String string = rowLettre.getString("MODELE");
         System.err.println(this.locationTemplate + "/" + string);
-        init(year, string, "RelancePrinter", tuple);
+        init(year, string, "RelancePrinter");
     }
 
     protected boolean savePDF() {
@@ -152,7 +149,6 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
     }
 
     public String getFileName() {
-        String fileName = "Relance_" + AbstractSheetXml.getValidFileName(this.rowRelance.getString("NUMERO"));
-        return fileName;
+        return "Relance_" + this.rowRelance.getString("NUMERO");
     }
 }

@@ -16,6 +16,7 @@
 import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.Style;
+import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.SheetTableModel.MutableTableModel;
@@ -30,7 +31,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -60,90 +60,103 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
     }
 
     // ATTN Row have their index as attribute
-    private final List<Row<D>> rows;
-    private int headerRowCount;
-    private final List<Column<D>> cols;
-    private int headerColumnCount;
+    private final ArrayList<Row<D>> rows;
+    private TableGroup rowGroup;
+    private final ArrayList<Column<D>> cols;
+    private TableGroup columnGroup;
 
     public Table(D parent, Element local) {
         super(parent, local, TableStyle.class);
 
-        this.rows = new ArrayList<Row<D>>();
-        this.cols = new ArrayList<Column<D>>();
+        this.rows = new ArrayList<Row<D>>(64);
+        this.cols = new ArrayList<Column<D>>(32);
 
+        // read columns first since Row constructor needs it
         this.readColumns();
         this.readRows();
     }
 
     private void readColumns() {
-        this.read(true);
+        this.read(Axis.COLUMN);
     }
 
     private final void readRows() {
-        this.read(false);
+        this.read(Axis.ROW);
     }
 
-    private final void read(final boolean col) {
-        final Tuple2<List<Element>, Integer> r = flatten(col);
-        (col ? this.cols : this.rows).clear();
-        for (final Element clone : r.get0()) {
-            if (col)
-                this.addCol(clone);
-            else
-                this.addRow(clone);
+    private final void read(final Axis axis) {
+        final boolean col = axis == Axis.COLUMN;
+        final Tuple2<TableGroup, List<Element>> r = TableGroup.createRoot(this, axis);
+        final ArrayList<?> l = col ? this.cols : this.rows;
+        final int oldSize = l.size();
+        l.clear();
+        final int newSize = r.get0().getSize();
+        l.ensureCapacity(newSize);
+        if (col) {
+            final StyleStyleDesc<ColumnStyle> colStyleDesc = getColumnStyleDesc();
+            for (final Element clone : r.get1())
+                this.addCol(clone, colStyleDesc);
+            this.columnGroup = r.get0();
+        } else {
+            final StyleStyleDesc<RowStyle> rowStyleDesc = getRowStyleDesc();
+            final StyleStyleDesc<CellStyle> cellStyleDesc = getCellStyleDesc();
+            for (final Element clone : r.get1())
+                this.addRow(clone, rowStyleDesc, cellStyleDesc);
+            this.rowGroup = r.get0();
         }
-        if (col)
-            this.headerColumnCount = r.get1();
-        else
-            this.headerRowCount = r.get1();
+        // this always copy the array, so make sure we reclaim enough memory (~ 64k)
+        if (oldSize - newSize > 8192) {
+            l.trimToSize();
+        }
+        assert newSize == (col ? this.getColumnCount() : this.getRowCount());
     }
 
-    private final void addCol(Element clone) {
-        this.cols.add(new Column<D>(this, clone));
+    private final void addCol(Element clone, StyleStyleDesc<ColumnStyle> colStyleDesc) {
+        this.cols.add(new Column<D>(this, clone, colStyleDesc));
     }
 
-    private Tuple2<List<Element>, Integer> flatten(boolean col) {
-        final List<Element> res = new ArrayList<Element>();
-        final Element header = this.getElement().getChild("table-header-" + getName(col) + "s", getTABLE());
-        if (header != null)
-            res.addAll(flatten(header, col));
-        final int headerCount = res.size();
-
-        res.addAll(flatten(getElement(), col));
-
-        return Tuple2.create(res, headerCount);
+    static final int flattenChildren(final List<Element> res, final Element elem, final Axis axis) {
+        int count = 0;
+        // array so that flatten1() can modify an int
+        int[] index = new int[] { 0 };
+        // copy since we will change our children (don't use List.listIterator(int) since it
+        // re-filters all content)
+        @SuppressWarnings("unchecked")
+        final List<Element> children = new ArrayList<Element>(elem.getChildren(axis.getElemName(), elem.getNamespace()));
+        final int stop = children.size();
+        for (int i = 0; i < stop; i++) {
+            final Element row = children.get(i);
+            count += flatten1(res, row, axis, index);
+        }
+        return count;
     }
 
-    @SuppressWarnings("unchecked")
-    private List<Element> flatten(final Element elem, boolean col) {
-        final String childName = getName(col);
-        final List<Element> children = elem.getChildren("table-" + childName, getTABLE());
-        // not final, since iter.add() does not work consistently, and
-        // thus we must recreate an iterator each time
-        ListIterator<Element> iter = children.listIterator();
-        while (iter.hasNext()) {
-            final Element row = iter.next();
-            final Attribute repeatedAttr = row.getAttribute("number-" + childName + "s-repeated", getTABLE());
-            if (repeatedAttr != null) {
-                row.removeAttribute(repeatedAttr);
-                final int index = iter.previousIndex();
-                int repeated = Integer.parseInt(repeatedAttr.getValue());
-                if (repeated > 60000) {
-                    repeated = 10;
-                }
-                // -1 : we keep the original row
-                for (int i = 0; i < repeated - 1; i++) {
-                    final Element clone = (Element) row.clone();
-                    // cannot use iter.add() since on JDOM 1.1 if row is the last table-column
-                    // before table-row the clone is added at the very end
-                    children.add(index, clone);
-                }
-                // restart after the added rows
-                iter = children.listIterator(index + repeated);
+    static int flatten1(final List<Element> res, final Element row, final Axis axis) {
+        return flatten1(res, row, axis, null);
+    }
+
+    // add XML elements to res and return the logical count
+    private static int flatten1(final List<Element> res, final Element row, final Axis axis, final int[] parentIndex) {
+        final int resSize = res.size();
+        final Attribute repeatedAttr = axis.getRepeatedAttr(row);
+        final int repeated = repeatedAttr == null ? 1 : Integer.parseInt(repeatedAttr.getValue());
+        if (axis == Axis.COLUMN && repeated > 1) {
+            row.removeAttribute(repeatedAttr);
+            final Element parent = row.getParentElement();
+            final int index = (parentIndex == null ? parent.indexOf(row) : parentIndex[0]) + 1;
+            res.add(row);
+            // -1 : we keep the original row
+            for (int i = 0; i < repeated - 1; i++) {
+                final Element clone = (Element) row.clone();
+                res.add(clone);
+                parent.addContent(index + i, clone);
             }
+        } else {
+            res.add(row);
         }
-
-        return children;
+        if (parentIndex != null)
+            parentIndex[0] += res.size() - resSize;
+        return repeated;
     }
 
     public final String getName() {
@@ -156,10 +169,6 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
 
     public void detach() {
         this.getElement().detach();
-    }
-
-    private final String getName(boolean col) {
-        return col ? "column" : "row";
     }
 
     public final Object getPrintRanges() {
@@ -235,21 +244,45 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
 
         // clone xml elements and add them to our tree
         final List<Element> clones = new ArrayList<Element>(count * copies);
-        for (int i = 0; i < copies; i++) {
-            for (int l = start; l < stop; l++) {
-                final Element r = this.rows.get(l).getElement();
-                clones.add((Element) r.clone());
+        for (int l = start; l < stop;) {
+            final Row<D> immutableRow = this.getRow(l);
+            final Row<D> toClone;
+            // MAYBE use something else than getMutableRow() since we don't need a single row.
+            // the repeated row starts before the copied range, split it at the beginning
+            if (immutableRow.getY() < l) {
+                toClone = this.getMutableRow(l);
+            } else {
+                assert immutableRow.getY() == l;
+                if (immutableRow.getLastY() >= stop) {
+                    // the repeated row goes beyond the copied range, split it at the end
+                    assert this.getRow(stop) == immutableRow;
+                    this.getMutableRow(stop);
+                    toClone = this.getRow(l);
+                } else {
+                    toClone = immutableRow;
+                }
+            }
+            assert toClone.getY() == l;
+            assert toClone.getLastY() < stop : "Row goes to far";
+            l += toClone.getRepeated();
+            clones.add((Element) toClone.getElement().clone());
+        }
+        final int clonesSize = clones.size();
+        for (int i = 1; i < copies; i++) {
+            for (int j = 0; j < clonesSize; j++) {
+                clones.add((Element) clones.get(j).clone());
             }
         }
         // works anywhere its XML element is
-        JDOMUtils.insertAfter(this.rows.get(stop - 1).getElement(), clones);
+        assert this.getRow(stop - 1).getLastY() == stop - 1 : "Adding XML element too far";
+        JDOMUtils.insertAfter(this.getRow(stop - 1).getElement(), clones);
 
         for (final Point coverOrigin : coverOriginsToUpdate) {
             final MutableCell<D> coveringCell = getCellAt(coverOrigin);
             coveringCell.setRowsSpanned(coveringCell.getRowsSpanned() + count * copies);
         }
 
-        // synchronize our rows with our new tree
+        // synchronize our rows with our new tree (rows' index have changed)
         this.readRows();
 
         // 19.627 in OpenDocument-v1.2-cs01-part1 : The table:end-cell-address attribute specifies
@@ -323,8 +356,12 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         }
     }
 
-    private synchronized void addRow(Element child) {
-        this.rows.add(new Row<D>(this, child, this.rows.size()));
+    private synchronized void addRow(Element child, StyleDesc<RowStyle> styleDesc, StyleDesc<CellStyle> cellStyleDesc) {
+        final Row<D> row = new Row<D>(this, child, this.rows.size(), styleDesc, cellStyleDesc);
+        final int toRepeat = row.getRepeated();
+        for (int i = 0; i < toRepeat; i++) {
+            this.rows.add(row);
+        }
     }
 
     public final Point resolveHint(String ref) {
@@ -346,8 +383,18 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
             return this.getImmutableCellAt(x, y).isValid();
     }
 
+    /**
+     * Return a modifiable cell at the passed coordinates. This is slower than
+     * {@link #getImmutableCellAt(int, int)} since this method may modify the underlying XML (e.g.
+     * break up repeated cells to allow for modification of only the returned cell).
+     * 
+     * @param x the column.
+     * @param y the row.
+     * @return the cell.
+     * @see #getImmutableCellAt(int, int)
+     */
     public final MutableCell<D> getCellAt(int x, int y) {
-        return this.getRow(y).getMutableCellAt(x);
+        return this.getMutableRow(y).getMutableCellAt(x);
     }
 
     public final MutableCell<D> getCellAt(String ref) {
@@ -375,11 +422,20 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
 
     // *** get cell
 
-    protected final Cell<D> getImmutableCellAt(int x, int y) {
+    /**
+     * Return a non modifiable cell at the passed coordinates. This is faster than
+     * {@link #getCellAt(int, int)} since this method never modifies the underlying XML.
+     * 
+     * @param x the column.
+     * @param y the row.
+     * @return the cell.
+     * @see #getCellAt(int, int)
+     */
+    public final Cell<D> getImmutableCellAt(int x, int y) {
         return this.getRow(y).getCellAt(x);
     }
 
-    protected final Cell<D> getImmutableCellAt(String ref) {
+    public final Cell<D> getImmutableCellAt(String ref) {
         final Point p = resolveHint(ref);
         return this.getImmutableCellAt(p.x, p.y);
     }
@@ -457,7 +513,7 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
     }
 
     public final CellStyle getStyleAt(int column, int row) {
-        return getCellStyleDesc().findStyle(this.getODDocument().getPackage(), this.getElement().getDocument(), this.getStyleNameAt(column, row));
+        return getCellStyleDesc().findStyleForNode(this.getImmutableCellAt(column, row), this.getStyleNameAt(column, row));
     }
 
     protected StyleStyleDesc<CellStyle> getCellStyleDesc() {
@@ -506,6 +562,14 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         return res;
     }
 
+    protected final StyleStyleDesc<ColumnStyle> getColumnStyleDesc() {
+        return Style.getStyleStyleDesc(ColumnStyle.class, XMLVersion.getVersion(getElement()));
+    }
+
+    protected final StyleStyleDesc<RowStyle> getRowStyleDesc() {
+        return Style.getStyleStyleDesc(RowStyle.class, XMLVersion.getVersion(getElement()));
+    }
+
     /**
      * Retourne la valeur de la cellule spécifiée.
      * 
@@ -518,8 +582,18 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
 
     // *** get count
 
-    private Row<D> getRow(int index) {
+    final Row<D> getRow(int index) {
         return this.rows.get(index);
+    }
+
+    final Row<D> getMutableRow(int y) {
+        final Row<D> c = this.getRow(y);
+        if (c.getRepeated() > 1) {
+            RepeatedBreaker.<D> getRowBreaker().breakRepeated(this, this.rows, y);
+            return this.getRow(y);
+        } else {
+            return c;
+        }
     }
 
     public final Column<D> getColumn(int i) {
@@ -530,16 +604,44 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         return this.rows.size();
     }
 
+    public final TableGroup getRowGroup() {
+        return this.rowGroup;
+    }
+
+    /**
+     * Return the deepest group at the passed row.
+     * 
+     * @param y a row index.
+     * @return the group at the index, never <code>null</code>.
+     */
+    public final TableGroup getRowGroupAt(final int y) {
+        return this.getRowGroup().getDescendentOrSelfContaining(y);
+    }
+
     public final int getHeaderRowCount() {
-        return this.headerRowCount;
+        return this.getRowGroup().getFollowingHeaderCount();
     }
 
     public final int getColumnCount() {
         return this.cols.size();
     }
 
+    public final TableGroup getColumnGroup() {
+        return this.columnGroup;
+    }
+
+    /**
+     * Return the deepest group at the passed column.
+     * 
+     * @param x a column index.
+     * @return the group at the index, never <code>null</code>.
+     */
+    public final TableGroup getColumnGroupAt(final int x) {
+        return this.getColumnGroup().getDescendentOrSelfContaining(x);
+    }
+
     public final int getHeaderColumnCount() {
-        return this.headerColumnCount;
+        return this.getColumnGroup().getFollowingHeaderCount();
     }
 
     // *** set count
@@ -595,17 +697,22 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
             } else {
                 elemToClone = getColumn(colIndex).getElement();
             }
+            final StyleStyleDesc<ColumnStyle> columnStyleDesc = getColumnStyleDesc();
             for (int i = 0; i < toGrow; i++) {
                 final Element newElem = (Element) elemToClone.clone();
                 this.getElement().addContent(indexOfLastCol + 1 + i, newElem);
-                this.cols.add(new Column<D>(this, newElem));
+                this.cols.add(new Column<D>(this, newElem, columnStyleDesc));
             }
             // now update widths
             updateWidth(keepTableWidth);
 
             // add needed cells
-            for (final Row r : this.rows) {
-                r.columnCountChanged();
+            final StyleStyleDesc<CellStyle> cellStyleDesc = this.getCellStyleDesc();
+            final int rowCount = this.getRowCount();
+            for (int i = 0; i < rowCount;) {
+                final Row<D> r = this.getRow(i);
+                r.columnCountChanged(cellStyleDesc);
+                i += r.getRepeated();
             }
         }
     }
@@ -629,16 +736,21 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      */
     public final void removeColumn(int firstIndex, int lastIndex, final boolean keepTableWidth) {
         // first check that removeCells() will succeed, so that we avoid an incoherent XML state
-        for (final Row r : this.rows) {
+        final int rowCount = this.getRowCount();
+        for (int i = 0; i < rowCount;) {
+            final Row<D> r = this.getRow(i);
             r.checkRemove(firstIndex, lastIndex);
+            i += r.getRepeated();
         }
         // rm column element
-        remove(true, firstIndex, lastIndex - 1);
+        remove(Axis.COLUMN, firstIndex, lastIndex - 1);
         // update widths
         updateWidth(keepTableWidth);
         // rm cells
-        for (final Row r : this.rows) {
+        for (int i = 0; i < rowCount;) {
+            final Row<D> r = this.getRow(i);
             r.removeCells(firstIndex, lastIndex);
+            i += r.getRepeated();
         }
     }
 
@@ -709,19 +821,40 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         return colStyle;
     }
 
-    private final void setCount(final boolean col, final int newSize) {
+    private final void setCount(final Axis col, final int newSize) {
         this.remove(col, newSize, -1);
     }
 
     // both inclusive
-    private final void remove(final boolean col, final int fromIndex, final int toIndexIncl) {
-        // ok since rows and cols are flattened in ctor
-        final List<? extends TableCalcNode> l = col ? this.cols : this.rows;
+    private final void remove(final Axis col, final int fromIndex, final int toIndexIncl) {
+        assert col == Axis.COLUMN || toIndexIncl < 0 : "Row index will be wrong";
+        final List<? extends TableCalcNode<?, ?>> l = col == Axis.COLUMN ? this.cols : this.rows;
         final int toIndexValid = CollectionUtils.getValidIndex(l, toIndexIncl);
-        for (int i = toIndexValid; i >= fromIndex; i--) {
-            // works anywhere its XML element is
-            l.remove(i).getElement().detach();
+        final int toRemoveCount = toIndexValid - fromIndex + 1;
+        int removedCount = 0;
+        while (removedCount < toRemoveCount) {
+            // works backwards to keep y OK
+            final int i = toIndexValid - removedCount;
+            final TableCalcNode<?, ?> removed = l.get(i);
+            if (removed instanceof Row) {
+                final Row<?> r = (Row<?>) removed;
+                final int removeFromRepeated = i - Math.max(fromIndex, r.getY()) + 1;
+                // removedCount grows each iteration
+                assert removeFromRepeated > 0;
+                final int newRepeated = r.getRepeated() - removeFromRepeated;
+                if (newRepeated == 0)
+                    removed.getElement().detach();
+                else
+                    r.setRepeated(newRepeated);
+                removedCount += removeFromRepeated;
+            } else {
+                // Columns are always flattened
+                removed.getElement().detach();
+                removedCount++;
+            }
         }
+        // one remove to be efficient
+        l.subList(fromIndex, toIndexValid + 1).clear();
     }
 
     public final void ensureRowCount(int newSize) {
@@ -741,23 +874,22 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      * @param rowIndex the index of the row to be copied, -1 for empty row (i.e. default style).
      */
     public final void setRowCount(int newSize, int rowIndex) {
-        final Element elemToClone;
-        if (rowIndex < 0) {
-            elemToClone = Row.createEmpty(this.getODDocument().getVersion());
-            // each row MUST have the same number of columns
-            elemToClone.addContent(Cell.createEmpty(this.getODDocument().getVersion(), this.getColumnCount()));
-        } else
-            elemToClone = getRow(rowIndex).getElement();
         final int toGrow = newSize - this.getRowCount();
         if (toGrow < 0) {
-            setCount(false, newSize);
-        } else {
-            for (int i = 0; i < toGrow; i++) {
-                final Element newElem = (Element) elemToClone.clone();
-                // as per section 8.1.1 rows are the last elements inside a table
-                this.getElement().addContent(newElem);
-                addRow(newElem);
+            setCount(Axis.ROW, newSize);
+        } else if (toGrow > 0) {
+            final Element elemToClone;
+            if (rowIndex < 0) {
+                elemToClone = Row.createEmpty(this.getODDocument().getVersion());
+                // each row MUST have the same number of columns
+                elemToClone.addContent(Cell.createEmpty(this.getODDocument().getVersion(), this.getColumnCount()));
+            } else {
+                elemToClone = (Element) getRow(rowIndex).getElement().clone();
             }
+            Axis.ROW.setRepeated(elemToClone, toGrow);
+            // as per section 8.1.1 rows are the last elements inside a table
+            this.getElement().addContent(elemToClone);
+            addRow(elemToClone, getRowStyleDesc(), getCellStyleDesc());
         }
     }
 
@@ -948,7 +1080,7 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         public final Range getCurrentRegion() {
             while (this.checkFrame())
                 ;// bounded by table size
-            return new Range(getName(), new Point(minX, minY), new Point(maxX, maxY));
+            return new Range(getName(), new Point(this.minX, this.minY), new Point(this.maxX, this.maxY));
         }
     }
 
@@ -968,7 +1100,8 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      * @param startX x coordinate.
      * @param startY y coordinate.
      * @return the smallest range containing the passed cell.
-     * @see http://msdn.microsoft.com/library/aa214248(v=office.11).aspx
+     * @see <a href="http://msdn.microsoft.com/library/aa214248(v=office.11).aspx">CurrentRegion
+     *      Property</a>
      */
     public final Range getCurrentRegion(final int startX, final int startY) {
         return this.getCurrentRegion(startX, startY, false);

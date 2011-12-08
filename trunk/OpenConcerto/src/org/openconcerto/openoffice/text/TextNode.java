@@ -13,7 +13,7 @@
  
  package org.openconcerto.openoffice.text;
 
-import org.openconcerto.openoffice.ODSingleXMLDocument;
+import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyledNode;
 
@@ -26,33 +26,37 @@ import org.jdom.Element;
  * 
  * @param <S> type of style.
  */
-public abstract class TextNode<S extends StyleStyle> extends StyledNode<S, ODSingleXMLDocument> {
+public abstract class TextNode<S extends StyleStyle> extends StyledNode<S, TextDocument> {
 
-    protected ODSingleXMLDocument parent;
+    protected TextDocument parent;
 
     public TextNode(Element local, final Class<S> styleClass) {
+        this(local, styleClass, null);
+    }
+
+    protected TextNode(Element local, final Class<S> styleClass, final TextDocument parent) {
         super(local, styleClass);
-        this.parent = null;
+        this.parent = parent;
     }
 
     @Override
-    public final ODSingleXMLDocument getODDocument() {
+    public final TextDocument getODDocument() {
         return this.parent;
     }
 
-    public final void setDocument(ODSingleXMLDocument doc) {
+    public final void setDocument(TextDocument doc) {
         if (doc != this.parent) {
             if (doc == null) {
                 this.parent = null;
                 this.getElement().detach();
-            } else if (doc.getDocument() != this.getElement().getDocument())
+            } else if (doc.getContentDocument() != this.getElement().getDocument()) {
                 doc.add(this);
-            else {
+            } else {
                 this.checkDocument(doc);
                 this.parent = doc;
             }
         }
     }
 
-    protected abstract void checkDocument(ODSingleXMLDocument doc);
+    protected abstract void checkDocument(ODDocument doc);
 }

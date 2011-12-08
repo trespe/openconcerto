@@ -19,7 +19,9 @@ import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableEvent;
+import org.openconcerto.sql.model.SQLTableEvent.Mode;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 
 import java.sql.SQLException;
@@ -55,43 +57,43 @@ public class UserRightsManagerModel extends AbstractTableModel {
         List<SQLRow> rowsRights = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel2.asString(), new SQLRowListRSH(this.tableRight, true));
         this.cache.addAll(rowsRights);
 
-        this.tableRight.addTableListener(new SQLTableListener() {
+        this.tableRight.addTableModifiedListener(new SQLTableModifiedListener() {
             @Override
-            public void rowAdded(SQLTable table, int id) {
-
-                UserRightsManagerModel.this.cache.add(table.getRow(id));
-            }
-
-            @Override
-            public void rowDeleted(SQLTable table, int id) {
-
-            }
-
-            @Override
-            public void rowModified(SQLTable table, int id) {
-                SQLRow row = table.getRow(id);
-
-                for (int i = 0; i < UserRightsManagerModel.this.cache.size(); i++) {
-                    SQLRow row2 = UserRightsManagerModel.this.cache.get(i);
-                    if (row2.getID() == id) {
-                        if (row.isArchived()) {
-                            UserRightsManagerModel.this.cache.remove(i);
-                        } else {
-                            UserRightsManagerModel.this.cache.set(i, row2);
+            public void tableModified(SQLTableEvent evt) {
+                if (evt.getMode() == Mode.ROW_ADDED) {
+                    UserRightsManagerModel.this.cache.add(evt.getRow());
+                } else {
+                    final SQLRow row = evt.getRow();
+                    for (int i = 0; i < UserRightsManagerModel.this.cache.size(); i++) {
+                        final SQLRow row2 = UserRightsManagerModel.this.cache.get(i);
+                        if (row2.getID() == row.getID()) {
+                            if (!row.isValid()) {
+                                UserRightsManagerModel.this.cache.remove(i);
+                            } else {
+                                UserRightsManagerModel.this.cache.set(i, row2);
+                            }
+                            break;
                         }
-                        break;
                     }
                 }
             }
         });
 
-        this.tableUserRight.addTableListener(new SQLTableListener() {
-            @Override
-            public void rowAdded(SQLTable table, int id) {
+        this.tableUserRight.addTableModifiedListener(new SQLTableModifiedListener() {
 
-                SQLRow row = table.getRow(id);
+            @Override
+            public void tableModified(SQLTableEvent evt) {
+                if (evt.getMode() == Mode.ROW_ADDED) {
+                    rowAdded(evt);
+                } else {
+                    rowModified(evt);
+                }
+            }
+
+            public void rowAdded(SQLTableEvent evt) {
+                final SQLRow row = evt.getRow();
                 if (row.getInt("ID_USER_COMMON") == UserRightsManagerModel.this.idUser) {
-                    SQLRowValues rowVals = getSQLRowValuesForID(id);
+                    SQLRowValues rowVals = getSQLRowValuesFor(row);
                     if (rowVals == null) {
                         UserRightsManagerModel.this.listRowValues.add(row.createUpdateRow());
                         fireTableRowsInserted(UserRightsManagerModel.this.listRowValues.size() - 2, UserRightsManagerModel.this.listRowValues.size() - 1);
@@ -99,17 +101,12 @@ public class UserRightsManagerModel extends AbstractTableModel {
                 }
             }
 
-            @Override
-            public void rowDeleted(SQLTable table, int id) {
-            }
-
-            @Override
-            public void rowModified(SQLTable table, int id) {
-                SQLRow row = table.getRow(id);
+            public void rowModified(SQLTableEvent evt) {
+                final SQLRow row = evt.getRow();
                 if (row.getInt("ID_USER_COMMON") == UserRightsManagerModel.this.idUser) {
-                    SQLRowValues rowVals = getSQLRowValuesForID(id);
+                    SQLRowValues rowVals = getSQLRowValuesFor(row);
                     int index = UserRightsManagerModel.this.listRowValues.indexOf(rowVals);
-                    if (row.isArchived()) {
+                    if (!row.isValid()) {
                         UserRightsManagerModel.this.listRowValues.removeElement(rowVals);
                         fireTableRowsDeleted(index - 1, index + 1);
                     } else {
@@ -121,12 +118,11 @@ public class UserRightsManagerModel extends AbstractTableModel {
         });
     }
 
-    private SQLRowValues getSQLRowValuesForID(int id) {
-        SQLRow row = this.tableUserRight.getRow(id);
+    private SQLRowValues getSQLRowValuesFor(final SQLRow row) {
         final String string2 = row.getString("CODE");
         for (SQLRowValues rowVals : this.listRowValues) {
             final String string = rowVals.getString("CODE");
-            if (rowVals.getID() == id || (string != null && string2 != null && string.equalsIgnoreCase(string2))) {
+            if (rowVals.getID() == row.getID() || (string != null && string2 != null && string.equalsIgnoreCase(string2))) {
                 return rowVals;
             }
         }

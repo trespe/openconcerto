@@ -17,6 +17,7 @@
 package org.openconcerto.sql.model;
 
 import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.xml.JDOMUtils;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
@@ -303,7 +304,7 @@ public abstract class SQLType {
                 sb.append(this.decimalDigits);
             }
             sb.append("\" typeName=\"");
-            sb.append(this.typeName);
+            sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(this.typeName));
             sb.append("\"/>");
             this.xml = sb.toString();
         }

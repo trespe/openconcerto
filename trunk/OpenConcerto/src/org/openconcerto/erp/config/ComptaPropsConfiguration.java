@@ -100,6 +100,7 @@ import org.openconcerto.erp.core.sales.credit.element.AvoirClientSQLElement;
 import org.openconcerto.erp.core.sales.invoice.element.EcheanceClientSQLElement;
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureItemSQLElement;
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
+import org.openconcerto.erp.core.sales.invoice.ui.SaisieVenteFactureItemTable;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientElementSQLElement;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.pos.element.CaisseTicketSQLElement;
@@ -148,10 +149,12 @@ import org.openconcerto.erp.injector.FactureAvoirSQLInjector;
 import org.openconcerto.erp.injector.FactureBonSQLInjector;
 import org.openconcerto.erp.injector.FactureCommandeSQLInjector;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.TemplateNXProps;
 import org.openconcerto.erp.rights.ComptaTotalUserRight;
 import org.jopendocument.link.OOConnexion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.ShowAs;
+import org.openconcerto.sql.element.ElementMapper;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.element.SharedSQLElement;
 import org.openconcerto.sql.model.DBRoot;
@@ -341,7 +344,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     @Override
     protected String getAppIDSuffix() {
         if (inWebstart())
-            // so we don't remove files of a normal OpenConcerto
+            // so we don't remove files of a normal GestionNX
             return super.getAppIDSuffix() + "-webstart";
         else
             return super.getAppIDSuffix();
@@ -403,7 +406,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     @Override
     protected ShowAs createShowAs() {
-        System.out.println("ComptaPropsConfiguration.createShowAszzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz()");
         final ShowAs showAs = super.createShowAs();
 
         showAs.show("ADRESSE_COMMON", SQLRow.toList("RUE,VILLE"));
@@ -731,6 +733,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         }
         setSocieteShowAs();
         setSocieteSQLInjector();
+        setMapper();
         String sfe = DefaultNXProps.getInstance().getStringProperty("ArticleSFE");
         Boolean bSfe = Boolean.valueOf(sfe);
         boolean isSFE = bSfe != null && bSfe.booleanValue();
@@ -740,7 +743,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
                 trans.load(rootSociete, inSFE);
             }
         }
-
+        TemplateNXProps.getInstance();
         // Chargement du graphe
         new Thread() {
             public void run() {
@@ -748,6 +751,21 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
             }
         }.start();
+    }
+
+    private void setMapper() {
+        ElementMapper mapper = ElementMapper.getInstance();
+        mapper.map("customerrelationship.name", "Relation client");
+        mapper.map("customerrelationship.customer.list.table", "CLIENT");
+        mapper.map("customerrelationship.contact.list.table", "CONTACT");
+        mapper.map("accounting.name", "Comptabilité");
+        mapper.map("sales.name", "Gestion commerciale");
+        mapper.map("sales.invoice.name", "Factures client");
+        mapper.map("sales.invoice.list.table", "SAISIE_VENTE_FACTURE");
+        mapper.map("sales.quote.name", "Devis client");
+        mapper.map("sales.quote.list.table", "DEVIS");
+        mapper.map("sales.invoice.list.table.editor", SaisieVenteFactureItemTable.class);
+        mapper.dump();
     }
 
     private void closeSocieteConnexion() {

@@ -17,11 +17,14 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.changer.Changer;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSelect.ArchiveMode;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.model.SQLSelect.ArchiveMode;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 
@@ -41,7 +44,7 @@ public class FixSharedPrivate extends Changer<SQLTable> {
         super(b);
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
     protected void changeImpl(final SQLTable t) throws SQLException {
         getStream().println(t + "... ");
         if (Configuration.getInstance() == null || Configuration.getInstance().getDirectory() == null)
@@ -65,9 +68,14 @@ public class FixSharedPrivate extends Changer<SQLTable> {
             sel.addBackwardJoin("INNER", "m", t.getField(pff), null);
             final String req = sel.asString() + " GROUP BY " + privateTable.getKey().getFieldRef() + " HAVING count(" + privateTable.getKey().getFieldRef() + ")>1";
 
+            @SuppressWarnings("unchecked")
             final List<Number> privateIDs = t.getDBSystemRoot().getDataSource().executeCol(req);
             if (privateIDs.size() > 0) {
                 getStream().println("\t" + pff + " fixing " + privateIDs.size() + " ... ");
+                final SQLField archF = t.getArchiveField();
+                final SQLField privateArchF = privateTable.getArchiveField();
+                if ((archF == null) != (privateArchF == null))
+                    throw new IllegalStateException("Incoherent archive field : " + archF + " / " + privateArchF);
                 SQLUtils.executeAtomic(t.getDBSystemRoot().getDataSource(), new SQLFactory<Object>() {
                     @Override
                     public Object create() throws SQLException {
@@ -76,11 +84,21 @@ public class FixSharedPrivate extends Changer<SQLTable> {
                             final SQLSelect fixSel = new SQLSelect(t.getBase());
                             fixSel.setArchivedPolicy(ArchiveMode.BOTH);
                             fixSel.addSelect(t.getKey());
+                            if (archF != null)
+                                fixSel.addSelect(archF);
                             fixSel.setWhere(new Where(t.getField(pff), "=", privateID));
-                            final List<Number> tIDs = t.getDBSystemRoot().getDataSource().executeCol(fixSel.asString());
-                            // the first one can keep its private
-                            for (final Number tID : tIDs.subList(1, tIDs.size())) {
-                                new SQLRowValues(t).setID(tID).put(pff, privateElement.createCopy(privateID.intValue())).update();
+                            final List<SQLRow> tIDs = SQLRowListRSH.execute(fixSel);
+                            for (final SQLRow tID : tIDs) {
+                                // the first one can keep its private
+                                final SQLRowValues reallyPrivate;
+                                if (tID == tIDs.get(0))
+                                    reallyPrivate = new SQLRowValues(privateElement.getTable()).setID(privateID);
+                                else
+                                    reallyPrivate = privateElement.createCopy(privateID.intValue());
+                                // keep archive coherence
+                                if (archF != null)
+                                    reallyPrivate.put(privateArchF.getName(), tID.getObject(archF.getName()));
+                                new SQLRowValues(t).setID(tID.getIDNumber()).put(pff, reallyPrivate).update();
                             }
                         }
                         return null;

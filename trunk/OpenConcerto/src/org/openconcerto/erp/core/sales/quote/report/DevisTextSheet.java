@@ -115,15 +115,20 @@ public class DevisTextSheet extends AbstractJOOReportsSheet {
         this.askOverwriting = true;
         Date d = (Date) this.row.getObject("DATE");
         String year = yearFormat.format(d);
-        init(year, "Devis.odt", "DevisPrinter", DevisXmlSheet.getTuple2Location());
+        init(year, "Devis.odt", "DevisPrinter");
     }
 
     protected boolean savePDF() {
         return true;
     }
 
+    @Override
     public String getFileName() {
-        String fileName = "Devis_" + AbstractSheetXml.getValidFileName(this.row.getString("NUMERO"));
+        String fileName = "Devis_" + this.row.getString("NUMERO");
         return fileName;
+    }
+
+    public String getTemplateId() {
+        return "sales.quote.text";
     }
 }

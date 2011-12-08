@@ -18,9 +18,16 @@ import java.util.List;
 public interface ITextComboCache {
 
     /**
+     * Can this cache be used.
+     * 
+     * @return <code>true</code> if this cache can be used.
+     */
+    public boolean isValid();
+
+    /**
      * Force le chargement du cache (en synchrone) et le renvoi
      */
-    public List<String> loadCache();
+    public List<String> loadCache(final boolean readCache);
 
     /**
      * Retourne les éléments du cache, et le charge de manière synchrone si n'a jamais été chargé

@@ -14,8 +14,7 @@
  package org.openconcerto.erp.core.sales.invoice.report;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
+import org.openconcerto.erp.generationDoc.AbstractSheetXMLWithDate;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
@@ -23,23 +22,29 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.Tuple2;
 
 import java.io.File;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.List;
 
-public class VenteFactureXmlSheet extends AbstractSheetXml {
+public class VenteFactureXmlSheet extends AbstractSheetXMLWithDate {
 
-    private String startName;
-
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationFacture", "Factures");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
-    }
+    public static final String TEMPLATE_ID = "VenteFacture";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationFacture";
 
     @Override
     public String getReference() {
         return this.row.getString("NOM");
+    }
+
+    @Override
+    public String getName() {
+        final String startName;
+        if (row.getBoolean("COMPLEMENT")) {
+            startName = "FactureComplement_";
+        } else if (row.getBoolean("ACOMPTE")) {
+            startName = "FactureAcompte_";
+        } else {
+            startName = "Facture_";
+        }
+        return startName + this.row.getString("NUMERO");
     }
 
     @Override
@@ -56,35 +61,27 @@ public class VenteFactureXmlSheet extends AbstractSheetXml {
         super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("FacturePrinter");
         this.elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-        Calendar cal = Calendar.getInstance();
-        cal.setTime((Date) row.getObject("DATE"));
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
-        getDefaultModele();
+        getDefaultTemplateId();
     }
 
     @Override
-    public String getDefaultModele() {
-        String modele;
+    public String getType() {
+        String type;
         if (row.getBoolean("COMPLEMENT")) {
-            this.startName = "FactureComplement_";
-            modele = "VenteFactureComplement";
+            type = "Complement";
+        } else if (row.getBoolean("ACOMPTE")) {
+            type = "Acompte";
         } else {
-            if (row.getBoolean("ACOMPTE")) {
-                this.startName = "FactureAcompte_";
-                modele = "VenteFactureAcompte";
-            } else {
-                this.startName = "Facture_";
-                modele = "VenteFacture";
-            }
+            type = "null";
+
         }
 
-        return modele;
-
+        return type;
     }
 
-    public String getFileName() {
-
-        return getValidFileName(this.startName + this.row.getString("NUMERO"));
+    @Override
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     }
+
 }

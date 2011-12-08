@@ -186,16 +186,72 @@ public abstract class StyleDesc<S extends Style> {
     }
 
     /**
-     * Resolve the passed style name.
+     * Resolve the passed style name. Note: this always return the style named <code>name</code>,
+     * possibly ignoring conditions.
      * 
      * @param pkg the package of the searched for style.
      * @param doc the document of the searched for style.
      * @param name the name of the style.
-     * @return a corresponding StyleStyle.
+     * @return the corresponding style, <code>null</code> if not found.
+     * @see #findStyleForNode(StyledNode, String)
      */
-    public final S findStyle(final ODPackage pkg, final Document doc, final String name) {
-        final Element styleElem = pkg.getStyle(doc, this, name);
-        return styleElem == null ? null : this.create(pkg, styleElem);
+    public final S findStyleWithName(final ODPackage pkg, final Document doc, final String name) {
+        return this.findStyle(pkg, doc, name, null);
+    }
+
+    /**
+     * Find the style for the passed node. Depending on conditions the returned style might not be
+     * named <code>name</code>.
+     * 
+     * @param styledNode needed to evaluate conditions, not <code>null</code>.
+     * @param name the name of the style.
+     * @return the corresponding style, <code>null</code> if not found.
+     * @see #findStyleWithName(ODPackage, Document, String)
+     */
+    public final S findStyleForNode(final StyledNode<S, ?> styledNode, final String name) {
+        return this.findStyleForNode(styledNode.getODDocument().getPackage(), styledNode.getElement().getDocument(), styledNode, name);
+    }
+
+    public final S findStyleForNode(final ODPackage pkg, final Document doc, final StyledNode<S, ?> styledNode, final String name) {
+        if (styledNode == null)
+            throw new NullPointerException("null node");
+        return this.findStyle(pkg, doc, name, styledNode);
+    }
+
+    /**
+     * Resolve the passed style name. If <code>styledNode</code> is <code>null</code> the returned
+     * style will be the one named <code>name</code> otherwise depending on conditions it can be
+     * another one.
+     * 
+     * @param pkg the package of the searched for style.
+     * @param doc the document of the searched for style.
+     * @param name the name of the style.
+     * @param styledNode needed to evaluate conditions, can be <code>null</code>.
+     * @return the corresponding style, <code>null</code> if not found.
+     */
+    private final S findStyle(final ODPackage pkg, final Document doc, final String name, final StyledNode<S, ?> styledNode) {
+        Element styleElem = pkg.getStyle(doc, this, name);
+        if (styleElem == null)
+            return null;
+        if (styledNode != null && supportConditions()) {
+            @SuppressWarnings("unchecked")
+            final List<Element> styleMaps = styleElem.getChildren("map", getVersion().getSTYLE());
+            final Element styleMap = evaluateConditions(styledNode, styleMaps);
+            if (styleMap != null) {
+                if (styleElem != styleMap.getParent())
+                    throw new IllegalStateException("map element not in " + styleElem);
+                styleElem = pkg.getStyle(doc, this, styleMap.getAttributeValue("apply-style-name", getVersion().getSTYLE()));
+            }
+        }
+        return this.create(pkg, styleElem);
+    }
+
+    protected boolean supportConditions() {
+        return false;
+    }
+
+    protected Element evaluateConditions(final StyledNode<S, ?> styledNode, final List<Element> styleMaps) {
+        return null;
     }
 
     public final S createAutoStyle(final ODPackage pkg) {

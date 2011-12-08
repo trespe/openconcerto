@@ -14,8 +14,10 @@
  package org.openconcerto.erp.core.sales.invoice.action;
 
 import org.openconcerto.erp.core.sales.invoice.report.ListeDebiteursXmlSheet;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.event.ActionEvent;
+import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -28,8 +30,17 @@ public class ListeDebiteursAction extends AbstractAction {
 
     @Override
     public void actionPerformed(ActionEvent e) {
+        new Thread(new Runnable() {
+            public void run() {
+                final ListeDebiteursXmlSheet sheet = new ListeDebiteursXmlSheet();
+                try {
+                    sheet.createDocumentAsynchronous().get();
+                    sheet.showPrintAndExport(true, false, false);
+                } catch (Exception e) {
+                    ExceptionHandler.handle("Impossible d'afficher la liste des débiteurs");
+                }
 
-        ListeDebiteursXmlSheet sheet = new ListeDebiteursXmlSheet();
-        sheet.genere(true, false);
+            }
+        }).start();
     }
 }

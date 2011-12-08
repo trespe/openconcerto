@@ -128,8 +128,11 @@ public abstract class AbstractProps {
 
     public void load() {
         final File file = new File(getPropsFileName());
-        if (!file.exists())
+        System.out.println("Loading properties from " + file.getAbsolutePath());
+        if (!file.exists()) {
+            System.out.println("Warning: " + file.getAbsolutePath() + " does not exist");
             return;
+        }
         BufferedInputStream bufferedInputStream = null;
         try {
             final FileInputStream fileInputStream = new FileInputStream(file);

@@ -34,6 +34,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
@@ -119,6 +120,17 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         // Source de la saisie --> Commande, BR
         this.textIdSource = new JTextField();
         this.textSource = new JTextField();
+
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
 
         /*******************************************************************************************
          * * RENSEIGNEMENTS

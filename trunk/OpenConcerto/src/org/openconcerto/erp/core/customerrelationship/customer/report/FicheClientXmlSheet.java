@@ -13,38 +13,31 @@
  
  package org.openconcerto.erp.core.customerrelationship.customer.report;
 
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
+import org.openconcerto.erp.generationDoc.AbstractSheetXMLWithDate;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
-import java.util.Calendar;
 import java.util.Date;
 
-public class FicheClientXmlSheet extends AbstractSheetXml {
+public class FicheClientXmlSheet extends AbstractSheetXMLWithDate {
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tupleDefault;
-    }
+    public static final String TEMPLATE_ID = "FicheClient";
+    public static final String TEMPLATE_PROPERTY_NAME = DEFAULT_PROPERTY_NAME;
 
     public FicheClientXmlSheet(SQLRow row) {
         super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("DevisPrinter");
         this.elt = Configuration.getInstance().getDirectory().getElement("CLIENT");
-        Calendar cal = Calendar.getInstance();
-        this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false) + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true) + File.separator + cal.get(Calendar.YEAR);
     }
 
     @Override
-    public String getDefaultModele() {
-        return "FicheClient";
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     }
 
-    public String getFileName() {
-        return getValidFileName("FicheClient_" + new Date().getTime());
+    @Override
+    public String getName() {
+        return "FicheClient_" + new Date().getTime();
     }
 }

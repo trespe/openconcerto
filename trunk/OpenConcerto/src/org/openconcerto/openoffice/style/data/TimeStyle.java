@@ -14,12 +14,16 @@
  package org.openconcerto.openoffice.style.data;
 
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.CellStyle;
+import org.openconcerto.utils.TimeUtils;
+import org.openconcerto.utils.convertor.NumberConvertor;
 
 import java.math.BigDecimal;
 import java.text.DateFormatSymbols;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
@@ -48,12 +52,21 @@ public class TimeStyle extends DataStyle {
     }
 
     public TimeStyle(final ODPackage pkg, Element elem) {
-        super(pkg, elem, Duration.class);
+        super(pkg, elem, ODValueType.TIME);
+    }
+
+    @Override
+    protected Duration convertNonNull(Object o) {
+        if (o instanceof Number) {
+            return TimeUtils.timePartToDuration(getEpoch().getDate(NumberConvertor.toBigDecimal((Number) o)));
+        } else {
+            return null;
+        }
     }
 
     @Override
     public String format(Object o, CellStyle defaultStyle, boolean lenient) {
-        final Duration d = (Duration) o;
+        final Duration d = o instanceof Calendar ? TimeUtils.timePartToDuration((Calendar) o) : (Duration) o;
         final Namespace numberNS = this.getElement().getNamespace();
         final StringBuilder sb = new StringBuilder();
 

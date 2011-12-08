@@ -13,19 +13,25 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.sql.view.AbstractFileTransfertHandler;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.FileUtils;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
+import java.io.File;
+import java.io.IOException;
 import java.util.Collection;
 
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.SwingUtilities;
 
 public class AvailableModulesPanel extends JPanel {
     private final AvailableModuleTableModel tm;
@@ -91,6 +97,45 @@ public class AvailableModulesPanel extends JPanel {
         c.weighty = 1;
         c.gridy++;
         this.add(space, c);
+        this.setTransferHandler(new AbstractFileTransfertHandler() {
+
+            @Override
+            public void handleFile(File f) {
+                if (!f.getName().endsWith(".jar")) {
+                    JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'installer le module. Le fichier n'est pas un module.");
+                    return;
+                }
+                File dir = new File("Modules");
+                dir.mkdir();
+                File out = null;
+                if (dir.canWrite()) {
+                    try {
+                        out = new File(dir, f.getName());
+                        FileUtils.copyFile(f, out);
+                    } catch (IOException e) {
+                        JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'installer le module.\n" + f.getAbsolutePath() + " vers " + dir.getAbsolutePath());
+                        return;
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'installer le module.\nVous devez disposer des droits en écriture sur le dossier:\n" + dir.getAbsolutePath());
+                    return;
+                }
+                try {
+                    ModuleManager.getInstance().addFactory(new JarModuleFactory(out));
+                } catch (IOException e) {
+                    JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'intégrer le module.\n" + e.getMessage());
+                    return;
+                }
+                SwingUtilities.invokeLater(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        reload();
+                    }
+                });
+
+            }
+        });
     }
 
     public void reload() {

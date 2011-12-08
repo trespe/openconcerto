@@ -363,6 +363,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         // Obsolete
         c.fill = GridBagConstraints.NONE;
         c.weightx = 1;
+        this.checkObs.setOpaque(false);
         panel.add(this.checkObs, c);
 
         this.checkObs.setVisible(false);

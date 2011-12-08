@@ -15,7 +15,9 @@
 
 import org.openconcerto.erp.generationDoc.AbstractSheetXml;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
@@ -45,7 +47,7 @@ public class ListeFastPrintFrame extends JFrame {
     private static final long serialVersionUID = -1653555706074122489L;
     private final Class<? extends AbstractSheetXml> clazz;
     private final JPanel panel;
-    private final List<SQLRow> liste;
+    private final List<SQLRowAccessor> liste;
     private final JLabel operation = new JLabel("");
     private final JProgressBar bar = new JProgressBar();
     private final JSpinner spin;
@@ -54,16 +56,16 @@ public class ListeFastPrintFrame extends JFrame {
 
     private final JButton valid, cancel;
 
-    public ListeFastPrintFrame(final List<SQLRow> liste, final Class<? extends AbstractSheetXml> clazz) {
+    public ListeFastPrintFrame(final List<SQLRowAccessor> liste, final Class<? extends AbstractSheetXml> clazz) {
         this.panel = new JPanel(new GridBagLayout());
         this.liste = liste;
         this.clazz = clazz;
         final GridBagConstraints c = new DefaultGridBagConstraints();
         // c.gridwidth = GridBagConstraints.REMAINDER;
         // FIXME Add Preferences nombre de copies par defaut
-        final SQLRow row = this.liste.get(0);
+        final SQLRowAccessor row = this.liste.get(0);
 
-        final AbstractSheetXml bSheet = this.createAbstractSheet(row);
+        final AbstractSheetXml bSheet = this.createAbstractSheet(row.asRow());
         if (this.liste.size() <= 1) {
             this.panel.add(new JLabel("Lancer l'impression document"), c);
         } else {
@@ -151,30 +153,27 @@ public class ListeFastPrintFrame extends JFrame {
                         ListeFastPrintFrame.this.bar.setString("0/" + ListeFastPrintFrame.this.liste.size());
                     }
                 });
-                for (final SQLRow rowAt : ListeFastPrintFrame.this.liste) {
+                for (final SQLRowAccessor rowAt : ListeFastPrintFrame.this.liste) {
 
-                    final AbstractSheetXml bSheet = ListeFastPrintFrame.this.createAbstractSheet(rowAt);
-                    if (!bSheet.isFileODSExist()) {
+                    final AbstractSheetXml bSheet = ListeFastPrintFrame.this.createAbstractSheet(rowAt.asRow());
+                    if (!bSheet.getGeneratedFile().exists()) {
 
                         try {
                             SwingUtilities.invokeLater(new Runnable() {
                                 public void run() {
-                                    ListeFastPrintFrame.this.operation.setText("Création du document " + bSheet.getFileName());
+                                    ListeFastPrintFrame.this.operation.setText("Création du document " + bSheet.getGeneratedFile());
                                 }
                             });
-                            bSheet.genere(false, false).get();
-                        } catch (final InterruptedException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        } catch (final ExecutionException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
+                            bSheet.createDocument();
+                            bSheet.showPrintAndExportAsynchronous(false, false, true);
+                        } catch (Exception e) {
+                            ExceptionHandler.handle("Erreur lors de l'impression du document " + bSheet.getGeneratedFile());
                         }
                     }
 
                     SwingUtilities.invokeLater(new Runnable() {
                         public void run() {
-                            ListeFastPrintFrame.this.operation.setText("Impression du document " + bSheet.getFileName());
+                            ListeFastPrintFrame.this.operation.setText("Impression du document " + bSheet.getGeneratedFile());
                         }
                     });
                     bSheet.fastPrintDocument(copies);

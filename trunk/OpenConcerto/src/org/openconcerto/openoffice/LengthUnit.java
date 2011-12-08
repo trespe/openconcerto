@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  * Units of length.
  * 
  * @author Sylvain CUAZ
- * @see http://www.w3.org/TR/xsl/#d0e5752
+ * @see <a href="http://www.w3.org/TR/xsl/#d0e5752">W3C Definitions</a>
  */
 public enum LengthUnit {
     /**

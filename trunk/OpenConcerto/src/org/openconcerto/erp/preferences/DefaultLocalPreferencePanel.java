@@ -22,6 +22,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.Properties;
 
 public class DefaultLocalPreferencePanel extends DefaultPreferencePanel {
@@ -70,5 +71,15 @@ public class DefaultLocalPreferencePanel extends DefaultPreferencePanel {
 
     public static File getPrefFile(String fileName) {
         return new File(Configuration.getInstance().getConfDir(), "/Configuration/" + fileName);
+    }
+
+    public static Properties getPropertiesFromFile(String fileName) throws IOException {
+        final Properties properties = new Properties();
+        if (getPrefFile(fileName).exists()) {
+            FileInputStream fIp = new FileInputStream(getPrefFile(fileName));
+            properties.load(new BufferedInputStream(fIp));
+            fIp.close();
+        }
+        return properties;
     }
 }

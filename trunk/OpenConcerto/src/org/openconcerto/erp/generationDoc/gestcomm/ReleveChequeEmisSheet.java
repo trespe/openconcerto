@@ -41,17 +41,21 @@ public class ReleveChequeEmisSheet extends SheetInterface {
         createMap();
     }
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationReleveCheque", "Relevé chéques émis");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
-    }
+    public static final String TEMPLATE_ID = "ReleveChequeEmis";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationReleveCheque";
 
     private void init() {
         this.modele = "ReleveChequeEmis.ods";
-        // this.printer = PrinterNXProps.getInstance().getStringProperty("FacturePrinter");
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true);
+    }
+
+    @Override
+    public String getTemplateId() {
+        return TEMPLATE_ID;
+    }
+
+    @Override
+    protected String getYear() {
+        return "";
     }
 
     protected void createMap() {

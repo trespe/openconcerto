@@ -16,7 +16,7 @@
 import org.openconcerto.sql.model.SQLData;
 import org.openconcerto.sql.model.SQLDataListener;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.utils.cache.CacheWatcher;
 
 /**
@@ -27,7 +27,7 @@ import org.openconcerto.utils.cache.CacheWatcher;
  */
 public class SQLCacheWatcher<K> extends CacheWatcher<K, SQLData> {
 
-    private final SQLTableListener listener;
+    private final SQLTableModifiedListener listener;
 
     SQLCacheWatcher(final SQLCache<K, ?> c, final SQLData t) {
         super(c, t);
@@ -36,7 +36,7 @@ public class SQLCacheWatcher<K> extends CacheWatcher<K, SQLData> {
                 clearCache();
             }
         });
-        this.getTable().addPremierTableListener(this.listener);
+        this.getTable().addPremierTableModifiedListener(this.listener);
     }
 
     private final SQLTable getTable() {
@@ -45,7 +45,7 @@ public class SQLCacheWatcher<K> extends CacheWatcher<K, SQLData> {
 
     @Override
     protected void dying() {
-        this.getTable().removeTableListener(this.listener);
+        this.getTable().removeTableModifiedListener(this.listener);
     }
 
 }

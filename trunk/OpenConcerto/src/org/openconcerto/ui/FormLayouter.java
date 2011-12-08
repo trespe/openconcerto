@@ -151,6 +151,7 @@ public class FormLayouter {
 
         final int realWidth = w * CELL_WIDTH - 1;
         JPanel p = new JPanel();
+        p.setOpaque(false);
         p.setLayout(new GridLayout());
         p.setBorder(BorderFactory.createTitledBorder(desc));
         p.add(comp);

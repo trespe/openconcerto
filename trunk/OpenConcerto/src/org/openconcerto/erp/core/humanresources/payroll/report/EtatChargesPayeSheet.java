@@ -57,10 +57,17 @@ public class EtatChargesPayeSheet extends SheetInterface {
         setSize(7, 66);
     }
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationEtatChargesPaye", "Etat des charges");
+    public static String TEMPLATE_ID = "Etat des charges";
+    public static String TEMPLATE_PROPERTY_NAME = "LocationEtatChargesPaye";
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
+    @Override
+    public String getTemplateId() {
+        return TEMPLATE_ID;
+    }
+
+    @Override
+    protected String getYear() {
+        return "";
     }
 
     public EtatChargesPayeSheet(int moisDu, int moisAu, String annee) {
@@ -68,8 +75,6 @@ public class EtatChargesPayeSheet extends SheetInterface {
 
         this.printer = PrinterNXProps.getInstance().getStringProperty("EtatChargesPayePrinter");
         this.modele = "EtatChargesPaye.ods";
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + annee;
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + annee;
         this.moisAu = moisAu;
         this.moisDu = moisDu;
         this.annee = annee;

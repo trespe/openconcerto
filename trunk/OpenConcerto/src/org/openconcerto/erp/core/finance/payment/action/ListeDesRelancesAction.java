@@ -26,6 +26,7 @@ import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
@@ -103,13 +104,19 @@ public class ListeDesRelancesAction extends CreateFrameAbstractAction implements
             // Impression
             AbstractAction actionPrintFact = new AbstractAction("Imprimer la facture") {
                 public void actionPerformed(ActionEvent e) {
+                    final Thread t = new Thread(new Runnable() {
 
-                    VenteFactureXmlSheet sheet = new VenteFactureXmlSheet(rowRelance.getForeignRow("ID_SAISIE_VENTE_FACTURE"));
-                    if (sheet.getFileODS().exists()) {
-                        sheet.fastPrintDocument();
-                    } else {
-                        sheet.genere(false, true);
-                    }
+                        @Override
+                        public void run() {
+                            try {
+                                printInvoice(rowRelance);
+                            } catch (Exception e) {
+                                ExceptionHandler.handle("Impression impossible", e);
+                            }
+                        }
+                    });
+                    t.start();
+
                 }
             };
             menu.add(actionPrintFact);
@@ -118,13 +125,18 @@ public class ListeDesRelancesAction extends CreateFrameAbstractAction implements
 
             AbstractAction actionPrintBoth = new AbstractAction("Imprimer la facture et la relance") {
                 public void actionPerformed(ActionEvent e) {
-                    s.fastPrintDocument();
-                    VenteFactureXmlSheet sheet = new VenteFactureXmlSheet(rowRelance.getForeignRow("ID_SAISIE_VENTE_FACTURE"));
-                    if (sheet.getFileODS().exists()) {
-                        sheet.fastPrintDocument();
-                    } else {
-                        sheet.genere(false, true);
-                    }
+                    final Thread t = new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                s.fastPrintDocument();
+                                printInvoice(rowRelance);
+                            } catch (Exception e) {
+                                ExceptionHandler.handle("Impression impossible", e);
+                            }
+                        }
+                    });
+                    t.start();
                 }
             };
             menu.add(actionPrintBoth);
@@ -138,12 +150,16 @@ public class ListeDesRelancesAction extends CreateFrameAbstractAction implements
                 }
             });
 
-            // Générer
+            // Créer la fiche de relance
             menu.add(new AbstractAction("Créer la fiche de relance") {
                 public void actionPerformed(ActionEvent e) {
-
-                    FicheRelanceSheet sheet = new FicheRelanceSheet(rowRelance);
-                    sheet.genere(true, false);
+                    try {
+                        FicheRelanceSheet sheet = new FicheRelanceSheet(rowRelance);
+                        sheet.createDocumentAsynchronous();
+                        sheet.showPrintAndExportAsynchronous(true, false, true);
+                    } catch (Exception ex) {
+                        ExceptionHandler.handle("Impression impossible", ex);
+                    }
                 }
             });
 
@@ -158,5 +174,12 @@ public class ListeDesRelancesAction extends CreateFrameAbstractAction implements
     }
 
     public void mouseExited(MouseEvent e) {
+    }
+
+    private void printInvoice(final SQLRow rowRelance) throws Exception {
+        final VenteFactureXmlSheet sheet = new VenteFactureXmlSheet(rowRelance.getForeignRow("ID_SAISIE_VENTE_FACTURE"));
+        sheet.getOrCreateDocumentFile();
+        sheet.fastPrintDocument();
+        sheet.showPrintAndExport(false, false, true);
     }
 }

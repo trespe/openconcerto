@@ -13,7 +13,7 @@
  
  package org.openconcerto.sql.model;
 
-final class SQLTableListenerData<R extends SQLRowAccessor> implements SQLTableListener {
+final class SQLTableListenerData<R extends SQLRowAccessor> implements SQLTableModifiedListener {
 
     private final R row;
     private final SQLDataListener l;
@@ -23,18 +23,10 @@ final class SQLTableListenerData<R extends SQLRowAccessor> implements SQLTableLi
         this.l = l;
     }
 
-    public void rowAdded(SQLTable table, int id) {
-        // if the row id was cached as non-existant, now it is
-        if (this.row.getID() == id)
-            this.l.dataChanged();
-    }
-
-    public void rowDeleted(SQLTable table, int id) {
-        if (id < SQLRow.MIN_VALID_ID || this.row.getID() == id)
-            this.l.dataChanged();
-    }
-
-    public void rowModified(SQLTable table, int id) {
+    @Override
+    public void tableModified(SQLTableEvent evt) {
+        final int id = evt.getId();
+        // if the row id was cached as non-existent and evt mode is ADDED, now it is
         if (id < SQLRow.MIN_VALID_ID || this.row.getID() == id)
             this.l.dataChanged();
     }

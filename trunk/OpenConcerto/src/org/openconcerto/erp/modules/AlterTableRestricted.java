@@ -34,14 +34,12 @@ import java.util.Set;
  */
 public final class AlterTableRestricted {
 
-    private final DBContext ctxt;
     private final SQLTable table;
     private final Set<SQLField> previouslyCreatedFields;
     private final AlterTable alter;
     private final Set<String> addedColumns, removedColumns;
 
     AlterTableRestricted(DBContext ctxt, String tableName) {
-        this.ctxt = ctxt;
         this.table = ctxt.getRoot().getTable(tableName);
         this.previouslyCreatedFields = ctxt.getFieldsPreviouslyCreated(tableName);
         this.alter = new AlterTable(this.table);
@@ -108,18 +106,17 @@ public final class AlterTableRestricted {
     }
 
     public AlterTable addForeignColumn(String fk, SQLName tableName) {
-        SQLCreateTableBase<?> createTable;
-        if (tableName.getItemCount() == 1 && (createTable = this.ctxt.getCreateTables().get(tableName.getFirst())) != null) {
-            addCol(fk);
-            return this.alter.addForeignColumn(fk, createTable);
-        } else {
-            return this.addForeignColumn(fk, this.table.getDesc(tableName, SQLTable.class));
-        }
+        return this.addForeignColumn(fk, this.table.getDesc(tableName, SQLTable.class));
     }
 
     public AlterTable addForeignColumn(String fk, SQLTable foreignTable) {
         addCol(fk);
         return this.alter.addForeignColumn(fk, foreignTable);
+    }
+
+    public AlterTable addForeignColumn(String fk, SQLCreateTableBase<?> createTable) {
+        addCol(fk);
+        return this.alter.addForeignColumn(fk, createTable);
     }
 
     public AlterTable addUniqueConstraint(String name, List<String> cols) {

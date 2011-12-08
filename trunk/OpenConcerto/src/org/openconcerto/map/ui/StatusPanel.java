@@ -16,7 +16,8 @@
 import org.openconcerto.map.model.Ville;
 import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.ITextComboCache;
-import org.openconcerto.ui.component.ITextSelector;
+import org.openconcerto.ui.component.combo.ISearchableTextCombo;
+import org.openconcerto.utils.model.DefaultIListModel;
 
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
@@ -36,7 +37,6 @@ import javax.swing.JSlider;
 import javax.swing.JToggleButton;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-
 
 public class StatusPanel extends JPanel implements VilleRendererListener, ZoomListener {
 
@@ -64,7 +64,7 @@ public class StatusPanel extends JPanel implements VilleRendererListener, ZoomLi
         c.fill = GridBagConstraints.HORIZONTAL;
 
         c.insets = new Insets(2, 2, 2, 2);
-        // 
+        //
         if (!viewOnly) {
             c.gridx++;
             this.radio1 = new JToggleButton(new ImageIcon(StatusPanel.class.getResource("move.png")));
@@ -81,7 +81,7 @@ public class StatusPanel extends JPanel implements VilleRendererListener, ZoomLi
 
         }
         /* final JButton button = new JButton("Centrer"); */
-        ITextSelector txt = new ITextSelector("", ComboLockedMode.ITEMS_LOCKED, 40);
+        ISearchableTextCombo txt = new ISearchableTextCombo(ComboLockedMode.ITEMS_LOCKED, 1, 40);
         txt.addValueListener(new PropertyChangeListener() {
 
             public void propertyChange(PropertyChangeEvent evt) {
@@ -100,8 +100,7 @@ public class StatusPanel extends JPanel implements VilleRendererListener, ZoomLi
         txt.setMinimumSearch(0);
         txt.setMaximumResult(200);
 
-        ITextComboCache cache = new ITextComboCacheVille();
-        txt.initCache(cache);
+        txt.initCache(new DefaultIListModel<String>(new ITextComboCacheVille().getCache()));
         c.weightx = 1;
         c.gridx++;
         this.add(txt, c);

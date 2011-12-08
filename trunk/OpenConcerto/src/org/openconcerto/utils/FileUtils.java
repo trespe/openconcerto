@@ -354,6 +354,14 @@ public final class FileUtils {
         }
     }
 
+    public static void copyFile(File in, File out, final boolean useTime) throws IOException {
+        if (!useTime || in.lastModified() != out.lastModified()) {
+            copyFile(in, out);
+            if (useTime)
+                out.setLastModified(in.lastModified());
+        }
+    }
+
     public static void copyDirectory(File in, File out) throws IOException {
         copyDirectory(in, out, Collections.<String> emptySet());
     }
@@ -361,6 +369,10 @@ public final class FileUtils {
     public static final Set<String> VersionControl = CollectionUtils.createSet(".svn", "CVS");
 
     public static void copyDirectory(File in, File out, final Set<String> toIgnore) throws IOException {
+        copyDirectory(in, out, toIgnore, false);
+    }
+
+    public static void copyDirectory(File in, File out, final Set<String> toIgnore, final boolean useTime) throws IOException {
         if (toIgnore.contains(in.getName()))
             return;
 
@@ -371,11 +383,11 @@ public final class FileUtils {
 
             String[] children = in.list();
             for (int i = 0; i < children.length; i++) {
-                copyDirectory(new File(in, children[i]), new File(out, children[i]), toIgnore);
+                copyDirectory(new File(in, children[i]), new File(out, children[i]), toIgnore, useTime);
             }
         } else {
             if (!in.getName().equals("Thumbs.db")) {
-                copyFile(in, out);
+                copyFile(in, out, useTime);
             }
         }
     }
@@ -402,6 +414,21 @@ public final class FileUtils {
 
         // The directory is now empty so delete it
         return dir.delete();
+    }
+
+    public static void rm_R(File dir) throws IOException {
+        if (dir.isDirectory()) {
+            for (final File child : dir.listFiles()) {
+                rmR(child);
+            }
+        }
+        // The directory is now empty so delete it
+        rm(dir);
+    }
+
+    public static void rm(File f) throws IOException {
+        if (f.exists() && !f.delete())
+            throw new IOException("cannot delete " + f);
     }
 
     public static final File mkdir_p(File dir) throws IOException {

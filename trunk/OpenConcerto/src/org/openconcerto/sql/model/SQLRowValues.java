@@ -27,6 +27,7 @@ import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CopyUtils;
 import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.utils.NumberUtils;
 import org.openconcerto.utils.RecursionType;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
@@ -95,13 +96,12 @@ public final class SQLRowValues extends SQLRowAccessor {
     }
 
     public static final Object SQL_DEFAULT = new Object();
-    // for now the default is put in the default value of the db
     /**
      * Empty foreign field value.
      * 
      * @see #putEmptyLink(String)
      */
-    public static final Object SQL_EMPTY_LINK = SQL_DEFAULT;
+    public static final Object SQL_EMPTY_LINK = new Object();
 
     private static boolean checkValidity = true;
 
@@ -167,26 +167,8 @@ public final class SQLRowValues extends SQLRowAccessor {
      */
     public SQLRowValues(SQLRowValues vals, ForeignCopyMode copyForeigns) {
         this(vals.getTable());
-        final Map<String, Object> toAdd;
-        if (copyForeigns == ForeignCopyMode.COPY_ROW)
-            toAdd = vals.values;
-        else {
-            final Set<Entry<String, Object>> entrySet = vals.values.entrySet();
-            toAdd = new LinkedHashMap<String, Object>(entrySet.size());
-            for (final Map.Entry<String, Object> e : entrySet) {
-                if (!(e.getValue() instanceof SQLRowValues))
-                    toAdd.put(e.getKey(), e.getValue());
-                else if (copyForeigns != ForeignCopyMode.NO_COPY) {
-                    final SQLRowValues foreign = (SQLRowValues) e.getValue();
-                    if (foreign.hasID())
-                        toAdd.put(e.getKey(), foreign.getIDNumber());
-                    else if (copyForeigns == ForeignCopyMode.COPY_ID_OR_ROW)
-                        toAdd.put(e.getKey(), foreign);
-                }
-            }
-        }
         // setAll() takes care of foreigns and referents
-        this.setAll(toAdd);
+        this.setAll(vals.getAllValues(copyForeigns));
     }
 
     @Override
@@ -272,7 +254,9 @@ public final class SQLRowValues extends SQLRowAccessor {
      * @return the foreign row, eg FAMILLE[1].
      */
     public final SQLRowValues grow(String fk) {
-        if (!(this.getObject(fk) instanceof SQLRowValues)) {
+        final Object val = this.getContainedObject(fk);
+        // if fk is in our map with a null value, nothing to grow
+        if (val != null && !(val instanceof SQLRowValues)) {
             final SQLRowValues vals = new SQLRowValues(this.getTable());
             vals.putRowValues(fk).setAllToNull();
             this.grow(vals, true);
@@ -402,22 +386,65 @@ public final class SQLRowValues extends SQLRowAccessor {
 
     @Override
     public Map<String, Object> getAbsolutelyAll() {
-        return Collections.unmodifiableMap(this.values);
+        return getAllValues(ForeignCopyMode.COPY_ROW);
     }
 
+    protected final Map<String, Object> getAllValues(ForeignCopyMode copyForeigns) {
+        final Map<String, Object> toAdd;
+        if (copyForeigns == ForeignCopyMode.COPY_ROW || this.foreigns.size() == 0) {
+            toAdd = this.values;
+        } else {
+            final Set<Entry<String, Object>> entrySet = this.values.entrySet();
+            toAdd = new LinkedHashMap<String, Object>(entrySet.size());
+            for (final Map.Entry<String, Object> e : entrySet) {
+                if (!(e.getValue() instanceof SQLRowValues)) {
+                    toAdd.put(e.getKey(), e.getValue());
+                } else if (copyForeigns != ForeignCopyMode.NO_COPY) {
+                    final SQLRowValues foreign = (SQLRowValues) e.getValue();
+                    if (foreign.hasID())
+                        toAdd.put(e.getKey(), foreign.getIDNumber());
+                    else if (copyForeigns == ForeignCopyMode.COPY_ID_OR_ROW)
+                        toAdd.put(e.getKey(), foreign);
+                }
+            }
+        }
+        return Collections.unmodifiableMap(toAdd);
+    }
+
+    /**
+     * Return the foreign row, if any, for the passed field.
+     * 
+     * @param fieldName name of the foreign field.
+     * @return if <code>null</code> or a SQLRowValues one was put at <code>fieldName</code>, return
+     *         it ; else assume that an ID was put at <code>fieldName</code> and return a new SQLRow
+     *         with it.
+     * @throws IllegalArgumentException if fieldName is not a foreign field or if it isn't contained
+     *         in this instance.
+     * @throws ClassCastException if the value is neither a SQLRowValues, nor <code>null</code> nor
+     *         a Number.
+     */
     @Override
-    public final SQLRowAccessor getForeign(String fieldName) {
+    public final SQLRowAccessor getForeign(String fieldName) throws IllegalArgumentException, ClassCastException {
         // keep getForeignTable at the 1st line since it does the check
         final SQLTable foreignTable = this.getForeignTable(fieldName);
-        if (this.getObject(fieldName) instanceof SQLRowAccessor) {
-            return (SQLRowAccessor) this.getObject(fieldName);
-        } else if (this.isEmptyLink(fieldName)) {
+        final Object val = this.getContainedObject(fieldName);
+        if (val instanceof SQLRowAccessor) {
+            return (SQLRowAccessor) val;
+        } else if (val == null) {
+            // since we used getContainedObject(), it means that a null was put in our map, not that
+            // fieldName wasn't there
             return null;
         } else if (this.isDefault(fieldName)) {
             throw new IllegalStateException(fieldName + " is DEFAULT");
         } else {
             return new SQLRow(foreignTable, this.getInt(fieldName));
         }
+    }
+
+    private Object getContainedObject(String fieldName) throws IllegalArgumentException {
+        if (!this.values.containsKey(fieldName))
+            throw new IllegalArgumentException("Field not present in this : " + this.getFields());
+        return this.values.get(fieldName);
     }
 
     /**
@@ -439,16 +466,10 @@ public final class SQLRowValues extends SQLRowAccessor {
     public boolean isForeignEmpty(String fieldName) {
         // keep getForeignTable at the 1st line since it does the check
         final SQLTable foreignTable = this.getForeignTable(fieldName);
-        if (this.getObject(fieldName) instanceof Number) {
-            return this.getInt(fieldName) == foreignTable.getUndefinedID();
-        } else if (this.getObject(fieldName) instanceof SQLRowValues) {
-            return ((SQLRowValues) this.getObject(fieldName)).getID() == foreignTable.getUndefinedID();
-        } else
-            return this.getObject(fieldName) == null || this.isEmptyLink(fieldName);
-    }
-
-    public boolean isEmptyLink(String fieldName) {
-        return SQL_EMPTY_LINK.equals(this.getObject(fieldName));
+        final Object val = this.getContainedObject(fieldName);
+        final Number id = val instanceof SQLRowValues ? ((SQLRowValues) val).getIDNumber() : (Number) val;
+        final Number undefID = foreignTable.getUndefinedIDNumber();
+        return NumberUtils.areNumericallyEqual(id, undefID);
     }
 
     public boolean isDefault(String fieldName) {
@@ -478,7 +499,7 @@ public final class SQLRowValues extends SQLRowAccessor {
     public final SQLRow asRow() {
         if (!this.hasID())
             throw new IllegalStateException(this + " has no ID");
-        return new SQLRow(this.getTable(), this.values);
+        return new SQLRow(this.getTable(), this.getAllValues(ForeignCopyMode.COPY_ID_OR_RM));
     }
 
     @Override
@@ -588,6 +609,9 @@ public final class SQLRowValues extends SQLRowAccessor {
     }
 
     private void _put(String fieldName, Object value) {
+        if (value == SQL_EMPTY_LINK)
+            // keep getForeignTable since it does the check
+            value = this.getForeignTable(fieldName).getUndefinedIDNumber();
         // use assertion since check() is not perfect
         assert check(fieldName, value);
         this.updateLinks(fieldName, this.values.put(fieldName, value), value);
@@ -635,8 +659,6 @@ public final class SQLRowValues extends SQLRowAccessor {
      * @return this.
      */
     public SQLRowValues putEmptyLink(String fieldName) {
-        // keep getForeignTable at the 1st line since it does the check
-        this.getForeignTable(fieldName);
         return this.put(fieldName, SQL_EMPTY_LINK);
     }
 
@@ -1009,7 +1031,7 @@ public final class SQLRowValues extends SQLRowAccessor {
             // verifie l'intégrité (a rowValues is obviously correct, as is EMPTY,
             // DEFAULT is the responsability of the DB)
             final Object fieldVal = this.getObject(fieldName);
-            if (fk.contains(field) && fieldVal != SQL_DEFAULT && fieldVal != SQL_EMPTY_LINK && !(fieldVal instanceof SQLRowValues)) {
+            if (fk.contains(field) && fieldVal != SQL_DEFAULT && !(fieldVal instanceof SQLRowValues)) {
                 final SQLRow pb = this.getTable().checkValidity(field.getName(), (Number) fieldVal);
                 if (pb != null)
                     return new Object[] { fieldName, pb };
@@ -1371,7 +1393,7 @@ public final class SQLRowValues extends SQLRowAccessor {
                 final Object toIns;
                 if (value instanceof SQLRowValues) {
                     // TODO if we already point to some row, archive it
-                    toIns = new Integer(((SQLRowValues) value).insert().getID());
+                    toIns = ((SQLRowValues) value).insert().getIDNumber();
                 } else
                     toIns = value;
                 // sql index start at 1
@@ -1390,7 +1412,8 @@ public final class SQLRowValues extends SQLRowAccessor {
         return value == SQL_DEFAULT ? "DEFAULT" : "?";
     }
 
-    public SQLTableListener createTableListener(SQLDataListener l) {
+    @Override
+    public SQLTableModifiedListener createTableListener(SQLDataListener l) {
         return new SQLTableListenerData<SQLRowValues>(this, l);
     }
 

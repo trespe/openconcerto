@@ -14,7 +14,9 @@
  package org.openconcerto.openoffice.style.data;
 
 import org.openconcerto.openoffice.Log;
+import org.openconcerto.openoffice.ODEpoch;
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.StyleProperties;
@@ -74,24 +76,62 @@ public abstract class DataStyle extends Style {
                     Arrays.asList("presentation:date-time-decl", "style:style", "text:creation-date", "text:creation-time", "text:database-display", "text:date", "text:editing-duration",
                             "text:expression", "text:meta-field", "text:modification-date", "text:modification-time", "text:print-date", "text:print-time", "text:table-formula", "text:time",
                             "text:user-defined", "text:user-field-get", "text:user-field-input", "text:variable-get", "text:variable-input", "text:variable-set"));
+            this.getRefElementsMap().put("style:apply-style-name", "style:map");
         }
     }
 
-    // type accepted by #format()
-    private final Class<?> type;
+    private final ODValueType type;
     private StyleTextProperties textProps;
 
-    protected DataStyle(final ODPackage pkg, Element elem, final Class<?> type) {
+    protected DataStyle(final ODPackage pkg, Element elem, final ODValueType type) {
         super(pkg, elem);
         this.type = type;
     }
 
-    protected final Class<?> getDataType() {
+    public final ODValueType getDataType() {
         return this.type;
     }
 
+    public final ODEpoch getEpoch() {
+        return this.getPackage().getODDocument().getEpoch();
+    }
+
+    /**
+     * Convert the passed object to something that {@link #format(Object, CellStyle, boolean)} can
+     * accept.
+     * 
+     * @param o the object to convert.
+     * @return an object that can be formatted, <code>null</code> if <code>o</code> cannot be
+     *         converted.
+     * @throws NullPointerException if <code>o</code> is <code>null</code>.
+     * @see #canFormat(Class)
+     */
+    public final Object convert(final Object o) throws NullPointerException {
+        if (o == null)
+            throw new NullPointerException();
+
+        final Object res;
+        if (this.canFormat(o.getClass()))
+            res = o;
+        else
+            res = this.convertNonNull(o);
+        assert res == null || this.canFormat(res.getClass());
+        return res;
+    }
+
+    // o is not null and canFormat(o.getClass()) is false
+    // return null if o cannot be converted
+    protected abstract Object convertNonNull(Object o);
+
+    /**
+     * Whether instances of the passed class can be {@link #format(Object, CellStyle, boolean)
+     * formatted}.
+     * 
+     * @param toFormat the class.
+     * @return <code>true</code> if instances of <code>toFormat</code> can be formatted.
+     */
     public final boolean canFormat(Class<?> toFormat) {
-        return this.getDataType().isAssignableFrom(toFormat);
+        return this.getDataType().canFormat(toFormat);
     }
 
     public final String getTitle() {

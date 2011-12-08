@@ -15,7 +15,7 @@
 
 public interface SQLData {
 
-    public SQLTableListener createTableListener(SQLDataListener l);
+    public SQLTableModifiedListener createTableListener(SQLDataListener l);
 
     public SQLTable getTable();
 }

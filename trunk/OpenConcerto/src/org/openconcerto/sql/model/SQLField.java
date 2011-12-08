@@ -21,6 +21,7 @@ import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.XMLCodecUtils;
 
 import java.sql.DatabaseMetaData;
@@ -281,7 +282,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         if (this.xml == null) {
             final StringBuilder sb = new StringBuilder(2048);
             sb.append("<field name=\"");
-            sb.append(this.getName());
+            sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(this.getName()));
             sb.append("\" >");
             sb.append(this.type.toXML());
             sb.append(XMLCodecUtils.encodeSimple(this.metadata));

@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.KeyLabel;
+import org.openconcerto.ui.PopupMouseListener;
 import org.openconcerto.ui.list.selection.ListSelectionState;
 import org.openconcerto.utils.JImage;
 import org.openconcerto.utils.cc.IPredicate;
@@ -53,6 +54,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import javax.swing.AbstractAction;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListSelectionModel;
 import javax.swing.Icon;
@@ -61,6 +63,7 @@ import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
@@ -328,10 +331,20 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
         this.title.addMouseListener(new MouseAdapter() {
             public void mouseClicked(MouseEvent e) {
                 // On trie
-                getModel().sort();
-                setTitleIcon();
+                if (e.getButton() == MouseEvent.BUTTON1) {
+                    getModel().sort();
+                    setTitleIcon();
+                }
             }
         });
+        final JPopupMenu menu = new JPopupMenu();
+        menu.add(new AbstractAction("Recharger") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                getModel().reload(true);
+            }
+        });
+        this.title.addMouseListener(new PopupMouseListener(menu));
         // this.normalPanel.setBackground(new Color(239, 235, 231));
 
         headerPanel.add(this.title, c2);

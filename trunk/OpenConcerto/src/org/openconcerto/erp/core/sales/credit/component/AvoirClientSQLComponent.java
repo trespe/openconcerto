@@ -47,6 +47,7 @@ import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.utils.ExceptionHandler;
@@ -204,6 +205,17 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
     public void addViews() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
+
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
 
         this.textNom = new JTextField();
         this.date = new JDate(true);
@@ -668,8 +680,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
             gen.genereMouvement();
 
             // generation du document
-            AvoirClientXmlSheet bSheet = new AvoirClientXmlSheet(row);
-            bSheet.genere(this.checkVisu.isSelected(), this.checkImpr.isSelected());
+            createAvoirClient(row);
 
         } else {
             ExceptionHandler.handle("Impossible de modifier, numéro d'avoir existant.");
@@ -682,6 +693,18 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         return id;
     }
 
+    private void createAvoirClient(final SQLRow row) {
+
+        final AvoirClientXmlSheet bSheet = new AvoirClientXmlSheet(row);
+        try {
+            bSheet.createDocumentAsynchronous();
+            bSheet.showPrintAndExportAsynchronous(checkVisu.isSelected(), checkImpr.isSelected(), true);
+        } catch (Exception e) {
+            ExceptionHandler.handle("Impossible de créer l'avoir", e);
+        }
+
+    }
+
     @Override
     public void select(SQLRowAccessor r) {
         if (r != null) {
@@ -691,10 +714,8 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         this.comboClient.rmValueListener(changeClientListener);
 
         if (r != null) {
-            System.err.println("Selection Avoir");
             this.table.insertFrom("ID_AVOIR_CLIENT", r.getID());
 
-            System.err.println(r);
             // Les contacts sont filtrés en fonction du client (ID_AFFAIRE.ID_CLIENT), donc si
             // l'ID_CONTACT est changé avant ID_AFFAIRE le contact ne sera pas présent dans la combo
             // => charge en deux fois les valeurs
@@ -708,7 +729,6 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
             vals.setID(rVals.getID());
             super.select(vals);
             rVals.remove("ID_CLIENT");
-            System.err.println("Select Other vlues");
             super.select(rVals);
         } else {
             super.select(r);
@@ -770,8 +790,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
             GenerationMvtAvoirClient gen = new GenerationMvtAvoirClient(getSelectedID(), idMvt);
             gen.genereMouvement();
 
-            AvoirClientXmlSheet bSheet = new AvoirClientXmlSheet(row);
-            bSheet.genere(this.checkVisu.isSelected(), this.checkImpr.isSelected());
+            createAvoirClient(row);
         } else {
             ExceptionHandler.handle("Impossible de modifier, numéro d'avoir existant.");
             Object root = SwingUtilities.getRoot(this);
@@ -790,18 +809,6 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
 
         loadItem(this.table, facture, idFacture, factureElt);
 
-        // if (idFacture > 1) {
-        // SQLTable factureTable = facture.getTable();
-        // SQLRow row = factureTable.getRow(idFacture);
-        //
-        // int idClient = row.getInt("ID_CLIENT");
-        // this.selectClient.setValue(String.valueOf(idClient));
-        //
-        // Long l = (Long) row.getObject("T_HT");
-        // this.montantPanel.getMontantHT().setValue(String.valueOf(GestionDevise.currencyToString(l)));
-        //
-        // this.textNom.setValue("Avoir annulant Facture " + row.getString("NUMERO"));
-        // }
     }
 
     /**
@@ -854,7 +861,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
-                // }
+
             }
         }
     }

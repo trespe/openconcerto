@@ -18,17 +18,8 @@ import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.sqlobject.SQLTextCombo.ITextComboCacheSQL;
 import org.openconcerto.sql.sqlobject.itemview.RowItemViewComponent;
 import org.openconcerto.ui.component.ComboLockedMode;
+import org.openconcerto.ui.component.IComboCacheListModel;
 import org.openconcerto.ui.component.combo.ISearchableTextCombo;
-import org.openconcerto.utils.change.CollectionChangeEvent;
-import org.openconcerto.utils.change.IListDataEvent;
-import org.openconcerto.utils.model.DefaultIMutableListModel;
-
-import java.util.Collection;
-import java.util.List;
-
-import javax.swing.SwingWorker;
-import javax.swing.event.ListDataEvent;
-import javax.swing.event.ListDataListener;
 
 /**
  * An ISearchableTextCombo with the cache from COMPLETION.
@@ -73,87 +64,17 @@ public class SQLSearchableTextCombo extends ISearchableTextCombo implements RowI
      * @param cache the cache to set.
      */
     public void initCacheLater(final ISQLListModel cache) {
-        cache.load(new Runnable() {
-            @Override
-            public void run() {
-                initCache(cache);
-            }
-        });
+        cache.initCacheLater(this);
     }
 
-    public static class ISQLListModel extends DefaultIMutableListModel<String> {
-
-        private final ITextComboCacheSQL cache;
-        private final ListDataListener l;
+    public static class ISQLListModel extends IComboCacheListModel {
 
         public ISQLListModel(final SQLField f) {
             this(new ITextComboCacheSQL(f));
         }
 
         public ISQLListModel(final ITextComboCacheSQL c) {
-            this.cache = c;
-            this.l = new ListDataListener() {
-
-                @SuppressWarnings("unchecked")
-                public void contentsChanged(ListDataEvent e) {
-                    // selection change, see DefaultIMutableListModel#setSelectedItem()
-                    if (e.getIndex0() < 0)
-                        return;
-
-                    final CollectionChangeEvent evt = ((IListDataEvent) e).getCollectionChangeEvent();
-                    this.remove(evt);
-                    this.add(evt.getItemsAdded());
-                }
-
-                public void intervalAdded(ListDataEvent e) {
-                    this.add(getList().subList(e.getIndex0(), e.getIndex1() + 1));
-                }
-
-                public void intervalRemoved(ListDataEvent e) {
-                    this.remove(((IListDataEvent) e).getCollectionChangeEvent());
-                }
-
-                private void add(Collection<String> toAdd) {
-                    for (final String s : toAdd) {
-                        ISQLListModel.this.cache.addToCache(s);
-                    }
-                }
-
-                @SuppressWarnings("unchecked")
-                private void remove(CollectionChangeEvent evt) {
-                    for (final String s : (Collection<String>) evt.getItemsRemoved())
-                        ISQLListModel.this.cache.deleteFromCache(s);
-                }
-            };
-        }
-
-        private void load(final Runnable r) {
-            if (this.cache.isValid()) {
-                new SwingWorker<List<String>, Object>() {
-
-                    @Override
-                    protected List<String> doInBackground() throws Exception {
-                        return ISQLListModel.this.cache.loadCache();
-                    }
-
-                    @Override
-                    protected void done() {
-                        // don't remove and add from the cache, items just came from it
-                        removeListDataListener(ISQLListModel.this.l);
-                        removeAllElements();
-                        try {
-                            addAll(get());
-                        } catch (Exception e1) {
-                            // tant pis, pas de cache
-                            e1.printStackTrace();
-                        }
-                        addListDataListener(ISQLListModel.this.l);
-                        if (r != null)
-                            r.run();
-                    }
-
-                }.execute();
-            }
+            super(c);
         }
     }
 }

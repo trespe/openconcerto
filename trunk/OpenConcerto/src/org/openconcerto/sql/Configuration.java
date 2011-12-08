@@ -119,7 +119,7 @@ public abstract class Configuration {
         return newFile;
     }
 
-    protected final File getConfDir(DBStructureItem<?> db) {
+    public final File getConfDir(DBStructureItem<?> db) {
         return DBItemFileCache.getDescendant(new File(getConfDir(), "dataDepedent"), DBFileCache.getJDBCAncestorNames(db, true));
     }
 

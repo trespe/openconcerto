@@ -245,7 +245,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                 // final float qteShow = qteNvlle;
                 SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
                 SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticle));
-
+                rowValsElt.put("ID_STYLE", 2);
                 rowValsElt.put("QTE", Math.round(rowArticle.getInt("QTE_MIN") - qteNvlle));
                 rowValsElt.put("ID_TAXE", rowValsElt.getObject("ID_TAXE"));
                 rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));

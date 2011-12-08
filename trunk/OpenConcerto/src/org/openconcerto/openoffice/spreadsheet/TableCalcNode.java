@@ -15,6 +15,7 @@
 
 import org.openconcerto.openoffice.ImmutableDocStyledNode;
 import org.openconcerto.openoffice.ODDocument;
+import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.StyleStyle;
 
 import org.jdom.Element;
@@ -34,7 +35,12 @@ class TableCalcNode<S extends StyleStyle, D extends ODDocument> extends Immutabl
         super(parent, local, styleClass);
     }
 
+    protected TableCalcNode(D parent, Element local, StyleDesc<S> styleDesc) {
+        super(parent, local, styleDesc);
+    }
+
     protected final Namespace getTABLE() {
-        return this.getODDocument().getVersion().getTABLE();
+        // a lot faster than asking to the version of our document
+        return this.getElement().getNamespace();
     }
 }

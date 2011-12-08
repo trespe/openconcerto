@@ -37,8 +37,10 @@ import javax.swing.JFrame;
 
 public class DevisSQLElement extends ComptaSQLConfElement {
 
+    public static final String TABLENAME = "DEVIS";
+
     public DevisSQLElement() {
-        super("DEVIS", "un devis", "devis");
+        super(TABLENAME, "un devis", "devis");
     }
 
     protected List<String> getComboFields() {

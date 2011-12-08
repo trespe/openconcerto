@@ -61,7 +61,7 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
 
     private final String defaultValue;
     private final ComboLockedMode locked;
-    private final ValueChangeSupport supp;
+    private final ValueChangeSupport<String> supp;
     protected final boolean autoComplete;
     protected boolean keyPressed;
     private boolean completing;
@@ -181,9 +181,19 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
             public void removeCurrentText() {
                 ITextCombo.this.removeCurrentText();
             }
+
+            @Override
+            public boolean canReload() {
+                return true;
+            }
+
+            @Override
+            public void reload() {
+                ITextCombo.this.loadCache(true);
+            }
         }).listen();
 
-        this.loadCache();
+        this.loadCache(false);
 
         // ATTN marche car locked est final
         if (!this.isLocked()) {
@@ -285,15 +295,16 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
     // *** cache
 
     // charge les elements de completion si besoin
-    private synchronized final void loadCache() {
+    private synchronized final void loadCache(final boolean force) {
         if (!this.cacheLoading) {
             this.modeToSet = this.isEnabled();
             this.setEnabled(false);
+            this.objToSelect = this.getValue();
             this.cacheLoading = true;
-            final SwingWorker sw = new SwingWorker<List<String>, Object>() {
+            final SwingWorker<List<String>, Object> sw = new SwingWorker<List<String>, Object>() {
                 @Override
                 protected List<String> doInBackground() throws Exception {
-                    return ITextCombo.this.cache.getCache();
+                    return force ? ITextCombo.this.cache.loadCache(false) : ITextCombo.this.cache.getCache();
                 }
 
                 @Override

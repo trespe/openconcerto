@@ -35,7 +35,7 @@ import javax.swing.table.TableColumn;
  */
 public class AlternateTableCellRenderer extends TableCellRendererDecorator {
 
-    public static final Color COLOR_LIGHT_GRAY = new Color(243, 243, 243);
+    public static final Color COLOR_LIGHT_GRAY = new Color(243, 247, 251);
     public static final Color DEFAULT_BG_COLOR = Color.WHITE;
     /** Default map from white to gray */
     public static final Map<Color, Color> DEFAULT_MAP = Collections.singletonMap(DEFAULT_BG_COLOR, COLOR_LIGHT_GRAY);

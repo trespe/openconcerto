@@ -454,15 +454,145 @@ public class SQLRowValuesListFetcher {
         }
 
         @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + this.fieldCount;
+            result = prime * result + ((this.from == null) ? 0 : this.from.hashCode());
+            result = prime * result + this.linkIndex;
+            result = prime * result + this.t.hashCode();
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            final GraphNode other = (GraphNode) obj;
+            return this.fieldCount == other.fieldCount && this.linkIndex == other.linkIndex && this.t.equals(other.t) && CompareUtils.equals(this.from, other.from);
+        }
+
+        @Override
         public String toString() {
             final String link = this.from == null ? "" : " linked to " + getLinkIndex() + " by " + this.getFromName() + (this.isBackwards() ? " backwards" : " forewards");
             return this.getFieldCount() + " fields of " + this.getTable() + link;
         }
     }
 
+    static private final class RSH implements ResultSetHandler {
+        private final List<String> selectFields;
+        private final List<GraphNode> graphNodes;
+
+        private RSH(List<String> selectFields, List<GraphNode> l) {
+            this.selectFields = selectFields;
+            this.graphNodes = l;
+        }
+
+        @Override
+        public Object handle(final ResultSet rs) throws SQLException {
+            final List<GraphNode> l = this.graphNodes;
+            final int graphSize = l.size();
+            int nextToLink = 0;
+            final List<Future<?>> futures = new ArrayList<Future<?>>();
+
+            final List<SQLRowValues> res = new ArrayList<SQLRowValues>(64);
+            final List<List<SQLRowValues>> rows = Collections.synchronizedList(new ArrayList<List<SQLRowValues>>(64));
+            // for each rs row, create all SQLRowValues without linking them together
+            // if we're multi-threaded, link them in another thread
+            while (rs.next()) {
+                int rsIndex = 1;
+
+                // MAYBE cancel() futures
+                if (Thread.currentThread().isInterrupted())
+                    throw new RTInterruptedException("interrupted while fetching");
+                final List<SQLRowValues> row = new ArrayList<SQLRowValues>(graphSize);
+                for (int i = 0; i < graphSize; i++) {
+                    final GraphNode node = l.get(i);
+                    final SQLRowValues creatingVals = new SQLRowValues(node.getTable());
+                    if (i == 0)
+                        res.add(creatingVals);
+
+                    final int stop = rsIndex + node.getFieldCount();
+                    for (; rsIndex < stop; rsIndex++) {
+                        try {
+                            // -1 since rs starts at 1
+                            // field names checked below
+                            creatingVals.put(this.selectFields.get(rsIndex - 1), rs.getObject(rsIndex), false);
+                        } catch (SQLException e) {
+                            throw new IllegalStateException("unable to fill " + creatingVals, e);
+                        }
+                    }
+                    row.add(creatingVals);
+                }
+                rows.add(row);
+                // become multi-threaded only for large values
+                final int currentCount = rows.size();
+                if (currentCount % 1000 == 0) {
+                    futures.add(exec.submit(new Linker(l, rows, nextToLink, currentCount)));
+                    nextToLink = currentCount;
+                }
+            }
+            final int rowSize = rows.size();
+            assert nextToLink > 0 == futures.size() > 0;
+            if (nextToLink > 0)
+                futures.add(exec.submit(new Linker(l, rows, nextToLink, rowSize)));
+
+            // check field names only once since each row has the same fields
+            if (rowSize > 0) {
+                final List<SQLRowValues> firstRow = rows.get(0);
+                for (int i = 0; i < graphSize; i++) {
+                    final SQLRowValues vals = firstRow.get(i);
+                    if (!vals.getTable().getFieldsName().containsAll(vals.getFields()))
+                        throw new IllegalStateException("field name error : " + vals.getFields() + " not in " + vals.getTable().getFieldsName());
+                }
+            }
+
+            // either link all rows, or...
+            if (nextToLink == 0)
+                link(l, rows, 0, rowSize);
+            else {
+                // ...wait for every one and most importantly check for any exceptions
+                try {
+                    for (final Future<?> f : futures)
+                        f.get();
+                } catch (Exception e) {
+                    throw new IllegalStateException("couldn't link", e);
+                }
+            }
+
+            return res;
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + this.graphNodes.hashCode();
+            result = prime * result + this.selectFields.hashCode();
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            final RSH other = (RSH) obj;
+            return this.graphNodes.equals(other.graphNodes) && this.selectFields.equals(other.selectFields);
+        }
+
+    }
+
     /**
      * Execute the request transformed by <code>selTransf</code> and return the result as a list of
-     * SQLRowValues.
+     * SQLRowValues. NOTE: this method doesn't use the cache of SQLDataSource.
      * 
      * @return a list of SQLRowValues, one item per row, each item having the same structure as the
      *         SQLRowValues passed to the constructor.
@@ -494,81 +624,12 @@ public class SQLRowValuesListFetcher {
         });
         assert l.size() == graphSize : "All nodes weren't explored once : " + l.size() + " != " + graphSize;
 
+        // if we wanted to use the cache, we'd need to copy the returned list and its items (i.e.
+        // deepCopy()), since we modify them afterwards. Or perhaps include the code after this line
+        // into the result set handler.
+        final IResultSetHandler rsh = new IResultSetHandler(new RSH(selectFields, l), false);
         @SuppressWarnings("unchecked")
-        final List<SQLRowValues> res = (List<SQLRowValues>) table.getBase().getDataSource().execute(req.asString(), new ResultSetHandler() {
-            @Override
-            public Object handle(final ResultSet rs) throws SQLException {
-                int nextToLink = 0;
-                final List<Future<?>> futures = new ArrayList<Future<?>>();
-
-                final List<SQLRowValues> res = new ArrayList<SQLRowValues>(64);
-                final List<List<SQLRowValues>> rows = Collections.synchronizedList(new ArrayList<List<SQLRowValues>>(64));
-                // for each rs row, create all SQLRowValues without linking them together
-                // if we're multi-threaded, link them in another thread
-                while (rs.next()) {
-                    int rsIndex = 1;
-
-                    // MAYBE cancel() futures
-                    if (Thread.currentThread().isInterrupted())
-                        throw new RTInterruptedException("interrupted while fetching " + SQLRowValuesListFetcher.this);
-                    final List<SQLRowValues> row = new ArrayList<SQLRowValues>(graphSize);
-                    for (int i = 0; i < graphSize; i++) {
-                        final GraphNode node = l.get(i);
-                        final SQLRowValues creatingVals = new SQLRowValues(node.getTable());
-                        if (i == 0)
-                            res.add(creatingVals);
-
-                        final int stop = rsIndex + node.getFieldCount();
-                        for (; rsIndex < stop; rsIndex++) {
-                            try {
-                                // -1 since rs starts at 1
-                                // field names checked below
-                                creatingVals.put(selectFields.get(rsIndex - 1), rs.getObject(rsIndex), false);
-                            } catch (SQLException e) {
-                                throw new IllegalStateException("unable to fill " + creatingVals, e);
-                            }
-                        }
-                        row.add(creatingVals);
-                    }
-                    rows.add(row);
-                    // become multi-threaded only for large values
-                    final int currentCount = rows.size();
-                    if (currentCount % 1000 == 0) {
-                        futures.add(exec.submit(new Linker(l, rows, nextToLink, currentCount)));
-                        nextToLink = currentCount;
-                    }
-                }
-                final int rowSize = rows.size();
-                assert nextToLink > 0 == futures.size() > 0;
-                if (nextToLink > 0)
-                    futures.add(exec.submit(new Linker(l, rows, nextToLink, rowSize)));
-
-                // check field names only once since each row has the same fields
-                if (rowSize > 0) {
-                    final List<SQLRowValues> firstRow = rows.get(0);
-                    for (int i = 0; i < graphSize; i++) {
-                        final SQLRowValues vals = firstRow.get(i);
-                        if (!vals.getTable().getFieldsName().containsAll(vals.getFields()))
-                            throw new IllegalStateException("field name error : " + vals.getFields() + " not in " + vals.getTable().getFieldsName());
-                    }
-                }
-
-                // either link all rows, or...
-                if (nextToLink == 0)
-                    link(l, rows, 0, rowSize);
-                else {
-                    // ...wait for every one and most importantly check for any exceptions
-                    try {
-                        for (final Future<?> f : futures)
-                            f.get();
-                    } catch (Exception e) {
-                        throw new IllegalStateException("couldn't link", e);
-                    }
-                }
-
-                return res;
-            }
-        }, false);
+        final List<SQLRowValues> res = (List<SQLRowValues>) table.getBase().getDataSource().execute(req.asString(), rsh, false);
         // e.g. list of batiment pointing to site
         final List<SQLRowValues> merged = merge && this.fetchReferents() ? merge(res) : res;
         if (this.grafts.size() > 0) {

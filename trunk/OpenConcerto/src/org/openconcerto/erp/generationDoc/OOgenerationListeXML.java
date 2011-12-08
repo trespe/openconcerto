@@ -49,34 +49,32 @@ public class OOgenerationListeXML {
     // Cache pour la recherche des styles
     private static Map<Sheet, Map<String, Map<Integer, String>>> cacheStyle = new HashMap<Sheet, Map<String, Map<Integer, String>>>();
 
-    public static File genere(String modele, String pathDest, String fileDest, Map<Integer, List<Map<String, Object>>> liste, Map<Integer, Map<String, Object>> values) {
+    public static File genere(String modele, File pathDest, String fileDest, Map<Integer, List<Map<String, Object>>> liste, Map<Integer, Map<String, Object>> values) {
         return genere(modele, pathDest, fileDest, liste, values, new HashMap<Integer, Map<Integer, String>>(), null, null);
     }
 
-    public static File genere(String modele, String pathDest, String fileDest, Map<Integer, List<Map<String, Object>>> liste, Map<Integer, Map<String, Object>> values,
+    public static File genere(String templateId, File pathDest, String fileDest, Map<Integer, List<Map<String, Object>>> liste, Map<Integer, Map<String, Object>> values,
             Map<Integer, Map<Integer, String>> mapStyle, List<String> sheetName, SQLRow rowLanguage) {
-        // SQLRow row = elt.getTable().getRow(id);
         cacheStyle.clear();
-        SAXBuilder builder = new SAXBuilder();
+        final SAXBuilder builder = new SAXBuilder();
         try {
-            Document doc = builder.build(getXmlTemplate(modele, rowLanguage));
+            InputStream xmlConfiguration = TemplateManager.getInstance().getTemplateConfiguration(templateId, rowLanguage != null ? rowLanguage.getString("CHEMIN") : null, null);
+            Document doc = builder.build(xmlConfiguration);
 
             // On initialise un nouvel élément racine avec l'élément racine du
             // document.
-            Element racine = doc.getRootElement();
+            final Element racine = doc.getRootElement();
 
             // Création et génération du fichier OO
-            SpreadSheet spreadSheet = SpreadSheet.create(new ODPackage(getOOTemplate(modele, rowLanguage)));
+            final InputStream template = TemplateManager.getInstance().getTemplate(templateId, rowLanguage != null ? rowLanguage.getString("CHEMIN") : null, null);
+
+            final SpreadSheet spreadSheet = new ODPackage(template).getSpreadSheet();
             Sheet sheet0 = spreadSheet.getSheet(0);
             if (sheetName != null && sheetName.size() > 0) {
                 for (int i = 1; i < sheetName.size(); i++) {
                     sheet0.copy(i, (sheetName != null) ? sheetName.get(i) : "Feuille " + i);
                 }
-
                 spreadSheet.getSheet(0).setName(sheetName.get(0));
-
-                System.err.println("add " + sheetName.size() + " sheet");
-
             }
 
             for (Integer i : liste.keySet()) {
@@ -86,7 +84,6 @@ public class OOgenerationListeXML {
                     children = racine.getChildren("element");
                 }
                 parseElementsXML(children, sheet, values.get(i));
-
                 Element child = racine.getChild("table" + i);
                 if (child == null) {
                     child = racine.getChild("table");
@@ -94,15 +91,11 @@ public class OOgenerationListeXML {
                 parseListeXML(child, liste.get(i), sheet, mapStyle.get(i));
             }
             // Sauvegarde du fichier
-            return saveSpreadSheet(spreadSheet, new File(pathDest), fileDest, modele, rowLanguage);
+            return saveSpreadSheet(spreadSheet, pathDest, fileDest, templateId, rowLanguage);
 
         } catch (JDOMException e) {
-
-            e.printStackTrace();
             ExceptionHandler.handle("Erreur lors de la génération du fichier " + fileDest, e);
         } catch (IOException e) {
-
-            e.printStackTrace();
             ExceptionHandler.handle("Erreur lors de la création du fichier " + fileDest, e);
         }
         return null;
@@ -478,7 +471,7 @@ public class OOgenerationListeXML {
      * @return un File pointant sur le fichier créé
      * @throws IOException
      */
-    private static File saveSpreadSheet(SpreadSheet ssheet, File pathDest, String fileName, String modele, SQLRow rowLanguage) throws IOException {
+    private static File saveSpreadSheet(SpreadSheet ssheet, File pathDest, String fileName, String templateId, SQLRow rowLanguage) throws IOException {
 
         // Test des arguments
         if (ssheet == null || pathDest == null || fileName.trim().length() == 0) {
@@ -492,7 +485,7 @@ public class OOgenerationListeXML {
             pathDest.mkdirs();
         }
 
-        SheetUtils.getInstance().convertToOldFile(fileName, pathDest, fDest);
+        SheetUtils.convertToOldFile(fileName, pathDest, fDest);
 
         // Sauvegarde
         try {
@@ -515,7 +508,7 @@ public class OOgenerationListeXML {
         // Copie de l'odsp
         try {
             File odspOut = new File(pathDest, fileName + ".odsp");
-            InputStream odspIn = getTemplate(modele + ".odsp", rowLanguage);
+            InputStream odspIn = TemplateManager.getInstance().getTemplatePrintConfiguration(templateId, rowLanguage != null ? rowLanguage.getString("CHEMIN") : null, null);
             if (odspIn != null) {
                 StreamUtils.copy(odspIn, odspOut);
             }
@@ -524,33 +517,6 @@ public class OOgenerationListeXML {
         }
 
         return fDest;
-    }
-
-    public static InputStream getOOTemplate(String name, SQLRow rowLanguage) throws FileNotFoundException {
-        return getTemplate(name + ".ods", rowLanguage);
-    }
-
-    public static InputStream getXmlTemplate(String name, SQLRow rowLanguage) throws FileNotFoundException {
-        return getTemplate(name + ".xml", rowLanguage);
-    }
-
-    /**
-     * Permet d'obtenir l'emplacement du modele passé en argument. Si le modéle ne se pas trouve
-     * dans le répertoire spécifié dans les préférences alors on recherche dans le répertoire par
-     * défaut des modéles.
-     * 
-     * @param name nom du modéle à trouver
-     * @return le modéle
-     * @throws FileNotFoundException si le fichier est introuvable
-     */
-    public static InputStream getTemplate(String name, SQLRow rowLanguage) throws FileNotFoundException {
-        String modelDir = TemplateNXProps.getInstance().getStringProperty("LocationTemplate");
-
-        if (rowLanguage != null) {
-            return ComptaBasePropsConfiguration.getStream(name, modelDir + File.separator + rowLanguage.getString("CHEMIN"), modelDir, SpreadSheetGenerator.defaultLocationTemplate);
-        } else {
-            return ComptaBasePropsConfiguration.getStream(name, modelDir, SpreadSheetGenerator.defaultLocationTemplate);
-        }
     }
 
     /**

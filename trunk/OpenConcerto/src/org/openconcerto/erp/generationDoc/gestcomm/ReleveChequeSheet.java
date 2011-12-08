@@ -15,13 +15,11 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.generationDoc.AbstractListeSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.GestionDevise;
-import org.openconcerto.utils.Tuple2;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -39,34 +37,32 @@ public class ReleveChequeSheet extends AbstractListeSheetXml {
     private long total = 0;
     private long nb = 0;
     private boolean apercu = false;
-
+    private static final SQLTable tableCheque = base.getTable("CHEQUE_A_ENCAISSER");
     private List<Integer> listeIds;
 
     public ReleveChequeSheet(List<Integer> listeIds, Date date) {
         this(listeIds, date, false);
     }
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationReleveChequeCli", "Relevé chéques clients");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
-    }
+    public static final String TEMPLATE_ID = "ReleveCheque";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationReleveChequeCli";
 
     public ReleveChequeSheet(List<Integer> listeIds, Date date, boolean apercu) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true);
         this.date = date;
         this.apercu = apercu;
         this.listeIds = listeIds;
     }
 
     @Override
-    public String getDefaultModele() {
-        return "ReleveCheque";
+    public String getName() {
+        return "ReleveCheque" + this.date.getTime();
     }
 
-    private static final SQLTable tableCheque = base.getTable("CHEQUE_A_ENCAISSER");
+    @Override
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
+    }
 
     protected void createListeValues() {
 
@@ -111,10 +107,6 @@ public class ReleveChequeSheet extends AbstractListeSheetXml {
         values.put("NB_TOTAL", this.nb);
         this.listAllSheetValues.put(0, this.listValues);
         this.mapAllSheetValues.put(0, values);
-    }
-
-    public String getFileName() {
-        return getValidFileName("ReleveCheque" + this.date.getTime());
     }
 
 }

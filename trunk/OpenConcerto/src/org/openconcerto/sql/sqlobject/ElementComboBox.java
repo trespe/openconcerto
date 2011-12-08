@@ -18,6 +18,7 @@ import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
@@ -135,8 +136,14 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
      * @return this
      */
     public final ElementComboBox init(SQLElement element) {
+        return this.init(element, element.getComboRequest());
+    }
+
+    public final ElementComboBox init(SQLElement element, final ComboSQLRequest req) {
+        if (element.getTable() != req.getPrimaryTable())
+            throw new IllegalArgumentException("Tables are different " + element.getTable().getSQLName() + " != " + req.getPrimaryTable().getSQLName());
         this.element = element;
-        this.uiInit(this.element.getComboRequest());
+        this.uiInit(req);
         return this;
     }
 
@@ -146,7 +153,10 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
         if (foreignTable == null) {
             throw new IllegalArgumentException("No foreign table for " + v.getField().getFullName());
         }
-        this.init(Configuration.getInstance().getDirectory().getElement(foreignTable));
+        if (this.getElement() == null)
+            this.init(Configuration.getInstance().getDirectory().getElement(foreignTable));
+        else if (this.getElement().getTable() != foreignTable)
+            throw new IllegalArgumentException("Tables are different " + getElement().getTable().getSQLName() + " != " + foreignTable.getSQLName());
     }
 
     public final SQLElement getElement() {

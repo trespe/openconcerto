@@ -14,8 +14,8 @@
  package org.openconcerto.erp.core.finance.accounting.report;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetInterface;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
@@ -23,9 +23,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
 import java.text.DateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -42,7 +40,8 @@ public class BalanceSheet extends SheetInterface {
     private boolean centralClient, centralFourn;
     private final static DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM);
     private final static DateFormat dateFormatEcr = DateFormat.getDateInstance(DateFormat.SHORT);
-
+    public static String TEMPLATE_ID = "Balance";
+    public static String TEMPLATE_PROPERTY_NAME = "LocationBalance";
     private Date dateDu, dateAu;
     private String compteDeb, compteEnd;
 
@@ -56,10 +55,14 @@ public class BalanceSheet extends SheetInterface {
 
     }
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationBalance", "Balance");
+    @Override
+    protected String getYear() {
+        return "";
+    }
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
+    @Override
+    public String getTemplateId() {
+        return TEMPLATE_ID;
     }
 
     public BalanceSheet(Date du, Date au, String compteDeb, String compteEnd, boolean centralClient, boolean centralFourn) {
@@ -72,10 +75,11 @@ public class BalanceSheet extends SheetInterface {
         this.nbRowsPerPage = 72;
         this.printer = PrinterNXProps.getInstance().getStringProperty("BalancePrinter");
         this.modele = "Balance.ods";
-        final String locationForTuple = SheetXml.getLocationForTuple(tuple, false);
-        System.err.println("Emplacement balance :::: " + locationForTuple);
-        this.locationOO = locationForTuple + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
+
+        final DocumentLocalStorageManager storage = DocumentLocalStorageManager.getInstance();
+
+        // this.locationOO = storage.getDocumentOutputDirectory(TEMPLATE_ID);
+        // this.locationPDF = storage.getPDFOutputDirectory(TEMPLATE_ID);
         this.dateAu = au;
         this.dateDu = du;
         this.compteDeb = compteDeb;

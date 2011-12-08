@@ -85,7 +85,11 @@ public final class ComponentsContext {
     }
 
     public final SQLElement getElement(final String tableName) {
-        return this.dir.getElement(this.getRoot().getTable(tableName));
+        final SQLElement element = this.dir.getElement(this.getRoot().getTable(tableName));
+        if (element == null) {
+            throw new IllegalArgumentException("Not element found for table " + tableName);
+        }
+        return element;
     }
 
     public final void putAdditionalField(final String tableName, final String name) {

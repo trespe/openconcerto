@@ -14,9 +14,9 @@
  package org.openconcerto.map.ui;
 
 import org.openconcerto.map.model.Ville;
-import org.openconcerto.ui.PopupMouseListener;
 import org.openconcerto.ui.component.ComboLockedMode;
-import org.openconcerto.ui.component.ITextSelector;
+import org.openconcerto.ui.component.IComboCacheListModel;
+import org.openconcerto.ui.component.combo.ISearchableTextCombo;
 import org.openconcerto.ui.component.text.DocumentComponent;
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.state.WindowStateManager;
@@ -27,6 +27,7 @@ import org.openconcerto.utils.checks.EmptyObject;
 import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidState;
+import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.BorderLayout;
 import java.awt.Dimension;
@@ -39,12 +40,9 @@ import java.io.File;
 import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JMenuItem;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
 import javax.swing.WindowConstants;
 import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
 
@@ -55,7 +53,7 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
      * Selecteur de Ville
      */
     private static final long serialVersionUID = 3397210337907076649L;
-    private final ITextSelector text = new ITextSelector(ComboLockedMode.ITEMS_LOCKED);
+    private final ISearchableTextCombo text = new ISearchableTextCombo(ComboLockedMode.UNLOCKED);
     private final JButton button = new JButton("Afficher sur la carte");
     private Ville currentVille = null;
     private final EmptyObjectHelper emptyHelper;
@@ -81,7 +79,7 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
         });
 
         this.cache = new ITextComboCacheVille();
-        this.text.initCache(this.cache);
+        new IComboCacheListModel(this.cache).initCacheLater(this.text);
         this.add(this.text, BorderLayout.CENTER);
 
         this.add(this.button, BorderLayout.EAST);
@@ -108,42 +106,14 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
                 }
             }
         });
-        this.text.getDocument().addDocumentListener(new DocumentListener() {
-
-            public void changedUpdate(final DocumentEvent e) {
-                ITextComboVilleViewer.this.currentVille = Ville.getVilleFromVilleEtCode(ITextComboVilleViewer.this.text.getValue());
+        this.text.getDocument().addDocumentListener(new SimpleDocumentListener() {
+            @Override
+            public void update(DocumentEvent e) {
+                ITextComboVilleViewer.this.currentVille = Ville.getVilleFromVilleEtCode(getText(e.getDocument()));
                 ITextComboVilleViewer.this.button.setEnabled(ITextComboVilleViewer.this.currentVille != null && ITextComboVilleViewer.this.isEnabled());
 
             }
-
-            public void insertUpdate(final DocumentEvent e) {
-                this.changedUpdate(e);
-            }
-
-            public void removeUpdate(final DocumentEvent e) {
-                this.changedUpdate(e);
-            }
         });
-        final JPopupMenu popupMenu = new JPopupMenu();
-        // FIXME ajouter la possibilité de supprimer une ville précédemment enregistrée
-        final JMenuItem menuItem = new JMenuItem("Enregistrer cette ville");
-        menuItem.addActionListener(new ActionListener() {
-
-            public void actionPerformed(final ActionEvent e) {
-                final String t = ITextComboVilleViewer.this.text.getTextComp().getText();
-                ITextComboVilleViewer.this.cache.addToCache(t);
-                final Ville createVilleFrom = ITextComboVilleViewer.this.cache.createVilleFrom(t);
-                if (createVilleFrom != null) {
-                    final String villeEtCode = createVilleFrom.getVilleEtCode();
-                    ITextComboVilleViewer.this.setValue(villeEtCode);
-                    ITextComboVilleViewer.this.firePropertyChange("value", null, villeEtCode);
-                }
-            }
-        });
-        popupMenu.add(menuItem);
-
-        this.text.getTextComp().addMouseListener(new PopupMouseListener(popupMenu));
-
     }
 
     @Override
@@ -198,6 +168,9 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
 
     @Override
     public ValidState getValidState() {
+        // TODO listen to Ville list, otherwise if we type a city that doesn't exist, the value
+        // change and we're invalid, then we add the city but this does not change the value of the
+        // combo and thus we're still invalid even though the city is now in the list
         final Ville villeFromVilleEtCode = Ville.getVilleFromVilleEtCode(this.getValue());
         final boolean b = villeFromVilleEtCode != null;
         if (b) {
@@ -224,7 +197,6 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
     public void setEnabled(final boolean enabled) {
         super.setEnabled(enabled);
         this.text.setEnabled(enabled);
-        this.text.setEditable(enabled);
         this.button.setEnabled(enabled);
     }
 

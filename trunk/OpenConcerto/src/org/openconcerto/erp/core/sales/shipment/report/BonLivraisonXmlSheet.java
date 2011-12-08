@@ -13,24 +13,15 @@
  
  package org.openconcerto.erp.core.sales.shipment.report;
 
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
+import org.openconcerto.erp.generationDoc.AbstractSheetXMLWithDate;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
-import java.util.Calendar;
-import java.util.Date;
+public class BonLivraisonXmlSheet extends AbstractSheetXMLWithDate {
 
-public class BonLivraisonXmlSheet extends AbstractSheetXml {
-
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationBon", "Bon de livraison");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
-    }
+    public static final String TEMPLATE_ID = "BonLivraison";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationBon";
 
     @Override
     public String getReference() {
@@ -51,18 +42,17 @@ public class BonLivraisonXmlSheet extends AbstractSheetXml {
         super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.elt = Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON");
-        Calendar cal = Calendar.getInstance();
-        cal.setTime((Date) row.getObject("DATE"));
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
+
     }
 
     @Override
-    public String getDefaultModele() {
-        return "BonLivraison";
+    public String getName() {
+        return "BonLivraison_" + this.row.getString("NUMERO");
     }
 
-    public String getFileName() {
-        return getValidFileName("BonLivraison_" + this.row.getString("NUMERO"));
+    @Override
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     }
+
 }

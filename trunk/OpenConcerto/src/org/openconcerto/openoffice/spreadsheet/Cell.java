@@ -19,6 +19,7 @@ package org.openconcerto.openoffice.spreadsheet;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.OOXML;
+import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.utils.CollectionUtils;
@@ -80,8 +81,8 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
 
     private final Row<D> row;
 
-    Cell(Row<D> parent, Element elem) {
-        super(parent.getODDocument(), elem, CellStyle.class);
+    Cell(Row<D> parent, Element elem, StyleDesc<CellStyle> styleDesc) {
+        super(parent.getODDocument(), elem, styleDesc);
         this.row = parent;
     }
 

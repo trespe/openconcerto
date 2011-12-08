@@ -73,6 +73,7 @@ public class ServerFinderPanel extends JPanel {
     private JTextField textIP;
     private JTextField textPort;
     private JTextField textFile;
+    private JTextField textBase;
     Properties props;
     private JButton buttonDir;
     private JTabbedPane tabbedPane;
@@ -146,6 +147,7 @@ public class ServerFinderPanel extends JPanel {
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(null, "Impossible de lire le fichier " + this.confFile + " \n" + e.getLocalizedMessage());
             }
+
             String serverIp = this.props.getProperty("server.ip", "127.0.0.1:5432");
             String serverDriver = this.props.getProperty("server.driver", "postgresql").toLowerCase();
             if (serverDriver.startsWith("h2")) {
@@ -158,7 +160,7 @@ public class ServerFinderPanel extends JPanel {
                 updateUIForMode(ServerFinderConfig.POSTGRESQL);
                 this.textPort.setText("5432");
             }
-
+            this.textBase.setText(this.props.getProperty("systemRoot", "OpenConcerto"));
             if (serverIp.contains("file:")) {
                 this.textFile.setText(serverIp.substring(5));
             } else {
@@ -405,6 +407,19 @@ public class ServerFinderPanel extends JPanel {
         c.gridy++;
         c.gridx = 0;
         c.weightx = 0;
+        p.add(new JLabel("Base de données", SwingConstants.RIGHT), c);
+        c.gridx++;
+        c.weighty = 0;
+        c.gridwidth = 1;
+        this.textBase = new JTextField();
+        this.textBase.setEditable(false);
+        p.add(this.textBase, c);
+
+        // L4: file
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 0;
+        c.gridwidth = 1;
         p.add(new JLabel("Dossier de base de données", SwingConstants.RIGHT), c);
         c.gridx++;
         c.weighty = 0;
@@ -648,18 +663,12 @@ public class ServerFinderPanel extends JPanel {
         return p;
     }
 
-    private JPanel createPanelInstallation() {
-        final JPanel p = new JPanel();
-        p.setLayout(new GridBagLayout());
-        p.setOpaque(false);
-        return p;
-    }
-
     public ServerFinderConfig getServerConfig() {
         final ServerFinderConfig conf = new ServerFinderConfig();
         conf.setType(ServerFinderPanel.this.comboMode.getSelectedItem().toString());
         conf.setIp(ServerFinderPanel.this.textIP.getText());
         conf.setPort(ServerFinderPanel.this.textPort.getText());
+        conf.setSystemRoot(this.textBase.getText());
         return conf;
     }
 
@@ -690,6 +699,7 @@ public class ServerFinderPanel extends JPanel {
     public ServerFinderConfig createServerFinderConfig() {
         ServerFinderConfig conf = new ServerFinderConfig();
         conf.setType(this.comboMode.getSelectedItem().toString());
+        conf.setSystemRoot(this.textBase.getText());
         if (!conf.getType().equals(ServerFinderConfig.H2)) {
             conf.setIp(this.textIP.getText());
             conf.setPort(this.textPort.getText());

@@ -13,6 +13,9 @@
  
  package org.openconcerto.erp.generationDoc;
 
+import static org.openconcerto.erp.generationDoc.SheetXml.getValidFileName;
+import org.openconcerto.utils.StringUtils;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,16 +38,21 @@ public abstract class AbstractListeSheetXml extends SheetXml {
     // Nom des feuilles
     protected List<String> sheetNames = new ArrayList<String>();
 
-    public final Future<File> genere(final boolean visu, final boolean impression) {
-        Callable<File> c = new Callable<File>() {
+    private File generatedOpenDocumentFile;
+
+    public AbstractListeSheetXml() {
+        generatedOpenDocumentFile = new File(getDocumentOutputDirectory(), getValidFileName(getName()) + ".ods");
+    }
+
+    public final Future<SheetXml> createDocumentAsynchronous() {
+        Callable<SheetXml> c = new Callable<SheetXml>() {
             @Override
-            public File call() throws Exception {
+            public SheetXml call() throws Exception {
                 try {
                     createListeValues();
-                    File fGen = OOgenerationListeXML.genere(getModele(), locationOO, getFileName(), listAllSheetValues, mapAllSheetValues, styleAllSheetValues, sheetNames, null);
-                    AbstractListeSheetXml.this.f = fGen;
-                    useOO(fGen, visu, impression, getFileName());
-                    return fGen;
+                    generatedOpenDocumentFile = OOgenerationListeXML.genere(getTemplateId(), getDocumentOutputDirectory(), getValidFileName(getName()), listAllSheetValues, mapAllSheetValues,
+                            styleAllSheetValues, sheetNames, null);
+                    return AbstractListeSheetXml.this;
                 } catch (Exception e) {
                     DEFAULT_HANDLER.uncaughtException(null, e);
                     // rethrow exception so that the unsuspecting caller can use this as the
@@ -57,11 +65,31 @@ public abstract class AbstractListeSheetXml extends SheetXml {
 
             }
         };
-        return this.runnableQueue.submit(c);
+        return runnableQueue.submit(c);
     }
 
     /**
      * To fill listAllSheetValues, styleAllSheetValues, mapAllSheetValues, sheetNames
      */
     protected abstract void createListeValues();
+
+    @Override
+    public String getStoragePathP() {
+        return StringUtils.firstUp(elt.getPluralName());
+    }
+
+    @Override
+    public File getGeneratedFile() {
+        return generatedOpenDocumentFile;
+    }
+
+    @Override
+    public File getDocumentOutputDirectoryP() {
+        return DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(this.getTemplateId());
+    }
+
+    @Override
+    public File getPDFOutputDirectoryP() {
+        return DocumentLocalStorageManager.getInstance().getPDFOutputDirectory(this.getTemplateId());
+    }
 }

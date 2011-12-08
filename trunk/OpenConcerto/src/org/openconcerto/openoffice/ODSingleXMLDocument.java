@@ -15,13 +15,9 @@
 
 import static org.openconcerto.openoffice.ODPackage.RootElement.CONTENT;
 import org.openconcerto.openoffice.ODPackage.RootElement;
-import org.openconcerto.openoffice.text.TextNode;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CopyUtils;
-import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.cc.IFactory;
-import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.SimpleXMLPath;
 import org.openconcerto.xml.Step;
@@ -33,7 +29,6 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -56,7 +51,7 @@ import org.jdom.xpath.XPath;
  * 
  * @author Sylvain CUAZ 24 nov. 2004
  */
-public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODDocument {
+public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
 
     final static Set<String> DONT_PREFIX;
     static {
@@ -82,14 +77,12 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
      * @return the merged document.
      */
     public static ODSingleXMLDocument createFromDocument(Document content, Document style) {
-        return createFromDocument(content, style, null);
+        return ODPackage.createFromDocuments(content, style).toSingle();
     }
 
-    public static ODSingleXMLDocument createFromDocument(Document content, Document style, Document settings) {
-        return createFromDocument(content, style, settings, null, new ODPackage());
-    }
-
-    static ODSingleXMLDocument createFromDocument(Document content, Document style, Document settings, Document meta, ODPackage files) {
+    static ODSingleXMLDocument create(ODPackage files) {
+        final Document content = files.getContent().getDocument();
+        final Document style = files.getDocument(RootElement.STYLES.getZipEntry());
         // signal that the xml is a complete document (was document-content)
         final Document singleContent = RootElement.createSingle(content);
         copyNS(content, singleContent);
@@ -97,8 +90,8 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
         final Element root = singleContent.getRootElement();
         root.addContent(content.getRootElement().removeContent());
         // see section 2.1.1 first meta, then settings, then the rest
-        prependToRoot(settings, root);
-        prependToRoot(meta, root);
+        prependToRoot(files.getDocument(RootElement.SETTINGS.getZipEntry()), root);
+        prependToRoot(files.getDocument(RootElement.META.getZipEntry()), root);
         final ODSingleXMLDocument single = new ODSingleXMLDocument(singleContent, files);
         if (single.getChild("body") == null)
             throw new IllegalArgumentException("no body in " + single);
@@ -139,7 +132,6 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
      * @return the merged file.
      * @throws JDOMException if the file is not a valid OpenDocument file.
      * @throws IOException if the file can't be read.
-     * @see #createFromDocument(Document, Document)
      */
     public static ODSingleXMLDocument createFromFile(File f) throws JDOMException, IOException {
         // this loads all linked files
@@ -266,36 +258,8 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
         return this.numero;
     }
 
-    @Override
     public ODPackage getPackage() {
         return this.pkg;
-    }
-
-    /**
-     * Append a paragraph or a heading.
-     * 
-     * @param p paragraph to add.
-     */
-    public synchronized void add(TextNode p) {
-        this.add(p, null, -1);
-    }
-
-    public synchronized void add(TextNode p, Element where, int index) {
-        // add it first to avoid infinite loop, since setDocument() can call this method
-        final Element addToElem = where == null ? this.getBody() : where;
-        if (index < 0)
-            addToElem.addContent(p.getElement());
-        else
-            addToElem.addContent(index, p.getElement());
-
-        try {
-            p.setDocument(this);
-        } catch (RuntimeException e) {
-            // the paragraph can throw an exception to notify that is not compatible with us (eg
-            // missing styles), in that case remove it
-            p.getElement().detach();
-            throw e;
-        }
     }
 
     /**
@@ -545,77 +509,6 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
     }
 
     /**
-     * Verify that styles referenced by this document are indeed defined. NOTE this method is not
-     * perfect : not all problems are detected.
-     * 
-     * @return <code>null</code> if no problem has been found, else a String describing it.
-     */
-    public final String checkStyles() {
-        try {
-            final CollectionMap<String, String> stylesNames = this.getStylesNames();
-            // text:style-name : text:p, text:span
-            // table:style-name : table:table, table:row, table:column, table:cell
-            // draw:style-name : draw:text-box
-            // style:data-style-name : <style:style style:family="table-cell">
-            // TODO check by family
-            final Set<String> names = new HashSet<String>(stylesNames.values());
-            final Iterator attrs = this.getXPath(".//@text:style-name | .//@table:style-name | .//@draw:style-name | .//@style:data-style-name | .//@style:list-style-name")
-                    .selectNodes(this.getDocument()).iterator();
-            while (attrs.hasNext()) {
-                final Attribute attr = (Attribute) attrs.next();
-                if (!names.contains(attr.getValue()))
-                    return "unknown style referenced by " + attr.getName() + " in " + JDOMUtils.output(attr.getParent());
-            }
-            // TODO check other references like page-*-name (§3 of #prefix())
-        } catch (IllegalStateException e) {
-            return ExceptionUtils.getStackTrace(e);
-        } catch (JDOMException e) {
-            return ExceptionUtils.getStackTrace(e);
-        }
-        return null;
-    }
-
-    private final CollectionMap<String, String> getStylesNames() throws IllegalStateException {
-        // section 14.1 § Style Name : style:family + style:name is unique
-        final CollectionMap<String, String> res = new CollectionMap<String, String>(HashSet.class);
-
-        final List<Element> nodes = new ArrayList<Element>();
-        nodes.add(this.getChild("styles"));
-        nodes.add(this.getChild("automatic-styles"));
-
-        try {
-            {
-                final Iterator iter = this.getXPath("./style:style/@style:name").selectNodes(nodes).iterator();
-                while (iter.hasNext()) {
-                    final Attribute attr = (Attribute) iter.next();
-                    final String styleName = attr.getValue();
-                    final String family = attr.getParent().getAttributeValue("family", attr.getNamespace());
-                    if (res.getNonNull(family).contains(styleName))
-                        throw new IllegalStateException("duplicate style in " + family + " :  " + styleName);
-                    res.put(family, styleName);
-                }
-            }
-            {
-                final List<String> dataStyles = Arrays.asList("number-style", "currency-style", "percentage-style", "date-style", "time-style", "boolean-style", "text-style");
-                final String xpDataStyles = org.openconcerto.utils.CollectionUtils.join(dataStyles, " | ", new ITransformer<String, String>() {
-                    @Override
-                    public String transformChecked(String input) {
-                        return "./number:" + input;
-                    }
-                });
-                final Iterator listIter = this.getXPath("./text:list-style | " + xpDataStyles).selectNodes(nodes).iterator();
-                while (listIter.hasNext()) {
-                    final Element elem = (Element) listIter.next();
-                    res.put(elem.getQualifiedName(), elem.getAttributeValue("name", getVersion().getSTYLE()));
-                }
-            }
-        } catch (JDOMException e) {
-            throw new IllegalStateException(e);
-        }
-        return res;
-    }
-
-    /**
      * Préfixe les attributs en ayant besoin.
      * 
      * @param elem l'élément à préfixer.
@@ -822,13 +715,13 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
         final Map<RootElement, Document> res = new HashMap<RootElement, Document>();
         final XMLVersion version = getVersion();
         final Element root = this.getDocument().getRootElement();
-        final String officeVersion = getFormatVersion().getOfficeVersion();
+        final XMLFormatVersion officeVersion = getFormatVersion();
 
         // meta
         {
             final Element thisMeta = root.getChild("meta", version.getOFFICE());
             if (thisMeta != null) {
-                final Document meta = createDocument(res, RootElement.META, version, officeVersion);
+                final Document meta = createDocument(res, RootElement.META, officeVersion);
                 meta.getRootElement().addContent(thisMeta.detach());
             }
         }
@@ -836,14 +729,14 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
         {
             final Element thisSettings = root.getChild("settings", version.getOFFICE());
             if (thisSettings != null) {
-                final Document settings = createDocument(res, RootElement.SETTINGS, version, officeVersion);
+                final Document settings = createDocument(res, RootElement.SETTINGS, officeVersion);
                 settings.getRootElement().addContent(thisSettings.detach());
             }
         }
         // styles
         // we must move office:styles, office:master-styles and referenced office:automatic-styles
         {
-            final Document styles = createDocument(res, RootElement.STYLES, version, officeVersion);
+            final Document styles = createDocument(res, RootElement.STYLES, officeVersion);
             // don't bother finding out which font is used where since there isn't that many of them
             styles.getRootElement().addContent((Element) root.getChild(getFontDecls()[0], version.getOFFICE()).clone());
             // extract common styles
@@ -874,15 +767,15 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable, ODD
         // content
         {
             this.pkg = null;
-            final Document content = createDocument(res, RootElement.CONTENT, version, officeVersion);
+            final Document content = createDocument(res, RootElement.CONTENT, officeVersion);
             getContentTypeVersioned().setType(content);
             content.getRootElement().addContent(root.removeContent());
         }
         return res;
     }
 
-    private Document createDocument(final Map<RootElement, Document> res, RootElement rootElement, final XMLVersion version, final String officeVersion) {
-        final Document doc = rootElement.createDocument(version, officeVersion);
+    private Document createDocument(final Map<RootElement, Document> res, RootElement rootElement, final XMLFormatVersion version) {
+        final Document doc = rootElement.createDocument(version);
         copyNS(this.getDocument(), doc);
         res.put(rootElement, doc);
         return doc;

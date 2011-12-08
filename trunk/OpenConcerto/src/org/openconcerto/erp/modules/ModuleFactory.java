@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.utils.cc.IPredicate;
 
 import java.io.IOException;
@@ -23,6 +25,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.ResourceBundle;
+import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -175,8 +178,22 @@ public abstract class ModuleFactory {
         return (AbstractModule) c.getConstructor(ModuleFactory.class).newInstance(this);
     }
 
+    public final Preferences getLocalPreferences() {
+        return this.getPreferences(true, null);
+    }
+
+    public final Preferences getSQLPreferences(final DBRoot root) {
+        return this.getPreferences(false, root);
+    }
+
+    public final Preferences getPreferences(final boolean local, final DBRoot root) {
+        final Preferences rootPrefs = local ? Preferences.userRoot() : new SQLPreferences(root);
+        // ID is a package name, transform to path to avoid bumping into the size limit
+        return rootPrefs.node(ModulePreferencePanel.getAppPrefPath() + this.getID().replace('.', '/'));
+    }
+
     @Override
     public String toString() {
-        return super.toString() + " " + getID() + " (" + getMajorVersion() + "." + getMinorVersion() + ")";
+        return getClass().getSimpleName() + " " + getID() + " (" + getMajorVersion() + "." + getMinorVersion() + ")";
     }
 }

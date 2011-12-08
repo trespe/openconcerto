@@ -13,12 +13,18 @@
  
  package org.openconcerto.openoffice.style.data;
 
+import org.openconcerto.openoffice.ODEpoch;
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.CellStyle;
 import org.openconcerto.openoffice.spreadsheet.MutableCell;
 
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+
+import javax.xml.datatype.Duration;
 
 import org.jdom.Element;
 import org.jdom.Namespace;
@@ -33,8 +39,38 @@ public class NumberStyle extends DataStyle {
         }
     };
 
+    public static final Number toNumber(Object value, ODEpoch epoch) {
+        final Number res;
+        if (value instanceof Number) {
+            res = (Number) value;
+        } else if (value instanceof Boolean) {
+            res = ((Boolean) value).booleanValue() ? 1 : 0;
+        } else if ((value instanceof Duration || value instanceof Date || value instanceof Calendar)) {
+            if (value instanceof Duration) {
+                res = epoch.getDays((Duration) value);
+            } else {
+                final Calendar cal;
+                if (value instanceof Calendar) {
+                    cal = (Calendar) value;
+                } else {
+                    cal = Calendar.getInstance();
+                    cal.setTime((Date) value);
+                }
+                res = epoch.getDays(cal);
+            }
+        } else {
+            res = null;
+        }
+        return res;
+    }
+
     public NumberStyle(final ODPackage pkg, Element elem) {
-        super(pkg, elem, Number.class);
+        super(pkg, elem, ODValueType.FLOAT);
+    }
+
+    @Override
+    protected Number convertNonNull(Object value) {
+        return toNumber(value, getEpoch());
     }
 
     @Override

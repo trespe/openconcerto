@@ -57,6 +57,9 @@ public class JournauxSheet extends SheetInterface {
     protected int lettrage;
     private String compteDeb, compteEnd;
 
+    public static String TEMPLATE_ID = "Journaux";
+    public static String TEMPLATE_PROPERTY_NAME = "LocationJournaux";
+
     public static void setSize(int debut, int fin) {
         debutFill = debut;
         endFill = fin;
@@ -66,10 +69,14 @@ public class JournauxSheet extends SheetInterface {
         setSize(7, 68);
     }
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationJournaux", "Journaux");
+    @Override
+    public String getTemplateId() {
+        return TEMPLATE_ID;
+    }
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
+    @Override
+    protected String getYear() {
+        return "";
     }
 
     public JournauxSheet(int[] id, Date du, Date au, int lettrage, String compteDeb, String compteEnd) {
@@ -78,8 +85,6 @@ public class JournauxSheet extends SheetInterface {
         cal.setTime(au);
         this.printer = PrinterNXProps.getInstance().getStringProperty("JournauxPrinter");
         this.modele = "Journaux.ods";
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + cal.get(Calendar.YEAR);
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + cal.get(Calendar.YEAR);
         this.dateAu = au;
         this.dateDu = du;
         this.idS = id;

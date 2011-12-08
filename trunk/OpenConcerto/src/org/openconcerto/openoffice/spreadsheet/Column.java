@@ -14,6 +14,7 @@
  package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.ODDocument;
+import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
 
 import org.jdom.Element;
@@ -30,8 +31,8 @@ public class Column<D extends ODDocument> extends TableCalcNode<ColumnStyle, D> 
         return res;
     }
 
-    public Column(final Table<D> parent, Element tableColElem) {
-        super(parent.getODDocument(), tableColElem, ColumnStyle.class);
+    public Column(final Table<D> parent, Element tableColElem, StyleStyleDesc<ColumnStyle> colStyleDesc) {
+        super(parent.getODDocument(), tableColElem, colStyleDesc);
     }
 
     public final Float getWidth() {

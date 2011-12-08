@@ -16,6 +16,7 @@
  */
 package org.openconcerto.openoffice;
 
+import org.openconcerto.openoffice.ODPackage.RootElement;
 import org.openconcerto.openoffice.spreadsheet.ColumnStyle;
 import org.openconcerto.utils.cc.IFactory;
 import org.openconcerto.xml.JDOMUtils;
@@ -88,6 +89,13 @@ public class ODXMLDocument {
      */
     public static Set<String> getNamedElements() {
         return Collections.unmodifiableSet(namePrefixes.keySet());
+    }
+
+    public static final ODXMLDocument create(final Document doc) {
+        if (RootElement.fromDocument(doc) == RootElement.SINGLE_CONTENT)
+            return new ODSingleXMLDocument(doc);
+        else
+            return new ODXMLDocument(doc);
     }
 
     private final Document content;

@@ -21,6 +21,10 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
@@ -39,29 +43,33 @@ public class ListeDesCommandesAction extends CreateFrameAbstractAction {
     public JFrame createFrame() {
         final IListFrame frame = new IListFrame(new ListeAddPanel(Configuration.getInstance().getDirectory().getElement("COMMANDE")));
 
-        frame.getPanel().getListe().getJTable().addMouseListener(new MouseSheetXmlListeListener(frame.getPanel().getListe(), CommandeXmlSheet.class) {
+        frame.getPanel().getListe().addIListeActions(new MouseSheetXmlListeListener(CommandeXmlSheet.class) {
             @Override
-            public List<AbstractAction> addToMenu() {
+            public List<RowAction> addToMenu() {
                 // Transfert vers BR
-                AbstractAction bonAction = (new AbstractAction("Transfert vers BR") {
+                PredicateRowAction bonAction = new PredicateRowAction(new AbstractAction("Transfert vers BR") {
                     public void actionPerformed(ActionEvent e) {
-                        transfertBonReceptionClient(frame.getPanel().getListe().getSelectedRow());
+                        transfertBonReceptionClient(IListe.get(e).getSelectedRow());
                     }
-                });
+                }, false);
+
+                bonAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
 
                 // Transfert vers facture
-                AbstractAction factureAction = (new AbstractAction("Transfert vers facture") {
+                PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction("Transfert vers facture") {
                     public void actionPerformed(ActionEvent e) {
-                        transfertFactureFournisseur(frame.getPanel().getListe().getSelectedRow());
+                        transfertFactureFournisseur(IListe.get(e).getSelectedRow());
                     }
-                });
+                }, false);
 
-                List<AbstractAction> l = new ArrayList<AbstractAction>();
+                factureAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
+
+                List<RowAction> l = new ArrayList<RowAction>();
                 l.add(bonAction);
                 l.add(factureAction);
                 return l;
             }
-        });
+        }.getRowActions());
 
         return frame;
     }

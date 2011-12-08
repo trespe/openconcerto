@@ -26,6 +26,10 @@ import org.jdom.Element;
  */
 public abstract class StyledNode<S extends Style, D extends ODDocument> extends ODNode {
 
+    static protected final <S extends Style> StyleDesc<S> getStyleDesc(final Element local, final Class<S> styleClass) {
+        return Style.getStyleDesc(styleClass, XMLVersion.getVersion(local));
+    }
+
     private final StyleDesc<S> styleClass;
 
     /**
@@ -36,10 +40,18 @@ public abstract class StyledNode<S extends Style, D extends ODDocument> extends 
      * @param styleClass our class of style, cannot be <code>null</code>.
      */
     public StyledNode(Element local, final Class<S> styleClass) {
+        this(local, getStyleDesc(local, styleClass));
+    }
+
+    // allow to pass StyleDesc since Style.getStyleDesc() was the longest operation of this
+    // constructor, and this constructor is called for every Table, Column, Row and Cell, i.e.
+    // up to millions of times.
+    protected StyledNode(Element local, final StyleDesc<S> styleDesc) {
         super(local);
-        if (styleClass == null)
-            throw new NullPointerException("null style class");
-        this.styleClass = Style.getStyleDesc(styleClass, XMLVersion.getVersion(getElement()));
+        if (styleDesc == null)
+            throw new NullPointerException("null style desc");
+        this.styleClass = styleDesc;
+        assert styleDesc.getVersion().equals(XMLVersion.getVersion(local));
         assert this.styleClass.getRefElements().contains(this.getElement().getQualifiedName()) : this.getElement().getQualifiedName() + " not in " + this.styleClass;
     }
 
@@ -47,12 +59,21 @@ public abstract class StyledNode<S extends Style, D extends ODDocument> extends 
     public abstract D getODDocument();
 
     public final S getStyle() {
+        // null avoid getting styleName if we haven't any Document
+        return this.getStyle(null);
+    }
+
+    protected final S getStyle(final String styleName) {
         final D doc = this.getODDocument();
-        return doc == null ? null : this.getStyle(doc.getPackage(), getElement().getDocument());
+        return doc == null ? null : this.getStyle(doc.getPackage(), getElement().getDocument(), styleName == null ? getStyleName() : styleName);
     }
 
     protected final S getStyle(final ODPackage pkg, final Document doc) {
-        return this.styleClass.findStyle(pkg, doc, getStyleName());
+        return this.getStyle(pkg, doc, getStyleName());
+    }
+
+    protected final S getStyle(final ODPackage pkg, final Document doc, final String styleName) {
+        return this.styleClass.findStyleForNode(pkg, doc, this, styleName);
     }
 
     /**

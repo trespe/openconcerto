@@ -14,6 +14,35 @@
  package org.openconcerto.erp.preferences;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.customerrelationship.customer.report.FicheClientXmlSheet;
+import org.openconcerto.erp.core.finance.accounting.report.BalanceSheet;
+import org.openconcerto.erp.core.finance.accounting.report.GrandLivreSheet;
+import org.openconcerto.erp.core.finance.accounting.report.JournauxSheet;
+import org.openconcerto.erp.core.humanresources.payroll.report.EtatChargesPayeSheet;
+import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheet;
+import org.openconcerto.erp.core.humanresources.payroll.report.LivrePayeSheet;
+import org.openconcerto.erp.core.sales.invoice.report.ListeFactureXmlSheet;
+import org.openconcerto.erp.core.sales.invoice.report.ListeVenteXmlSheet;
+import org.openconcerto.erp.core.sales.invoice.report.VenteComptoirSheet;
+import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
+import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
+import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
+import org.openconcerto.erp.core.sales.shipment.report.BonLivraisonXmlSheet;
+import org.openconcerto.erp.generationDoc.DefaultLocalTemplateProvider;
+import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
+import org.openconcerto.erp.generationDoc.SheetXml;
+import org.openconcerto.erp.generationDoc.TemplateManager;
+import org.openconcerto.erp.generationDoc.TemplateProvider;
+import org.openconcerto.erp.generationDoc.gestcomm.AvoirClientXmlSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.AvoirFournisseurXmlSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.CommandeXmlSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.CourrierClientSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.EtatVentesXmlSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.FicheRelanceSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.PointageXmlSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.RelanceSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.ReleveChequeEmisSheet;
+import org.openconcerto.erp.generationDoc.gestcomm.ReleveChequeSheet;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
@@ -79,10 +108,87 @@ public class TemplateNXProps extends TemplateProps {
         return conf.getWD().getAbsolutePath() + File.separator + rowSociete.getString("NOM") + "-" + rowSociete.getID();
     }
 
+    public void initDocumentLocalStorage() {
+        final DocumentLocalStorageManager storage = DocumentLocalStorageManager.getInstance();
+        String propertyDefaultDirectory = getProperty(SheetXml.DEFAULT_PROPERTY_NAME + "OO");
+        if (propertyDefaultDirectory == null) {
+            System.out.println("Warning: no default directory stored for document output");
+            propertyDefaultDirectory = getDefaultStringValue();
+        }
+        storage.setDocumentDefaultDirectory(new File(propertyDefaultDirectory));
+        String propertyDefaultPDFDirectory = getProperty(SheetXml.DEFAULT_PROPERTY_NAME + "PDF");
+        if (propertyDefaultPDFDirectory == null) {
+            System.out.println("Warning: no default directory stored for PFD output");
+            propertyDefaultPDFDirectory = propertyDefaultDirectory;
+        }
+
+        storage.setPDFDefaultDirectory(new File(propertyDefaultPDFDirectory));
+        register(DevisXmlSheet.TEMPLATE_ID, DevisXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(VenteFactureXmlSheet.TEMPLATE_ID, VenteFactureXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(CommandeClientXmlSheet.TEMPLATE_ID, CommandeClientXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(BonLivraisonXmlSheet.TEMPLATE_ID, BonLivraisonXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(AvoirClientXmlSheet.TEMPLATE_ID, AvoirClientXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(AvoirFournisseurXmlSheet.TEMPLATE_ID, AvoirFournisseurXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(CommandeXmlSheet.TEMPLATE_ID, CommandeXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(EtatVentesXmlSheet.TEMPLATE_ID, EtatVentesXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(FicheClientXmlSheet.TEMPLATE_ID, FicheClientXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(FicheRelanceSheet.TEMPLATE_ID, FicheRelanceSheet.TEMPLATE_PROPERTY_NAME);
+        register(ReleveChequeSheet.TEMPLATE_ID, ReleveChequeSheet.TEMPLATE_PROPERTY_NAME);
+        register(ListeFactureXmlSheet.TEMPLATE_ID, ListeFactureXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(ListeVenteXmlSheet.TEMPLATE_ID, ListeVenteXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(BalanceSheet.TEMPLATE_ID, BalanceSheet.TEMPLATE_PROPERTY_NAME);
+        register(GrandLivreSheet.TEMPLATE_ID, GrandLivreSheet.TEMPLATE_PROPERTY_NAME);
+        register(JournauxSheet.TEMPLATE_ID, JournauxSheet.TEMPLATE_PROPERTY_NAME);
+        register(EtatChargesPayeSheet.TEMPLATE_ID, EtatChargesPayeSheet.TEMPLATE_PROPERTY_NAME);
+        register(FichePayeSheet.TEMPLATE_ID, FichePayeSheet.TEMPLATE_PROPERTY_NAME);
+        register(LivrePayeSheet.TEMPLATE_ID, LivrePayeSheet.TEMPLATE_PROPERTY_NAME);
+        register(CourrierClientSheet.TEMPLATE_ID, CourrierClientSheet.TEMPLATE_PROPERTY_NAME);
+        register(PointageXmlSheet.TEMPLATE_ID, PointageXmlSheet.TEMPLATE_PROPERTY_NAME);
+        register(RelanceSheet.TEMPLATE_ID, RelanceSheet.TEMPLATE_PROPERTY_NAME);
+        register(VenteComptoirSheet.TEMPLATE_ID, VenteComptoirSheet.TEMPLATE_PROPERTY_NAME);
+        register(ReleveChequeEmisSheet.TEMPLATE_ID, ReleveChequeEmisSheet.TEMPLATE_PROPERTY_NAME);
+        storage.dump();
+
+    }
+
+    private void register(String templateId, String propertyBaseName) {
+        if (templateId == null) {
+            throw new IllegalArgumentException("null template id");
+        }
+        if (propertyBaseName == null) {
+            throw new IllegalArgumentException("null propertyBaseName");
+        }
+        if (TemplateManager.getInstance().isKnwonTemplate(templateId)) {
+            System.err.println("Warning: registering known template id : " + templateId + " with property base name: " + propertyBaseName);
+        }
+        final DocumentLocalStorageManager storage = DocumentLocalStorageManager.getInstance();
+        final String propertyOO = getProperty(propertyBaseName + "OO");
+        if (propertyOO != null) {
+
+            storage.addDocumentDirectory(templateId, new File(propertyOO));
+        }
+        final String propertyPDF = getProperty(propertyBaseName + "PDF");
+        if (propertyPDF != null) {
+            storage.addPDFDirectory(templateId, new File(propertyPDF));
+        }
+    }
+
     synchronized public static TemplateProps getInstance() {
         if (instance == null) {
             instance = new TemplateNXProps();
+            ((TemplateNXProps) instance).initDocumentLocalStorage();
+            ((TemplateNXProps) instance).initDefaulTemplateProvider();
         }
         return instance;
+    }
+
+    private void initDefaulTemplateProvider() {
+        final String property = getProperty("LocationTemplate");
+        final DefaultLocalTemplateProvider provider = new DefaultLocalTemplateProvider();
+        if (property != null) {
+            provider.setBaseDirectory(new File(property));
+        }
+        TemplateManager.getInstance().setDefaultProvider(provider);
+        TemplateManager.getInstance().dump();
     }
 }

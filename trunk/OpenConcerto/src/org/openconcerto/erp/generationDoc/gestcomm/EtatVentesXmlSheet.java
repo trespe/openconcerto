@@ -14,6 +14,7 @@
  package org.openconcerto.erp.generationDoc.gestcomm;
 
 import org.openconcerto.erp.generationDoc.AbstractListeSheetXml;
+import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
@@ -25,6 +26,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.Tuple2;
 
+import java.io.File;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -46,11 +48,11 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
 
     private static final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yy");
 
-    private Timestamp du, au;
+    public static final String TEMPLATE_ID = "EtatVentes";
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tupleDefault;
-    }
+    public static final String TEMPLATE_PROPERTY_NAME = DEFAULT_PROPERTY_NAME;
+
+    private Timestamp du, au;
 
     public EtatVentesXmlSheet(Date du, Date au) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
@@ -61,18 +63,18 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
         this.du = new Timestamp(du.getTime());
         this.au = new Timestamp(au.getTime());
 
-        this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
+    }
+
+
+
+    @Override
+    public String getDefaultTemplateId() {
+        return TEMPLATE_ID;
     }
 
     @Override
-    public String getDefaultModele() {
-
-        return "EtatVentes";
-    }
-
-    public String getFileName() {
-        return getValidFileName("EtatVentes" + new Date().getTime());
+    public String getName() {
+        return "EtatVentes" + new Date().getTime();
     }
 
     protected void createListeValues() {

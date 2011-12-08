@@ -14,6 +14,7 @@
  package org.openconcerto.openoffice.style.data;
 
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.CellStyle;
 
@@ -34,7 +35,12 @@ public class CurrencyStyle extends DataStyle {
     };
 
     public CurrencyStyle(final ODPackage pkg, Element elem) {
-        super(pkg, elem, Number.class);
+        super(pkg, elem, ODValueType.CURRENCY);
+    }
+
+    @Override
+    protected Object convertNonNull(Object o) {
+        return NumberStyle.toNumber(o, getEpoch());
     }
 
     @Override

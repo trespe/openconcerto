@@ -17,7 +17,8 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.FastPrintAskFrame;
 import org.openconcerto.erp.core.common.ui.PreviewFrame;
 import org.openconcerto.erp.generationDoc.element.TypeModeleSQLElement;
-import org.openconcerto.erp.preferences.TemplateNXProps;
+import org.openconcerto.erp.storage.StorageEngine;
+import org.openconcerto.erp.storage.StorageEngines;
 import org.openconcerto.openoffice.OOUtils;
 import org.jopendocument.link.Component;
 import org.openconcerto.sql.Configuration;
@@ -25,13 +26,17 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.Tuple2;
 
+import java.io.BufferedInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -46,6 +51,23 @@ import org.jopendocument.print.DefaultDocumentPrinter;
 
 public abstract class SheetXml {
 
+    // return null to keep default value
+    public interface StorageDirs {
+        public File getDocumentOutputDirectory(SheetXml sheet);
+
+        public File getPDFOutputDirectory(SheetXml sheet);
+
+        public String getStoragePath(SheetXml sheet);
+    }
+
+    private static StorageDirs STORAGE_DIRS;
+
+    // allow to redirect all documents
+    public static void setStorageDirs(StorageDirs d) {
+        STORAGE_DIRS = d;
+    }
+
+    public static final String DEFAULT_PROPERTY_NAME = "Default";
     protected SQLElement elt;
 
     // nom de l'imprimante à utiliser
@@ -56,16 +78,6 @@ public abstract class SheetXml {
 
     // Language du document
     protected SQLRow rowLanguage;
-
-    // emplacement du fichier OO généré
-    protected String locationOO;
-
-    // emplacement du fichier PDF généré
-    protected String locationPDF;
-
-    protected File f;
-
-    public static final Tuple2<String, String> tupleDefault = Tuple2.create("Default", "Autres");
 
     protected static final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
 
@@ -79,61 +91,97 @@ public abstract class SheetXml {
         }
     };
 
-    public void useOO(final File f, final boolean visu, final boolean impression, final String fileName) {
-        useOO(f, visu, impression, fileName, true);
+    public final SQLElement getElement() {
+        return this.elt;
     }
 
-    public void useOO(final File f, final boolean visu, final boolean impression, final String fileName, boolean exportPDF) {
+    /**
+     * Show, print and export the document to PDF. This method is asynchronous, but is executed in a
+     * single threaded queue shared with createDocument
+     * */
+    public Future<SheetXml> showPrintAndExportAsynchronous(final boolean showDocument, final boolean printDocument, final boolean exportToPDF) {
+        final Callable<SheetXml> c = new Callable<SheetXml>() {
+            @Override
+            public SheetXml call() throws Exception {
+                showPrintAndExport(showDocument, printDocument, exportToPDF);
+                return SheetXml.this;
+            }
+        };
+        return runnableQueue.submit(c);
 
-        if (f == null || fileName.trim().length() == 0) {
-            ExceptionHandler.handle("Erreur lors de la génération du fichier " + fileName);
+    }
+
+    /**
+     * Show, print and export the document to PDF. This method is synchronous
+     * */
+    public void showPrintAndExport(final boolean showDocument, final boolean printDocument, boolean exportToPDF) {
+
+        final File generatedFile = getGeneratedFile();
+        final File pdfFile = getGeneratedPDFFile();
+        if (generatedFile == null || !generatedFile.exists()) {
+            ExceptionHandler.handle("Fichier généré manquant: " + generatedFile);
             return;
         }
 
         try {
             if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
-                final Component doc = ComptaPropsConfiguration.getOOConnexion().loadDocument(f, !visu);
+                final Component doc = ComptaPropsConfiguration.getOOConnexion().loadDocument(generatedFile, !showDocument);
 
-                if (exportPDF) {
-                    doc.saveToPDF(getFilePDF()).get();
-                }
-
-                if (impression) {
+                if (printDocument) {
                     Map<String, Object> map = new HashMap<String, Object>();
                     map.put("Name", this.printer);
                     doc.printDocument(map);
                 }
+                if (exportToPDF) {
+                    doc.saveToPDF(pdfFile).get();
+                }
                 doc.close();
             } else {
-                final OpenDocument doc = new OpenDocument(f);
+                final OpenDocument doc = new OpenDocument(generatedFile);
 
-                if (exportPDF) {
-                    final Thread t = new Thread("PDF Export: " + fileName) {
-                        @Override
-                        public void run() {
-
-                            try {
-                                SheetUtils.getInstance().convert2PDF(doc, f, fileName);
-                            } catch (Exception e) {
-                                // TODO Auto-generated catch block
-                                e.printStackTrace();
-                            }
-                        }
-                    };
-                    t.setPriority(Thread.MIN_PRIORITY);
-                    t.start();
-
-                }
-                if (visu) {
+                if (showDocument) {
                     showPreviewDocument();
                 }
-                if (impression) {
+                if (printDocument) {
                     // Print !
                     DefaultDocumentPrinter printer = new DefaultDocumentPrinter();
                     printer.print(doc);
 
                 }
+                if (exportToPDF) {
 
+                    try {
+                        SheetUtils.convert2PDF(doc, pdfFile);
+
+                    } catch (Throwable e) {
+                        ExceptionHandler.handle("Impossible de créer le PDF");
+                    }
+
+                    Thread t = new Thread(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            List<StorageEngine> engines = StorageEngines.getInstance().getActiveEngines();
+                            for (StorageEngine storageEngine : engines) {
+                                if (storageEngine.isConfigured() && storageEngine.allowAutoStorage()) {
+                                    try {
+                                        storageEngine.connect();
+                                        final BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(pdfFile));
+                                        final String path = getStoragePath();
+                                        storageEngine.store(inStream, path, pdfFile.getName(), true);
+                                        inStream.close();
+                                        storageEngine.disconnect();
+                                    } catch (IOException e) {
+                                        ExceptionHandler.handle("Impossible de sauvegarder le PDF");
+                                    }
+                                }
+                            }
+
+                        }
+                    });
+                    t.start();
+
+                }
             }
 
         } catch (Exception e) {
@@ -142,19 +190,61 @@ public abstract class SheetXml {
         }
     }
 
-    public abstract String getDefaultModele();
+    public abstract String getDefaultTemplateId();
 
-    // nom du modele sans extension
-    public String getModele() {
-        if (this.row.getTable().getFieldsName().contains("ID_MODELE")) {
+    /**
+     * Path of the directory used for storage. Ex: Devis/2010
+     * */
+    public final String getStoragePath() {
+        final String res = STORAGE_DIRS == null ? null : STORAGE_DIRS.getStoragePath(this);
+        if (res != null)
+            return res;
+        else
+            return this.getStoragePathP();
+    }
+
+    public final File getDocumentOutputDirectory() {
+        final File res = STORAGE_DIRS == null ? null : STORAGE_DIRS.getDocumentOutputDirectory(this);
+        if (res != null)
+            return res;
+        else
+            return this.getDocumentOutputDirectoryP();
+    }
+
+    public final File getPDFOutputDirectory() {
+        final File res = STORAGE_DIRS == null ? null : STORAGE_DIRS.getPDFOutputDirectory(this);
+        if (res != null)
+            return res;
+        else
+            return this.getPDFOutputDirectoryP();
+    }
+
+    protected abstract String getStoragePathP();
+
+    protected abstract File getDocumentOutputDirectoryP();
+
+    protected abstract File getPDFOutputDirectoryP();
+
+    /**
+     * Name of the generated document (without extension), do not rely on this name.
+     * 
+     * Use getGeneratedFile().getName() to get the generated file name.
+     * */
+    public abstract String getName();
+
+    /**
+     * @return the template id for this template (ex: "sales.quote")
+     * */
+    public String getTemplateId() {
+        if (this.row != null && this.row.getTable().getFieldsName().contains("ID_MODELE")) {
             SQLRow rowModele = this.row.getForeignRow("ID_MODELE");
             if (rowModele.isUndefined()) {
                 TypeModeleSQLElement typeModele = Configuration.getInstance().getDirectory().getElement(TypeModeleSQLElement.class);
-                String modele = typeModele.getTemplateMapping().get(this.row.getTable());
+                String modele = typeModele.getTemplateMapping().get(this.row.getTable().getName());
                 if (modele == null) {
                     System.err.println("No default modele in table TYPE_MODELE for table " + this.row.getTable().getName());
                     Thread.dumpStack();
-                    return getDefaultModele();
+                    return getDefaultTemplateId();
                 } else {
                     return modele;
                 }
@@ -162,23 +252,24 @@ public abstract class SheetXml {
                 return rowModele.getString("NOM");
             }
         }
-        return getDefaultModele();
+        return getDefaultTemplateId();
     }
 
-    public abstract Future<File> genere(final boolean visu, final boolean impression);
+    public abstract Future<SheetXml> createDocumentAsynchronous();
 
-    public abstract String getFileName();
-
-    private String getOOName() {
-        return getValidFileName(getFileName()) + ".ods";
+    public void createDocument() throws InterruptedException, ExecutionException {
+        createDocumentAsynchronous().get();
     }
 
-    private String getPDFName() {
-        return getValidFileName(getFileName()) + ".pdf";
-    }
+    /**
+     * get the File that is, or must be generated.
+     * 
+     * @return a file (not null)
+     * */
+    public abstract File getGeneratedFile();
 
-    private String getOO1Name() {
-        return getValidFileName(getFileName()) + ".sxc";
+    public File getGeneratedPDFFile() {
+        return SheetUtils.getFileWithExtension(getGeneratedFile(), ".pdf");
     }
 
     public SQLRow getRowLanguage() {
@@ -190,64 +281,49 @@ public abstract class SheetXml {
     }
 
     /**
-     * retourne l'emplacement de destination d'un Tuple<id (ex:LocationDevis), Nom (ex:Devis)>
-     */
-    public static String getLocationForTuple(Tuple2<String, String> t, boolean pdf) {
-
-        final String stringProperty = TemplateNXProps.getInstance().getStringProperty(t.get0() + (pdf ? "PDF" : "OO"));
-        if (stringProperty.equalsIgnoreCase(TemplateNXProps.getInstance().getDefaultStringValue())) {
-            return stringProperty + File.separator + t.get1();
-        } else {
-            return stringProperty;
-        }
-    }
-
-    private File getFile() {
-        if (this.f != null) {
-            return f;
-        }
-        File f = new File(this.locationOO + File.separator + getOOName());
+     * Creates the document if needed and returns the generated file (OpenDocument)
+     * */
+    public File getOrCreateDocumentFile() throws Exception {
+        File f = getGeneratedFile();
         if (!f.exists()) {
-            File f2 = new File(this.locationOO + File.separator + getOO1Name());
-            if (f2.exists()) {
-                return f2;
-            } else {
-                return f;
-            }
+            return createDocumentAsynchronous().get().getGeneratedFile();
         } else {
             return f;
         }
     }
 
-    public File getFilePDF() {
-        File f = new File(this.locationPDF + File.separator + getPDFName());
-        return f;
-    }
+    /**
+     * Open the document with the native application
+     * 
+     * @param synchronous
+     * */
+    public void openDocument(boolean synchronous) {
+        Runnable r = new Runnable() {
 
-    public File getFileWithoutExt() {
-        File f = new File(this.locationPDF + File.separator + getValidFileName(getFileName()));
-        return f;
-    }
-
-    public File getFileODS() {
-        File f = new File(this.locationOO + File.separator + getOOName());
-        return f;
-    }
-
-    public void showDocument() {
-        final File f = getFile();
-        try {
-            OOUtils.open(f);
-        } catch (IOException e) {
-            ExceptionHandler.handle("Impossible d'ouvrir " + f.getAbsolutePath(), e);
+            @Override
+            public void run() {
+                File f;
+                try {
+                    f = getOrCreateDocumentFile();
+                    OOUtils.open(f);
+                } catch (Exception e) {
+                    ExceptionHandler.handle("Impossible d'ouvrir le document.", e);
+                }
+            }
+        };
+        if (synchronous) {
+            r.run();
+        } else {
+            Thread thread = new Thread(r, "openDocument: " + getGeneratedFile().getAbsolutePath());
+            thread.setDaemon(true);
+            thread.start();
         }
+
     }
 
-    public void showPreviewDocument() {
-        if (!isFileOOExist()) {
-            genere(false, false);
-        }
-        final File f = getFile();
+    public void showPreviewDocument() throws Exception {
+        File f = null;
+        f = getOrCreateDocumentFile();
         PreviewFrame.show(f);
     }
 
@@ -257,9 +333,10 @@ public abstract class SheetXml {
     }
 
     public void fastPrintDocument(short copies) {
-        final File f = getFile();
 
         try {
+            final File f = getOrCreateDocumentFile();
+
             if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
 
                 final Component doc = ComptaPropsConfiguration.getOOConnexion().loadDocument(f, true);
@@ -295,9 +372,9 @@ public abstract class SheetXml {
     }
 
     public void printDocument() {
-        final File f = getFile();
 
         try {
+            final File f = getOrCreateDocumentFile();
 
             if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
 
@@ -320,18 +397,8 @@ public abstract class SheetXml {
         }
     }
 
-    public boolean isFileOOExist() {
-        final File f = getFile();
-        return f.exists();
-    }
-
     public SQLRow getSQLRow() {
         return this.row;
-    }
-
-    public boolean isFileODSExist() {
-        final File f = getFileODS();
-        return f.exists();
     }
 
     /**
@@ -341,14 +408,14 @@ public abstract class SheetXml {
      * @param fileName nom du fichier à créer ex:FACTURE_2007/03/001
      * @return un nom fichier valide ex:FACTURE_2007-03-001
      */
-    public static String getValidFileName(String fileName) {
-        StringBuffer result = new StringBuffer(fileName.length());
+    static String getValidFileName(String fileName) {
+        final StringBuffer result = new StringBuffer(fileName.length());
         for (int i = 0; i < fileName.length(); i++) {
-            char c = fileName.charAt(i);
+            char ch = fileName.charAt(i);
 
             // Si c'est un caractere alphanumerique
-            if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || (c == '_') || (c == ' ')) {
-                result.append(c);
+            if (Character.isLetterOrDigit(ch) || (ch == '_') || (ch == ' ')) {
+                result.append(ch);
             } else {
                 result.append('-');
             }

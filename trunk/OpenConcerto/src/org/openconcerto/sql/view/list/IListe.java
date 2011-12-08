@@ -59,6 +59,7 @@ import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.convertor.StringClobConvertor;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.FlowLayout;
 import java.awt.Font;
@@ -307,6 +308,11 @@ public final class IListe extends JPanel implements AncestorListener {
         tm.put(KeyStroke.getKeyStroke(' '), "startEditing");
         // don't auto start, otherwise F2 will trigger the edition
         this.jTable.putClientProperty("JTable.autoStartsEdit", Boolean.FALSE);
+
+        // Better look
+        this.jTable.setShowHorizontalLines(false);
+        this.jTable.setGridColor(new Color(230, 230, 230));
+        this.jTable.setRowHeight(this.jTable.getRowHeight() + 4);
 
         this.popup = new JPopupMenu();
         TablePopupMouseListener.add(this.jTable, new ITransformer<MouseEvent, JPopupMenu>() {

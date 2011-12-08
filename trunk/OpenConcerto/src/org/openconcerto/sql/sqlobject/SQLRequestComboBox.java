@@ -39,6 +39,7 @@ import org.openconcerto.utils.model.DefaultIMutableListModel;
 
 import java.awt.Component;
 import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
 import java.awt.event.HierarchyEvent;
 import java.awt.event.HierarchyListener;
 import java.beans.PropertyChangeEvent;
@@ -47,6 +48,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import javax.accessibility.Accessible;
+import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
@@ -120,6 +122,13 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
 
         this.combo = new ISearchableCombo<IComboSelectionItem>(ComboLockedMode.LOCKED, 1, this.stringStuff.length());
         this.combo.setIncludeEmpty(addUndefined);
+        this.combo.getActions().add(new AbstractAction("Recharger") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                // ignore cache since a user explicitly asked for an update
+                fillCombo(null, false);
+            }
+        });
 
         this.emptySupp = new EmptyChangeSupport(this);
         this.supp = new ValueChangeSupport<Integer>(this);
@@ -138,7 +147,10 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     @Override
     public void init(SQLRowItemView v) {
         final SQLTable foreignTable = v.getField().getDBSystemRoot().getGraph().getForeignTable(v.getField());
-        this.uiInit(Configuration.getInstance().getDirectory().getElement(foreignTable).getComboRequest());
+        if (!this.hasModel())
+            this.uiInit(Configuration.getInstance().getDirectory().getElement(foreignTable).getComboRequest());
+        else if (this.getRequest().getPrimaryTable() != foreignTable)
+            throw new IllegalArgumentException("Tables are different " + getRequest().getPrimaryTable().getSQLName() + " != " + foreignTable.getSQLName());
     }
 
     /**
@@ -297,7 +309,11 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     }
 
     public synchronized final void fillCombo(final Runnable r) {
-        this.req.fillCombo(r);
+        this.fillCombo(r, true);
+    }
+
+    public synchronized final void fillCombo(final Runnable r, final boolean readCache) {
+        this.req.fillCombo(r, readCache);
     }
 
     // combo

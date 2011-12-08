@@ -437,8 +437,8 @@ public class GestionChequesModel extends AbstractTableModel {
                         Number idMvt = (Number) chqTmp.get("ID_MOUVEMENT");
 
                         if (mode == MODE_AVOIR) {
-                            GenerationMvtReglementAvoirChequeClient gen = new GenerationMvtReglementAvoirChequeClient(idMvt.intValue(), Long.valueOf(chqTmp.get("MONTANT").toString()), d, id
-                                    .intValue());
+                            GenerationMvtReglementAvoirChequeClient gen = new GenerationMvtReglementAvoirChequeClient(idMvt.intValue(), Long.valueOf(chqTmp.get("MONTANT").toString()), d,
+                                    id.intValue());
                             gen.genere();
                         } else {
                             if (mode == MODE_ACHAT) {
@@ -469,7 +469,8 @@ public class GestionChequesModel extends AbstractTableModel {
             } else {
                 if (mode == MODE_VENTE) {
                     ReleveChequeSheet sheet = new ReleveChequeSheet(listeCheque, d);
-                    sheet.genere(true, false);
+                    sheet.createDocumentAsynchronous();
+                    sheet.showPrintAndExportAsynchronous(true, false, true);
                 }
             }
         }
@@ -509,7 +510,8 @@ public class GestionChequesModel extends AbstractTableModel {
         } else {
             if (mode == MODE_VENTE) {
                 ReleveChequeSheet sheet = new ReleveChequeSheet(listeCheque, new Date(), true);
-                sheet.genere(true, false);
+                sheet.createDocumentAsynchronous();
+                sheet.showPrintAndExportAsynchronous(true, false, true);
             }
         }
 

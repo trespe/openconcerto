@@ -107,12 +107,14 @@ public class Ticket {
                 String categorie = element.getAttributeValue("categorie");
                 String name = element.getValue();
                 String codebarre = element.getAttributeValue("codebarre");
+                String codeArt = element.getAttributeValue("code");
                 Categorie cat = new Categorie(categorie);
                 Article art = new Article(cat, name);
                 art.priceInCents = prix_unitaire_cents;
+                art.setCode(codeArt);
                 art.setPriceHTInCents(prix_unitaire_cents_ht);
                 art.setIdTaxe(idTaxe);
-                art.code = codebarre;
+                art.barCode = codebarre;
                 Pair<Article, Integer> line = new Pair<Article, Integer>(art, qte);
                 t.items.add(line);
 
@@ -267,7 +269,8 @@ public class Ticket {
             e.setAttribute("prixHT", String.valueOf(item.getFirst().getPriceHTInCents()));
             e.setAttribute("idTaxe", String.valueOf(item.getFirst().getIdTaxe()));
             e.setAttribute("categorie", item.getFirst().getCategorie().getName());
-            e.setAttribute("codebarre", item.getFirst().getCode());
+            e.setAttribute("codebarre", item.getFirst().getBarCode());
+            e.setAttribute("code", item.getFirst().getCode());
             e.setText(item.getFirst().getName());
             topLevel.addContent(e);
         }

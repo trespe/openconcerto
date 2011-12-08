@@ -14,6 +14,7 @@
  package org.openconcerto.openoffice;
 
 import org.openconcerto.utils.FormatGroup;
+import org.openconcerto.utils.TimeUtils;
 import org.openconcerto.utils.XMLDateFormat;
 
 import java.math.BigDecimal;
@@ -25,8 +26,6 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
 
 /**
@@ -109,12 +108,7 @@ public enum ODValueType {
                 return o.toString();
             } else {
                 final Calendar cal = (Calendar) o;
-                // adjust the format TZ to the calendar's
-                // that way even you pass a non default Calendar, if you did
-                // myCal.set(HOUR_OF_DAY, 22), the string will have "22H"
-                final SimpleDateFormat fmt = (SimpleDateFormat) TIME_FORMAT.clone();
-                fmt.setTimeZone(cal.getTimeZone());
-                return fmt.format(cal.getTime());
+                return TimeUtils.timePartToDuration(cal).toString();
             }
         }
 
@@ -123,7 +117,7 @@ public enum ODValueType {
             if (date.length() == 0)
                 return null;
             else {
-                return getTypeFactory().newDuration(date);
+                return TimeUtils.getTypeFactory().newDuration(date);
             }
         }
 
@@ -206,15 +200,18 @@ public enum ODValueType {
      * 
      * @param o the object.
      * @return a value type capable of formatting <code>o</code> or <code>null</code>.
+     * @throws NullPointerException if <code>o</code> is <code>null</code>.
      */
-    public static ODValueType forObject(Object o) {
+    public static ODValueType forObject(Object o) throws NullPointerException {
+        if (o == null)
+            throw new NullPointerException();
         if (o instanceof Number)
             return FLOAT;
         else if (o instanceof Boolean)
             return BOOLEAN;
         else if (o instanceof String)
             return STRING;
-        else if (o instanceof Duration || o instanceof Calendar && !((Calendar) o).isSet(Calendar.DATE))
+        else if (o instanceof Duration)
             return TIME;
         else if (DATE.canFormat(o.getClass()))
             return DATE;
@@ -224,24 +221,10 @@ public enum ODValueType {
 
     // see http://www.w3.org/TR/2004/REC-xmlschema-2-20041028/#isoformats
 
-    // time means Duration for OpenDocument (see 6.7.1)
-    static private final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("'PT'HH'H'mm'M'ss.S'S'");
     static private final Format DATE_FORMAT;
     static {
         // first date and time so we don't loose time information on format() or parse()
         // MAYBE add HH':'mm':'ss,SSS for OOo 1
         DATE_FORMAT = new FormatGroup(new XMLDateFormat(), new SimpleDateFormat("yyyy-MM-dd'T'HH':'mm':'ss"), new SimpleDateFormat("yyyy-MM-dd"));
-    }
-
-    static private DatatypeFactory typeFactory = null;
-
-    static public final DatatypeFactory getTypeFactory() {
-        if (typeFactory == null)
-            try {
-                typeFactory = DatatypeFactory.newInstance();
-            } catch (DatatypeConfigurationException e) {
-                throw new IllegalStateException(e);
-            }
-        return typeFactory;
     }
 }

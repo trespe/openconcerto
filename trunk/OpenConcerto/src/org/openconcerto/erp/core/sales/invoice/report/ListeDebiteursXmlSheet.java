@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.erp.generationDoc.AbstractListeSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -24,7 +23,6 @@ import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
-import org.openconcerto.utils.Tuple2;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -37,18 +35,17 @@ public class ListeDebiteursXmlSheet extends AbstractListeSheetXml {
 
     private static final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yy");
 
-    public static Tuple2<String, String> getTuple2Location() {
-        return tupleDefault;
-    }
-
     public ListeDebiteursXmlSheet() {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
-        this.locationOO = SheetXml.getLocationForTuple(tupleDefault, false);
-        this.locationPDF = SheetXml.getLocationForTuple(tupleDefault, true);
     }
 
-    public String getDefaultModele() {
+    public String getDefaultTemplateId() {
         return "ListeDebiteur";
+    }
+
+    @Override
+    public String getName() {
+        return "ListeDebiteurs";
     }
 
     SQLElement eltEch = Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT");
@@ -124,22 +121,9 @@ public class ListeDebiteursXmlSheet extends AbstractListeSheetXml {
 
         }
 
-        // SwingUtilities.invokeLater(new Runnable() {
-        // public void run() {
-        // ListeDebiteursXmlSheet.this.bar.setMaximum(ListeDebiteursXmlSheet.this.listeIds.size());
-        // }
-        // });
-
-        // final Map<String, Object> values = new HashMap<String, Object>();
-        // values.put("DATE", "Du " + dateFormat.format(this.du) + " au " +
-        // dateFormat.format(this.au));
-
         this.listAllSheetValues.put(0, listValues);
         this.styleAllSheetValues.put(0, styleValues);
-        // this.mapAllSheetValues.put(0, values);
+
     }
 
-    public String getFileName() {
-        return getValidFileName("ListeDebiteurs");
-    }
 }

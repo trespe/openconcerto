@@ -836,6 +836,7 @@ public class SQLRowValuesCluster {
         public Link(final SQLRowValues src, final SQLField f, final SQLRowValues dest) {
             if (src == null)
                 throw new NullPointerException("src is null");
+            assert (f == null && dest == null) || (dest != null && f.getTable() == src.getTable());
             this.src = src;
             this.f = f;
             this.dest = dest;
@@ -857,8 +858,8 @@ public class SQLRowValuesCluster {
         public int hashCode() {
             final int prime = 31;
             int result = 1;
-            result = prime * result + this.src.hashCode();
-            result = prime * result + ((this.dest == null) ? 0 : this.dest.hashCode());
+            result = prime * result + System.identityHashCode(this.src);
+            result = prime * result + System.identityHashCode(this.dest);
             result = prime * result + ((this.f == null) ? 0 : this.f.hashCode());
             return result;
         }

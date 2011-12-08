@@ -107,7 +107,6 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
         this.add(list, c);
         list.addListSelectionListener(this);
 
-        comp.setModel(model);
         list.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {

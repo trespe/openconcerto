@@ -60,18 +60,18 @@ public class LivrePayeSheet extends SheetInterface {
         setSize(8, 65, 3);
     }
 
-    private static final Tuple2<String, String> tuple = Tuple2.create("LocationLivrePaye", "Livre de paye");
-
-    public static Tuple2<String, String> getTuple2Location() {
-        return tuple;
+    @Override
+    protected String getYear() {
+        return "";
     }
+
+    public static final String TEMPLATE_ID = "Livre de paye";
+    public static final String TEMPLATE_PROPERTY_NAME = "LocationLivrePaye";
 
     public LivrePayeSheet(int moisDu, int moisAu, String annee) {
         super();
         this.printer = PrinterNXProps.getInstance().getStringProperty("LivrePayePrinter");
         this.modele = "LivrePaye.ods";
-        this.locationOO = SheetXml.getLocationForTuple(tuple, false) + File.separator + annee;
-        this.locationPDF = SheetXml.getLocationForTuple(tuple, true) + File.separator + annee;
         this.moisAu = moisAu;
         this.moisDu = moisDu;
         this.annee = annee;
@@ -94,6 +94,11 @@ public class LivrePayeSheet extends SheetInterface {
         SQLRow rowMoisAu = tableMois.getRow(this.moisAu);
 
         this.mCell.put("A" + row, "Période de " + rowMoisDu.getString("NOM") + " à " + rowMoisAu.getString("NOM") + " " + this.annee);
+    }
+
+    @Override
+    public String getTemplateId() {
+        return TEMPLATE_ID;
     }
 
     protected void createMap() {

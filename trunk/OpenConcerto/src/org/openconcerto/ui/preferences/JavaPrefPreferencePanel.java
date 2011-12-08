@@ -21,6 +21,7 @@ import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidState;
 
+import java.awt.BorderLayout;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
@@ -47,12 +48,16 @@ public abstract class JavaPrefPreferencePanel extends JPanel implements Preferen
     private final ValidChangeSupport validSupp;
 
     public JavaPrefPreferencePanel(final String title, final Preferences prefs) {
+        super(new BorderLayout());
         this.title = title;
         this.prefs = prefs;
-        this.layouter = new AutoLayouter(this);
         this.views = new HashSet<PrefView<?>>();
         this.modified = false;
         this.validSupp = new ValidChangeSupport(this);
+        // anchor content at the top
+        final JPanel content = new JPanel();
+        this.add(content, BorderLayout.PAGE_START);
+        this.layouter = new AutoLayouter(content);
     }
 
     public final void setPrefs(Preferences prefs) {

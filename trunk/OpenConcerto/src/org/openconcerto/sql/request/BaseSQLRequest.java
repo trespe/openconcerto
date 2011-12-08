@@ -16,7 +16,7 @@
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLFieldsSet;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 
 import java.util.Collection;
 import java.util.Set;
@@ -38,15 +38,15 @@ abstract class BaseSQLRequest {
      */
     protected abstract Collection<SQLField> getAllFields();
 
-    public final void addTableListener(SQLTableListener l) {
+    public final void addTableListener(SQLTableModifiedListener l) {
         for (final SQLTable t : this.getTables()) {
-            t.addTableListener(l);
+            t.addTableModifiedListener(l);
         }
     }
 
-    public final void removeTableListener(SQLTableListener l) {
+    public final void removeTableListener(SQLTableModifiedListener l) {
         for (final SQLTable t : this.getTables()) {
-            t.removeTableListener(l);
+            t.removeTableModifiedListener(l);
         }
     }
 }

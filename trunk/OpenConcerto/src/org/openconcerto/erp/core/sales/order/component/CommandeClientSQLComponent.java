@@ -37,6 +37,7 @@ import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
@@ -80,6 +81,17 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
     public void addViews() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
+
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
 
         this.comboDevis = new ElementComboBox();
 
@@ -373,8 +385,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
     }
 
     public int insert(SQLRow order) {
-
-        int idCommande = getSelectedID();
+        final int idCommande;
         // on verifie qu'un devis du meme numero n'a pas été inséré entre temps
         if (this.numeroUniqueCommande.checkValidation()) {
 
@@ -383,10 +394,15 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
             // Création des articles
             this.table.createArticle(idCommande, this.getElement());
-
             // generation du document
-            CommandeClientXmlSheet sheet = new CommandeClientXmlSheet(getTable().getRow(idCommande));
-            sheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
+
+            try {
+                CommandeClientXmlSheet sheet = new CommandeClientXmlSheet(getTable().getRow(idCommande));
+                sheet.createDocumentAsynchronous();
+                sheet.showPrintAndExportAsynchronous(CommandeClientSQLComponent.this.panelOO.isVisualisationSelected(), CommandeClientSQLComponent.this.panelOO.isImpressionSelected(), true);
+            } catch (Exception e) {
+                ExceptionHandler.handle("Impossible de créer la commande", e);
+            }
 
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
@@ -402,6 +418,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
                 }
             }
         } else {
+            idCommande = getSelectedID();
             ExceptionHandler.handle("Impossible d'ajouter, numéro de commande client existant.");
             Object root = SwingUtilities.getRoot(this);
             if (root instanceof EditFrame) {
@@ -443,8 +460,15 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         this.table.createArticle(getSelectedID(), this.getElement());
 
         // generation du document
-        CommandeClientXmlSheet dSheet = new CommandeClientXmlSheet(getTable().getRow(getSelectedID()));
-        dSheet.genere(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected());
+
+        try {
+            CommandeClientXmlSheet sheet = new CommandeClientXmlSheet(getTable().getRow(getSelectedID()));
+            sheet.createDocumentAsynchronous();
+            sheet.showPrintAndExportAsynchronous(CommandeClientSQLComponent.this.panelOO.isVisualisationSelected(), CommandeClientSQLComponent.this.panelOO.isImpressionSelected(), true);
+        } catch (Exception e) {
+            ExceptionHandler.handle("Impossible de créer la commande", e);
+        }
+
     }
 
     public void setDefaults() {

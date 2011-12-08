@@ -15,17 +15,16 @@
 
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableEvent;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.utils.OrderedSet;
-
 import org.openconcerto.utils.checks.MutableValueObject;
 import org.openconcerto.utils.text.DocumentFilterList;
-import org.openconcerto.utils.text.LimitedSizeDocumentFilter;
 import org.openconcerto.utils.text.DocumentFilterList.FilterType;
+import org.openconcerto.utils.text.LimitedSizeDocumentFilter;
 
 import java.awt.Component;
 import java.awt.GridLayout;
@@ -118,17 +117,10 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
 
         this.isLoading = true;
         loadCacheAsynchronous();
-        this.comboRequest.addTableListener(new SQLTableListener() {
-
-            public void rowAdded(SQLTable table, int id) {
-                loadCacheAsynchronous();
-            }
-
-            public void rowDeleted(SQLTable table, int id) {
-                loadCacheAsynchronous();
-            }
-
-            public void rowModified(SQLTable table, int id) {
+        // FIXME never removed
+        this.comboRequest.addTableListener(new SQLTableModifiedListener() {
+            @Override
+            public void tableModified(SQLTableEvent evt) {
                 loadCacheAsynchronous();
             }
         });

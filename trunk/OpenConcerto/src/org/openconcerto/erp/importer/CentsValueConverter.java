@@ -14,6 +14,7 @@
  package org.openconcerto.erp.importer;
 
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.utils.GestionDevise;
 
 public class CentsValueConverter extends ValueConverter {
     public CentsValueConverter(SQLField f) {
@@ -24,18 +25,7 @@ public class CentsValueConverter extends ValueConverter {
         long result = 0;
         if (obj != null) {
             try {
-
-                String string = obj.toString();
-                int index = string.indexOf(".");
-                if (index >= 0) {
-                    string = string.substring(0, index) + string.substring(index + 1, string.length());
-                } else {
-                    index = string.indexOf(",");
-                    if (index >= 0) {
-                        string = string.substring(0, index) + string.substring(index + 1, string.length());
-                    }
-                }
-                result = Integer.parseInt(string);
+                return GestionDevise.parseLongCurrency(obj.toString());
             } catch (Exception e) {
                 e.printStackTrace();
             }

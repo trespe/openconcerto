@@ -59,25 +59,21 @@ public class TicketPanel extends JPanel implements CaisseListener {
             @Override
             public void addListDataListener(final ListDataListener l) {
                 TicketPanel.this.listeners.add(l);
-
             }
 
             @Override
             public Object getElementAt(final int index) {
-
                 return controler.getItems().get(index);
             }
 
             @Override
             public int getSize() {
-                // TODO Auto-generated method stub
                 return controler.getItems().size();
             }
 
             @Override
             public void removeListDataListener(final ListDataListener l) {
                 TicketPanel.this.listeners.remove(l);
-
             }
 
         };
@@ -133,13 +129,11 @@ public class TicketPanel extends JPanel implements CaisseListener {
 
     @Override
     public Dimension getMinimumSize() {
-        // TODO Auto-generated method stub
         return new Dimension(480, 707);
     }
 
     @Override
     public Dimension getPreferredSize() {
-        // TODO Auto-generated method stub
         return new Dimension(480, 707);
     }
 
@@ -169,7 +163,6 @@ public class TicketPanel extends JPanel implements CaisseListener {
                 return;
             }
         } catch (final Exception e) {
-            // TODO: handle exception
             e.printStackTrace();
         }
 

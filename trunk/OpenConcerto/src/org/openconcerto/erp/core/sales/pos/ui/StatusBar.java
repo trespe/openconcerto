@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.core.sales.pos.ui;
 
-
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -24,20 +23,17 @@ import java.awt.RenderingHints;
 
 import javax.swing.ImageIcon;
 import javax.swing.JPanel;
-import javax.swing.ListModel;
 
 public class StatusBar extends JPanel {
     private Image bg;
     private Image bg_retour;
     private String title = "";
-    // private Categorie previous;
-    private ListModel model;
+
     private boolean previous;
     private int offsetX = 110;
 
     StatusBar() {
         this("toolbar.png", "toolbar_retour.png");
-
     }
 
     StatusBar(String fileBg, String fileFg) {
@@ -93,8 +89,4 @@ public class StatusBar extends JPanel {
         return new Dimension(320, 44);
     }
 
-    public void setModel(ListModel model) {
-        this.model = model;
-
-    }
 }
