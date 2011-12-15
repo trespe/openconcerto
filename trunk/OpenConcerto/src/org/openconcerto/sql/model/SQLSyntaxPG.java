@@ -312,6 +312,11 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     @Override
+    public String getRegexpOp(boolean negation) {
+        return negation ? "!~" : "~";
+    }
+
+    @Override
     public SQLBase createBase(SQLServer server, String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
         return new PGSQLBase(server, name, login, pass, dsInit);
     }

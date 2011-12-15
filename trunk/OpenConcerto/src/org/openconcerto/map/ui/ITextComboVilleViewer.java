@@ -53,7 +53,7 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
      * Selecteur de Ville
      */
     private static final long serialVersionUID = 3397210337907076649L;
-    private final ISearchableTextCombo text = new ISearchableTextCombo(ComboLockedMode.UNLOCKED);
+    private final ISearchableTextCombo text = new ISearchableTextCombo(ComboLockedMode.UNLOCKED, 0, 17);
     private final JButton button = new JButton("Afficher sur la carte");
     private Ville currentVille = null;
     private final EmptyObjectHelper emptyHelper;

@@ -121,6 +121,8 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
             this.stringStuff = "123456789012345678901234567890";
 
         this.combo = new ISearchableCombo<IComboSelectionItem>(ComboLockedMode.LOCKED, 1, this.stringStuff.length());
+        // ComboSQLRequest return items with children at the start (e.g. Room <| Building <| Site)
+        this.combo.setForceDisplayStart(true);
         this.combo.setIncludeEmpty(addUndefined);
         this.combo.getActions().add(new AbstractAction("Recharger") {
             @Override

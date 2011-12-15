@@ -75,18 +75,22 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
                 // MAYBE optimize
                 final JLabel comp = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 comp.setFont(getCombo().getFont());
+                final String text;
                 if (value instanceof Action) {
                     comp.setFont(comp.getFont().deriveFont(Font.ITALIC));
-                    comp.setText((String) ((Action) value).getValue(Action.NAME));
+                    text = (String) ((Action) value).getValue(Action.NAME);
                     comp.setIcon(null);
                 } else {
                     final ISearchableComboItem<T> val = (ISearchableComboItem<T>) value;
-                    comp.setText(val.asString());
+                    text = val.asString();
                     comp.setIcon(getCombo().getIcon(val));
                     if (getCombo().isEmptyItem(val)) {
                         comp.setFont(comp.getFont().deriveFont(Font.ITALIC));
                     }
                 }
+                // otherwise comp has a height of only 2 (the worst thing is, if index = 0, this is
+                // the blueprint used with VisibleRowCount to compute the height of the JList)
+                comp.setText(text.isEmpty() ? " " : text);
                 return comp;
             }
         });

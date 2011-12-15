@@ -37,4 +37,9 @@ public class ISearchableComboItem<T> {
     public final T getOriginal() {
         return this.val;
     }
+
+    @Override
+    public String toString() {
+        return super.toString() + " original: " + this.getOriginal();
+    }
 }

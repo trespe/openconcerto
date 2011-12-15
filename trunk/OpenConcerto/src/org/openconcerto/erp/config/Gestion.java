@@ -27,7 +27,6 @@ import org.openconcerto.sql.State;
 import org.openconcerto.sql.element.UISQLComponent;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRequestLog;
-import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.view.ListeModifyPanel;
@@ -96,7 +95,10 @@ public class Gestion {
     static boolean inWebStart() {
         // cannot rely on system properties since they vary from one implementation to another
         try {
-            return Class.forName("javax.jnlp.ServiceManager").getMethod("getServiceNames").invoke(null) != null;
+            // ATTN on OpenJDK jnlp classes are in rt.jar, so this doesn't throw
+            // ClassNotFoundException, we have to check the result
+            final String[] names = (String[]) Class.forName("javax.jnlp.ServiceManager").getMethod("getServiceNames").invoke(null);
+            return names != null && names.length > 0;
         } catch (Throwable e) {
             return false;
         }
@@ -208,8 +210,6 @@ public class Gestion {
         }
         try {
             conf.getBase();
-            // create table if necessary
-            SQLPreferences.getPrefTable(conf.getRoot());
         } catch (Exception e) {
             System.out.println("Init phase 1 error:" + (System.currentTimeMillis() - t4) + "ms");
             ExceptionHandler.die("Erreur de connexion à la base de données", e);

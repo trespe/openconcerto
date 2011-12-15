@@ -770,6 +770,22 @@ public abstract class SQLSyntax {
         return "||";
     }
 
+    public final String getRegexpOp() {
+        return this.getRegexpOp(false);
+    }
+
+    /**
+     * The SQL operator to match POSIX regular expressions.
+     * 
+     * @param negation <code>true</code> to negate.
+     * @return the regexp operator, <code>null</code> if not supported.
+     * @see <a
+     *      href="http://www.postgresql.org/docs/9.1/static/functions-matching.html#FUNCTIONS-POSIX-REGEXP">postgresql</a>
+     */
+    public String getRegexpOp(final boolean negation) {
+        return negation ? "NOT REGEXP" : "REGEXP";
+    }
+
     /**
      * The SQL needed to create a synonym of <code>t</code> named <code>newName</code>. This can be
      * implemented by updatable views. ATTN for systems using views many restrictions apply (eg no

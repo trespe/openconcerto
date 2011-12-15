@@ -133,6 +133,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     // cache
     private IListModel<T> cache;
     private JTextComponent text;
+    private boolean forceDisplayStart;
     private Insets textMargin;
     // icon
     private final JLabel label;
@@ -324,6 +325,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         this.btn.addMouseMotionListener(this.dragL);
         this.btn.addMouseListener(this.clickL);
 
+        this.forceDisplayStart = false;
         setTextEditor(rows, columns, textArea);
 
         // the background is provided by the text component
@@ -649,11 +651,11 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     }
 
     private final void setValue(final T val, final boolean valid) {
-        log("entering " + this.getClass().getSimpleName() + ".setValue " + val + " valid: " + valid);
+        log("entering " + this.getClass().getSimpleName() + ".setValue '" + val + "' valid: " + valid);
         final boolean invalidChange = this.setValid(valid);
 
         if (!CompareUtils.equals(this.getValue(), val)) {
-            log("this.getValue() != val :" + this.getValue());
+            log("this.getValue() != val : '" + this.getValue() + "'");
             if (val == null)
                 this.setSelection(null);
             else if (this.itemsByOriginalItem.containsKey(val)) {
@@ -663,7 +665,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
             } else {
                 // for unknown values in LOCKED, act like the user has typed it,
                 // that way the value is still displayed (albeit invalid)
-                this.getTextComp().setText(createItem(val).asString());
+                this.setText(createItem(val).asString());
                 assert getValue() == null && this.invalidEdit;
             }
         } else if (invalidChange) {
@@ -678,12 +680,15 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     // perhaps try to factor with the other setValue()
     final void setValue(final ISearchableComboItem<T> val) {
         log("entering " + this.getClass().getSimpleName() + ".setValue(ISearchableComboItem) " + val);
-        assert new IdentityHashSet<ISearchableComboItem<T>>(this.getModelValues()).contains(val) : "Item not in model, perhaps use setValue(T)";
+        assert this.isEmptyItem(val) || new IdentityHashSet<ISearchableComboItem<T>>(this.getModelValues()).contains(val) : "Item not in model, perhaps use setValue(T)";
         // valid since val is in our model
         final boolean invalidChange = this.setValid(true);
 
-        if (!CompareUtils.equals(this.getSelection(), val)) {
-            this.setSelection(val);
+        // empty item is virtual (it's a place holder for null) and thus should not become the
+        // selection
+        final ISearchableComboItem<T> normalized = this.isEmptyItem(val) ? null : val;
+        if (!CompareUtils.equals(this.getSelection(), normalized)) {
+            this.setSelection(normalized);
         } else if (invalidChange) {
             log("this.getSelection() == val and invalidChange");
             // since val hasn't changed the model won't fire and thus our selectionChanged()
@@ -707,15 +712,22 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         // si invalidEdit la selection means nothing, so don't change the textField
         if (!this.invalidEdit) {
             final String newText = sel == null ? "" : sel.asString();
-            if (!this.text.getText().equals(newText)) {
-                this.text.setText(newText);
-                // display the beginning of the text
-                this.text.getCaret().setDot(0);
-            }
+            setText(newText);
         }
         this.updating = false;
 
         this.supp.fireValueChange();
+    }
+
+    private final void setText(final String newText) {
+        if (!this.text.getText().equals(newText)) {
+            this.text.setText(newText);
+            // if the text is focused the user might want to add further characters at the end
+            // else the user is not actively editing this component and should prefer to see the
+            // beginning of the text
+            if (this.forceDisplayStart || !this.text.isFocusOwner())
+                this.text.getCaret().setDot(0);
+        }
     }
 
     private int getLeftMargin() {
@@ -786,7 +798,10 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
             this.showCompletionPopup();
         } else if (l.size() == 1) {
             final ISearchableComboItem<T> onlyCompletion = l.get(0);
-            if (onlyCompletion.asString().trim().equalsIgnoreCase(this.text.getText().trim())) {
+            // only force value if it is equals to the user text (don't trim() otherwise if e.g. we
+            // add a space at the end of an existing item, it will get selected thus erasing our
+            // space).
+            if (onlyCompletion.asString().equalsIgnoreCase(this.text.getText())) {
                 this.hideCompletionPopup();
                 this.setValue(onlyCompletion.getOriginal());
             } else {
@@ -883,6 +898,17 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
             }
         };
         return tf;
+    }
+
+    /**
+     * Whether the caret should always be at the start of the text. If <code>false</code> the caret
+     * is only brought to the start if the text is not focused to allow the user to add further
+     * characters.
+     * 
+     * @param forceDisplayStart <code>true</code> to force the display of the beginning of the text.
+     */
+    public final void setForceDisplayStart(boolean forceDisplayStart) {
+        this.forceDisplayStart = forceDisplayStart;
     }
 
     public final void setTextEditor(int rows, int columns, final boolean textArea) {

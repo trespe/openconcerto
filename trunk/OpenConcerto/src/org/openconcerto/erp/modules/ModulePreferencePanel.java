@@ -32,8 +32,8 @@ import javax.swing.JComponent;
 
 public abstract class ModulePreferencePanel extends JavaPrefPreferencePanel {
 
-    static public DBRoot getRoot() {
-        return Configuration.getInstance().getRoot();
+    static private DBRoot getRoot() {
+        return ModuleManager.getInstance().getRoot();
     }
 
     static String getAppPrefPath() {

@@ -368,8 +368,10 @@ public class ModuleManager {
     }
 
     public final Map<String, ModuleVersion> getModulesVersionInstalledLocally() {
-        final Map<String, ModuleVersion> res = new HashMap<String, ModuleVersion>();
         final File dir = getLocalDirectory();
+        if (!dir.isDirectory())
+            return Collections.emptyMap();
+        final Map<String, ModuleVersion> res = new HashMap<String, ModuleVersion>();
         for (final File d : dir.listFiles()) {
             final String id = d.getName();
             final ModuleVersion version = getModuleVersionInstalledLocally(id);
@@ -562,10 +564,14 @@ public class ModuleManager {
             }
             vals.remove(ISKEY_COLNAME);
         }
-        // MAYBE pass alreadyCreatedItems to avoid 1 request
-        final Tuple2<Set<String>, Set<SQLName>> createdItems = getCreatedItems(factory.getID());
-        final boolean atLeast1ItemIsCreated = createdItems.get0().size() + createdItems.get1().size() > 0;
-        setDBInstalledModule(factory, atLeast1ItemIsCreated);
+        // Always put true, even if getCreatedItems() is empty, since for now we can't be sure that
+        // the module didn't insert rows or otherwise changed the DB (MAYBE change SQLDataSource to
+        // hand out connections with read only user for a new ThreadGroup, or even no connections at
+        // all). If we could assert that the module didn't access at all the DB, we could add an
+        // option so that the module can declare not accessing the DB and install() would know that
+        // the DB version of the module is null. This could be beneficial since different users
+        // could install different version of modules that only change the UI.
+        setDBInstalledModule(factory, true);
     }
 
     private void removeModuleFields(ModuleFactory f) throws SQLException {
