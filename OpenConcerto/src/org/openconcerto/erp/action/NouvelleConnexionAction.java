@@ -37,6 +37,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.preferences.UserProps;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.sql.ui.ConnexionPanel;
@@ -121,6 +122,14 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                     } catch (Exception e) {
                         // not OK to continue without required elements
                         ExceptionHandler.die("Impossible de démarrer les modules requis", e);
+                    }
+
+                    try {
+                        // create table if necessary
+                        SQLPreferences.getPrefTable(comptaPropsConfiguration.getRootSociete());
+                    } catch (Exception e) {
+                        // don't die now, we might not need them
+                        ExceptionHandler.handle("Impossible d'accéder aux préférences", e);
                     }
 
 

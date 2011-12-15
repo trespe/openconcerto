@@ -238,8 +238,8 @@ class SQLSyntaxMS extends SQLSyntax {
         final File temp = File.createTempFile("mssql_loadData", ".txt", new File("."));
         FileUtils.write(winNL, temp, "UTF-16", false);
         checkServerLocalhost(t);
-        t.getDBSystemRoot().getDataSource().execute(
-                t.getBase().quote("bulk insert %f from %s with ( DATAFILETYPE='widechar', FIELDTERMINATOR = '|', FIRSTROW=1, KEEPIDENTITY ) ;", t, temp.getAbsolutePath()));
+        t.getDBSystemRoot().getDataSource()
+                .execute(t.getBase().quote("bulk insert %f from %s with ( DATAFILETYPE='widechar', FIELDTERMINATOR = '|', FIRSTROW=1, KEEPIDENTITY ) ;", t, temp.getAbsolutePath()));
         temp.delete();
     }
 
@@ -306,7 +306,7 @@ class SQLSyntaxMS extends SQLSyntax {
                 + "FROM sys.key_constraints k\n"
                 //
                 + "JOIN sys.index_columns c ON c.object_id = k.parent_object_id AND c.index_id = k.unique_index_id\n"
-                // 
+                //
                 + "JOIN sys.tables t ON t.object_id = k.parent_object_id\n"
                 + where
                 + " and k.type != 'PK'"
@@ -316,7 +316,7 @@ class SQLSyntaxMS extends SQLSyntax {
                 + "FROM sys.check_constraints k\n"
                 //
                 + "join sys.tables t on k.parent_object_id = t.object_id\n"
-                //        
+                //
                 + "left join sys.columns col on k.parent_column_id = col.column_id and col.object_id = t.object_id\n"
                 //
                 + where;
@@ -335,5 +335,12 @@ class SQLSyntaxMS extends SQLSyntax {
     @Override
     public String getConcatOp() {
         return "+";
+    }
+
+    @Override
+    public String getRegexpOp(boolean negation) {
+        // MS needs either the CLR : http://msdn.microsoft.com/en-us/magazine/cc163473.aspx
+        // or http://www.codeproject.com/KB/database/xp_pcre.aspx
+        return null;
     }
 }
