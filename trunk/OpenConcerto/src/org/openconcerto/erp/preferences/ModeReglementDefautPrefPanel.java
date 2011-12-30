@@ -58,7 +58,7 @@ public class ModeReglementDefautPrefPanel extends DefaultPreferencePanel {
         c.anchor = GridBagConstraints.NORTHWEST;
         c.weightx = 1;
 
-        this.scClient = this.eltModeRegl.createComponent();
+        this.scClient = this.eltModeRegl.createDefaultComponent();
         this.scClient.setNonExistantEditable(true);
         this.scClient.uiInit();
 
@@ -71,7 +71,7 @@ public class ModeReglementDefautPrefPanel extends DefaultPreferencePanel {
         this.add(this.scClient, c);
 
         c.gridy++;
-        this.scFourn = this.eltModeRegl.createComponent();
+        this.scFourn = this.eltModeRegl.createDefaultComponent();
         this.scFourn.setNonExistantEditable(true);
         this.scFourn.uiInit();
 

@@ -64,7 +64,7 @@ public class ListeModifyPanel extends IListPanel implements ValidListener {
 
     protected void addComponents(Container container, GridBagConstraints c) {
         // partie d'edition
-        this.modifComp = this.element.createComponent();
+        this.modifComp = this.element.createDefaultComponent();
         this.modifComp.setMode(Mode.MODIFICATION);
         this.getModifComp().uiInit();
         // initialize sqlObjects

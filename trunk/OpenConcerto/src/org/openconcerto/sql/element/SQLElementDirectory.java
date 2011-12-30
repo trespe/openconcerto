@@ -40,6 +40,7 @@ public final class SQLElementDirectory {
 
     private final Map<SQLTable, SQLElement> elements;
     private final CollectionMap<String, SQLTable> tableNames;
+    private final CollectionMap<String, SQLTable> byCode;
     private final CollectionMap<Class<? extends SQLElement>, SQLTable> byClass;
     private final List<DirectoryListener> listeners;
 
@@ -48,6 +49,7 @@ public final class SQLElementDirectory {
         // to mimic elements behaviour, if we add twice the same table
         // the second one should replace the first one
         this.tableNames = new CollectionMap<String, SQLTable>(HashSet.class);
+        this.byCode = new CollectionMap<String, SQLTable>(HashSet.class);
         this.byClass = new CollectionMap<Class<? extends SQLElement>, SQLTable>(HashSet.class);
 
         this.listeners = new ArrayList<DirectoryListener>();
@@ -100,20 +102,12 @@ public final class SQLElementDirectory {
     public synchronized final void addSQLElement(SQLElement elem) {
         this.elements.put(elem.getTable(), elem);
         this.tableNames.put(elem.getTable().getName(), elem.getTable());
+        this.byCode.put(elem.getCode(), elem.getTable());
         this.byClass.put(elem.getClass(), elem.getTable());
         for (final DirectoryListener dl : this.listeners) {
             dl.elementAdded(elem);
         }
-        String canonicalName = elem.getClass().getCanonicalName();
-        if (canonicalName != null) {
-            if (canonicalName.contains("erp.core") && canonicalName.contains(".element")) {
-                int i = canonicalName.indexOf("erp.core") + 9;
-                int j = canonicalName.indexOf(".element");
-                canonicalName = canonicalName.substring(i, j);
-            }
-            ElementMapper.getInstance().map(canonicalName + ".element", elem);
-            ElementMapper.getInstance().map(canonicalName + ".list.table", elem.getTable().getName());
-        }
+
     }
 
     public synchronized final boolean contains(SQLTable t) {
@@ -146,6 +140,10 @@ public final class SQLElementDirectory {
      */
     public synchronized final <S extends SQLElement> S getElement(Class<S> clazz) {
         return clazz.cast(this.getElement(getSoleTable(this.byClass, clazz)));
+    }
+
+    public synchronized final SQLElement getElementForCode(String code) {
+        return this.getElement(getSoleTable(this.byCode, code));
     }
 
     public synchronized final Set<SQLTable> getTables() {
@@ -182,6 +180,7 @@ public final class SQLElementDirectory {
         final SQLElement elem = this.elements.remove(t);
         if (elem != null) {
             this.tableNames.remove(elem.getTable().getName(), elem.getTable());
+            this.byCode.remove(elem.getCode(), elem.getTable());
             this.byClass.remove(elem.getClass(), elem.getTable());
             // MAYBE only reset neighbours.
             for (final SQLElement otherElem : this.elements.values())

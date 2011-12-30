@@ -62,7 +62,7 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
     }
 
     public EditFrame(SQLElement e, EditMode mode) {
-        this(e.createComponent(), mode);
+        this(e.createDefaultComponent(), mode);
     }
 
     /**

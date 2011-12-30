@@ -47,16 +47,6 @@ public class AvailableModuleTableModel extends ModuleTableModel {
     }
 
     @Override
-    public int getRowCount() {
-        return this.list.size();
-    }
-
-    @Override
-    public boolean isCellEditable(int rowIndex, int columnIndex) {
-        return (columnIndex == 0);
-    }
-
-    @Override
     public String getColumnName(int column) {
         if (column == 3) {
             return "Description";
@@ -67,9 +57,8 @@ public class AvailableModuleTableModel extends ModuleTableModel {
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
         if (columnIndex == 3) {
-            return this.list.get(rowIndex).getDescription();
+            return this.getFactory(rowIndex).getDescription();
         }
         return super.getValueAt(rowIndex, columnIndex);
     }
-
 }

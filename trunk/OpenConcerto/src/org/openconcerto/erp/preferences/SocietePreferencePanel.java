@@ -36,7 +36,7 @@ public class SocietePreferencePanel extends DefaultPreferencePanel {
         c.anchor = GridBagConstraints.NORTHWEST;
 
         final SQLTable tableSociete = Configuration.getInstance().getBase().getTable("SOCIETE_COMMON");
-        this.sc = Configuration.getInstance().getDirectory().getElement(tableSociete).createComponent();
+        this.sc = Configuration.getInstance().getDirectory().getElement(tableSociete).createDefaultComponent();
         this.sc.uiInit();
         this.sc.select(((ComptaPropsConfiguration) Configuration.getInstance()).getSocieteID());
         this.add(this.sc, c);

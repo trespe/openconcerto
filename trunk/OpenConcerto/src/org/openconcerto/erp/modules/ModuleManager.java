@@ -33,6 +33,7 @@ import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.DirectedEdge;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.sql.utils.ChangeTable;
 import org.openconcerto.sql.utils.DropTable;
@@ -344,6 +345,10 @@ public class ModuleManager {
 
     private Preferences getRunningIDsPrefs() {
         return getPrefs().node("toRun");
+    }
+
+    protected final Preferences getRequiredIDsPrefs() {
+        return new SQLPreferences(getRoot()).node("modules/required");
     }
 
     protected final boolean isModuleInstalledLocally(String id) {
@@ -702,6 +707,10 @@ public class ModuleManager {
             module.setupComponents(ctxt);
             this.modulesComponents.put(id, ctxt);
         }
+    }
+
+    public final void startRequiredModules() throws Exception {
+        startModules(Arrays.asList(getRequiredIDsPrefs().keys()));
     }
 
     public final void startPreviouslyRunningModules() throws Exception {

@@ -45,8 +45,10 @@ import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.StringUtils;
+import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cache.CacheResult;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.change.ListChangeIndex;
 import org.openconcerto.utils.change.ListChangeRecorder;
 
@@ -59,6 +61,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -95,15 +98,20 @@ public abstract class SQLElement {
         RESTRICT
     }
 
+    static final public String DEFAULT_ID = null;
+
     // must contain the article "a stone" / "an elephant"
     private final String singular;
     // no article "stones" / "elephants"
     private final String plural;
     private final SQLTable primaryTable;
+    // used as a key in SQLElementDirectory so it should be immutable
+    private final String code;
     private ComboSQLRequest combo;
     private ListSQLRequest list;
     private SQLTableModelSourceOnline tableSrc;
     private final ListChangeRecorder<IListeAction> rowActions;
+    private final CollectionMap<String, ITransformer<Tuple2<SQLElement, String>, SQLComponent>> components;
     // foreign fields
     private Set<String> normalFF;
     private String parentFF;
@@ -121,6 +129,10 @@ public abstract class SQLElement {
     private final List<SQLTableModelColumn> additionalListCols;
 
     public SQLElement(String singular, String plural, SQLTable primaryTable) {
+        this(singular, plural, primaryTable, null);
+    }
+
+    public SQLElement(String singular, String plural, SQLTable primaryTable, final String code) {
         super();
         this.singular = singular;
         this.plural = plural;
@@ -128,16 +140,29 @@ public abstract class SQLElement {
             throw new DBStructureItemNotFound("table is null for " + this);
         }
         this.primaryTable = primaryTable;
+        this.code = code == null ? createCode() : code;
         this.combo = null;
         this.list = null;
         this.rowActions = new ListChangeRecorder<IListeAction>(new ArrayList<IListeAction>());
         this.actions = new HashMap<String, ReferenceAction>();
         this.resetRelationships();
 
+        this.components = new CollectionMap<String, ITransformer<Tuple2<SQLElement, String>, SQLComponent>>(new LinkedList<ITransformer<Tuple2<SQLElement, String>, SQLComponent>>());
+
         this.modelCache = null;
 
         this.additionalFields = new HashMap<String, JComponent>();
         this.additionalListCols = new ArrayList<SQLTableModelColumn>();
+    }
+
+    /**
+     * Should return the code for this element. This method is only called if the <code>code</code>
+     * parameter of the constructor is <code>null</code>.
+     * 
+     * @return the default code for this element.
+     */
+    protected String createCode() {
+        return getClass().getName() + "-" + getTable().getName();
     }
 
     /**
@@ -604,6 +629,10 @@ public abstract class SQLElement {
 
     public final SQLTable getTable() {
         return this.primaryTable;
+    }
+
+    public final String getCode() {
+        return this.code;
     }
 
     /**
@@ -1398,12 +1427,62 @@ public abstract class SQLElement {
 
     // *** gui
 
+    public final void addComponentFactory(final String id, final ITransformer<Tuple2<SQLElement, String>, SQLComponent> t) {
+        if (t == null)
+            throw new NullPointerException();
+        this.components.put(id, t);
+    }
+
+    public final void removeComponentFactory(final String id, final ITransformer<Tuple2<SQLElement, String>, SQLComponent> t) {
+        if (t == null)
+            throw new NullPointerException();
+        this.components.remove(id, t);
+    }
+
+    private final SQLComponent createComponent(final String id, final boolean defaultItem) {
+        final String actualID = defaultItem ? DEFAULT_ID : id;
+        final Tuple2<SQLElement, String> t = Tuple2.create(this, id);
+        // start from the most recently added factory
+        final Iterator<ITransformer<Tuple2<SQLElement, String>, SQLComponent>> iter = ((LinkedList<ITransformer<Tuple2<SQLElement, String>, SQLComponent>>) this.components.getNonNull(actualID))
+                .descendingIterator();
+        while (iter.hasNext()) {
+            final SQLComponent res = iter.next().transformChecked(t);
+            if (res != null)
+                return res;
+        }
+        return null;
+    }
+
+    public final SQLComponent createDefaultComponent() {
+        return this.createComponent(DEFAULT_ID);
+    }
+
+    /**
+     * Create the component for the passed ID. First factories for the passed ID are executed, after
+     * that if ID is the {@link #DEFAULT_ID default} then {@link #createComponent()} is called else
+     * factories for {@link #DEFAULT_ID} are executed.
+     * 
+     * @param id the requested ID.
+     * @return the component or <code>null</code> if all factories return <code>null</code>.
+     */
+    public final SQLComponent createComponent(final String id) {
+        final SQLComponent res = this.createComponent(id, false);
+        if (res != null)
+            return res;
+        if (CompareUtils.equals(id, DEFAULT_ID)) {
+            // since we don't pass id to this method, only call it for DEFAULT_ID
+            return this.createComponent();
+        } else {
+            return this.createComponent(id, true);
+        }
+    }
+
     /**
      * Retourne l'interface graphique de saisie.
      * 
      * @return l'interface graphique de saisie.
      */
-    public abstract SQLComponent createComponent();
+    protected abstract SQLComponent createComponent();
 
     /**
      * Allows a module to add a view for a field to this element.
