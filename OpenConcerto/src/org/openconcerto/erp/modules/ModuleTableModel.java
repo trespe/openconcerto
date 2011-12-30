@@ -30,7 +30,7 @@ public class ModuleTableModel extends AbstractTableModel {
     static private final int CB_INDEX = 0;
 
     private final IFactory<? extends Collection<ModuleFactory>> rowSource;
-    protected List<ModuleFactory> list;
+    private List<ModuleFactory> list;
     private final Set<ModuleFactory> selection;
 
     public ModuleTableModel(IFactory<? extends Collection<ModuleFactory>> rowSource) {
@@ -58,12 +58,16 @@ public class ModuleTableModel extends AbstractTableModel {
 
     @Override
     public int getColumnCount() {
-        return 4;
+        return 3;
     }
 
     @Override
-    public int getRowCount() {
+    public final int getRowCount() {
         return this.list.size();
+    }
+
+    protected final ModuleFactory getFactory(int i) {
+        return this.list.get(i);
     }
 
     @Override
@@ -77,30 +81,27 @@ public class ModuleTableModel extends AbstractTableModel {
             return "Nom";
         } else if (column == 2) {
             return "Version";
-        } else if (column == 3) {
-            return "Etat";
         }
         return "";
     }
 
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
+        final ModuleFactory f = this.getFactory(rowIndex);
         if (columnIndex == 1) {
             try {
-                return this.list.get(rowIndex).getName();
+                return f.getName();
             } catch (Exception e) {
                 return e.getMessage();
             }
         } else if (columnIndex == 2) {
             try {
-                return this.list.get(rowIndex).getVersion();
+                return f.getVersion();
             } catch (Exception e) {
                 return e.getMessage();
             }
-        } else if (columnIndex == 3) {
-            return ModuleManager.getInstance().isModuleRunning(this.list.get(rowIndex).getID()) ? "Actif" : "Inactif";
         } else if (columnIndex == CB_INDEX) {
-            return this.selection.contains(this.list.get(rowIndex));
+            return this.selection.contains(f);
         } else {
             return null;
         }
@@ -110,9 +111,9 @@ public class ModuleTableModel extends AbstractTableModel {
     public void setValueAt(Object value, int rowIndex, int columnIndex) {
         if (columnIndex == CB_INDEX) {
             if ((Boolean) value)
-                this.selection.add(this.list.get(rowIndex));
+                this.selection.add(this.getFactory(rowIndex));
             else
-                this.selection.remove(this.list.get(rowIndex));
+                this.selection.remove(this.getFactory(rowIndex));
         }
     }
 

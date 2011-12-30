@@ -37,7 +37,7 @@ public final class PrivateFFItemPool extends FFItemPool {
 
         final SQLField f = (SQLField) this.availables.remove(0);
         final SQLComponent parent = this.getPanel().getSQLParent();
-        final DefaultElementSQLObject newItem = new DefaultElementSQLObject(parent, parent.getElement().getPrivateElement(f.getName()).createComponent());
+        final DefaultElementSQLObject newItem = new DefaultElementSQLObject(parent, parent.getElement().getPrivateElement(f.getName()).createDefaultComponent());
         newItem.setCreated(true);
         // bare panel
         newItem.showSeparator(false);

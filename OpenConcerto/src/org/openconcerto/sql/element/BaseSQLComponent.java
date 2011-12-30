@@ -156,7 +156,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     private Component addViewJComponent(String field, Object spec) {
         if (getElement().getPrivateElement(field) != null) {
             // private
-            final SQLComponent comp = this.getElement().getPrivateElement(field).createComponent();
+            final SQLComponent comp = this.getElement().getPrivateElement(field).createDefaultComponent();
 
             // TODO add a callback so that RowItemView is notified when added to a SQLComponent
             // avoiding the 'if instanceof ElementSQLObject' in addInitedView()

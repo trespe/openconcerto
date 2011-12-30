@@ -42,21 +42,21 @@ public class PanelCumulsPaye extends JPanel {
     public PanelCumulsPaye() {
         super(new GridBagLayout());
         // Cumuls
-        this.eltCumulsConges = Configuration.getInstance().getDirectory().getElement("CUMULS_CONGES").createComponent();
+        this.eltCumulsConges = Configuration.getInstance().getDirectory().getElement("CUMULS_CONGES").createDefaultComponent();
         eltCumulsConges.uiInit();
         eltCumulsConges.setEditable(false);
         JPanel panelCumulsConges = new JPanel();
         panelCumulsConges.setBorder(BorderFactory.createTitledBorder("Cumuls congés"));
         panelCumulsConges.add(eltCumulsConges);
 
-        this.eltCumulPaye = Configuration.getInstance().getDirectory().getElement("CUMULS_PAYE").createComponent();
+        this.eltCumulPaye = Configuration.getInstance().getDirectory().getElement("CUMULS_PAYE").createDefaultComponent();
         eltCumulPaye.uiInit();
         eltCumulPaye.setEditable(false);
         JPanel panelCumulsPaye = new JPanel();
         panelCumulsPaye.setBorder(BorderFactory.createTitledBorder("Cumuls paye"));
         panelCumulsPaye.add(eltCumulPaye);
 
-        this.eltVarSalarie = Configuration.getInstance().getDirectory().getElement("VARIABLE_SALARIE").createComponent();
+        this.eltVarSalarie = Configuration.getInstance().getDirectory().getElement("VARIABLE_SALARIE").createDefaultComponent();
         eltVarSalarie.uiInit();
         eltVarSalarie.setEditable(false);
         JPanel panelVarSalarie = new JPanel();

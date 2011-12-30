@@ -123,7 +123,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
     }
 
     public EditPanel(SQLElement e, EditMode mode) {
-        this(e.createComponent(), mode);
+        this(e.createDefaultComponent(), mode);
     }
 
     public EditPanel(SQLComponent e, EditMode mode) {
@@ -131,7 +131,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
     }
 
     public EditPanel(SQLElement e, EditMode mode, List<SQLField> hiddenFields) {
-        this(e.createComponent(), mode, hiddenFields);
+        this(e.createDefaultComponent(), mode, hiddenFields);
     }
 
     /**

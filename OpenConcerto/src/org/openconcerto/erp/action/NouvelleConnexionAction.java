@@ -149,6 +149,12 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                             // start modules before displaying the frame (e.g. avoid modifying a
                             // visible menu bar)
                             try {
+                                ModuleManager.getInstance().startRequiredModules();
+                            } catch (Exception exn) {
+                                // by definition we cannot continue without required modules
+                                ExceptionHandler.die("Impossible de démarrer les modules requis", exn);
+                            }
+                            try {
                                 ModuleManager.getInstance().startPreviouslyRunningModules();
                             } catch (Exception exn) {
                                 // OK to continue without all modules started

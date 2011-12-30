@@ -35,6 +35,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.preferences.DefaultProps;
@@ -300,6 +301,14 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         }
 
         getMontantPanel(c, props);
+
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
+        this.add(addP, c);       
 
         JTabbedPane pane = new JTabbedPane();
         c.gridy++;

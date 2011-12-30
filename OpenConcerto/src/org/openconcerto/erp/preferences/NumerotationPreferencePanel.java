@@ -32,7 +32,7 @@ public class NumerotationPreferencePanel extends DefaultPreferencePanel {
         c.weighty = 1;
         c.weightx = 1;
         c.anchor = GridBagConstraints.NORTHWEST;
-        this.sc = Configuration.getInstance().getDirectory().getElement("NUMEROTATION_AUTO").createComponent();
+        this.sc = Configuration.getInstance().getDirectory().getElement("NUMEROTATION_AUTO").createDefaultComponent();
         sc.setOpaque(false);
         this.sc.uiInit();
         this.sc.select(2);

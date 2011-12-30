@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.ElementMapper;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
@@ -63,7 +64,23 @@ public abstract class ComptaSQLConfElement extends SQLElement {
     }
 
     public ComptaSQLConfElement(String tableName, String singular, String plural) {
-        super(singular, plural, getBaseSociete().findTable(tableName, true));
+        this(tableName, singular, plural, null);
+    }
+
+    public ComptaSQLConfElement(String tableName, String singular, String plural, final String id) {
+        super(singular, plural, getBaseSociete().findTable(tableName, true), id);
+        ElementMapper.getInstance().map(getCode() + ".element", this);
+    }
+
+    @Override
+    protected String createCode() {
+        String canonicalName = getClass().getName();
+        if (canonicalName.contains("erp.core") && canonicalName.contains(".element")) {
+            int i = canonicalName.indexOf("erp.core") + 9;
+            int j = canonicalName.indexOf(".element");
+            canonicalName = canonicalName.substring(i, j);
+        }
+        return canonicalName;
     }
 
     @Override

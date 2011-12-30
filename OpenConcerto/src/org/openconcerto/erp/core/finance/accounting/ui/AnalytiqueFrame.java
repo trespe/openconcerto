@@ -45,7 +45,7 @@ public class AnalytiqueFrame extends JFrame {
         super("Gérer les " + elt.getPluralName());
 
         this.frameResize = false;
-        this.component = elt.createComponent();
+        this.component = elt.createDefaultComponent();
 
         this.component.uiInit();
 
