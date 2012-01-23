@@ -74,7 +74,7 @@ public class ListeDebiteursXmlSheet extends AbstractListeSheetXml {
             if (rowMvt.getString("SOURCE").equalsIgnoreCase(eltVf.getTable().getName())) {
                 SQLRow rowVf = eltVf.getTable().getRow(rowMvt.getInt("IDSOURCE"));
                 mValues.put("NUMERO_FACTURE", rowVf.getString("NUMERO"));
-                mValues.put("REFERENCE", "");
+                mValues.put("REFERENCE", rowVf.getString("NOM"));
                 mValues.put("DATE", dateFormat.format(rowVf.getDate("DATE").getTime()));
                 mValues.put("MODE_REGLEMENT", "");
                 mValues.put("MONTANT", GestionDevise.currencyToString(rowVf.getLong("T_TTC")));

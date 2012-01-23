@@ -117,9 +117,9 @@ public class ListeEcritureParClassePanel extends JPanel {
                 String function = "REGEXP";
                 String match = ccTmp.getTypeNumeroCompte();
                 if (elementEcriture.getTable().getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
-                    function = "SIMILAR TO";
-                    match = ccTmp.getTypeNumeroCompte().replace(".*", "%");
-
+                   // function = "SIMILAR TO";
+                    function = "~";
+                 //   match = ccTmp.getTypeNumeroCompte().replace(".*", "%");
                 }
 
                 Where w = new Where(sel.getAlias(elementEcriture.getTable().getField("COMPTE_NUMERO")), function, match);

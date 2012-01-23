@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.preferences;
 
+import org.openconcerto.erp.generationDoc.DefaultLocalTemplateProvider;
+import org.openconcerto.erp.generationDoc.TemplateManager;
 import org.openconcerto.erp.utils.FileUtility;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.preferences.DefaultPreferencePanel;
@@ -87,6 +89,11 @@ public class TemplatePreferencePanel extends DefaultPreferencePanel {
         final File f = new File(this.textTemplate.getText());
         try {
             TemplateNXProps.getInstance().setProperty("LocationTemplate", FileUtility.getPrimaryPath(z.getCanonicalFile(), f));
+            final DefaultLocalTemplateProvider provider = new DefaultLocalTemplateProvider();
+
+            provider.setBaseDirectory(new File(FileUtility.getPrimaryPath(z.getCanonicalFile(), f)));
+
+            TemplateManager.getInstance().setDefaultProvider(provider);
         } catch (IOException e) {
             e.printStackTrace();
         }

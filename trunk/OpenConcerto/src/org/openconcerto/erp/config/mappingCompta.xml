@@ -536,6 +536,8 @@
 	</TABLE>
 
 	<TABLE name="CLIENT">
+		<FIELD name="ID_TYPE_CLIENT" label="Type de client" />
+		<FIELD name="ID_GROUPE_CLIENT" label="Groupe" />
 		<FIELD name="ID_PAYS" label="Pays" titlelabel="Pays" />
 		<FIELD name="ID_LANGUE" label="Langue" titlelabel="Langue" />
 		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
@@ -933,7 +935,7 @@
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
 		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
 		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
-		<FIELD name="T_PA_HT" label="Total HA HT" titlelabel="Poids total" />
+		<FIELD name="T_PA_HT" label="Total HA HT" titlelabel="Total HA HT" />
 		<FIELD name="T_PV_HT" label="Total HT" titlelabel="Total HT" />
 		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
 		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
@@ -1075,7 +1077,7 @@
 
 	<TABLE name="FAMILLE_ARTICLE">
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
-		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="NOM" label="Famille" titlelabel="Famille" />
 		<FIELD name="ID_FAMILLE_ARTICLE_PERE" label="Sous Famille de"
 			titlelabel="Sous Famille de" />
 	</TABLE>

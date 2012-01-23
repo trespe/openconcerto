@@ -110,7 +110,7 @@ public class MutableListComboPopupListener {
             return null;
         // Bouton droit en non locked
         // On debloque le lock en faisant CTRL + bouton droit
-        final boolean displayPopup = this.combo.getMode() == UNLOCKED || (ev.isControlDown() && this.combo.getMode() == ComboLockedMode.ITEMS_LOCKED);
+        final boolean displayPopup = this.combo.getMode().isListMutable() || (ev.isControlDown() && this.combo.getMode() == ComboLockedMode.ITEMS_LOCKED);
         if (!displayPopup)
             return null;
 

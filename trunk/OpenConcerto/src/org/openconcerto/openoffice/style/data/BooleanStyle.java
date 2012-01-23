@@ -18,11 +18,11 @@ import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.CellStyle;
 import org.openconcerto.utils.NumberUtils;
+import org.openconcerto.utils.i18n.I18nUtils;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
+import java.util.ResourceBundle;
 
 import org.jdom.Element;
 import org.jdom.Namespace;
@@ -44,24 +44,6 @@ public class BooleanStyle extends DataStyle {
             return Boolean.valueOf(!NumberUtils.areNumericallyEqual(0, (Number) o));
         else
             return null;
-    }
-
-    private static final Map<String, String> trues = new HashMap<String, String>(), falses = new HashMap<String, String>();
-
-    private static final void add(final String iso3, final String trueS, final String falseS) {
-        if (trueS == null || falseS == null)
-            throw new NullPointerException();
-        trues.put(iso3, trueS);
-        falses.put(iso3, falseS);
-    }
-
-    static {
-        add(Locale.FRENCH.getISO3Language(), "VRAI", "FAUX");
-        add(Locale.ENGLISH.getISO3Language(), "TRUE", "FALSE");
-        add(Locale.GERMAN.getISO3Language(), "WAHR", "FALSCH");
-        add(Locale.ITALY.getISO3Language(), "VERO", "FALSO");
-        add("spa", "VERDADERO", "FALSO");
-        add("por", "VERDADEIRO", "FALSO");
     }
 
     public BooleanStyle(final ODPackage pkg, Element elem) {
@@ -86,17 +68,10 @@ public class BooleanStyle extends DataStyle {
                 if (elem.getName().equals("text")) {
                     sb.append(elem.getText());
                 } else if (elem.getName().equals("boolean")) {
-                    // TODO localize more
-                    final String s;
-                    final String iso3Lang = styleLocale.getISO3Language();
-                    final String localized = b.booleanValue() ? trues.get(iso3Lang) : falses.get(iso3Lang);
-                    if (localized != null) {
-                        s = localized;
-                    } else {
+                    final ResourceBundle bundle = ResourceBundle.getBundle(I18nUtils.RSRC_BASENAME, styleLocale);
+                    if (!bundle.getLocale().getLanguage().equals(styleLocale.getLanguage()))
                         reportError("Boolean not localized", lenient);
-                        s = b.toString();
-                    }
-                    sb.append(s);
+                    sb.append(bundle.getString(I18nUtils.getBooleanKey(b)).toUpperCase(styleLocale));
                 }
             }
         }

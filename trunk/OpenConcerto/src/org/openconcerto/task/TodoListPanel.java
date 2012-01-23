@@ -236,7 +236,6 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         }
 
         this.addButton = new JButton("Ajouter une tâche");
-        this.addButton.setOpaque(false);
         this.removeButton = new JButton("Effacer");
         this.removeButton.setOpaque(false);
         this.removeButton.setEnabled(false);

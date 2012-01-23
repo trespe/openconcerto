@@ -59,6 +59,7 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         l.add("PV_HT");
             l.add("ID_TAXE");
         l.add("PV_TTC");
+        l.add("ID_FAMILLE_ARTICLE");
         l.add("ID_FOURNISSEUR");
         l.add("ID_STOCK");
         String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");

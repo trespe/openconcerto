@@ -74,7 +74,7 @@ public class OOXMLField extends OOXMLElement {
      */
     public Object getValue() {
 
-        if (this.row != null && this.row.getID() > 1) {
+        if (this.row != null && !this.row.isUndefined()) {
 
             // if
             // (this.row.getTable().getName().equalsIgnoreCase(this.elt.getAttributeValue("table")))

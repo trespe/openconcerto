@@ -190,13 +190,15 @@ public class TotalPanel extends JPanel implements TableModelListener {
         this.add(this.textTotalHTSel, c);
 
         // Service
-        c.gridx = 1;
-        c.gridy++;
-        c.weightx = 0;
-        this.add(new JLabel("Service HT inclus "), c);
-        c.gridx++;
-        c.weightx = 1;
-        this.add(this.textServiceSel, c);
+        if (DefaultNXProps.getInstance().getBooleanValue(AbstractVenteArticleItemTable.ARTICLE_SERVICE, false)) {
+            c.gridx = 1;
+            c.gridy++;
+            c.weightx = 0;
+            this.add(new JLabel("Service HT inclus "), c);
+            c.gridx++;
+            c.weightx = 1;
+            this.add(this.textServiceSel, c);
+        }
 
         // TVA
         c.gridx = 1;
@@ -298,15 +300,16 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.weightx = 1;
         this.add(textTotalHT, c);
 
-        // Service
-        c.gridx = 4;
-        c.gridy++;
-        c.weightx = 0;
-        this.add(new JLabelBold("Service HT inclus "), c);
-        c.gridx++;
-        c.weightx = 1;
-        this.add(this.textService, c);
-
+        if (DefaultNXProps.getInstance().getBooleanValue(AbstractVenteArticleItemTable.ARTICLE_SERVICE, false)) {
+            // Service
+            c.gridx = 4;
+            c.gridy++;
+            c.weightx = 0;
+            this.add(new JLabelBold("Service HT inclus "), c);
+            c.gridx++;
+            c.weightx = 1;
+            this.add(this.textService, c);
+        }
         // TVA
         c.gridx = 4;
         c.gridy++;

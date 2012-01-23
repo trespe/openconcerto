@@ -520,6 +520,10 @@ public class PropsConfiguration extends Configuration {
         return true;
     }
 
+    protected DateFormat getLogDateFormat() {
+        return DATE_FORMAT;
+    }
+
     public void setupLogging(final String dirName, final boolean redirectToFile) {
         final File logDir;
         try {
@@ -542,7 +546,7 @@ public class PropsConfiguration extends Configuration {
         } catch (IOException e) {
             throw new IllegalStateException("unable to create log dir", e);
         }
-        final String logNameBase = this.getAppName() + "_" + DATE_FORMAT.format(new Date());
+        final String logNameBase = this.getAppName() + "_" + getLogDateFormat().format(new Date());
 
         // must be done first, otherwise log output not redirected
         if (redirectToFile) {
@@ -582,9 +586,9 @@ public class PropsConfiguration extends Configuration {
 
         // removes default
         LogUtils.rmRootHandlers();
-        // add console logger
+        // add console handler
         LogUtils.setUpConsoleHandler();
-        // add file logger
+        // add file handler (supports concurrent launches, doesn't depend on date)
         try {
             final File logFile = new File(logDir, this.getAppName() + "-%u-age%g.log");
             logFile.getParentFile().mkdirs();

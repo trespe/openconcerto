@@ -53,6 +53,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.ArrayList;
@@ -122,6 +123,14 @@ public class Gestion {
      */
     // -Dorg.openconcerto.sql.sqlCombo.selectSoleItem=true
     public static void main(String[] args) {
+        Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
+
+            @Override
+            public void uncaughtException(Thread t, Throwable e) {
+                ExceptionHandler.handle("UncaughtException on thread " + t, e);
+
+            }
+        });
         System.out.println(System.getProperty("java.vendor", "??") + " - " + System.getProperty("java.version", "??"));
         System.out.println(System.getProperty("java.runtime.version", "??") + " - " + System.getProperty("os.name", "??"));
         ExceptionHandler.setForceUI(true);
@@ -130,8 +139,7 @@ public class Gestion {
         if (logRequests) {
             SQLRequestLog.setEnabled(true);
         }
-        System.setProperty("apple.laf.useScreenMenuBar", "true");
-
+        System.setProperty(PropsConfiguration.REDIRECT_TO_FILE, "true");
         // Mac
         // only works with Aqua laf
         System.setProperty("apple.laf.useScreenMenuBar", "true");

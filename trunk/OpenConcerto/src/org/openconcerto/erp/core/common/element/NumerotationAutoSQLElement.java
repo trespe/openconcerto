@@ -61,6 +61,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.swing.Icon;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
@@ -110,54 +111,64 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
                 final ArrayList<Class<? extends SQLElement>> list = new ArrayList<Class<? extends SQLElement>>(s);
                 Collections.sort(list, new Comparator<Class<? extends SQLElement>>() {
                     public int compare(Class<? extends SQLElement> o1, Class<? extends SQLElement> o2) {
-                        return o1.toString().compareTo(o2.toString());
+                        return o1.getSimpleName().toString().compareTo(o2.getSimpleName().toString());
                     };
                 });
 
+                List<String> added = new ArrayList<String>();
                 for (Class<? extends SQLElement> class1 : list) {
-                    c.gridy++;
-                    c.gridx = 0;
-                    c.weightx = 0;
                     String prefix = map.get(class1);
-                    SQLElement elt = Configuration.getInstance().getDirectory().getElement(class1);
-                    // Avoir
-                    JLabel labelAvoirFormat = new JLabel(StringUtils.firstUp(elt.getPluralName()) + " " + getLabelFor(prefix + FORMAT));
-                    this.add(labelAvoirFormat, c);
-                    c.gridx++;
-                    c.weightx = 1;
-                    final JTextField fieldFormat = new JTextField();
-                    this.add(fieldFormat, c);
+                    if (!added.contains(prefix)) {
+                        c.gridy++;
+                        c.gridx = 0;
+                        c.weightx = 0;
+                        added.add(prefix);
+                        SQLElement elt = Configuration.getInstance().getDirectory().getElement(class1);
+                        // Avoir
+                        JLabel labelAvoirFormat = new JLabel(StringUtils.firstUp(elt.getPluralName()) + " " + getLabelFor(prefix + FORMAT));
+                        this.add(labelAvoirFormat, c);
+                        c.gridx++;
+                        c.weightx = 1;
+                        final JTextField fieldFormat = new JTextField();
+                        this.add(fieldFormat, c);
 
-                    final JLabel labelAvoirStart = new JLabel(getLabelFor(prefix + START));
-                    c.gridx++;
-                    c.weightx = 0;
-                    this.add(labelAvoirStart, c);
-                    c.gridx++;
-                    c.weightx = 1;
-                    final JTextField fieldStart = new JTextField();
-                    this.add(fieldStart, c);
+                        final JLabel labelAvoirStart = new JLabel(getLabelFor(prefix + START));
+                        c.gridx++;
+                        c.weightx = 0;
+                        this.add(labelAvoirStart, c);
+                        c.gridx++;
+                        c.weightx = 1;
+                        final JTextField fieldStart = new JTextField();
+                        this.add(fieldStart, c);
 
-                    final JLabel labelResult = new JLabel();
-                    c.gridx++;
-                    c.weightx = 0;
-                    this.add(labelResult, c);
+                        final JLabel labelResult = new JLabel();
+                        c.gridx++;
+                        c.weightx = 0;
+                        this.add(labelResult, c);
 
-                    // Affichage dynamique du résultat
-                    SimpleDocumentListener listener = new SimpleDocumentListener() {
-
-                        @Override
-                        public void update(DocumentEvent e) {
-                            updateLabel(fieldStart, fieldFormat, labelResult);
-
+                        if (getTable().getFieldsName().contains(prefix + AUTO_MONTH)) {
+                            final JCheckBox boxAuto = new JCheckBox(getLabelFor(prefix + AUTO_MONTH));
+                            c.gridx++;
+                            c.weightx = 0;
+                            this.add(boxAuto, c);
+                            this.addSQLObject(boxAuto, prefix + AUTO_MONTH);
                         }
-                    };
+                        // Affichage dynamique du résultat
+                        SimpleDocumentListener listener = new SimpleDocumentListener() {
 
-                    fieldFormat.getDocument().addDocumentListener(listener);
-                    fieldStart.getDocument().addDocumentListener(listener);
+                            @Override
+                            public void update(DocumentEvent e) {
+                                updateLabel(fieldStart, fieldFormat, labelResult);
 
-                    this.addRequiredSQLObject(fieldFormat, prefix + FORMAT);
-                    this.addRequiredSQLObject(fieldStart, prefix + START);
+                            }
+                        };
 
+                        fieldFormat.getDocument().addDocumentListener(listener);
+                        fieldStart.getDocument().addDocumentListener(listener);
+
+                        this.addRequiredSQLObject(fieldFormat, prefix + FORMAT);
+                        this.addRequiredSQLObject(fieldStart, prefix + START);
+                    }
                 }
 
                 // JLabel labelCodeLettrage = new JLabel(getLabelFor("CODE_LETTRAGE"));
@@ -193,7 +204,7 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
 
             private void updateLabel(JTextField textStart, JTextField textFormat, JLabel label) {
                 if (textStart.getText().trim().length() > 0) {
-                    String numProposition = getNextNumero(textFormat.getText(), Integer.parseInt(textStart.getText()));
+                    String numProposition = getNextNumero(textFormat.getText(), Integer.parseInt(textStart.getText()), new Date());
 
                     if (numProposition != null) {
                         label.setText(" --> " + numProposition);
@@ -211,13 +222,32 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         };
     }
 
-    // Format du type 'Fact'yyyy-MM-dd0000
+    public static final String getLabelFormatFor(Class<? extends SQLElement> clazz) {
+        return map.get(clazz) + FORMAT;
+    }
+
+    public static final String getLabelNumberFor(Class<? extends SQLElement> clazz) {
+        return map.get(clazz) + START;
+    }
+
+    public final static String AUTO_MONTH = "_AUTO_MONTH";
+
     public static final String getNextNumero(Class<? extends SQLElement> clazz) {
+        return getNextNumero(clazz, new Date());
+    }
+
+    // Format du type 'Fact'yyyy-MM-dd0000
+    public static final String getNextNumero(Class<? extends SQLElement> clazz, Date d) {
         SQLRow rowNum = TABLE_NUM.getRow(2);
         String s = map.get(clazz);
+
+        if (TABLE_NUM.getFieldsName().contains(s + AUTO_MONTH) && rowNum.getBoolean(s + AUTO_MONTH)) {
+            return getNextForMonth(clazz, d);
+        }
+
         String format = rowNum.getString(s + FORMAT);
         int start = rowNum.getInt(s + START);
-        return getNextNumero(format, start);
+        return getNextNumero(format, start, d);
     }
 
     private static final Tuple2<String, String> getPrefixAndSuffix(String format, Date d) {
@@ -252,12 +282,13 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         return Tuple2.create(prefix, suffix);
     }
 
-    protected static final String getNextNumero(String format, Integer start) {
+    protected static final String getNextNumero(String format, Integer start, Date d) {
         if (start != null && start < 0) {
             return null;
         }
 
-        Tuple2<String, String> t = getPrefixAndSuffix(format, new Date());
+        Tuple2<String, String> t = getPrefixAndSuffix(format, d);
+
         DecimalFormat decimalFormat = new DecimalFormat(t.get1());
         return t.get0() + decimalFormat.format(start);
     }
@@ -334,8 +365,9 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
 
     }
 
-    public static String getNextForMonth(Class<? extends SQLElement> clazz, SQLTable table, Date d) {
+    private static String getNextForMonth(Class<? extends SQLElement> clazz, Date d) {
 
+        SQLTable table = Configuration.getInstance().getDirectory().getElement(clazz).getTable();
         SQLRow rowNum = TABLE_NUM.getRow(2);
         String s = map.get(clazz);
         String pattern = rowNum.getString(s + FORMAT);
@@ -453,6 +485,10 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
      */
     public static void addClass(Class<? extends SQLElement> elt, String name) {
         map.put(elt, name);
+    }
+
+    public static void removeClass(Class<? extends SQLElement> elt) {
+        map.remove(elt);
     }
 
     public static void addListeners() {

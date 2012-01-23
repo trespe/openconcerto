@@ -20,6 +20,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -28,6 +29,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
@@ -87,6 +89,18 @@ public class FamilleArticleSQLElement extends ComptaSQLConfElement {
                 this.add(familleBox, c);
 
                 this.addSQLObject(familleBox, "ID_FAMILLE_ARTICLE_PERE");
+
+                // Champ Module
+                c.gridx = 0;
+                c.gridy++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                final JPanel addP = new JPanel();
+
+                this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
+                c.fill = GridBagConstraints.HORIZONTAL;
+                c.weightx = 1;
+                this.add(addP, c);
+
             }
 
             @Override

@@ -32,12 +32,12 @@ public abstract class AbstractSheetXMLWithDate extends AbstractSheetXml {
 
     @Override
     public File getDocumentOutputDirectoryP() {
-        return new File(DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(this.getTemplateId()), getYear());
+        return new File(DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(this.getDefaultTemplateId()), getYear());
     }
 
     @Override
     public File getPDFOutputDirectoryP() {
-        return new File(DocumentLocalStorageManager.getInstance().getPDFOutputDirectory(this.getTemplateId()), getYear());
+        return new File(DocumentLocalStorageManager.getInstance().getPDFOutputDirectory(this.getDefaultTemplateId()), getYear());
     }
 
     @Override

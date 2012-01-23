@@ -28,6 +28,7 @@ import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.RowValuesTableRenderer;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.table.XTableColumnModel;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -189,6 +190,8 @@ public abstract class AbstractArticleItemTable extends JPanel {
         final Set<SQLField> fields = tableArticle.getFields();
 
         for (final SQLRow rowElt : listElts) {
+            // final SQLRow foreignRow = rowElt.getForeignRow("ID_ARTICLE");
+            // if (foreignRow == null || foreignRow.isUndefined()) {
             final Set<String> fieldsName = rowElt.getTable().getFieldsName();
             // on récupére l'article qui lui correspond
 
@@ -202,6 +205,7 @@ public abstract class AbstractArticleItemTable extends JPanel {
             // crée les articles si il n'existe pas
             ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
         }
+        // }
     }
 
 
@@ -215,5 +219,12 @@ public abstract class AbstractArticleItemTable extends JPanel {
 
     public void setTarif(SQLRowAccessor idTarif, boolean ask) {
         this.tarif = idTarif;
+    }
+
+    protected void setColumnVisible(int col, boolean visible) {
+        if (col >= 0) {
+            XTableColumnModel columnModel = this.table.getColumnModel();
+            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(col), visible);
+        }
     }
 }

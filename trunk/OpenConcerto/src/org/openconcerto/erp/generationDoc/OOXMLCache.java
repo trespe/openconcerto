@@ -31,6 +31,10 @@ public class OOXMLCache {
     protected static SQLRowAccessor getForeignRow(SQLRowAccessor row, SQLField field) {
         Map<Integer, SQLRowAccessor> c = cacheForeign.get(field.getName());
 
+        if (row.getObject(field.getName()) == null) {
+            return null;
+        }
+
         int i = row.getInt(field.getName());
 
         if (c != null && c.get(i) != null) {

@@ -144,9 +144,8 @@ public abstract class SheetXml {
                 }
                 if (printDocument) {
                     // Print !
-                    DefaultDocumentPrinter printer = new DefaultDocumentPrinter();
+                    DefaultNXDocumentPrinter printer = new DefaultNXDocumentPrinter();
                     printer.print(doc);
-
                 }
                 if (exportToPDF) {
 
@@ -305,6 +304,7 @@ public abstract class SheetXml {
                 File f;
                 try {
                     f = getOrCreateDocumentFile();
+                    // ComptaPropsConfiguration.getOOConnexion().loadDocument(f, false);
                     OOUtils.open(f);
                 } catch (Exception e) {
                     ExceptionHandler.handle("Impossible d'ouvrir le document.", e);

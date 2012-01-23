@@ -32,7 +32,6 @@ import org.openconcerto.erp.generationDoc.DefaultLocalTemplateProvider;
 import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.generationDoc.TemplateManager;
-import org.openconcerto.erp.generationDoc.TemplateProvider;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirClientXmlSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirFournisseurXmlSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.CommandeXmlSheet;
@@ -123,35 +122,35 @@ public class TemplateNXProps extends TemplateProps {
         }
 
         storage.setPDFDefaultDirectory(new File(propertyDefaultPDFDirectory));
-        register(DevisXmlSheet.TEMPLATE_ID, DevisXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(VenteFactureXmlSheet.TEMPLATE_ID, VenteFactureXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(CommandeClientXmlSheet.TEMPLATE_ID, CommandeClientXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(BonLivraisonXmlSheet.TEMPLATE_ID, BonLivraisonXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(AvoirClientXmlSheet.TEMPLATE_ID, AvoirClientXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(AvoirFournisseurXmlSheet.TEMPLATE_ID, AvoirFournisseurXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(CommandeXmlSheet.TEMPLATE_ID, CommandeXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(EtatVentesXmlSheet.TEMPLATE_ID, EtatVentesXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(FicheClientXmlSheet.TEMPLATE_ID, FicheClientXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(FicheRelanceSheet.TEMPLATE_ID, FicheRelanceSheet.TEMPLATE_PROPERTY_NAME);
-        register(ReleveChequeSheet.TEMPLATE_ID, ReleveChequeSheet.TEMPLATE_PROPERTY_NAME);
-        register(ListeFactureXmlSheet.TEMPLATE_ID, ListeFactureXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(ListeVenteXmlSheet.TEMPLATE_ID, ListeVenteXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(BalanceSheet.TEMPLATE_ID, BalanceSheet.TEMPLATE_PROPERTY_NAME);
-        register(GrandLivreSheet.TEMPLATE_ID, GrandLivreSheet.TEMPLATE_PROPERTY_NAME);
-        register(JournauxSheet.TEMPLATE_ID, JournauxSheet.TEMPLATE_PROPERTY_NAME);
-        register(EtatChargesPayeSheet.TEMPLATE_ID, EtatChargesPayeSheet.TEMPLATE_PROPERTY_NAME);
-        register(FichePayeSheet.TEMPLATE_ID, FichePayeSheet.TEMPLATE_PROPERTY_NAME);
-        register(LivrePayeSheet.TEMPLATE_ID, LivrePayeSheet.TEMPLATE_PROPERTY_NAME);
-        register(CourrierClientSheet.TEMPLATE_ID, CourrierClientSheet.TEMPLATE_PROPERTY_NAME);
-        register(PointageXmlSheet.TEMPLATE_ID, PointageXmlSheet.TEMPLATE_PROPERTY_NAME);
-        register(RelanceSheet.TEMPLATE_ID, RelanceSheet.TEMPLATE_PROPERTY_NAME);
-        register(VenteComptoirSheet.TEMPLATE_ID, VenteComptoirSheet.TEMPLATE_PROPERTY_NAME);
-        register(ReleveChequeEmisSheet.TEMPLATE_ID, ReleveChequeEmisSheet.TEMPLATE_PROPERTY_NAME);
+        register(DevisXmlSheet.TEMPLATE_ID, DevisXmlSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("DEVIS"));
+        register(VenteFactureXmlSheet.TEMPLATE_ID, VenteFactureXmlSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("SAISIE_VENTE_FACTURE"));
+        register(CommandeClientXmlSheet.TEMPLATE_ID, CommandeClientXmlSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("COMMANDE_CLIENT"));
+        register(BonLivraisonXmlSheet.TEMPLATE_ID, BonLivraisonXmlSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("BON_DE_LIVRAISON"));
+        register(AvoirClientXmlSheet.TEMPLATE_ID, AvoirClientXmlSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("AVOIR_CLIENT"));
+        register(AvoirFournisseurXmlSheet.TEMPLATE_ID, AvoirFournisseurXmlSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("AVOIR_FOURNISSEUR"));
+        register(CommandeXmlSheet.TEMPLATE_ID, CommandeXmlSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("COMMANDE"));
+        register(EtatVentesXmlSheet.TEMPLATE_ID, EtatVentesXmlSheet.TEMPLATE_PROPERTY_NAME, null);
+        register(FicheClientXmlSheet.TEMPLATE_ID, FicheClientXmlSheet.TEMPLATE_PROPERTY_NAME, null);
+        register(FicheRelanceSheet.TEMPLATE_ID, FicheRelanceSheet.TEMPLATE_PROPERTY_NAME, null);
+        register(ReleveChequeSheet.TEMPLATE_ID, ReleveChequeSheet.TEMPLATE_PROPERTY_NAME, null);
+        register(ListeFactureXmlSheet.TEMPLATE_ID, ListeFactureXmlSheet.TEMPLATE_PROPERTY_NAME, null);
+        register(ListeVenteXmlSheet.TEMPLATE_ID, ListeVenteXmlSheet.TEMPLATE_PROPERTY_NAME, null);
+        register(BalanceSheet.TEMPLATE_ID, BalanceSheet.TEMPLATE_PROPERTY_NAME, BalanceSheet.TEMPLATE_ID);
+        register(GrandLivreSheet.TEMPLATE_ID, GrandLivreSheet.TEMPLATE_PROPERTY_NAME, GrandLivreSheet.TEMPLATE_ID);
+        register(JournauxSheet.TEMPLATE_ID, JournauxSheet.TEMPLATE_PROPERTY_NAME, JournauxSheet.TEMPLATE_ID);
+        register(EtatChargesPayeSheet.TEMPLATE_ID, EtatChargesPayeSheet.TEMPLATE_PROPERTY_NAME, "Etat des charges");
+        register(FichePayeSheet.TEMPLATE_ID, FichePayeSheet.TEMPLATE_PROPERTY_NAME, "Fiche paye");
+        register(LivrePayeSheet.TEMPLATE_ID, LivrePayeSheet.TEMPLATE_PROPERTY_NAME, "Livre paye");
+        register(CourrierClientSheet.TEMPLATE_ID, CourrierClientSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("COMMANDE"));
+        register(PointageXmlSheet.TEMPLATE_ID, PointageXmlSheet.TEMPLATE_PROPERTY_NAME, null);
+        register(RelanceSheet.TEMPLATE_ID, RelanceSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("RELANCE"));
+        register(VenteComptoirSheet.TEMPLATE_ID, VenteComptoirSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("SAISIE_VENTE_COMPTOIR"));
+        register(ReleveChequeEmisSheet.TEMPLATE_ID, ReleveChequeEmisSheet.TEMPLATE_PROPERTY_NAME, null);
         storage.dump();
 
     }
 
-    private void register(String templateId, String propertyBaseName) {
+    private void register(String templateId, String propertyBaseName, String defaultSubFolder) {
         if (templateId == null) {
             throw new IllegalArgumentException("null template id");
         }
@@ -164,12 +163,19 @@ public class TemplateNXProps extends TemplateProps {
         final DocumentLocalStorageManager storage = DocumentLocalStorageManager.getInstance();
         final String propertyOO = getProperty(propertyBaseName + "OO");
         if (propertyOO != null) {
-
             storage.addDocumentDirectory(templateId, new File(propertyOO));
+        } else {
+            if (defaultSubFolder != null && defaultSubFolder.trim().length() > 0) {
+                storage.addDocumentDirectory(templateId, new File(storage.getDocumentOutputDirectory("default"), defaultSubFolder));
+            }
         }
         final String propertyPDF = getProperty(propertyBaseName + "PDF");
         if (propertyPDF != null) {
             storage.addPDFDirectory(templateId, new File(propertyPDF));
+        } else {
+            if (defaultSubFolder != null && defaultSubFolder.trim().length() > 0) {
+                storage.addDocumentDirectory(templateId, new File(storage.getPDFOutputDirectory("default"), defaultSubFolder));
+            }
         }
     }
 

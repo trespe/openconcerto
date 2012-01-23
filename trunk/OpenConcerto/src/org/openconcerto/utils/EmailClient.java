@@ -68,6 +68,8 @@ public abstract class EmailClient {
     // MULTILINE since there's several lines in addition to the wanted one
     private static final Pattern registryPattern = Pattern.compile("\\s+REG_SZ\\s+(.*)$", Pattern.MULTILINE);
     private static final Pattern cmdLinePattern = Pattern.compile("(\"(.*?)\")|([^\\s\"]+)\\b");
+    // any whitespace except space and tab
+    private static final Pattern wsPattern = Pattern.compile("[\\s&&[^ \t]]");
     private static final Pattern dictPattern;
     private static final String AppleMailBundleID = "com.apple.mail";
     private static final String ThunderbirdBundleID = "org.mozilla.thunderbird";
@@ -76,20 +78,12 @@ public abstract class EmailClient {
         dictPattern = Pattern.compile("\\{\\s*" + rolePattern + "LSHandlerURLScheme = mailto;\\s*" + rolePattern + "\\}");
     }
 
-    private final static String createEncodedParam(final String name, final String value) throws IOException {
-        return createParam(name, PercentEncoder.encode(value, "UTF-8"), false);
-    }
-
-    private final static String createParam(final String name, final String value) {
-        return createParam(name, value, true);
-    }
-
-    private final static String createParam(final String name, final String value, final boolean quote) {
-        return createParam(name, value, quote ? "'" : "", "=");
+    private final static String createEncodedParam(final String name, final String value) {
+        return name + "=" + PercentEncoder.encode(value, StringUtils.UTF8);
     }
 
     private final static String createASParam(final String name, final String value) {
-        return createParam(name, value, "\"", ":");
+        return name + ":" + StringUtils.doubleQuote(value);
     }
 
     private final static String createVBParam(final String name, final String value) {
@@ -103,32 +97,31 @@ public abstract class EmailClient {
         return switchName + '"' + encoded + '"';
     }
 
-    private final static String createParam(final String name, final String value, final String quote, final String sep) {
-        return name + sep + quote + value + quote;
-    }
-
     /**
      * Create a mailto URI.
      * 
      * @param to the recipient, can be <code>null</code>.
      * @param subject the subject, can be <code>null</code>.
      * @param body the body of the email, can be <code>null</code>.
-     * @param attachment a file to attach, can be <code>null</code>.
+     * @param attachments files to attach, for security reason this parameter is ignored by at least
+     *        Outlook 2007, Apple Mail and Thunderbird.
      * @return the mailto URI.
      * @throws IOException if an encoding error happens.
      * @see <a href="http://tools.ietf.org/html/rfc2368">RFC 2368</a>
+     * @see <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=67254">Don't allow attachment of
+     *      local file from non-local link</a>
      */
-    public final static URI getMailToURI(final String to, final String subject, final String body, final File attachment) throws IOException {
+    public final static URI getMailToURI(final String to, final String subject, final String body, final File... attachments) throws IOException {
         // mailto:p.dupond@example.com?subject=Sujet%20du%20courrier&cc=pierre@example.org&bcc=jacques@example.net&body=Bonjour
 
         // Outlook doesn't support the to header as mandated by 2. of the RFC
-        final String encodedTo = to == null ? "" : PercentEncoder.encode(to, "UTF-8");
+        final String encodedTo = to == null ? "" : PercentEncoder.encode(to, StringUtils.UTF8);
         final List<String> l = new ArrayList<String>(4);
         if (subject != null)
             l.add(createEncodedParam("subject", subject));
         if (body != null)
             l.add(createEncodedParam("body", body));
-        if (attachment != null)
+        for (final File attachment : attachments)
             l.add(createEncodedParam("attachment", attachment.getAbsolutePath()));
         final String query = CollectionUtils.join(l, "&");
         try {
@@ -138,23 +131,27 @@ public abstract class EmailClient {
         }
     }
 
-    private final static String getTBParam(final String to, final String subject, final String body, final File attachment) {
-        // "to='john@example.com,kathy@example.com',cc='britney@example.com',subject='dinner',body='How about dinner tonight?',attachment='file:///C:/'";
+    // see http://kb.mozillazine.org/Command_line_arguments_(Thunderbird)
+    // The escape mechanism isn't specified, it turns out we can pass percent encoded strings
+    private final static String getTBParam(final String to, final String subject, final String body, final File... attachments) {
+        // "to='john@example.com,kathy@example.com',cc='britney@example.com',subject='dinner',body='How about dinner tonight?',attachment='file:///C:/cygwin/Cygwin.bat,file:///C:/cygwin/Cygwin.ico'";
 
         final List<String> l = new ArrayList<String>(4);
         if (to != null)
-            l.add(createParam("to", to));
+            l.add(createEncodedParam("to", to));
         if (subject != null)
-            l.add(createParam("subject", subject));
+            l.add(createEncodedParam("subject", subject));
         if (body != null)
-            l.add(createParam("body", body));
-        if (attachment != null) {
+            l.add(createEncodedParam("body", body));
+        final List<String> urls = new ArrayList<String>(attachments.length);
+        for (final File attachment : attachments) {
             // Thunderbird doesn't parse java URI file:/C:/
             final String tbURL = "file://" + attachment.toURI().getRawPath();
-            l.add(createParam("attachment", tbURL, false));
+            urls.add(tbURL);
         }
+        l.add(createEncodedParam("attachment", CollectionUtils.join(urls, ",")));
 
-        return CollectionUtils.join(l, ",");
+        return DesktopEnvironment.getDE().quoteParamForExec(CollectionUtils.join(l, ","));
     }
 
     private final static String getAppleMailParam(final String subject, final String body) {
@@ -170,8 +167,8 @@ public abstract class EmailClient {
 
     // @param cmdLine "C:\Program Files\Mozilla Thunderbird\thunderbird.exe" -osint -compose "%1"
     // @param toReplace "%1"
-    private static String[] tbCommand(final String cmdLine, final String toReplace, final String to, final String subject, final String body, final File attachment) {
-        final String composeArg = getTBParam(to, subject, body, attachment);
+    private static String[] tbCommand(final String cmdLine, final String toReplace, final String to, final String subject, final String body, final File... attachments) {
+        final String composeArg = getTBParam(to, subject, body, attachments);
 
         final List<String> arguments = new ArrayList<String>();
         final Matcher cmdMatcher = cmdLinePattern.matcher(cmdLine);
@@ -197,22 +194,28 @@ public abstract class EmailClient {
      * @param to the recipient, can be <code>null</code>.
      * @param subject the subject, can be <code>null</code>.
      * @param body the body of the email, can be <code>null</code>.
-     * @param attachment a file to attach, can be <code>null</code>.
+     * @param attachments files to attach, ATTN can be ignored if mailto: is used
+     *        {@link #getMailToURI(String, String, String, File...)}.
      * @throws IOException if a program cannot be executed.
      * @throws InterruptedException if the thread is interrupted while waiting for a native program.
      */
-    public void compose(final String to, final String subject, final String body, final File attachment) throws IOException, InterruptedException {
+    public void compose(final String to, String subject, final String body, final File... attachments) throws IOException, InterruptedException {
         // check now as letting the native commands do is a lot less reliable
-        if (attachment != null && !attachment.exists())
-            throw new IOException("Attachment doesn't exist: '" + attachment.getAbsolutePath() + "'");
+        for (File attachment : attachments) {
+            if (!attachment.exists())
+                throw new IOException("Attachment doesn't exist: '" + attachment.getAbsolutePath() + "'");
+        }
 
+        // a subject should only be one line (Thunderbird strips newlines anyway and Outlook sends a
+        // malformed email)
+        subject = wsPattern.matcher(subject).replaceAll(" ");
         final boolean handled;
         // was only trying native if necessary, but mailto url has length limitations and can have
         // encoding issues
-        handled = composeNative(to, subject, body, attachment);
+        handled = composeNative(to, subject, body, attachments);
 
         if (!handled) {
-            final URI mailto = getMailToURI(to, subject, body, attachment);
+            final URI mailto = getMailToURI(to, subject, body, attachments);
             java.awt.Desktop.getDesktop().mail(mailto);
         }
     }
@@ -265,13 +268,11 @@ public abstract class EmailClient {
                 // https://bugzilla.mozilla.org/show_bug.cgi?id=424155
                 // https://bugzilla.mozilla.org/show_bug.cgi?id=472891
                 // MAYBE find out if launched and let handled=false
-                final String url = cmdSubstitution("osascript", "-e", "tell application id \"com.apple.Finder\" to URL of application file id \"" + bundleID + "\"").trim();
-                final File appDir;
-                try {
-                    appDir = new File(new URI(url).getPath());
-                } catch (URISyntaxException e) {
-                    throw new IOException("Couldn't get the path of " + url, e);
-                }
+
+                // we used to ask for the URL of the application file but since 10.7 it returns a
+                // file reference URL like "file:///.file/id=6723689.35865"
+                final File appDir = new File(cmdSubstitution("osascript", "-e", "tell application id \"com.apple.Finder\" to POSIX path of (application file id \"" + bundleID + "\" as string)")
+                        .trim());
                 final File exe = new File(appDir, "Contents/MacOS/thunderbird-bin");
 
                 return new ThunderbirdPath(exe);
@@ -293,30 +294,32 @@ public abstract class EmailClient {
 
     public static final EmailClient MailTo = new EmailClient(null) {
         @Override
-        public boolean composeNative(String to, String subject, String body, File attachment) {
+        public boolean composeNative(String to, String subject, String body, File... attachments) {
             return false;
         }
     };
 
     public static final EmailClient Outlook = new EmailClient(EmailClientType.Outlook) {
         @Override
-        protected boolean composeNative(String to, String subject, String body, File attachment) throws IOException, InterruptedException {
+        protected boolean composeNative(String to, String subject, String body, File... attachments) throws IOException, InterruptedException {
+            final DesktopEnvironment de = DesktopEnvironment.getDE();
             final File vbs = FileUtils.getFile(EmailClient.class.getResource("OutlookEmail.vbs"));
             final List<String> l = new ArrayList<String>(6);
             l.add("cscript");
-            l.add(vbs.getAbsolutePath());
+            l.add(de.quoteParamForExec(vbs.getAbsolutePath()));
             if (to != null)
                 l.add(createVBParam("to", to));
             if (subject != null)
                 l.add(createVBParam("subject", subject));
             // at least set a parameter otherwise the usage get displayed
             l.add(createVBParam("unicodeStdIn", "1"));
-            if (attachment != null)
-                l.add(attachment.getAbsolutePath());
+            for (File attachment : attachments) {
+                l.add(de.quoteParamForExec(attachment.getAbsolutePath()));
+            }
 
             final Process process = new ProcessBuilder(l).start();
             // VBScript only knows ASCII and UTF-16
-            final Writer writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), "UTF-16"));
+            final Writer writer = new BufferedWriter(new OutputStreamWriter(process.getOutputStream(), StringUtils.UTF16));
             writer.write(body);
             writer.close();
             final int returnCode = process.waitFor();
@@ -328,7 +331,7 @@ public abstract class EmailClient {
 
     public static final EmailClient AppleMail = new EmailClient(EmailClientType.AppleMail) {
         @Override
-        protected boolean composeNative(String to, String subject, String body, File attachment) throws IOException, InterruptedException {
+        protected boolean composeNative(String to, String subject, String body, File... attachments) throws IOException, InterruptedException {
             final Process process = Runtime.getRuntime().exec(new String[] { "osascript" });
             final PrintStream w = new PrintStream(new BufferedOutputStream(process.getOutputStream()));
             // use ID to handle application renaming (always a slight delay after a rename for
@@ -336,9 +339,9 @@ public abstract class EmailClient {
             w.println("tell application id \"" + AppleMailBundleID + "\"");
             w.println(" set theMessage to make new outgoing message with properties {" + getAppleMailParam(subject, body) + "}");
             if (to != null)
-                w.println(" tell theMessage to make new to recipient with properties {address:\"" + to + "\"}");
-            if (attachment != null) {
-                w.println(" tell content of theMessage to make new attachment with properties {file name:\"" + attachment.getAbsolutePath() + "\"} at after last paragraph");
+                w.println(" tell theMessage to make new to recipient with properties {address:" + StringUtils.doubleQuote(to) + "}");
+            for (File attachment : attachments) {
+                w.println(" tell content of theMessage to make new attachment with properties {file name:" + StringUtils.doubleQuote(attachment.getAbsolutePath()) + "} at after last paragraph");
             }
             w.println("end tell");
             w.close();
@@ -376,8 +379,8 @@ public abstract class EmailClient {
         }
 
         @Override
-        protected boolean composeNative(String to, String subject, String body, File attachment) throws IOException {
-            Runtime.getRuntime().exec(tbCommand(this.cmdLine, this.toReplace, to, subject, body, attachment));
+        protected boolean composeNative(String to, String subject, String body, File... attachments) throws IOException {
+            Runtime.getRuntime().exec(tbCommand(this.cmdLine, this.toReplace, to, subject, body, attachments));
             // don't wait for Thunderbird to quit if it wasn't launched
             // (BTW return code of 1 means the program was already launched)
             return true;
@@ -393,8 +396,8 @@ public abstract class EmailClient {
         }
 
         @Override
-        protected boolean composeNative(String to, String subject, String body, File attachment) throws IOException {
-            final String composeArg = getTBParam(to, subject, body, attachment);
+        protected boolean composeNative(String to, String subject, String body, File... attachments) throws IOException {
+            final String composeArg = getTBParam(to, subject, body, attachments);
             Runtime.getRuntime().exec(new String[] { this.exe.getPath(), "-compose", composeArg });
             return true;
         }
@@ -410,22 +413,27 @@ public abstract class EmailClient {
         return this.type;
     }
 
-    protected abstract boolean composeNative(final String to, final String subject, final String body, final File attachment) throws IOException, InterruptedException;
+    protected abstract boolean composeNative(final String to, final String subject, final String body, final File... attachments) throws IOException, InterruptedException;
 
     public final static void main(String[] args) throws Exception {
         if (args.length == 1 && "--help".equals(args[0])) {
             System.out.println("Usage: java [-Dparam=value] " + EmailClient.class.getName() + " [EmailClientType args]");
             System.out.println("\tEmailClientType: mailto or " + Arrays.asList(EmailClientType.values()));
-            System.out.println("\tparam: to, subject, body, file");
+            System.out.println("\tparam: to, subject, body, files (seprated by ',' double it to escape)");
             return;
         }
 
         final EmailClient client = createFromString(args);
-        final String to = System.getProperty("to", "p.dupond@example.com");
-        final String subject = System.getProperty("subject", "Sujé € du courrier &; \"autre");
-        final String body = System.getProperty("body", "Bonjour");
-        final String filePath = System.getProperty("file");
-        final File f = filePath == null || filePath.length() == 0 ? null : new File(filePath);
+        final String to = System.getProperty("to", "Pierre Dupond <p.dupond@example.com>, p.dupont@server.com");
+        // ',to=' to test escaping of Thunderbird (passing subject='foo'bar' works)
+        final String subject = System.getProperty("subject", "Sujé € du courrier ',to='&;\\<> \"autre'\n2nd line");
+        final String body = System.getProperty("body", "Bonjour,\n\tsingle ' double \" backslash(arrière) \\ slash /");
+        final String filesPath = System.getProperty("files");
+        final String[] paths = filesPath == null || filesPath.length() == 0 ? new String[0] : filesPath.split("(?<!,),(?!,)");
+        final File[] f = new File[paths.length];
+        for (int i = 0; i < f.length; i++) {
+            f[i] = new File(paths[i].replace(",,", ","));
+        }
         client.compose(to, subject, body, f);
     }
 

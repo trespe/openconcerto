@@ -176,6 +176,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -774,6 +776,11 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     public String getServerIp() {
         return getProperty("server.ip");
+    }
+
+    @Override
+    protected DateFormat getLogDateFormat() {
+        return new SimpleDateFormat("yyyy-MM/dd_HH-mm EEEE");
     }
 
 }

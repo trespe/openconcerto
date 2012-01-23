@@ -109,7 +109,7 @@ public class RowValuesTableModel extends AbstractTableModel {
         if (rowParDefaut != null) {
             this.rowParDefaut = rowParDefaut;
         } else {
-            this.rowParDefaut = UndefinedRowValuesCache.getInstance().getDefaultRowValues(e.getTable());
+            this.rowParDefaut = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(e.getTable()));
         }
         // System.err.println("rowPardefaut:" + this.rowParDefaut);
 
@@ -118,6 +118,10 @@ public class RowValuesTableModel extends AbstractTableModel {
             addRow(new SQLRowValues(this.rowParDefaut));
         }// System.err.println("RowValuesTableModel nbRow:" + getRowCount() + " nbColumn:" +
          // getColumnCount());
+    }
+
+    public SQLRowValues getDefaultRowValues() {
+        return this.rowParDefaut;
     }
 
     public synchronized void addColumn(SQLTableElement e) {

@@ -17,13 +17,32 @@ public enum ComboLockedMode {
     /**
      * The combo is editable, and its list can be changed.
      */
-    UNLOCKED,
+    UNLOCKED(false, true),
     /**
      * The combo is editable, but its list is immutable.
      */
-    ITEMS_LOCKED,
+    ITEMS_LOCKED(false, false),
+    /**
+     * The combo is not editable, but its list is.
+     */
+    LOCKED_ITEMS_UNLOCKED(true, true),
     /**
      * The combo is not editable.
      */
-    LOCKED;
+    LOCKED(true, false);
+
+    private final boolean valueInList, mutableList;
+
+    private ComboLockedMode(final boolean valueInList, final boolean mutableList) {
+        this.valueInList = valueInList;
+        this.mutableList = mutableList;
+    }
+
+    public final boolean valueMustBeInList() {
+        return this.valueInList;
+    }
+
+    public final boolean isListMutable() {
+        return this.mutableList;
+    }
 }

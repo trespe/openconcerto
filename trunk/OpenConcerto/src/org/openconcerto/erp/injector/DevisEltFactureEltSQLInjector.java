@@ -19,11 +19,15 @@ import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLTable;
 
+import java.math.BigDecimal;
+
 public class DevisEltFactureEltSQLInjector extends SQLInjector {
     public DevisEltFactureEltSQLInjector(final DBRoot root) {
         super(root, "DEVIS_ELEMENT", "SAISIE_VENTE_FACTURE_ELEMENT");
         createDefaultMap();
+
         final SQLTable tableFacture = getDestination();
+        mapDefaultValues(tableFacture.getField("POURCENT_ACOMPTE"), new BigDecimal(100.0D));
         mapDefaultValues(tableFacture.getField("MONTANT_INITIAL"), Long.valueOf(0));
         mapDefaultValues(tableFacture.getField("INDICE_0"), Long.valueOf(0));
         mapDefaultValues(tableFacture.getField("INDICE_N"), Long.valueOf(0));

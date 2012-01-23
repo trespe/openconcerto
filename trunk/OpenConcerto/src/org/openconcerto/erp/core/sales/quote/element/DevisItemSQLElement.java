@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
+import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.UISQLComponent;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
@@ -24,7 +25,6 @@ import java.util.List;
 
 import javax.swing.JTextField;
 
-
 public class DevisItemSQLElement extends ComptaSQLConfElement {
 
     public DevisItemSQLElement() {
@@ -32,14 +32,22 @@ public class DevisItemSQLElement extends ComptaSQLConfElement {
     }
 
     protected List<String> getListFields() {
-        final List<String> l = new ArrayList<String>();
-        l.add("ID_STYLE");
+        List<String> l = new ArrayList<String>();
+        l.add("ID_DEVIS");
         l.add("CODE");
         l.add("NOM");
+        String articleAdvanced = DefaultNXProps.getInstance().getStringProperty("ArticleModeVenteAvance");
+        Boolean bArticleAdvanced = Boolean.valueOf(articleAdvanced);
+        if (bArticleAdvanced) {
+            l.add("PRIX_METRIQUE_VT_1");
+            l.add("ID_MODE_VENTE_ARTICLE");
+        }
         l.add("PA_HT");
         l.add("PV_HT");
-        l.add("ID_TAXE");
-        l.add("POIDS");
+
+        l.add("QTE");
+        l.add("T_PV_HT");
+        l.add("T_PV_TTC");
         return l;
     }
 

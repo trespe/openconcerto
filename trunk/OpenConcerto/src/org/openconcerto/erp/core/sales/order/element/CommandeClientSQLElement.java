@@ -82,6 +82,13 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
         return set;
     }
 
+    @Override
+    public Set<String> getReadOnlyFields() {
+        Set<String> s = new HashSet<String>();
+        s.add("ID_DEVIS");
+        return s;
+    }
+
     /*
      * (non-Javadoc)
      * 

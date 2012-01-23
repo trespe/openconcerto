@@ -40,6 +40,8 @@ import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.cc.ITransformer;
 
+import java.awt.Color;
+import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -63,6 +65,9 @@ import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.border.Border;
+import javax.swing.border.TitledBorder;
 import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import javax.swing.event.ListSelectionEvent;
@@ -130,7 +135,11 @@ public class ListeHistoriquePanel extends JPanel {
                         w2 = w2.and(new Where(table.getForeignTable(field.getName()).getField("ID_" + ListeHistoriquePanel.this.jListePanel.getModel().getTable().getName()), "=", id));
                         liste.getListe().getRequest().setWhere(w2.and(w));
                     } else {
-                        liste.getListe().getRequest().setWhere(new Where(table.getField("ID_" + ListeHistoriquePanel.this.jListePanel.getModel().getTable().getName()), "=", id).and(w));
+                        if (liste.getElement().getTable().equals(jListePanel.getModel().getTable())) {
+                            liste.getListe().getRequest().setWhere(new Where(table.getKey(), "=", id).and(w));
+                        } else {
+                            liste.getListe().getRequest().setWhere(new Where(table.getField("ID_" + ListeHistoriquePanel.this.jListePanel.getModel().getTable().getName()), "=", id).and(w));
+                        }
                     }
                 } else {
                     liste.getListe().getRequest().setWhere(w);
@@ -172,7 +181,7 @@ public class ListeHistoriquePanel extends JPanel {
      * @param listFieldMap jointure d'une table pour utiliser le filtre si la table ne contient pas
      *        de foreignKey pointant sur tableList
      */
-    public ListeHistoriquePanel(String title, final SQLTable tableList, List<String> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
+    public ListeHistoriquePanel(String title, final SQLTable tableList, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
         super();
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -191,50 +200,73 @@ public class ListeHistoriquePanel extends JPanel {
         // Onglet de IListe
         JTabbedPane tabbedPane = new JTabbedPane();
 
-        for (int i = 0; i < listTableOnglet.size(); i++) {
-            final SQLElement elt = Configuration.getInstance().getDirectory().getElement(listTableOnglet.get(i).toString());
+        for (String key : listTableOnglet.keySet()) {
 
-            IListPanel liste;
+            List<String> listPanelTable = listTableOnglet.get(key);
 
-            if (elt.getTable().contains("ID_MOUVEMENT")) {
-                liste = new ListeGestCommEltPanel(elt, Where.FALSE) {
-                    protected void handleAction(JButton source, ActionEvent evt) {
+            JPanel tabbedPanel = new JPanel(new GridBagLayout());
+            GridBagConstraints c2 = new DefaultGridBagConstraints();
+            c2.fill = GridBagConstraints.BOTH;
+            c2.weightx = 1;
+            c2.weighty = 1;
+            c2.gridy = GridBagConstraints.RELATIVE;
 
-                        if (elt.getTable().contains("ID_MOUVEMENT")) {
-                            SQLRow row = getListe().getSelectedRow();
-                            if (source == this.buttonModifier) {
-                                MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
-                            } else {
-                                if (source == this.buttonEffacer) {
-                                    PanelFrame f = new PanelFrame(new SuppressionEcrituresPanel(row.getInt("ID_MOUVEMENT")), "Suppresion d'une pièce");
-                                    f.setLocationRelativeTo(null);
-                                    f.setResizable(false);
-                                    f.setVisible(true);
+            for (int i = 0; i < listPanelTable.size(); i++) {
+                final SQLElement elt = Configuration.getInstance().getDirectory().getElement(listPanelTable.get(i));
+
+                IListPanel liste;
+
+                if (elt.getTable().contains("ID_MOUVEMENT")) {
+                    liste = new ListeGestCommEltPanel(elt, Where.FALSE) {
+                        protected void handleAction(JButton source, ActionEvent evt) {
+
+                            if (elt.getTable().contains("ID_MOUVEMENT")) {
+                                SQLRow row = getListe().getSelectedRow();
+                                if (source == this.buttonModifier) {
+                                    MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
                                 } else {
-                                    super.handleAction(source, evt);
+                                    if (source == this.buttonEffacer) {
+                                        PanelFrame f = new PanelFrame(new SuppressionEcrituresPanel(row.getInt("ID_MOUVEMENT")), "Suppresion d'une pièce");
+                                        f.setLocationRelativeTo(null);
+                                        f.setResizable(false);
+                                        f.setVisible(true);
+                                    } else {
+                                        super.handleAction(source, evt);
+                                    }
                                 }
+                            } else {
+                                super.handleAction(source, evt);
                             }
-                        } else {
-                            super.handleAction(source, evt);
                         }
-                    }
-                };
+                    };
 
-            } else {
-                liste = new ListeAddPanel(elt, new IListe(elt.createTableSource(Where.FALSE)));
+                } else {
+                    liste = new ListeAddPanel(elt, new IListe(elt.createTableSource(Where.FALSE)));
+                }
+
+                this.vectListePanel.add(liste);
+
+                setRenderer(liste);
+                if (elementSheet.get(liste.getElement()) != null) {
+                    liste.getListe().addIListeActions(new MouseSheetXmlListeListener(elementSheet.get(liste.getElement())).getRowActions());
+                }
+                liste.getListe().setSQLEditable(false);
+                liste.setOpaque(false);
+                liste.setBorder(null);
+
+                if (listPanelTable.size() > 1) {
+                    Font f = UIManager.getFont("TitledBorder.font");
+                    f = f.deriveFont(Font.BOLD);
+                    Border b = UIManager.getBorder("TitledBorder.border");
+                    b = BorderFactory.createLineBorder(Color.BLACK);
+                    liste.setBorder(BorderFactory.createTitledBorder(b, elt.getPluralName(), TitledBorder.LEADING, TitledBorder.DEFAULT_POSITION, f));
+                }
+
+                tabbedPanel.add(liste, c2);
+
             }
 
-            this.vectListePanel.add(liste);
-
-            setRenderer(liste);
-            if (elementSheet.get(liste.getElement()) != null) {
-                liste.getListe().addIListeActions(new MouseSheetXmlListeListener(elementSheet.get(liste.getElement())).getRowActions());
-            }
-            liste.getListe().setSQLEditable(false);
-            liste.setOpaque(false);
-            liste.setBorder(null);
-
-            tabbedPane.add(elt.getPluralName(), liste);
+            tabbedPane.add(key, tabbedPanel);
         }
 
         // Left Panel
@@ -424,7 +456,7 @@ public class ListeHistoriquePanel extends JPanel {
      * @return la Iliste associée, dans le cas échéant null
      */
 
-    private IListe getIListeFromTableName(String tableName) {
+    public IListe getIListeFromTableName(String tableName) {
         IListe liste = null;
         for (int i = 0; i < this.vectListePanel.size(); i++) {
             IListPanel listeTmp = this.vectListePanel.get(i);

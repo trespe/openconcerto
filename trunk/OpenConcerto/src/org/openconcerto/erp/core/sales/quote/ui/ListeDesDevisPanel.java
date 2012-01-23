@@ -32,24 +32,18 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
-import org.openconcerto.sql.view.IListener;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.RowAction;
-import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.CollectionMap;
-import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -91,105 +85,6 @@ public class ListeDesDevisPanel extends JPanel {
         this.map.put(this.tabbedPane.getTabCount(), panelRefuse);
         this.tabbedPane.add("Refusé", panelRefuse);
 
-        // Bouton generer
-        this.buttonGen = new JButton("Générer le document");
-        this.add(this.buttonGen, c);
-        this.buttonGen.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    final ListeAddPanel selectedPanel = ListeDesDevisPanel.this.map.get(ListeDesDevisPanel.this.tabbedPane.getSelectedIndex());
-                    SQLRow row = selectedPanel.getListe().getSelectedRow();
-                    DevisXmlSheet sheet = new DevisXmlSheet(row);
-                    sheet.createDocumentAsynchronous();
-                    sheet.showPrintAndExportAsynchronous(true, false, true);
-                } catch (Exception ex) {
-                    ExceptionHandler.handle("Erreur lors de de la génération du document", ex);
-                }
-            }
-        });
-
-        // Bouton voir le document
-        this.buttonShow = new JButton("Voir le document");
-        c.gridx++;
-        this.add(this.buttonShow, c);
-        // this.buttonShow.setToolTipText("Voir le document");
-        // this.buttonShow.setBorder(null);
-        this.buttonShow.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                try {
-                    final ListeAddPanel selectedPanel = ListeDesDevisPanel.this.map.get(ListeDesDevisPanel.this.tabbedPane.getSelectedIndex());
-                    SQLRow row = selectedPanel.getListe().getSelectedRow();
-                    DevisXmlSheet sheet = new DevisXmlSheet(row);
-                    sheet.getOrCreateDocumentFile();
-                    sheet.openDocument(false);
-                } catch (Exception ex) {
-                    ExceptionHandler.handle("Erreur lors de de la génération du document", ex);
-                }
-
-            }
-        });
-
-        // Bouton Impression
-        this.buttonPrint = new JButton("Impression");
-        c.gridx++;
-        this.add(this.buttonPrint, c);
-        // this.buttonPrint.setToolTipText("Impression");
-        // this.buttonPrint.setBorder(null);
-        this.buttonPrint.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                final ListeAddPanel selectedPanel = ListeDesDevisPanel.this.map.get(ListeDesDevisPanel.this.tabbedPane.getSelectedIndex());
-                SQLRow row = selectedPanel.getListe().getSelectedRow();
-                DevisXmlSheet sheet = new DevisXmlSheet(row);
-                sheet.fastPrintDocument();
-                // printDoc(row);
-            }
-        });
-
-        // Vers facture
-        this.buttonFacture = new JButton("Transfert en facture");
-        c.gridx++;
-        this.add(this.buttonFacture, c);
-        // this.buttonFacture.setToolTipText("Transfert vers facture");
-        // this.buttonFacture.setBorder(null);
-        this.buttonFacture.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                final ListeAddPanel selectedPanel = ListeDesDevisPanel.this.map.get(ListeDesDevisPanel.this.tabbedPane.getSelectedIndex());
-                SQLRow row = selectedPanel.getListe().getSelectedRow();
-                transfertFacture(row);
-            }
-        });
-
-        // Vers cmd
-        this.buttonCmd = new JButton("Transfert en commande client");
-        c.gridx++;
-        this.add(this.buttonCmd, c);
-        this.buttonCmd.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                final ListeAddPanel selectedPanel = ListeDesDevisPanel.this.map.get(ListeDesDevisPanel.this.tabbedPane.getSelectedIndex());
-                SQLRow row = selectedPanel.getListe().getSelectedRow();
-                transfertCommandeClient(row);
-            }
-        });
-
-        // Dupliquer
-        this.buttonClone = new JButton("Créer à partir de");
-        c.gridx++;
-        this.add(this.buttonClone, c);
-        this.buttonClone.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                final ListeAddPanel selectedPanel = ListeDesDevisPanel.this.map.get(ListeDesDevisPanel.this.tabbedPane.getSelectedIndex());
-                SQLRow row = selectedPanel.getListe().getSelectedRow();
-
-                if (ListeDesDevisPanel.this.editFrame == null) {
-                    SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("DEVIS");
-                    ListeDesDevisPanel.this.editFrame = new EditFrame(eltFact, EditPanel.CREATION);
-                }
-
-                ((DevisSQLComponent) ListeDesDevisPanel.this.editFrame.getSQLComponent()).loadDevisExistant(row.getID());
-                ListeDesDevisPanel.this.editFrame.setVisible(true);
-            }
-        });
-
         c.weightx = 1;
         c.weighty = 1;
         c.fill = GridBagConstraints.BOTH;
@@ -198,14 +93,6 @@ public class ListeDesDevisPanel extends JPanel {
         c.gridwidth = GridBagConstraints.REMAINDER;
         this.add(this.tabbedPane, c);
 
-        this.tabbedPane.addMouseListener(new MouseAdapter() {
-            @Override
-            public void mousePressed(MouseEvent e) {
-                final ListeAddPanel selectedPanel = ListeDesDevisPanel.this.map.get(ListeDesDevisPanel.this.tabbedPane.getSelectedIndex());
-                selectedPanel.getListe().getModel().fireTableDataChanged();
-            }
-        });
-        checkButton(-1);
     }
 
     private ListeAddPanel createPanel(int idFilter) {
@@ -243,16 +130,16 @@ public class ListeDesDevisPanel extends JPanel {
             }
         }
 
-        pane.getListe().addIListeActions(new MouseSheetXmlListeListener(DevisXmlSheet.class) {
+        MouseSheetXmlListeListener mouseSheetXmlListeListener = new MouseSheetXmlListeListener(DevisXmlSheet.class) {
             @Override
             public List<RowAction> addToMenu() {
                 List<RowAction> list = new ArrayList<RowAction>();
                 // Transfert vers facture
-                PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction("Transfert vers facture") {
+                RowAction factureAction = new RowAction(new AbstractAction("Transfert vers facture") {
                     public void actionPerformed(ActionEvent e) {
                         transfertFacture(IListe.get(e).getSelectedRow());
                     }
-                }, false) {
+                }, true) {
                     public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                         if (selection != null && selection.size() == 1) {
                             if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.ACCEPTE) {
@@ -263,8 +150,10 @@ public class ListeDesDevisPanel extends JPanel {
                     };
                 };
 
+                list.add(factureAction);
+
                 // Voir le document
-                PredicateRowAction actionTransfertCmd = new PredicateRowAction(new AbstractAction("Transférer en commande") {
+                RowAction actionTransfertCmd = new RowAction(new AbstractAction("Transférer en commande") {
                     public void actionPerformed(ActionEvent e) {
                         transfertCommande(IListe.get(e).getSelectedRow());
                     }
@@ -278,13 +167,14 @@ public class ListeDesDevisPanel extends JPanel {
                         return false;
                     };
                 };
+                list.add(actionTransfertCmd);
 
                 // Transfert vers commande
-                PredicateRowAction commandeAction = new PredicateRowAction(new AbstractAction("Transfert vers commande client") {
+                RowAction commandeAction = new RowAction(new AbstractAction("Transfert vers commande client") {
                     public void actionPerformed(ActionEvent e) {
                         transfertCommandeClient(IListe.get(e).getSelectedRow());
                     }
-                }, false) {
+                }, true) {
                     public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                         if (selection != null && selection.size() == 1) {
                             if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.ACCEPTE) {
@@ -295,8 +185,10 @@ public class ListeDesDevisPanel extends JPanel {
                     };
                 };
 
+                list.add(commandeAction);
+
                 // Marqué accepté
-                PredicateRowAction accepteAction = new PredicateRowAction(new AbstractAction("Marquer comme accepté") {
+                RowAction accepteAction = new RowAction(new AbstractAction("Marquer comme accepté") {
                     public void actionPerformed(ActionEvent e) {
                         SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
                         rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
@@ -319,6 +211,55 @@ public class ListeDesDevisPanel extends JPanel {
                     };
                 };
 
+                list.add(accepteAction);
+
+                RowAction accepteEtCmdAction = new RowAction(new AbstractAction("Marquer comme accepté et Transfert en commande client") {
+                    public void actionPerformed(ActionEvent e) {
+                        SQLRow selectedRow = IListe.get(e).getSelectedRow();
+                        SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
+                        rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
+                        try {
+                            rowVals.update();
+                        } catch (SQLException e1) {
+                            // TODO Auto-generated catch block
+                            e1.printStackTrace();
+                        }
+                        selectedRow.getTable().fireTableModified(IListe.get(e).getSelectedId());
+                        transfertCommandeClient(selectedRow);
+                    }
+                }, false) {
+                    public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
+                        if (selection != null && selection.size() == 1) {
+                            if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.EN_ATTENTE) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    };
+                };
+                list.add(accepteEtCmdAction);
+
+                // // Dupliquer
+                RowAction cloneAction = new RowAction(new AbstractAction("Créer à partir de") {
+                    public void actionPerformed(ActionEvent e) {
+                        SQLRow selectedRow = IListe.get(e).getSelectedRow();
+
+                        if (ListeDesDevisPanel.this.editFrame == null) {
+                            SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("DEVIS");
+                            ListeDesDevisPanel.this.editFrame = new EditFrame(eltFact, EditPanel.CREATION);
+                        }
+
+                        ((DevisSQLComponent) ListeDesDevisPanel.this.editFrame.getSQLComponent()).loadDevisExistant(selectedRow.getID());
+                        ListeDesDevisPanel.this.editFrame.setVisible(true);
+                    }
+                }, true) {
+                    public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
+                        return (selection != null && selection.size() == 1);
+                    };
+                };
+
+                list.add(cloneAction);
+
                 // int type =
                 // pane.getListe().getSelectedRow().getInt("ID_ETAT_DEVIS");
                 // factureAction.setEnabled(type ==
@@ -333,43 +274,21 @@ public class ListeDesDevisPanel extends JPanel {
                 // list.add(actionTransfertCmd);
                 return list;
             }
-        }.getRowActions());
+        };
+        mouseSheetXmlListeListener.setGenerateHeader(true);
+        mouseSheetXmlListeListener.setShowHeader(true);
+        pane.getListe().addIListeActions(mouseSheetXmlListeListener.getRowActions());
 
         // activation des boutons
-        pane.getListe().addIListener(new IListener() {
-            public void selectionId(int id, int field) {
-                checkButton(id);
-            }
-        });
+        // pane.getListe().addIListener(new IListener() {
+        // public void selectionId(int id, int field) {
+        // checkButton(id);
+        // }
+        // });
+        pane.getListe().setOpaque(false);
 
+        pane.setOpaque(false);
         return pane;
-    }
-
-    private void checkButton(int id) {
-
-        if (id > 1) {
-
-            final ListeAddPanel selectedPanel = this.map.get(this.tabbedPane.getSelectedIndex());
-            SQLRow row = selectedPanel.getListe().getSelectedRow();
-
-            DevisXmlSheet sheet = new DevisXmlSheet(row);
-            int etat = row.getInt("ID_ETAT_DEVIS");
-            this.buttonFacture.setEnabled(etat == EtatDevisSQLElement.ACCEPTE);
-            this.buttonCmd.setEnabled(etat == EtatDevisSQLElement.ACCEPTE);
-
-            this.buttonPrint.setEnabled(sheet.getGeneratedFile().exists());
-            this.buttonShow.setEnabled(sheet.getGeneratedFile().exists());
-            this.buttonGen.setEnabled(true);
-            this.buttonClone.setEnabled(true);
-
-        } else {
-            this.buttonClone.setEnabled(false);
-            this.buttonFacture.setEnabled(false);
-            this.buttonCmd.setEnabled(false);
-            this.buttonGen.setEnabled(false);
-            this.buttonPrint.setEnabled(false);
-            this.buttonShow.setEnabled(false);
-        }
     }
 
     /**

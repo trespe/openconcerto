@@ -18,9 +18,10 @@ import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowValues;
 
+import java.math.BigDecimal;
 import java.util.List;
-
 
 public abstract class TransfertBaseSQLComponent extends BaseSQLComponent {
 
@@ -46,12 +47,19 @@ public abstract class TransfertBaseSQLComponent extends BaseSQLComponent {
 
         if (myListItem.size() != 0) {
             SQLInjector injector = SQLInjector.createDefaultInjector(itemsElt.getTable(), table.getSQLElement().getTable());
+
             if (clear) {
                 table.getModel().clearRows();
             }
             for (SQLRow rowElt : myListItem) {
 
-                table.getModel().addRow(injector.createRowValuesFrom(rowElt));
+                SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(rowElt);
+                if (createRowValuesFrom.getTable().getFieldsName().contains("POURCENT_ACOMPTE")) {
+                    if (createRowValuesFrom.getObject("POURCENT_ACOMPTE") == null) {
+                        createRowValuesFrom.put("POURCENT_ACOMPTE", new BigDecimal(100.0));
+                    }
+                }
+                table.getModel().addRow(createRowValuesFrom);
                 int rowIndex = table.getModel().getRowCount() - 1;
                 table.getModel().fireTableModelModified(rowIndex);
             }

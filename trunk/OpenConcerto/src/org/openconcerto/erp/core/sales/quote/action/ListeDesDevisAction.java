@@ -19,6 +19,7 @@ import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
+import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.report.DevisTextSheet;
 import org.openconcerto.erp.core.sales.quote.ui.ListeDesDevisPanel;
 import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
@@ -27,8 +28,10 @@ import org.jopendocument.link.OOConnexion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.ExceptionHandler;
 
@@ -39,6 +42,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.io.File;
+import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -125,6 +129,36 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
                 }
                 menu.add(item);
             }
+
+            AbstractAction actionAcc = new AbstractAction("Marquer comme accepté") {
+                public void actionPerformed(ActionEvent e) {
+                    SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
+                    rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
+                    try {
+                        rowVals.update();
+                    } catch (SQLException e1) {
+                        // TODO Auto-generated catch block
+                        e1.printStackTrace();
+                    }
+                    IListe.get(e).getSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
+                }
+            };
+            menu.add(actionAcc);
+
+            AbstractAction actionRefus = new AbstractAction("Marquer comme refusé") {
+                public void actionPerformed(ActionEvent e) {
+                    SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
+                    rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.REFUSE);
+                    try {
+                        rowVals.update();
+                    } catch (SQLException e1) {
+                        // TODO Auto-generated catch block
+                        e1.printStackTrace();
+                    }
+                    IListe.get(e).getSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
+                }
+            };
+            menu.add(actionRefus);
 
             // Voir le document
             AbstractAction actionTransfert = new AbstractAction("Transférer en facture") {

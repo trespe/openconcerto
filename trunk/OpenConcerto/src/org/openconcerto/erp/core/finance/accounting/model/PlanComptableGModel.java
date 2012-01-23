@@ -19,6 +19,7 @@ import org.openconcerto.erp.element.objet.Compte;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 
@@ -73,9 +74,11 @@ public class PlanComptableGModel extends AbstractTableModel {
 
                 String function = "REGEXP";
                 String match = classeDuCompte.getTypeNumeroCompte();
-                if (Configuration.getInstance().getBase().getServer().getSystem().equalsIgnoreCase("postgresql")) {
-                    function = "SIMILAR TO";
-                    match = match.replace(".*", "%");
+                if (Configuration.getInstance().getBase().getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
+                    function = "~";
+                    // function = "SIMILAR TO";
+                    // match = match.replace(".*", "%");
+                    // match = match.replace("^", "");
                 }
 
                 Where w1 = new Where(compteTable.getField("NUMERO"), function, match);

@@ -239,13 +239,14 @@ public class UpdateManager implements Runnable {
                 ftp.disconnect();
                 return;
             }
-            final String updaterFilename = "Update/update.exe";
+            
+            final String updaterFilename = "Update" + File.separator + "update.jar";
             if (!new File(updaterFilename).exists()) {
-                JOptionPane.showMessageDialog(null, "Le fichier 'Update/update.exe' est manquant.");
+                JOptionPane.showMessageDialog(null, "Le fichier 'Update/update.jar' est manquant.");
                 ftp.disconnect();
                 return;
             }
-            Runtime.getRuntime().exec(updaterFilename);
+            Runtime.getRuntime().exec("java -jar " + updaterFilename);
             ftp.disconnect();
             System.exit(0);
 

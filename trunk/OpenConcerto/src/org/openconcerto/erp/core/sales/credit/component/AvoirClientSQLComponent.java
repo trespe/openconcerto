@@ -188,7 +188,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
                 e.printStackTrace();
             }
         }
-        vals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(AvoirClientSQLElement.class));
+        vals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(AvoirClientSQLElement.class, new Date()));
         vals.put("MONTANT_TTC", Long.valueOf(0));
         vals.put("MONTANT_SERVICE", Long.valueOf(0));
         vals.put("MONTANT_HT", Long.valueOf(0));
@@ -644,9 +644,10 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
 
             id = super.insert(order);
             this.table.updateField("ID_AVOIR_CLIENT", id);
+            final SQLRow row = getTable().getRow(id);
 
             // incrémentation du numéro auto
-            if (NumerotationAutoSQLElement.getNextNumero(AvoirClientSQLElement.class).equalsIgnoreCase(this.textNumero.getText().trim())) {
+            if (NumerotationAutoSQLElement.getNextNumero(AvoirClientSQLElement.class, row.getDate("DATE").getTime()).equalsIgnoreCase(this.textNumero.getText().trim())) {
                 SQLRowValues rowVals = new SQLRowValues(tableNum);
                 int val = tableNum.getRow(2).getInt("AVOIR_START");
                 val++;
@@ -660,7 +661,6 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
                 }
             }
 
-            final SQLRow row = getTable().getRow(id);
             SQLRowValues rowVals2 = row.createUpdateRow();
             Long l = rowVals2.getLong("MONTANT_SOLDE");
             Long l2 = rowVals2.getLong("MONTANT_TTC");

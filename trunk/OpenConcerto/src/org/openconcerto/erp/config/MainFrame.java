@@ -136,6 +136,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -354,39 +355,184 @@ public class MainFrame extends JFrame {
         result.add(menu);
 
         // Saisie
-        menu = new JMenu(CREATE_MENU);
+        result.add(getCreateMenu(bModeVenteComptoir, rights, configuration));
+
+        // Gestion
+        result.add(getListeMenu(bModeVenteComptoir, rights, configuration));
+
+        // Etats
+        menu = getStateMenu();
 
         if (rights.haveRight(ComptaUserRight.MENU)) {
-            menu.add(new NouvelleSaisieKmAction());
+            result.add(menu);
+        }
+
+        menu = getDeclarationMenu();
+        if (rights.haveRight(ComptaUserRight.MENU)) {
+            result.add(menu);
+        }
+
+        // Stat
+        menu = getStatMenu(configuration);
+
+        if (rights.haveRight(NXRights.ACCES_MENU_STAT.getCode())) {
+            result.add(menu);
+        }
+
+        // Paiement
+        menu = getPaiementMenu(rights);
+            result.add(menu);
+
+        // Paye
+        menu = getPayrollMenu();
+
+        if (rights.haveRight(NXRights.LOCK_MENU_PAYE.getCode())) {
+            result.add(menu);
+        }
+
+        // Structure
+        menu = getStructureMenu(rights, configuration);
+
+        if (rights.haveRight(NXRights.ACCES_MENU_STRUCTURE.getCode())) {
+            result.add(menu);
+        }
+        // Aide
+        menu = new JMenu(HELP_MENU);
+        menu.add(new JMenuItem(AboutAction.getInstance()));
+        menu.add(new JMenuItem(new AstuceAction()));
+
+        result.add(menu);
+        return result;
+    }
+
+    public JMenu getPayrollMenu() {
+        JMenu menu;
+        menu = new JMenu(PAYROLL_MENU);
+
+        menu.add(new ImpressionLivrePayeAction());
+        menu.add(new ListeDesProfilsPayeAction());
+        menu.add(new NouvelHistoriqueFichePayeAction());
+        menu.add(new EditionFichePayeAction());
+        menu.add(new NouvelAcompteAction());
+        menu.add(new ListeDesSalariesAction());
+        menu.add(new JSeparator());
+        menu.add(new ListeDesRubriquesDePayeAction());
+        menu.add(new ListeDesVariablesPayes());
+        menu.add(new JSeparator());
+        menu.add(new ClotureMensuellePayeAction());
+        return menu;
+    }
+
+    public JMenu getStructureMenu(final UserRights rights, final ComptaPropsConfiguration configuration) {
+        JMenu menu;
+        menu = new JMenu(STRUCTURE_MENU);
+
+        if (rights.haveRight(ComptaUserRight.MENU)) {
+
+            menu.add(new GestionPlanComptableEAction());
+            menu.add(new NouveauJournalAction());
+            menu.add(new JSeparator());
+
+        }
+
+        if (rights.haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {
+            menu.add(new JMenuItem(new ListeDesUsersCommonAction()));
+            menu.add(new JMenuItem(new GestionDroitsAction()));
+            menu.add(new JMenuItem(new TaskAdminAction()));
             menu.add(new JSeparator());
         }
 
-            menu.add(new NouveauDevisAction());
-
+        menu.add(new ListeDesCommerciauxAction());
+        menu.add(new JSeparator());
+        menu.add(new ListeDesCaissesTicketAction());
 
         menu.add(new JSeparator());
 
-            menu.add(new NouveauBonLivraisonAction());
-            menu.add(new NouvelleCommandeClientAction());
-        if (bModeVenteComptoir && rights.haveRight("VENTE_COMPTOIR")) {
-            menu.add(new NouveauSaisieVenteComptoirAction());
+            menu.add(new ListeDesSocietesCommonsAction());
+
+            menu.add(new NouvelleSocieteAction());
+
+        return menu;
+    }
+
+    public JMenu getPaiementMenu(final UserRights rights) {
+        JMenu menu;
+        menu = new JMenu(PAYMENT_MENU);
+
+        if (rights.haveRight(ComptaUserRight.MENU) || rights.haveRight(ComptaUserRight.POINTAGE_LETTRAGE)) {
+            menu.add(new NouveauPointageAction());
+            menu.add(new NouveauLettrageAction());
+            menu.add(new JSeparator());
         }
-        menu.add(new NouveauSaisieVenteFactureAction());
 
-        menu.add(new NouveauAvoirClientAction());
+        menu.add(new ListesFacturesClientsImpayeesAction());
+        menu.add(new ListeDebiteursAction());
+        if (rights.haveRight(NXRights.GESTION_ENCAISSEMENT.getCode())) {
+            menu.add(new ListeDesEncaissementsAction());
+            menu.add(new ListeDesRelancesAction());
+            menu.add(new JSeparator());
+            menu.add(new ListeDesChequesAEncaisserAction());
+            menu.add(new NouveauListeDesChequesAEncaisserAction());
+            menu.add(new JSeparator());
+            menu.add(new ListeDesChequesAvoirAction());
+            menu.add(new NouveauDecaissementChequeAvoirAction());
+            menu.add(new JSeparator());
+        }
+        if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
+            menu.add(new ListesFacturesFournImpayeesAction());
+            menu.add(new ListeDesTraitesFournisseursAction());
+            menu.add(new ListeDesChequesFournisseursAction());
+            menu.add(new NouveauListeDesChequesADecaisserAction());
+        }
+        return menu;
+    }
 
-            if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
+    public JMenu getStatMenu(final ComptaPropsConfiguration configuration) {
+        JMenu menu;
+        menu = new JMenu(STATS_MENU);
 
-                menu.add(new JSeparator());
-                    menu.add(new NouvelleCommandeAction());
-                menu.add(new NouveauBonReceptionAction());
-                menu.add(new NouveauSaisieAchatAction());
-                    menu.add(new NouvelAvoirFournisseurAction());
-                menu.add(new NouvelleSaisieMouvementStockAction());
-            }
-        result.add(menu);
 
-        // Gestion
+        menu.add(new EvolutionCAAction());
+
+            menu.add(new EvolutionMargeAction());
+        menu.addSeparator();
+        menu.add(new GenListeVenteAction());
+            menu.add(new VenteArticleGraphAction());
+            menu.add(new VenteArticleMargeGraphAction());
+        menu.add(new EtatVenteAction());
+        return menu;
+    }
+
+    public JMenu getDeclarationMenu() {
+        JMenu menu;
+        menu = new JMenu(DECLARATION_MENU);
+
+        menu.add(new DeclarationTVAAction());
+        menu.add(new JSeparator());
+        menu.add(new EtatChargeAction());
+        menu.add(new CompteResultatBilanAction());
+        menu.add(new N4DSAction());
+        return menu;
+    }
+
+    public JMenu getStateMenu() {
+        JMenu menu;
+        menu = new JMenu(STATE_MENU);
+
+        menu.add(new EtatBalanceAction());
+        menu.add(new org.openconcerto.erp.core.finance.accounting.action.BalanceAgeeAction());
+        menu.add(new EtatJournauxAction());
+        menu.add(new EtatGrandLivreAction());
+        menu.add(new ListeDesEcrituresAction());
+        menu.add(new ListeEcritureParClasseAction());
+        menu.add(new JSeparator());
+        menu.add(new NouvelleValidationAction());
+        menu.add(new JMenuItem(new NouveauClotureAction()));
+        return menu;
+    }
+
+    public JMenu getListeMenu(Boolean bModeVenteComptoir, final UserRights rights, final ComptaPropsConfiguration configuration) {
+        JMenu menu;
         menu = new JMenu(LIST_MENU);
 
         menu.add(new ListeDesClientsAction());
@@ -433,138 +579,42 @@ public class MainFrame extends JFrame {
 
             menu.add(new JSeparator());
             menu.add(new ListeDesTicketsAction());
+        return menu;
+    }
 
-        result.add(menu);
-        // Etats
-        menu = new JMenu(STATE_MENU);
+    public JMenu getCreateMenu(Boolean bModeVenteComptoir, final UserRights rights, final ComptaPropsConfiguration configuration) {
 
-        menu.add(new EtatBalanceAction());
-        menu.add(new org.openconcerto.erp.core.finance.accounting.action.BalanceAgeeAction());
-        menu.add(new EtatJournauxAction());
-        menu.add(new EtatGrandLivreAction());
-        menu.add(new ListeDesEcrituresAction());
-        menu.add(new ListeEcritureParClasseAction());
-        menu.add(new JSeparator());
-        menu.add(new NouvelleValidationAction());
-        menu.add(new JMenuItem(new NouveauClotureAction()));
+        JMenu menu = new JMenu(CREATE_MENU);
 
         if (rights.haveRight(ComptaUserRight.MENU)) {
-            result.add(menu);
-        }
-
-        menu = new JMenu(DECLARATION_MENU);
-
-        menu.add(new DeclarationTVAAction());
-        menu.add(new JSeparator());
-        menu.add(new EtatChargeAction());
-        menu.add(new CompteResultatBilanAction());
-        menu.add(new N4DSAction());
-        if (rights.haveRight(ComptaUserRight.MENU)) {
-            result.add(menu);
-        }
-
-        menu = new JMenu(STATS_MENU);
-
-
-        menu.add(new EvolutionCAAction());
-
-            menu.add(new EvolutionMargeAction());
-        menu.addSeparator();
-        menu.add(new GenListeVenteAction());
-            menu.add(new VenteArticleGraphAction());
-            menu.add(new VenteArticleMargeGraphAction());
-        menu.add(new EtatVenteAction());
-
-        if (rights.haveRight(NXRights.ACCES_MENU_STAT.getCode())) {
-            result.add(menu);
-        }
-        menu = new JMenu(PAYMENT_MENU);
-
-        if (rights.haveRight(ComptaUserRight.MENU) || rights.haveRight(ComptaUserRight.POINTAGE_LETTRAGE)) {
-            menu.add(new NouveauPointageAction());
-            menu.add(new NouveauLettrageAction());
+            menu.add(new NouvelleSaisieKmAction());
             menu.add(new JSeparator());
         }
 
-        menu.add(new ListesFacturesClientsImpayeesAction());
-        menu.add(new ListeDebiteursAction());
-        if (rights.haveRight(NXRights.GESTION_ENCAISSEMENT.getCode())) {
-            menu.add(new ListeDesEncaissementsAction());
-            menu.add(new ListeDesRelancesAction());
-            menu.add(new JSeparator());
-            menu.add(new ListeDesChequesAEncaisserAction());
-            menu.add(new NouveauListeDesChequesAEncaisserAction());
-            menu.add(new JSeparator());
-            menu.add(new ListeDesChequesAvoirAction());
-            menu.add(new NouveauDecaissementChequeAvoirAction());
-            menu.add(new JSeparator());
-        }
-        if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
-            menu.add(new ListesFacturesFournImpayeesAction());
-            menu.add(new ListeDesTraitesFournisseursAction());
-            menu.add(new ListeDesChequesFournisseursAction());
-            menu.add(new NouveauListeDesChequesADecaisserAction());
-        }
-            result.add(menu);
+            menu.add(new NouveauDevisAction());
 
-        // Paye
-        menu = new JMenu(PAYROLL_MENU);
-
-        menu.add(new ImpressionLivrePayeAction());
-        menu.add(new ListeDesProfilsPayeAction());
-        menu.add(new NouvelHistoriqueFichePayeAction());
-        menu.add(new EditionFichePayeAction());
-        menu.add(new NouvelAcompteAction());
-        menu.add(new ListeDesSalariesAction());
-        menu.add(new JSeparator());
-        menu.add(new ListeDesRubriquesDePayeAction());
-        menu.add(new ListeDesVariablesPayes());
-        menu.add(new JSeparator());
-        menu.add(new ClotureMensuellePayeAction());
-
-        if (rights.haveRight(NXRights.LOCK_MENU_PAYE.getCode())) {
-            result.add(menu);
-        }
-
-        // Structure
-        menu = new JMenu(STRUCTURE_MENU);
-
-        if (rights.haveRight(ComptaUserRight.MENU)) {
-
-            menu.add(new GestionPlanComptableEAction());
-            menu.add(new NouveauJournalAction());
-            menu.add(new JSeparator());
-
-        }
-
-        if (rights.haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {
-            menu.add(new JMenuItem(new ListeDesUsersCommonAction()));
-            menu.add(new JMenuItem(new GestionDroitsAction()));
-            menu.add(new JMenuItem(new TaskAdminAction()));
-            menu.add(new JSeparator());
-        }
-
-        menu.add(new ListeDesCommerciauxAction());
-        menu.add(new JSeparator());
-        menu.add(new ListeDesCaissesTicketAction());
 
         menu.add(new JSeparator());
 
-            menu.add(new ListeDesSocietesCommonsAction());
-
-            menu.add(new NouvelleSocieteAction());
-
-
-        if (rights.haveRight(NXRights.ACCES_MENU_STRUCTURE.getCode())) {
-            result.add(menu);
+            menu.add(new NouveauBonLivraisonAction());
+            menu.add(new NouvelleCommandeClientAction());
+        if (bModeVenteComptoir && rights.haveRight("VENTE_COMPTOIR")) {
+            menu.add(new NouveauSaisieVenteComptoirAction());
         }
-        // Aide
-        menu = new JMenu(HELP_MENU);
-        menu.add(new JMenuItem(AboutAction.getInstance()));
-        menu.add(new JMenuItem(new AstuceAction()));
+        menu.add(new NouveauSaisieVenteFactureAction());
 
-        result.add(menu);
-        return result;
+        menu.add(new NouveauAvoirClientAction());
+
+            if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
+
+                menu.add(new JSeparator());
+                    menu.add(new NouvelleCommandeAction());
+                menu.add(new NouveauBonReceptionAction());
+                menu.add(new NouveauSaisieAchatAction());
+                    menu.add(new NouvelAvoirFournisseurAction());
+                menu.add(new NouvelleSaisieMouvementStockAction());
+            }
+        return menu;
     }
 
     public JMenuItem addMenuItem(final Action action, final String... path) {

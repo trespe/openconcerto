@@ -22,12 +22,17 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 
@@ -35,6 +40,17 @@ public class CommandeSQLElement extends ComptaSQLConfElement {
 
     public CommandeSQLElement() {
         super("COMMANDE", "une commande fournisseur", "commandes fournisseur");
+
+        // Transfert vers facture
+        PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction("Transfert vers facture") {
+            public void actionPerformed(ActionEvent e) {
+
+                CommandeSQLElement.this.transfertFacture(IListe.get(e).getSelectedRow().getID());
+            }
+        }, false);
+        factureAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
+        getRowActions().add(factureAction);
+
     }
 
     protected List<String> getListFields() {
@@ -43,6 +59,8 @@ public class CommandeSQLElement extends ComptaSQLConfElement {
         l.add("NOM");
         l.add("DATE");
         l.add("ID_FOURNISSEUR");
+        l.add("T_HT");
+        l.add("T_TTC");
         l.add("EN_COURS");
         l.add("INFOS");
         return l;
@@ -63,10 +81,15 @@ public class CommandeSQLElement extends ComptaSQLConfElement {
         return set;
     }
 
-    /*
-     * protected List getPrivateFields() { final List l = new ArrayList();
-     * l.add("ID_MODE_REGLEMENT"); return l; }
-     */
+    protected List<String> getPrivateFields() {
+        if (getTable().getFieldsName().contains("ID_ADRESSE")) {
+            final List<String> l = new ArrayList<String>();
+            l.add("ID_ADRESSE");
+            return l;
+        } else {
+            return super.getPrivateFields();
+        }
+    }
 
     /*
      * (non-Javadoc)

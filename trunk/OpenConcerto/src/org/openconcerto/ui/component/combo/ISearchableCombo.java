@@ -76,6 +76,7 @@ import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -152,7 +153,8 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
 
     private final Map<T, ISearchableComboItem<T>> itemsByOriginalItem;
     protected boolean updating = false;
-    protected boolean invalidEdit = false;
+    private ValidState parsedValidState = ValidState.getTrueInstance();
+    private ValidState validState = ValidState.createCached(false, "Not initialised");
     private ITransformer<T, VarDesc> varDescTransf = null;
     private ITransformer<T, Icon> iconTransf = null;
 
@@ -204,15 +206,24 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                 // changement de selection
                 if (e.getIndex0() == -1 && e.getIndex0() == e.getIndex1()) {
                     selectionChanged();
+                } else {
+                    updateValidState();
+                }
+            }
+
+            private void updateValidState() {
+                // otherwise valid state doesn't depend on the list
+                if (getMode().valueMustBeInList()) {
+                    ISearchableCombo.this.updateValidState();
                 }
             }
 
             public void intervalAdded(final ListDataEvent e) {
-                // don't care
+                updateValidState();
             }
 
             public void intervalRemoved(final ListDataEvent e) {
-                // don't care
+                updateValidState();
             }
         });
 
@@ -396,7 +407,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     }
 
     private boolean isLocked() {
-        return this.locked == LOCKED;
+        return this.locked.valueMustBeInList();
     }
 
     public final boolean isSearchable() {
@@ -438,7 +449,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         // the btn should now be enabled
         this.setEnabled(this.isEnabled());
 
-        if (this.getMode() == ComboLockedMode.UNLOCKED) {
+        if (this.getMode().isListMutable()) {
             if (!(acache instanceof IMutableListModel))
                 throw new IllegalArgumentException(this + " is unlocked but " + acache + " is not mutable");
             final IMutableListModel<T> mutable = (IMutableListModel<T>) acache;
@@ -454,9 +465,14 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                 }
 
                 public void addCurrentText() {
-                    final T newItem = stringToT(getTextComp().getText());
-                    if (!mutable.getList().contains(newItem))
-                        mutable.addElement(newItem);
+                    if (ISearchableCombo.this.parsedValidState.isValid()) {
+                        final T newItem = getValue();
+                        if (newItem != null && !mutable.getList().contains(newItem)) {
+                            mutable.addElement(newItem);
+                        }
+                    } else {
+                        JOptionPane.showMessageDialog(ISearchableCombo.this, ISearchableCombo.this.parsedValidState.getValidationText(), "Impossible d'ajouter le texte", JOptionPane.ERROR_MESSAGE);
+                    }
                 }
 
                 public void removeCurrentText() {
@@ -508,6 +524,8 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                 rmItemsFromModel(e.getIndex0(), e.getIndex1());
             }
         });
+        // initial state
+        this.updateValidState();
     }
 
     private void addItemsFromCache(final int index0, final int index1) {
@@ -621,7 +639,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     }
 
     public final void setValue(final T val) {
-        this.setValue(val, true);
+        this.setValue(val, ValidState.getTrueInstance());
     }
 
     // JComboBox compat API
@@ -641,48 +659,43 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         }
     }
 
-    private final boolean setValid(final boolean valid) {
-        final boolean invalidChange = this.invalidEdit != !valid;
+    private final boolean setValid(final ValidState valid) {
+        final boolean invalidChange = !this.parsedValidState.equals(valid);
         if (invalidChange) {
-            this.invalidEdit = !valid;
-            this.text.setForeground(this.invalidEdit ? Color.GRAY : Color.BLACK);
+            this.parsedValidState = valid;
+            // if the text is grey the value can never be valid (i.e. LOCKED or stringToT() failed),
+            // otherwise the value might not be valid but can become (e.g. stringToT() succeeded but
+            // is not in the list)
+            this.text.setForeground(!this.parsedValidState.isValid() ? Color.GRAY : Color.BLACK);
         }
         return invalidChange;
     }
 
-    private final void setValue(final T val, final boolean valid) {
+    private final void setValue(final T val, final ValidState valid) {
         log("entering " + this.getClass().getSimpleName() + ".setValue '" + val + "' valid: " + valid);
-        final boolean invalidChange = this.setValid(valid);
-
-        if (!CompareUtils.equals(this.getValue(), val)) {
-            log("this.getValue() != val : '" + this.getValue() + "'");
-            if (val == null)
-                this.setSelection(null);
-            else if (this.itemsByOriginalItem.containsKey(val)) {
-                this.setSelection(this.itemsByOriginalItem.get(val));
-            } else if (this.getMode() != LOCKED) {
-                this.setSelection(createItem(val));
-            } else {
-                // for unknown values in LOCKED, act like the user has typed it,
-                // that way the value is still displayed (albeit invalid)
-                this.setText(createItem(val).asString());
-                assert getValue() == null && this.invalidEdit;
-            }
-        } else if (invalidChange) {
-            log("this.getValue() == val and invalidChange");
-            // since val hasn't changed the model won't fire and thus our selectionChanged()
-            // will not be called, but it has to since invalidEdit did change
-            // so the text must be changed, and listeners notified
-            this.selectionChanged();
+        final ISearchableComboItem<T> comboItem;
+        if (val == null)
+            comboItem = null;
+        else if (this.itemsByOriginalItem.containsKey(val)) {
+            comboItem = this.itemsByOriginalItem.get(val);
+        } else {
+            // always set the passed value, even if it's not valid (e.g.
+            // getMode().valueMustBeInList())
+            comboItem = createItem(val);
         }
+        this.setComboItemValue(comboItem, valid);
     }
 
-    // perhaps try to factor with the other setValue()
     final void setValue(final ISearchableComboItem<T> val) {
         log("entering " + this.getClass().getSimpleName() + ".setValue(ISearchableComboItem) " + val);
         assert this.isEmptyItem(val) || new IdentityHashSet<ISearchableComboItem<T>>(this.getModelValues()).contains(val) : "Item not in model, perhaps use setValue(T)";
         // valid since val is in our model
-        final boolean invalidChange = this.setValid(true);
+        this.setComboItemValue(val, ValidState.getTrueInstance());
+    }
+
+    private final void setComboItemValue(final ISearchableComboItem<T> val, final ValidState valid) {
+        log("entering " + this.getClass().getSimpleName() + ".setValue(ISearchableComboItem,ValidState) '" + val + "' valid: " + valid);
+        final boolean invalidChange = this.setValid(valid);
 
         // empty item is virtual (it's a place holder for null) and thus should not become the
         // selection
@@ -710,12 +723,13 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         this.getLabel().setIcon(sel == null ? null : this.getIcon(sel));
         this.updateMargin();
         // si invalidEdit la selection means nothing, so don't change the textField
-        if (!this.invalidEdit) {
+        if (this.parsedValidState.isValid()) {
             final String newText = sel == null ? "" : sel.asString();
             setText(newText);
         }
         this.updating = false;
 
+        this.updateValidState();
         this.supp.fireValueChange();
     }
 
@@ -748,15 +762,23 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     protected final void docChanged(final DocumentEvent e) {
         if (!this.updating) {
             final String text = SimpleDocumentListener.getText(e.getDocument());
-            if (this.isLocked()) {
-                // value can only be set by the popup (or setMatchingCompletions())
-                // except "" which means empty
+            if (text.length() == 0) {
+                // "" means empty
+                this.setValue(null, ValidState.getTrueInstance());
+            } else if (this.getMode().valueMustBeInList() && !this.getMode().isListMutable()) {
+                // value can only be set by the popup (or setMatchingCompletions()) ; the list
+                // cannot be modified. Thus don't call stringToT() as it might not be implemented
+                // since it's never needed.
                 // this avoids having to decide between 2 different values with the same label, or
                 // worse this is locked and one of those 2 values are not in us. In that case
                 // setting the invalid one will in fact select the other.
-                this.setValue(null, text.length() == 0);
+                this.setValue(null, ValidState.createCached(false, "la valeur n'a pas été sélectionnée dans la liste"));
             } else {
-                this.setValue(stringToT(text));
+                try {
+                    this.setValue(stringToT(text));
+                } catch (Exception exn) {
+                    this.setValue(null, ValidState.createCached(false, "la valeur n'est pas correcte: " + exn.getLocalizedMessage()));
+                }
             }
             if (this.isSearchable())
                 this.updateAutoCompletion(false);
@@ -836,6 +858,19 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                 }
             });
         }
+    }
+
+    public final void setMaxVisibleRows(final int maxVisibleRows) {
+        this.popupCompletion.setMaxVisibleRows(maxVisibleRows);
+    }
+
+    /**
+     * The maximum number of rows displayed in the popup.
+     * 
+     * @return the maximum number of rows displayed in the popup.
+     */
+    public final int getMaxVisibleRows() {
+        return this.popupCompletion.getMaxVisibleRows();
     }
 
     /**
@@ -1153,10 +1188,22 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
 
     // * valid
 
+    private void updateValidState() {
+        final boolean listValid = !this.getMode().valueMustBeInList() || getValue() == null || this.itemsByOriginalItem.containsKey(getValue());
+        this.setValidState(this.parsedValidState.and(ValidState.createCached(listValid, "la valeur ne fait pas partie des choix")));
+    }
+
+    private void setValidState(final ValidState v) {
+        if (!v.equals(this.validState)) {
+            this.validState = v;
+            // ATTN when called from selectionChanged(), called before fireValueChange()
+            this.supp.fireValidChange();
+        }
+    }
+
     @Override
     public ValidState getValidState() {
-        final boolean res = this.getMode() != LOCKED || !this.invalidEdit;
-        return ValidState.createCached(res, "la valeur ne fait pas partie des choix");
+        return this.validState;
     }
 
     public void addValidListener(final ValidListener l) {

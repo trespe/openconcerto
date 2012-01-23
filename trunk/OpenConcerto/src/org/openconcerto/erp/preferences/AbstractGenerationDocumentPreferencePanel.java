@@ -16,8 +16,10 @@
 import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.utils.FileUtility;
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.preferences.DefaultPreferencePanel;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
@@ -49,9 +51,9 @@ import javax.swing.event.DocumentEvent;
 
 public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultPreferencePanel {
 
-    protected Map<String, String> mapKeyLabel = new HashMap<String, String>();
-    private final Map<String, JTextField> mapKeyTextOO = new HashMap<String, JTextField>();
-    private final Map<String, JTextField> mapKeyTextPDF = new HashMap<String, JTextField>();
+    protected Map<Tuple2<String, String>, String> mapKeyLabel = new HashMap<Tuple2<String, String>, String>();
+    private final Map<Tuple2<String, String>, JTextField> mapKeyTextOO = new HashMap<Tuple2<String, String>, JTextField>();
+    private final Map<Tuple2<String, String>, JTextField> mapKeyTextPDF = new HashMap<Tuple2<String, String>, JTextField>();
 
     private JFileChooser fileChooser;
 
@@ -59,6 +61,12 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
     private static final String formatPDF = "Format PDF : ";
     private static final String parcourir = "...";
     private static final String defaut = "Définir l'emplacement suivant pour tous";
+
+    public static String getLabelFromTable(String tableName) {
+        String pluralName = Configuration.getInstance().getDirectory().getElement(tableName).getPluralName();
+        pluralName = StringUtils.firstUp(pluralName);
+        return pluralName;
+    }
 
     public AbstractGenerationDocumentPreferencePanel() {
         super();
@@ -88,11 +96,11 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
 
                 final String folder = textDefault.getText();
 
-                for (final Entry<String, JTextField> entry : AbstractGenerationDocumentPreferencePanel.this.mapKeyTextOO.entrySet()) {
+                for (final Entry<Tuple2<String, String>, JTextField> entry : AbstractGenerationDocumentPreferencePanel.this.mapKeyTextOO.entrySet()) {
                     entry.getValue().setText(folder + File.separator + AbstractGenerationDocumentPreferencePanel.this.mapKeyLabel.get(entry.getKey()));
                 }
 
-                for (final Entry<String, JTextField> entry : AbstractGenerationDocumentPreferencePanel.this.mapKeyTextPDF.entrySet()) {
+                for (final Entry<Tuple2<String, String>, JTextField> entry : AbstractGenerationDocumentPreferencePanel.this.mapKeyTextPDF.entrySet()) {
                     entry.getValue().setText(folder + File.separator + AbstractGenerationDocumentPreferencePanel.this.mapKeyLabel.get(entry.getKey()));
                 }
             }
@@ -118,11 +126,11 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
 
         this.add(panelDefaut, c);
 
-        final List<String> list = new ArrayList<String>(this.mapKeyLabel.keySet());
-        Collections.sort(list, new Comparator<String>() {
+        final List<Tuple2<String, String>> list = new ArrayList<Tuple2<String, String>>(this.mapKeyLabel.keySet());
+        Collections.sort(list, new Comparator<Tuple2<String, String>>() {
             @Override
-            public int compare(final String o1, final String o2) {
-                return o1.compareTo(o2);
+            public int compare(final Tuple2<String, String> o1, final Tuple2<String, String> o2) {
+                return o1.get0().compareTo(o2.get0());
             }
         });
 
@@ -131,7 +139,7 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
 
         final int size = list.size();
         for (int i = 0; i < size; i++) {
-            final String key = list.get(i);
+            final Tuple2<String, String> key = list.get(i);
             cGlobal.gridwidth = 1;
             cGlobal.weightx = 1;
             cGlobal.gridy++;
@@ -217,14 +225,16 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
 
         try {
             final File z = new File(".");
-            for (final Entry<String, JTextField> entry : this.mapKeyTextOO.entrySet()) {
+            for (final Entry<Tuple2<String, String>, JTextField> entry : this.mapKeyTextOO.entrySet()) {
                 final File f = new File(entry.getValue().getText());
-                TemplateNXProps.getInstance().setProperty(entry.getKey() + "OO", FileUtility.getPrimaryPath(z.getCanonicalFile(), f));
+                TemplateNXProps.getInstance().setProperty(entry.getKey().get1() + "OO", FileUtility.getPrimaryPath(z.getCanonicalFile(), f));
+                DocumentLocalStorageManager.getInstance().addDocumentDirectory(entry.getKey().get0(), new File(FileUtility.getPrimaryPath(z.getCanonicalFile(), f)));
             }
 
-            for (final Entry<String, JTextField> entry : this.mapKeyTextPDF.entrySet()) {
+            for (final Entry<Tuple2<String, String>, JTextField> entry : this.mapKeyTextPDF.entrySet()) {
                 final File f = new File(entry.getValue().getText());
-                TemplateNXProps.getInstance().setProperty(entry.getKey() + "PDF", FileUtility.getPrimaryPath(z.getCanonicalFile(), f));
+                TemplateNXProps.getInstance().setProperty(entry.getKey().get1() + "PDF", FileUtility.getPrimaryPath(z.getCanonicalFile(), f));
+                DocumentLocalStorageManager.getInstance().addPDFDirectory(entry.getKey().get0(), new File(FileUtility.getPrimaryPath(z.getCanonicalFile(), f)));
             }
 
         } catch (final IOException e) {
@@ -238,7 +248,7 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
     public void restoreToDefaults() {
         final Color foregroundColor = UIManager.getColor("TextField.foreground");
 
-        for (final Entry<String, JTextField> entry : this.mapKeyTextOO.entrySet()) {
+        for (final Entry<Tuple2<String, String>, JTextField> entry : this.mapKeyTextOO.entrySet()) {
             final File f = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory("Default");
             final JTextField textField = entry.getValue();
             if (f.exists()) {
@@ -254,7 +264,7 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
             }
         }
 
-        for (final Entry<String, JTextField> entry : this.mapKeyTextPDF.entrySet()) {
+        for (final Entry<Tuple2<String, String>, JTextField> entry : this.mapKeyTextPDF.entrySet()) {
             final File f = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory("Default");
             final JTextField textField = entry.getValue();
             if (f.exists()) {
@@ -279,15 +289,15 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
         }
     }
 
-    private void updateTextFields(final Map<String, JTextField> map, final String format) throws IOException {
+    private void updateTextFields(final Map<Tuple2<String, String>, JTextField> map, final String format) throws IOException {
         final Color foregroundColor = UIManager.getColor("TextField.foreground");
         final DocumentLocalStorageManager storage = DocumentLocalStorageManager.getInstance();
-        for (final Entry<String, JTextField> entry : map.entrySet()) {
+        for (final Entry<Tuple2<String, String>, JTextField> entry : map.entrySet()) {
             final File f;
             if (format.equalsIgnoreCase("PDF")) {
-                f = storage.getPDFOutputDirectory(entry.getKey());
+                f = storage.getPDFOutputDirectory(entry.getKey().get0());
             } else {
-                f = storage.getDocumentOutputDirectory(entry.getKey());
+                f = storage.getDocumentOutputDirectory(entry.getKey().get0());
             }
             final JTextField textField = entry.getValue();
             if (f.exists()) {

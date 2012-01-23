@@ -166,4 +166,9 @@ public class ValidState {
         final ValidState other = (ValidState) obj;
         return this.valid == other.valid && CompareUtils.equals(this.reason, other.reason);
     }
+
+    @Override
+    public String toString() {
+        return getClass().getSimpleName() + (this.isValid() ? " valid" : " not valid : '" + this.getValidationText() + "'");
+    }
 }

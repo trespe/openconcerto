@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.sales.shipment.component;
 
+import static org.openconcerto.utils.CollectionUtils.createSet;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
@@ -33,6 +34,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
+import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -168,42 +170,36 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
         this.add(this.comboClient, c);
         final ElementComboBox boxTarif = new ElementComboBox();
-        this.comboClient.addValueListener(new PropertyChangeListener() {
-
-            @Override
-            public void propertyChange(PropertyChangeEvent evt) {
-                if (comboClient.getValue() != null) {
-                    Integer id = comboClient.getValue();
-
-                    if (id > 1) {
-
-                        SQLRow row = comboClient.getElement().getTable().getRow(id);
-                        if (comboClient.getElement().getTable().getFieldsName().contains("ID_TARIF")) {
-
-                            // SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
-                            // if (foreignRow.isUndefined() &&
-                            // !row.getForeignRow("ID_DEVISE").isUndefined()) {
-                            // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
-                            // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
-                            // foreignRow = rowValsD;
-                            //
-                            // }
-                            // tableBonItem.setTarif(foreignRow, true);
-                            SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
-                            if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
-                                    && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
-                                boxTarif.setValue(foreignRow.getID());
-                                // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
-                                // true);
-                            } else {
-                                boxTarif.setValue(foreignRow.getID());
-                            }
+        if (this.comboClient.getElement().getTable().contains("ID_TARIF")) {
+            this.comboClient.addValueListener(new PropertyChangeListener() {
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    if (BonDeLivraisonSQLComponent.this.isFilling())
+                        return;
+                    final SQLRow row = ((SQLRequestComboBox) evt.getSource()).getSelectedRow();
+                    if (row != null) {
+                        // SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                        // if (foreignRow.isUndefined() &&
+                        // !row.getForeignRow("ID_DEVISE").isUndefined()) {
+                        // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
+                        // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
+                        // foreignRow = rowValsD;
+                        //
+                        // }
+                        // tableBonItem.setTarif(foreignRow, true);
+                        SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                        if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
+                                && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
+                            boxTarif.setValue(foreignRow.getID());
+                            // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
+                            // true);
+                        } else {
+                            boxTarif.setValue(foreignRow.getID());
                         }
                     }
                 }
-
-            }
-        });
+            });
+        }
 
         // Bouton tout livrer
         JButton boutonAll = new JButton("Tout livrer");
@@ -417,6 +413,10 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
     }
 
+    public BonDeLivraisonItemTable getTableBonItem() {
+        return this.tableBonItem;
+    }
+
     private void reconfigure(JTextField field) {
         field.setEnabled(false);
         field.setHorizontalAlignment(JTextField.RIGHT);
@@ -470,7 +470,20 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         if (r != null) {
             this.textNumeroUnique.setIdSelected(r.getID());
         }
-        super.select(r);
+        if (r == null || r.getIDNumber() == null)
+            super.select(r);
+        else {
+            System.err.println(r);
+            final SQLRowValues rVals = r.asRowValues();
+            final SQLRowValues vals = new SQLRowValues(r.getTable());
+            vals.load(rVals, createSet("ID_CLIENT"));
+            vals.setID(rVals.getID());
+            System.err.println("Select CLIENT");
+            super.select(vals);
+            rVals.remove("ID_CLIENT");
+            super.select(rVals);
+        }
+
         if (r != null) {
             this.tableBonItem.insertFrom("ID_BON_DE_LIVRAISON", r.getID());
         }

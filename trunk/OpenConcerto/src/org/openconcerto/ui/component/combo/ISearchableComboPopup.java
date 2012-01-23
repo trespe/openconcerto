@@ -41,15 +41,25 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
 
     private final JList list;
     private int minWitdh = 150;
+    private int maxVisibleRows;
     private final ISearchableCombo<T> text;
 
     ISearchableComboPopup(final ListModel listModel, final ISearchableCombo<T> text) {
         // Liste de la popup
         this.list = new JList(listModel);
         this.text = text;
+        this.setMaxVisibleRows(30);
         uiInit();
         // Listeners
         this.list.addMouseMotionListener(new ListMouseMotionHandler());
+    }
+
+    final void setMaxVisibleRows(int maxVisibleRows) {
+        this.maxVisibleRows = maxVisibleRows;
+    }
+    
+    final int getMaxVisibleRows() {
+        return this.maxVisibleRows;
     }
 
     private ISearchableCombo<T> getCombo() {
@@ -210,7 +220,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
         // 2. open() is always called when the list is modified.
         final int size = getListModel().getSize();
         // rowCount == 0 looks like a bug so show 3 empty rows
-        final int rowCount = size == 0 ? 3 : Math.min(size, 30);
+        final int rowCount = size == 0 ? 3 : Math.min(size, this.maxVisibleRows);
         if (this.list.getVisibleRowCount() != rowCount) {
             // checking if rowCount changes doesn't work (one reason is probably that we're
             // called before Swing and so setVisible displays an empty list)

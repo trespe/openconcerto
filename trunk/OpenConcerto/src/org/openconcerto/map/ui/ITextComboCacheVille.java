@@ -23,7 +23,6 @@ import javax.swing.JOptionPane;
 
 public class ITextComboCacheVille implements ITextComboCache {
     final ArrayList<String> villesNames = Ville.getVillesNames();
-    private Ville lastGood;
 
     public Ville createVilleFrom(String string) {
         string = string.trim();
@@ -34,11 +33,7 @@ public class ITextComboCacheVille implements ITextComboCache {
             String ville = string.substring(0, i1).trim();
             String cp = string.substring(i1 + 1, i2).trim();
 
-            if (lastGood != null && lastGood.getName().toLowerCase().equals(ville.toLowerCase())) {
-                v = new Ville(ville, lastGood.getPopulation(), lastGood.getXLambert(), lastGood.getYLambert(), cp);
-            } else {
-                v = new Ville(ville, 0, 0, 0, cp);
-            }
+            v = new Ville(ville, 0, 0, 0, cp);
         }
         return v;
     }
@@ -78,12 +73,6 @@ public class ITextComboCacheVille implements ITextComboCache {
 
     @Override
     public String toString() {
-        // TODO Auto-generated method stub
-        return "ITextComboCacheVille" + villesNames.size();
-    }
-
-    public void setLastGood(Ville villeFromVilleEtCode) {
-        this.lastGood = villeFromVilleEtCode;
-
+        return getClass().getSimpleName() + " with " + this.villesNames.size() + " cities";
     }
 }

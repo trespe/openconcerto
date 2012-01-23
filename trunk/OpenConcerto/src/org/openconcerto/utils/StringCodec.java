@@ -140,6 +140,7 @@ public class StringCodec {
      * @return the quoted form, "'d'\''hier soir'".
      */
     public static String quote(String s) {
+        // between ' even \ has no special meaning
         return "'" + s.replace("'", "'\\''") + "'";
     }
 }

@@ -19,13 +19,13 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.order.component.CommandeClientSQLComponent;
 import org.openconcerto.erp.core.sales.quote.component.DevisSQLComponent;
-import org.openconcerto.erp.core.supplychain.order.component.CommandeSQLComponent;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.utils.CollectionMap;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -59,6 +59,14 @@ public class DevisSQLElement extends ComptaSQLConfElement {
         l.add("T_TTC");
         l.add("INFOS");
         return l;
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+
+        CollectionMap<String, String> map = new CollectionMap<String, String>();
+        map.put(null, "NUMERO");
+        return map;
     }
 
     @Override
