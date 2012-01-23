@@ -26,32 +26,29 @@ import org.openconcerto.erp.generationDoc.gestcomm.ReleveChequeEmisSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.ReleveChequeSheet;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.utils.StringUtils;
+import org.openconcerto.utils.Tuple2;
 
 public class GenerationDocumentGestCommPreferencePanel extends AbstractGenerationDocumentPreferencePanel {
 
     public GenerationDocumentGestCommPreferencePanel() {
         super();
-        this.mapKeyLabel.put(DevisXmlSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("DEVIS"));
-        this.mapKeyLabel.put(AvoirClientXmlSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("AVOIR_CLIENT"));
+        this.mapKeyLabel.put(Tuple2.create(DevisXmlSheet.TEMPLATE_ID, DevisXmlSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("DEVIS"));
+        this.mapKeyLabel.put(Tuple2.create(AvoirClientXmlSheet.TEMPLATE_ID, AvoirClientXmlSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("AVOIR_CLIENT"));
 
-        this.mapKeyLabel.put(BonLivraisonXmlSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("BON_DE_LIVRAISON"));
-        this.mapKeyLabel.put(VenteFactureXmlSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("SAISIE_VENTE_FACTURE"));
-        this.mapKeyLabel.put(RelanceSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("RELANCE"));
-        this.mapKeyLabel.put(CommandeXmlSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("COMMANDE"));
-        this.mapKeyLabel.put(CommandeClientXmlSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("COMMANDE_CLIENT"));
-        this.mapKeyLabel.put(AvoirFournisseurXmlSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("AVOIR_FOURNISSEUR"));
-        this.mapKeyLabel.put(CourrierClientSheet.TEMPLATE_PROPERTY_NAME, getLabelFromTable("COURRIER_CLIENT"));
-        this.mapKeyLabel.put(ReleveChequeEmisSheet.TEMPLATE_PROPERTY_NAME, "Relevé chèque émis");
-        this.mapKeyLabel.put(ReleveChequeSheet.TEMPLATE_PROPERTY_NAME, "Relevé chèque");
+        this.mapKeyLabel.put(Tuple2.create(BonLivraisonXmlSheet.TEMPLATE_ID, BonLivraisonXmlSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("BON_DE_LIVRAISON"));
+        this.mapKeyLabel.put(Tuple2.create(VenteFactureXmlSheet.TEMPLATE_ID, VenteFactureXmlSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("SAISIE_VENTE_FACTURE"));
+        this.mapKeyLabel.put(Tuple2.create(RelanceSheet.TEMPLATE_ID, RelanceSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("RELANCE"));
+        this.mapKeyLabel.put(Tuple2.create(CommandeXmlSheet.TEMPLATE_ID, CommandeXmlSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("COMMANDE"));
+        this.mapKeyLabel.put(Tuple2.create(CommandeClientXmlSheet.TEMPLATE_ID, CommandeClientXmlSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("COMMANDE_CLIENT"));
+        this.mapKeyLabel.put(Tuple2.create(AvoirFournisseurXmlSheet.TEMPLATE_ID, AvoirFournisseurXmlSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("AVOIR_FOURNISSEUR"));
+        this.mapKeyLabel.put(Tuple2.create(CourrierClientSheet.TEMPLATE_ID, CourrierClientSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("COURRIER_CLIENT"));
+        this.mapKeyLabel.put(Tuple2.create(ReleveChequeEmisSheet.TEMPLATE_ID, ReleveChequeEmisSheet.TEMPLATE_PROPERTY_NAME), "Relevé chèque émis");
+        this.mapKeyLabel.put(Tuple2.create(ReleveChequeSheet.TEMPLATE_ID, ReleveChequeSheet.TEMPLATE_PROPERTY_NAME), "Relevé chèque");
         // this.mapKeyLabel.put(SheetXml.tupleDefault.get0(), SheetXml.tupleDefault.get1());
         // uiInit();
     }
 
-    private String getLabelFromTable(String tableName) {
-        String pluralName = Configuration.getInstance().getDirectory().getElement(tableName).getPluralName();
-        pluralName = StringUtils.firstUp(pluralName);
-        return pluralName;
-    }
+    
 
     public String getTitleName() {
         return "Destination des documents générés";

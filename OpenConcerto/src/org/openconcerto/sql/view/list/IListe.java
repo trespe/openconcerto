@@ -58,6 +58,7 @@ import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.convertor.StringClobConvertor;
+import org.openconcerto.utils.text.BooleanFormat;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -81,7 +82,9 @@ import java.io.File;
 import java.io.IOException;
 import java.sql.Clob;
 import java.sql.Time;
+import java.sql.Timestamp;
 import java.text.DateFormat;
+import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -92,6 +95,7 @@ import java.util.EventObject;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.ExecutionException;
@@ -132,16 +136,35 @@ import javax.swing.table.TableModel;
  */
 public final class IListe extends JPanel implements AncestorListener {
 
+    static private final class FormatRenderer extends DefaultTableCellRenderer {
+        private final Format fmt;
+
+        private FormatRenderer(Format fmt) {
+            super();
+            this.fmt = fmt;
+        }
+
+        @Override
+        protected void setValue(Object value) {
+            this.setText(value == null ? "" : this.fmt.format(value));
+        }
+    }
+
     private static boolean FORCE_ALT_CELL_RENDERER = false;
     private static final DateFormat MODIF_DATE_FORMAT = new SimpleDateFormat("'le' dd MMMM yyyy 'à' HH:mm:ss");
     static final String SEP = " ► ";
-    private static final DateFormat TIME_FORMAT = DateFormat.getTimeInstance(DateFormat.SHORT);
+    public static final TableCellRenderer DATE_RENDERER = new FormatRenderer(DateFormat.getDateInstance(DateFormat.MEDIUM));
+    public static final TableCellRenderer TIME_RENDERER = new FormatRenderer(DateFormat.getTimeInstance(DateFormat.SHORT));
+    public static final TableCellRenderer DATETIME_RENDERER = new FormatRenderer(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT));
+
     private static final Map<Class<?>, FormatGroup> FORMATS;
     static {
         FORMATS = new HashMap<Class<?>, FormatGroup>();
         FORMATS.put(Date.class, new FormatGroup(DateFormat.getDateInstance(DateFormat.SHORT), DateFormat.getDateInstance(DateFormat.MEDIUM), DateFormat.getDateInstance(DateFormat.LONG)));
         // longer first otherwise seconds are not displayed by the cell editor and will be lost
         FORMATS.put(Time.class, new FormatGroup(DateFormat.getTimeInstance(DateFormat.MEDIUM), DateFormat.getTimeInstance(DateFormat.SHORT)));
+        FORMATS.put(Timestamp.class, new FormatGroup(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM), DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT),
+                DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.MEDIUM), DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.SHORT)));
     }
 
     public static final void remove(InputMap m, KeyStroke key) {
@@ -186,6 +209,7 @@ public final class IListe extends JPanel implements AncestorListener {
     // double-click
     private IListeAction defaultRowAction;
     private final JPanel btnPanel;
+    private final Map<Class<?>, FormatGroup> searchFormats;
 
     // * selection
     private final List<IListener> listeners;
@@ -386,6 +410,15 @@ public final class IListe extends JPanel implements AncestorListener {
                     updateButtons();
             }
         });
+        this.searchFormats = new HashMap<Class<?>, FormatGroup>(this.getFormats());
+        // localized boolean search
+        this.searchFormats.put(Boolean.class, new FormatGroup(new BooleanFormat(), BooleanFormat.getNumberInstance(), BooleanFormat.createYesNo(Locale.getDefault())));
+        // on edition we want to force the user to enter a time, so it doesn't blindly paste a date
+        // and erase the time part. But on search it's quicker to filter with > 25/12/99
+        final List<Format> wAndwoTime = new ArrayList<Format>();
+        wAndwoTime.addAll(this.searchFormats.get(Timestamp.class).getFormats());
+        wAndwoTime.addAll(this.searchFormats.get(Date.class).getFormats());
+        this.searchFormats.put(Timestamp.class, new FormatGroup(wAndwoTime));
 
         uiInit();
     }
@@ -397,6 +430,10 @@ public final class IListe extends JPanel implements AncestorListener {
      */
     public final Map<Class<?>, FormatGroup> getFormats() {
         return FORMATS;
+    }
+
+    public final Map<Class<?>, FormatGroup> getSearchFormats() {
+        return this.searchFormats;
     }
 
     public final RowAction addRowAction(Action action) {
@@ -433,6 +470,7 @@ public final class IListe extends JPanel implements AncestorListener {
         if (headerBtns.getContent().size() > 0) {
             updateButton(headerBtns, new IListeEvent(this));
             for (final JButton headerBtn : headerBtns.getContent().keySet()) {
+                headerBtn.setOpaque(false);
                 this.btnPanel.add(headerBtn, findGroupIndex((String) headerBtn.getClientProperty(ButtonsBuilder.GROUPNAME_PROPNAME)));
             }
             this.btnPanel.setVisible(true);
@@ -600,13 +638,9 @@ public final class IListe extends JPanel implements AncestorListener {
                 return super.getTableCellRendererComponent(table, StringClobConvertor.INSTANCE.unconvert((Clob) value), isSelected, hasFocus, row, column);
             }
         });
-        this.jTable.setDefaultRenderer(Time.class, new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                final String val = value == null ? "" : TIME_FORMAT.format((Time) value);
-                return super.getTableCellRendererComponent(table, val, isSelected, hasFocus, row, column);
-            }
-        });
+        this.jTable.setDefaultRenderer(Date.class, DATE_RENDERER);
+        this.jTable.setDefaultRenderer(Time.class, TIME_RENDERER);
+        this.jTable.setDefaultRenderer(Timestamp.class, DATETIME_RENDERER);
         for (final Map.Entry<Class<?>, FormatGroup> e : this.getFormats().entrySet())
             this.jTable.setDefaultEditor(e.getKey(), new FormatEditor(e.getValue()));
         this.sorter.setTableHeader(this.jTable.getTableHeader());
@@ -646,6 +680,7 @@ public final class IListe extends JPanel implements AncestorListener {
 
         c.gridy++;
         this.btnPanel.setVisible(false);
+        this.btnPanel.setOpaque(false);
         this.add(this.btnPanel, c);
 
         c.weighty = 1;

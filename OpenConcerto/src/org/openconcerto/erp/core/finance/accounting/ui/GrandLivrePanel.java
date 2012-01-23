@@ -25,6 +25,7 @@ import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
@@ -193,9 +194,10 @@ public class GrandLivrePanel extends JPanel {
 
         String function = "REGEXP";
         String match = cc.getTypeNumeroCompte();
-        if (Configuration.getInstance().getBase().getServer().getSystem().equalsIgnoreCase("postgresql")) {
-            function = "SIMILAR TO";
-            match = cc.getTypeNumeroCompte().replace(".*", "%");
+        if (Configuration.getInstance().getBase().getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
+            // function = "SIMILAR TO";
+            function = "~";
+            // match = cc.getTypeNumeroCompte().replace(".*", "%");
         }
 
         Where w = new Where(compteTable.getField("NUMERO"), function, match);

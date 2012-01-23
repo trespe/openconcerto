@@ -419,8 +419,9 @@ public class CloturePanel extends JPanel {
 
         String function = "REGEXP";
         if (Configuration.getInstance().getBase().getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
-            function = "SIMILAR TO";
-            typeCompte = typeCompte.replace(".*", "%");
+            // function = "SIMILAR TO";
+            // typeCompte = typeCompte.replace(".*", "%");
+            function = "~";
         }
 
         Where w2 = new Where(compteTable.getField("NUMERO"), function, typeCompte);

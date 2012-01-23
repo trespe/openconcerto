@@ -36,7 +36,6 @@ import javax.swing.JTextField;
 import javax.swing.border.LineBorder;
 import javax.swing.table.TableCellEditor;
 
-
 /**
  * Editeur de devise On saisi un nombre avec 2 decimal representant une valeur en € et retourne un
  * long representant des cents
@@ -131,7 +130,7 @@ public class DeviseCellEditor extends AbstractCellEditor implements TableCellEdi
 
         // System.err.println("Devise cell editor get Component " + value);
 
-        this.textField.setText(GestionDevise.currencyToString(((Long) value).longValue()));
+        this.textField.setText(GestionDevise.currencyToString(value == null ? 0 : ((Long) value).longValue()));
         this.textField.selectAll();
         this.textField.grabFocus();
         return this.textField;

@@ -91,6 +91,29 @@ public abstract class DesktopEnvironment {
     }
 
     static public final class Windows extends DEisOS {
+        static private boolean needsQuoting(String s) {
+            final int len = s.length();
+            if (len == 0) // empty string have to be quoted
+                return true;
+            for (int i = 0; i < len; i++) {
+                switch (s.charAt(i)) {
+                case ' ':
+                case '\t':
+                case '\\':
+                case '"':
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        @Override
+        // see http://bugs.sun.com/view_bug.do?bug_id=6468220
+        public String quoteParamForExec(final String s) {
+            if (!needsQuoting(s))
+                return s;
+            return StringUtils.doubleQuote(s);
+        }
     }
 
     static public final class Mac extends DEisOS {
@@ -227,6 +250,11 @@ public abstract class DesktopEnvironment {
 
     public File getPreferencesFolder(final String appName) {
         return new File(System.getProperty("user.home"), "." + appName);
+    }
+
+    // on some systems arguments are not passed correctly by ProcessBuilder
+    public String quoteParamForExec(String s) {
+        return s;
     }
 
     @Override

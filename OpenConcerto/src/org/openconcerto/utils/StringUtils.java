@@ -25,13 +25,21 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * @author Sylvain CUAZ
  */
 public class StringUtils {
 
-    private static final Charset UTF8 = Charset.forName("UTF8");
+    // required encoding see
+    // http://docs.oracle.com/javase/7/docs/technotes/guides/intl/encoding.doc.html
+    public static final Charset UTF8 = Charset.forName("UTF8");
+    public static final Charset UTF16 = Charset.forName("UTF-16");
+    public static final Charset ASCII = Charset.forName("ASCII");
+    public static final Charset ISO8859_1 = Charset.forName("ISO8859_1");
+    public static final Charset Cp1252 = Charset.forName("Cp1252");
+    public static final Charset Cp850 = Charset.forName("Cp850");
 
     /**
      * Retourne la chaine avec la première lettre en majuscule et le reste en minuscule.
@@ -252,6 +260,21 @@ public class StringUtils {
         result.append(lastString.toString().trim());
 
         return result.toString();
+    }
+
+    static private final Pattern quotePatrn = Pattern.compile("([\\\\]*)\"");
+    static private final Pattern endSlashPatrn = Pattern.compile("([\\\\]*)\\z");
+
+    static public String doubleQuote(String s) {
+        if (s.length() > 0) {
+            // replace '(\*)"' by '$1$1\"', e.g. '\quote " \"' by '\quote \" \\\"'
+            // $1 needed so that the backslash we add isn't escaped itself by a preceding backslash
+            s = quotePatrn.matcher(s).replaceAll("$1$1\\\\\"");
+            // replace '(\*)\z' by '$1$1', e.g. 'foo\' by 'foo\\'
+            // needed to not escape closing quote
+            s = endSlashPatrn.matcher(s).replaceAll("$1$1");
+        }
+        return '"' + s + '"';
     }
 
     public static final class Escaper {

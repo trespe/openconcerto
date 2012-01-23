@@ -405,7 +405,7 @@ public class ListeDesEcheancesClientsPanel extends JPanel {
             rowVals.put("ID_SAISIE_VENTE_FACTURE", rowMvtSource.getInt("IDSOURCE"));
             rowVals.put("MONTANT", rowSource.getObject("MONTANT"));
             rowVals.put("ID_CLIENT", rowSource.getInt("ID_CLIENT"));
-            rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(RelanceSQLElement.class));
+            rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(RelanceSQLElement.class, new Date()));
             this.editRelance.getSQLComponent().select(rowVals);
 
             this.editRelance.pack();

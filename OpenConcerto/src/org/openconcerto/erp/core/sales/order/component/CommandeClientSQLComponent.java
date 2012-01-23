@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.sales.order.component;
 
+import static org.openconcerto.utils.CollectionUtils.createSet;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
@@ -50,6 +51,7 @@ import java.awt.GridBagLayout;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
+import java.util.Date;
 
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -82,19 +84,6 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
 
-        // Champ Module
-        c.gridx = 0;
-        c.gridy++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
-        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
-        this.add(addP, c);
-
-        c.gridy++;
-        c.gridwidth = 1;
-
-        this.comboDevis = new ElementComboBox();
-
         // Numero du commande
         c.gridx = 0;
         this.add(new JLabel(getLabelFor("NUMERO"), SwingConstants.RIGHT), c);
@@ -117,6 +106,22 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         c.gridx++;
         c.fill = GridBagConstraints.NONE;
         this.add(dateCommande, c);
+
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.weightx = 1;
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
+
+        this.comboDevis = new ElementComboBox();
 
         // Reference
         c.gridx = 0;
@@ -174,7 +179,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
-                if (comboClient.getValue() != null) {
+                if (!isFilling() && comboClient.getValue() != null) {
                     Integer id = comboClient.getValue();
 
                     if (id > 1) {
@@ -367,7 +372,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         addSQLObject(this.infos, "INFOS");
         addSQLObject(this.comboDevis, "ID_DEVIS");
 
-        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class));
+        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class, new Date()));
 
         this.table.getModel().addTableModelListener(new TableModelListener() {
 
@@ -405,7 +410,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
             }
 
             // incrémentation du numéro auto
-            if (NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
+            if (NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class, new Date()).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
                 SQLRowValues rowVals = new SQLRowValues(this.tableNum);
                 int val = this.tableNum.getRow(2).getInt("COMMANDE_CLIENT_START");
                 val++;
@@ -436,7 +441,19 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         if (r != null) {
             this.numeroUniqueCommande.setIdSelected(r.getID());
         }
-        super.select(r);
+        if (r == null || r.getIDNumber() == null)
+            super.select(r);
+        else {
+            System.err.println(r);
+            final SQLRowValues rVals = r.asRowValues();
+            final SQLRowValues vals = new SQLRowValues(r.getTable());
+            vals.load(rVals, createSet("ID_CLIENT"));
+            vals.setID(rVals.getID());
+            System.err.println("Select CLIENT");
+            super.select(vals);
+            rVals.remove("ID_CLIENT");
+            super.select(rVals);
+        }
         if (r != null) {
             this.table.insertFrom("ID_COMMANDE_CLIENT", r.getID());
         }
@@ -473,7 +490,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
     public void setDefaults() {
         this.resetValue();
-        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class));
+        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class, new Date()));
         this.table.getModel().clearRows();
     }
 
@@ -505,7 +522,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
     protected SQLRowValues createDefaults() {
         SQLRowValues rowVals = new SQLRowValues(getTable());
         rowVals.put("T_POIDS", 0.0F);
-        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(getElement().getClass()));
+        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class, new Date()));
         // User
         // SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
         SQLElement eltComm = Configuration.getInstance().getDirectory().getElement("COMMERCIAL");

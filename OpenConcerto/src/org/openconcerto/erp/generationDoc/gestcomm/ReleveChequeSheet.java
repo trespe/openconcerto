@@ -56,7 +56,9 @@ public class ReleveChequeSheet extends AbstractListeSheetXml {
 
     @Override
     public String getName() {
-        return "ReleveCheque" + this.date.getTime();
+        // FIXME voir avoir Gui pourquoi generatedOpenDocumentFile est instancié dans le
+        // constructeur du super
+        return "ReleveCheque" + ((this.date == null) ? new Date().getTime() : this.date.getTime());
     }
 
     @Override

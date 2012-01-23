@@ -61,6 +61,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -151,7 +152,8 @@ public abstract class SQLElement {
 
         this.modelCache = null;
 
-        this.additionalFields = new HashMap<String, JComponent>();
+        // the components should always be in the same order
+        this.additionalFields = new LinkedHashMap<String, JComponent>();
         this.additionalListCols = new ArrayList<SQLTableModelColumn>();
     }
 

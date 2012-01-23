@@ -26,6 +26,7 @@ import org.openconcerto.sql.model.Where;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,25 +44,28 @@ public class HistoriqueClientFrame {
         final ComptaPropsConfiguration comptaPropsConfiguration = ((ComptaPropsConfiguration) Configuration.getInstance());
         SQLBase b = comptaPropsConfiguration.getSQLBaseSociete();
 
-        List<String> l = new ArrayList<String>();
+        // List<String> l = new ArrayList<String>();
+        Map<String, List<String>> mapList = new HashMap<String, List<String>>();
 
         String valModeVenteComptoir = DefaultNXProps.getInstance().getStringProperty("ArticleVenteComptoir");
         final Boolean bModeVenteComptoir = Boolean.valueOf(valModeVenteComptoir);
         if (bModeVenteComptoir) {
-            l.add("SAISIE_VENTE_COMPTOIR");
+            mapList.put("Ventes comptoir", Arrays.asList("SAISIE_VENTE_COMPTOIR"));
         }
-        l.add("SAISIE_VENTE_FACTURE");
-        l.add("CHEQUE_A_ENCAISSER");
-        l.add("ECHEANCE_CLIENT");
-        l.add("RELANCE");
-        l.add("DEVIS");
-        l.add("AVOIR_CLIENT");
-            l.add("SAISIE_VENTE_FACTURE_ELEMENT");
+        mapList.put("Ventes facture", Arrays.asList("SAISIE_VENTE_FACTURE"));
+        mapList.put("Chèques à encaisser", Arrays.asList("CHEQUE_A_ENCAISSER"));
+        mapList.put("Echéances", Arrays.asList("ECHEANCE_CLIENT"));
+        mapList.put("Relances", Arrays.asList("RELANCE"));
+        mapList.put("Devis", Arrays.asList("DEVIS"));
+        mapList.put("Avoirs", Arrays.asList("AVOIR_CLIENT"));
+            mapList.put("Articles facturés", Arrays.asList("SAISIE_VENTE_FACTURE_ELEMENT"));
+            mapList.put("Articles proposés", Arrays.asList("DEVIS_ELEMENT"));
         Map<SQLTable, SQLField> map = new HashMap<SQLTable, SQLField>();
         map.put(b.getTable("SAISIE_VENTE_FACTURE_ELEMENT"), b.getTable("SAISIE_VENTE_FACTURE_ELEMENT").getField("ID_SAISIE_VENTE_FACTURE"));
+        map.put(b.getTable("DEVIS_ELEMENT"), b.getTable("DEVIS_ELEMENT").getField("ID_DEVIS"));
 
         final HistoriqueClientBilanPanel bilanPanel = new HistoriqueClientBilanPanel();
-        this.listPanel = new ListeHistoriquePanel("Clients", b.getTable("CLIENT"), l, bilanPanel, map);
+        this.listPanel = new ListeHistoriquePanel("Clients", b.getTable("CLIENT"), mapList, bilanPanel, map);
 
         this.listPanel.addListenerTable(new TableModelListener() {
             public void tableChanged(TableModelEvent arg0) {

@@ -56,6 +56,10 @@ public class MouseSheetXmlListeListener {
     private boolean showIsVisible = true;
     private boolean printIsVisible = true;
     private boolean generateIsVisible = true;
+    private boolean previewHeader = false;
+    private boolean showHeader = false;
+    private boolean printHeader = false;
+    private boolean generateHeader = false;
 
     public MouseSheetXmlListeListener(Class<? extends AbstractSheetXml> clazz) {
         this(clazz, true, true, true, true);
@@ -94,58 +98,23 @@ public class MouseSheetXmlListeListener {
         }
     }
 
-    // public void mouseReleased(MouseEvent e) {
-    // }
-    //
-    // public void mouseClicked(MouseEvent e) {
-    // }
-    //
-    // public void mouseEntered(MouseEvent e) {
-    // }
-    //
-    // public void mouseExited(MouseEvent e) {
-    // }
-    //
-    // public void mousePressed(MouseEvent e) {
-    //
-    // if (this.liste.getSelectedId() > 1) {
-    // if (e.getButton() == MouseEvent.BUTTON3) {
-    // System.err.println("Display Menu");
-    // JPopupMenu menuDroit = new JPopupMenu();
-    //
-    // final AbstractSheetXml bSheet =
-    // createAbstractSheet(this.liste.getSelectedRow());
-    // if (bSheet != null) {
-    //
-    // for (RowAction action : getRowActions()) {
-    // menuDroit.add(action.getAction());
-    // }
-    //
-    // menuDroit.pack();
-    // menuDroit.show(e.getComponent(), e.getPoint().x, e.getPoint().y);
-    // menuDroit.setVisible(true);
-    // }
-    // } else {
-    // String sfe =
-    // DefaultNXProps.getInstance().getStringProperty("ArticleSFE");
-    // Boolean bSfe = Boolean.valueOf(sfe);
-    // boolean isSFE = bSfe != null && bSfe.booleanValue();
-    // if (!isSFE) {
-    // if (e.getButton() == MouseEvent.BUTTON1 && e.getClickCount() >= 2) {
-    // final AbstractSheetXml bSheet =
-    // createAbstractSheet(this.liste.getSelectedRow());
-    // if (!bSheet.getGeneratedFile().exists()) {
-    // bSheet.createDocumentAsynchronous();
-    // }
-    // bSheet.showPrintAndExportAsynchronous(true, false, false);
-    //
-    // }
-    // }
-    // }
-    // }
-    // }
+    public void setPreviewHeader(boolean previewHeader) {
+        this.previewHeader = previewHeader;
+    }
 
-    private void sendMail(final AbstractSheetXml sheet, final boolean readOnly) {
+    public void setGenerateHeader(boolean generateHeader) {
+        this.generateHeader = generateHeader;
+    }
+
+    public void setPrintHeader(boolean printHeader) {
+        this.printHeader = printHeader;
+    }
+
+    public void setShowHeader(boolean showHeader) {
+        this.showHeader = showHeader;
+    }
+
+    protected void sendMail(final AbstractSheetXml sheet, final boolean readOnly) {
 
         SQLRow row = sheet.getSQLRow();
         Set<SQLField> setContact = null;
@@ -244,17 +213,20 @@ public class MouseSheetXmlListeListener {
 
         if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
             if (this.showIsVisible) {
-                l.add(new RowAction(new AbstractAction(this.showString) {
+                RowAction action = new RowAction(new AbstractAction(this.showString) {
                     public void actionPerformed(ActionEvent ev) {
+                        System.err.println("");
                         createAbstractSheet(IListe.get(ev).getSelectedRow()).openDocument(false);
                     }
 
-                }, false) {
+                }, this.previewHeader) {
                     @Override
                     public boolean enabledFor(IListeEvent evt) {
-                        return createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
+
+                        return evt.getSelectedRow() != null && (evt.getTotalRowCount() >= 1) && (createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists());
                     }
-                });
+                };
+                l.add(action);
 
             }
         } else {
@@ -268,11 +240,11 @@ public class MouseSheetXmlListeListener {
                         }
                     }
 
-                }, false) {
+                }, this.previewHeader) {
 
                     @Override
                     public boolean enabledFor(IListeEvent evt) {
-                        return createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
+                        return evt.getSelectedRow() != null && evt.getTotalRowCount() >= 1 && createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
                     }
                 });
 
@@ -294,10 +266,10 @@ public class MouseSheetXmlListeListener {
                     public void actionPerformed(ActionEvent ev) {
                         createAbstractSheet(IListe.get(ev).getSelectedRow()).openDocument(false);
                     }
-                }, false) {
+                }, this.showHeader) {
                     @Override
                     public boolean enabledFor(IListeEvent evt) {
-                        return createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
+                        return evt.getSelectedRow() != null && evt.getTotalRowCount() >= 1 && createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
                     }
                 });
             }
@@ -309,10 +281,10 @@ public class MouseSheetXmlListeListener {
                 public void actionPerformed(ActionEvent ev) {
                     createAbstractSheet(IListe.get(ev).getSelectedRow()).fastPrintDocument();
                 }
-            }, false) {
+            }, this.printHeader) {
                 @Override
                 public boolean enabledFor(IListeEvent evt) {
-                    return createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
+                    return evt.getSelectedRow() != null && evt.getTotalRowCount() >= 1 && createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
                 }
             });
 
@@ -323,7 +295,7 @@ public class MouseSheetXmlListeListener {
             }, false) {
                 @Override
                 public boolean enabledFor(IListeEvent evt) {
-                    return createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
+                    return evt.getSelectedRow() != null && evt.getTotalRowCount() >= 1 && createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
                 }
             });
 
@@ -337,7 +309,7 @@ public class MouseSheetXmlListeListener {
                     ListeFastPrintFrame frame = new ListeFastPrintFrame(list, clazz);
                     frame.setVisible(true);
                 }
-            }, false);
+            }, this.previewHeader);
             rowAction.setPredicate(IListeEvent.createSelectionCountPredicate(2, Integer.MAX_VALUE));
 
             l.add(rowAction);
@@ -355,7 +327,7 @@ public class MouseSheetXmlListeListener {
             }, false) {
                 @Override
                 public boolean enabledFor(IListeEvent evt) {
-                    return createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
+                    return evt.getSelectedRow() != null && evt.getTotalRowCount() >= 1 && createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
                 }
             });
 
@@ -367,7 +339,7 @@ public class MouseSheetXmlListeListener {
             }, false) {
                 @Override
                 public boolean enabledFor(IListeEvent evt) {
-                    return createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
+                    return evt.getSelectedRow() != null && evt.getTotalRowCount() >= 1 && createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
                 }
             });
 
@@ -380,7 +352,7 @@ public class MouseSheetXmlListeListener {
                     sheet.createDocumentAsynchronous();
                     sheet.showPrintAndExportAsynchronous(true, false, true);
                 }
-            }, false) {
+            }, this.generateHeader) {
                 @Override
                 public boolean enabledFor(List<SQLRowAccessor> selection) {
                     return selection != null && selection.size() == 1;

@@ -142,11 +142,16 @@ public abstract class OOXML implements Comparable<OOXML> {
         return content.replaceAll("\\[" + tagName + "\\]", "<text:span text:style-name=\"" + styleName + "\">").replaceAll("\\[/" + tagName + "\\]", "</text:span>");
     }
 
+    // from OpenDocument-v1.2-schema.rng : a coordinate is a length
+    static private final BigDecimal parseCoordinate(final Element elem, final String attrName, final Namespace ns, LengthUnit unit) {
+        return parseLength(elem, attrName, ns, unit);
+    }
+
     static private final BigDecimal parseLength(final Element elem, final String attrName, final Namespace ns, LengthUnit unit) {
         final String attr = elem.getAttributeValue(attrName, ns);
         if (attr == null)
             return null;
-        return LengthUnit.parsePositiveLength(attr, unit, false);
+        return LengthUnit.parseLength(attr, unit);
     }
 
     // *** instances
@@ -398,13 +403,13 @@ public abstract class OOXML implements Comparable<OOXML> {
     // return null if elem isn't a shape (no x/y or no width/height)
     // BigDecimal null if and only if horizontal/vertical is false
     static private final BigDecimal[] getLocalCoordinates(Element elem, final Namespace svgNS, LengthUnit unit, final boolean horizontal, final boolean vertical) {
-        final BigDecimal x = parseLength(elem, "x", svgNS, unit);
-        final BigDecimal x1 = parseLength(elem, "x1", svgNS, unit);
+        final BigDecimal x = parseCoordinate(elem, "x", svgNS, unit);
+        final BigDecimal x1 = parseCoordinate(elem, "x1", svgNS, unit);
         if (x == null && x1 == null)
             return null;
 
-        final BigDecimal y = parseLength(elem, "y", svgNS, unit);
-        final BigDecimal y1 = parseLength(elem, "y1", svgNS, unit);
+        final BigDecimal y = parseCoordinate(elem, "y", svgNS, unit);
+        final BigDecimal y1 = parseCoordinate(elem, "y1", svgNS, unit);
         if (y == null && y1 == null)
             throw new IllegalArgumentException("Have x but missing y in " + JDOMUtils.output(elem));
 
@@ -413,7 +418,7 @@ public abstract class OOXML implements Comparable<OOXML> {
         if (horizontal) {
             if (x == null) {
                 startX = x1;
-                endX = parseLength(elem, "x2", svgNS, unit);
+                endX = parseCoordinate(elem, "x2", svgNS, unit);
             } else {
                 startX = x;
                 final BigDecimal width = parseLength(elem, "width", svgNS, unit);
@@ -432,7 +437,7 @@ public abstract class OOXML implements Comparable<OOXML> {
         if (vertical) {
             if (y == null) {
                 startY = y1;
-                endY = parseLength(elem, "y2", svgNS, unit);
+                endY = parseCoordinate(elem, "y2", svgNS, unit);
             } else {
                 startY = y;
                 final BigDecimal height = parseLength(elem, "height", svgNS, unit);
@@ -556,7 +561,7 @@ public abstract class OOXML implements Comparable<OOXML> {
 
     private static final class XML_OD_1_2 extends XML_OD {
         public XML_OD_1_2() {
-            super("20110317", "1.2", "OpenDocument-v1.2-cs01-schema.rng");
+            super("20110317", "1.2", "OpenDocument-v1.2-schema.rng");
         }
     }
 }

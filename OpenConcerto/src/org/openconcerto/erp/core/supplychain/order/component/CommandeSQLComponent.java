@@ -16,6 +16,7 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
+import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
@@ -23,6 +24,7 @@ import org.openconcerto.erp.core.supplychain.order.ui.CommandeItemTable;
 import org.openconcerto.erp.generationDoc.gestcomm.CommandeXmlSheet;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.DefaultElementSQLObject;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLInjector;
@@ -46,6 +48,8 @@ import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
@@ -64,32 +68,25 @@ import javax.swing.event.TableModelListener;
 
 public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
-    private CommandeItemTable table;
+    private CommandeItemTable table = new CommandeItemTable();
     private JUniqueTextField numeroUniqueCommande;
     private final SQLTable tableNum = getTable().getBase().getTable("NUMEROTATION_AUTO");
     private final JCheckBox checkImpression = new JCheckBox("Imprimer");
     private final JCheckBox checkVisu = new JCheckBox("Visualiser");
     private final ITextArea infos = new ITextArea(3, 3);
-    private ElementComboBox fourn;
+    private ElementComboBox fourn = new ElementComboBox();
 
     public CommandeSQLComponent() {
         super(Configuration.getInstance().getDirectory().getElement("COMMANDE"));
     }
 
+    public ElementComboBox getBoxFournisseur() {
+        return this.fourn;
+    }
+
     public void addViews() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
-
-        // Champ Module
-        c.gridx = 0;
-        c.gridy++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
-        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
-        this.add(addP, c);
-
-        c.gridy++;
-        c.gridwidth = 1;
 
         // Numero du commande
         c.gridx = 0;
@@ -123,7 +120,6 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         c.fill = GridBagConstraints.HORIZONTAL;
         this.add(new JLabel(getLabelFor("ID_FOURNISSEUR"), SwingConstants.RIGHT), c);
 
-        this.fourn = new ElementComboBox();
         c.gridx = GridBagConstraints.RELATIVE;
         c.gridwidth = 1;
         c.weightx = 1;
@@ -131,29 +127,87 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         c.fill = GridBagConstraints.NONE;
         this.add(this.fourn, c);
 
-        // Commande en cours
-        JCheckBox boxEnCours = new JCheckBox(getLabelFor("EN_COURS"));
-        c.gridx = 2;
-        c.weightx = 0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        this.add(boxEnCours, c);
-        this.addRequiredSQLObject(boxEnCours, "EN_COURS");
+        if (!getTable().getFieldsName().contains("LIVRER")) {
+            // Commande en cours
+            JCheckBox boxEnCours = new JCheckBox(getLabelFor("EN_COURS"));
+            c.gridx = 2;
+            c.weightx = 0;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            this.add(boxEnCours, c);
+            this.addRequiredSQLObject(boxEnCours, "EN_COURS");
+        }
 
-        // Devise
+        // Adresse de livraison
+        if (getTable().getFieldsName().contains("ID_ADRESSE")) {
+            c.gridx = 0;
+            c.gridy++;
+            c.weightx = 0;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            this.add(new JLabel(getLabelFor("ID_ADRESSE")), c);
+            c.gridx++;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+            c.gridy++;
+            final JCheckBox boxLivr = new JCheckBox("Livré par le fournisseur");
+            this.add(boxLivr, c);
+            this.addSQLObject(boxLivr, "LIVRAISON_F");
+            c.gridy++;
+            this.addView("ID_ADRESSE");
+            final DefaultElementSQLObject comp = (DefaultElementSQLObject) this.getView("ID_ADRESSE").getComp();
+            this.add(comp, c);
+            boxLivr.addActionListener(new ActionListener() {
+
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (boxLivr.isSelected() && !comp.isCreated()) {
+                        comp.setCreated(true);
+                        if (CommandeSQLComponent.this.getTable().contains("ID_AFFAIRE")) {
+
+                            SQLRowValues rowVals = getLivraisonAdr(((ElementComboBox) CommandeSQLComponent.this.getView("ID_AFFAIRE").getComp()).getSelectedRow());
+
+                            comp.setValue(rowVals);
+                        }
+
+                    } else {
+                        if (!boxLivr.isSelected()) {
+                            comp.setCreated(false);
+                        }
+                    }
+
+                }
+
+            });
+            this.add(this.getView("ID_ADRESSE").getComp(), c);
+        }
+        c.gridwidth = 1;
+
+        // Champ Module
         c.gridx = 0;
         c.gridy++;
-        c.weightx = 0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        this.add(new JLabel(getLabelFor("ID_DEVISE"), SwingConstants.RIGHT), c);
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
+        this.add(addP, c);
+
+        c.gridy++;
+        c.gridwidth = 1;
 
         final ElementComboBox boxDevise = new ElementComboBox();
-        c.gridx = GridBagConstraints.RELATIVE;
-        c.gridwidth = 1;
-        c.weightx = 1;
-        c.weighty = 0;
-        c.fill = GridBagConstraints.NONE;
-        this.add(boxDevise, c);
-        this.addView(boxDevise, "ID_DEVISE");
+        if (DefaultNXProps.getInstance().getBooleanValue(AbstractVenteArticleItemTable.ARTICLE_SHOW_DEVISE, false)) {
+            // Devise
+            c.gridx = 0;
+            c.gridy++;
+            c.weightx = 0;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            this.add(new JLabel(getLabelFor("ID_DEVISE"), SwingConstants.RIGHT), c);
+
+            c.gridx = GridBagConstraints.RELATIVE;
+            c.gridwidth = 1;
+            c.weightx = 1;
+            c.weighty = 0;
+            c.fill = GridBagConstraints.NONE;
+            this.add(boxDevise, c);
+            this.addView(boxDevise, "ID_DEVISE");
+        }
 
         // Reference
         c.gridx = 0;
@@ -187,7 +241,6 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         addRequiredSQLObject(commSel, field);
 
         // Table d'élément
-        this.table = new CommandeItemTable();
         c.fill = GridBagConstraints.BOTH;
         c.gridy++;
         c.gridx = 0;
@@ -195,14 +248,17 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         c.weighty = 1;
         c.gridwidth = 4;
         this.add(this.table, c);
-        boxDevise.addValueListener(new PropertyChangeListener() {
+        if (DefaultNXProps.getInstance().getBooleanValue(AbstractVenteArticleItemTable.ARTICLE_SHOW_DEVISE, false)) {
 
-            @Override
-            public void propertyChange(PropertyChangeEvent evt) {
-                table.setDevise(boxDevise.getSelectedRow());
+            boxDevise.addValueListener(new PropertyChangeListener() {
 
-            }
-        });
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    table.setDevise(boxDevise.getSelectedRow());
+
+                }
+            });
+        }
         // Bottom
         c.gridy++;
         c.weighty = 0;
@@ -240,6 +296,21 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
         DefaultGridBagConstraints.lockMinimumSize(this.fourn);
         DefaultGridBagConstraints.lockMinimumSize(commSel);
+    }
+
+    protected SQLRowValues getLivraisonAdr(SQLRow rowAffaire) {
+        if (rowAffaire != null) {
+            SQLRow rowClient = rowAffaire.getForeignRow("ID_CLIENT");
+            SQLRow rowAdrL = rowClient.getForeignRow("ID_ADRESSE_L");
+            if (rowAdrL == null || rowAdrL.isUndefined()) {
+                rowAdrL = rowClient.getForeignRow("ID_ADRESSE");
+            }
+            SQLRowValues rowVals = rowAdrL.asRowValues();
+            rowVals.clearPrimaryKeys();
+            return rowVals;
+        } else {
+            return new SQLRowValues(getTable().getTable("ADRESSE"));
+        }
     }
 
     private JPanel getBottomPanel() {
@@ -380,9 +451,9 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
                 SQLRowValues rowVals = new SQLRowValues(this.tableNum);
-                int val = this.tableNum.getRow(2).getInt("COMMANDE_START");
+                int val = this.tableNum.getRow(2).getInt(NumerotationAutoSQLElement.getLabelNumberFor(CommandeSQLElement.class));
                 val++;
-                rowVals.put("COMMANDE_START", new Integer(val));
+                rowVals.put(NumerotationAutoSQLElement.getLabelNumberFor(CommandeSQLElement.class), new Integer(val));
 
                 try {
                     rowVals.update(2);
@@ -466,6 +537,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         }
         rowVals.put("T_HT", Long.valueOf(0));
         rowVals.put("T_SERVICE", Long.valueOf(0));
+        rowVals.put("T_DEVISE", Long.valueOf(0));
         rowVals.put("T_TVA", Long.valueOf(0));
         rowVals.put("T_TTC", Long.valueOf(0));
         rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class));

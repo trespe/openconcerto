@@ -18,6 +18,8 @@ import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
+import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
@@ -59,6 +61,13 @@ public class CommercialSQLElement extends ComptaSQLConfElement {
         l.add("FONCTION");
 
         return l;
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        final CollectionMap<String, String> res = new CollectionMap<String, String>();
+        res.put(null, "NOM");
+        return res;
     }
 
     /*
@@ -228,10 +237,19 @@ public class CommercialSQLElement extends ComptaSQLConfElement {
                 c.weightx = 1;
                 this.add(textMail, c);
 
+                // Modules
+                c.gridx = 0;
+                c.gridy++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                final JPanel addP = new JPanel();
+                this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+                this.add(addP, c);
+
                 // User
 
                 c.gridx = 0;
                 c.gridy++;
+                c.gridwidth = 1;
                 c.weightx = 0;
                 final JLabel labelUser = new JLabel(getLabelFor("ID_USER_COMMON"));
                 labelUser.setHorizontalAlignment(SwingConstants.RIGHT);

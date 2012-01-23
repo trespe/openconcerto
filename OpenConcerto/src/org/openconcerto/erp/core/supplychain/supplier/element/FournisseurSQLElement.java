@@ -34,6 +34,7 @@ import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 
@@ -227,6 +228,14 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                 JCheckBox boxUE = new JCheckBox(getLabelFor("UE"));
                 this.add(boxUE, c);
 
+                // Champ Module
+                c.gridx = 0;
+                c.gridy++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                final JPanel addP = new JPanel();
+                this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
+                this.add(addP, c);
+
                 JPanel panelAdresse = new JPanel(new GridBagLayout());
                 GridBagConstraints cAdr = new DefaultGridBagConstraints();
                 // Adresse
@@ -254,7 +263,7 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
                 c.gridx = 0;
                 c.gridy++;
                 c.gridwidth = GridBagConstraints.REMAINDER;
-                c.weightx = 0;
+                c.weightx = 1;
                 c.fill = GridBagConstraints.NONE;
                 this.add(panelAdresse, c);
 

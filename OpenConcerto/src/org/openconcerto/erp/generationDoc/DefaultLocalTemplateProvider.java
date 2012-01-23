@@ -41,7 +41,7 @@ public class DefaultLocalTemplateProvider extends AbstractLocalTemplateProvider 
         if (type != null) {
             path += type;
         }
-        if (langage != null) {
+        if (langage != null && langage.trim().length() > 0) {
             path = langage + File.separatorChar + path;
         }
         File file = new File(baseDirectory, path);

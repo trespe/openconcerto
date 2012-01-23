@@ -34,6 +34,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.swing.BorderFactory;
@@ -243,7 +244,7 @@ public class SalarieSQLElement extends ComptaSQLConfElement {
                 comboTitre.setButtonsVisible(false);
                 DefaultGridBagConstraints.lockMinimumSize(comboTitre);
 
-                this.textCode.setText(NumerotationAutoSQLElement.getNextNumero(SalarieSQLElement.class));
+                this.textCode.setText(NumerotationAutoSQLElement.getNextNumero(SalarieSQLElement.class, new Date()));
             }
 
             @Override
@@ -309,7 +310,7 @@ public class SalarieSQLElement extends ComptaSQLConfElement {
                 }
 
                 // incrémentation du numéro auto
-                if (NumerotationAutoSQLElement.getNextNumero(SalarieSQLElement.class).equalsIgnoreCase(this.textCode.getText().trim())) {
+                if (NumerotationAutoSQLElement.getNextNumero(SalarieSQLElement.class, new Date()).equalsIgnoreCase(this.textCode.getText().trim())) {
                     SQLRowValues rowValsNum = new SQLRowValues(this.tableNum);
                     int val = this.tableNum.getRow(2).getInt("SALARIE_START");
                     val++;

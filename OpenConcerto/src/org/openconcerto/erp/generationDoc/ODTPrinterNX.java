@@ -31,7 +31,8 @@ public class ODTPrinterNX extends ODTPrinterXML {
     public ODTPrinterNX(final OpenDocument doc) {
         super(doc);
         this.renderer = new ODTRenderer(doc);
-        this.renderer.setPaintMaxResolution(true);
+        // this.renderer.setPaintMaxResolution(true);
+        renderer.setIgnoreMargins(true);
     }
 
     public void print(final String printerName, final int copies) {

@@ -31,7 +31,6 @@ import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
-
 public class AdresseSQLComponent extends BaseSQLComponent {
     private final JLabel labelDest = new JLabel(getLabelFor("DEST"));
     private final JTextArea destinataire = new JTextArea();
@@ -75,6 +74,7 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         c.gridwidth = 1;
         c.gridx++;
         c.weightx = 1;
+        DefaultGridBagConstraints.lockMinimumSize(textVille);
         this.add(textVille, c);
 
         // Cedex

@@ -26,7 +26,7 @@ public class EmailComposer {
         return instance;
     }
 
-    public void compose(String to, String subject, String text, File attachedFile) throws IOException, InterruptedException {
+    public void compose(String to, String subject, String text, File... attachedFile) throws IOException, InterruptedException {
         if (to == null) {
             to = "";
         }

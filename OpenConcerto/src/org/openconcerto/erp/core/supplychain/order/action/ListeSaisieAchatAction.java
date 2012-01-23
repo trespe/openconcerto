@@ -29,7 +29,10 @@ public class ListeSaisieAchatAction extends CreateFrameAbstractAction {
     }
 
     public JFrame createFrame() {
-        IListFrame frame = new IListFrame(new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_ACHAT")));
+        ListeGestCommEltPanel panel = new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_ACHAT"));
+        panel.setAddVisible(true);
+        IListFrame frame = new IListFrame(panel);
+
         return frame;
     }
 }

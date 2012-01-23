@@ -54,6 +54,7 @@ public class AutoHideTabbedPane extends JPanel {
     }
 
     public final void addTab(final String title, final JComponent comp) {
+        comp.setOpaque(false);
         insertTab(title, null, comp, null, -1);
     }
 

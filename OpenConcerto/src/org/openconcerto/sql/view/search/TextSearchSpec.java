@@ -18,7 +18,7 @@ import org.openconcerto.utils.FormatGroup;
 import java.text.Format;
 import java.text.Normalizer;
 import java.text.Normalizer.Form;
-import java.text.ParseException;
+import java.text.ParsePosition;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -73,12 +73,13 @@ public class TextSearchSpec implements SearchSpec {
         if (this.parsedFilter.containsKey(fmt)) {
             res = this.parsedFilter.get(fmt);
         } else {
-            try {
-                res = fmt.parseObject(this.filterString);
-                assert res != null : "Cannot tell apart parsing failed from parsed to null";
-            } catch (ParseException e) {
+            final ParsePosition pp = new ParsePosition(0);
+            res = fmt.parseObject(this.filterString, pp);
+            // don't allow "25/12/05foobar" or worse "25/12/05 13:00" (parsing to "25/12/05 00:00")
+            if (pp.getErrorIndex() >= 0 || pp.getIndex() < this.filterString.length())
                 res = null;
-            }
+            else
+                assert res != null : "Cannot tell apart parsing failed from parsed to null";
             this.parsedFilter.put(fmt, res);
         }
         return res;
@@ -120,7 +121,17 @@ public class TextSearchSpec implements SearchSpec {
             for (int i = 0; i < stop; i++) {
                 final Format fmt = fmts.get(i);
                 // e.g. test if "2006" is contained in "25 déc. 2010"
-                if (containsOrEquals && containsOrEquals(fmt.format(cell)))
+
+                // for the equals mode we can either format the cell value and compare it to the
+                // user typed string, or we can parse the user typed string and compare it to the
+                // cell value.
+                // The problem with the first approach is that some formats lose information (e.g. a
+                // date format for a timestamp loses the time part : 25/12/2010 13:00 would be
+                // formatted to 25/12/2010 thus "= 25/12/2010" would select all times of that day,
+                // which is better achieved with contains)
+                // PS: the date format is useful for parsing since "> 25/12/2010" means
+                // "> 25/12/2010 00:00" which is understandable and concise.
+                if (isContains && containsOrEquals(fmt.format(cell)))
                     return true;
                 // e.g. test if "01/01/2006" is before "25 déc. 2010"
                 else if (!isContains && test(getParsed(fmt), cell))
@@ -173,19 +184,23 @@ public class TextSearchSpec implements SearchSpec {
         assert !(this.mode == Mode.CONTAINS || this.mode == Mode.CONTAINS_STRICT) : "Only call test() if not isContains()";
         if (search == null)
             return false;
-        if (this.mode == Mode.EQUALS || this.mode == Mode.EQUALS_STRICT)
-            return cell.equals(search);
 
         if (cell instanceof Comparable) {
             final Comparable c = (Comparable<?>) cell;
-            if (this.mode == Mode.LESS_THAN) {
+            if (this.mode == Mode.EQUALS || this.mode == Mode.EQUALS_STRICT) {
+                // allow to compare Timestamp & Date
+                return c.compareTo(search) == 0;
+            } else if (this.mode == Mode.LESS_THAN) {
                 return c.compareTo(search) <= 0;
             } else {
                 assert this.mode == Mode.GREATER_THAN;
                 return c.compareTo(search) >= 0;
             }
         } else {
-            return false;
+            if (this.mode == Mode.EQUALS || this.mode == Mode.EQUALS_STRICT)
+                return cell.equals(search);
+            else
+                return false;
         }
     }
 

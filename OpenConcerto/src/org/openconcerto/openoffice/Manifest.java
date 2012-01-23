@@ -73,7 +73,7 @@ final class Manifest {
      */
     public Manifest(XMLVersion version, String mainType) {
         this.version = version;
-        this.doc = new Document(new Element("manifest", this.getNS()), (DocType) DOC_TYPE.clone());
+        this.doc = new Document(new Element("manifest", this.getNS()), version == XMLVersion.OOo ? (DocType) DOC_TYPE.clone() : null);
         this.addEntry("/", mainType);
     }
 

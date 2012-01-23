@@ -248,7 +248,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         this.buttonActualiser.setPreferredSize(new Dimension(20, 20));
         this.buttonActualiser.setMaximumSize(new Dimension(20, 20));
         this.searchComponent = new SearchListComponent(this.liste.getModel());
-        this.searchComponent.setFormats(this.liste.getFormats());
+        this.searchComponent.setFormats(this.liste.getSearchFormats());
 
         this.buttonModifier = new JButton("Modifier");
         this.buttonModifier.setOpaque(false);

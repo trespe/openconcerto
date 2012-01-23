@@ -544,9 +544,15 @@ public class ITableModel extends AbstractTableModel {
     }
 
     void setSleeping(SleepState state) {
-        synchronized (this.runSleep) {
-            this.wantedState = state;
-            this.sleepUpdated();
+        try {
+            synchronized (this.runSleep) {
+                this.wantedState = state;
+                this.sleepUpdated();
+            }
+        } catch (Exception e) {
+            // FIXME Sylvain knows
+            System.err.println("Cannot sleep for strange reasons");
+            e.printStackTrace();
         }
     }
 

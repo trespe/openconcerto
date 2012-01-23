@@ -30,6 +30,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.view.EditFrame;
@@ -1014,7 +1015,7 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
         System.err.println("Validation des éléments de la fiche.");
         String trueString = "1";
-        if (Configuration.getInstance().getBase().getServer().getSystem().equalsIgnoreCase("postgresql")) {
+        if (Configuration.getInstance().getBase().getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
             trueString = "true";
         }
         String req = "UPDATE \"FICHE_PAYE_ELEMENT\" SET \"VALIDE\" = " + trueString + " WHERE \"FICHE_PAYE_ELEMENT\".\"ID_FICHE_PAYE\" = " + id;

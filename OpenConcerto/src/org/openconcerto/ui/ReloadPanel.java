@@ -124,14 +124,15 @@ public class ReloadPanel extends JComponent {
     @Override
     public void paint(Graphics g) {
         // Background filling
-        g.setColor(getBackground());
-        g.fillRect(0, 0, 16, 16);
-        if (mode == MODE_EMPTY) {
-            return;
+        if (isOpaque()) {
+            g.setColor(getBackground());
+            g.fillRect(0, 0, 16, 16);
         }
+
         Graphics2D g2 = (Graphics2D) g;
         g2.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
         // Circles drawing
         g.setColor(getColor(pos));
         g.drawLine(3, 8, 3, 8);
@@ -149,12 +150,14 @@ public class ReloadPanel extends JComponent {
     }
 
     private Color getColor(int pos2) {
-        if (mode == MODE_ROTATE) {
-            int colpos = pos2 % 6;
-            return cols[colpos];
-        }
-        if (pos < 3) {
-            return cols[5];
+        if (mode != MODE_EMPTY) {
+            if (mode == MODE_ROTATE) {
+                int colpos = pos2 % 6;
+                return cols[colpos];
+            }
+            if (pos < 3) {
+                return cols[5];
+            }
         }
         return this.getBackground();
     }

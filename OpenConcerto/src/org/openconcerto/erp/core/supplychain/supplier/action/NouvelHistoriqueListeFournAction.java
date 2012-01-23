@@ -22,14 +22,15 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRowAccessor;
 
-import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-
 
 public class NouvelHistoriqueListeFournAction extends CreateFrameAbstractAction {
     public NouvelHistoriqueListeFournAction() {
@@ -39,12 +40,15 @@ public class NouvelHistoriqueListeFournAction extends CreateFrameAbstractAction 
 
     public JFrame createFrame() {
         SQLBase b = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-        List<String> l = new ArrayList<String>();
-        l.add("SAISIE_ACHAT");
-        l.add("CHEQUE_FOURNISSEUR");
+        // List<String> l = new ArrayList<String>();
+        // l.add("SAISIE_ACHAT");
+        // l.add("CHEQUE_FOURNISSEUR");
+        Map<String, List<String>> mapList = new HashMap<String, List<String>>();
+        mapList.put("Achats", Arrays.asList("SAISIE_ACHAT"));
+        mapList.put("Chèques émis", Arrays.asList("CHEQUE_FOURNISSEUR"));
 
         final HistoriqueFournBilanPanel panelBilan = new HistoriqueFournBilanPanel();
-        final ListeHistoriquePanel listHistoriquePanel = new ListeHistoriquePanel("Fournisseurs", b.getTable("FOURNISSEUR"), l, panelBilan, null);
+        final ListeHistoriquePanel listHistoriquePanel = new ListeHistoriquePanel("Fournisseurs", b.getTable("FOURNISSEUR"), mapList, panelBilan, null);
 
         listHistoriquePanel.addListSelectionListener(new ListSelectionListener() {
             public void valueChanged(ListSelectionEvent e) {

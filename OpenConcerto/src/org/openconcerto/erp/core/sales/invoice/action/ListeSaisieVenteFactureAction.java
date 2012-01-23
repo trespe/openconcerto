@@ -109,18 +109,20 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
         }
             final SQLTableModelColumn dateEnvoiCol = src.getColumn(eltFacture.getTable().getField("DATE_ENVOI"));
 
-            ((SQLTableModelColumnPath) dateEnvoiCol).setEditable(true);
+            if (dateEnvoiCol != null) {
+                ((SQLTableModelColumnPath) dateEnvoiCol).setEditable(true);
 
+
+                dateEnvoiCol.setColumnInstaller(new IClosure<TableColumn>() {
+                    @Override
+                    public void executeChecked(TableColumn columnDateEnvoi) {
+                        columnDateEnvoi.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
+                        columnDateEnvoi.setCellRenderer(new DateEnvoiRenderer());
+                    }
+                });
+            }
             final SQLTableModelColumn dateReglCol = src.getColumn(eltFacture.getTable().getField("DATE_REGLEMENT"));
             ((SQLTableModelColumnPath) dateReglCol).setEditable(true);
-
-            dateEnvoiCol.setColumnInstaller(new IClosure<TableColumn>() {
-                @Override
-                public void executeChecked(TableColumn columnDateEnvoi) {
-                    columnDateEnvoi.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
-                    columnDateEnvoi.setCellRenderer(new DateEnvoiRenderer());
-                }
-            });
 
             // Edition des dates de reglement
             dateReglCol.setColumnInstaller(new IClosure<TableColumn>() {
