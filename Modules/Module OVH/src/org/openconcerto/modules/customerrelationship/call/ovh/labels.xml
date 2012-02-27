@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+	<TABLE name="VOIP_RECORD">
+		<FIELD name="DATE" label="Date" />
+		<FIELD name="TYPE" label="Type" />
+		<FIELD name="NUMBER_FROM" label="Du numéro" />
+		<FIELD name="NUMBER_TO" label="Vers le numéro" />
+		<FIELD name="FROM" label="De" />
+		<FIELD name="TO" label="Vers" />
+		<FIELD name="DESCRIPTION" label="Description" />
+		<FIELD name="DURATION" label="Durée" />
+	</TABLE>
+</ROOT>
