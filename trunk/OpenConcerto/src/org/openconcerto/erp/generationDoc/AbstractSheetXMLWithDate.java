@@ -26,7 +26,10 @@ public abstract class AbstractSheetXMLWithDate extends AbstractSheetXml {
     }
 
     protected final String getYear() {
-        final Calendar cal = this.row.getDate("DATE");
+        Calendar cal = null;
+        if (this.row.getTable().contains("DATE")) {
+            cal = this.row.getDate("DATE");
+        }
         return cal == null ? "Date inconnue" : String.valueOf(cal.get(Calendar.YEAR));
     }
 

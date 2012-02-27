@@ -29,6 +29,7 @@ import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
@@ -38,6 +39,7 @@ import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.Color;
@@ -55,6 +57,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.Vector;
 
 import javax.swing.BorderFactory;
@@ -74,6 +77,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableModel;
 
 public class ListeHistoriquePanel extends JPanel {
 
@@ -181,7 +185,7 @@ public class ListeHistoriquePanel extends JPanel {
      * @param listFieldMap jointure d'une table pour utiliser le filtre si la table ne contient pas
      *        de foreignKey pointant sur tableList
      */
-    public ListeHistoriquePanel(String title, final SQLTable tableList, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
+    public ListeHistoriquePanel(final String title, final SQLTable tableList, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
         super();
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -205,6 +209,7 @@ public class ListeHistoriquePanel extends JPanel {
             List<String> listPanelTable = listTableOnglet.get(key);
 
             JPanel tabbedPanel = new JPanel(new GridBagLayout());
+            tabbedPanel.setOpaque(false);
             GridBagConstraints c2 = new DefaultGridBagConstraints();
             c2.fill = GridBagConstraints.BOTH;
             c2.weightx = 1;
@@ -217,7 +222,7 @@ public class ListeHistoriquePanel extends JPanel {
                 IListPanel liste;
 
                 if (elt.getTable().contains("ID_MOUVEMENT")) {
-                    liste = new ListeGestCommEltPanel(elt, Where.FALSE) {
+                    liste = new ListeGestCommEltPanel(elt, Where.FALSE, "historique-" + title) {
                         protected void handleAction(JButton source, ActionEvent evt) {
 
                             if (elt.getTable().contains("ID_MOUVEMENT")) {
@@ -241,7 +246,35 @@ public class ListeHistoriquePanel extends JPanel {
                     };
 
                 } else {
-                    liste = new ListeAddPanel(elt, new IListe(elt.createTableSource(Where.FALSE)));
+                    liste = new ListeAddPanel(elt, new IListe(elt.createTableSource(Where.FALSE)), "historique-" + title) {
+                        @Override
+                        protected void handleAction(JButton source, ActionEvent evt) {
+                            if (source == this.buttonAjouter) {
+                                final boolean deaf = isDeaf();
+                                // toujours remplir la createFrame avec la ligne sélectionnée
+                                // car la frame écoute la sélection mais pas les modif, et se reset
+                                // qd on la ferme
+                                // donc si on clic ajouter, on ferme, on modif la ligne, on clic
+                                // ajouter
+                                // on doit reremplir l'EditFrame
+                                int selectIndex = ListeHistoriquePanel.this.jListePanel.getSelectedIndex();
+                                SQLRowAccessor row = ListeHistoriquePanel.this.jListePanel.getModel().getRowAt(selectIndex);
+                                if (row != null && !row.isUndefined()) {
+                                    SQLTable table = this.getCreateFrame().getSQLComponent().getElement().getTable();
+                                    Set<SQLField> fields = table.getForeignKeys(ListeHistoriquePanel.this.jListePanel.getModel().getTable());
+                                    if (fields != null && fields.size() > 0) {
+                                        SQLRowValues rowVals = new SQLRowValues(table);
+                                        rowVals.put(((SQLField) fields.toArray()[0]).getName(), row.getID());
+                                        this.getCreateFrame().getSQLComponent().resetValue();
+                                        this.getCreateFrame().getSQLComponent().select(rowVals);
+                                    }
+                                }
+                                FrameUtil.show(this.getCreateFrame());
+                            } else {
+                                super.handleAction(source, evt);
+                            }
+                        }
+                    };
                 }
 
                 this.vectListePanel.add(liste);
@@ -331,11 +364,13 @@ public class ListeHistoriquePanel extends JPanel {
     }
 
     public void selectIDinJList(int id) {
-        int index = this.jListePanel.getModel().getIndexForId(id);
-        if (index >= 0) {
-            this.jListePanel.getJList().setSelectedIndex(index);
-            this.jListePanel.getJList().ensureIndexIsVisible(index);
-        }
+        // int index = this.jListePanel.getModel().getIndexForId(id);
+        // if (index >= 0) {
+        // this.jListePanel.getJList().setSelectedIndex(index);
+        // this.jListePanel.getJList().ensureIndexIsVisible(index);
+        // }
+
+        this.jListePanel.selectID(id);
     }
 
     private void setRenderer(IListPanel liste) {
@@ -424,12 +459,18 @@ public class ListeHistoriquePanel extends JPanel {
     }
 
     public void removeAllTableListener() {
+        this.jListePanel.removeAllTableListener();
         for (Integer i : this.mapListener.keySet()) {
             IListPanel panel = vectListePanel.get(i);
             List<TableModelListener> l = this.mapListener.get(i);
             for (TableModelListener tableModelListener : l) {
                 final IListe liste = panel.getListe();
-                liste.getTableModel().removeTableModelListener(tableModelListener);
+                if (liste != null) {
+                    final TableModel tableModel = liste.getTableModel();
+                    if (tableModel != null) {
+                        tableModel.removeTableModelListener(tableModelListener);
+                    }
+                }
             }
 
         }

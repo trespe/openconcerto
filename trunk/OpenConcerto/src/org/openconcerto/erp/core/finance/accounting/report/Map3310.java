@@ -149,7 +149,7 @@ public class Map3310 extends Thread {
 
         // long vA02 = this.sommeCompte.soldeCompte(70, 70, true, this.dateDebut, this.dateFin);
         this.m.put("A02", "");
-        long tvaIntra = -this.sommeCompte.sommeCompteFils(rowCompteTVAIntra.getString("NUMERO"), new Date(100, 0, 1), this.dateFin);
+        long tvaIntra = -this.sommeCompte.sommeCompteFils(rowCompteTVAIntra.getString("NUMERO"), this.dateDebut, this.dateFin);
         long achatsIntra = this.sommeCompte.sommeCompteFils(rowCompteAchatIntra.getString("NUMERO"), this.dateDebut, this.dateFin);
         this.m.put("A03", GestionDevise.round(achatsIntra));
         this.m.put("A04", "");
@@ -157,7 +157,7 @@ public class Map3310 extends Thread {
         this.m.put("A06", "");
         this.m.put("A07", "");
 
-        long tvaCol = -this.sommeCompte.sommeCompteFils(rowCompteTVACol.getString("NUMERO"), new Date(100, 0, 1), this.dateFin) + tvaIntra;
+        long tvaCol = -this.sommeCompte.sommeCompteFils(rowCompteTVACol.getString("NUMERO"), this.dateDebut, this.dateFin) + tvaIntra;
         this.m.put("B08", GestionDevise.round(tvaCol));
         this.m.put("B08HT", GestionDevise.round(Math.round(tvaCol / 0.196)));
         this.m.put("B09", "");
@@ -180,10 +180,10 @@ public class Map3310 extends Thread {
         this.m.put("B16", GestionDevise.round(tvaCol));
         this.m.put("B17", GestionDevise.round(tvaIntra));
         this.m.put("B18", "");
-        long tvaImmo = this.sommeCompte.sommeCompteFils(rowCompteTVAImmo.getString("NUMERO"), new Date(100, 0, 1), this.dateFin);
+        long tvaImmo = this.sommeCompte.sommeCompteFils(rowCompteTVAImmo.getString("NUMERO"), this.dateDebut, this.dateFin);
         this.m.put("B19", GestionDevise.round(tvaImmo));
 
-        long tvaAutre = this.sommeCompte.sommeCompteFils(rowCompteTVADed.getString("NUMERO"), new Date(100, 0, 1), this.dateFin);
+        long tvaAutre = this.sommeCompte.sommeCompteFils(rowCompteTVADed.getString("NUMERO"), this.dateDebut, this.dateFin);
         this.m.put("B20", GestionDevise.round(tvaAutre));
         this.m.put("B21", "");
         this.m.put("B22", "");

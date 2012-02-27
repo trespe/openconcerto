@@ -95,13 +95,23 @@ public final class SQLRowValues extends SQLRowAccessor {
         COPY_ROW
     }
 
-    public static final Object SQL_DEFAULT = new Object();
+    public static final Object SQL_DEFAULT = new Object() {
+        @Override
+        public String toString() {
+            return SQLRowValues.class.getSimpleName() + ".SQL_DEFAULT";
+        }
+    };
     /**
      * Empty foreign field value.
      * 
      * @see #putEmptyLink(String)
      */
-    public static final Object SQL_EMPTY_LINK = new Object();
+    public static final Object SQL_EMPTY_LINK = new Object() {
+        @Override
+        public String toString() {
+            return SQLRowValues.class.getSimpleName() + ".SQL_EMPTY_LINK";
+        }
+    };
 
     private static boolean checkValidity = true;
 
@@ -524,15 +534,22 @@ public final class SQLRowValues extends SQLRowAccessor {
         // retains all == no-op
         if (retain && fields == null)
             return this;
+        // clear all on an empty values == no-op
+        if (!retain && fields == null && this.size() == 0)
+            return this;
 
         final Set<String> toRm = new HashSet<String>(this.values.keySet());
         // fields == null => !retain => clear()
         if (fields != null) {
             if (retain) {
                 toRm.removeAll(fields);
-            } else
+            } else {
                 toRm.retainAll(fields);
+            }
         }
+        // nothing to change
+        if (toRm.isEmpty())
+            return this;
         // handle links
         final Set<String> fks = getTable().getForeignKeysNames();
         for (final String fieldName : toRm) {

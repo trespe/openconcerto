@@ -27,7 +27,9 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.SQLTableModelSource;
 import org.openconcerto.utils.cc.IClosure;
 
 import java.awt.Font;
@@ -46,9 +48,14 @@ public class ListeDesClientsAction extends CreateFrameAbstractAction {
         this.putValue(Action.NAME, "Liste des clients");
     }
 
+    protected SQLTableModelSource getTableSource() {
+        SQLTable tableClient = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("CLIENT");
+        return Configuration.getInstance().getDirectory().getElement(tableClient).getTableSource(true);
+    }
+
     public JFrame createFrame() {
         SQLTable tableClient = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("CLIENT");
-        final ListeAddPanel panel = new ListeAddPanel(Configuration.getInstance().getDirectory().getElement(tableClient));
+        final ListeAddPanel panel = new ListeAddPanel(Configuration.getInstance().getDirectory().getElement(tableClient), new IListe(getTableSource()));
         IListFrame frame = new IListFrame(panel);
 
         // Renderer

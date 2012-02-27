@@ -17,9 +17,9 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.supplychain.order.component.CommandeSQLComponent;
+import org.openconcerto.erp.core.supplychain.supplier.component.MouvementStockSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
@@ -31,29 +31,20 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.sqlobject.ElementComboBox;
-import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.EditPanel.EditMode;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
-import org.openconcerto.ui.DefaultGridBagConstraints;
-import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.preferences.DefaultProps;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
 
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import javax.swing.JLabel;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 public class MouvementStockSQLElement extends ComptaSQLConfElement {
@@ -84,99 +75,12 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
      * @see org.openconcerto.devis.SQLElement#getComponent()
      */
     public SQLComponent createComponent() {
-
-        return new BaseSQLComponent(this) {
-
-            private SQLTextCombo textLib;
-            private JTextField textQte;
-            private JDate date;
-
-            public void addViews() {
-                this.setLayout(new GridBagLayout());
-                final GridBagConstraints c = new DefaultGridBagConstraints();
-
-                // Libellé
-                JLabel labelLib = new JLabel(getLabelFor("NOM"), SwingConstants.RIGHT);
-                this.add(labelLib, c);
-
-                c.gridx++;
-                c.weightx = 1;
-                this.textLib = new SQLTextCombo();
-                this.add(this.textLib, c);
-
-                // Date
-                c.gridx++;
-                c.weightx = 0;
-                JLabel labelDate = new JLabel(getLabelFor("DATE"), SwingConstants.RIGHT);
-                this.add(labelDate, c);
-
-                c.gridx++;
-                this.date = new JDate(true);
-                this.add(this.date, c);
-
-                // Article
-                final ElementComboBox articleSelect = new ElementComboBox();
-
-                c.gridx = 0;
-                c.gridy++;
-                JLabel labelArticle = new JLabel(getLabelFor("ID_ARTICLE"), SwingConstants.RIGHT);
-                this.add(labelArticle, c);
-
-                c.gridx++;
-                c.gridwidth = GridBagConstraints.REMAINDER;
-                c.weightx = 1;
-                this.add(articleSelect, c);
-
-                // QTE
-                c.gridwidth = 1;
-                c.weightx = 0;
-                c.gridy++;
-                c.gridx = 0;
-                c.anchor = GridBagConstraints.EAST;
-                JLabel labelQte = new JLabel(getLabelFor("QTE"), SwingConstants.RIGHT);
-                this.add(labelQte, c);
-
-                c.gridx++;
-                c.fill = GridBagConstraints.NONE;
-                this.textQte = new JTextField(6);
-                c.weighty = 1;
-                c.anchor = GridBagConstraints.NORTHWEST;
-                this.add(this.textQte, c);
-                DefaultGridBagConstraints.lockMinimumSize(this.textQte);
-                DefaultGridBagConstraints.lockMaximumSize(this.textQte);
-                this.addRequiredSQLObject(this.textQte, "QTE");
-                this.addSQLObject(this.textLib, "NOM");
-                this.addRequiredSQLObject(articleSelect, "ID_ARTICLE");
-                this.addRequiredSQLObject(this.date, "DATE");
-            }
-
-            @Override
-            public int insert(SQLRow order) {
-
-                int id = super.insert(order);
-
-                updateStock(Arrays.asList(id));
-
-                return id;
-            }
-
-            @Override
-            public void update() {
-
-                int id = getSelectedID();
-                updateStock(Arrays.asList(id), true);
-
-                super.update();
-
-                updateStock(Arrays.asList(id));
-            }
-        };
+        return new MouvementStockSQLComponent(this);
     }
 
     @Override
     protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
         super.archive(row, cutLinks);
-
         updateStock(Arrays.asList(row.getID()), true);
     }
 
@@ -253,15 +157,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                 rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
 
                 map.put(rowArticle.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
-                // SwingUtilities.invokeLater(new Runnable() {
-                //
-                // @Override
-                // public void run() {
-                // JOptionPane.showMessageDialog(null, "L'article " + rowArticle.getString("NOM") +
-                // " est en dessous du stock minimum (" + rowArticle.getFloat("QTE_MIN")
-                // + ").\nIl vous en reste " + qteShow + " en stock.");
-                // }
-                // });
+
             }
         }
         return map;
@@ -274,17 +170,17 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                 @Override
                 public void run() {
 
-                    SQLElement commande = Configuration.getInstance().getDirectory().getElement("COMMANDE");
+                    final SQLElement commande = Configuration.getInstance().getDirectory().getElement("COMMANDE");
                     for (SQLRow fournisseur : col.keySet()) {
 
                         // On regarde si il existe une commande en cours existante
-                        SQLSelect sel = new SQLSelect(commande.getTable().getBase());
+                        final SQLSelect sel = new SQLSelect(commande.getTable().getBase());
                         sel.addSelectStar(commande.getTable());
                         Where w = new Where(commande.getTable().getField("EN_COURS"), "=", Boolean.TRUE);
                         w = w.and(new Where(commande.getTable().getField("ID_FOURNISSEUR"), "=", fournisseur.getID()));
                         sel.setWhere(w);
 
-                        List<SQLRow> rowsCmd = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
+                        final List<SQLRow> rowsCmd = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
 
                         SQLRow commandeExistante = null;
                         if (rowsCmd != null && rowsCmd.size() > 0) {
@@ -295,15 +191,14 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                         CommandeSQLComponent cmp;
 
                         if (commandeExistante != null) {
-
                             frame = new EditFrame(commande, EditMode.MODIFICATION);
                             cmp = (CommandeSQLComponent) frame.getSQLComponent();
                             cmp.select(commandeExistante);
                         } else {
                             frame = new EditFrame(commande);
                             cmp = (CommandeSQLComponent) frame.getSQLComponent();
-                            SQLRowValues rowVals = new SQLRowValues(commande.getTable());
-                            SQLElement eltComm = Configuration.getInstance().getDirectory().getElement("COMMERCIAL");
+                            final SQLRowValues rowVals = new SQLRowValues(commande.getTable());
+                            final SQLElement eltComm = Configuration.getInstance().getDirectory().getElement("COMMERCIAL");
                             int idUser = UserManager.getInstance().getCurrentUser().getId();
                             SQLRow rowsComm = SQLBackgroundTableCache.getInstance().getCacheForTable(eltComm.getTable()).getFirstRowContains(idUser, eltComm.getTable().getField("ID_USER_COMMON"));
 
@@ -318,14 +213,13 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                             cmp.getRowValuesTable().getRowValuesTable().getRowValuesTableModel().clearRows();
                         }
 
-                        RowValuesTableModel model = cmp.getRowValuesTable().getRowValuesTable().getRowValuesTableModel();
-                        SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
+                        final RowValuesTableModel model = cmp.getRowValuesTable().getRowValuesTable().getRowValuesTableModel();
                         for (SQLRowValues rowValsElt : (List<SQLRowValues>) col.get(fournisseur)) {
                             SQLRowValues rowValsMatch = null;
                             int index = 0;
 
                             for (int i = 0; i < model.getRowCount(); i++) {
-                                SQLRowValues rowValsCmdElt = model.getRowValuesAt(i);
+                                final SQLRowValues rowValsCmdElt = model.getRowValuesAt(i);
                                 if (ReferenceArticleSQLElement.isReferenceEquals(rowValsCmdElt, rowValsElt)) {
                                     rowValsMatch = rowValsCmdElt;
                                     index = i;
@@ -333,7 +227,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                                 }
                             }
                             if (rowValsMatch != null) {
-                                int qte = rowValsMatch.getInt("QTE");
+                                final int qte = rowValsMatch.getInt("QTE");
                                 model.putValue(qte + rowValsElt.getInt("QTE"), index, "QTE");
                             } else {
                                 model.addRow(rowValsElt);
@@ -350,20 +244,15 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
     }
 
     public static final void showSource(int id) {
-        SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-        SQLTable tableMvt = base.getTable("MOUVEMENT_STOCK");
-
-        String stringTableSource = tableMvt.getRow(id).getString("SOURCE");
-        EditFrame f;
-
+        final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
+        final SQLTable tableMvt = base.getTable("MOUVEMENT_STOCK");
+        final String stringTableSource = tableMvt.getRow(id).getString("SOURCE");
+        final EditFrame f;
         if (id != 1) {
-
             // Si une source est associée on l'affiche en readonly
             if (stringTableSource.trim().length() != 0 && tableMvt.getRow(id).getInt("IDSOURCE") != 1) {
-
                 f = new EditFrame(Configuration.getInstance().getDirectory().getElement(stringTableSource), EditPanel.READONLY);
                 f.selectionId(tableMvt.getRow(id).getInt("IDSOURCE"));
-
             } else {
                 // Sinon on affiche le mouvement de stock
                 f = new EditFrame(Configuration.getInstance().getDirectory().getElement(tableMvt), EditPanel.READONLY);

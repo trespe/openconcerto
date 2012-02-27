@@ -425,6 +425,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         c.weighty = 0;
         c.gridwidth = 4;
         ITextArea infos = new ITextArea(4, 4);
+        infos.setBorder(null);
         JScrollPane scrollPane = new JScrollPane(infos);
         DefaultGridBagConstraints.lockMinimumSize(scrollPane);
         this.add(scrollPane, c);

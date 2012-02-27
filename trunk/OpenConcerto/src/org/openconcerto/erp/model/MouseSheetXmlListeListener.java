@@ -17,6 +17,7 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.generationDoc.AbstractSheetXml;
 import org.openconcerto.erp.panel.ListeFastPrintFrame;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -30,6 +31,7 @@ import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
+import javax.swing.SwingUtilities;
 
 public class MouseSheetXmlListeListener {
 
@@ -74,28 +77,24 @@ public class MouseSheetXmlListeListener {
         this.generateIsVisible = generate;
     }
 
-    // FIXME clear cache if row was updated
-    private static Map<SQLRow, AbstractSheetXml> cache = new HashMap<SQLRow, AbstractSheetXml>();
-
     protected Class<? extends AbstractSheetXml> getSheetClass() {
         return this.clazz;
     }
 
     protected AbstractSheetXml createAbstractSheet(SQLRow row) {
-        if (cache.get(row) != null) {
-            return cache.get(row);
-        } else {
-            try {
-                Constructor<? extends AbstractSheetXml> ctor = getSheetClass().getConstructor(SQLRow.class);
-                AbstractSheetXml sheet = ctor.newInstance(row);
-                cache.put(row, sheet);
-                return sheet;
-            } catch (Exception e) {
-                // FIXME Exception Handler ??
-                e.printStackTrace();
-            }
-            return null;
+        try {
+            Constructor<? extends AbstractSheetXml> ctor = getSheetClass().getConstructor(SQLRow.class);
+            AbstractSheetXml sheet = ctor.newInstance(row);
+            return sheet;
+        } catch (Exception e) {
+            // FIXME Exception Handler ??
+            e.printStackTrace();
         }
+        return null;
+    }
+
+    protected String getMailObject(SQLRow row) {
+        return "";
     }
 
     public void setPreviewHeader(boolean previewHeader) {
@@ -116,7 +115,7 @@ public class MouseSheetXmlListeListener {
 
     protected void sendMail(final AbstractSheetXml sheet, final boolean readOnly) {
 
-        SQLRow row = sheet.getSQLRow();
+        final SQLRow row = sheet.getSQLRow();
         Set<SQLField> setContact = null;
         SQLTable tableContact = Configuration.getInstance().getRoot().findTable("CONTACT");
         setContact = row.getTable().getForeignKeys(tableContact);
@@ -142,6 +141,61 @@ public class MouseSheetXmlListeListener {
                 }
         }
 
+        if (mail == null || mail.trim().length() == 0) {
+            SQLTable tableF = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("FOURNISSEUR");
+            Set<SQLField> setF = null;
+            setF = row.getTable().getForeignKeys(tableF);
+
+            if (setF != null) {
+
+                for (SQLField field : setF) {
+                    SQLRow rowF = row.getForeignRow(field.getName());
+                    if (mail == null || mail.trim().length() == 0) {
+                        mail = rowF.getString("MAIL");
+                    }
+                }
+            }
+
+            if (mail == null || mail.trim().length() == 0) {
+                SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
+                if (base.containsTable("MONTEUR")) {
+
+                    SQLTable tableM = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("MONTEUR");
+                    Set<SQLField> setM = null;
+                    setM = row.getTable().getForeignKeys(tableM);
+
+                    if (setM != null) {
+
+                        for (SQLField field : setM) {
+                            SQLRow rowM = row.getForeignRow(field.getName());
+                            if (rowM.getForeignRow("ID_CONTACT_FOURNISSEUR") != null && !rowM.getForeignRow("ID_CONTACT_FOURNISSEUR").isUndefined()) {
+                                mail = rowM.getForeignRow("ID_CONTACT_FOURNISSEUR").getString("EMAIL");
+                            }
+                        }
+                    }
+                }
+            }
+            if (mail == null || mail.trim().length() == 0) {
+                SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
+                if (base.containsTable("TRANSPORTEUR")) {
+
+                    SQLTable tableM = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("TRANSPORTEUR");
+                    Set<SQLField> setM = null;
+                    setM = row.getTable().getForeignKeys(tableM);
+
+                    if (setM != null) {
+
+                        for (SQLField field : setM) {
+                            SQLRow rowM = row.getForeignRow(field.getName());
+                            if (rowM.getForeignRow("ID_CONTACT_FOURNISSEUR") != null && !rowM.getForeignRow("ID_CONTACT_FOURNISSEUR").isUndefined()) {
+                                mail = rowM.getForeignRow("ID_CONTACT_FOURNISSEUR").getString("EMAIL");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         final String adresseMail = mail;
 
         final String subject = sheet.getReference();
@@ -151,31 +205,30 @@ public class MouseSheetXmlListeListener {
             final Thread t = new Thread() {
                 @Override
                 public void run() {
-                    final File f = sheet.getGeneratedPDFFile();
-                    if (!f.exists()) {
-                        try {
-                            sheet.getOrCreateDocumentFile();
-                            sheet.showPrintAndExport(false, false, true);
-                            EmailComposer.getInstance().compose(adresseMail, subject + (subject.trim().length() == 0 ? "" : ", ") + f.getName(), "", f.getAbsoluteFile());
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                            ExceptionHandler.handle("Impossible de charger le document PDF", e);
-                        }
-                    } else {
-                        try {
-                            EmailComposer.getInstance().compose(adresseMail, subject + (subject.trim().length() == 0 ? "" : ", ") + f.getName(), "", f.getAbsoluteFile());
-                        } catch (Exception exn) {
-                            ExceptionHandler.handle(null, "Impossible de créer le courriel", exn);
-                        }
-                    }
+                    final File f;
+                    try {
+                        f = sheet.getOrCreatePDFDocumentFile(true);
+                        SwingUtilities.invokeLater(new Runnable() {
 
+                            @Override
+                            public void run() {
+                                try {
+                                    EmailComposer.getInstance().compose(adresseMail, subject + (subject.trim().length() == 0 ? "" : ", ") + f.getName(), getMailObject(row), f.getAbsoluteFile());
+                                } catch (Exception e) {
+                                    ExceptionHandler.handle("Impossible de charger le document PDF dans l'email!", e);
+                                }
+                            }
+                        });
+                    } catch (Exception e) {
+                        ExceptionHandler.handle("Impossible de charger le document PDF", e);
+                    }
                 }
             };
 
             t.start();
         } else {
             try {
-                EmailComposer.getInstance().compose(adresseMail, subject + (subject.trim().length() == 0 ? "" : ", ") + sheet.getGeneratedFile().getName(), "",
+                EmailComposer.getInstance().compose(adresseMail, subject + (subject.trim().length() == 0 ? "" : ", ") + sheet.getGeneratedFile().getName(), getMailObject(row),
                         sheet.getGeneratedFile().getAbsoluteFile());
             } catch (Exception exn) {
                 ExceptionHandler.handle(null, "Impossible de créer le courriel", exn);
@@ -302,9 +355,6 @@ public class MouseSheetXmlListeListener {
             PredicateRowAction rowAction = new PredicateRowAction(new AbstractAction(this.printAllString) {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-
-                    // final int[] l = liste.getJTable().getSelectedRows();
-                    // final List<SQLRow> list = new ArrayList<SQLRow>();
                     List<SQLRowAccessor> list = IListe.get(e).getSelectedRows();
                     ListeFastPrintFrame frame = new ListeFastPrintFrame(list, clazz);
                     frame.setVisible(true);
@@ -318,8 +368,6 @@ public class MouseSheetXmlListeListener {
 
         if (this.showIsVisible) {
 
-            // if (createAbstractSheet(liste.getSelectedRow()).getSQLRow() !=
-            // null) {
             l.add(new RowAction(new AbstractAction(this.mailPDFString) {
                 public void actionPerformed(ActionEvent ev) {
                     sendMail(createAbstractSheet(IListe.get(ev).getSelectedRow()), true);
@@ -331,7 +379,6 @@ public class MouseSheetXmlListeListener {
                 }
             });
 
-            // }
             l.add(new RowAction(new AbstractAction(this.mailString) {
                 public void actionPerformed(ActionEvent ev) {
                     sendMail(createAbstractSheet(IListe.get(ev).getSelectedRow()), false);

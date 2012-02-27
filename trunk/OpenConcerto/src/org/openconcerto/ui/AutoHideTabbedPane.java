@@ -148,7 +148,11 @@ public class AutoHideTabbedPane extends JPanel {
         if (this.getComponentCount() == 0)
             return null;
         final Component res = this.getComponent(0);
-        return res instanceof JTabbedPane ? (JTabbedPane) res : null;
+        return res instanceof JTabbedPane ? (JTabbedPane) res : null;        
+    }
+    
+    public void setSelectedIndex(int index) {
+        this.tabbedPane.setSelectedIndex(index);
     }
 
     private final Container getTabContainer() {

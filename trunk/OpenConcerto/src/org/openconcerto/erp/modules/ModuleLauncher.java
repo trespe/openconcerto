@@ -50,6 +50,7 @@ public class ModuleLauncher {
         final File jar = new ModulePackager(propsFile, classes).writeToDir(distDir);
         // to avoid out of date modules from OpenConcerto (e.g. when launching this module, the jars
         // of MODULES_DIR are used for dependencies)
+        FileUtils.mkdir_p(Gestion.MODULES_DIR);
         FileUtils.copyFile(jar, new File(Gestion.MODULES_DIR, jar.getName()));
 
         final ModuleFactory factory;

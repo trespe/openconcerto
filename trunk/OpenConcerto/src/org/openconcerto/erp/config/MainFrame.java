@@ -56,11 +56,11 @@ import org.openconcerto.erp.core.finance.payment.action.NouveauDecaissementChequ
 import org.openconcerto.erp.core.finance.payment.action.NouveauListeDesChequesADecaisserAction;
 import org.openconcerto.erp.core.finance.payment.action.NouveauListeDesChequesAEncaisserAction;
 import org.openconcerto.erp.core.finance.tax.action.DeclarationTVAAction;
+import org.openconcerto.erp.core.humanresources.ListeDesContactsAdministratif;
 import org.openconcerto.erp.core.humanresources.employe.action.ListeDesCommerciauxAction;
 import org.openconcerto.erp.core.humanresources.employe.action.ListeDesSalariesAction;
 import org.openconcerto.erp.core.humanresources.employe.action.ListeDesSecretairesAction;
 import org.openconcerto.erp.core.humanresources.employe.action.N4DSAction;
-import org.openconcerto.erp.core.humanresources.employe.report.N4DS;
 import org.openconcerto.erp.core.humanresources.payroll.action.ClotureMensuellePayeAction;
 import org.openconcerto.erp.core.humanresources.payroll.action.EditionFichePayeAction;
 import org.openconcerto.erp.core.humanresources.payroll.action.ListeDesProfilsPayeAction;
@@ -136,7 +136,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -307,8 +306,7 @@ public class MainFrame extends JFrame {
 
         JMenu menu;
 
-        String valModeVenteComptoir = DefaultNXProps.getInstance().getStringProperty("ArticleVenteComptoir");
-        Boolean bModeVenteComptoir = Boolean.valueOf(valModeVenteComptoir);
+        Boolean bModeVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
 
         // Fichier
         menu = new JMenu(FILE_MENU);
@@ -442,6 +440,7 @@ public class MainFrame extends JFrame {
             menu.add(new JSeparator());
         }
 
+        menu.add(new ListeDesContactsAdministratif());
         menu.add(new ListeDesCommerciauxAction());
         menu.add(new JSeparator());
         menu.add(new ListeDesCaissesTicketAction());
@@ -465,9 +464,9 @@ public class MainFrame extends JFrame {
             menu.add(new JSeparator());
         }
 
-        menu.add(new ListesFacturesClientsImpayeesAction());
-        menu.add(new ListeDebiteursAction());
         if (rights.haveRight(NXRights.GESTION_ENCAISSEMENT.getCode())) {
+            menu.add(new ListesFacturesClientsImpayeesAction());
+            menu.add(new ListeDebiteursAction());
             menu.add(new ListeDesEncaissementsAction());
             menu.add(new ListeDesRelancesAction());
             menu.add(new JSeparator());

@@ -20,6 +20,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import org.apache.commons.collections.functors.InstanceofPredicate;
 
@@ -69,6 +71,14 @@ public class Where {
 
     static public Where and(Collection<Where> wheres) {
         return combine(wheres, AndCombiner);
+    }
+
+    static public Where and(final SQLTable t, final Map<String, ?> fields) {
+        final List<Where> res = new ArrayList<Where>(fields.size());
+        for (final Entry<String, ?> e : fields.entrySet()) {
+            res.add(new Where(t.getField(e.getKey()), "=", e.getValue()));
+        }
+        return and(res);
     }
 
     static public Where or(Collection<Where> wheres) {

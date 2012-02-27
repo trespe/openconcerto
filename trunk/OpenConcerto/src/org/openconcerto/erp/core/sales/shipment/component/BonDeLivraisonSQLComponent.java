@@ -112,7 +112,7 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
         final JPanel addP = new JPanel();
-        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
         this.add(addP, c);
 
         c.gridy++;
@@ -152,7 +152,21 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         c.gridx++;
         c.weightx = 1;
         this.add(this.textNom, c);
+        if (getTable().contains("DATE_LIVRAISON")) {
+            // Date livraison
+            c.gridx++;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.weightx = 0;
+            this.add(new JLabel(getLabelFor("DATE_LIVRAISON"), SwingConstants.RIGHT), c);
 
+            JDate dateLivraison = new JDate(true);
+            c.gridx++;
+            c.weightx = 0;
+            c.weighty = 0;
+            c.fill = GridBagConstraints.NONE;
+            this.add(dateLivraison, c);
+            this.addView(dateLivraison, "DATE_LIVRAISON");
+        }
         // Client
         JLabel labelClient = new JLabel(getLabelFor("ID_CLIENT"));
         labelClient.setHorizontalAlignment(SwingConstants.RIGHT);
@@ -167,13 +181,27 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         c.weighty = 0;
         c.fill = GridBagConstraints.NONE;
         this.comboClient = new ElementComboBox();
-
         this.add(this.comboClient, c);
+        if (getTable().contains("SPEC_LIVRAISON")) {
+            // Date livraison
+            c.gridx++;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.weightx = 0;
+            this.add(new JLabel(getLabelFor("SPEC_LIVRAISON"), SwingConstants.RIGHT), c);
+
+            JTextField specLivraison = new JTextField();
+            c.gridx++;
+            c.weightx = 0;
+            c.weighty = 0;
+            this.add(specLivraison, c);
+            this.addView(specLivraison, "SPEC_LIVRAISON");
+        }
+
         final ElementComboBox boxTarif = new ElementComboBox();
-        if (this.comboClient.getElement().getTable().contains("ID_TARIF")) {
-            this.comboClient.addValueListener(new PropertyChangeListener() {
-                @Override
-                public void propertyChange(PropertyChangeEvent evt) {
+        this.comboClient.addValueListener(new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if (comboClient.getElement().getTable().contains("ID_TARIF")) {
                     if (BonDeLivraisonSQLComponent.this.isFilling())
                         return;
                     final SQLRow row = ((SQLRequestComboBox) evt.getSource()).getSelectedRow();
@@ -198,8 +226,8 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
                         }
                     }
                 }
-            });
-        }
+            }
+        });
 
         // Bouton tout livrer
         JButton boutonAll = new JButton("Tout livrer");
@@ -228,7 +256,7 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
             c.gridwidth = 1;
             this.add(new JLabel("Tarif à appliquer"), c);
             c.gridx++;
-            c.gridwidth = GridBagConstraints.REMAINDER;
+            c.gridwidth = 1;
 
             c.weightx = 1;
             this.add(boxTarif, c);
@@ -241,6 +269,22 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
                 }
             });
         }
+
+        if (getTable().contains("A_ATTENTION")) {
+            // Date livraison
+            c.gridx++;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.weightx = 0;
+            this.add(new JLabel(getLabelFor("A_ATTENTION"), SwingConstants.RIGHT), c);
+
+            JTextField specLivraison = new JTextField();
+            c.gridx++;
+            c.weightx = 0;
+            c.weighty = 0;
+            this.add(specLivraison, c);
+            this.addView(specLivraison, "A_ATTENTION");
+        }
+
         // Element du bon
         List<JButton> l = new ArrayList<JButton>();
         l.add(boutonAll);

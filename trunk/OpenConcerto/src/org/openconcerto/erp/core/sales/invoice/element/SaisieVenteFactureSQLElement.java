@@ -63,6 +63,7 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
         l.add("NOM");
         l.add("ID_CLIENT");
             l.add("ID_MODE_REGLEMENT");
+        l.add("ID_COMMERCIAL");
 
         l.add("T_HA");
         l.add("T_HT");

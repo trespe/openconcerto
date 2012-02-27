@@ -22,10 +22,8 @@ import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.sqlobject.itemview.RowItemViewComponent;
 import org.openconcerto.ui.component.JRadioButtons;
 
-import java.util.Iterator;
-import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.TreeMap;
 
 /**
  * Radio buttons displaying foreign rows.
@@ -47,28 +45,27 @@ public class RadioButtons extends JRadioButtons<Integer> implements RowItemViewC
     }
 
     private final Map<Integer, String> createChoices() {
-        // ordonne les boutons par ID
-        final Map<Integer, String> res = new TreeMap<Integer, String>();
+        final Map<Integer, String> res = new LinkedHashMap<Integer, String>();
 
-        final SQLTable choiceTable = this.getTable().getBase().getGraph().getForeignTable(this.field);
+        final SQLTable choiceTable = this.getForeignTable();
         if (choiceTable == null) {
             throw new IllegalArgumentException("The field:" + this.field + " is not a foreign key");
         }
         final SQLSelect sel = new SQLSelect(this.getTable().getBase());
         sel.addSelectStar(choiceTable);
+        // support tables without ORDRE
+        sel.addOrderSilent(choiceTable.getName());
+        sel.addFieldOrder(choiceTable.getKey());
 
-        final List choicesR = (List) this.getTable().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(choiceTable, true));
-        final Iterator iter = choicesR.iterator();
-        while (iter.hasNext()) {
-            final SQLRow choice = (SQLRow) iter.next();
+        for (final SQLRow choice : SQLRowListRSH.execute(sel)) {
             final String choiceLabel = choice.getString(this.colName);
-
             res.put(choice.getID(), choiceLabel);
         }
 
         return res;
     }
 
+    @Override
     public final void init(SQLRowItemView v) {
         this.field = v.getField();
         this.init(this.getForeignTable().getUndefinedID(), this.createChoices());
@@ -77,7 +74,7 @@ public class RadioButtons extends JRadioButtons<Integer> implements RowItemViewC
     private final SQLTable getForeignTable() {
         if (this.getField() == null)
             throw new IllegalStateException(this + " not initialized.");
-        return this.getTable().getBase().getGraph().getForeignTable(this.getField());
+        return this.getTable().getForeignTable(this.field.getName());
     }
 
     private final SQLTable getTable() {

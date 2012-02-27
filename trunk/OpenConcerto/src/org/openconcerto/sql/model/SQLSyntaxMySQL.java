@@ -357,7 +357,7 @@ class SQLSyntaxMySQL extends SQLSyntax {
                 + "JOIN (SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS T where " + getInfoSchemaWhere("\"CONSTRAINT_CATALOG\"", b, "TABLE_SCHEMA", schemas, "TABLE_NAME", tables)
                 + ") tc on tc.\"TABLE_SCHEMA\" = c.\"TABLE_SCHEMA\" and tc.\"TABLE_NAME\"=c.\"TABLE_NAME\" and tc.\"CONSTRAINT_NAME\"=c.\"CONSTRAINT_NAME\"\n"
                 // where
-                + " where \"CONSTRAINT_TYPE\" not in ('FOREIGN KEY', 'PRIMARY KEY') and\n" + getInfoSchemaWhere("c.\"TABLE_CATALOG\"", b, "c.TABLE_SCHEMA", schemas, "c.TABLE_NAME", tables)
+                + " where " + getInfoSchemaWhere("c.\"TABLE_CATALOG\"", b, "c.TABLE_SCHEMA", schemas, "c.TABLE_NAME", tables)
                 + "order by c.\"TABLE_SCHEMA\", c.\"TABLE_NAME\", c.\"CONSTRAINT_NAME\", c.\"ORDINAL_POSITION\"";
         // don't cache since we don't listen on system tables
         final List<Map<String, Object>> res = (List<Map<String, Object>>) b.getDBSystemRoot().getDataSource().execute(sel, new IResultSetHandler(SQLDataSource.MAP_LIST_HANDLER, false));

@@ -42,7 +42,7 @@ public class CommandeSQLElement extends ComptaSQLConfElement {
         super("COMMANDE", "une commande fournisseur", "commandes fournisseur");
 
         // Transfert vers facture
-        PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction("Transfert vers facture") {
+        PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction("Transfert vers saisie achat") {
             public void actionPerformed(ActionEvent e) {
 
                 CommandeSQLElement.this.transfertFacture(IListe.get(e).getSelectedRow().getID());

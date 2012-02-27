@@ -13,10 +13,19 @@
  
  package org.openconcerto.utils;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.SocketException;
+import java.net.URL;
 import java.util.Enumeration;
+
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
+import javax.net.ssl.SSLSession;
 
 public class NetUtils {
 
@@ -50,4 +59,52 @@ public class NetUtils {
         }
     }
 
+    private static class CustomizedHostnameVerifier implements HostnameVerifier {
+        public boolean verify(String hostname, SSLSession session) {
+            return true;
+        }
+    }
+
+    public static final String getHTTPContent(String address, boolean useCustomVerifier) {
+        String content = "";
+        OutputStream out = null;
+        HttpsURLConnection conn = null;
+        InputStream in = null;
+        try {
+            URL url = new URL(address);
+            out = new ByteArrayOutputStream();
+            conn = (HttpsURLConnection) url.openConnection();
+            // Sur la connexion
+            if (useCustomVerifier) {
+                conn.setHostnameVerifier(new CustomizedHostnameVerifier());
+                // ou globalement
+                // HttpsURLConnection.setDefaultHostnameVerifier(new CustomizedHostnameVerifier());
+            }
+
+            in = conn.getInputStream();
+            final byte[] buffer = new byte[1024];
+            int numRead;
+
+            while ((numRead = in.read(buffer)) != -1) {
+                out.write(buffer, 0, numRead);
+
+            }
+            content = out.toString();
+
+        } catch (Exception exception) {
+            exception.printStackTrace();
+        } finally {
+            try {
+                if (in != null) {
+                    in.close();
+                }
+                if (out != null) {
+                    out.close();
+                }
+            } catch (IOException ioe) {
+            }
+        }
+
+        return content;
+    }
 }

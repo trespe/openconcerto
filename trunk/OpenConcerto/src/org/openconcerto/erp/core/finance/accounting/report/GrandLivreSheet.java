@@ -102,6 +102,7 @@ public class GrandLivreSheet extends SheetInterface {
     }
 
     private String toDay = dateFormat.format(new Date());
+    private int size;
 
     private void makeEntete(int rowDeb) {
 
@@ -205,7 +206,8 @@ public class GrandLivreSheet extends SheetInterface {
 
         int posLine = 1;
         int firstLine = 1;
-        System.err.println("START CREATE Grand livre, NB ecritures  " + list.size());
+        size = list.size();
+        System.err.println("START CREATE Grand livre, NB ecritures  " + size);
         this.nbPage = 0;
         long totalDebit, totalCredit, sousTotalDebit, sousTotalCredit, totalCreditAntC, totalDebitAntC, totalCreditAntF, totalDebitAntF;
 
@@ -236,7 +238,7 @@ public class GrandLivreSheet extends SheetInterface {
         final String titre3 = "Titre 3";
         final String cumulAntString = "Cumuls antérieurs";
         int j = 0;
-        for (int i = 0; i < list.size();) {
+        for (int i = 0; i < size;) {
 
             System.err.println("START NEW PAGE; POS : " + posLine);
 
@@ -256,7 +258,7 @@ public class GrandLivreSheet extends SheetInterface {
              * CONTENU
              **************************************************************************************/
             final Double doubleZero = Double.valueOf("0");
-            for (j = 0; (j < endFill - debutFill + 1) && i < list.size(); j++) {
+            for (j = 0; (j < endFill - debutFill + 1) && i < size; j++) {
 
                 SQLRowValues rowEcr = list.get(i);
 
@@ -425,7 +427,7 @@ public class GrandLivreSheet extends SheetInterface {
                 posLine++;
             }
 
-            if (i >= list.size() && j < endFill - debutFill + 1) {
+            if (i >= size && j < endFill - debutFill + 1) {
                 makeSousTotal(posLine, sousTotalDebit, sousTotalCredit);
             }
 
@@ -449,7 +451,7 @@ public class GrandLivreSheet extends SheetInterface {
             firstLine = posLine;
             this.nbPage++;
 
-            if (i >= list.size() && j >= (endFill - debutFill + 1)) {
+            if (i >= size && j >= (endFill - debutFill + 1)) {
 
                 makeEntete(posLine);
                 posLine += debutFill - 1;
@@ -621,7 +623,10 @@ public class GrandLivreSheet extends SheetInterface {
 
     @Override
     public String getTemplateId() {
-        // TODO Auto-generated method stub
         return TEMPLATE_ID;
+    }
+
+    public int getSize() {
+        return size;
     }
 }

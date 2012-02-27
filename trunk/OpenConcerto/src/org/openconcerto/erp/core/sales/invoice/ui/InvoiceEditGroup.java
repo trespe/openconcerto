@@ -13,8 +13,8 @@
  
  package org.openconcerto.erp.core.sales.invoice.ui;
 
-import org.openconcerto.sql.element.Group;
-import org.openconcerto.sql.element.LayoutHints;
+import org.openconcerto.ui.group.Group;
+import org.openconcerto.ui.group.LayoutHints;
 
 public class InvoiceEditGroup extends Group {
 

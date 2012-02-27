@@ -147,6 +147,12 @@ public class CompareUtils {
         public boolean equals(T o1, T o2);
     }
 
+    static public final Equalizer<Object> OBJECT_EQ = new Equalizer<Object>() {
+        public boolean equals(Object o1, Object o2) {
+            return CompareUtils.equals(o1, o2);
+        }
+    };
+
     static public final <T> boolean equals(List<T> l1, List<T> l2, Equalizer<? super T> comp) {
         return compare(l1, l2, comp, null) == null;
     }

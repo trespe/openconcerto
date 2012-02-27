@@ -15,32 +15,50 @@
 
 import org.openconcerto.utils.checks.ValidState;
 
+import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+import javax.swing.JComponent;
 import javax.swing.JToggleButton;
 
 public class BooleanValueWrapper extends BaseValueWrapper<Boolean> {
 
+    private final JComponent comp;
     private final JToggleButton b;
 
     public BooleanValueWrapper(final JToggleButton b) {
+        this(b, b);
+    }
+
+    public BooleanValueWrapper(final JComponent comp, final JToggleButton b) {
+        Container ancestor = b;
+        while (ancestor != null && ancestor != comp) {
+            ancestor = b.getParent();
+        }
+        if (ancestor == null)
+            throw new IllegalArgumentException("Comp is not an ancestor of " + b);
+        this.comp = comp;
         this.b = b;
         this.b.addActionListener(new ActionListener() {
+            @Override
             public void actionPerformed(ActionEvent e) {
                 firePropertyChange();
             }
         });
     }
 
-    public JToggleButton getComp() {
-        return this.b;
+    @Override
+    public JComponent getComp() {
+        return this.comp;
     }
 
+    @Override
     public Boolean getValue() {
         return this.b.isSelected();
     }
 
+    @Override
     public void setValue(Boolean val) {
         this.b.setSelected(val == null ? false : val);
     }

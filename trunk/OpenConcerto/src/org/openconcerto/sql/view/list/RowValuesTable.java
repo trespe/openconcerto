@@ -51,6 +51,7 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
+import javax.swing.text.JTextComponent;
 
 public class RowValuesTable extends EnhancedTable implements AncestorListener, MutableRowItemView {
 
@@ -64,6 +65,16 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     public RowValuesTable(RowValuesTableModel model, File f) {
         this(model, f, false);
+    }
+
+    @Override
+    public Component prepareEditor(TableCellEditor editor, int row, int column) {
+        // TODO Raccord de méthode auto-généré
+        Component c = super.prepareEditor(editor, row, column);
+        if (c instanceof JTextComponent) {
+            ((JTextComponent) c).selectAll();
+        }
+        return c;
     }
 
     public void addClearCloneTableElement(String elt) {

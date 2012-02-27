@@ -59,6 +59,10 @@ public class UpdateBuilder {
         return this.fields.keySet();
     }
 
+    public final boolean isEmpty() {
+        return this.fields.isEmpty();
+    }
+
     public final void setWhere(Where where) {
         this.where = where;
     }

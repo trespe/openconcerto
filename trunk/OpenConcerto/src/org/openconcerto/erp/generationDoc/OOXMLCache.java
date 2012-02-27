@@ -58,34 +58,47 @@ public class OOXMLCache {
 
     }
 
-    protected static List<? extends SQLRowAccessor> getReferentRows(SQLRowAccessor row, SQLTable tableForeign) {
+    protected static List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, SQLTable tableForeign) {
         return getReferentRows(row, tableForeign, null);
     }
 
-    protected static List<? extends SQLRowAccessor> getReferentRows(SQLRowAccessor row, final SQLTable tableForeign, String groupBy) {
-        Map<SQLTable, List<SQLRowAccessor>> c = cacheReferent.get(row);
+    protected static List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, final SQLTable tableForeign, String groupBy) {
+        Map<SQLTable, List<SQLRowAccessor>> c = cacheReferent.get(row.get(0));
 
         if (c != null && c.get(tableForeign) != null) {
             System.err.println("get referent rows From Cache ");
             return c.get(tableForeign);
         } else {
             List<SQLRowAccessor> list;
-            if (row.isUndefined()) {
+            if (row.isEmpty() || (row.size() > 0 && row.get(0).isUndefined())) {
                 list = new ArrayList<SQLRowAccessor>();
-            } else if (groupBy == null || groupBy.trim().length() == 0) {
-                list = new ArrayList<SQLRowAccessor>(row.getReferentRows(tableForeign));
+            } else if (row.size() > 0 && (groupBy == null || groupBy.trim().length() == 0)) {
+                list = new ArrayList<SQLRowAccessor>();
+                for (SQLRowAccessor sqlRowAccessor : row) {
+                    if (sqlRowAccessor != null && !sqlRowAccessor.isUndefined()) {
+                        list.addAll(sqlRowAccessor.getReferentRows(tableForeign));
+                    }
+                }
             } else {
 
                 final List<String> params = SQLRow.toList(groupBy);
-                SQLSelect sel = new SQLSelect(row.getTable().getBase());
+                SQLSelect sel = new SQLSelect(row.get(0).getTable().getBase());
                 sel.addSelect(tableForeign.getKey());
                 for (int i = 0; i < params.size(); i++) {
                     sel.addSelect(tableForeign.getField(params.get(i)));
                 }
 
-                sel.setWhere(new Where((SQLField) tableForeign.getForeignKeys(row.getTable()).toArray()[0], "=", row.getID()));
-
-                List<SQLRow> result = (List<SQLRow>) row.getTable().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(tableForeign));
+                Where w = null;
+                for (SQLRowAccessor rowAccess : row) {
+                    if (w == null) {
+                        w = new Where((SQLField) tableForeign.getForeignKeys(rowAccess.getTable()).toArray()[0], "=", rowAccess.getID());
+                    } else {
+                        w = w.or(new Where((SQLField) tableForeign.getForeignKeys(rowAccess.getTable()).toArray()[0], "=", rowAccess.getID()));
+                    }
+                }
+                sel.setWhere(w);
+                System.err.println(sel.asString());
+                List<SQLRow> result = (List<SQLRow>) row.get(0).getTable().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(tableForeign));
 
                 list = new ArrayList<SQLRowAccessor>();
                 Map<Object, SQLRowValues> m = new HashMap<Object, SQLRowValues>();
@@ -109,7 +122,7 @@ public class OOXMLCache {
             if (c == null) {
                 Map<SQLTable, List<SQLRowAccessor>> map = new HashMap<SQLTable, List<SQLRowAccessor>>();
                 map.put(tableForeign, list);
-                cacheReferent.put(row, map);
+                cacheReferent.put(row.get(0), map);
             } else {
                 c.put(tableForeign, list);
             }

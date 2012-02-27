@@ -26,12 +26,13 @@ import org.openconcerto.erp.core.common.element.StyleSQLElement;
 import org.openconcerto.erp.core.common.element.TitrePersonnelSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.ClientNormalSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.ContactSQLElement;
+import org.openconcerto.erp.core.customerrelationship.customer.element.ContactSQLElement.ContactAdministratifSQLElement;
+import org.openconcerto.erp.core.customerrelationship.customer.element.ContactSQLElement.ContactFournisseurSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.CourrierClientSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.ModeleCourrierClientSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.ReferenceClientSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.RelanceSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.TypeLettreRelanceSQLElement;
-import org.openconcerto.erp.core.customerrelationship.customer.element.ContactSQLElement.ContactFournisseurSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.AnalytiqueSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.AssociationAnalytiqueSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.AssociationCompteAnalytiqueSQLElement;
@@ -70,6 +71,7 @@ import org.openconcerto.erp.core.humanresources.payroll.element.CodeDroitContrat
 import org.openconcerto.erp.core.humanresources.payroll.element.CodeEmploiSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.CodeIdccSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.CodeRegimeSQLElement;
+import org.openconcerto.erp.core.humanresources.payroll.element.CodeStatutCategorielConventionnelSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.CodeStatutCategorielSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.CodeStatutProfSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.ContratSalarieSQLElement;
@@ -154,7 +156,9 @@ import org.openconcerto.erp.rights.ComptaTotalUserRight;
 import org.jopendocument.link.OOConnexion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.ShowAs;
-import org.openconcerto.sql.element.ElementMapper;
+import org.openconcerto.sql.element.GlobalMapper;
+import org.openconcerto.sql.element.RowItemViewMetadata;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.element.SharedSQLElement;
 import org.openconcerto.sql.model.DBRoot;
@@ -167,8 +171,12 @@ import org.openconcerto.sql.request.SQLFieldTranslator;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.task.TacheActionManager;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
+import org.openconcerto.ui.ReloadPanel;
 import org.openconcerto.utils.DesktopEnvironment;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.NetUtils;
+import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.utils.StringInputStream;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -180,9 +188,12 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
+import javax.swing.JDialog;
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
@@ -194,7 +205,8 @@ import javax.swing.SwingUtilities;
 // final so we can use setupLogging(), see the constructor comment
 public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration {
 
-    public static final String APP_NAME = "OpenConcerto";
+    public static final ProductInfo productInfo = ProductInfo.getInstance();
+    public static final String APP_NAME = productInfo.getName();
     private static final String DEFAULT_ROOT = "Common";
     // the properties path from this class
     private static final String PROPERTIES = "main.properties";
@@ -298,17 +310,65 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     private final boolean inWebstart;
     private final boolean isServerless;
+    private boolean isOnCloud;
 
     ComptaPropsConfiguration(Properties props, final boolean inWebstart) {
-        super(props, APP_NAME);
+        super(props, productInfo);
         this.inWebstart = inWebstart;
         this.setProperty("wd", DesktopEnvironment.getDE().getDocumentsFolder().getAbsolutePath() + File.separator + this.getAppName());
         if (this.getProperty("version.date") != null) {
             this.version = this.getProperty("version.date");
         }
-        this.isServerless = getProperty("server.ip", "").contains(DATA_DIR_VAR);
-        if (this.isServerless) {
-            this.setProperty("server.ip", getProperty("server.ip").replace(DATA_DIR_VAR, getDataDir().getPath()));
+
+        //
+        String token = getProperty("token");
+        if (token != null) {
+            this.isServerless = false;
+            this.isOnCloud = true;
+            InProgressFrame progress = new InProgressFrame();
+            progress.show("Connexion sécurisée au cloud en cours");
+            String result = NetUtils.getHTTPContent("https://cloud.openconcerto.org/getAuthInfo?token=" + token, false);
+            if (result != null && !result.contains("ERROR")) {
+                Properties cProperty = new Properties();
+                try {
+                    cProperty.loadFromXML(new StringInputStream(result));
+                    setProperty("server.wan.only", "true");
+                    setProperty("server.wan.port", "22");
+                    // SSH
+                    setProperty("server.wan.addr", cProperty.getProperty("ssh.server"));
+                    setProperty("server.wan.user", cProperty.getProperty("ssh.login"));
+                    setProperty("server.wan.password", cProperty.getProperty("ssh.pass"));
+                    // DB
+                    setProperty("server.ip", "127.0.0.1:5432");
+                    setProperty("server.driver", "postgresql");
+                    setProperty("server.login", cProperty.getProperty("db.login"));
+                    setProperty("server.password", cProperty.getProperty("db.pass"));
+                    setProperty("systemRoot", cProperty.getProperty("db.name"));
+                    // Storage
+                    props.put("storage.server", cProperty.getProperty("storage.server"));
+                    progress.dispose();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    JOptionPane.showMessageDialog(new JFrame(), "Impossible récupérer les informations de connexion");
+                    System.exit(1);
+                }
+
+            } else if (result != null && result.contains("not paid")) {
+                JOptionPane.showMessageDialog(new JFrame(), "Compte Cloud non crédité");
+                System.exit(1);
+            } else {
+                JOptionPane.showMessageDialog(new JFrame(), "Connexion impossible au Cloud");
+                System.exit(1);
+            }
+
+        } else {
+            // Local database
+            setProperty("server.login", "openconcerto");
+            setProperty("server.password", "openconcerto");
+            this.isServerless = getProperty("server.ip", "").contains(DATA_DIR_VAR);
+            if (this.isServerless) {
+                this.setProperty("server.ip", getProperty("server.ip").replace(DATA_DIR_VAR, getDataDir().getPath()));
+            }
         }
 
         // ATTN this works because this is executed last (i.e. if you put this in a superclass
@@ -329,18 +389,12 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         return this.isServerless;
     }
 
+    public final boolean isOnCloud() {
+        return this.isOnCloud;
+    }
+
     public final String getVersion() {
         return this.version;
-    }
-
-    @Override
-    protected String getLogin() {
-        return "openconcerto";
-    }
-
-    @Override
-    protected String getPassword() {
-        return "openconcerto";
     }
 
     @Override
@@ -448,6 +502,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(ArticleTarifSQLElement.class);
         dir.addSQLElement(ArticleDesignationSQLElement.class);
         dir.addSQLElement(ContactFournisseurSQLElement.class);
+        dir.addSQLElement(ContactAdministratifSQLElement.class);
         dir.addSQLElement(new TitrePersonnelSQLElement());
         dir.addSQLElement(new ContactSQLElement());
         dir.addSQLElement(new SaisieKmItemSQLElement());
@@ -522,6 +577,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new CodeCaractActiviteSQLElement());
 
         dir.addSQLElement(new CodeStatutCategorielSQLElement());
+        dir.addSQLElement(CodeStatutCategorielConventionnelSQLElement.class);
         dir.addSQLElement(new CodeStatutProfSQLElement());
         dir.addSQLElement(new CumulsCongesSQLElement());
         dir.addSQLElement(new CumulsPayeSQLElement());
@@ -600,6 +656,11 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new TypeReglementSQLElement());
 
         dir.addSQLElement(new VariableSalarieSQLElement());
+        Collection<SQLElement> elements = dir.getElements();
+        for (SQLElement sqlElement : elements) {
+            GlobalMapper.getInstance().map(sqlElement.getCode() + ".element", this);
+        }
+
     }
 
     private void setSocieteSQLInjector() {
@@ -635,7 +696,11 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.show("AXE_ANALYTIQUE", "NOM");
 
         showAs.show("CHEQUE_A_ENCAISSER", "MONTANT", "ID_CLIENT");
-                showAs.show("CLIENT", "FORME_JURIDIQUE", "NOM");
+                if (getRootSociete().getTable("CLIENT").getFieldsName().contains("LOCALISATION")) {
+                    showAs.show("CLIENT", "NOM", "LOCALISATION");
+                } else {
+                    showAs.show("CLIENT", "FORME_JURIDIQUE", "NOM");
+                }
 
         showAs.show("CLASSEMENT_CONVENTIONNEL", "NIVEAU", "COEFF");
         showAs.show("CODE_EMPLOI", SQLRow.toList("CODE,NOM"));
@@ -646,14 +711,18 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.show("CODE_STATUT_CATEGORIEL", SQLRow.toList("CODE,NOM"));
         showAs.show("CODE_REGIME", SQLRow.toList("CODE,NOM"));
         showAs.show("COMMANDE", "NOM");
-        showAs.show("COMMERCIAL", "NOM");
-        showAs.show("COMMANDE_CLIENT", "NOM");
+        showAs.show("COMMANDE_CLIENT", "NOM", "T_HT");
         showAs.show("COMPTE_PCE", "NUMERO", "NOM");
         showAs.show("COMPTE_PCG", "NUMERO", "NOM");
         showAs.show("CONTACT", "NOM");
         showAs.show("CONTRAT_SALARIE", "NATURE");
 
-        showAs.show("DEVIS", "NUMERO", "OBJET");
+        List<String> listFieldDevisElt = new ArrayList<String>();
+        listFieldDevisElt.add("NUMERO");
+        listFieldDevisElt.add("DATE");
+        listFieldDevisElt.add("ID_CLIENT");
+        showAs.showField("DEVIS_ELEMENT.ID_DEVIS", listFieldDevisElt);
+
         showAs.show("DEPARTEMENT", "NUMERO", "NOM");
 
         showAs.show("ECRITURE", SQLRow.toList("NOM,DATE,ID_COMPTE_PCE,DEBIT,CREDIT"));
@@ -750,13 +819,17 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         new Thread() {
             public void run() {
                 Configuration.getInstance().getSystemRoot().getGraph();
-
+                try {
+                    metadata = new RowItemViewMetadata(getRootSociete());
+                } catch (SQLException e) {
+                    ExceptionHandler.handle("Metadata error", e);
+                }
             }
         }.start();
     }
 
     private void setMapper() {
-        ElementMapper mapper = ElementMapper.getInstance();
+        GlobalMapper mapper = GlobalMapper.getInstance();
         mapper.map("customerrelationship.name", "Relation client");
         mapper.map("customerrelationship.customer.list.table", "CLIENT");
         mapper.map("customerrelationship.contact.list.table", "CONTACT");
@@ -783,4 +856,12 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         return new SimpleDateFormat("yyyy-MM/dd_HH-mm EEEE");
     }
 
+    @Override
+    protected SQLServer createServer() {
+        InProgressFrame progress = new InProgressFrame();
+        progress.show("Connexion à votre base de données en cours");
+        SQLServer server = super.createServer();
+        progress.dispose();
+        return server;
+    }
 }

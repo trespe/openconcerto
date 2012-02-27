@@ -20,25 +20,34 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.ProductInfo;
 
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.text.DateFormat;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.text.Normalizer;
 import java.text.Normalizer.Form;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
+
 public class N4DS {
 
     private static DateFormat format = new SimpleDateFormat("ddMMyyyy");
     private ComptaPropsConfiguration conf = ((ComptaPropsConfiguration) Configuration.getInstance());
-    private long masseSalarialeBrute;
+    private double masseSalarialeBrute;
     private static final byte[] retour = "'\n".getBytes();
     private PrintStream stream = null;
+
+    DecimalFormat decimalFormat = new DecimalFormat("0.00");
 
     // FIXME Salarie renvoye
 
@@ -46,25 +55,28 @@ public class N4DS {
      * Déclaration normale (type 51)
      * */
     public N4DS() {
+        DecimalFormatSymbols symbol = new DecimalFormatSymbols();
+        symbol.setDecimalSeparator('.');
+        this.decimalFormat.setDecimalFormatSymbols(symbol);
 
     }
 
-    public void createDocument() {
-        masseSalarialeBrute = 0;
+    public File createDocument() {
+        this.masseSalarialeBrute = 0;
         File f = new File("N4DS_" + format.format(new Date()) + ".txt");
 
         try {
 
-            stream = new PrintStream(f, "ISO-8859-1");
+            this.stream = new PrintStream(f, "ISO-8859-1");
 
             SQLElement eltSalarie = this.conf.getDirectory().getElement("SALARIE");
 
             // Infos emetteur
             SQLRow rowSociete = this.conf.getRowSociete();
 
-            writeS10(stream, rowSociete);
+            writeS10(this.stream, rowSociete);
 
-            writeS20(stream, rowSociete);
+            writeS20(this.stream, rowSociete);
 
             SQLSelect sel = new SQLSelect(this.conf.getBase());
             sel.addSelect(eltSalarie.getTable().getKey());
@@ -77,16 +89,17 @@ public class N4DS {
                 s.write(row, rowSociete);
 
             }
-            writeS80(stream, rowSociete);
-            writeS90(stream);
+            writeS80(this.stream, rowSociete);
+            writeS90(this.stream);
 
         } catch (IOException e) {
             e.printStackTrace();
         } finally {
-            if (stream != null) {
-                stream.close();
+            if (this.stream != null) {
+                this.stream.close();
             }
         }
+        return f;
     }
 
     private void writeS80(PrintStream stream, SQLRow rowSociete) throws IOException {
@@ -94,8 +107,8 @@ public class N4DS {
         String siren = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(0, 9);
         String nic = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(9);
 
-        // SIREN
-        write("S80.G01.00.001.001", siren);
+        // // SIREN
+        // write("S80.G01.00.001.001", siren);
 
         // NIC
         write("S80.G01.00.001.002", nic);
@@ -168,16 +181,16 @@ public class N4DS {
 
         // FIXME Code assujettissement taxe et contribution apprentissage
         write("S80.G62.05.001", "01");
-        long totalApprentissage = Math.round(this.masseSalarialeBrute * 0.0068);
+        double totalApprentissage = this.masseSalarialeBrute * 0.0068;
         System.err.println(this.masseSalarialeBrute);
-        write("S80.G62.05.002.001", String.valueOf(totalApprentissage));
+        write("S80.G62.05.002", this.decimalFormat.format(totalApprentissage));
 
         write("S80.G62.05.003", "02");
 
         // FIXME Code assujettissement formation professionnelle continue
         write("S80.G62.10.001", "01");
-        long totalFormation = Math.round(this.masseSalarialeBrute * 0.0055);
-        write("S80.G62.10.003.001", String.valueOf(totalFormation));
+        double totalFormation = this.masseSalarialeBrute * 0.0055;
+        write("S80.G62.10.003.001", this.decimalFormat.format(totalFormation));
 
     }
 
@@ -193,9 +206,9 @@ public class N4DS {
 
     public void write(String rubriqueName, String value) throws IOException {
         String tmp = rubriqueName + ",'";
-        stream.write(tmp.getBytes());
-        stream.write(value.getBytes());
-        stream.write(retour);
+        this.stream.write(tmp.getBytes());
+        this.stream.write(value.getBytes());
+        this.stream.write(retour);
 
         // if (rubriqueName.startsWith("S20")) {
         // this.nbRubriqueS20++;
@@ -209,7 +222,7 @@ public class N4DS {
         SQLElement eltInfos = this.conf.getDirectory().getElement("INFOS_SALARIE_PAYE");
         SQLSelect sel = new SQLSelect(eltSalarie.getTable().getBase());
         sel.addSelect(eltSalarie.getTable().getKey());
-        Date d2 = new Date(110, 11, 31);
+        Date d2 = new Date(111, 11, 31);
         Where w = new Where(eltSalarie.getTable().getField("ID_INFOS_SALARIE_PAYE"), "=", eltInfos.getTable().getKey());
         w = w.and(new Where(eltInfos.getTable().getField("DATE_SORTIE"), "=", (Date) null).or(new Where(eltInfos.getTable().getField("DATE_SORTIE"), ">", d2)));
 
@@ -290,26 +303,20 @@ public class N4DS {
         // Voie
         write("S20.G01.00.009.006", voie);
 
-        // TODO Code INSEE
-        // stream.write("S20.G01.00.009.007",voie);
-
-        // FIXME Service de distribution
-        // stream.write("S20.G01.00.009.009",ville.getName());
-
         // Code postal
         write("S20.G01.00.009.010", ville.getCodepostal());
 
         // Localité
         write("S20.G01.00.009.012", ville.getName().toUpperCase());
 
-        // TODO Code Pays pour les autres pays que la France
-        // write("S20.G01.00.009.013","");
-        // write("S20.G01.00.009.016","");
-
         write("S20.G01.00.013.002", "1");
+
         // Code periodicite
-        // TODO déclaration autre que annuelle
         write("S20.G01.00.018", "A00");
+
+        write("S20.G01.05.014.001", siren);
+        write("S20.G01.05.014.002", nic);
+        write("S20.G01.05.016.001", rowSociete.getString("MAIL"));
 
     }
 
@@ -382,8 +389,7 @@ public class N4DS {
         write("S10.G01.00.006", "ILM Informatique");
 
         // Numéro version
-        // FIXME: utiliser le nuémro de version du logiciel
-        write("S10.G01.00.007", "1.2");
+        write("S10.G01.00.007", ProductInfo.getInstance().getVersion());
 
         // Code service choisi
         write("S10.G01.00.009", "40");
@@ -400,25 +406,40 @@ public class N4DS {
         // TODO Contact pour DADS
         // Code civilite
         write("S10.G01.01.001.001", "01");
+
         // Nom Contact
-        // TODO Contact pour DADS
-        write("S10.G01.01.001.002", "MAILLARD GUILLAUME");
+        SQLTable table = Configuration.getInstance().getRoot().findTable("CONTACT_ADMINISTRATIF");
+        SQLSelect selContact = new SQLSelect(table.getBase());
+        selContact.addSelectStar(table);
+        selContact.setWhere(new Where(table.getField("N4DS"), "=", Boolean.TRUE));
+        List<SQLRow> l = SQLRowListRSH.execute(selContact);
+        if (l.size() == 0) {
+            SwingUtilities.invokeLater(new Runnable() {
 
-        // Code domaine
-        // TODO Contact pour DADS
-        write("S10.G01.01.002", "03");
+                @Override
+                public void run() {
+                    JOptionPane.showMessageDialog(null, "Aucun contact administratif pour la N4DS. Veuillez en définir un.");
+                }
+            });
+        } else {
+            SQLRow rowContact = l.get(0);
 
-        // Adresse mail
-        // TODO Contact pour DADS
-        write("S10.G01.01.005", "contact@ilm-informatique.fr");
+            // TODO Contact pour DADS
+            write("S10.G01.01.001.002", rowContact.getString("NOM") + " " + rowContact.getString("PRENOM"));
 
-        // Tel
-        // TODO Contact pour DADS
-        write("S10.G01.01.006", "0322194472");
-        // TODO Contact pour DADS
+            // Code domaine
+            write("S10.G01.01.002", "03");
 
-        // Fax
-        write("S10.G01.01.007", "0322194408");
+            // Adresse mail
+            // TODO Contact pour DADS
+            write("S10.G01.01.005", rowContact.getString("EMAIL"));
+
+            // Tel
+            write("S10.G01.01.006", rowContact.getString("TEL_DIRECT"));
+
+            // Fax
+            write("S10.G01.01.007", rowContact.getString("FAX"));
+        }
     }
 
     private String getNumeroVoie(String voie) {
@@ -450,7 +471,7 @@ public class N4DS {
         return resultVoie.trim();
     }
 
-    public void addMasseSalarialeBrute(long baseBrute) {
+    public void addMasseSalarialeBrute(double baseBrute) {
         this.masseSalarialeBrute += baseBrute;
 
     }

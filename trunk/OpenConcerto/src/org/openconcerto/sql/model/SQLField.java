@@ -222,6 +222,16 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
     }
 
     /**
+     * Return the type of this field in SQL.
+     * 
+     * @return the SQL for the type, e.g. "int" or "decimal(16,8)".
+     * @see SQLSyntax#getType(SQLField)
+     */
+    public final String getTypeDecl() {
+        return this.getServer().getSQLSystem().getSyntax().getType(this);
+    }
+
+    /**
      * Metadata from JDBC.
      * 
      * @param name metadata name, eg "DECIMAL_DIGITS".

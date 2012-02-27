@@ -86,6 +86,10 @@ public class GestionDevise {
         numStr = b.toString();
         // }
 
+        // Si numStr "-"
+        if (numStr.trim().length() == 0) {
+            return 0;
+        }
         long num = Long.parseLong(numStr);
 
         // Si il n'y a pas de virgule, ou aucun chiffre apres la virgule

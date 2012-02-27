@@ -14,52 +14,100 @@
  package org.openconcerto.utils;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.util.Collections;
+import java.util.Map;
 import java.util.Properties;
 
 /**
- * Useful for defining product wide values, like version, from a property file. For example say you
- * have a common framework for 2 applications. You could put a property file with the same location
- * in each, then when building an app either you don't provide the file and the fwk one will be
- * used, either you provide one and assure that the fwk one won't overwrite it. That way the fwk
- * could use any key, knowing its value will be the right one.
+ * Useful for defining product wide values, like version, from a property file.
  * 
  * @author Sylvain
  */
 public class ProductInfo {
 
-    private static final ProductInfo INSTANCE = new ProductInfo();
+    public static final String PROPERTIES_NAME = "/product.properties";
+    public static final String NAME = "NAME";
+    public static final String VERSION = "VERSION";
 
+    private static ProductInfo INSTANCE;
+
+    /**
+     * If {@link #setInstance(ProductInfo)} was called with a non-null value, return that ;
+     * otherwise use {@link #createDefault()}.
+     * 
+     * @return the current instance, can be <code>null</code>.
+     */
     public synchronized static final ProductInfo getInstance() {
+        if (INSTANCE == null) {
+            try {
+                INSTANCE = createDefault();
+            } catch (IOException e) {
+                throw new IllegalStateException("unable to load default product properties", e);
+            }
+        }
         return INSTANCE;
     }
 
-    private Properties props;
+    /**
+     * Set the current instance.
+     * 
+     * @param i the new instance, can be <code>null</code>.
+     */
+    public synchronized static void setInstance(ProductInfo i) {
+        INSTANCE = i;
+    }
 
-    private ProductInfo() {
-        this.props = null;
+    /**
+     * Create a product info from the default properties file, {@value #PROPERTIES_NAME}.
+     * 
+     * @return the default properties, or <code>null</code> if they couldn't be found.
+     * @throws IOException if properties couldn't be loaded.
+     */
+    public static final ProductInfo createDefault() throws IOException {
+        final Properties p = PropertiesUtils.createFromResource(ProductInfo.class, PROPERTIES_NAME);
+        return p == null ? null : new ProductInfo(p);
+    }
+
+    private final Properties props;
+
+    public ProductInfo(final String name) {
+        this(Collections.singletonMap(NAME, name));
+    }
+
+    public ProductInfo(final Map<String, String> map) {
+        this(PropertiesUtils.createFromMap(map));
+    }
+
+    public ProductInfo(final Properties props) {
+        if (props == null)
+            throw new NullPointerException("Null properties");
+        if (props.getProperty(NAME) == null)
+            throw new IllegalArgumentException("Missing " + NAME);
+        this.props = props;
     }
 
     /**
      * The properties.
      * 
-     * @return the associated properties, or <code>null</code> if they couldn't be found.
-     * @throws IllegalStateException if properties couldn't be loaded.
+     * @return the associated properties.
      */
-    public final Properties getProps() {
-        if (this.props == null) {
-            try {
-                final InputStream stream = this.getClass().getResourceAsStream("/product.properties");
-                if (stream != null) {
-                    final Properties loadingProps = new Properties();
-                    loadingProps.load(stream);
-                    this.props = loadingProps;
-                }
-            } catch (IOException e) {
-                throw new IllegalStateException("unable to load product properties", e);
-            }
-        }
+    private final Properties getProps() {
         return this.props;
     }
 
+    public final String getProperty(String name) {
+        return this.getProps().getProperty(name);
+    }
+
+    public final String getProperty(String name, String def) {
+        return this.getProps().getProperty(name, def);
+    }
+
+    public final String getName() {
+        return this.getProperty(NAME, "unnamed product");
+    }
+
+    public final String getVersion() {
+        return this.getProperty(VERSION);
+    }
 }

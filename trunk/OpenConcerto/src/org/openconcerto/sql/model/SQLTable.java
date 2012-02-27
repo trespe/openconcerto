@@ -82,7 +82,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * </dl>
      */
     public static final String UNDEFINED_ID_POLICY = "undefined ID policy";
-    public static final String undefTable = "FWK_UNDEFINED_IDS";
+    public static final String undefTable = SQLSchema.FWK_TABLENAME_PREFIX + "UNDEFINED_IDS";
     // {SQLSchema=>{TableName=>UndefID}}
     private static final Map<SQLSchema, Map<String, Number>> UNDEFINED_IDs = new HashMap<SQLSchema, Map<String, Number>>();
 
@@ -500,8 +500,26 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return the constraints or <code>null</code> if they couldn't be retrieved.
      */
-    public final Set<Constraint> getConstraints() {
+    public final Set<Constraint> getAllConstraints() {
         return this.constraints == null ? null : Collections.unmodifiableSet(this.constraints);
+    }
+
+    /**
+     * The CHECK and UNIQUE constraints on this table. This is useful since FOREIGN KEY and PRIMARY
+     * KEY are already available through {@link #getForeignKeys()} and {@link #getPrimaryKeys()}.
+     * 
+     * @return the constraints or <code>null</code> if they couldn't be retrieved.
+     */
+    public final Set<Constraint> getConstraints() {
+        if (this.constraints == null)
+            return null;
+        final Set<Constraint> res = new HashSet<Constraint>();
+        for (final Constraint c : this.constraints) {
+            if (c.getType() != ConstraintType.FOREIGN_KEY && c.getType() != ConstraintType.PRIMARY_KEY) {
+                res.add(c);
+            }
+        }
+        return res;
     }
 
     /**
@@ -1301,7 +1319,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
             res.addForeignConstraint(l, false);
         // constraints
         if (this.constraints != null)
-            for (final Constraint added : this.constraints) {
+            for (final Constraint added : this.getConstraints()) {
                 if (added.getType() == ConstraintType.UNIQUE) {
                     res.addUniqueConstraint(added.getName(), added.getCols());
                 } else

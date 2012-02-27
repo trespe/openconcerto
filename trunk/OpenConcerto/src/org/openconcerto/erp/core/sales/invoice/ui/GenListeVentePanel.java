@@ -56,16 +56,19 @@ public class GenListeVentePanel extends JPanel implements ActionListener {
         c.gridwidth = 1;
         c.gridy++;
         c.anchor = GridBagConstraints.WEST;
-        this.add(new JLabel("du"), c);
+        this.add(new JLabel("Du"), c);
 
         c.gridx++;
+        c.weightx = 1;
         this.du = new JDate(true);
         this.add(this.du, c);
 
         c.gridx++;
+        c.weightx = 0;
         this.add(new JLabel("au"), c);
 
         c.gridx++;
+        c.weightx = 1;
         this.au = new JDate(true);
         this.add(this.au, c);
 
@@ -84,8 +87,9 @@ public class GenListeVentePanel extends JPanel implements ActionListener {
         panelButton.add(buttonClose);
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.CENTER;
+        c.anchor = GridBagConstraints.SOUTHEAST;
         c.weightx = 0;
+        c.weighty = 1;
         this.add(panelButton, c);
         this.buttonGen.addActionListener(this);
         buttonClose.addActionListener(this);

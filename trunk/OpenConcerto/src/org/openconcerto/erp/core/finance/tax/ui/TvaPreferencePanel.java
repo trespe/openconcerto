@@ -17,6 +17,7 @@ import org.openconcerto.erp.core.finance.tax.element.TaxeSQLElement;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.preferences.DefaultPreferencePanel;
+import org.openconcerto.ui.warning.JLabelWarning;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -26,7 +27,7 @@ public class TvaPreferencePanel extends DefaultPreferencePanel {
     public TvaPreferencePanel() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints cPanel = new DefaultGridBagConstraints();
-        cPanel.gridheight = GridBagConstraints.REMAINDER;
+
         cPanel.weightx = 1;
         cPanel.weighty = 1;
 
@@ -38,8 +39,11 @@ public class TvaPreferencePanel extends DefaultPreferencePanel {
         listeTaxe.setSearchFullMode(false);
         listeTaxe.setSearchVisible(false);
         listeTaxe.setUpAndDownVisible(false);
-        cPanel.fill=GridBagConstraints.BOTH;
+        cPanel.fill = GridBagConstraints.BOTH;
         this.add(listeTaxe, cPanel);
+        cPanel.weighty = 0;
+        cPanel.gridy++;
+        this.add(new JLabelWarning("Les modifications de TVA nécessitent un redémarrage du logiciel."), cPanel);
     }
 
     public void storeValues() {

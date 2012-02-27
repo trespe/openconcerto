@@ -30,11 +30,10 @@ import org.openconcerto.task.element.TaskRightSQLElement;
 import org.openconcerto.task.element.TaskSQLElement;
 import org.openconcerto.utils.DesktopEnvironment;
 import org.openconcerto.utils.LogUtils;
+import org.openconcerto.utils.ProductInfo;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -95,15 +94,10 @@ public abstract class ComptaBasePropsConfiguration extends PropsConfiguration {
         this.setLoggersLevel();
     }
 
-    public ComptaBasePropsConfiguration(File f, Properties defaults, final String appName) throws IOException {
-        this(create(new FileInputStream(f), defaults), appName);
-    }
-
-    public ComptaBasePropsConfiguration(Properties props, final String appName) {
+    public ComptaBasePropsConfiguration(Properties props, final ProductInfo productInfo) {
         super(props);
-      
 
-        this.setProperty("app.name", appName);
+        this.setProductInfo(productInfo);
         String name = "ilm";
         this.setProperty("systemRoot.rootsToMap", name + "_Common");
         this.setProperty("systemRoot.rootPath", name + "_Common");

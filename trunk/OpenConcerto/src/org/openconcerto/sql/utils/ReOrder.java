@@ -164,7 +164,7 @@ public abstract class ReOrder {
             selTableLast.addSelect(oF, "MAX");
 
             // cast inc to order type to avoid truncation error
-            final String avgDistance = " cast( ( " + getLast() + " - " + this.getFirst() + " ) / ( count(*) -1) as " + syntax.getOrderType() + ")";
+            final String avgDistance = " cast( " + getLast() + " - " + this.getFirst() + " as " + syntax.getOrderType() + " ) / ( count(*) -1)";
             // if the last order of this Spec is the last order of the table, we can use whatever
             // increment we want, we won't span over existing rows. This can be useful when
             // reordering densely packed rows, but this means that lastOrderValue won't be equal to

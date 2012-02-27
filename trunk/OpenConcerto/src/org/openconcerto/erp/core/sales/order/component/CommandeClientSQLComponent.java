@@ -80,6 +80,10 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         super(Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT"));
     }
 
+    public CommandeClientItemTable getRowValuesTable() {
+        return this.table;
+    }
+
     public void addViews() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();

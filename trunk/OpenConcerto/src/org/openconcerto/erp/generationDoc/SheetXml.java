@@ -292,6 +292,29 @@ public abstract class SheetXml {
     }
 
     /**
+     * Creates the document if needed and returns the generated file (OpenDocument)
+     * 
+     * @param createRecent true for recreate the pdf document if older than ods
+     * @return
+     * @throws Exception
+     * 
+     * */
+    public File getOrCreatePDFDocumentFile(boolean createRecent) throws Exception {
+        File f = getGeneratedPDFFile();
+        if (!f.exists()) {
+            getOrCreateDocumentFile();
+            showPrintAndExport(false, false, true);
+            return f;
+        } else {
+            File fODS = getOrCreateDocumentFile();
+            if (fODS.lastModified() > f.lastModified()) {
+                showPrintAndExport(false, false, true);
+            }
+            return f;
+        }
+    }
+
+    /**
      * Open the document with the native application
      * 
      * @param synchronous

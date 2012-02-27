@@ -30,6 +30,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -41,10 +42,12 @@ import javax.swing.JPanel;
 
 public class IListFilterDatePanel extends JPanel {
 
-    private final JDate dateDu, dateAu;
-    private final IListe list;
-    private final SQLField filterField;
-    private final Map<String, Tuple2<Date, Date>> map;
+    private JDate dateDu, dateAu;
+
+    private Map<IListe, SQLField> mapList;
+
+    // Liste des filtres
+    private Map<String, Tuple2<Date, Date>> map;
     private ITransformer<SQLSelect, SQLSelect> t;
 
     private final PropertyChangeListener listener = new PropertyChangeListener() {
@@ -127,11 +130,25 @@ public class IListFilterDatePanel extends JPanel {
 
     public IListFilterDatePanel(IListe l, SQLField fieldDate, Map<String, Tuple2<Date, Date>> m) {
         super(new GridBagLayout());
+        Map<IListe, SQLField> map = new HashMap<IListe, SQLField>();
+        map.put(l, fieldDate);
+
+        init(map, m);
+
+    }
+
+    public IListFilterDatePanel(Map<IListe, SQLField> l, Map<String, Tuple2<Date, Date>> m) {
+        super(new GridBagLayout());
+        init(l, m);
+
+    }
+
+    public void init(Map<IListe, SQLField> mapList, Map<String, Tuple2<Date, Date>> m) {
+
         this.setBorder(BorderFactory.createTitledBorder("Période"));
-        this.list = l;
+        this.mapList = mapList;
         this.dateDu = new JDate();
         this.dateAu = new JDate();
-        this.filterField = fieldDate;
         this.map = m;
 
         GridBagConstraints c = new DefaultGridBagConstraints();
@@ -175,6 +192,17 @@ public class IListFilterDatePanel extends JPanel {
         this.dateAu.setValue(d);
     }
 
+    public void setFilterOnCurrentYear() {
+        Calendar c = Calendar.getInstance();
+        c.set(Calendar.MONTH, 0);
+        c.set(Calendar.DAY_OF_MONTH, 1);
+        Date d = c.getTime();
+        c.set(Calendar.MONTH, 11);
+        c.set(Calendar.DAY_OF_MONTH, c.getMaximum(Calendar.DAY_OF_MONTH));
+        Date d2 = c.getTime();
+        setPeriode(d, d2);
+    }
+
     public void setPeriode(Tuple2<Date, Date> t) {
         if (t == null) {
             setPeriode(null, null);
@@ -202,9 +230,14 @@ public class IListFilterDatePanel extends JPanel {
         if (this.dateAu.getValue() == null && this.dateDu.getValue() == null) {
             System.err.println("Null ");
             if (this.t != null) {
-                this.list.getRequest().setSelectTransf(this.t);
+                for (IListe list : this.mapList.keySet()) {
+
+                    list.getRequest().setSelectTransf(this.t);
+                }
             } else {
-                this.list.getRequest().setSelectTransf(null);
+                for (IListe list : this.mapList.keySet()) {
+                    list.getRequest().setSelectTransf(null);
+                }
             }
             return;
         }
@@ -217,16 +250,19 @@ public class IListFilterDatePanel extends JPanel {
             c.set(Calendar.MINUTE, 0);
             c.set(Calendar.MILLISECOND, 1);
 
-            this.list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
-                @Override
-                public SQLSelect transformChecked(SQLSelect input) {
-                    if (t != null) {
-                        input = t.transformChecked(input);
+            for (IListe list : this.mapList.keySet()) {
+                final SQLField filterField = this.mapList.get(list);
+                list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
+                    @Override
+                    public SQLSelect transformChecked(SQLSelect input) {
+                        if (t != null) {
+                            input = t.transformChecked(input);
+                        }
+                        input.andWhere(new Where(input.getAlias(filterField), ">=", c.getTime()));
+                        return input;
                     }
-                    input.andWhere(new Where(input.getAlias(filterField), ">=", c.getTime()));
-                    return input;
-                }
-            });
+                });
+            }
             return;
         }
 
@@ -237,17 +273,20 @@ public class IListFilterDatePanel extends JPanel {
             c.set(Calendar.HOUR_OF_DAY, 23);
             c.set(Calendar.MINUTE, 59);
             c.set(Calendar.MILLISECOND, 59);
+            for (IListe list : this.mapList.keySet()) {
+                final SQLField filterField = this.mapList.get(list);
 
-            this.list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
-                @Override
-                public SQLSelect transformChecked(SQLSelect input) {
-                    if (t != null) {
-                        input = t.transformChecked(input);
+                list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
+                    @Override
+                    public SQLSelect transformChecked(SQLSelect input) {
+                        if (t != null) {
+                            input = t.transformChecked(input);
+                        }
+                        input.andWhere(new Where(input.getAlias(filterField), "<=", c.getTime()));
+                        return input;
                     }
-                    input.andWhere(new Where(input.getAlias(filterField), "<=", c.getTime()));
-                    return input;
-                }
-            });
+                });
+            }
             return;
         }
         System.err.println("Between ");
@@ -263,16 +302,20 @@ public class IListFilterDatePanel extends JPanel {
         c2.set(Calendar.HOUR_OF_DAY, 0);
         c2.set(Calendar.MINUTE, 0);
         c2.set(Calendar.MILLISECOND, 1);
-        this.list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
-            @Override
-            public SQLSelect transformChecked(SQLSelect input) {
-                if (t != null) {
-                    input = t.transformChecked(input);
+        for (IListe list : this.mapList.keySet()) {
+            final SQLField filterField = this.mapList.get(list);
+
+            list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
+                @Override
+                public SQLSelect transformChecked(SQLSelect input) {
+                    if (t != null) {
+                        input = t.transformChecked(input);
+                    }
+                    input.andWhere(new Where(input.getAlias(filterField), c2.getTime(), c.getTime()));
+                    return input;
                 }
-                input.andWhere(new Where(input.getAlias(filterField), c2.getTime(), c.getTime()));
-                return input;
-            }
-        });
+            });
+        }
 
     }
 }

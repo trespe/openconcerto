@@ -230,8 +230,8 @@ public class UserExitPanel extends JPanel {
             @Override
             public void run() {
                 try {
-                    // 2 minutes d'attente
-                    Thread.sleep(2 * 60 * 1000);
+                    // 5 s d'attente
+                    Thread.sleep(5 * 1000);
                     System.err.println("Warning: Forcing exit");
                     Thread t = new Thread(new Runnable() {
                         @Override
@@ -242,7 +242,7 @@ public class UserExitPanel extends JPanel {
                     t.setDaemon(true);
                     t.setName("Configuration destroy");
                     t.start();
-                    Thread.sleep(30 * 1000);
+                    Thread.sleep(5 * 1000);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }

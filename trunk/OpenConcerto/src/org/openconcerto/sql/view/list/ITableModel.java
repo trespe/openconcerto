@@ -39,6 +39,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
 
 import javax.swing.SwingUtilities;
 import javax.swing.event.TableModelListener;
@@ -193,7 +194,11 @@ public class ITableModel extends AbstractTableModel {
     }
 
     void print(String s) {
-        Log.get().fine(this.getTable() + " " + this.hashCode() + " : " + s);
+        print(s, Level.FINE);
+    }
+
+    void print(String s, Level l) {
+        Log.get().log(l, this.getTable() + " " + this.hashCode() + " : " + s);
     }
 
     /**
@@ -544,15 +549,9 @@ public class ITableModel extends AbstractTableModel {
     }
 
     void setSleeping(SleepState state) {
-        try {
-            synchronized (this.runSleep) {
-                this.wantedState = state;
-                this.sleepUpdated();
-            }
-        } catch (Exception e) {
-            // FIXME Sylvain knows
-            System.err.println("Cannot sleep for strange reasons");
-            e.printStackTrace();
+        synchronized (this.runSleep) {
+            this.wantedState = state;
+            this.sleepUpdated();
         }
     }
 
@@ -624,7 +623,15 @@ public class ITableModel extends AbstractTableModel {
                     this.autoHibernate = new TimerTask() {
                         @Override
                         public void run() {
-                            setSleeping(HIBERNATING);
+                            try {
+                                setSleeping(HIBERNATING);
+                            } catch (Exception e) {
+                                // never let an exception pass, otherwise the timer thread will die,
+                                // and the *static* timer will become unusable for everyone
+                                // OK to ignore setSleeping() since it's merely an optimization
+                                print("HIBERNATING failed : " + e.getMessage(), Level.WARNING);
+                                e.printStackTrace();
+                            }
                         }
                     };
                     getAutoHibernateTimer().schedule(this.autoHibernate, this.hibernateDelay * 1000);
@@ -697,6 +704,8 @@ public class ITableModel extends AbstractTableModel {
         // nobody listens to us so we die
         if (this.listenerList.getListenerCount() == 0) {
             print("dying");
+            if (this.autoHibernate != null)
+                this.autoHibernate.cancel();
             this.updateQ.die();
             this.getSearchQueue().die();
             this.moveQ.die();

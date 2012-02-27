@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql;
 
+import org.openconcerto.sql.element.RowItemViewMetadata;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.element.SQLElementDirectory.DirectoryListener;
@@ -32,6 +33,7 @@ import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.LogUtils;
 import org.openconcerto.utils.MultipleOutputStream;
+import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.cc.IClosure;
 
@@ -54,7 +56,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Date;
-import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
@@ -120,15 +121,15 @@ public class PropsConfiguration extends Configuration {
         final InetAddress addr;
         try {
             addr = InetAddress.getLocalHost();
-        } catch (UnknownHostException e) {
+        } catch (final UnknownHostException e) {
             e.printStackTrace();
             return "local";
         }
         return addr.getHostName();
     }
 
-    protected static Properties create(InputStream f, Properties defaults) throws IOException {
-        Properties props = new Properties(defaults);
+    protected static Properties create(final InputStream f, final Properties defaults) throws IOException {
+        final Properties props = new Properties(defaults);
         if (f != null) {
             props.load(f);
             f.close();
@@ -153,12 +154,14 @@ public class PropsConfiguration extends Configuration {
     private DBSystemRoot sysRoot;
     private DBRoot root;
     // rest
+    private ProductInfo productInfo;
     private ShowAs showAs;
     private SQLFilter filter;
     private SQLFieldTranslator translator;
     private SQLElementDirectory directory;
     private DirectoryListener directoryListener;
     private File wd;
+    private File logDir;
     // split sql tree and the rest since creating the tree is costly
     // and nodes are inter-dependant, while the rest is mostly fast
     // different instances, otherwise lock every Conf instances
@@ -174,6 +177,8 @@ public class PropsConfiguration extends Configuration {
     private Session conn;
     private boolean isUsingSSH;
 
+    protected RowItemViewMetadata metadata;
+
     public PropsConfiguration() throws IOException {
         this(new File("fwk_SQL.properties"), DEFAULTS);
     }
@@ -185,15 +190,15 @@ public class PropsConfiguration extends Configuration {
      * @param defaults the defaults, can be <code>null</code>.
      * @throws IOException if an error occurs while reading f.
      */
-    public PropsConfiguration(File f, Properties defaults) throws IOException {
+    public PropsConfiguration(final File f, final Properties defaults) throws IOException {
         this(new FileInputStream(f), defaults);
     }
 
-    public PropsConfiguration(InputStream f, Properties defaults) throws IOException {
+    public PropsConfiguration(final InputStream f, final Properties defaults) throws IOException {
         this(create(f, defaults));
     }
 
-    public PropsConfiguration(Properties props) {
+    public PropsConfiguration(final Properties props) {
         this.props = props;
         this.showAsToAdd = new ArrayList<Configuration>();
         this.directoryToAdd = new ArrayList<Configuration>();
@@ -211,23 +216,28 @@ public class PropsConfiguration extends Configuration {
             this.directory.removeListener(this.directoryListener);
     }
 
-    public final String getProperty(String name) {
+    public final String getProperty(final String name) {
         return this.props.getProperty(name);
     }
 
-    public final String getProperty(String name, String def) {
+    public final String getProperty(final String name, final String def) {
         return this.props.getProperty(name, def);
     }
 
     // since null aren't allowed, null means remove
-    protected final void setProperty(String name, String val) {
+    protected final void setProperty(final String name, final String val) {
         if (val == null)
             this.props.remove(name);
         else
             this.props.setProperty(name, val);
     }
 
+    protected final void setProductInfo(final ProductInfo productInfo) {
+        this.productInfo = productInfo;
+    }
+
     private void setUp() {
+        this.setProductInfo(ProductInfo.getInstance());
         this.sysRoot = null;
         this.setTranslator(null);
         this.setDirectory(null);
@@ -260,19 +270,19 @@ public class PropsConfiguration extends Configuration {
      * @param name name of the stream, eg /ilm/f.xml.
      * @return the corresponding stream, or <code>null</code> if not found.
      */
-    public final InputStream getStream(String name) {
+    public final InputStream getStream(final String name) {
         final File f = getFile(name);
         if (mustUseClassloader(f)) {
             return this.getClass().getResourceAsStream(name);
         } else
             try {
                 return new FileInputStream(f);
-            } catch (FileNotFoundException e) {
+            } catch (final FileNotFoundException e) {
                 return null;
             }
     }
 
-    private File getFile(String name) {
+    private File getFile(final String name) {
         return new File(name.startsWith("/") ? name.substring(1) : name);
     }
 
@@ -280,7 +290,7 @@ public class PropsConfiguration extends Configuration {
         return this.getFileMode() == FileMode.IN_JAR || !f.exists();
     }
 
-    public final String getResource(String name) {
+    public final String getResource(final String name) {
         final File f = getFile(name);
         if (mustUseClassloader(f)) {
             return this.getClass().getResource(name).toExternalForm();
@@ -336,7 +346,7 @@ public class PropsConfiguration extends Configuration {
                 log.config("using " + defaultServer);
 
                 return defaultServer;
-            } catch (RuntimeException e) {
+            } catch (final RuntimeException e) {
                 origExn = e;
                 // on essaye par SSL
                 log.config(e.getLocalizedMessage());
@@ -352,14 +362,14 @@ public class PropsConfiguration extends Configuration {
             final String[] serverAndPort = getProperty("server.ip").split(":");
             log.info("ssl tunnel from local port " + localPort + " to remote " + serverAndPort[0] + ":" + serverAndPort[1]);
             this.conn.setPortForwardingL(localPort, serverAndPort[0], Integer.valueOf(serverAndPort[1]));
-        } catch (Exception e1) {
+        } catch (final Exception e1) {
             throw new IllegalStateException("Impossible de créer la liaison sécurisée. Vérifier que le logiciel n'est pas déjà lancé.", e1);
         }
         setProperty("server.ip", "localhost:" + localPort);
         final SQLServer serverThruSSL = doCreateServer();
         try {
             serverThruSSL.getSystemRoot(getSystemRootName());
-        } catch (Exception e) {
+        } catch (final Exception e) {
             this.closeSSLConnection();
             throw new IllegalStateException("Couldn't connect through SSL : " + e.getLocalizedMessage(), origExn);
         }
@@ -372,33 +382,38 @@ public class PropsConfiguration extends Configuration {
         // server (mandated for MySQL : when the graph is built, it needs access to all the bases)
         return new SQLServer(getSystem(), this.getProperty("server.ip"), null, getLogin(), getPassword(), new IClosure<DBSystemRoot>() {
             @Override
-            public void executeChecked(DBSystemRoot input) {
+            public void executeChecked(final DBSystemRoot input) {
                 input.getRootsToMap().addAll(getRootsToMap());
             }
         }, new IClosure<SQLDataSource>() {
             @Override
-            public void executeChecked(SQLDataSource input) {
+            public void executeChecked(final SQLDataSource input) {
                 initDS(input);
             }
         });
     }
 
-    private void openSSLConnection(String addr, int port) {
+    private void openSSLConnection(final String addr, final int port) {
         final String username = getSSLUserName();
+        final String pass = getSSLPassword();
         boolean isAuthenticated = false;
 
         final JSch jsch = new JSch();
         try {
-            final ByteArrayOutputStream out = new ByteArrayOutputStream(700);
-            final String name = username + "_dsa";
-            final InputStream in = getClass().getResourceAsStream(name);
-            if (in == null)
-                throw new IllegalStateException("Missing private key " + getClass().getCanonicalName() + "/" + name);
-            StreamUtils.copy(in, out);
-            in.close();
-            jsch.addIdentity(username, out.toByteArray(), null, null);
+            if (pass == null) {
+                final ByteArrayOutputStream out = new ByteArrayOutputStream(700);
+                final String name = username + "_dsa";
+                final InputStream in = getClass().getResourceAsStream(name);
+                if (in == null)
+                    throw new IllegalStateException("Missing private key " + getClass().getCanonicalName() + "/" + name);
+                StreamUtils.copy(in, out);
+                in.close();
+                jsch.addIdentity(username, out.toByteArray(), null, null);
+            }
 
             this.conn = jsch.getSession(username, addr, port);
+            if (pass != null)
+                this.conn.setPassword(pass);
             final Properties config = new Properties();
             // Set StrictHostKeyChecking property to no to avoid UnknownHostKey issue
             config.put("StrictHostKeyChecking", "no");
@@ -410,7 +425,7 @@ public class PropsConfiguration extends Configuration {
             this.conn.connect(6000);
 
             isAuthenticated = true;
-        } catch (Exception e) {
+        } catch (final Exception e) {
             throw new IllegalStateException("Connection failed", e);
         }
         if (!isAuthenticated)
@@ -419,6 +434,10 @@ public class PropsConfiguration extends Configuration {
 
     public String getSSLUserName() {
         return this.getProperty("server.wan.user");
+    }
+
+    protected String getSSLPassword() {
+        return this.getProperty("server.wan.password");
     }
 
     private void closeSSLConnection() {
@@ -463,7 +482,8 @@ public class PropsConfiguration extends Configuration {
     protected void initDS(final SQLDataSource ds) {
         ds.setCacheEnabled(true);
         propIterate(new IClosure<String>() {
-            public void executeChecked(String propName) {
+            @Override
+            public void executeChecked(final String propName) {
                 final String jdbcName = propName.substring(JDBC_CONNECTION.length());
                 ds.addConnectionProperty(jdbcName, PropsConfiguration.this.getProperty(propName));
             }
@@ -472,7 +492,8 @@ public class PropsConfiguration extends Configuration {
 
     public final void propIterate(final IClosure<String> cl, final String startsWith) {
         this.propIterate(cl, new Predicate() {
-            public boolean evaluate(Object propName) {
+            @Override
+            public boolean evaluate(final Object propName) {
                 return ((String) propName).startsWith(startsWith);
             }
         });
@@ -485,9 +506,7 @@ public class PropsConfiguration extends Configuration {
      * @param filter which property to use.
      */
     public final void propIterate(final IClosure<String> cl, final Predicate filter) {
-        final Enumeration iter = this.props.propertyNames();
-        while (iter.hasMoreElements()) {
-            final String propName = (String) iter.nextElement();
+        for (final String propName : this.props.stringPropertyNames()) {
             if (filter.evaluate(propName)) {
                 cl.executeChecked(propName);
             }
@@ -501,7 +520,8 @@ public class PropsConfiguration extends Configuration {
      */
     public final void setLoggersLevel() {
         this.propIterate(new IClosure<String>() {
-            public void executeChecked(String propName) {
+            @Override
+            public void executeChecked(final String propName) {
                 final String logName = propName.substring(LOG.length());
                 LogUtils.getLogger(logName).setLevel(Level.parse(getProperty(propName)));
             }
@@ -528,31 +548,31 @@ public class PropsConfiguration extends Configuration {
         final File logDir;
         try {
             final File softLogDir = new File(this.getWD() + "/" + dirName + "/" + getHostname() + "-" + System.getProperty("user.name"));
+            // don't throw an exception if this fails, we'll fall back to homeLogDir
             softLogDir.mkdirs();
-            if (softLogDir.canWrite())
+            if (softLogDir.canWrite()) {
                 logDir = softLogDir;
-            else {
+            } else {
                 final File homeLogDir = new File(System.getProperty("user.home") + "/." + this.getAppName() + "/" + dirName);
                 FileUtils.mkdir_p(homeLogDir);
-                logDir = homeLogDir;
+                if (homeLogDir.canWrite())
+                    logDir = homeLogDir;
+                else
+                    throw new IOException("Home log directory not writeable : " + homeLogDir);
             }
+            assert logDir.exists() && logDir.canWrite();
             System.out.println("Log directory: " + logDir.getAbsolutePath());
-            if (!logDir.exists()) {
-                System.err.println("Log directory: " + logDir.getAbsolutePath() + " DOEST NOT EXISTS!!!");
-            }
-            if (!logDir.canWrite()) {
-                System.err.println("Log directory: " + logDir.getAbsolutePath() + " is NOT WRITABLE");
-            }
-        } catch (IOException e) {
+        } catch (final IOException e) {
             throw new IllegalStateException("unable to create log dir", e);
         }
+        this.logDir = logDir;
         final String logNameBase = this.getAppName() + "_" + getLogDateFormat().format(new Date());
 
-        // must be done first, otherwise log output not redirected
+        // must be done before setUpConsoleHandler(), otherwise log output not redirected
         if (redirectToFile) {
             final File logFile = new File(logDir, (logNameBase + ".txt"));
-            logFile.getParentFile().mkdirs();
             try {
+                FileUtils.mkdir_p(logFile.getParentFile());
                 System.out.println("Log file: " + logFile.getAbsolutePath());
                 final OutputStream fileOut = new FileOutputStream(logFile, true);
                 final OutputStream out, err;
@@ -565,7 +585,7 @@ public class PropsConfiguration extends Configuration {
                 }
                 System.setErr(new PrintStream(new BufferedOutputStream(err, 128), true));
                 System.setOut(new PrintStream(new BufferedOutputStream(out, 128), true));
-            } catch (FileNotFoundException e) {
+            } catch (final IOException e) {
                 throw new IllegalStateException("unable to write to log file", e);
             }
             // Takes about 350ms so run it async
@@ -574,14 +594,14 @@ public class PropsConfiguration extends Configuration {
                 public void run() {
                     try {
                         FileUtils.ln(logFile, new File(logDir, "last.log"));
-                    } catch (IOException e) {
+                    } catch (final IOException e) {
                         // the link is not important
                         e.printStackTrace();
                     }
                 }
             }).start();
         } else {
-            System.out.println("Log not redirected to file");
+            System.out.println("Standard streams not redirected to file");
         }
 
         // removes default
@@ -591,18 +611,22 @@ public class PropsConfiguration extends Configuration {
         // add file handler (supports concurrent launches, doesn't depend on date)
         try {
             final File logFile = new File(logDir, this.getAppName() + "-%u-age%g.log");
-            logFile.getParentFile().mkdirs();
+            FileUtils.mkdir_p(logFile.getParentFile());
             System.out.println("Logger logs: " + logFile.getAbsolutePath());
             // 2 files of at most 5M, each new launch append
             // if multiple concurrent launches %u is used
             final FileHandler fh = new FileHandler(logFile.getPath(), 5 * 1024 * 1024, 2, true);
             fh.setFormatter(new SimpleFormatter());
             Logger.getLogger("").addHandler(fh);
-        } catch (IOException e) {
+        } catch (final IOException e) {
             ExceptionHandler.handle("Enregistrement du Logger désactivé", e);
         }
 
         this.setLoggersLevel();
+    }
+
+    public final File getLogDir() {
+        return this.logDir;
     }
 
     public void tearDownLogging() {
@@ -622,12 +646,12 @@ public class PropsConfiguration extends Configuration {
         assert this.directoryListener == null;
         this.directoryListener = new DirectoryListener() {
             @Override
-            public void elementRemoved(SQLElement elem) {
+            public void elementRemoved(final SQLElement elem) {
                 res.removeTable(elem.getTable());
             }
 
             @Override
-            public void elementAdded(SQLElement elem) {
+            public void elementAdded(final SQLElement elem) {
                 final CollectionMap<String, String> sa = elem.getShowAs();
                 if (sa != null) {
                     for (final Entry<String, Collection<String>> e : sa.entrySet()) {
@@ -685,7 +709,8 @@ public class PropsConfiguration extends Configuration {
      * 
      * @param conf the conf to add.
      */
-    public final Configuration add(Configuration conf) {
+    @Override
+    public final Configuration add(final Configuration conf) {
         if (this.showAs != null)
             this.getShowAs().putAll(conf.getShowAs());
         else
@@ -706,6 +731,7 @@ public class PropsConfiguration extends Configuration {
 
     // *** getters
 
+    @Override
     public final ShowAs getShowAs() {
         synchronized (this.restLock) {
             if (this.showAs == null) {
@@ -718,10 +744,12 @@ public class PropsConfiguration extends Configuration {
         return this.showAs;
     }
 
+    @Override
     public final SQLBase getBase() {
         return this.getNode(SQLBase.class);
     }
 
+    @Override
     public final DBRoot getRoot() {
         synchronized (this.treeLock) {
             if (this.root == null)
@@ -748,7 +776,7 @@ public class PropsConfiguration extends Configuration {
      * @return the corresponding instance, eg getBase() for SQLBase, getServer() or getBase() for
      *         DBSystemRoot depending on the SQL system.
      */
-    public final <T extends DBStructureItem> T getNode(Class<T> clazz) {
+    public final <T extends DBStructureItem<?>> T getNode(final Class<T> clazz) {
         final SQLSystem sys = this.getServer().getSQLSystem();
         final HierarchyLevel l = sys.getLevel(clazz);
         if (l == HierarchyLevel.SQLSERVER)
@@ -778,6 +806,7 @@ public class PropsConfiguration extends Configuration {
         return this.server;
     }
 
+    @Override
     public final SQLFilter getFilter() {
         synchronized (this.restLock) {
             if (this.filter == null)
@@ -786,6 +815,7 @@ public class PropsConfiguration extends Configuration {
         return this.filter;
     }
 
+    @Override
     public final SQLFieldTranslator getTranslator() {
         synchronized (this.restLock) {
             if (this.translator == null) {
@@ -798,6 +828,7 @@ public class PropsConfiguration extends Configuration {
         return this.translator;
     }
 
+    @Override
     public final SQLElementDirectory getDirectory() {
         synchronized (this.restLock) {
             if (this.directory == null) {
@@ -810,9 +841,13 @@ public class PropsConfiguration extends Configuration {
         return this.directory;
     }
 
+    public final ProductInfo getProductInfo() {
+        return this.productInfo;
+    }
+
     @Override
-    public String getAppName() {
-        return this.getProperty("app.name");
+    public final String getAppName() {
+        return this.getProductInfo().getName();
     }
 
     @Override
@@ -828,32 +863,35 @@ public class PropsConfiguration extends Configuration {
 
     // MAYBE add synchronized (not necessary since they're private, and only called with the lock)
 
-    private final void setFilter(SQLFilter filter) {
+    private final void setFilter(final SQLFilter filter) {
         this.filter = filter;
     }
 
-    private void setServer(SQLServer server) {
+    private void setServer(final SQLServer server) {
         this.server = server;
     }
 
-    private final void setRoot(DBRoot root) {
+    private final void setRoot(final DBRoot root) {
         this.root = root;
     }
 
-    private final void setShowAs(ShowAs showAs) {
+    private final void setShowAs(final ShowAs showAs) {
         this.showAs = showAs;
     }
 
-    private final void setTranslator(SQLFieldTranslator translator) {
+    private final void setTranslator(final SQLFieldTranslator translator) {
         this.translator = translator;
     }
 
-    private final void setDirectory(SQLElementDirectory directory) {
+    private final void setDirectory(final SQLElementDirectory directory) {
         this.directory = directory;
     }
 
-    private final void setWD(File dir) {
+    private final void setWD(final File dir) {
         this.wd = dir;
     }
 
+    public RowItemViewMetadata getMetadata() {
+        return metadata;
+    }
 }

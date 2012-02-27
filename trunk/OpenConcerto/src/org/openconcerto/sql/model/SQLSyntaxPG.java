@@ -196,6 +196,11 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     @Override
+    public String getDropPrimaryKey(SQLTable t) {
+        return getDropConstraint() + SQLBase.quoteIdentifier(t.getConstraint(ConstraintType.PRIMARY_KEY, t.getPKsNames()).getName());
+    }
+
+    @Override
     public String getDropIndex(String name, SQLName tableName) {
         return "DROP INDEX IF EXISTS " + new SQLName(tableName.getItemLenient(-2), name).quote() + " ;";
     }
@@ -395,12 +400,12 @@ class SQLSyntaxPG extends SQLSyntax {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getConstraints(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException {
         final String sel = "select nsp.nspname as \"TABLE_SCHEMA\", rel.relname as \"TABLE_NAME\", c.conname as \"CONSTRAINT_NAME\", c.oid as cid, \n"
-                + "case c.contype when 'u' then 'UNIQUE' when 'c' then 'CHECK' end as \"CONSTRAINT_TYPE\", att.attname as \"COLUMN_NAME\", c.conkey as \"colsNum\", att.attnum as \"colNum\"\n"
+                + "case c.contype when 'u' then 'UNIQUE' when 'c' then 'CHECK' when 'f' then 'FOREIGN KEY' when 'p' then 'PRIMARY KEY' end as \"CONSTRAINT_TYPE\", att.attname as \"COLUMN_NAME\", c.conkey as \"colsNum\", att.attnum as \"colNum\"\n"
                 // from
                 + "from pg_catalog.pg_constraint c\n" + "join pg_namespace nsp on nsp.oid = c.connamespace\n" + "left join pg_class rel on rel.oid = c.conrelid\n"
                 + "left join pg_attribute att on  att.attrelid = c.conrelid and att.attnum = ANY(c.conkey)\n"
                 // where
-                + "where c.contype in ('u', 'c') and\n" + getInfoSchemaWhere(b, "nsp.nspname", schemas, "rel.relname", tables)
+                + "where " + getInfoSchemaWhere(b, "nsp.nspname", schemas, "rel.relname", tables)
                 // order
                 + "\norder by nsp.nspname, rel.relname, c.conname";
         // don't cache since we don't listen on system tables

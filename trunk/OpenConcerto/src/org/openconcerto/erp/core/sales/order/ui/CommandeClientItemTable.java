@@ -13,6 +13,9 @@
  
  package org.openconcerto.erp.core.sales.order.ui;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -29,5 +32,11 @@ public class CommandeClientItemTable extends AbstractVenteArticleItemTable {
     public SQLElement getSQLElement() {
         return Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT_ELEMENT");
 
+    }
+
+    public static Map<String, Boolean> map = new HashMap<String, Boolean>();
+
+    protected Map<String, Boolean> getCustomVisibilityMap() {
+        return map;
     }
 }

@@ -13,26 +13,14 @@
  
  package org.openconcerto.erp.action;
 
-import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.sql.Configuration;
-import org.openconcerto.ui.DefaultGridBagConstraints;
-import org.openconcerto.ui.FormLayouter;
-import org.openconcerto.ui.SystemInfoPanel;
-import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.sql.ui.InfoPanel;
 
 import java.awt.Dimension;
-import java.awt.Font;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
-import java.io.IOException;
-import java.util.Properties;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 
 public final class AboutAction extends AbstractAction {
@@ -51,17 +39,7 @@ public final class AboutAction extends AbstractAction {
     @Override
     public void actionPerformed(final ActionEvent event) {
         final JFrame frame = new JFrame((String) this.getValue(Action.NAME));
-        final JPanel panel = new JPanel(new GridBagLayout());
-        GridBagConstraints c = new DefaultGridBagConstraints();
-        panel.add(createTitle("Logiciel"), c);
-        c.gridy++;
-        panel.add(createSoftwareInfoPanel(), c);
-        c.gridy++;
-        panel.add(createTitle("Informations système"), c);
-        c.gridy++;
-        panel.add(new SystemInfoPanel(), c);
-
-        final JScrollPane contentPane = new JScrollPane(panel);
+        final JScrollPane contentPane = new JScrollPane(new InfoPanel());
         frame.setContentPane(contentPane);
         frame.pack();
 
@@ -83,32 +61,5 @@ public final class AboutAction extends AbstractAction {
         frame.setLocationRelativeTo(null);
 
         frame.setVisible(true);
-    }
-
-    private JLabel createTitle(final String text) {
-        final JLabel res = new JLabel(text);
-        final Font font = res.getFont();
-        res.setFont(font.deriveFont(font.getSize2D() * 1.2f).deriveFont(Font.BOLD));
-        return res;
-    }
-
-    private JPanel createSoftwareInfoPanel() {
-        final JPanel res = new JPanel();
-        final FormLayouter lay = new FormLayouter(res, 1);
-        final ComptaPropsConfiguration conf = (ComptaPropsConfiguration) ComptaPropsConfiguration.getInstance();
-        lay.add("Nom de l'application", new JLabel(conf.getAppName()));
-        String version = "Version inconnue";
-        try {
-            version = ProductInfo.getInstance().getProps().getProperty("VERSION", version);
-        } catch (Exception e) {
-            System.err.println("Error reading product.properties");
-        }
-        lay.add("Version de l'application", new JLabel(version));
-        if (conf.isUsingSSH()) {
-            lay.add("Liaison sécurisée", new JLabel(conf.getWanHostAndPort()));
-        }
-        lay.add("URL de base de données", new JLabel(Configuration.getInstance().getSystemRoot().getDataSource().getUrl()));
-
-        return res;
     }
 }

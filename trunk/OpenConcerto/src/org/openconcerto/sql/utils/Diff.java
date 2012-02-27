@@ -14,7 +14,6 @@
  package org.openconcerto.sql.utils;
 
 import org.openconcerto.sql.model.Constraint;
-import org.openconcerto.sql.model.DBFileCache;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLBase;
@@ -32,6 +31,7 @@ import org.openconcerto.sql.model.SQLTable.Index;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.cc.IClosure;
 
 import java.net.URISyntaxException;
@@ -66,7 +66,7 @@ public class Diff {
         }
         System.setProperty(SQLSchema.NOAUTO_CREATE_METADATA, "true");
         // for caching the db
-        System.setProperty(DBFileCache.APP_NAME, Diff.class.getName());
+        ProductInfo.setInstance(new ProductInfo(Diff.class.getName()));
 
         final SQL_URL url1 = SQL_URL.create(args[0]);
         final SQL_URL url2 = SQL_URL.create(args[1]);
@@ -190,8 +190,14 @@ public class Diff {
                         alterTable.alterColumn(common, bF, diff.keySet());
                     }
                 }
-                if (!aT.getPKsNames().equals(bT.getPKsNames()))
-                    throw new UnsupportedOperationException(tableName + " has pks diff: " + aT.getPKsNames() + " != " + bT.getPKsNames());
+                final List<String> aPKNames = aT.getPKsNames();
+                final List<String> bPKNames = bT.getPKsNames();
+                if (!aPKNames.equals(bPKNames)) {
+                    if (aPKNames.size() > 0)
+                        alterTable.dropPrimaryKey();
+                    if (bPKNames.size() > 0)
+                        alterTable.addPrimaryKey(bPKNames);
+                }
 
                 // foreign keys
                 {

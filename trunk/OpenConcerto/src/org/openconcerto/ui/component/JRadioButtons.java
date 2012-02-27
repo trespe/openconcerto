@@ -31,6 +31,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
@@ -47,8 +48,12 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
 
     public static final class JStringRadioButtons extends JRadioButtons<String> {
         public JStringRadioButtons(final Collection<String> choices) {
+            this(true, choices);
+        }
+
+        public JStringRadioButtons(final boolean lineAxis, final Collection<String> choices) {
             // keep order even if the passed collection is a set (it might still be ordered)
-            super(CollectionUtils.fillMap(new LinkedHashMap<String, String>(), choices));
+            super(lineAxis, CollectionUtils.fillMap(new LinkedHashMap<String, String>(), choices));
         }
     }
 
@@ -64,10 +69,10 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
     private V value;
 
     public JRadioButtons() {
-        this(null);
+        this(true, null);
     }
 
-    public JRadioButtons(final Map<V, String> choices) {
+    public JRadioButtons(final boolean lineAxis, final Map<V, String> choices) {
         super();
         this.supp = new PropertyChangeSupport(this);
         this.emptySupp = new EmptyChangeSupport(this);
@@ -79,6 +84,7 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
         this.value = null;
 
         this.setOpaque(false);
+        this.setLayout(new BoxLayout(this, lineAxis ? BoxLayout.LINE_AXIS : BoxLayout.PAGE_AXIS));
 
         if (choices != null)
             this.init(null, choices);

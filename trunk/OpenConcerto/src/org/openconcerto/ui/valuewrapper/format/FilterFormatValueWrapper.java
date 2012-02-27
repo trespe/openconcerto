@@ -32,13 +32,21 @@ public final class FilterFormatValueWrapper<T> extends FormatValueWrapper<T> {
     public FilterFormatValueWrapper(final JTextComponent b, final Class<T> c) {
         this(b, (AbstractDocument) b.getDocument(), c);
     }
+    
+    public FilterFormatValueWrapper(final JTextComponent b, final Class<T> c, final FormatFilter<? super T> ff) {
+        this(b, (AbstractDocument) b.getDocument(), c, ff);
+    }
 
     public FilterFormatValueWrapper(final DocumentComponent b, final Class<T> c) {
         this(b.getComp(), (AbstractDocument) b.getDocument(), c);
     }
 
     FilterFormatValueWrapper(final JComponent b, final AbstractDocument doc, final Class<T> c) {
-        super(b, FormatFilter.create(c), c);
+        this(b, doc, c, FormatFilter.create(c));
+    }
+
+    FilterFormatValueWrapper(final JComponent b, final AbstractDocument doc, final Class<T> c, final FormatFilter<? super T> ff) {
+        super(b, ff, c);
         this.doc = new IDocument(doc);
         doc.addDocumentListener(new SimpleDocumentListener() {
             public void update(DocumentEvent e) {
@@ -46,8 +54,8 @@ public final class FilterFormatValueWrapper<T> extends FormatValueWrapper<T> {
             }
         });
         // FormatFilter only blocks invalid input
-        DocumentFilterList.add(doc, FormatFilter.create(c), FilterType.SIMPLE_FILTER);
-        
+        DocumentFilterList.add(doc, ff, FilterType.SIMPLE_FILTER);
+
         // initial values
         this.textChanged();
     }

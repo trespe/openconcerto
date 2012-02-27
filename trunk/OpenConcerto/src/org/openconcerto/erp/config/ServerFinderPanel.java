@@ -24,6 +24,7 @@ import org.openconcerto.ui.VFlowLayout;
 import org.openconcerto.utils.DesktopEnvironment;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.ProductInfo;
 
 import java.awt.Component;
 import java.awt.Dimension;
@@ -74,7 +75,7 @@ public class ServerFinderPanel extends JPanel {
     private JTextField textPort;
     private JTextField textFile;
     private JTextField textBase;
-    Properties props;
+    private Properties props = new Properties();
     private JButton buttonDir;
     private JTabbedPane tabbedPane;
 
@@ -89,15 +90,11 @@ public class ServerFinderPanel extends JPanel {
 
         ExceptionHandler.setForceUI(true);
         ExceptionHandler.setForumURL("http://www.openconcerto.org/forum");
+        ProductInfo.setInstance(new ProductInfo("OpenConcerto_Configuration"));
         PropsConfiguration conf = new PropsConfiguration(new Properties()) {
             @Override
             protected File createWD() {
                 return new File(DesktopEnvironment.getDE().getDocumentsFolder().getAbsolutePath() + File.separator + "OpenConcerto");
-            }
-
-            @Override
-            public String getAppName() {
-                return "OpenConcerto_Configuration";
             }
         };
         conf.setupLogging();
@@ -113,8 +110,8 @@ public class ServerFinderPanel extends JPanel {
                 JFrame f = new JFrame("Configuration OpenConcerto");
                 f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 final ServerFinderPanel panel = new ServerFinderPanel();
-
                 panel.setConfigFile(ComptaPropsConfiguration.getConfFile());
+                panel.uiInit();
                 panel.loadConfigFile();
                 f.setContentPane(panel);
                 f.pack();
@@ -126,7 +123,7 @@ public class ServerFinderPanel extends JPanel {
     }
 
     protected void loadConfigFile() {
-        this.props = new Properties();
+        this.textMainProperties.setText(confFile.getAbsolutePath());
         if (!this.confFile.exists()) {
             System.out.println("Unable to find: " + this.confFile.getAbsolutePath());
 
@@ -278,11 +275,19 @@ public class ServerFinderPanel extends JPanel {
 
     protected void setConfigFile(File f) {
         this.confFile = f;
-        this.textMainProperties.setText(f.getAbsolutePath());
+
+        this.props = new Properties();
+        if (f.exists()) {
+            try {
+                this.props.load(new FileInputStream(this.confFile));
+            } catch (Exception e) {
+                JOptionPane.showMessageDialog(null, "Impossible de lire le fichier " + this.confFile + " \n" + e.getLocalizedMessage());
+            }
+        }
+
     }
 
-    public ServerFinderPanel() {
-
+    private void uiInit() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.weightx = 1;
@@ -295,6 +300,7 @@ public class ServerFinderPanel extends JPanel {
         final ConfigCaissePanel createPanelCaisse = createPanelCaisse();
         this.tabbedPane.addTab("Caisse", createPanelCaisse);
         this.tabbedPane.addTab("Installation", new InstallationPanel(this));
+        this.tabbedPane.addTab("Cloud", new CloudPanel(this));
         final JPanel buttons = new JPanel();
         buttons.setLayout(new FlowLayout(FlowLayout.RIGHT, 2, 1));
         buttons.setOpaque(false);
@@ -710,5 +716,20 @@ public class ServerFinderPanel extends JPanel {
             conf.setPort("");
         }
         return conf;
+    }
+
+    public String getToken() {
+        final String property = this.props.getProperty("token");
+        if (property != null && property.length() < 20)
+            return null;
+        return property;
+    }
+
+    public void setToken(String token) {
+        if (token == null) {
+            this.props.remove("token");
+        } else {
+            this.props.setProperty("token", token);
+        }
     }
 }

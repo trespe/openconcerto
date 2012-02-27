@@ -34,12 +34,14 @@ import org.openconcerto.sql.view.search.SearchListComponent;
 import org.openconcerto.ui.ContinuousButtonModel;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.SwingThreadUtils;
+import org.openconcerto.ui.component.JRadioButtons.JStringRadioButtons;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.change.ListChangeIndex;
 
+import java.awt.BorderLayout;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FileDialog;
@@ -55,6 +57,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.sql.SQLException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -334,8 +337,8 @@ abstract public class IListPanel extends JPanel implements ActionListener {
     }
 
     protected Object[] getMiddleCompsLayout() {
-        final JComponent[] comps = { this.buttonPlus, this.buttonMoins, this.buttonActualiser, this.saveBtn, this.searchPanel, this.buttonAjouter, canClone() ? this.buttonClone : null,
-                this.buttonModifier, this.buttonEffacer };
+        final JComponent[] comps = { this.buttonPlus, this.buttonMoins, this.buttonActualiser, canSave() ? this.saveBtn : null, this.searchPanel, this.buttonAjouter,
+                canClone() ? this.buttonClone : null, this.buttonModifier, this.buttonEffacer };
         // le champ de recherche prend toute la largeur disponible
         return new Object[] { comps, this.searchPanel };
     }
@@ -343,6 +346,12 @@ abstract public class IListPanel extends JPanel implements ActionListener {
     private boolean canClone() {
         final String prop = System.getProperty("org.openconcerto.sql.canCloneInList", "");
         return Boolean.parseBoolean(prop) || SQLRow.toList(prop).contains(getElement().getTable().getName());
+    }
+
+    private boolean canSave() {
+        // TODO use default right from UserRightsManager (see issue #79)
+        final String prop = System.getProperty("org.openconcerto.sql.canSaveInList", "true");
+        return Boolean.parseBoolean(prop) || TableAllRights.currentUserHasRight(TableAllRights.SAVE_ROW_TABLE, getElement().getTable());
     }
 
     final private JPanel getMiddlePanel() {
@@ -472,26 +481,45 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         } else if (source == this.buttonEffacer) {
             this.getElement().askArchive(this, this.getListe().getSelection().getSelectedIDs());
         } else if (source == this.saveBtn) {
-            // TODO ne pas sauver toujours avec le meme nom (eg ajout d'un numero)
             try {
-                final Object[] options = { "Tout", "Sélection", "Annuler" };
-                final int answer = JOptionPane.showOptionDialog(this, "Exporter l'ensemble ou uniquement la sélection de la liste ?", "Export de la liste", DEFAULT_OPTION, QUESTION_MESSAGE, null,
-                        options, options[0]);
+                final String allRows = "l'ensemble de la liste";
+                final String selectedRows = "la sélection";
+                final JStringRadioButtons radios = new JStringRadioButtons(false, Arrays.asList(allRows, selectedRows));
+                // we rarely mean to save one row or less
+                radios.setValue(this.getListe().getSelection().getSelectedIDs().size() <= 1 ? allRows : selectedRows);
+                final JPanel p = new JPanel(new BorderLayout());
+                p.add(new JLabel("Exporter "), BorderLayout.PAGE_START);
+                p.add(radios, BorderLayout.LINE_START);
+                final Object[] options = { "Ouvrir", "Sauver...", "Annuler" };
+                final int answer = JOptionPane.showOptionDialog(this, p, "Export de la liste", DEFAULT_OPTION, QUESTION_MESSAGE, null, options, options[0]);
                 if (answer == 0 || answer == 1) {
-                    final FileDialog fd = new FileDialog(SwingThreadUtils.getAncestorOrSelf(Frame.class, this), "Sauver la liste", FileDialog.SAVE);
-                    final Preferences prefs = Preferences.userNodeForPackage(this.getClass());
-                    fd.setDirectory(prefs.get(EXPORT_DIR_KEY, Configuration.getInstance().getWD().getAbsolutePath()));
+                    final boolean tmp = answer == 0;
                     final XMLFormatVersion version = XMLFormatVersion.getDefault();
-                    fd.setFile(this.element.getPluralName().replace('/', '-') + "." + ContentType.SPREADSHEET.getVersioned(version.getXMLVersion()).getExtension());
-                    fd.setVisible(true);
-                    if (fd.getFile() != null) {
-                        final File f = this.liste.exporter(new File(fd.getDirectory(), fd.getFile()), answer == 1, version);
-                        prefs.put(EXPORT_DIR_KEY, f.getParent());
-                        final int i = JOptionPane.showConfirmDialog(this, "La liste est exportée au format OpenOffice classeur\n Désirez vous l'ouvrir avec OpenOffice?", "Ouvir le fichier",
-                                JOptionPane.YES_NO_OPTION);
-                        if (i == JOptionPane.YES_OPTION) {
-                            OOUtils.open(f);
+                    final String prefix = this.element.getPluralName().replace('/', '-');
+                    final String suffix = "." + ContentType.SPREADSHEET.getVersioned(version.getXMLVersion()).getExtension();
+                    final File file;
+                    if (tmp) {
+                        file = File.createTempFile(prefix, suffix);
+                    } else {
+                        final FileDialog fd = new FileDialog(SwingThreadUtils.getAncestorOrSelf(Frame.class, this), "Sauver la liste", FileDialog.SAVE);
+                        final Preferences prefs = Preferences.userNodeForPackage(this.getClass());
+                        fd.setDirectory(prefs.get(EXPORT_DIR_KEY, Configuration.getInstance().getWD().getAbsolutePath()));
+                        fd.setFile(prefix + suffix);
+                        fd.setVisible(true);
+                        if (fd.getFile() != null) {
+                            file = new File(fd.getDirectory(), fd.getFile());
+                            prefs.put(EXPORT_DIR_KEY, fd.getDirectory());
+                        } else {
+                            file = null;
                         }
+                    }
+                    if (file != null) {
+                        final File exportedFile = this.liste.exporter(file, radios.getValue().equals(selectedRows), version);
+                        if (tmp) {
+                            exportedFile.setWritable(false, false);
+                            exportedFile.deleteOnExit();
+                        }
+                        OOUtils.open(exportedFile);
                     }
                 }
             } catch (Exception e) {

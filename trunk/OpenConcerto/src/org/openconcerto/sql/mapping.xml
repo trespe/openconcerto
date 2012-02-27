@@ -4,7 +4,7 @@
 		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
 		<FIELD name="PRENOM" label="Prénom" titlelabel="Prénom" />
 		<FIELD name="PASSWORD" label="Mot de passe" titlelabel="Mot de passe" />
-		<FIELD name="LOGIN" label="Login" titlelabel="Login" />
+		<FIELD name="LOGIN" label="Identifiant" titlelabel="Identifiant" />
 		<FIELD name="SURNOM" label="Surnom" titlelabel="Surnom" />
 		<FIELD name="ADMIN" label="Administrateur" titlelabel="Admin." />
 		<FIELD name="ID_USER_RIGHT_COMMON" label="Droits utilisateur" titlelabel="Droits utilisateur" />

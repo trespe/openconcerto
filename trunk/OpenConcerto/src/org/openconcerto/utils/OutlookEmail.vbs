@@ -1,5 +1,8 @@
 ' http://msdn.microsoft.com/en-us/library/aa210946(office.11).aspx
 
+' Enable error handling
+On Error Resume Next
+
 if Wscript.Arguments.count = 0 or Wscript.Arguments.Named.count > 3 then
 	Wscript.Echo "Usage: " & WScript.ScriptName & " /to:addr /subject:Re [ /body:""Hi, dear friend"" | /unicodeStdIn:[0|1] ] attachment..." & vbNewLine &_
 	vbTab & "Named parameters should be percent-encoded since certain characters like double quote cannot be passed." &_
@@ -14,13 +17,18 @@ subject = getNamedArg("subject")
 If Wscript.Arguments.Named.Exists("unicodeStdIn") then
 	isUnicode = CBool(Wscript.Arguments.Named.item("unicodeStdIn"))
 	Set fso = CreateObject ("Scripting.FileSystemObject")
-	piped = fso.GetStandardStream (StdIn, isUnicode).ReadAll
+	Set ins =  fso.GetStandardStream (StdIn, isUnicode)
+	' ReadAll fails if already at the end of file
+	if ins.AtEndOfStream then
+		piped = ""
+	else
+		piped = ins.ReadAll
+	end if
 else
 	body = getNamedArg("body")
 End If
 
-' Enable error handling
-On Error Resume Next
+quitIfErr()
 
 'Create a mail object and send the mail
 Dim objMail

@@ -72,6 +72,8 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
     // the content of this text field when it gained focus
     private String initialText;
 
+    private boolean authorizedNegative = false;
+
     public DeviseField() {
         this(15, false, false);
     }
@@ -168,7 +170,15 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
         });
     }
 
-    public static void addFilteringKeyListener(final JTextField textField) {
+    public boolean isAuthorizedNegative() {
+        return this.authorizedNegative;
+    }
+
+    public void setAuthorizedNegative(boolean authorizedNegative) {
+        this.authorizedNegative = authorizedNegative;
+    }
+
+    public static void addFilteringKeyListener(final DeviseField textField) {
 
         textField.addKeyListener(new KeyAdapter() {
             public void keyTyped(java.awt.event.KeyEvent keyEvent) {
@@ -202,9 +212,9 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
 
                 if (keychar == KeyEvent.VK_PERIOD && textField.getText().indexOf('.') < 0)
                     return;
-                // if (keychar == KeyEvent.VK_MINUS && (textField.getText().indexOf('-') < 0) &&
-                // textField.getCaretPosition() == 0)
-                // return;
+
+                if (textField.isAuthorizedNegative() && keychar == KeyEvent.VK_MINUS && (textField.getText().indexOf('-') < 0) && textField.getCaretPosition() == 0)
+                    return;
 
                 keyEvent.consume();
             }

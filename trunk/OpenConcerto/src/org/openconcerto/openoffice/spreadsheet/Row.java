@@ -199,7 +199,7 @@ public class Row<D extends ODDocument> extends TableCalcNode<RowStyle, D> {
         for (int i = firstIndex; i < lastIndexExcl; i++) {
             // ok to detach multiple times the same element (since repeated cells share the same XML
             // element)
-            this.cells[firstIndex].getElement().detach();
+            this.cells[i].getElement().detach();
         }
         final int movedCount = getCellCount() - lastIndexExcl;
         System.arraycopy(this.cells, lastIndexExcl, this.cells, firstIndex, movedCount);

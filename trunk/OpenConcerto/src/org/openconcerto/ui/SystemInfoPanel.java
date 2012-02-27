@@ -105,7 +105,7 @@ public class SystemInfoPanel extends JPanel {
         // TODO reverse vnc
     }
 
-    private static final String getLink(final String name, final URI uri) {
+    public static final String getLink(final String name, final URI uri) {
         return uri == null ? name : "<a href=\"" + uri.toString() + "\" >" + name + "</a>";
     }
 

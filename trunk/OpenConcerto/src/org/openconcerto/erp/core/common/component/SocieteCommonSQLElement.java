@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.common.component;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.panel.ChargementCreationSocietePanel;
 import org.openconcerto.sql.Configuration;
@@ -190,6 +191,33 @@ public class SocieteCommonSQLElement extends ConfSQLElement {
                 c.gridx++;
                 c.weightx = 1;
                 this.add(this.textNumAPE, c);
+
+                // RCS
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                JLabel labelRCS = new JLabel(getLabelFor("RCS"));
+                labelRCS.setHorizontalAlignment(SwingConstants.RIGHT);
+                this.add(labelRCS, c);
+
+                c.gridx++;
+                c.weightx = 1;
+                JTextField fieldRCS = new JTextField();
+                this.add(fieldRCS, c);
+                this.addView(fieldRCS, "RCS");
+
+                // Numero APE
+                c.gridx++;
+                c.weightx = 0;
+                JLabel labelCapital = new JLabel(getLabelFor("CAPITAL"));
+                labelCapital.setHorizontalAlignment(SwingConstants.RIGHT);
+                this.add(labelCapital, c);
+
+                c.gridx++;
+                c.weightx = 1;
+                DeviseField fieldCapital = new DeviseField();
+                this.add(fieldCapital, c);
+                this.addView(fieldCapital, "CAPITAL");
 
                 // Adresse
                 final TitledSeparator sepAdresse = new TitledSeparator(getLabelFor("ID_ADRESSE_COMMON"));

@@ -28,7 +28,6 @@ import javax.swing.JLabel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
-
 public class ContratSalarieSQLElement extends ComptaSQLConfElement {
 
     public ContratSalarieSQLElement() {
@@ -149,12 +148,108 @@ public class ContratSalarieSQLElement extends ComptaSQLConfElement {
                 c.weightx = 1;
                 this.add(selStatutCat, c);
 
+                // Statut categoriel
+                JLabel labelStatutCatConv = new JLabel(getLabelFor("ID_CODE_STATUT_CAT_CONV"));
+                labelStatutCatConv.setHorizontalAlignment(SwingConstants.RIGHT);
+                ElementComboBox selStatutCatConv = new ElementComboBox();
+                selStatutCatConv.setInfoIconVisible(false);
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(labelStatutCatConv, c);
+                c.gridx++;
+                c.weighty = 1;
+                c.weightx = 1;
+                this.add(selStatutCatConv, c);
+
+                // Code UGRR
+                JLabel labelCodeUGRR = new JLabel(getLabelFor("CODE_IRC_UGRR"));
+                labelCodeUGRR.setHorizontalAlignment(SwingConstants.RIGHT);
+                JTextField textCodeUGRR = new JTextField();
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(labelCodeUGRR, c);
+                c.gridx++;
+                c.weighty = 1;
+                c.weightx = 1;
+                this.add(textCodeUGRR, c);
+                addView(textCodeUGRR, "CODE_IRC_UGRR");
+
+                JLabel labelNumUGRR = new JLabel(getLabelFor("NUMERO_RATTACHEMENT_UGRR"));
+                labelNumUGRR.setHorizontalAlignment(SwingConstants.RIGHT);
+                JTextField textNumUGRR = new JTextField();
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(labelNumUGRR, c);
+                c.gridx++;
+                c.weighty = 1;
+                c.weightx = 1;
+                this.add(textNumUGRR, c);
+                addView(textNumUGRR, "NUMERO_RATTACHEMENT_UGRR");
+
+                // Code UGRC
+                JLabel labelCodeUGRC = new JLabel(getLabelFor("CODE_IRC_UGRC"));
+                labelCodeUGRC.setHorizontalAlignment(SwingConstants.RIGHT);
+                JTextField textCodeUGRC = new JTextField();
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(labelCodeUGRC, c);
+                c.gridx++;
+                c.weighty = 1;
+                c.weightx = 1;
+                this.add(textCodeUGRC, c);
+                addView(textCodeUGRC, "CODE_IRC_UGRC");
+
+                JLabel labelNumUGRC = new JLabel(getLabelFor("NUMERO_RATTACHEMENT_UGRC"));
+                labelNumUGRC.setHorizontalAlignment(SwingConstants.RIGHT);
+                JTextField textNumUGRC = new JTextField();
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(labelNumUGRC, c);
+                c.gridx++;
+                c.weighty = 1;
+                c.weightx = 1;
+                this.add(textNumUGRC, c);
+                addView(textNumUGRC, "NUMERO_RATTACHEMENT_UGRC");
+
+                // Retraite
+                JLabel labelCodeRetraite = new JLabel(getLabelFor("CODE_IRC_RETRAITE"));
+                labelCodeRetraite.setHorizontalAlignment(SwingConstants.RIGHT);
+                JTextField textCodeRetraite = new JTextField();
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(labelCodeRetraite, c);
+                c.gridx++;
+                c.weighty = 1;
+                c.weightx = 1;
+                this.add(textCodeRetraite, c);
+                addView(textCodeRetraite, "CODE_IRC_RETRAITE");
+
+                JLabel labelNumRetraite = new JLabel(getLabelFor("NUMERO_RATTACHEMENT_RETRAITE"));
+                labelNumRetraite.setHorizontalAlignment(SwingConstants.RIGHT);
+                JTextField textNumRetraite = new JTextField();
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(labelNumRetraite, c);
+                c.gridx++;
+                c.weighty = 1;
+                c.weightx = 1;
+                this.add(textNumRetraite, c);
+                addView(textNumRetraite, "NUMERO_RATTACHEMENT_RETRAITE");
+
                 this.addSQLObject(selCodeCatSocio, "ID_CODE_EMPLOI");
                 this.addSQLObject(selContratTravail, "ID_CODE_CONTRAT_TRAVAIL");
                 this.addSQLObject(selCaractActivite, "ID_CODE_CARACT_ACTIVITE");
                 this.addSQLObject(selDroitContrat, "ID_CODE_DROIT_CONTRAT");
                 this.addSQLObject(selStatutProf, "ID_CODE_STATUT_PROF");
                 this.addSQLObject(selStatutCat, "ID_CODE_STATUT_CATEGORIEL");
+                this.addSQLObject(selStatutCatConv, "ID_CODE_STATUT_CAT_CONV");
                 this.addRequiredSQLObject(textNature, "NATURE");
             }
         };

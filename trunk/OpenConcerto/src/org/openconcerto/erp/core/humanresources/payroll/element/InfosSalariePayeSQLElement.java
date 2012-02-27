@@ -277,6 +277,31 @@ public class InfosSalariePayeSQLElement extends ComptaSQLConfElement {
                 c.weightx = 1;
                 panelBase.add(conges, c);
 
+                // Code AT
+                JLabel labelCodeAT = new JLabel(getLabelFor("CODE_AT"));
+                labelCodeAT.setHorizontalAlignment(SwingConstants.RIGHT);
+                JTextField CodeAT = new JTextField();
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                panelBase.add(labelCodeAT, c);
+                c.gridx++;
+                c.weightx = 1;
+                panelBase.add(CodeAT, c);
+                addView(CodeAT, "CODE_AT");
+
+                // Code section AT
+                JLabel labelSectionAT = new JLabel(getLabelFor("CODE_SECTION_AT"));
+                labelSectionAT.setHorizontalAlignment(SwingConstants.RIGHT);
+                JTextField sectionAT = new JTextField();
+                c.gridx++;
+                c.weightx = 0;
+                panelBase.add(labelSectionAT, c);
+                c.gridx++;
+                c.weightx = 1;
+                panelBase.add(sectionAT, c);
+                addView(sectionAT, "CODE_SECTION_AT");
+
                 c.gridy = 3;
                 c.gridx = 0;
                 c.gridwidth = GridBagConstraints.REMAINDER;

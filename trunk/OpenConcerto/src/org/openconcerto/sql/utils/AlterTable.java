@@ -61,6 +61,12 @@ public final class AlterTable extends ChangeTable<AlterTable> {
         return this.addClause("ADD " + SQLBase.quoteIdentifier(name) + " " + definition, ClauseType.ADD_COL);
     }
 
+    public final AlterTable addPrimaryKey(final List<String> names) {
+        if (names.size() == 0)
+            throw new IllegalArgumentException("Empty fields");
+        return this.addClause("ADD PRIMARY KEY(" + SQLSyntax.quoteIdentifiers(names) + ")", ClauseType.ADD_CONSTRAINT);
+    }
+
     public final AlterTable dropColumn(String name) {
         return this.addClause("DROP COLUMN " + SQLBase.quoteIdentifier(name), ClauseType.DROP_COL);
     }
@@ -153,7 +159,15 @@ public final class AlterTable extends ChangeTable<AlterTable> {
     }
 
     public final AlterTable alterColumnNullable(String f, boolean b) {
-        return this.alterColumn(f, Collections.singleton(Properties.NULLABLE), null, null, b);
+        return this.alterColumn(f, EnumSet.of(Properties.NULLABLE), null, null, b);
+    }
+
+    public final AlterTable alterColumnDefault(String f, String defaultVal) {
+        return this.alterColumn(f, EnumSet.of(Properties.DEFAULT), null, defaultVal, null);
+    }
+
+    public final AlterTable dropPrimaryKey() {
+        return this.addClause(getSyntax().getDropPrimaryKey(this.t), ClauseType.DROP_CONSTRAINT);
     }
 
     /**

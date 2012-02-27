@@ -302,14 +302,13 @@ class SQLSyntaxMS extends SQLSyntax {
     @Override
     public List<Map<String, Object>> getConstraints(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException {
         final String where = "where " + getInfoSchemaWhere(b, "SCHEMA_NAME(t.schema_id)", schemas, "t.name", tables);
-        final String sel = "SELECT SCHEMA_NAME(t.schema_id) AS \"TABLE_SCHEMA\", t.name AS \"TABLE_NAME\", k.name AS \"CONSTRAINT_NAME\", 'UNIQUE' as \"CONSTRAINT_TYPE\", col_name(c.object_id, c.column_id) AS \"COLUMN_NAME\", c.key_ordinal AS \"ORDINAL_POSITION\"\n"
+        final String sel = "SELECT SCHEMA_NAME(t.schema_id) AS \"TABLE_SCHEMA\", t.name AS \"TABLE_NAME\", k.name AS \"CONSTRAINT_NAME\", case k.type when 'UQ' then 'UNIQUE' when 'PK' then 'PRIMARY KEY' end as \"CONSTRAINT_TYPE\", col_name(c.object_id, c.column_id) AS \"COLUMN_NAME\", c.key_ordinal AS \"ORDINAL_POSITION\"\n"
                 + "FROM sys.key_constraints k\n"
                 //
                 + "JOIN sys.index_columns c ON c.object_id = k.parent_object_id AND c.index_id = k.unique_index_id\n"
                 //
                 + "JOIN sys.tables t ON t.object_id = k.parent_object_id\n"
                 + where
-                + " and k.type != 'PK'"
                 + "\nUNION ALL\n"
                 //
                 + "SELECT SCHEMA_NAME(t.schema_id) AS \"TABLE_SCHEMA\", t.name AS \"TABLE_NAME\", k.name AS \"CONSTRAINT_NAME\", 'CHECK' as \"CONSTRAINT_TYPE\", col.name AS \"COLUMN_NAME\", 1 AS \"ORDINAL_POSITION\"\n"

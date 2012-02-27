@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StringUtils;
 
 import java.io.File;
@@ -34,7 +35,6 @@ import java.util.List;
  */
 public final class DBFileCache {
 
-    public static final String APP_NAME = "app.name";
     // windows fs don't support "
     static final StringUtils.Escaper esc = FileUtils.FILENAME_ESCAPER;
     // the version of the file hierarchy representing the database structure
@@ -47,8 +47,8 @@ public final class DBFileCache {
         // (this would handle the case when one app needs two different connections to a server)
         if (Configuration.getInstance() != null) {
             confDir = Configuration.getInstance().getConfDir();
-        } else if (System.getProperty(APP_NAME) != null) {
-            confDir = new File(Configuration.getDefaultConfDir(), System.getProperty(APP_NAME));
+        } else if (ProductInfo.getInstance() != null) {
+            confDir = new File(Configuration.getDefaultConfDir(), ProductInfo.getInstance().getName());
         } else {
             return null;
         }

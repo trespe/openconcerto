@@ -83,7 +83,7 @@ public abstract class SQLSyntax {
             for (final ConstraintType c : values())
                 if (c.getSqlName().equals(sqlName))
                     return c;
-            return null;
+            throw new IllegalArgumentException("Unknown type: " + sqlName);
         }
     }
 
@@ -227,6 +227,10 @@ public abstract class SQLSyntax {
     // to drop a constraint that is not a foreign key, eg unique
     public String getDropConstraint() {
         return "DROP CONSTRAINT ";
+    }
+
+    public String getDropPrimaryKey(SQLTable t) {
+        return "DROP PRIMARY KEY";
     }
 
     public abstract String getDropIndex(String name, SQLName tableName);
@@ -411,7 +415,7 @@ public abstract class SQLSyntax {
             return " DEFAULT " + def;
     }
 
-    protected final String getType(SQLField f) {
+    public final String getType(SQLField f) {
         final SQLSyntax fs = f.getServer().getSQLSystem().getSyntax();
         final SQLType t = f.getType();
 
@@ -842,8 +846,7 @@ public abstract class SQLSyntax {
     public abstract String getFunctionQuery(SQLBase b, Set<String> schemas);
 
     /**
-     * Return the constraints in the passed tables. The primary key and foreign keys must not be
-     * returned.
+     * Return the constraints in the passed tables.
      * 
      * @param b the base.
      * @param schemas the schemas names.

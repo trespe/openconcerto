@@ -23,6 +23,8 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.list.AutoCompletionManager;
 import org.openconcerto.sql.view.list.CellDynamicModifier;
 import org.openconcerto.sql.view.list.RowValuesTable;
@@ -42,6 +44,9 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
     public AbstractAchatArticleItemTable() {
         super();
     }
+
+    AutoCompletionManager m;
+    AutoCompletionManager m2;
 
     /**
      * 
@@ -73,6 +78,10 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         // Désignation de l'article
         final SQLTableElement tableElementNom = new SQLTableElement(e.getTable().getField("NOM"));
         list.add(tableElementNom);
+        if (e.getTable().getFieldsName().contains("COLORIS")) {
+            final SQLTableElement tableElementColoris = new SQLTableElement(e.getTable().getField("COLORIS"));
+            list.add(tableElementColoris);
+        }
         // Valeur des métriques
         final SQLTableElement tableElement_ValeurMetrique2 = new SQLTableElement(e.getTable().getField("VALEUR_METRIQUE_2"), Float.class);
         list.add(tableElement_ValeurMetrique2);
@@ -171,11 +180,14 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         completionFields.add("SERVICE");
         completionFields.add("ID_DEVISE");
         completionFields.add("PA_DEVISE");
+        if (e.getTable().getFieldsName().contains("COLORIS")) {
+            completionFields.add("COLORIS");
+        }
         if (e.getTable().getFieldsName().contains("ID_FAMILLE_ARTICLE")) {
             completionFields.add("ID_FAMILLE_ARTICLE");
         }
 
-        final AutoCompletionManager m = new AutoCompletionManager(tableElementCode, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.CODE"), this.table,
+        this.m = new AutoCompletionManager(tableElementCode, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.CODE"), this.table,
                 this.table.getRowValuesTableModel()) {
             @Override
             protected Object getValueFrom(SQLRow row, String field) {
@@ -192,7 +204,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         for (String string : completionFields) {
             m.fill(string, string);
         }
-        final AutoCompletionManager m2 = new AutoCompletionManager(tableElementNom, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.NOM"), this.table,
+        this.m2 = new AutoCompletionManager(tableElementNom, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.NOM"), this.table,
                 this.table.getRowValuesTableModel()) {
             @Override
             protected Object getValueFrom(SQLRow row, String field) {
@@ -390,4 +402,19 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
     public void setDevise(SQLRowAccessor deviseRow) {
         this.rowDevise = deviseRow;
     }
+
+    public void setFournisseurFilterOnCompletion(SQLRow row) {
+        if (row != null && !row.isUndefined()) {
+            SQLTable tableArticle = getSQLElement().getTable().getTable("ARTICLE");
+            Where w = new Where(tableArticle.getField("ID_FOURNISSEUR"), "=", row.getID());
+            w = w.or(new Where(tableArticle.getField("ID_FOURNISSEUR"), "IS", (Object) null));
+            w = w.or(new Where(tableArticle.getField("ID_FOURNISSEUR"), "=", getSQLElement().getTable().getTable("FOURNISSEUR").getUndefinedID()));
+            this.m.setWhere(w);
+            this.m2.setWhere(w);
+        } else {
+            this.m.setWhere(null);
+            this.m2.setWhere(null);
+        }
+    }
+
 }

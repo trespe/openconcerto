@@ -22,6 +22,7 @@ import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.utils.OrderedSet;
 import org.openconcerto.utils.checks.MutableValueObject;
+import org.openconcerto.utils.model.DefaultIMutableListModel;
 import org.openconcerto.utils.text.DocumentFilterList;
 import org.openconcerto.utils.text.DocumentFilterList.FilterType;
 import org.openconcerto.utils.text.LimitedSizeDocumentFilter;
@@ -44,7 +45,6 @@ import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.Vector;
 
-import javax.swing.DefaultListModel;
 import javax.swing.JComponent;
 import javax.swing.JPanel;
 import javax.swing.JTextArea;
@@ -69,7 +69,7 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
 
     private JTextComponent text;
 
-    private DefaultListModel model = new DefaultListModel();
+    private DefaultIMutableListModel<IComboSelectionItem> model = new DefaultIMutableListModel<IComboSelectionItem>();
 
     // lists de IComboSelectionItem
     private IComboSelectionItemCache mainCache = new IComboSelectionItemCache();
@@ -366,15 +366,16 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
         List<IComboSelectionItem> l = getPossibleValues(t); // Liste de IComboSelection
 
         // On cache la popup si le nombre de ligne change afin que sa taille soit correcte
-        if (l.size() != this.model.size() && l.size() <= ITextWithCompletionPopUp.MAXROW) {
+        if (l.size() != this.model.getSize() && l.size() <= ITextWithCompletionPopUp.MAXROW) {
             hidePopup();
         }
         // on vide le model
         this.model.removeAllElements();
-        for (Iterator<IComboSelectionItem> iter = l.iterator(); iter.hasNext();) {
-            IComboSelectionItem element = iter.next();
-            this.model.addElement(element);
-        }
+        this.model.addAll(l);
+        // for (Iterator<IComboSelectionItem> iter = l.iterator(); iter.hasNext();) {
+        // IComboSelectionItem element = iter.next();
+        // this.model.addElement(element);
+        // }
         if (l.size() > 0) {
             showPopup();
         } else {
@@ -412,7 +413,7 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
     }
 
     private synchronized void showPopup() {
-        if (this.model.size() > 0) {
+        if (this.model.getSize() > 0) {
             if (this.popupInvoker.isShowing())
                 this.popup.show(this.popupInvoker, 0, this.text.getBounds().height);
         }

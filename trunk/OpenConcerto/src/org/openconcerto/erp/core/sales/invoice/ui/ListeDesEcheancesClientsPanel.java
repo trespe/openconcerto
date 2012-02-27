@@ -501,7 +501,7 @@ public class ListeDesEcheancesClientsPanel extends JPanel {
                 public void run() {
 
                     try {
-                        EmailComposer.getInstance().compose(adresseMail, "Late Payment reminder", text, null);
+                        EmailComposer.getInstance().compose(adresseMail, "Late Payment reminder", text);
                     } catch (IOException exn) {
                         // TODO Bloc catch auto-généré
                         exn.printStackTrace();
