@@ -49,10 +49,10 @@ import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
-import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
@@ -66,9 +66,7 @@ import java.awt.event.ActionListener;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
-import javax.sql.rowset.Predicate;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.BorderFactory;
@@ -112,7 +110,6 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
             if (dateEnvoiCol != null) {
                 ((SQLTableModelColumnPath) dateEnvoiCol).setEditable(true);
 
-
                 dateEnvoiCol.setColumnInstaller(new IClosure<TableColumn>() {
                     @Override
                     public void executeChecked(TableColumn columnDateEnvoi) {
@@ -142,12 +139,9 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
                 return c;
             }
         };
-        GridBagConstraints c = new DefaultGridBagConstraints();
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.fill = GridBagConstraints.NONE;
-        c.weightx = 0;
-        this.listeAddPanel.add(getPanelLegende(), c);
 
+        this.listeAddPanel.getListe().getModel().setEditable(true);
+        GridBagConstraints c = new DefaultGridBagConstraints();
         // Total panel
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.NONE;

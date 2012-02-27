@@ -66,8 +66,8 @@ public class HistoriqueClientBilanPanel extends JPanel {
         setLayout(new GridLayout(4, 2));
 
         // Saisie Vente Comptoir --> HT, TTC
-        final String valModeVenteComptoir = DefaultNXProps.getInstance().getStringProperty("ArticleVenteComptoir");
-        final Boolean bModeVenteComptoir = Boolean.valueOf(valModeVenteComptoir);
+
+        final Boolean bModeVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
         if (bModeVenteComptoir) {
             add(this.labelVentesComptoir);
         }
@@ -147,14 +147,13 @@ public class HistoriqueClientBilanPanel extends JPanel {
                 } else {
                     final double pourCentage = (totalVF + totalVC) / (double) (totalAllVC + totalAllVF) * 100.0;
                     setPoucentageVentes((int) Math.round(pourCentage * 100.0) / 100);
-                } // TODO Auto-generated method stub
+                }
                 return null;
             }
 
             @Override
             protected void done() {
                 updateLabels();
-                // TODO Auto-generated method stub
                 super.done();
             }
         };
@@ -415,50 +414,50 @@ public class HistoriqueClientBilanPanel extends JPanel {
                 total = GestionDevise.currencyToString(HistoriqueClientBilanPanel.this.totalVentesCompoir, true);
                 nb = HistoriqueClientBilanPanel.this.nbVentesCompoir;
                 if (nb == 0) {
-                    HistoriqueClientBilanPanel.this.labelVentesComptoir.setText("- pas de vente comptoir");
+                    HistoriqueClientBilanPanel.this.labelVentesComptoir.setText(" pas de vente comptoir");
                 } else if (nb == 1) {
-                    HistoriqueClientBilanPanel.this.labelVentesComptoir.setText("- une vente comptoir d'un montant de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelVentesComptoir.setText(" une vente comptoir d'un montant de " + total + " € HT");
                 } else {
-                    HistoriqueClientBilanPanel.this.labelVentesComptoir.setText("- " + nb + " ventes comptoir d'un montant total de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelVentesComptoir.setText(" " + nb + " ventes comptoir d'un montant total de " + total + " € HT");
                 }
                 // Ventes facture
                 total = GestionDevise.currencyToString(HistoriqueClientBilanPanel.this.totalVentesFacture, true);
                 nb = HistoriqueClientBilanPanel.this.nbVentesFacture;
                 if (nb == 0) {
-                    HistoriqueClientBilanPanel.this.labelVentesFacture.setText("- pas de vente avec facture");
+                    HistoriqueClientBilanPanel.this.labelVentesFacture.setText(" pas de vente avec facture");
                 } else if (nb == 1) {
-                    HistoriqueClientBilanPanel.this.labelVentesFacture.setText("- une vente avec facture d'un montant de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelVentesFacture.setText(" une vente avec facture d'un montant de " + total + " € HT");
                 } else {
-                    HistoriqueClientBilanPanel.this.labelVentesFacture.setText("- " + nb + " ventes avec facture d'un montant total de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelVentesFacture.setText(" " + nb + " ventes avec facture d'un montant total de " + total + " € HT");
                 }
                 // Propositions
                 total = GestionDevise.currencyToString(HistoriqueClientBilanPanel.this.totalPropositions, true);
                 nb = HistoriqueClientBilanPanel.this.nbPropositions;
                 if (nb == 0) {
-                    HistoriqueClientBilanPanel.this.labelPropositions.setText("- pas de proposition commerciale");
+                    HistoriqueClientBilanPanel.this.labelPropositions.setText(" pas de proposition commerciale");
                 } else if (nb == 1) {
-                    HistoriqueClientBilanPanel.this.labelPropositions.setText("- une proposition commerciale d'un montant de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelPropositions.setText(" une proposition commerciale d'un montant de " + total + " € HT");
                 } else {
-                    HistoriqueClientBilanPanel.this.labelPropositions.setText("- " + nb + " propositions commerciales d'un montant total de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelPropositions.setText(" " + nb + " propositions commerciales d'un montant total de " + total + " € HT");
                 }
                 // Chèques
                 nb = HistoriqueClientBilanPanel.this.nbTotalCheques;
                 total = GestionDevise.currencyToString(HistoriqueClientBilanPanel.this.totalCheques, true);
                 if (nb == 0) {
-                    HistoriqueClientBilanPanel.this.labelCheques.setText("- pas de chèque");
+                    HistoriqueClientBilanPanel.this.labelCheques.setText(" pas de chèque");
                 } else if (nb == 1) {
                     if (HistoriqueClientBilanPanel.this.nbChequesNonEncaisses == 0) {
-                        HistoriqueClientBilanPanel.this.labelCheques.setText("- un chèque d'un montant de " + total + " € HT");
+                        HistoriqueClientBilanPanel.this.labelCheques.setText(" un chèque d'un montant de " + total + " € HT");
                     } else {
-                        HistoriqueClientBilanPanel.this.labelCheques.setText("- un chèque non encaissé d'un montant de " + total + " € HT");
+                        HistoriqueClientBilanPanel.this.labelCheques.setText(" un chèque non encaissé d'un montant de " + total + " € HT");
                     }
                 } else {
                     if (HistoriqueClientBilanPanel.this.nbChequesNonEncaisses == 0) {
-                        HistoriqueClientBilanPanel.this.labelCheques.setText("- " + nb + " chèques d'un montant total de " + total + " € HT");
+                        HistoriqueClientBilanPanel.this.labelCheques.setText(" " + nb + " chèques d'un montant total de " + total + " € HT");
                     } else if (HistoriqueClientBilanPanel.this.nbChequesNonEncaisses == nb) {
-                        HistoriqueClientBilanPanel.this.labelCheques.setText("- " + nb + " chèques non encaissés d'un montant total de " + total + " € HT");
+                        HistoriqueClientBilanPanel.this.labelCheques.setText(" " + nb + " chèques non encaissés d'un montant total de " + total + " € HT");
                     } else {
-                        HistoriqueClientBilanPanel.this.labelCheques.setText("- " + nb + " chèques non d'un montant total de " + total + " € HT dont "
+                        HistoriqueClientBilanPanel.this.labelCheques.setText(" " + nb + " chèques non d'un montant total de " + total + " € HT dont "
                                 + HistoriqueClientBilanPanel.this.nbChequesNonEncaisses + " non encaissés");
                     }
                 }
@@ -466,21 +465,21 @@ public class HistoriqueClientBilanPanel extends JPanel {
                 nb = HistoriqueClientBilanPanel.this.nbFacturesImpayees;
                 total = GestionDevise.currencyToString(HistoriqueClientBilanPanel.this.totalFacturesImpayees, true);
                 if (nb == 0) {
-                    HistoriqueClientBilanPanel.this.labelEcheances.setText("- pas de facture impayée");
+                    HistoriqueClientBilanPanel.this.labelEcheances.setText(" pas de facture impayée");
                 } else if (nb == 1) {
-                    HistoriqueClientBilanPanel.this.labelEcheances.setText("- une facture impayée d'un montant de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelEcheances.setText(" une facture impayée d'un montant de " + total + " € HT");
                 } else {
-                    HistoriqueClientBilanPanel.this.labelEcheances.setText("- " + nb + " factures impayées d'un montant total de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelEcheances.setText(" " + nb + " factures impayées d'un montant total de " + total + " € HT");
                 }
                 // Relances
                 nb = HistoriqueClientBilanPanel.this.nbRelances;
                 String txt;
                 if (nb == 0) {
-                    txt = "- pas de relance effectuée";
+                    txt = " pas de relance effectuée";
                 } else if (nb == 1) {
-                    txt = "- une relance effectuée";
+                    txt = " une relance effectuée";
                 } else {
-                    txt = "- " + nb + " relances effectuées";
+                    txt = " " + nb + " relances effectuées";
                 }
                 if (nb > 0) {
                     if (HistoriqueClientBilanPanel.this.delaiPaiementMoyen == 1) {
@@ -494,11 +493,11 @@ public class HistoriqueClientBilanPanel extends JPanel {
                 final long cents = HistoriqueClientBilanPanel.this.totalVentesCompoir + HistoriqueClientBilanPanel.this.totalVentesFacture;
                 total = GestionDevise.currencyToString(cents, true);
                 if (cents == 0) {
-                    HistoriqueClientBilanPanel.this.labelTotalVente.setText("- pas de vente");
+                    HistoriqueClientBilanPanel.this.labelTotalVente.setText(" pas de vente");
                 } else if (HistoriqueClientBilanPanel.this.poucentageVentes <= 0) {
-                    HistoriqueClientBilanPanel.this.labelTotalVente.setText("- ventes de " + total + " € HT");
+                    HistoriqueClientBilanPanel.this.labelTotalVente.setText(" ventes de " + total + " € HT");
                 } else {
-                    HistoriqueClientBilanPanel.this.labelTotalVente.setText("- ventes de " + total + " € HT, soit " + HistoriqueClientBilanPanel.this.poucentageVentes + "% des ventes totales");
+                    HistoriqueClientBilanPanel.this.labelTotalVente.setText(" ventes de " + total + " € HT, soit " + HistoriqueClientBilanPanel.this.poucentageVentes + "% des ventes totales");
                 }
             }
         });

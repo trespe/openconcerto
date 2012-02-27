@@ -20,13 +20,14 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.jdom.Element;
 
 public class OOXMLTableElement {
 
-    private SQLRow row;
+    private List<SQLRow> row;
     private int firstLine, endPageLine, endLine, filterId;
     private List<String> listBlankLineStyle;
     private boolean typeStyleWhere;
@@ -45,10 +46,19 @@ public class OOXMLTableElement {
         }
 
         String fieldAttribute = tableau.getAttributeValue("field");
-        if (fieldAttribute != null) {
-            row = row.getForeignRow(fieldAttribute);
+        if (fieldAttribute != null && fieldAttribute.trim().length() > 0) {
+            if (fieldAttribute.contains(",")) {
+                List<String> l = SQLRow.toList(fieldAttribute);
+                this.row = new ArrayList<SQLRow>();
+                for (String string : l) {
+                    this.row.add(row.getForeignRow(string));
+                }
+            } else {
+                this.row = Arrays.asList(row.getForeignRow(fieldAttribute));
+            }
+        } else {
+            this.row = Arrays.asList(row);
         }
-        this.row = row;
 
         this.firstLine = Integer.valueOf(tableau.getAttributeValue("firstLine"));
 
@@ -148,7 +158,7 @@ public class OOXMLTableElement {
         return this.foreignTableWhere;
     }
 
-    public SQLRow getRow() {
+    public List<SQLRow> getRow() {
         return this.row;
     }
 

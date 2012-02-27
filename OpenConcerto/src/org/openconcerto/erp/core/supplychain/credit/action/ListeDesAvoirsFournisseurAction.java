@@ -32,7 +32,7 @@ public class ListeDesAvoirsFournisseurAction extends CreateFrameAbstractAction {
 
     public JFrame createFrame() {
         final IListFrame frame = new IListFrame(new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("AVOIR_FOURNISSEUR")));
-
+        frame.getPanel().setAddVisible(true);
         frame.getPanel().getListe().addIListeActions(new MouseSheetXmlListeListener(AvoirFournisseurXmlSheet.class).getRowActions());
         frame.getPanel().getListe().setSQLEditable(false);
         return frame;

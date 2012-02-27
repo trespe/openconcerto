@@ -18,6 +18,7 @@ public class EmailProps extends AbstractProps {
     public static final int THUNDERBIRD = 1;
     public static final int OUTLOOK = 2;
     protected static EmailProps instance;
+    private String propsFileName = null;
 
     public synchronized static EmailProps getInstance() {
         if (instance == null) {
@@ -28,7 +29,15 @@ public class EmailProps extends AbstractProps {
 
     @Override
     protected String getPropsFileName() {
-        return "./Configuration/Email.properties";
+        if (this.propsFileName == null) {
+            return "./Configuration/Email.properties";
+        } else {
+            return this.propsFileName;
+        }
+    }
+
+    public void setPropsFileName(String propsFileName) {
+        this.propsFileName = propsFileName;
     }
 
     public String getThunderbirdPath() {

@@ -13,15 +13,33 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.model.SQLRowValuesCluster.Insert;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
+import org.openconcerto.sql.request.UpdateBuilder;
+import org.openconcerto.sql.utils.AlterTable;
+import org.openconcerto.sql.utils.ChangeTable;
+import org.openconcerto.sql.utils.ChangeTable.ConcatStep;
+import org.openconcerto.sql.utils.ChangeTable.FCSpec;
+import org.openconcerto.sql.utils.ReOrder;
 import org.openconcerto.sql.utils.SQLCreateRoot;
+import org.openconcerto.sql.utils.SQLCreateTableBase;
+import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQL_URL;
+import org.openconcerto.utils.CollectionUtils;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -90,6 +108,146 @@ public final class DBRoot extends DBStructureItemDB {
      */
     public Set<SQLTable> getTables() {
         return getJDBC().getDescendants(SQLTable.class);
+    }
+
+    /**
+     * Create the passed table in this root.
+     * 
+     * @param createTable how to create the table.
+     * @return the newly created table.
+     * @throws SQLException if an error occurs.
+     */
+    public final SQLTable createTable(final SQLCreateTableBase<?> createTable) throws SQLException {
+        return this.createTable(createTable, null);
+    }
+
+    public final SQLTable createTable(final SQLCreateTableBase<?> createTable, final Map<String, ?> undefinedNonDefaultValues) throws SQLException {
+        this.createTables(Collections.<SQLCreateTableBase<?>, Map<String, ?>> singletonMap(createTable, undefinedNonDefaultValues));
+        return this.getTable(createTable.getName());
+    }
+
+    public final void createTables(final SQLCreateTableBase<?>... createTables) throws SQLException {
+        this.createTables(Arrays.asList(createTables));
+    }
+
+    public final void createTables(final Collection<? extends SQLCreateTableBase<?>> createTables) throws SQLException {
+        this.createTables(CollectionUtils.fillMap(new HashMap<SQLCreateTableBase<?>, Map<String, ?>>(), createTables), false);
+    }
+
+    /**
+     * Create the passed tables and undefined rows, then {@link #refetch()}.
+     * 
+     * @param undefinedNonDefaultValues the undefined row for each table, if the value is
+     *        <code>null</code> then no undefined row will be created.
+     * @throws SQLException if an error occurs.
+     */
+    public final void createTables(final Map<? extends SQLCreateTableBase<?>, ? extends Map<String, ?>> undefinedNonDefaultValues) throws SQLException {
+        this.createTables(undefinedNonDefaultValues, !Collections.singleton(null).containsAll(undefinedNonDefaultValues.values()));
+    }
+
+    private final void createTables(final Map<? extends SQLCreateTableBase<?>, ? extends Map<String, ?>> undefinedNonDefaultValues, final boolean atLeast1UndefRow) throws SQLException {
+        SQLUtils.executeAtomic(getDBSystemRoot().getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
+            @Override
+            public Object handle(SQLDataSource ds) throws SQLException {
+                // don't create foreign constraints now, so we can insert undefined with cycles
+                final List<List<String>> createTablesSQL = ChangeTable.cat(undefinedNonDefaultValues.keySet(), getName(), EnumSet.of(ConcatStep.ADD_FOREIGN));
+                for (final String sql : createTablesSQL.get(0))
+                    ds.execute(sql);
+                final Map<SQLCreateTableBase<?>, Number> newUndefIDs;
+                final Map<SQLTable, SQLCreateTableBase<?>> newTables;
+                if (atLeast1UndefRow) {
+                    newUndefIDs = new HashMap<SQLCreateTableBase<?>, Number>();
+                    newTables = new HashMap<SQLTable, SQLCreateTableBase<?>>();
+                    refetch();
+                } else {
+                    newUndefIDs = Collections.emptyMap();
+                    newTables = null;
+                }
+                for (final Entry<? extends SQLCreateTableBase<?>, ? extends Map<String, ?>> e : undefinedNonDefaultValues.entrySet()) {
+                    final SQLCreateTableBase<?> createTable = e.getKey();
+                    final String tableName = createTable.getName();
+                    final Map<String, ?> m = e.getValue();
+                    // insert undefined row if requested and record its ID
+                    if (m == null) {
+                        SQLTable.setUndefID(getSchema(), tableName, null);
+                    } else {
+                        final SQLTable t = getTable(tableName);
+                        newUndefIDs.put(createTable, null);
+                        newTables.put(t, createTable);
+                        if (t.isRowable()) {
+                            final SQLRowValues vals = new SQLRowValues(t, m);
+                            if (t.isOrdered())
+                                vals.put(t.getOrderField().getName(), ReOrder.MIN_ORDER);
+                            for (final SQLField f : t.getContentFields()) {
+                                if (!vals.getFields().contains(f.getName()) && f.isNullable() != Boolean.TRUE && f.getDefaultValue() == null) {
+                                    final Class<?> javaType = f.getType().getJavaType();
+                                    final Object o;
+                                    if (String.class.isAssignableFrom(javaType))
+                                        o = "";
+                                    else if (Number.class.isAssignableFrom(javaType))
+                                        o = 0;
+                                    else if (Boolean.class.isAssignableFrom(javaType))
+                                        o = Boolean.FALSE;
+                                    else if (Date.class.isAssignableFrom(javaType))
+                                        o = new Date(0);
+                                    else
+                                        throw new UnsupportedOperationException("cannot find value for " + f.getSQLName());
+                                    vals.put(f.getName(), o);
+                                }
+                            }
+                            // PK from the DB, but use our order
+                            // don't try to validate since table has neither undefined row nor
+                            // constraints
+                            vals.getGraph().store(new Insert(false, true), false);
+                            final SQLRow undefRow = vals.getGraph().getRow(vals);
+                            SQLTable.setUndefID(getSchema(), tableName, undefRow.getID());
+                            newUndefIDs.put(createTable, undefRow.getIDNumber());
+                        }
+                    }
+                }
+                // update undefined rows pointing to other undefined rows
+                // set default value for created foreign fields
+                for (final Entry<SQLCreateTableBase<?>, Number> e : newUndefIDs.entrySet()) {
+                    final SQLCreateTableBase<?> createTable = e.getKey();
+                    final SQLTable t = getTable(createTable.getName());
+
+                    final Number undefID = e.getValue();
+                    final UpdateBuilder update;
+                    if (undefID != null) {
+                        update = new UpdateBuilder(t);
+                        update.setWhere(new Where(t.getKey(), "=", undefID));
+                    } else {
+                        update = null;
+                    }
+
+                    final AlterTable alterTable = new AlterTable(t);
+                    for (final FCSpec fc : createTable.getForeignConstraints()) {
+                        if (fc.getCols().size() == 1) {
+                            final SQLTable targetT = t.getDescLenient(fc.getRefTable(), SQLTable.class);
+                            final Number foreignUndefID = newUndefIDs.get(newTables.get(targetT));
+                            if (foreignUndefID != null) {
+                                final String ffName = fc.getCols().get(0);
+                                final String foreignUndefIDSQL = t.getField(ffName).getType().toString(foreignUndefID);
+                                alterTable.alterColumnDefault(ffName, foreignUndefIDSQL);
+                                update.set(ffName, foreignUndefIDSQL);
+                            }
+                        }
+                    }
+
+                    if (update != null && !update.isEmpty())
+                        ds.execute(update.asString());
+                    if (!alterTable.isEmpty())
+                        ds.execute(alterTable.asString());
+                }
+                for (final String sql : createTablesSQL.get(1))
+                    ds.execute(sql);
+                // always execute updateVersion() after setUndefID() to avoid DB transactions
+                // deadlock since setUndefID() itself ends with updateVersion().
+                getSchema().updateVersion();
+                return null;
+            }
+        });
+        this.refetch();
     }
 
     public SQLField getField(String name) {

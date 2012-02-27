@@ -67,7 +67,7 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
         l.add("NUMERO");
         l.add("DATE");
         l.add("ID_CLIENT");
-        // l.add("OBJET");
+        l.add("ID_COMMERCIAL");
         l.add("T_HT");
         l.add("T_TTC");
         l.add("NOM");

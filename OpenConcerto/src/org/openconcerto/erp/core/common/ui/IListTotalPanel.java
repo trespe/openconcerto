@@ -91,7 +91,14 @@ public class IListTotalPanel extends JPanel {
                     for (SQLField field : listField) {
                         Long n = mapTotal.get(field);
 
-                        Long n2 = (Long) rowAt.getObject(field.getName());
+                        Long n2;
+                        if (field.getTable().getName().equalsIgnoreCase(rowAt.getTable().getName())) {
+                            n2 = (Long) rowAt.getObject(field.getName());
+                        } else {
+                            SQLField fk = (SQLField) rowAt.getTable().getForeignKeys(field.getTable()).toArray()[0];
+                            n2 = (Long) rowAt.getForeign(fk.getName()).getObject(field.getName());
+                        }
+
                         boolean in = true;
 
                         if (filters != null) {

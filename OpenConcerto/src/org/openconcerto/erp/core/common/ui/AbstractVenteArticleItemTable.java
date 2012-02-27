@@ -33,7 +33,6 @@ import org.openconcerto.sql.view.list.CellDynamicModifier;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
-import org.openconcerto.ui.table.XTableColumnModel;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.math.BigDecimal;
@@ -92,6 +91,11 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         // Désignation de l'article
         final SQLTableElement tableElementNom = new SQLTableElement(e.getTable().getField("NOM"));
         list.add(tableElementNom);
+
+        if (e.getTable().getFieldsName().contains("COLORIS")) {
+            final SQLTableElement tableElementColoris = new SQLTableElement(e.getTable().getField("COLORIS"));
+            list.add(tableElementColoris);
+        }
 
         if (e.getTable().getFieldsName().contains("DESCRIPTIF")) {
             final SQLTableElement tableElementDesc = new SQLTableElement(e.getTable().getField("DESCRIPTIF"));
@@ -168,6 +172,13 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             }
         };
         list.add(tableElement_ValeurMetrique1);
+
+        // Prébilan
+        if (e.getTable().getFieldsName().contains("PREBILAN")) {
+            SQLTableElement prebilan = new SQLTableElement(e.getTable().getField("PREBILAN"), Long.class, new DeviseCellEditor());
+            prebilan.setRenderer(new DeviseNiceTableCellRenderer());
+            list.add(prebilan);
+        }
 
         // Prix d'achat HT de la métrique 1
         final SQLTableElement tableElement_PrixMetrique1_AchatHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_HA_1"), Long.class, new DeviseCellEditor());
@@ -637,9 +648,20 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             setColumnVisible(this.model.getColumnForField(string), visibilityMap.get(string));
         }
 
+        Map<String, Boolean> mapCustom = getCustomVisibilityMap();
+        if (mapCustom != null) {
+            for (String string : mapCustom.keySet()) {
+                setColumnVisible(this.model.getColumnForField(string), mapCustom.get(string));
+            }
+        }
+
         // On réécrit la configuration au cas ou les preferences aurait changé (ajout ou suppression
         // du mode de vente specifique)
         this.table.writeState();
+    }
+
+    protected Map<String, Boolean> getCustomVisibilityMap() {
+        return null;
     }
 
     private Object tarifCompletion(SQLRowAccessor row, String field) {

@@ -105,7 +105,6 @@ public class MargeDayDataModel extends DataModel1D {
                             chart.getLeftAxis().getLabels().get(1).setLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €");
                             chart.setHigherRange(value);
                         }
-                        System.out.println(value + " for day:" + i);
                         if (((int) value) != 0) {
                             MargeDayDataModel.this.setValueAt(i, value);
                             fireDataModelChanged();

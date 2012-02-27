@@ -13,6 +13,7 @@
  
  package org.openconcerto.ui.valuewrapper;
 
+import org.openconcerto.utils.NumberUtils;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
@@ -51,6 +52,38 @@ public final class ValidatedValueWrapper<T> implements ValueWrapper<T> {
         }
     }
 
+    static public final <T extends Number> ITransformer<T, ValidState> createTransformer(final T min, final String belowMin, final T max, final String aboveMax) {
+        return createTransformer(min, false, belowMin, max, aboveMax);
+    }
+
+    /**
+     * A transformer that checks if a value is in a specified range.
+     * 
+     * @param min the lower bound.
+     * @param minValid whether the lower bound is valid or not.
+     * @param belowMin the explanation if the value is below <code>min</code>.
+     * @param max the upper bound.
+     * @param aboveMax the explanation if the value is above <code>max</code>.
+     * @return a new transformer.
+     */
+    static public final <T extends Number> ITransformer<T, ValidState> createTransformer(final T min, final boolean minValid, final String belowMin, final T max, final String aboveMax) {
+        return new ITransformer<T, ValidState>() {
+            @Override
+            public ValidState transformChecked(T input) {
+                if (input == null)
+                    return ValidState.getTrueInstance();
+
+                final int minComp = NumberUtils.compare(input, min);
+                if (minComp < 0 || (!minValid && minComp == 0))
+                    return ValidState.createCached(false, belowMin);
+                else if (NumberUtils.compare(input, max) > 0)
+                    return ValidState.createCached(false, aboveMax);
+                else
+                    return ValidState.getTrueInstance();
+            }
+        };
+    }
+
     private final ValueWrapper<T> delegate;
     private final Set<ITransformer<? super T, ValidState>> validators;
     private ValidState delegateValid;
@@ -78,7 +111,7 @@ public final class ValidatedValueWrapper<T> implements ValueWrapper<T> {
                 updateValidated();
             }
         });
-        
+
         this.add(validator);
     }
 

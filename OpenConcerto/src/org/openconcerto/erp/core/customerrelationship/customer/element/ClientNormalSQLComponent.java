@@ -141,7 +141,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         this.add(textType, c);
 
         // Code
-        JLabel labelCode = new JLabel("Code");
+        JLabel labelCode = new JLabel(getLabelFor("CODE"));
         labelCode.setHorizontalAlignment(SwingConstants.RIGHT);
         this.textCode = new JUniqueTextField();
         c.gridx++;
@@ -173,7 +173,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         if (getTable().getFieldsName().contains("ID_PAYS")) {
             c.gridx++;
             c.weightx = 0;
-            this.add(new JLabel(getLabelFor("ID_PAYS")), c);
+            this.add(new JLabel(getLabelFor("ID_PAYS"), SwingConstants.RIGHT), c);
             boxPays = new ElementComboBox(true, 25);
             c.gridx++;
             c.weightx = 0.5;
@@ -253,7 +253,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
 
 
         // tel
-        JLabel labelTel = new JLabel("N° de téléphone");
+        JLabel labelTel = new JLabel(this.getLabelFor("TEL"));
         labelTel.setHorizontalAlignment(SwingConstants.RIGHT);
         c.gridx = 0;
         c.gridy++;

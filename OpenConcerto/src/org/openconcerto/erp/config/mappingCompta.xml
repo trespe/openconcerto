@@ -397,6 +397,7 @@
 
 	<TABLE name="BON_DE_LIVRAISON">
 		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="DATE_LIVRAISON" label="Date livraison" titlelabel="Date livraison" />
 		<FIELD name="ID_SAISIE_VENTE_FACTURE" label="Facture"
 			titlelabel="Facture" />
 		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
@@ -675,6 +676,22 @@
 		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
 	</TABLE>
 
+	<TABLE name="CONTACT_ADMINISTRATIF">
+		<FIELD name="PRENOM" label="Prénom du contact" titlelabel="Prénom du contact" />
+		<FIELD name="NOM" label="Nom du contact" titlelabel="Nom du contact" />
+		<FIELD name="ID_TITRE_PERSONNEL" label="Titre" titlelabel="Titre" />
+		<FIELD name="TEL_DIRECT" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="TEL_PERSONEL" label="Téléphone Personnel"
+			titlelabel="Téléphone Personnel" />
+		<FIELD name="TEL_STANDARD" label="Téléphone du standard"
+			titlelabel="Téléphone du standard" />
+		<FIELD name="TEL_MOBILE" label="Portable" titlelabel="Portable" />
+		<FIELD name="EMAIL" label="Mail" titlelabel="Mail" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="FONCTION" label="Fonction" titlelabel="Fonction" />
+		<FIELD name="N4DS" label="Contact pour la N4DS" titlelabel="Contact pour la N4DS" />
+	</TABLE>
+
 	<TABLE name="CONTRAT_SALARIE">
 		<FIELD name="NATURE" label="Nature de l'emploi (*)" titlelabel="Nature de l'emploi" />
 		<FIELD name="ID_CODE_EMPLOI" label="Catégorie socioprofessionnelle "
@@ -689,6 +706,20 @@
 			titlelabel="Code statut catégoriel" />
 		<FIELD name="ID_CODE_CARACT_ACTIVITE" label="Caractéristique de l'activité"
 			titlelabel="Code caractéristique" />
+		<FIELD name="ID_CODE_STATUT_CAT_CONV" label="Statut catégoriel conventionnel"
+			titlelabel="Statut catégoriel conventionnel" />
+
+		<FIELD name="CODE_IRC_UGRR" label="Code IRC UGRR" titlelabel="Code IRC UGRR" />
+		<FIELD name="CODE_IRC_UGRC" label="Code IRC UGRC" titlelabel="Code IRC UGRC" />
+		<FIELD name="NUMERO_RATTACHEMENT_UGRR" label="N° rattachement UGRR"
+			titlelabel="N° rattachement UGRR" />
+		<FIELD name="NUMERO_RATTACHEMENT_UGRC" label="N° rattachement UGRC"
+			titlelabel="N° rattachement UGRC" />
+		<FIELD name="CODE_IRC_RETRAITE" label="Code IRC retraite"
+			titlelabel="Code IRC retraite" />
+		<FIELD name="NUMERO_RATTACHEMENT_RETRAITE" label="N° rattachement retraite"
+			titlelabel="N° rattachement retraite" />
+
 	</TABLE>
 
 	<TABLE name="COMMANDE">
@@ -893,6 +924,7 @@
 
 	<TABLE name="DEVIS">
 		<FIELD name="ID_MODELE" label="Modèle" titlelabel="Modèle" />
+		<FIELD name="PROBABILITE" label="Probabilité" titlelabel="Probabilité" />
 		<FIELD name="DATE_VALIDITE" label="Valable jusqu'au" titlelabel="Valable jusqu'au" />
 		<FIELD name="NUMERO" label="Numéro du devis" titlelabel="Numéro du devis" />
 		<FIELD name="DATE" label="Date" titlelabel="Date" />
@@ -1253,6 +1285,9 @@
 		<FIELD name="TAUX_AT" label="Taux accident de travail (*)"
 			titlelabel="Taux AT" />
 		<FIELD name="DATE_SORTIE" label="Date de sortie" titlelabel="Date de sortie" />
+		<FIELD name="CODE_AT" label="Code AT" titlelabel="Code AT" />
+		<FIELD name="CODE_SECTION_AT" label="Code section AT"
+			titlelabel="Code section AT" />
 	</TABLE>
 
 	<TABLE name="JOURNAL">

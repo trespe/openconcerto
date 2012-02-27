@@ -34,6 +34,8 @@ import javax.swing.JPanel;
  */
 public abstract class SQLComponent extends JPanel implements ValidObject {
 
+    private static final String NONINITED_CODE = new String("default " + SQLComponent.class.getName() + " code");
+
     public static enum Mode {
         INSERTION, MODIFICATION
     }
@@ -71,6 +73,7 @@ public abstract class SQLComponent extends JPanel implements ValidObject {
     };
 
     private final SQLElement element;
+    private String code;
     private ElementSQLObject parent;
     private boolean inited;
     private Mode mode;
@@ -81,8 +84,10 @@ public abstract class SQLComponent extends JPanel implements ValidObject {
         this.setOpaque(true);
         this.parent = null;
         this.element = element;
+        this.code = NONINITED_CODE;
         this.mode = null;
         this.inited = false;
+
         // by default no default
         this.clearDefaults();
     }
@@ -187,6 +192,18 @@ public abstract class SQLComponent extends JPanel implements ValidObject {
 
     protected final SQLTable getTable() {
         return this.getElement().getTable();
+    }
+
+    final void setCode(String code) {
+        if (code == NONINITED_CODE)
+            throw new IllegalStateException("Cannot un-initialise");
+        if (this.code != NONINITED_CODE)
+            throw new IllegalStateException("Code of " + this + " already inited to " + this.code);
+        this.code = code;
+    }
+
+    public final String getCode() {
+        return this.code;
     }
 
     /**

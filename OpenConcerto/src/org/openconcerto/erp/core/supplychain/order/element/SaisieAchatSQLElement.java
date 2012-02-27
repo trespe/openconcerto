@@ -32,7 +32,8 @@ public class SaisieAchatSQLElement extends ComptaSQLConfElement {
         l.add("DATE");
         l.add("NOM");
         l.add("ID_FOURNISSEUR");
-        l.add("MONTANT_TTC");
+        l.add("MONTANT_HT"); 
+        l.add("MONTANT_TTC");              
         l.add("INFOS");
         return l;
     }

@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.ProductInfo;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -24,7 +25,7 @@ import java.util.Properties;
 public class TaskPropsConfiguration extends ComptaBasePropsConfiguration {
 
     // for now to share configuration (like login/pass and db xml)
-    private static final String APP_NAME = "OpenConcerto";
+    private static final ProductInfo PRODUCT_INFO = new ProductInfo("OpenConcerto");
 
     public static TaskPropsConfiguration create() {
         final File wd = new File(System.getProperty("user.dir"));
@@ -35,7 +36,7 @@ public class TaskPropsConfiguration extends ComptaBasePropsConfiguration {
         try {
             // try to read the file from within the jar, but allow it to be overridden by an
             // external file
-            final File confFile = getConfFile(APP_NAME);
+            final File confFile = getConfFile(PRODUCT_INFO.getName());
             final Properties props;
             if (confFile.exists()) {
                 props = create(new FileInputStream(confFile), defaults);
@@ -50,7 +51,7 @@ public class TaskPropsConfiguration extends ComptaBasePropsConfiguration {
     // *** instance
 
     private TaskPropsConfiguration(Properties props) {
-        super(props, APP_NAME);
+        super(props, PRODUCT_INFO);
     }
 
     @Override

@@ -74,9 +74,9 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
 
     private DeviseField fieldMontantRegle = new DeviseField();
 
-    private JRadioButton radioButtonNumeroFacture;
     private JCheckBox checkImmo;
-    private JRadioButton radioButtonNumeroCmd;
+    // private JRadioButton radioButtonNumeroFacture;
+    // private JRadioButton radioButtonNumeroCmd;
     private ButtonGroup grp1;
     private MontantPanel montant;
     private ElementComboBox nomFournisseur;
@@ -121,17 +121,6 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         this.textIdSource = new JTextField();
         this.textSource = new JTextField();
 
-        // Champ Module
-        c.gridx = 0;
-        c.gridy++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
-        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
-        this.add(addP, c);
-
-        c.gridy++;
-        c.gridwidth = 1;
-
         /*******************************************************************************************
          * * RENSEIGNEMENTS
          ******************************************************************************************/
@@ -154,20 +143,19 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         c.gridx++;
         c.weightx = 1;
         c.fill = GridBagConstraints.BOTH;
+        c.gridwidth = GridBagConstraints.REMAINDER;
         this.add(textLibelle, c);
 
-        // Date
+        // Champ Module
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JPanel addP = new JPanel();
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.add(addP, c);
 
-        c.gridx++;
-        c.weightx = 0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        this.add(new JLabel("Date"), c);
-        c.gridx++;
-        c.weightx = 1;
-        JDate dateSaisie = new JDate(true);
-        c.fill = GridBagConstraints.NONE;
-
-        this.add(dateSaisie, c);
+        c.gridy++;
+        c.gridwidth = 1;
 
         // Fournisseurs
         c.gridy++;
@@ -200,19 +188,20 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         c.gridwidth = 1;
 
         // Ligne 4 : Numero facture fournisseur
-        this.radioButtonNumeroFacture = new JRadioButton(getLabelFor("NUMERO_FACTURE"));
-        this.radioButtonNumeroFacture.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                SaisieAchatSQLComponent.this.textNumeroFacture.setEnabled(true);
-                SaisieAchatSQLComponent.this.textNumeroCmd.setEnabled(false);
-            }
-        });
+        // this.radioButtonNumeroFacture = new JRadioButton(getLabelFor("NUMERO_FACTURE"));
+        // this.radioButtonNumeroFacture.addActionListener(new ActionListener() {
+        // public void actionPerformed(ActionEvent e) {
+        // SaisieAchatSQLComponent.this.textNumeroFacture.setEnabled(true);
+        // SaisieAchatSQLComponent.this.textNumeroCmd.setEnabled(false);
+        // }
+        // });
         c.fill = GridBagConstraints.NONE;
         c.weightx = 0;
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = 1;
-        this.add(this.radioButtonNumeroFacture, c);
+        // this.add(this.radioButtonNumeroFacture, c);
+        this.add(new JLabel(getLabelFor("NUMERO_FACTURE")), c);
 
         this.textNumeroFacture = new JTextField(16);
         DefaultGridBagConstraints.lockMinimumSize(textNumeroFacture);
@@ -220,20 +209,34 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         c.gridwidth = 1;
         this.add(this.textNumeroFacture, c);
 
+        // Date
+
+        c.gridx++;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel("Date"), c);
+        c.gridx++;
+        c.weightx = 1;
+        JDate dateSaisie = new JDate(true);
+        c.fill = GridBagConstraints.NONE;
+
+        this.add(dateSaisie, c);
+
         // Ligne 5 : numéro commande fournisseur
-        this.radioButtonNumeroCmd = new JRadioButton(getLabelFor("NUMERO_COMMANDE"));
-        this.radioButtonNumeroCmd.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                // numeroCmd.setValue(textNumeroCmd.getText());
-                // numeroFact.setValue("");
-                SaisieAchatSQLComponent.this.textNumeroFacture.setEnabled(false);
-                SaisieAchatSQLComponent.this.textNumeroCmd.setEnabled(true);
-            }
-        });
+        // this.radioButtonNumeroCmd = new JRadioButton(getLabelFor("NUMERO_COMMANDE"));
+        // this.radioButtonNumeroCmd.addActionListener(new ActionListener() {
+        // public void actionPerformed(ActionEvent e) {
+        // // numeroCmd.setValue(textNumeroCmd.getText());
+        // // numeroFact.setValue("");
+        // SaisieAchatSQLComponent.this.textNumeroFacture.setEnabled(false);
+        // SaisieAchatSQLComponent.this.textNumeroCmd.setEnabled(true);
+        // }
+        // });
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = 1;
-        this.add(this.radioButtonNumeroCmd, c);
+        // this.add(this.radioButtonNumeroCmd, c);
+        this.add(new JLabel(getLabelFor("NUMERO_COMMANDE")), c);
 
         this.textNumeroCmd = new JTextField(16);
         c.gridx = 1;
@@ -250,13 +253,13 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         c.anchor = GridBagConstraints.WEST;
 
         // textNumeroCmd
-        this.grp1 = new ButtonGroup();
-        this.grp1.add(this.radioButtonNumeroCmd);
-        this.grp1.add(this.radioButtonNumeroFacture);
-
-        this.radioButtonNumeroFacture.setSelected(true);
-        this.textNumeroFacture.setEnabled(true);
-        this.textNumeroCmd.setEnabled(false);
+        // this.grp1 = new ButtonGroup();
+        // this.grp1.add(this.radioButtonNumeroCmd);
+        // this.grp1.add(this.radioButtonNumeroFacture);
+        //
+        // this.radioButtonNumeroFacture.setSelected(true);
+        // this.textNumeroFacture.setEnabled(true);
+        // this.textNumeroCmd.setEnabled(false);
 
         // MONTANT
 
@@ -595,8 +598,8 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
 
     private final void loadFromTable(final String tableName, final int id) {
         // Mise à jour des totaux
-        this.montant.setEnabled(false);
-        this.montant.getChoixTaxe().setVisible(false);
+        // this.montant.setEnabled(false);
+        // this.montant.getChoixTaxe().setVisible(false);
         if (id > 1) {
             final SQLElement eltCommande = Configuration.getInstance().getDirectory().getElement(tableName);
             final SQLInjector injector = SQLInjector.getInjector(eltCommande.getTable(), this.getTable());

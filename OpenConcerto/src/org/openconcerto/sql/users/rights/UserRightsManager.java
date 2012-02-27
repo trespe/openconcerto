@@ -27,6 +27,8 @@ import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.CompareUtils.Equalizer;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
@@ -44,6 +46,7 @@ public class UserRightsManager {
 
     private static UserRightsManager instance;
     private static final CollectionMap<String, Tuple2<String, Boolean>> SUPERUSER_RIGHTS = CollectionMap.singleton(null, Tuple2.create((String) null, true));
+    private static final CollectionMap<String, Tuple2<String, Boolean>> NO_RIGHTS = CollectionMap.singleton(null, Tuple2.create((String) null, false));
 
     public synchronized static UserRightsManager getInstance() {
         if (instance == null) {
@@ -58,7 +61,7 @@ public class UserRightsManager {
         if (!getInstance().isValid())
             return new UserRights(SQLRow.NONEXISTANT_ID) {
                 @Override
-                public boolean haveRight(final String code, final String object) {
+                public boolean haveRight(final String code, final String object, final Equalizer<? super String> objectMatcher) {
                     return true;
                 }
             };
@@ -141,17 +144,22 @@ public class UserRightsManager {
         return this.haveRight(userID, code, null);
     }
 
+    public final boolean haveRight(final int userID, final String code, final String object) {
+        return this.haveRight(userID, code, object, CompareUtils.OBJECT_EQ);
+    }
+
     /**
-     * Whether <code>userID</code> should be allowed the <code>code</code> (eg DELETE) right on
-     * <code>object</code> (eg TENSION).<br>
+     * Whether <code>userID</code> should be allowed the <code>code</code> (e.g. DELETE) right on
+     * <code>object</code> (e.g. TENSION).<br>
      * The rights are ordered and the first one that matches is returned. Furthermore after
      * searching for the passed <code>userID</code> the default user is searched. <br>
      * To match, the code of the right must be equal to <code>code</code> and either the object of
-     * the right is <code>null</code> of both objects are equal. There's also a special case if
-     * <code>object</code> is <code>null</code> : in that case all found objects must be allowed.
-     * With these rules setting the object of the right to <code>null</code> means giving the right
-     * to any object. And searching for the object <code>null</code> means asking if the right is
-     * allowed for all the objects. <br>
+     * the right is <code>null</code> or <code>objectMatcher</code> returns <code>true</code> when
+     * passed both objects. There's also a special case if <code>object</code> is <code>null</code>
+     * : in that case all found objects must be allowed until a right with a <code>null</code>
+     * object. With these rules setting the object of the right to <code>null</code> means giving
+     * the right to any object. And searching for the object <code>null</code> means asking if the
+     * right is allowed for all the objects. <br>
      * For example if you have these rights (* meaning <code>null</code>) :
      * <ol>
      * <li>del T yes</li>
@@ -166,26 +174,30 @@ public class UserRightsManager {
      * 
      * @param userID the user.
      * @param code the requested right.
-     * @param object the requested object, can be <code>null</code>.
+     * @param requestedObject the requested object, can be <code>null</code>.
+     * @param objectMatcher how to match objects, first parameter passed is the right object, the
+     *        second is <code>requestedObject</code>.
      * @return <code>true</code> if the right is allowed.
      */
-    public final boolean haveRight(final int userID, final String code, final String object) {
+    public final boolean haveRight(final int userID, final String code, final String requestedObject, final Equalizer<? super String> objectMatcher) {
         final Set<String> unicity = new HashSet<String>();
-        final Boolean userRight = haveRightP(userID, code, object, unicity);
+        final Boolean userRight = haveRightP(userID, code, requestedObject, objectMatcher, unicity);
         if (userRight != null)
             return userRight;
-        final Boolean defaultRight = haveRightP(this.getTable().getForeignTable("ID_USER_COMMON").getUndefinedID(), code, object, unicity);
+        final Boolean defaultRight = haveRightP(this.getTable().getForeignTable("ID_USER_COMMON").getUndefinedID(), code, requestedObject, objectMatcher, unicity);
         if (defaultRight != null)
             return defaultRight;
 
         return false;
     }
 
-    private final Boolean haveRightP(final int userID, final String code, final String object, Set<String> unicity) {
+    private final Boolean haveRightP(final int userID, final String code, final String object, final Equalizer<? super String> objectMatcher, Set<String> unicity) {
         final CollectionMap<String, Tuple2<String, Boolean>> rightsForUser = getRightsForUser(userID);
         // super-user
         if (rightsForUser == SUPERUSER_RIGHTS)
             return true;
+        if (rightsForUser == NO_RIGHTS)
+            return false;
 
         if (rightsForUser.containsKey(code)) {
             for (final Tuple2<String, Boolean> t : rightsForUser.getNonNull(code)) {
@@ -194,7 +206,9 @@ public class UserRightsManager {
                 if (unicity.add(t.get0())) {
                     // if the object of the right matches the requested object :
                     // null for the right matches any requested object
-                    if (t.get0() == null || t.get0().equals(object))
+                    // null for the requested object means searching for all objects so we can't let
+                    // objectMatcher match and thus ignore subsequent objects
+                    if (t.get0() == null || (object != null && safeEquals(objectMatcher, t, object)))
                         return t.get1();
                     // but null for the requested object means that all right objects must be true
                     else if (object == null && !t.get1())
@@ -203,6 +217,21 @@ public class UserRightsManager {
             }
         }
         return null;
+    }
+
+    private boolean safeEquals(final Equalizer<? super String> objectMatcher, final Tuple2<String, Boolean> t, final String requestedObject) {
+        final String rightObject = t.get0();
+        try {
+            return objectMatcher.equals(rightObject, requestedObject);
+        } catch (Exception e) {
+            // if the right could be allowed we don't match (so the row is ignored)
+            // if the right could be disallowed we match
+            final boolean res = !t.get1();
+            final String desc = !res ? "Row ignored." : "Right denied.";
+            Log.get().warning("Couldn't compare " + rightObject + " and " + requestedObject + ". " + desc);
+            e.printStackTrace();
+            return res;
+        }
     }
 
     // if the db change, clear our cache, that way the next method call will query the db again
@@ -287,7 +316,7 @@ public class UserRightsManager {
             return res;
         } catch (Exception e) {
             ExceptionHandler.handle("Erreur lors du chargement des droits utilisateurs pour l'utilisateur (Id:" + userID + ")", e);
-            return SUPERUSER_RIGHTS;
+            return NO_RIGHTS;
         }
     }
 
@@ -326,12 +355,12 @@ public class UserRightsManager {
         if (this.haveRight(userID, code))
             return null;
 
-        // the above line handles "* true", MAYBE we should search for eg "A false, * false"
+        // the above line handles "* true", MAYBE we should search for e.g. "A false, * false"
         // and then return {}.
 
         // try to add all objects which we are allowed to
-        // but stop at the first null since it means we have to do a substraction.
-        // (eg A f, * t)
+        // but stop at the first null since it means we have to do a subtraction.
+        // (e.g. A f, * t)
         final Set<String> unicity = new HashSet<String>();
         final Set<String> userRight = getObjectsP(userID, code, unicity);
         if (userRight != null) {
@@ -352,6 +381,9 @@ public class UserRightsManager {
 
     private final Set<String> getObjectsP(final int userID, final String code, Set<String> unicity) {
         final CollectionMap<String, Tuple2<String, Boolean>> rightsForUser = getRightsForUser(userID);
+        // don't let it proceed, otherwise it will then load objects for undef
+        if (rightsForUser == NO_RIGHTS)
+            return null;
         final Set<String> res = new HashSet<String>();
         if (rightsForUser.containsKey(code)) {
             for (final Tuple2<String, Boolean> t : rightsForUser.getNonNull(code)) {
@@ -364,6 +396,22 @@ public class UserRightsManager {
                         res.add(t.get0());
                 }
             }
+        }
+        return res;
+    }
+
+    public final Set<String> getObjects(final int userID, final String code, final Set<String> objectsToTest, final Equalizer<? super String> objectMatcher) {
+        // test for everything to avoid looping through potentially numerous allObjects
+        // (also takes care of superuser)
+        if (this.haveRight(userID, code, null, objectMatcher))
+            return objectsToTest;
+
+        // if userID hasn't the right to any object we can't try to list objects since in this case
+        // (with an Equalizer) the objects in the DB are more like patterns.
+        final Set<String> res = new HashSet<String>();
+        for (final String object : objectsToTest) {
+            if (this.haveRight(userID, code, object, objectMatcher))
+                res.add(object);
         }
         return res;
     }

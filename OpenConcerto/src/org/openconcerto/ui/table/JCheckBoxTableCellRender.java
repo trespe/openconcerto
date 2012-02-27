@@ -81,7 +81,7 @@ public class JCheckBoxTableCellRender extends AbstractCellEditor implements Tabl
         c.anchor = GridBagConstraints.NORTH;
         c.insets = new Insets(0, 0, 0, 0);
         p.add(cb, c);
-        DefaultAlternateTableCellRenderer.setColors(p, table, isSelected, row);
+        TableCellRendererUtils.setColors(p, table, isSelected);
         return p;
 
     }

@@ -4,7 +4,7 @@ begin
 	FROM pg_catalog.pg_class c
 	LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace
 	WHERE c.relkind IN ('r','') AND n.nspname NOT IN ('pg_catalog', 'pg_toast', 'information_schema') 
-	AND n.nspname ~ schemaPattern AND c.relname ~ ( '^('|| tablePattern ||')$' ) ;
+	AND n.nspname ~ ( '^('|| schemaPattern ||')$' ) AND c.relname ~ ( '^('|| tablePattern ||')$' ) ;
 	return curs;
 end;
 $$ LANGUAGE plpgsql;

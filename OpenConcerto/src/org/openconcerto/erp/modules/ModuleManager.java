@@ -421,16 +421,7 @@ public class ModuleManager {
 
             createTable.addUniqueConstraint("uniqModule", Arrays.asList(MODULE_COLNAME, TABLE_COLNAME, FIELD_COLNAME));
 
-            SQLUtils.executeAtomic(getDS(), new SQLFactory<Object>() {
-                @Override
-                public Object create() throws SQLException {
-                    r.getDBSystemRoot().getDataSource().execute(createTable.asString());
-                    r.getSchema().updateVersion();
-                    SQLTable.setUndefID(r.getSchema(), createTable.getName(), null);
-                    return null;
-                }
-            });
-            r.refetch();
+            r.createTable(createTable);
         }
         return r.getTable(FWK_MODULE_TABLENAME);
     }

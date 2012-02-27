@@ -18,6 +18,8 @@ import static org.openconcerto.sql.users.rights.TableAllRights.DELETE_ROW_TABLE;
 import static org.openconcerto.sql.users.rights.TableAllRights.MODIFY_ROW_TABLE;
 import static org.openconcerto.sql.users.rights.TableAllRights.VIEW_ROW_TABLE;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.CompareUtils.Equalizer;
 import org.openconcerto.utils.cc.IFactory;
 
 import java.util.Set;
@@ -35,12 +37,20 @@ public class UserRights {
         this.userID = userID;
     }
 
+    public final int getUserID() {
+        return this.userID;
+    }
+
     public final boolean haveRight(String code) {
         return haveRight(code, null);
     }
 
-    public boolean haveRight(String code, String object) {
-        return UserRightsManager.getInstance().haveRight(this.userID, code, object);
+    public final boolean haveRight(String code, String object) {
+        return this.haveRight(code, object, CompareUtils.OBJECT_EQ);
+    }
+
+    public boolean haveRight(String code, String object, final Equalizer<? super String> objectMatcher) {
+        return UserRightsManager.getInstance().haveRight(this.userID, code, object, objectMatcher);
     }
 
     public final Set<String> getObjects(final String code, final IFactory<Set<String>> allObjects) {

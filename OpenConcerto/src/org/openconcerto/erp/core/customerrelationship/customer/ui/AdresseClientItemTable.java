@@ -23,10 +23,13 @@ import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.RowValuesTableRenderer;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.table.XTableColumnModel;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 import javax.swing.JPanel;
@@ -56,8 +59,8 @@ public class AdresseClientItemTable extends JPanel {
         final List<SQLTableElement> list = new Vector<SQLTableElement>();
 
         // Destinataire
-        // this.dest = new SQLTableElement(e.getTable().getField("DEST"));
-        // list.add(this.dest);
+        this.dest = new SQLTableElement(e.getTable().getField("DEST"));
+        list.add(this.dest);
 
         // Rue
         this.rue = new SQLTableElement(e.getTable().getField("RUE"));
@@ -78,8 +81,28 @@ public class AdresseClientItemTable extends JPanel {
         this.model = new RowValuesTableModel(e, list, e.getTable().getField("VILLE"));
 
         this.table = new RowValuesTable(this.model, null, true);
+
+        setColumnVisible(this.model.getColumnForField("DEST"), false);
+
+        for (String string : visibilityMap.keySet()) {
+            setColumnVisible(this.model.getColumnForField(string), visibilityMap.get(string));
+        }
+
         ToolTipManager.sharedInstance().unregisterComponent(this.table);
         ToolTipManager.sharedInstance().unregisterComponent(this.table.getTableHeader());
+    }
+
+    protected void setColumnVisible(int col, boolean visible) {
+        if (col >= 0) {
+            XTableColumnModel columnModel = this.table.getColumnModel();
+            columnModel.setColumnVisible(columnModel.getColumnByModelIndex(col), visible);
+        }
+    }
+
+    private static Map<String, Boolean> visibilityMap = new HashMap<String, Boolean>();
+
+    public static Map<String, Boolean> getVisibilityMap() {
+        return visibilityMap;
     }
 
     /**

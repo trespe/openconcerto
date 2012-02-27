@@ -34,6 +34,12 @@ public class ContactSQLElement extends ConfSQLElement {
         }
     }
 
+    static public class ContactAdministratifSQLElement extends ContactSQLElement {
+        public ContactAdministratifSQLElement() {
+            super("CONTACT_ADMINISTRATIF", "un contact administratif", "contacts administratif");
+        }
+    }
+
     public ContactSQLElement() {
         this("CONTACT", "un contact", "contacts");
     }
@@ -56,6 +62,17 @@ public class ContactSQLElement extends ConfSQLElement {
         }
         l.add("TEL_STANDARD");
         l.add("TEL_DIRECT");
+        l.add("EMAIL");
+        l.add("TEL_MOBILE");
+        if (getTable().contains("ORIGINE")) {
+            l.add("ORIGINE");
+        }
+        if (getTable().contains("TYPE_DEMANDE")) {
+            l.add("TYPE_DEMANDE");
+        }
+        if (getTable().contains("N4DS")) {
+            l.add("N4DS");
+        }
         return l;
     }
 
@@ -152,6 +169,9 @@ public class ContactSQLElement extends ConfSQLElement {
             if (getTable().contains("NOM_RESPONSABLE"))
                 this.addView("NOM_RESPONSABLE");
 
+            if (getTable().contains("N4DS")) {
+                addView("N4DS");
+            }
         }
 
         public void setIdClient(int idClient) {

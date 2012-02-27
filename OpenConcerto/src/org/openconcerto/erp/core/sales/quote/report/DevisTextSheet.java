@@ -51,6 +51,7 @@ public class DevisTextSheet extends AbstractJOOReportsSheet {
         m.put("ClientType", rowClient.getString("FORME_JURIDIQUE"));
         m.put("ClientNom", rowClient.getString("NOM"));
         m.put("ClientTel", rowClient.getString("TEL"));
+        m.put("ClientTelP", rowClient.getString("TEL_P"));
         m.put("ClientFax", rowClient.getString("FAX"));
         m.put("ClientMail", rowClient.getString("MAIL"));
         String villeCli = getVille(rowAdresse.getString("VILLE"));

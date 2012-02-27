@@ -99,7 +99,7 @@ public abstract class SQLElement {
         RESTRICT
     }
 
-    static final public String DEFAULT_ID = null;
+    static final public String DEFAULT_COMP_ID = "default component code";
 
     // must contain the article "a stone" / "an elephant"
     private final String singular;
@@ -356,15 +356,6 @@ public abstract class SQLElement {
      * @return fields that cannot be modified.
      */
     public Set<String> getReadOnlyFields() {
-        return Collections.emptySet();
-    }
-
-    /**
-     * Fields that cannot be empty.
-     * 
-     * @return fields that cannot be empty.
-     */
-    public Set<String> getRequiredFields() {
         return Collections.emptySet();
     }
 
@@ -1418,8 +1409,7 @@ public abstract class SQLElement {
 
     public final int hashCode() {
         // ne pas mettre getParent car des fois null
-        return this.getTable().hashCode(); // + this.getSharedForeignFields().hashCode() +
-                                           // this.getPrivateForeignFields().hashCode();
+        return this.getTable().hashCode() + this.getSharedForeignFields().hashCode() + this.getPrivateForeignFields().hashCode();
     }
 
     @Override
@@ -1442,7 +1432,7 @@ public abstract class SQLElement {
     }
 
     private final SQLComponent createComponent(final String id, final boolean defaultItem) {
-        final String actualID = defaultItem ? DEFAULT_ID : id;
+        final String actualID = defaultItem ? DEFAULT_COMP_ID : id;
         final Tuple2<SQLElement, String> t = Tuple2.create(this, id);
         // start from the most recently added factory
         final Iterator<ITransformer<Tuple2<SQLElement, String>, SQLComponent>> iter = ((LinkedList<ITransformer<Tuple2<SQLElement, String>, SQLComponent>>) this.components.getNonNull(actualID))
@@ -1456,27 +1446,29 @@ public abstract class SQLElement {
     }
 
     public final SQLComponent createDefaultComponent() {
-        return this.createComponent(DEFAULT_ID);
+        return this.createComponent(DEFAULT_COMP_ID);
     }
 
     /**
      * Create the component for the passed ID. First factories for the passed ID are executed, after
-     * that if ID is the {@link #DEFAULT_ID default} then {@link #createComponent()} is called else
-     * factories for {@link #DEFAULT_ID} are executed.
+     * that if ID is the {@link #DEFAULT_COMP_ID default} then {@link #createComponent()} is called
+     * else factories for {@link #DEFAULT_COMP_ID} are executed.
      * 
      * @param id the requested ID.
      * @return the component or <code>null</code> if all factories return <code>null</code>.
      */
     public final SQLComponent createComponent(final String id) {
-        final SQLComponent res = this.createComponent(id, false);
-        if (res != null)
-            return res;
-        if (CompareUtils.equals(id, DEFAULT_ID)) {
-            // since we don't pass id to this method, only call it for DEFAULT_ID
-            return this.createComponent();
-        } else {
-            return this.createComponent(id, true);
+        SQLComponent res = this.createComponent(id, false);
+        if (res == null) {
+            if (CompareUtils.equals(id, DEFAULT_COMP_ID)) {
+                // since we don't pass id to this method, only call it for DEFAULT_ID
+                res = this.createComponent();
+            } else {
+                res = this.createComponent(id, true);
+            }
         }
+        res.setCode(id);
+        return res;
     }
 
     /**

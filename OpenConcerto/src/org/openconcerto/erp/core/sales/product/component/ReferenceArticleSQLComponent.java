@@ -308,7 +308,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         c.gridwidth = GridBagConstraints.REMAINDER;
         final JPanel addP = new JPanel();
         this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
-        this.add(addP, c);       
+        this.add(addP, c);
 
         JTabbedPane pane = new JTabbedPane();
         c.gridy++;
@@ -371,6 +371,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
         // Obsolete
         c.fill = GridBagConstraints.NONE;
+        c.gridwidth = GridBagConstraints.REMAINDER;
         c.weightx = 1;
         this.checkObs.setOpaque(false);
         panel.add(this.checkObs, c);
@@ -378,9 +379,24 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.checkObs.setVisible(false);
         this.addView(this.checkObs, "OBSOLETE");
 
+        if (getTable().getFieldsName().contains("COLORIS")) {
+            JTextField fieldColoris = new JTextField();
+            c.gridy++;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.weightx = 0;
+            c.gridwidth = 1;
+            panel.add(new JLabel(getLabelFor("COLORIS")), c);
+
+            c.weightx = 1;
+            c.gridx++;
+            panel.add(fieldColoris, c);
+            this.addView(fieldColoris, "COLORIS");
+        }
         ITextArea area = new ITextArea();
         JLabel sep = new JLabel("Descriptif complet");
         c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.HORIZONTAL;
         panel.add(sep, c);
 

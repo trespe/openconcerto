@@ -123,7 +123,7 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         enableAdvancedMode(false);
         this.checkService.setSelected(true);
         this.checkSFE.setSelected(false);
-        this.checkVenteComptoir.setSelected(false);
+        this.checkVenteComptoir.setSelected(true);
         this.checkGestionStockMin.setSelected(true);
         this.checkDevise.setSelected(false);
         this.checkMarge.setSelected(false);
@@ -147,8 +147,7 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         this.checkSFE.setSelected(bSfe != null && bSfe.booleanValue());
 
         // vente comptoir
-        final String venteComptoir = props.getStringProperty("ArticleVenteComptoir");
-        final Boolean bVenteComptoir = Boolean.valueOf(venteComptoir);
+        final Boolean bVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
         this.checkVenteComptoir.setSelected(bVenteComptoir != null && bVenteComptoir.booleanValue());
 
         // longueur

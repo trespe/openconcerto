@@ -42,7 +42,8 @@ public final class SQLSchema extends SQLIdentifier {
      */
     public static final String NOAUTO_CREATE_METADATA = "org.openconcerto.sql.noautoCreateMetadata";
 
-    static final String METADATA_TABLENAME = "FWK_SCHEMA_METADATA";
+    public static final String FWK_TABLENAME_PREFIX = "FWK_";
+    static final String METADATA_TABLENAME = FWK_TABLENAME_PREFIX + "SCHEMA_METADATA";
     private static final String VERSION_MDKEY = "VERSION";
     private static final String VERSION_XMLATTR = "schemaVersion";
 

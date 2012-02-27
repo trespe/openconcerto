@@ -20,6 +20,7 @@ import org.openconcerto.erp.core.sales.quote.ui.DevisItemTable;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.panel.PostgreSQLFrame;
 import org.openconcerto.erp.panel.UserExitPanel;
+import org.openconcerto.erp.preferences.UIPreferencePanel;
 import org.openconcerto.ftp.updater.UpdateManager;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.PropsConfiguration;
@@ -34,6 +35,7 @@ import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.component.WaitIndeterminatePanel;
+import org.openconcerto.ui.preferences.EmailProps;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.protocol.Helper;
@@ -81,17 +83,6 @@ public class Gestion {
     private static List<Image> frameIcon;
     // Check that we are on Mac OS X. This is crucial to loading and using the OSXAdapter class.
     static final boolean MAC_OS_X = System.getProperty("os.name").toLowerCase().startsWith("mac os x");
-
-    // only available from sun's release 6u10
-    private static String getNimbusClassName() {
-        // http://java.sun.com/javase/6/docs/technotes/guides/jweb/otherFeatures/nimbus_laf.html
-        for (LookAndFeelInfo info : UIManager.getInstalledLookAndFeels()) {
-            if ("Nimbus".equals(info.getName())) {
-                return info.getClassName();
-            }
-        }
-        return null;
-    }
 
     static boolean inWebStart() {
         // cannot rely on system properties since they vary from one implementation to another
@@ -144,7 +135,7 @@ public class Gestion {
         // only works with Aqua laf
         System.setProperty("apple.laf.useScreenMenuBar", "true");
 
-        ToolTipManager.sharedInstance().setInitialDelay(0);
+        // ToolTipManager.sharedInstance().setInitialDelay(0);
         // SpeedUp Linux
         System.setProperty("sun.java2d.pmoffscreen", "false");
 
@@ -157,9 +148,11 @@ public class Gestion {
         // don't put any suffix, rely on Animator
         System.setProperty(UISQLComponent.REQUIRED_SUFFIX_PROP, "");
         System.setProperty(ElementComboBox.CAN_MODIFY, "true");
+
         System.setProperty("org.openconcerto.ui.removeSwapSearchCheckBox", "true");
 
         if (System.getProperty("org.openconcerto.oo.useODSViewer") == null) {
+
             System.setProperty("org.openconcerto.oo.useODSViewer", "true");
         }
         if (System.getProperty(State.DEAF) == null) {
@@ -171,30 +164,11 @@ public class Gestion {
         // Initialisation du splashScreen
         // ne pas oublier en param -splash:image.png
         SplashScreen.getSplashScreen();
-        try {
-
-            final String nimbusClassName = getNimbusClassName();
-            if (nimbusClassName == null || !System.getProperty("os.name", "??").toLowerCase().contains("linux")) {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-            } else {
-                UIManager.setLookAndFeel(nimbusClassName);
-                UIManager.put("control", new Color(240, 240, 240));
-                UIManager.put("Table.showGrid", Boolean.TRUE);
-                UIManager.put("FormattedTextField.background", new Color(240, 240, 240));
-                UIManager.put("Table.alternateRowColor", Color.WHITE);
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        UpdateManager.start();
-
-        Toolkit.getDefaultToolkit().setDynamicLayout(true);
-
-        ComboSQLRequest.setDefaultFieldSeparator(" ");
 
         // Init des caches
         long t1 = System.currentTimeMillis();
         final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create(true);
+
         if (conf == null) {
             ServerFinderPanel.main(new String[0]);
             return;
@@ -208,6 +182,22 @@ public class Gestion {
             System.setSecurityManager(null);
         }
         Configuration.setInstance(conf);
+        if (Boolean.valueOf(conf.getProperty("minimal", "false"))) {
+            System.setProperty(MINIMAL_PROP, Boolean.TRUE.toString());
+        }
+        if (conf.getProperty("odsViewer") != null) {
+            System.setProperty("org.openconcerto.oo.useODSViewer", Boolean.valueOf(conf.getProperty("odsViewer")).toString());
+        }
+
+        // Restore L&F and colors
+        UIPreferencePanel.initUIFromPreferences();
+
+        UpdateManager.start();
+
+        Toolkit.getDefaultToolkit().setDynamicLayout(true);
+
+        ComboSQLRequest.setDefaultFieldSeparator(" ");
+
         long t4 = System.currentTimeMillis();
         System.out.println("Ip:" + conf.getServerIp());
         if (conf.getServerIp().startsWith("127.0.0.1:6543")) {
@@ -223,6 +213,11 @@ public class Gestion {
             ExceptionHandler.die("Erreur de connexion à la base de données", e);
         }
         System.out.println("Init phase 1:" + (System.currentTimeMillis() - t1) + "ms");
+
+        // Email props in .java
+        File fMail2 = new File(Configuration.getInstance().getConfDir(), "Email.properties");
+        EmailProps.getInstance().setPropsFileName(fMail2.toString());
+
         SwingUtilities.invokeLater(new Runnable() {
 
             public void run() {

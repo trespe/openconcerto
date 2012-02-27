@@ -245,12 +245,18 @@ public class SQLRowValuesCluster {
     }
 
     public synchronized final void store(final StoreMode mode) throws SQLException {
+        this.store(mode, true);
+    }
+
+    // checkValidity false useful when we want to avoid loading the graph
+    public synchronized final void store(final StoreMode mode, final boolean checkValidity) throws SQLException {
         this.reset();
         // check validity first, avoid beginning a transaction for nothing
         // do it after reset otherwise check previous values
-        for (final Node n : this.getNodes().values()) {
-            n.noLink.checkValidity();
-        }
+        if (checkValidity)
+            for (final Node n : this.getNodes().values()) {
+                n.noLink.checkValidity();
+            }
         // this will hold the links and their ID as they are known
         /**
          * A cycle example :

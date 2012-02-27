@@ -107,7 +107,6 @@ public final class SQLElementDirectory {
         for (final DirectoryListener dl : this.listeners) {
             dl.elementAdded(elem);
         }
-
     }
 
     public synchronized final boolean contains(SQLTable t) {

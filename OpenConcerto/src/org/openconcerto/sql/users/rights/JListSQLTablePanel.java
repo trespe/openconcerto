@@ -31,7 +31,10 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.ListCellRenderer;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
+import javax.swing.event.ListDataEvent;
+import javax.swing.event.ListDataListener;
 import javax.swing.event.ListSelectionListener;
 
 /**
@@ -45,6 +48,27 @@ public class JListSQLTablePanel extends JPanel {
     private JListSQLTableModel listModel;
     private JList list;
     private SQLTable table;
+    private final ListDataListener dataListener = new ListDataListener() {
+
+        @Override
+        public void intervalRemoved(ListDataEvent arg0) {
+        }
+
+        @Override
+        public void intervalAdded(ListDataEvent arg0) {
+
+        }
+
+        @Override
+        public void contentsChanged(ListDataEvent arg0) {
+            if (JListSQLTablePanel.this.idToSelect > 0) {
+
+                int id = JListSQLTablePanel.this.idToSelect;
+                JListSQLTablePanel.this.idToSelect = -1;
+                selectID(id);
+            }
+        }
+    };
 
     /**
      * 
@@ -96,10 +120,10 @@ public class JListSQLTablePanel extends JPanel {
         c.weightx = 1;
         final JTextField filter = new JTextField(20);
         this.add(filter, c);
-        filter.getDocument().addDocumentListener(new SimpleDocumentListener() {
+        final SimpleDocumentListener listener = new SimpleDocumentListener() {
             @Override
             public void update(DocumentEvent e) {
-
+                JListSQLTablePanel.this.list.clearSelection();
                 if (filter.getText().length() > 0) {
                     JListSQLTablePanel.this.listModel.fillTree(filter.getText());
                 } else {
@@ -107,7 +131,15 @@ public class JListSQLTablePanel extends JPanel {
                 }
 
             }
-        });
+        };
+        filter.getDocument().addDocumentListener(listener);
+
+        JListSQLTablePanel.this.listModel.addListDataListener(dataListener);
+    }
+
+    public void removeAllTableListener() {
+        JListSQLTablePanel.this.listModel.removeListDataListener(dataListener);
+        JListSQLTablePanel.this.listModel.removeTableModifiedListener();
     }
 
     public JListSQLTableModel getModel() {
@@ -132,5 +164,26 @@ public class JListSQLTablePanel extends JPanel {
 
     public void removeListSelectionListener(ListSelectionListener l) {
         this.list.removeListSelectionListener(l);
+    }
+
+    int idToSelect = -1;
+
+    public void selectID(final int id) {
+        if (getModel().isUpdating()) {
+            this.idToSelect = id;
+        } else {
+            SwingUtilities.invokeLater(new Runnable() {
+
+                @Override
+                public void run() {
+                    // TODO Raccord de méthode auto-généré
+                    int index = getModel().getIndexForId(id);
+                    if (index >= 0) {
+                        getJList().setSelectedIndex(index);
+                        getJList().ensureIndexIsVisible(index);
+                    }
+                }
+            });
+        }
     }
 }

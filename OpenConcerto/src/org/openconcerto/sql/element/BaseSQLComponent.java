@@ -40,13 +40,13 @@ import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.text.TextBehaviour;
 import org.openconcerto.ui.component.text.TextComponentUtils;
 import org.openconcerto.ui.coreanimation.Animator;
+import org.openconcerto.ui.valuewrapper.BooleanValueWrapper;
 import org.openconcerto.ui.valuewrapper.ValidatedValueWrapper;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.ui.valuewrapper.ValueWrapperFactory;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.cc.Transformer;
 import org.openconcerto.utils.checks.EmptyListener;
@@ -55,6 +55,7 @@ import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidState;
 
+import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Rectangle;
@@ -73,6 +74,7 @@ import java.util.Set;
 
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
+import javax.swing.JPanel;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
@@ -166,34 +168,47 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
             dobj.showSeparator(parser.showSeparator());
             return this.addView((MutableRowItemView) dobj, field, parser);
         } else {
-            return this.addView(getComp(field).get0(), field, spec);
+            return this.addView(createRowItemView(getComp(field, Object.class)), field, spec);
         }
     }
 
-    protected Tuple2<JComponent, SQLType> getComp(String field) {
+    @SuppressWarnings("unchecked")
+    static private <T, U> ValueWrapper<? extends T> castVW(final ValueWrapper<? extends U> vw, final Class<U> vwType, final Class<T> wantedType) {
+        if (wantedType.isAssignableFrom(vwType))
+            return (ValueWrapper<? extends T>) vw;
+        else
+            throw new IllegalArgumentException("Value wrapper isn't of the wanted type");
+    }
+
+    private <T> ValueWrapper<? extends T> getComp(final String field, final Class<T> wantedType) {
         if (getElement().getPrivateElement(field) != null)
             // we create a MutableRowItemView and need SpecParser
             throw new IllegalArgumentException("Private fields not supported");
 
-        final JComponent comp;
+        final ValueWrapper<? extends T> comp;
         final SQLType type = getField(field).getType();
         if (getField(field).isKey()) {
             // foreign
-            comp = new ElementComboBox();
+            comp = createValueWrapper(new ElementComboBox(), type, wantedType);
         } else {
             if (Boolean.class.isAssignableFrom(type.getJavaType())) {
                 // TODO hack to view the focus (should try to paint around the button)
-                comp = new JCheckBox(" ");
+                final JCheckBox cb = new JCheckBox(" ");
+                cb.setOpaque(false);
+                final JPanel panel = new JPanel(new BorderLayout());
+                panel.add(cb, BorderLayout.LINE_START);
+                comp = addValidatedValueWrapper(castVW(new BooleanValueWrapper(panel, cb), Boolean.class, wantedType), type);
             } else if (Date.class.isAssignableFrom(type.getJavaType())) {
-                comp = new JDate();
-            } else if (String.class.isAssignableFrom(type.getJavaType()) && type.getSize() >= 512)
-                comp = new SQLSearchableTextCombo(ComboLockedMode.UNLOCKED, true);
-            else
+                comp = createValueWrapper(new JDate(), type, wantedType);
+            } else if (String.class.isAssignableFrom(type.getJavaType()) && type.getSize() >= 512) {
+                comp = createValueWrapper(new SQLSearchableTextCombo(ComboLockedMode.UNLOCKED, true), type, wantedType);
+            } else {
                 // regular
-                comp = new SQLTextCombo();
+                comp = createValueWrapper(new SQLTextCombo(), type, wantedType);
+            }
         }
-        comp.setOpaque(false);
-        return new Tuple2<JComponent, SQLType>(comp, type);
+        comp.getComp().setOpaque(false);
+        return comp;
     }
 
     public final void addSQLObject(JComponent obj, String field) {
@@ -237,12 +252,19 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
 
     // just to make javac happy (type parameter for SimpleRowItemView)
     static private <T> SimpleRowItemView<T> createRowItemView(ValueWrapper<T> vw) {
+        if (vw instanceof MutableRowItemView)
+            throw new IllegalStateException("Comp is a MutableRowItemView, creating a SimpleRowItemView would ignore its methods : " + vw);
         return new SimpleRowItemView<T>(vw);
     }
 
     static private <T> ValueWrapper<? extends T> createValueWrapper(JComponent comp, final SQLType type, final Class<T> wantedType) {
         final Class<?> fieldClass = type.getJavaType();
         ValueWrapper<? extends T> res = ValueWrapperFactory.create(comp, fieldClass.asSubclass(wantedType));
+        return addValidatedValueWrapper(res, type);
+    }
+
+    static private <T> ValueWrapper<? extends T> addValidatedValueWrapper(ValueWrapper<? extends T> res, final SQLType type) {
+        final Class<?> fieldClass = type.getJavaType();
         if (String.class.isAssignableFrom(fieldClass)) {
             res = ValidatedValueWrapper.add(res, new ITransformer<T, ValidState>() {
                 @Override
@@ -285,12 +307,9 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
      * @return the created row item view.
      */
     public final <T> SimpleRowItemView<? extends T> createSimpleRowItemView(String field, Class<T> clazz, final ITransformer<? super ValueWrapper<? extends T>, ValueWrapper<? extends T>> init) {
-        final Tuple2<JComponent, SQLType> compNclass = this.getComp(field);
-        final JComponent comp = compNclass.get0();
-        final SQLType fieldClass = compNclass.get1();
-        if (comp instanceof MutableRowItemView)
-            throw new IllegalStateException("Comp is a MutableRowItemView, creating a SimpleRowItemView would ignore its methods : " + comp);
-        final ValueWrapper<? extends T> vw = createValueWrapper(comp, fieldClass, clazz);
+        final ValueWrapper<? extends T> vw = this.getComp(field, clazz);
+        if (vw instanceof MutableRowItemView)
+            throw new IllegalStateException("Comp is a MutableRowItemView, creating a SimpleRowItemView would ignore its methods : " + vw);
         return initRIV(createRowItemView(init.transformChecked(vw)), field);
     }
 

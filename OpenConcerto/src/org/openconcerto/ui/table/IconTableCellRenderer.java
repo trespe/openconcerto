@@ -100,8 +100,8 @@ class IconCellRenderer extends DefaultTableCellRenderer {
         int val = ((Integer) value).intValue();
         final JImage image = this.images.get(val);
         this.setIcon(image.getImageIcon());
-        DefaultAlternateTableCellRenderer.setColors(image, table, isSelected, row);
-        DefaultAlternateTableCellRenderer.setColors(this, table, isSelected, row);
+        TableCellRendererUtils.setColors(image, table, isSelected);
+        TableCellRendererUtils.setColors(this, table, isSelected);
         return this;
     }
 

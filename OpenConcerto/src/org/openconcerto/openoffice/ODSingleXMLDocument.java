@@ -34,7 +34,6 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.Set;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -182,12 +181,17 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         // set the generator
         // creates if necessary meta at the right position
         this.getChild("meta", true);
-        final Properties props = ProductInfo.getInstance().getProps();
-        final String generator;
+        ProductInfo props = ProductInfo.getInstance();
+        // MAYBE add a version number for this framework (using
+        // ODPackage.class.getResourceAsStream("product.properties") and *not* "/product.properties"
+        // as it might interfere with products using this framework)
         if (props == null)
-            generator = this.getClass().getName();
+            props = new ProductInfo(this.getClass().getName());
+        final String generator;
+        if (props.getVersion() == null)
+            generator = props.getName();
         else
-            generator = props.getProperty("NAME") + "/" + props.getProperty("VERSION");
+            generator = props.getName() + "/" + props.getVersion();
         this.meta = ODMeta.create(this);
         this.meta.setGenerator(generator);
 

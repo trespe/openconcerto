@@ -35,10 +35,17 @@ import javax.swing.table.TableColumn;
  */
 public class AlternateTableCellRenderer extends TableCellRendererDecorator {
 
-    public static final Color COLOR_LIGHT_GRAY = new Color(243, 247, 251);
-    public static final Color DEFAULT_BG_COLOR = Color.WHITE;
-    /** Default map from white to gray */
-    public static final Map<Color, Color> DEFAULT_MAP = Collections.singletonMap(DEFAULT_BG_COLOR, COLOR_LIGHT_GRAY);
+    private static final Color COLOR_LIGHT_GRAY = new Color(233, 237, 243);
+    private static final Color DEFAULT_BG_COLOR = Color.WHITE;
+    private static Map<Color, Color> DEFAULT_MAP;
+
+    public static void setDefaultMap(Map<Color, Color> m) {
+        DEFAULT_MAP = m == null ? Collections.singletonMap(DEFAULT_BG_COLOR, COLOR_LIGHT_GRAY) : Collections.unmodifiableMap(new HashMap<Color, Color>(m));
+    }
+
+    static {
+        setDefaultMap(null);
+    }
 
     private static final String ODD_BG_COLOR_MAP_PROP = AlternateTableCellRenderer.class.getSimpleName() + " odd background colour map";
 
@@ -47,16 +54,13 @@ public class AlternateTableCellRenderer extends TableCellRendererDecorator {
     }
 
     /**
-     * Indicate which alternate background colour to use for odd rows. The {@link #DEFAULT_MAP} is
-     * always set first.
+     * Indicate which alternate background colour to use for odd rows.
      * 
      * @param comp the renderer component.
      * @param m a map from even colours to odd colours.
      */
     public static void setBGColorMap(final JComponent comp, final Map<Color, Color> m) {
-        final Map<Color, Color> res = new HashMap<Color, Color>(DEFAULT_MAP);
-        res.putAll(m);
-        comp.putClientProperty(ODD_BG_COLOR_MAP_PROP, res);
+        comp.putClientProperty(ODD_BG_COLOR_MAP_PROP, m);
     }
 
     @SuppressWarnings("unchecked")
@@ -64,8 +68,22 @@ public class AlternateTableCellRenderer extends TableCellRendererDecorator {
         return (Map<Color, Color>) comp.getClientProperty(ODD_BG_COLOR_MAP_PROP);
     }
 
-    private static Color getAlternateColor(Color c) {
+    private static Color computeAlternateColor(Color c) {
         return new Color((int) (c.getRed() * .9), (int) (c.getGreen() * .9), (int) (c.getBlue() * .9));
+    }
+
+    public static Color getAlternateColor(Color c) {
+        return getAlternateColor(c, DEFAULT_MAP);
+    }
+
+    private static Color getAlternateColor(Color c, Map<Color, Color> oddColorMap) {
+        final Color res = oddColorMap.get(c);
+        if (res != null)
+            return res;
+        else if (oddColorMap != DEFAULT_MAP)
+            return getAlternateColor(c, DEFAULT_MAP);
+        else
+            return computeAlternateColor(c);
     }
 
     private static final ProxyComp altComp = new ProxyComp();
@@ -87,8 +105,7 @@ public class AlternateTableCellRenderer extends TableCellRendererDecorator {
         }
 
         private Color getAlternateColor(final Color c) {
-            final Color res = this.oddBGColorMap.get(c);
-            return res != null ? res : AlternateTableCellRenderer.getAlternateColor(c);
+            return AlternateTableCellRenderer.getAlternateColor(c, this.oddBGColorMap);
         }
 
         @Override

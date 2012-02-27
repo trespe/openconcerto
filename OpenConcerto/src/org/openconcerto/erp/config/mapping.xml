@@ -100,7 +100,7 @@
 		<FIELD name="DECEMBRE" label="Décembre" titlelabel="Décembre" />
 	</TABLE>
 
-	
+
 
 	<TABLE name="PERIODE_VALIDITE">
 		<FIELD name="JANVIER" label="Janvier" titlelabel="Janvier" />
@@ -241,6 +241,8 @@
 		<FIELD name="MAIL" label="Adresse mail" titlelabel="Adresse mail" />
 		<FIELD name="ID_ADRESSE_COMMON" label="Adresse" titlelabel="Adresse" />
 		<FIELD name="TYPE" label="Type" titlelabel="Type" />
+		<FIELD name="RCS" label="RCS" titlelabel="RCS" />
+		<FIELD name="CAPITAL" label="Capital" titlelabel="Capital" />
 		<FIELD name="NUMERO_URSSAF" label="Numéro URSSAF" titlelabel="Numéro URSSAF" />
 	</TABLE>
 

@@ -23,7 +23,10 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
+import org.openconcerto.ui.JLabelBold;
 
+import java.awt.Color;
+import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -40,10 +43,12 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JRadioButton;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -70,7 +75,8 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
         this.dateEnd = new JDate();
 
         // Période
-        this.add(new JLabel("Période du"), c);
+        c.weightx = 0;
+        this.add(new JLabel("Période du", SwingConstants.RIGHT), c);
         c.gridx++;
         c.weightx = 1;
         this.add(this.dateDeb, c);
@@ -85,9 +91,10 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
 
         c.gridx++;
         c.weightx = 0;
-        this.add(new JLabel("Au"), c);
+        this.add(new JLabel("au"), c);
         c.gridx++;
-        c.weightx = 1;
+
+        c.fill = GridBagConstraints.NONE;
         this.add(this.dateEnd, c);
         // Chargement des valeurs par défaut
         String valueDateEnd = DefaultNXProps.getInstance().getStringProperty("GrandLivreDateEnd");
@@ -99,24 +106,27 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
         }
 
         // Compte
-        this.compteDeb = new JTextField();
-        this.compteEnd = new JTextField();
+        this.compteDeb = new JTextField(8);
+        this.compteEnd = new JTextField(8);
         c.gridy++;
         c.gridx = 0;
-        this.add(new JLabel("Du compte "), c);
-        c.gridx++;
-        c.weightx = 1;
-        this.add(this.compteDeb, c);
-        this.compteDeb.setText("1");
-        this.compteEnd.setText("9");
-
-        c.gridx++;
         c.weightx = 0;
-        this.add(new JLabel("Au"), c);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel("Du compte", SwingConstants.RIGHT), c);
         c.gridx++;
-        c.weightx = 1;
-        this.add(this.compteEnd, c);
+        c.gridwidth = 3;
+        c.fill = GridBagConstraints.NONE;
+        JPanel pCompte = new JPanel(new FlowLayout(FlowLayout.LEADING, 0, 0));
+        pCompte.add(this.compteDeb);
+        pCompte.add(new JLabel(" au compte "));
+        pCompte.add(this.compteEnd);
 
+        this.add(pCompte, c);
+
+        c.gridx = 0;
+        c.gridwidth = 4;
+        c.gridy++;
+        this.add(new JLabelBold("Options"), c);
         final JCheckBox boxCumulsAnts = new JCheckBox("Cumuls antérieurs");
         c.gridx = 0;
         c.gridy++;
@@ -144,8 +154,10 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
         // Journal à exclure
         c.gridy++;
         c.gridx = 0;
-        this.add(new JLabel("Exclure le journal"), c);
+        c.gridwidth = 1;
+        this.add(new JLabel("Exclure le journal", SwingConstants.RIGHT), c);
         c.gridx++;
+        c.gridwidth = 3;
         final ElementComboBox comboJrnl = new ElementComboBox(true);
         comboJrnl.init(Configuration.getInstance().getDirectory().getElement("JOURNAL"));
         this.add(comboJrnl, c);
@@ -168,6 +180,13 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
                 mode = GrandLivreSheet.MODENONLETTREE;
             }
         });
+
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 0;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+
+        this.add(new JLabelBold("Ecritures à inclure"), c);
         JPanel panelMode = new JPanel();
         panelMode.add(radioAll);
         panelMode.add(radioLettree);
@@ -184,16 +203,18 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
         group.add(radioLettree);
         group.add(radioNonLettree);
         radioAll.setSelected(true);
-        panelMode.setBorder(BorderFactory.createTitledBorder("Ecritures"));
+
         this.add(panelMode, c);
 
         // Progress bar
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.gridy++;
         c.gridx = 0;
-        c.weightx = 1;
         c.weighty = 0;
         c.fill = GridBagConstraints.HORIZONTAL;
+
+        this.add(new JLabelBold("Progression de la creation du grand livre"), c);
+        c.gridy++;
         this.bar.setStringPainted(true);
         this.add(this.bar, c);
 
@@ -202,42 +223,57 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
         this.checkImpr = new JCheckBox("Impression");
         this.checkVisu = new JCheckBox("Visualisation");
 
-        c.gridwidth = 2;
-        c.gridy++;
+        // Print & View
+        final JPanel panelPrintView = new JPanel(new FlowLayout(FlowLayout.LEADING, 2, 0));
+
+        panelPrintView.add(this.checkImpr);
+        panelPrintView.add(this.checkVisu);
+        this.checkImpr.setSelected(true);
         c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = 4;
+        c.weightx = 1;
+        c.weighty = 1;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.SOUTHEAST;
+        this.add(panelPrintView, c);
+
+        // OK, Cancel
+        c.gridy++;
         c.weightx = 0;
         c.weighty = 0;
-        this.add(this.checkImpr, c);
-        this.checkImpr.setSelected(true);
-        c.gridx += 2;
-        this.add(this.checkVisu, c);
-
-        c.gridy++;
-        c.gridx = 0;
-        c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.CENTER;
-        this.add(this.valid, c);
-        c.gridx += 2;
-        this.add(this.annul, c);
-        checkValidity();
+        JPanel panelOkCancel = new JPanel();
+        panelOkCancel.add(this.valid);
+        panelOkCancel.add(this.annul);
+        this.add(panelOkCancel, c);
+        this.checkValidity();
         this.valid.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 valid.setEnabled(false);
-
                 bar.setString(null);
                 bar.setValue(1);
                 new Thread(new Runnable() {
                     public void run() {
                         GrandLivreSheet bSheet = new GrandLivreSheet(dateDeb.getDate(), dateEnd.getDate(), compteDeb.getText().trim(), compteEnd.getText().trim(), mode, boxCumulsAnts.isSelected(),
                                 !boxCompteSolde.isSelected(), boxCentralClient.isSelected(), boxCentralFourn.isSelected(), comboJrnl.getSelectedId());
-                        final SpreadSheetGeneratorCompta generator = new SpreadSheetGeneratorCompta(bSheet, "GrandLivre" + Calendar.getInstance().getTimeInMillis(), checkImpr.isSelected(), checkVisu
-                                .isSelected(), false);
-                        SwingUtilities.invokeLater(new Runnable() {
-                            public void run() {
-                                bar.setValue(2);
-                                generator.addGenerateListener(ImpressionGrandLivrePanel.this);
-                            }
-                        });
+                        if (bSheet.getSize() == 0) {
+                            JOptionPane.showMessageDialog(ImpressionGrandLivrePanel.this, "Aucune écriture trouvée");
+                            SwingUtilities.invokeLater(new Runnable() {
+                                public void run() {
+                                    taskEnd();
+                                }
+                            });
+                        } else {
+                            final SpreadSheetGeneratorCompta generator = new SpreadSheetGeneratorCompta(bSheet, "GrandLivre" + Calendar.getInstance().getTimeInMillis(), checkImpr.isSelected(),
+                                    checkVisu.isSelected(), false);
+                            SwingUtilities.invokeLater(new Runnable() {
+                                public void run() {
+                                    bar.setValue(2);
+                                    generator.addGenerateListener(ImpressionGrandLivrePanel.this);
+                                }
+                            });
+                        }
+
                     }
                 }).start();
 

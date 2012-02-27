@@ -19,113 +19,40 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.GestionDevise;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.Insets;
 import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
-
 public class HistoriqueFournBilanPanel extends JPanel {
 
-    private static String asterisque = "* ";
-    private static String Cheque = " chèque pour un total de ";
-    private static String Cheques = " chèques pour un total de ";
-    private static String nonDecaisse = " non décaissé";
-    private static String nonDecaisses = " non décaissés";
+    private static String CHEQUE = " chèque pour un total de ";
+    private static String CHEQUES = " chèques pour un total de ";
+    private static String NON_DECAISSE = " non décaissé";
+    private static String NON_DECAISSES = " non décaissés";
 
-    private static String Achat = " achat pour un total de ";
-    private static String Achats = " achats pour un total de ";
+    private static String ACHAT = " achat pour un total de ";
+    private static String ACHATS = " achats pour un total de ";
 
-    private JLabel labelCheque, labelNonDecaisse;
-    private JLabel labelAchat;
-    private JTextField textNbCheque, textChequeTotal, textChequeNonDecaisse;
-    private JTextField textNbAchat, textAchatTotal;
+    private JLabel labelCheque = new JLabel();
+    private JLabel labelAchat = new JLabel();
 
     public HistoriqueFournBilanPanel() {
         super();
-
         this.setLayout(new GridBagLayout());
-        final GridBagConstraints c = new GridBagConstraints();
-        initGridBagConstraints(c);
-
-        // Achat
-        final JPanel panelAchat = new JPanel(new GridBagLayout());
-        {
-            this.textNbAchat = new JTextField(asterisque);
-            this.textNbAchat.setBorder(null);
-            this.textNbAchat.setEditable(false);
-            GridBagConstraints cc = new GridBagConstraints();
-            initGridBagConstraints(cc);
-            cc.gridx = GridBagConstraints.RELATIVE;
-            cc.weightx = 1;
-            panelAchat.add(this.textNbAchat, cc);
-
-            this.labelAchat = new JLabel(Achat);
-            cc.weightx = 0;
-            panelAchat.add(this.labelAchat, cc);
-
-            // Total
-            this.textAchatTotal = new JTextField();
-            this.textAchatTotal.setBorder(null);
-            this.textAchatTotal.setEditable(false);
-            cc.weightx = 1;
-            panelAchat.add(this.textAchatTotal, cc);
-        }
-
-        // Cheque
-        final JPanel panelCheque = new JPanel(new GridBagLayout());
-        {
-            this.textNbCheque = new JTextField(asterisque);
-            this.textNbCheque.setBorder(null);
-            this.textNbCheque.setEditable(false);
-            GridBagConstraints cc = new GridBagConstraints();
-            initGridBagConstraints(cc);
-            cc.gridx = GridBagConstraints.RELATIVE;
-            cc.weightx = 1;
-            panelCheque.add(this.textNbCheque, cc);
-
-            this.labelCheque = new JLabel(Cheque);
-            cc.weightx = 0;
-            panelCheque.add(this.labelCheque, cc);
-            // Total
-            this.textChequeTotal = new JTextField();
-            this.textChequeTotal.setBorder(null);
-            this.textChequeTotal.setEditable(false);
-            cc.weightx = 1;
-            panelCheque.add(this.textChequeTotal, cc);
-
-            // Cheques non encaissés
-            cc.weightx = 0;
-            panelCheque.add(new JLabel(" dont "));
-            this.textChequeNonDecaisse = new JTextField();
-            this.textChequeNonDecaisse.setBorder(null);
-            this.textChequeNonDecaisse.setEditable(false);
-            cc.weightx = 1;
-            panelCheque.add(this.textChequeNonDecaisse, cc);
-
-            this.labelNonDecaisse = new JLabel(nonDecaisse);
-            cc.weightx = 0;
-            panelCheque.add(this.labelNonDecaisse, cc);
-        }
-
-        c.gridx = 0;
-        c.gridy = 0;
+        final GridBagConstraints c = new DefaultGridBagConstraints();
         c.weightx = 1;
-        c.anchor = GridBagConstraints.WEST;
-        c.fill = GridBagConstraints.NONE;
-        // panelVC.setBorder(BorderFactory.createTitledBorder("VC"));
-        this.add(panelAchat, c);
+        this.add(labelCheque, c);
         c.gridy++;
-        this.add(panelCheque, c);
+        this.add(labelAchat, c);
         updateData(-1);
     }
 
@@ -170,20 +97,21 @@ public class HistoriqueFournBilanPanel extends JPanel {
 
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
-                HistoriqueFournBilanPanel.this.textChequeTotal.setText(GestionDevise.currencyToString(valueTotal, true));
-                HistoriqueFournBilanPanel.this.textChequeNonDecaisse.setText(String.valueOf(valueNonEncaisse));
-                HistoriqueFournBilanPanel.this.textNbCheque.setText(asterisque + nombreCheque);
-                if (nombreCheque > 1) {
-                    HistoriqueFournBilanPanel.this.labelCheque.setText(Cheques);
-                } else {
-                    HistoriqueFournBilanPanel.this.labelCheque.setText(Cheque);
-                }
 
-                if (valueNonEncaisse > 1) {
-                    HistoriqueFournBilanPanel.this.labelNonDecaisse.setText(nonDecaisses);
+                String labelCheques = String.valueOf(nombreCheque);
+
+                if (nombreCheque > 1) {
+                    labelCheques += CHEQUES;
                 } else {
-                    HistoriqueFournBilanPanel.this.labelNonDecaisse.setText(nonDecaisse);
+                    labelCheques += CHEQUE;
                 }
+                labelCheques += GestionDevise.currencyToString(valueTotal, true) + " € TTC";
+                if (valueNonEncaisse > 1) {
+                    labelCheques += " dont " + String.valueOf(valueNonEncaisse) + NON_DECAISSES;
+                } else {
+                    labelCheques += " dont " + String.valueOf(valueNonEncaisse) + NON_DECAISSE;
+                }
+                HistoriqueFournBilanPanel.this.labelCheque.setText(labelCheques);
             }
         });
     }
@@ -206,14 +134,15 @@ public class HistoriqueFournBilanPanel extends JPanel {
 
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
-                HistoriqueFournBilanPanel.this.textAchatTotal.setText(GestionDevise.currencyToString(valueTotal, true));
-
-                HistoriqueFournBilanPanel.this.textNbAchat.setText(asterisque + nombreAchat);
+                String labelAchats = String.valueOf(nombreAchat);
                 if (nombreAchat > 1) {
-                    HistoriqueFournBilanPanel.this.labelAchat.setText(Achats);
+                    labelAchats += ACHATS;
                 } else {
-                    HistoriqueFournBilanPanel.this.labelAchat.setText(Achat);
+                    labelAchats += ACHAT;
                 }
+                labelAchats += GestionDevise.currencyToString(valueTotal, true) + " € TTC";
+
+                HistoriqueFournBilanPanel.this.labelAchat.setText(labelAchats);
             }
         });
     }
@@ -243,18 +172,6 @@ public class HistoriqueFournBilanPanel extends JPanel {
             }
         }
         return 0;
-    }
-
-    private void initGridBagConstraints(GridBagConstraints g) {
-        g.anchor = GridBagConstraints.WEST;
-        g.fill = GridBagConstraints.HORIZONTAL;
-        g.insets = new Insets(2, 2, 1, 2);
-        g.gridwidth = 1;
-        g.gridheight = 1;
-        g.gridx = 0;
-        g.gridy = 0;
-        g.weightx = 0;
-        g.weighty = 0;
     }
 
 }

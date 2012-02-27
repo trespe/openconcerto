@@ -19,6 +19,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.request.ListSQLRequest;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +40,9 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
         if (getTable().getFieldsName().contains("LOCALISATION")) {
             l.add("LOCALISATION");
         }
-            l.add("RESPONSABLE");
+
+        l.add("RESPONSABLE");
+
         l.add("ID_ADRESSE");
         l.add("TEL");
         l.add("FAX");
@@ -94,5 +97,6 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
     public SQLComponent createComponent() {
         return new ClientNormalSQLComponent(this);
     }
+   
 
 }

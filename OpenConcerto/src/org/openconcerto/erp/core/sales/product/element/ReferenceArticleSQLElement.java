@@ -52,9 +52,12 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         l.add("NOM");
         String articleAdvanced = DefaultNXProps.getInstance().getStringProperty("ArticleModeVenteAvance");
         Boolean bArticleAdvanced = Boolean.valueOf(articleAdvanced);
+
+        if (bArticleAdvanced) {
             l.add("POIDS");
             l.add("PRIX_METRIQUE_HA_1");
             l.add("PRIX_METRIQUE_VT_1");
+        }
         l.add("PA_HT");
         l.add("PV_HT");
             l.add("ID_TAXE");

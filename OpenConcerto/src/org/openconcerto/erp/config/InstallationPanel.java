@@ -107,6 +107,8 @@ public class InstallationPanel extends JPanel {
                             // FixUnbounded varchar
                             fixUnboundedVarchar(conf.getRoot());
 
+                            // FIXME DROP CONSTRAINT UNIQUE ORDRE ON CONTACT_FOURNISSEUR
+
                             // Mise à jour des taux
                             final SQLTable table = conf.getRoot().getTable("VARIABLE_PAYE");
                             System.out.println("InstallationPanel.InstallationPanel() UPDATE PAYE");
@@ -183,6 +185,8 @@ public class InstallationPanel extends JPanel {
                                 }
                             }
 
+                            updateSocieteTable(conf.getRoot());
+
                             // we need to upgrade all roots
                             conf.getSystemRoot().getRootsToMap().clear();
                             conf.getSystemRoot().refetch();
@@ -249,7 +253,7 @@ public class InstallationPanel extends JPanel {
                             @Override
                             public void run() {
                                 up.setEnabled(true);
-
+                                bar.setValue(bar.getMaximum());
                                 if (!error) {
                                     JOptionPane.showMessageDialog(InstallationPanel.this, "Mise à niveau réussie");
                                 }
@@ -620,6 +624,11 @@ public class InstallationPanel extends JPanel {
                 t.addColumn("IDSOURCE", "integer DEFAULT 1");
                 alterBL = true;
             }
+
+            if (!tableBL.getFieldsName().contains("DATE_LIVRAISON")) {
+                t.addColumn("DATE_LIVRAISON", "date");
+                alterBL = true;
+            }
             if (alterBL) {
                 try {
                     ds.execute(t.asString());
@@ -826,31 +835,43 @@ public class InstallationPanel extends JPanel {
         }
 
         SQLTable tableVFElt = root.getTable("SAISIE_VENTE_FACTURE_ELEMENT");
-        addTarifField(tableVFElt, root);
+        addVenteEltField(tableVFElt, root);
 
         SQLTable tableDevisElt = root.getTable("DEVIS_ELEMENT");
-        addTarifField(tableDevisElt, root);
+        addVenteEltField(tableDevisElt, root);
 
         SQLTable tableCmdElt = root.getTable("COMMANDE_CLIENT_ELEMENT");
-        addTarifField(tableCmdElt, root);
+        addVenteEltField(tableCmdElt, root);
 
         SQLTable tableBonElt = root.getTable("BON_DE_LIVRAISON_ELEMENT");
-        addTarifField(tableBonElt, root);
+        addVenteEltField(tableBonElt, root);
 
         SQLTable tableAvoirElt = root.getTable("AVOIR_CLIENT_ELEMENT");
-        addTarifField(tableAvoirElt, root);
+        addVenteEltField(tableAvoirElt, root);
 
         SQLTable tableCmdFournElt = root.getTable("COMMANDE_ELEMENT");
-        addTotalDeviseHAField(tableCmdFournElt, root);
+        addHAElementField(tableCmdFournElt, root);
 
         SQLTable tableBonRecptElt = root.getTable("BON_RECEPTION_ELEMENT");
-        addTotalDeviseHAField(tableBonRecptElt, root);
+        addHAElementField(tableBonRecptElt, root);
 
         SQLTable tableBonRecpt = root.getTable("BON_RECEPTION");
         addDeviseHAField(tableBonRecpt, root);
 
         SQLTable tableCommande = root.getTable("COMMANDE");
         addDeviseHAField(tableCommande, root);
+
+        if (!tableCommande.getFieldsName().contains("ID_ADRESSE")) {
+            AlterTable alterCmd = new AlterTable(tableCommande);
+            alterCmd.addForeignColumn("ID_ADRESSE", root.findTable("ADRESSE"));
+            try {
+                ds.execute(alterCmd.asString());
+                tableCommande.getSchema().updateVersion();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table COMMANDE", ex);
+            }
+
+        }
 
         {
             addTotalDeviseField(tableDevis, root);
@@ -995,7 +1016,146 @@ public class InstallationPanel extends JPanel {
             }
         }
 
+        updateN4DS(root);
+
         root.refetch();
+    }
+
+    /**
+     * Mise à jour du schéma pour N4DS
+     * 
+     * @param root
+     * @throws SQLException
+     */
+    private void updateN4DS(DBRoot root) throws SQLException {
+
+        {
+            SQLTable table = root.findTable("INFOS_SALARIE_PAYE");
+            boolean alter = false;
+            AlterTable t = new AlterTable(table);
+            if (!table.getFieldsName().contains("CODE_AT")) {
+                t.addVarCharColumn("CODE_AT", 18);
+                alter = true;
+            }
+            if (!table.getFieldsName().contains("CODE_SECTION_AT")) {
+                t.addVarCharColumn("CODE_SECTION_AT", 18);
+                alter = true;
+            }
+
+            if (alter) {
+                try {
+                    table.getBase().getDataSource().execute(t.asString());
+                    table.getSchema().updateVersion();
+                    table.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
+                }
+            }
+
+        }
+
+        if (!root.contains("CODE_STATUT_CAT_CONV")) {
+
+            SQLCreateTable createTarif = new SQLCreateTable(root, "CODE_STATUT_CAT_CONV");
+
+            createTarif.addVarCharColumn("CODE", 6);
+            createTarif.addVarCharColumn("NOM", 256);
+            createTarif.asString();
+            try {
+                root.getBase().getDataSource().execute(createTarif.asString());
+                insertUndef(createTarif);
+
+                String insert = "INSERT into " + getTableName(createTarif).quote() + "(\"CODE\",\"NOM\") VALUES ";
+                insert += " ('01','agriculteur salarié de son exploitation')";
+                insert += ", ('02','artisan ou commerçant salarié de son entreprise')";
+                insert += ", ('03','cadre dirigeant (votant au collège employeur des élections prud''''hommales)')";
+                insert += ", ('04','autres cadres au sens de la convention collective (ou du statut pour les régimes spéciaux)')";
+                insert += ", ('05','profession intermédiaire (technicien, contremaître, agent de maîtrise, clergé)')";
+                insert += ", ('06','employé administratif d''''entreprise, de commerce, agent de service')";
+                insert += ", ('07','ouvriers qualifiés et non qualifiés y compris ouvriers agricoles');";
+                createTarif.getRoot().getDBSystemRoot().getDataSource().execute(insert);
+
+                root.getSchema().updateVersion();
+                root.refetch();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table CODE_STATUT_CAT_CONV", ex);
+            }
+        }
+
+        // Création de la table Modéle
+        if (!root.contains("CONTACT_ADMINISTRATIF")) {
+
+            SQLCreateTable createModele = new SQLCreateTable(root, "CONTACT_ADMINISTRATIF");
+            createModele.addVarCharColumn("NOM", 256);
+            createModele.addVarCharColumn("PRENOM", 256);
+            createModele.addVarCharColumn("TEL_DIRECT", 256);
+            createModele.addVarCharColumn("TEL_MOBILE", 256);
+            createModele.addVarCharColumn("EMAIL", 256);
+            createModele.addVarCharColumn("FAX", 256);
+            createModele.addVarCharColumn("FONCTION", 256);
+            createModele.addVarCharColumn("TEL_PERSONEL", 256);
+            createModele.addVarCharColumn("TEL_STANDARD", 256);
+            createModele.addForeignColumn("ID_TITRE_PERSONNEL", root.findTable("TITRE_PERSONNEL"));
+            createModele.addColumn("N4DS", "boolean DEFAULT false");
+
+            try {
+                root.getBase().getDataSource().execute(createModele.asString());
+                insertUndef(createModele);
+                root.getSchema().updateVersion();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table MODELE", ex);
+            }
+        }
+
+        {
+            SQLTable tableContrat = root.findTable("CONTRAT_SALARIE");
+            boolean alter2 = false;
+            AlterTable t2 = new AlterTable(tableContrat);
+            // UGRR
+            if (!tableContrat.getFieldsName().contains("CODE_IRC_UGRR")) {
+                t2.addVarCharColumn("CODE_IRC_UGRR", 18);
+                alter2 = true;
+            }
+            if (!tableContrat.getFieldsName().contains("NUMERO_RATTACHEMENT_UGRR")) {
+                t2.addVarCharColumn("NUMERO_RATTACHEMENT_UGRR", 64);
+                alter2 = true;
+            }
+            // UGRC
+            if (!tableContrat.getFieldsName().contains("CODE_IRC_UGRC")) {
+                t2.addVarCharColumn("CODE_IRC_UGRC", 18);
+                alter2 = true;
+            }
+            if (!tableContrat.getFieldsName().contains("NUMERO_RATTACHEMENT_UGRC")) {
+                t2.addVarCharColumn("NUMERO_RATTACHEMENT_UGRC", 64);
+                alter2 = true;
+            }
+
+            // Retraite Compl
+            if (!tableContrat.getFieldsName().contains("CODE_IRC_RETRAITE")) {
+                t2.addVarCharColumn("CODE_IRC_RETRAITE", 18);
+                alter2 = true;
+            }
+            if (!tableContrat.getFieldsName().contains("NUMERO_RATTACHEMENT_RETRAITE")) {
+                t2.addVarCharColumn("NUMERO_RATTACHEMENT_RETRAITE", 64);
+                alter2 = true;
+            }
+
+            if (!tableContrat.getFieldsName().contains("ID_CODE_STATUT_CAT_CONV")) {
+                t2.addForeignColumn("ID_CODE_STATUT_CAT_CONV", root.findTable("CODE_STATUT_CAT_CONV"));
+                alter2 = true;
+            }
+
+            if (alter2) {
+                try {
+                    tableContrat.getBase().getDataSource().execute(t2.asString());
+                    tableContrat.getSchema().updateVersion();
+                    tableContrat.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + tableContrat.getName(), ex);
+                }
+            }
+
+        }
     }
 
     private void addDeviseHAField(SQLTable table, DBRoot root) throws SQLException {
@@ -1023,13 +1183,17 @@ public class InstallationPanel extends JPanel {
 
     }
 
-    private void addTotalDeviseHAField(SQLTable table, DBRoot root) throws SQLException {
+    private void addHAElementField(SQLTable table, DBRoot root) throws SQLException {
         boolean alter = false;
         AlterTable t = new AlterTable(table);
         if (!table.getFieldsName().contains("QTE_ACHAT")) {
             t.addColumn("QTE_ACHAT", "integer DEFAULT 1");
             alter = true;
         }
+        // if (!table.getFieldsName().contains("ID_ARTICLE")) {
+        // t.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE"));
+        // alter = true;
+        // }
         if (!table.getFieldsName().contains("PA_DEVISE")) {
             t.addColumn("PA_DEVISE", "bigint default 0");
             alter = true;
@@ -1105,7 +1269,7 @@ public class InstallationPanel extends JPanel {
         }
     }
 
-    private void addTarifField(SQLTable table, DBRoot root) throws SQLException {
+    private void addVenteEltField(SQLTable table, DBRoot root) throws SQLException {
 
         boolean alter = false;
         AlterTable t = new AlterTable(table);
@@ -1113,6 +1277,10 @@ public class InstallationPanel extends JPanel {
             t.addColumn("QTE_ACHAT", "integer DEFAULT 1");
             alter = true;
         }
+        // if (!table.getFieldsName().contains("ID_ARTICLE")) {
+        // t.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE"));
+        // alter = true;
+        // }
         if (!table.getFieldsName().contains("CODE_DOUANIER")) {
             t.addVarCharColumn("CODE_DOUANIER", 256);
             alter = true;
@@ -1328,6 +1496,32 @@ public class InstallationPanel extends JPanel {
             root.getSchema().updateVersion();
             root.refetch();
         }
+    }
+
+    private void updateSocieteTable(DBRoot root) throws SQLException {
+        SQLTable table = root.findTable("SOCIETE_COMMON");
+        boolean alter = false;
+        AlterTable t = new AlterTable(table);
+        if (!table.getFieldsName().contains("RCS")) {
+            t.addVarCharColumn("RCS", 256);
+            alter = true;
+        }
+
+        if (!table.getFieldsName().contains("CAPITAL")) {
+            t.addColumn("CAPITAL", "bigint DEFAULT 0");
+            alter = true;
+        }
+
+        if (alter) {
+            try {
+                table.getBase().getDataSource().execute(t.asString());
+                table.getSchema().updateVersion();
+                table.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
+            }
+        }
+
     }
 
     private void updateVariablePaye(SQLTable table, String var, double value) throws SQLException {

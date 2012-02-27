@@ -15,7 +15,7 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.element.ElementMapper;
+import org.openconcerto.sql.element.GlobalMapper;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
@@ -69,7 +69,6 @@ public abstract class ComptaSQLConfElement extends SQLElement {
 
     public ComptaSQLConfElement(String tableName, String singular, String plural, final String id) {
         super(singular, plural, getBaseSociete().findTable(tableName, true), id);
-        ElementMapper.getInstance().map(getCode() + ".element", this);
     }
 
     @Override

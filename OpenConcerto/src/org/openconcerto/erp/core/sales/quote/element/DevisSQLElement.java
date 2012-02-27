@@ -55,6 +55,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
         l.add("DATE");
         l.add("ID_CLIENT");
         l.add("OBJET");
+        l.add("ID_COMMERCIAL");
         l.add("T_HT");
         l.add("T_TTC");
         l.add("INFOS");

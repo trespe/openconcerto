@@ -48,6 +48,41 @@ public class JListSQLTableModel extends DefaultListModel {
     protected SwingWorker<?, ?> updating = null;
     private int idToSelect = -1;
 
+    final SQLTableModifiedListener tableModifiedListener = new SQLTableModifiedListener() {
+        private void rowModified(SQLTableEvent evt) {
+            final int index = getIndexForId(evt.getId());
+            final IComboSelectionItem newItem = JListSQLTableModel.this.request.getComboItem(evt.getId());
+            if (newItem != null) {
+                if (index >= 0)
+                    JListSQLTableModel.this.list.remove(index);
+                addNewItem(newItem);
+            } else if (index >= 0) {
+                JListSQLTableModel.this.list.remove(index);
+                JListSQLTableModel.this.fireIntervalRemoved(JListSQLTableModel.this, index, index);
+            }
+        }
+
+        private void addNewItem(final IComboSelectionItem newItem) {
+            if (newItem != null) {
+                JListSQLTableModel.this.list.add(newItem);
+                Collections.sort(JListSQLTableModel.this.list, JListSQLTableModel.this.comp);
+                JListSQLTableModel.this.fireContentsChanged(JListSQLTableModel.this, 0, JListSQLTableModel.this.getSize());
+            }
+        }
+
+        @Override
+        public void tableModified(SQLTableEvent evt) {
+            if (evt.getId() < SQLRow.MIN_VALID_ID)
+                fillTree();
+            else if (evt.getMode() == Mode.ROW_ADDED) {
+                addNewItem(JListSQLTableModel.this.request.getComboItem(evt.getId()));
+            } else {
+                // UPDATE or DELETE
+                this.rowModified(evt);
+            }
+        }
+    };
+
     public JListSQLTableModel(final SQLTable table, List<String> listField, String undefined) {
         this.table = table;
         this.undefined = undefined;
@@ -84,40 +119,12 @@ public class JListSQLTableModel extends DefaultListModel {
         fillTree();
 
         // SQLTable Listener
-        table.addTableModifiedListener(new SQLTableModifiedListener() {
-            private void rowModified(SQLTableEvent evt) {
-                final int index = getIndexForId(evt.getId());
-                final IComboSelectionItem newItem = JListSQLTableModel.this.request.getComboItem(evt.getId());
-                if (newItem != null) {
-                    if (index >= 0)
-                        JListSQLTableModel.this.list.remove(index);
-                    addNewItem(newItem);
-                } else if (index >= 0) {
-                    JListSQLTableModel.this.list.remove(index);
-                    JListSQLTableModel.this.fireIntervalRemoved(JListSQLTableModel.this, index, index);
-                }
-            }
 
-            private void addNewItem(final IComboSelectionItem newItem) {
-                if (newItem != null) {
-                    JListSQLTableModel.this.list.add(newItem);
-                    Collections.sort(JListSQLTableModel.this.list, JListSQLTableModel.this.comp);
-                    JListSQLTableModel.this.fireContentsChanged(JListSQLTableModel.this, 0, JListSQLTableModel.this.getSize());
-                }
-            }
+        table.addTableModifiedListener(tableModifiedListener);
+    }
 
-            @Override
-            public void tableModified(SQLTableEvent evt) {
-                if (evt.getId() < SQLRow.MIN_VALID_ID)
-                    fillTree();
-                else if (evt.getMode() == Mode.ROW_ADDED) {
-                    addNewItem(JListSQLTableModel.this.request.getComboItem(evt.getId()));
-                } else {
-                    // UPDATE or DELETE
-                    this.rowModified(evt);
-                }
-            }
-        });
+    public void removeTableModifiedListener() {
+        table.removeTableModifiedListener(this.tableModifiedListener);
     }
 
     public int getSize() {
@@ -194,8 +201,8 @@ public class JListSQLTableModel extends DefaultListModel {
                         final List<IComboSelectionItem> items = this.get();
                         JListSQLTableModel.this.list.clear();
                         JListSQLTableModel.this.list.addAll(items);
-                        fireContentsChanged(JListSQLTableModel.this, 0, JListSQLTableModel.this.list.size());
                         JListSQLTableModel.this.setUpdating(null);
+                        fireContentsChanged(JListSQLTableModel.this, 0, JListSQLTableModel.this.list.size());
                     }
                 } catch (InterruptedException e) {
                     // ne devrait pas arriver puisque done() appelée après doInBackground()
@@ -214,7 +221,7 @@ public class JListSQLTableModel extends DefaultListModel {
         worker.execute();
     }
 
-    private boolean isUpdating() {
+    public boolean isUpdating() {
         return this.updating != null;
     }
 

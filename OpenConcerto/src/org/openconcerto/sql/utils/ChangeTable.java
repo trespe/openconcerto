@@ -52,7 +52,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         ADD_COL, ADD_CONSTRAINT, ADD_INDEX, DROP_COL, DROP_CONSTRAINT, DROP_INDEX, ALTER_COL, OTHER
     }
 
-    protected static enum ConcatStep {
+    public static enum ConcatStep {
         // drop constraints first since, at least in pg, they depend on indexes
         DROP_FOREIGN(ClauseType.DROP_CONSTRAINT),
         // drop indexes before columns to avoid having to know if the index is dropped because its
@@ -95,16 +95,39 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         return cat(cts, r, false);
     }
 
-    private static List<String> cat(List<? extends ChangeTable<?>> cts, final String r, final boolean forceCat) {
-        final List<String> res = new ArrayList<String>();
+    /**
+     * Compute the SQL needed to create all passed tables split at the passed boundaries. E.g. if
+     * you wanted to create tables without constraints, insert some data and then add constraints,
+     * you would pass <code>EnumSet.of(ConcatStep.ADD_CONSTRAINT)</code>.
+     * 
+     * @param cts the tables to create.
+     * @param r where to create them.
+     * @param boundaries where to split the SQL statements.
+     * @return the SQL needed, by definition the list size is one more than <code>boundaries</code>
+     *         size, e.g. if no boundaries are passed all SQL will be in one list.
+     */
+    public static List<List<String>> cat(final Collection<? extends ChangeTable<?>> cts, final String r, final EnumSet<ConcatStep> boundaries) {
+        final List<List<String>> res = new ArrayList<List<String>>();
+        List<String> current = null;
         for (final ConcatStep step : ConcatStep.values()) {
+            if (current == null || boundaries.contains(step)) {
+                current = new ArrayList<String>();
+                res.add(current);
+            }
             for (final ChangeTable<?> ct : cts) {
                 final String asString = ct.asString(r, step);
                 if (asString != null && asString.length() > 0) {
-                    res.add(asString);
+                    current.add(asString);
                 }
             }
+
         }
+        assert res.size() == boundaries.size() + 1;
+        return res;
+    }
+
+    private static List<String> cat(List<? extends ChangeTable<?>> cts, final String r, final boolean forceCat) {
+        final List<String> res = cat(cts, r, EnumSet.noneOf(ConcatStep.class)).get(0);
         // don't return [""] because the caller might test the size of the result and assume that
         // the DB was changed
         // MySQL needs to have its "alter table add/drop fk" in separate execute()
@@ -119,9 +142,36 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         return cat(cts, r, true).get(0);
     }
 
+    public static final class FCSpec {
+        private final List<String> cols;
+        private final SQLName refTable;
+        private final List<String> refCols;
+
+        public FCSpec(List<String> cols, SQLName refTable, List<String> refCols) {
+            super();
+            if (refTable.getItemCount() == 0)
+                throw new IllegalArgumentException(refTable + " is empty.");
+            this.cols = Collections.unmodifiableList(new ArrayList<String>(cols));
+            this.refTable = refTable;
+            this.refCols = Collections.unmodifiableList(new ArrayList<String>(refCols));
+        }
+
+        public final List<String> getCols() {
+            return this.cols;
+        }
+
+        public final SQLName getRefTable() {
+            return this.refTable;
+        }
+
+        public final List<String> getRefCols() {
+            return this.refCols;
+        }
+    }
+
     private String name;
     private final SQLSyntax syntax;
-    private final List<Object[]> fks;
+    private final List<FCSpec> fks;
     private final CollectionMap<ClauseType, String> clauses;
     private final CollectionMap<ClauseType, DeferredClause> inClauses;
     private final CollectionMap<ClauseType, DeferredClause> outClauses;
@@ -130,7 +180,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         super();
         this.syntax = syntax;
         this.name = name;
-        this.fks = new ArrayList<Object[]>();
+        this.fks = new ArrayList<FCSpec>();
         this.clauses = new CollectionMap<ClauseType, String>();
         this.inClauses = new CollectionMap<ClauseType, DeferredClause>();
         this.outClauses = new CollectionMap<ClauseType, DeferredClause>();
@@ -165,7 +215,6 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         return this.fks.isEmpty() && this.clauses.isEmpty() && this.inClauses.isEmpty() && this.outClauses.isEmpty();
     }
 
-    @SuppressWarnings("unchecked")
     protected T mutateTo(ChangeTable<?> ct) {
         if (this.getSyntax() != ct.getSyntax())
             throw new IllegalArgumentException("not same syntax: " + this.getSyntax() + " != " + ct.getSyntax());
@@ -180,9 +229,9 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         for (final DeferredClause c : ct.outClauses.values()) {
             this.addOutsideClause(c);
         }
-        for (final Object[] fk : ct.fks) {
+        for (final FCSpec fk : ct.fks) {
             // don't create index, it is already added in outside clause
-            this.addForeignConstraint((List<String>) fk[0], (SQLName) fk[1], false, (List<String>) fk[2]);
+            this.addForeignConstraint(fk, false);
         }
         return thisAsT();
     }
@@ -222,7 +271,19 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @return this.
      */
     public final T addIntegerColumn(String name, Integer defaultVal, boolean nullable) {
-        return this.addColumn(name, "integer " + getSyntax().getDefaultClause(defaultVal == null ? null : defaultVal.toString()) + " " + getSyntax().getNullableClause(nullable));
+        return this.addNumberColumn(name, "integer", defaultVal, nullable);
+    }
+
+    public final T addLongColumn(String name, Long defaultVal, boolean nullable) {
+        return this.addNumberColumn(name, "bigint", defaultVal, nullable);
+    }
+
+    public final T addShortColumn(String name, Short defaultVal, boolean nullable) {
+        return this.addNumberColumn(name, "smallint", defaultVal, nullable);
+    }
+
+    private final T addNumberColumn(String name, String sqlType, Number defaultVal, boolean nullable) {
+        return this.addColumn(name, sqlType + " " + getSyntax().getDefaultClause(defaultVal == null ? null : defaultVal.toString()) + " " + getSyntax().getNullableClause(nullable));
     }
 
     public abstract T addColumn(String name, String definition);
@@ -258,9 +319,11 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @return this.
      */
     public final T addForeignConstraint(final List<String> fieldName, SQLName refTable, boolean createIndex, List<String> refCols) {
-        if (refTable.getItemCount() == 0)
-            throw new IllegalArgumentException(refTable + " is empty.");
-        this.fks.add(new Object[] { fieldName, refTable, refCols });
+        return this.addForeignConstraint(new FCSpec(fieldName, refTable, refCols), createIndex);
+    }
+
+    public final T addForeignConstraint(final FCSpec fkSpec, boolean createIndex) {
+        this.fks.add(fkSpec);
         if (createIndex)
             this.addOutsideClause(new OutsideClause() {
                 @Override
@@ -270,10 +333,14 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
 
                 @Override
                 public String asString(SQLName tableName) {
-                    return getSyntax().getCreateIndex("_fki", tableName, fieldName);
+                    return getSyntax().getCreateIndex("_fki", tableName, fkSpec.getCols());
                 }
             });
         return thisAsT();
+    }
+
+    public final List<FCSpec> getForeignConstraints() {
+        return Collections.unmodifiableList(this.fks);
     }
 
     // * addForeignColumn = addColumn + addForeignConstraint
@@ -441,16 +508,13 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
 
     // [ CONSTRAINT "BATIMENT_ID_SITE_fkey" FOREIGN KEY ("ID_SITE") REFERENCES "SITE"("ID") ON
     // DELETE CASCADE; ]
-    @SuppressWarnings("unchecked")
     protected final List<String> getForeignConstraints(final String rootName) {
         final List<String> res = new ArrayList<String>(this.fks.size());
-        for (final Object[] fk : this.fks) {
-            final List<String> fieldName = (List<String>) fk[0];
+        for (final FCSpec fk : this.fks) {
             // resolve relative path, a table is identified by root.table
-            final SQLName relRefTable = (SQLName) fk[1];
+            final SQLName relRefTable = fk.getRefTable();
             final SQLName refTable = relRefTable.getItemCount() == 1 ? new SQLName(rootName, relRefTable.getName()) : relRefTable;
-            final List<String> refCols = (List<String>) fk[2];
-            res.add(getConstraintPrefix() + this.getSyntax().getFK(this.name + "_", fieldName, refTable, refCols));
+            res.add(getConstraintPrefix() + this.getSyntax().getFK(this.name + "_", fk.getCols(), refTable, fk.getRefCols()));
         }
         return res;
     }

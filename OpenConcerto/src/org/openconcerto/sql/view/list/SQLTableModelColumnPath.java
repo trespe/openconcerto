@@ -117,6 +117,9 @@ public class SQLTableModelColumnPath extends SQLTableModelColumn {
 
     @Override
     protected void put_(ListSQLLine l, Object value) {
+        // value == null if the user emptied the cell (see GenericEditor.stopCellEditing())
+        if (value == null && this.getField().isNullable() != Boolean.TRUE)
+            value = SQLRowValues.SQL_DEFAULT;
         final SQLRowValues ourVals = l.getRow().assurePath(this.p.getPath());
         final SQLRowValues vals = new SQLRowValues(ourVals.getTable()).put(this.p.getFieldName(), value);
         if (ourVals.getID() >= SQLRow.MIN_VALID_ID)

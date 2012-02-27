@@ -13,6 +13,8 @@
  
  package org.openconcerto.ui.preferences;
 
+import org.openconcerto.utils.ExceptionHandler;
+
 import javax.swing.tree.DefaultMutableTreeNode;
 
 public class PrefTreeNode extends DefaultMutableTreeNode {
@@ -37,8 +39,7 @@ public class PrefTreeNode extends DefaultMutableTreeNode {
         try {
             return this.c.newInstance();
         } catch (Exception e) {
-            System.err.println("Cannot Instantiate class:" + this.c.getCanonicalName());
-            e.printStackTrace();
+            ExceptionHandler.handle("Impossible de créer le panneau de préférence", e);
             return null;
         }
     }

@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.sales.quote.component;
 
+import static org.openconcerto.utils.CollectionUtils.createSet;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
@@ -98,7 +99,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
         final JPanel addP = new JPanel();
-        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
         this.add(addP, c);
 
         c.gridy++;
@@ -145,7 +146,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         c.anchor = GridBagConstraints.EAST;
         c.gridx += 2;
         this.add(this.radioEtat, c);
-        this.radioEtat.setVisible(false);
+        // this.radioEtat.setVisible(false);
 
         // Ligne 2: Reference
         c.gridx = 0;
@@ -212,7 +213,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         comboClient.addValueListener(new PropertyChangeListener() {
 
             @Override
-            public void propertyChange(PropertyChangeEvent evt) {
+            public void propertyChange(PropertyChangeEvent arg0) {
                 if (comboClient.getValue() != null) {
                     Integer id = comboClient.getValue();
 
@@ -398,8 +399,16 @@ public class DevisSQLComponent extends BaseSQLComponent {
         addRequiredSQLObject(fieldService, "T_SERVICE");
         JTextField poids = new JTextField();
         // addSQLObject(poids, "T_POIDS");
+
+        // FIXME Field add field T_HA dans installation avec recalcul des devis deja saisis
+        final DeviseField fieldHA = new DeviseField();
+        if (getTable().contains("T_HA")) {
+
+            addSQLObject(fieldHA, "T_HA");
+        }
+
         final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
-                this.table.getQteElement(), this.fieldHT, fieldTVA, fieldTTC, textPortHT, this.textRemiseHT, fieldService, this.table.getPrixServiceElement(), fieldDevise,
+                this.table.getQteElement(), this.fieldHT, fieldTVA, fieldTTC, textPortHT, this.textRemiseHT, fieldService, this.table.getPrixServiceElement(), null, fieldHA, fieldDevise,
                 this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
 
         cBottom.gridy = 0;
@@ -502,7 +511,17 @@ public class DevisSQLComponent extends BaseSQLComponent {
         if (rowsComm != null) {
             rowVals.put("ID_COMMERCIAL", rowsComm.getID());
         }
-        rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.EN_ATTENTE);
+        if (getTable().getUndefinedID() == SQLRow.NONEXISTANT_ID) {
+            rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.EN_ATTENTE);
+        } else {
+            SQLRow rowUndef = getTable().getRow(getTable().getUndefinedID());
+            SQLRow foreign = rowUndef.getForeign("ID_ETAT_DEVIS");
+            if (foreign != null && !foreign.isUndefined()) {
+                rowVals.put("ID_ETAT_DEVIS", foreign.getID());
+            } else {
+                rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.EN_ATTENTE);
+            }
+        }
         rowVals.put("T_HT", Long.valueOf(0));
         rowVals.put("T_TVA", Long.valueOf(0));
         rowVals.put("T_SERVICE", Long.valueOf(0));
@@ -562,9 +581,9 @@ public class DevisSQLComponent extends BaseSQLComponent {
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(DevisSQLElement.class).equalsIgnoreCase(this.numeroUniqueDevis.getText().trim())) {
                 final SQLRowValues rowVals = new SQLRowValues(this.tableNum);
-                int val = this.tableNum.getRow(2).getInt("DEVIS_START");
+                int val = this.tableNum.getRow(2).getInt(NumerotationAutoSQLElement.getLabelNumberFor(DevisSQLElement.class));
                 val++;
-                rowVals.put("DEVIS_START", new Integer(val));
+                rowVals.put(NumerotationAutoSQLElement.getLabelNumberFor(DevisSQLElement.class), new Integer(val));
                 try {
                     rowVals.update(2);
                 } catch (final SQLException e) {
@@ -589,10 +608,26 @@ public class DevisSQLComponent extends BaseSQLComponent {
         if (r != null) {
             this.numeroUniqueDevis.setIdSelected(r.getID());
         }
-        super.select(r);
+
+        if (r == null || r.getIDNumber() == null)
+            super.select(r);
+        else {
+            System.err.println(r);
+            final SQLRowValues rVals = r.asRowValues();
+            final SQLRowValues vals = new SQLRowValues(r.getTable());
+            vals.load(rVals, createSet("ID_CLIENT"));
+            vals.setID(rVals.getID());
+            System.err.println("Select CLIENT");
+
+            super.select(vals);
+            rVals.remove("ID_CLIENT");
+            super.select(rVals);
+        }
+
+        // super.select(r);
         if (r != null) {
             this.table.insertFrom("ID_DEVIS", r.getID());
-            this.radioEtat.setVisible(r.getID() > getTable().getUndefinedID());
+            // this.radioEtat.setVisible(r.getID() > getTable().getUndefinedID());
         }
     }
 

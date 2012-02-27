@@ -91,7 +91,7 @@ public class SleepingQueue {
     private void add(FutureTask<?> t) {
         // no need to synchronize, if die() is called after our test, t won't be executed anyway
         if (this.isDead())
-            throw new IllegalStateException("cannot exec " + t);
+            throw new IllegalStateException("Already dead, cannot exec " + t);
 
         this.tasksQueue.put(t);
     }

@@ -31,7 +31,7 @@ public class ListeGestCommEltPanel extends ListeAddPanel {
 
     private EditFrame editModifyFrame, editReadOnlyFrame;
 
-    private ListeGestCommEltPanel(SQLElement elem, boolean showAdd, Where w) {
+    private ListeGestCommEltPanel(SQLElement elem, boolean showAdd, Where w, String variant) {
         // TODO verifier que l'element contient la clef etrangere ID_MOUVEMENT
         this(elem, new IListe(elem.createTableSource(w)), showAdd);
     }
@@ -47,15 +47,19 @@ public class ListeGestCommEltPanel extends ListeAddPanel {
     }
 
     public ListeGestCommEltPanel(SQLElement elem, boolean showAdd) {
-        this(elem, showAdd, null);
+        this(elem, showAdd, null, null);
     }
 
     public ListeGestCommEltPanel(SQLElement elem) {
         this(elem, false);
     }
 
+    public ListeGestCommEltPanel(SQLElement elem, Where w, String variant) {
+        this(elem, false, w, variant);
+    }
+
     public ListeGestCommEltPanel(SQLElement elem, Where w) {
-        this(elem, false, w);
+        this(elem, false, w, null);
     }
 
     protected void handleAction(JButton source, ActionEvent evt) {

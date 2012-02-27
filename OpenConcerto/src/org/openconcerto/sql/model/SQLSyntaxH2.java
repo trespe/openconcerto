@@ -225,7 +225,7 @@ class SQLSyntaxH2 extends SQLSyntax {
                 //
                 + "FROM INFORMATION_SCHEMA.CONSTRAINTS"
                 // where
-                + " where \"CONSTRAINT_TYPE\" not in ('REFERENTIAL', 'PRIMARY KEY') and\n" + getInfoSchemaWhere(b, schemas, tables);
+                + " where " + getInfoSchemaWhere(b, schemas, tables);
         // don't cache since we don't listen on system tables
         final List<Map<String, Object>> res = (List<Map<String, Object>>) b.getDBSystemRoot().getDataSource().execute(sel, new IResultSetHandler(SQLDataSource.MAP_LIST_HANDLER, false));
         for (final Map<String, Object> m : res) {

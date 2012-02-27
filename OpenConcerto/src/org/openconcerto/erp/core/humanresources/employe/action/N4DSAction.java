@@ -13,22 +13,26 @@
  
  package org.openconcerto.erp.core.humanresources.employe.action;
 
-import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.core.humanresources.employe.report.N4DS;
 
-import javax.swing.Action;
-import javax.swing.JFrame;
+import java.awt.event.ActionEvent;
+import java.io.File;
 
-public class N4DSAction extends CreateFrameAbstractAction {
+import javax.swing.AbstractAction;
+import javax.swing.Action;
+import javax.swing.JOptionPane;
+
+public class N4DSAction extends AbstractAction {
 
     public N4DSAction() {
         super();
         this.putValue(Action.NAME, "Déclaration N4DS");
+
     }
 
     @Override
-    public JFrame createFrame() {
-        new N4DS().createDocument();
-        return new JFrame();
+    public void actionPerformed(ActionEvent e) {
+        File f = new N4DS().createDocument();
+        JOptionPane.showMessageDialog(null, "La déclaration N4DS a été généré dans le fichier " + f.getAbsolutePath());
     }
 }

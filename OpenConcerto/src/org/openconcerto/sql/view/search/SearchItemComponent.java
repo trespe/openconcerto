@@ -89,10 +89,12 @@ public class SearchItemComponent extends JPanel {
         });
         // hand tuned for a IListPanel width of 1024px
         this.comboColonnePourRecherche.setMinimumSize(new Dimension(150, 20));
+        this.comboColonnePourRecherche.setOpaque(false);
         add(this.comboColonnePourRecherche, c);
         c.gridx++;
         // contient
         this.searchMode.setMinimumSize(new Dimension(40, 20));
+        this.searchMode.setOpaque(false);
         add(this.searchMode, c);
         c.gridx++;
         // Texte de recherche
@@ -109,6 +111,7 @@ public class SearchItemComponent extends JPanel {
         }
         // ajout d'un element de recherche
         c.gridx++;
+        this.buttonAdd.setOpaque(false);
         add(this.buttonAdd, c);
         // supprime un element de recherche
         c.gridx++;

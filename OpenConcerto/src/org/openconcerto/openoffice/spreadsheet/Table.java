@@ -1153,7 +1153,7 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         return x - 1;
     }
 
-    static final String toStr(int col) {
+    public static final String toStr(int col) {
         if (col < 0)
             throw new IllegalArgumentException("negative column : " + col);
         // one based (i.e. 0 is A)

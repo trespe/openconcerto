@@ -74,10 +74,13 @@ public abstract class DropperQueue<T> extends Thread {
     }
 
     private synchronized final void setLooping(boolean b) {
-        if (this.looping != b) {
-            this.looping = b;
-            this.signalChange();
-        }
+        if (this.looping == b)
+            // MAYBE use ReentrantLock and Condition for looping and sleeping
+            // don't allow reentrant looping otherwise the inner loop will set looping to false
+            // while the outer loop isn't finished.
+            throw new IllegalStateException("Reentrant looping");
+        this.looping = b;
+        this.signalChange();
     }
 
     private synchronized void signalChange() {
@@ -188,8 +191,8 @@ public abstract class DropperQueue<T> extends Thread {
         try {
             c.executeChecked(this.items);
         } finally {
-            this.addLock.unlock();
             this.setLooping(false);
+            this.addLock.unlock();
         }
     }
 

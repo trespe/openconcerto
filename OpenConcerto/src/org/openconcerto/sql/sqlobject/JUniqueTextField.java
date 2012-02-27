@@ -405,6 +405,7 @@ public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Do
     public void setIdSelected(int id) {
         this.idSelected = id;
         this.isValidated = true;
+        runValidationThread();
         this.supp.fireValueChange();
     }
 

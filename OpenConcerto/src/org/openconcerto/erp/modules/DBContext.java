@@ -104,12 +104,14 @@ public final class DBContext {
         if (sql.size() > 0) {
             for (final String s : sql)
                 getRoot().getDBSystemRoot().getDataSource().execute(s);
-            getRoot().getSchema().updateVersion();
 
             // perhaps add a Map parameter to getCreateTable() for the undefined row
             // for now OK to not use an undefined row since we can't modify List/ComboSQLRequet
             for (final String addedTable : getAddedTables())
                 SQLTable.setUndefID(getRoot().getSchema(), addedTable, null);
+
+            // always updateVersion() after setUndefID(), see DBRoot.createTables()
+            getRoot().getSchema().updateVersion();
             getRoot().refetch();
         }
         for (final IClosure<? super DBRoot> closure : this.dm) {

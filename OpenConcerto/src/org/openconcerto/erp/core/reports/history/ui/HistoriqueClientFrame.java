@@ -47,8 +47,7 @@ public class HistoriqueClientFrame {
         // List<String> l = new ArrayList<String>();
         Map<String, List<String>> mapList = new HashMap<String, List<String>>();
 
-        String valModeVenteComptoir = DefaultNXProps.getInstance().getStringProperty("ArticleVenteComptoir");
-        final Boolean bModeVenteComptoir = Boolean.valueOf(valModeVenteComptoir);
+        final Boolean bModeVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
         if (bModeVenteComptoir) {
             mapList.put("Ventes comptoir", Arrays.asList("SAISIE_VENTE_COMPTOIR"));
         }
@@ -81,8 +80,6 @@ public class HistoriqueClientFrame {
 
         this.listPanel.addListenerTable(new TableModelListener() {
             public void tableChanged(TableModelEvent arg0) {
-                int size = HistoriqueClientFrame.this.listPanel.getListId("CHEQUE_A_ENCAISSER").size();
-                System.err.println("------------------------------------ Fire Table Changed --> cheque a encaisser " + size);
                 bilanPanel.updateChequeData(HistoriqueClientFrame.this.listPanel.getListId("CHEQUE_A_ENCAISSER"));
             }
         }, "CHEQUE_A_ENCAISSER");

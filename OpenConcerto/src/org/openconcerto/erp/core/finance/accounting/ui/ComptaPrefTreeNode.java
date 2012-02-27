@@ -31,6 +31,7 @@ import org.openconcerto.erp.preferences.SauvegardeEnLignePreferencePanel;
 import org.openconcerto.erp.preferences.SauvegardeFichierPreferencePanel;
 import org.openconcerto.erp.preferences.SocietePreferencePanel;
 import org.openconcerto.erp.preferences.TemplatePreferencePanel;
+import org.openconcerto.erp.preferences.UIPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.ui.preferences.EmailNode;
 import org.openconcerto.ui.preferences.EmptyPreferencePanel;
@@ -49,7 +50,8 @@ public class ComptaPrefTreeNode extends DefaultMutableTreeNode {
         final PrefTreeNode nsGlobale = new PrefTreeNode(EmptyPreferencePanel.class, "Globales", new String[] {}, true);
         // Poste
         final PrefTreeNode nsPoste = new PrefTreeNode(EmptyPreferencePanel.class, "De l'ordinateur", new String[] {}, true);
-
+        final PrefTreeNode nUI = new PrefTreeNode(UIPreferencePanel.class, "Interface", new String[] { "couleur", "color", "list" });
+        nsPoste.add(nUI);
         // Sauvegarde
 
         final PrefTreeNode ns = new PrefTreeNode(EmptyPreferencePanel.class, "Sauvegarde", new String[] { "sauvegarde", "backup" });

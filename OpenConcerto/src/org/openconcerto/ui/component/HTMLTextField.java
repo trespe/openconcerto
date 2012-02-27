@@ -16,13 +16,18 @@
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Desktop;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import javax.swing.JComponent;
 import javax.swing.JEditorPane;
 import javax.swing.JTextField;
 import javax.swing.event.HyperlinkEvent;
-import javax.swing.event.HyperlinkListener;
 import javax.swing.event.HyperlinkEvent.EventType;
+import javax.swing.event.HyperlinkListener;
 
 /**
  * A text field handling HTML and hyperlinks.
@@ -30,6 +35,15 @@ import javax.swing.event.HyperlinkEvent.EventType;
  * @author Sylvain CUAZ
  */
 public class HTMLTextField extends JEditorPane {
+
+    static private final ExecutorService exec = new ThreadPoolExecutor(0, 1, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new ThreadFactory() {
+        @Override
+        public Thread newThread(Runnable r) {
+            final Thread t = new Thread(r, HTMLTextField.class.getSimpleName() + " Desktop thread");
+            t.setDaemon(true);
+            return t;
+        }
+    });
 
     public HTMLTextField(final String html) {
         super("text/html", html);
@@ -58,11 +72,17 @@ public class HTMLTextField extends JEditorPane {
         return e.getDescription();
     }
 
-    protected void linkActivated(HyperlinkEvent e, final JComponent src) {
-        try {
-            Desktop.getDesktop().browse(e.getURL().toURI());
-        } catch (Exception exn) {
-            ExceptionHandler.handle(src, "Impossible d'ouvrir " + e.getURL(), exn);
-        }
+    protected void linkActivated(final HyperlinkEvent e, final JComponent src) {
+        // this ties into the OS and can block
+        exec.submit(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Desktop.getDesktop().browse(e.getURL().toURI());
+                } catch (Exception exn) {
+                    ExceptionHandler.handle(src, "Impossible d'ouvrir " + e.getURL(), exn);
+                }
+            }
+        });
     }
 }

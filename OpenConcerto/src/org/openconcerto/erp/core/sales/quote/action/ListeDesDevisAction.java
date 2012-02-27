@@ -18,6 +18,7 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
+import org.openconcerto.erp.core.sales.invoice.ui.ListeFactureRenderer;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.report.DevisTextSheet;
@@ -32,9 +33,14 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.SQLTableModelColumn;
+import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
+import org.openconcerto.sql.view.list.SQLTableModelSource;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.table.TableCellRendererUtils;
 import org.openconcerto.utils.ExceptionHandler;
 
+import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.event.ActionEvent;
@@ -44,6 +50,7 @@ import java.awt.event.MouseListener;
 import java.io.File;
 import java.sql.SQLException;
 import java.text.DateFormat;
+import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -52,9 +59,13 @@ import java.util.List;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.JPopupMenu;
+import javax.swing.JTable;
+import javax.swing.SwingConstants;
+import javax.swing.table.DefaultTableCellRenderer;
 
 public class ListeDesDevisAction extends CreateFrameAbstractAction implements MouseListener {
 

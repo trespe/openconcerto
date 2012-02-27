@@ -48,6 +48,7 @@ public class AutoCompletionManager implements SelectionListener {
     private SQLField fillFrom;
     private RowValuesTableModel tableModel;
     ITextWithCompletion t;
+    SQLTextComboTableCellEditor textComboCellEdit;
 
     public AutoCompletionManager(SQLTableElement fromTableElement, SQLField fillFrom, RowValuesTable table, RowValuesTableModel tableModel) {
         this(fromTableElement, fillFrom, table, tableModel, ITextWithCompletion.MODE_CONTAINS, false);
@@ -92,7 +93,7 @@ public class AutoCompletionManager implements SelectionListener {
         if (foreign) {
             TableCellEditor cellEdit = this.fromTableElement.getTableCellEditor(null);
             if (cellEdit instanceof SQLTextComboTableCellEditor) {
-                final SQLTextComboTableCellEditor textComboCellEdit = (SQLTextComboTableCellEditor) cellEdit;
+                this.textComboCellEdit = (SQLTextComboTableCellEditor) cellEdit;
                 textComboCellEdit.addSelectionListener(new PropertyChangeListener() {
 
                     @Override
@@ -219,7 +220,11 @@ public class AutoCompletionManager implements SelectionListener {
     }
 
     public void setWhere(Where w) {
-        this.t.setWhere(w);
+        if (this.t != null) {
+            this.t.setWhere(w);
+        } else {
+            this.textComboCellEdit.setWhere(w);
+        }
     }
 
     public void setFillWithField(String s) {

@@ -29,6 +29,7 @@ public class ImpressionGrandLivreAction extends CreateFrameAbstractAction {
 
     @Override
     public JFrame createFrame() {
-        return new PanelFrame(new ImpressionGrandLivrePanel(), "Impression du grand livre");
+        final PanelFrame panelFrame = new PanelFrame(new ImpressionGrandLivrePanel(), "Impression du grand livre");
+        return panelFrame;
     }
 }
