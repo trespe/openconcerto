@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+	<TABLE name="ADHERENT">
+		<FIELD name="NOM" label="Nom" />
+		<FIELD name="PRENOM" label="Prénom" />
+		<FIELD name="DATE_NAISSANCE" label="Date de naissance" />
+		<FIELD name="TEL" label="Téléphone" />
+		<FIELD name="MAIL" label="E-Mail" />
+		<FIELD name="ACTIF" label="Actif" />
+		<FIELD name="ADMIN" label="Toujours autoriser l'entrée" />
+		<FIELD name="ID_ADRESSE" label="Adresse" />
+		<FIELD name="ID_PLAGE_HORAIRE" label="Plage horaire" />
+		<FIELD name="INFOS" label="Informations" />
+		<FIELD name="DATE_VALIDITE_INSCRIPTION" label="Autorisé jusqu'au" />
+		<FIELD name="NUMERO_CARTE" label="Numéro de carte" />
+	</TABLE>
+
+	<TABLE name="ENTREE">
+		<FIELD name="DATE" label="Date" />
+		<FIELD name="ADHERENT" label="Nom de l'adhérent" />
+		<FIELD name="ACCEPTE" label="Ouverture autorisée" />
+		<FIELD name="NUMERO_CARTE" label="Numéro de carte" />
+		<FIELD name="MOTIF" label="motif" />
+	</TABLE>
+
+
+	<TABLE name="PLAGE_HORAIRE">
+		<FIELD name="NOM" label="Nom de la plage" />
+		<FIELD name="DEBUT_1_LUNDI" label="Début lundi 1" />
+		<FIELD name="DEBUT_2_LUNDI" label="Début lundi 2" />
+		<FIELD name="DEBUT_3_LUNDI" label="Début lundi 3" />
+		<FIELD name="FIN_1_LUNDI" label="Fin lundi 1" />
+		<FIELD name="FIN_2_LUNDI" label="Fin lundi 2" />
+		<FIELD name="FIN_3_LUNDI" label="Fin lundi 3" />
+
+		<FIELD name="DEBUT_1_MARDI" label="Début mardi 1" />
+		<FIELD name="DEBUT_2_MARDI" label="Début mardi 2" />
+		<FIELD name="DEBUT_3_MARDI" label="Début mardi 3" />
+		<FIELD name="FIN_1_MARDI" label="Fin mardi 1" />
+		<FIELD name="FIN_2_MARDI" label="Fin mardi 2" />
+		<FIELD name="FIN_3_MARDI" label="Fin mardi 3" />
+
+		<FIELD name="DEBUT_1_MERC" label="Début mercredi 1" />
+		<FIELD name="DEBUT_2_MERC" label="Début mercredi 2" />
+		<FIELD name="DEBUT_3_MERC" label="Début mercredi 3" />
+		<FIELD name="FIN_1_MERC" label="Fin mercredi 1" />
+		<FIELD name="FIN_2_MERC" label="Fin mercredi 2" />
+		<FIELD name="FIN_3_MERC" label="Fin mercredi 3" />
+
+		<FIELD name="DEBUT_1_JEUDI" label="Début jeudi 1" />
+		<FIELD name="DEBUT_2_JEUDI" label="Début jeudi 2" />
+		<FIELD name="DEBUT_3_JEUDI" label="Début jeudi 3" />
+		<FIELD name="FIN_1_JEUDI" label="Fin jeudi 1" />
+		<FIELD name="FIN_2_JEUDI" label="Fin jeudi 2" />
+		<FIELD name="FIN_3_JEUDI" label="Fin jeudi 3" />
+
+		<FIELD name="DEBUT_1_VEND" label="Début vendredi 1" />
+		<FIELD name="DEBUT_2_VEND" label="Début vendredi 2" />
+		<FIELD name="DEBUT_3_VEND" label="Début vendredi 3" />
+		<FIELD name="FIN_1_VEND" label="Fin vendredi 1" />
+		<FIELD name="FIN_2_VEND" label="Fin vendredi 2" />
+		<FIELD name="FIN_3_VEND" label="Fin vendredi 3" />
+
+
+		<FIELD name="DEBUT_1_SAMEDI" label="Début samedi 1" />
+		<FIELD name="DEBUT_2_SAMEDI" label="Début samedi 2" />
+		<FIELD name="DEBUT_3_SAMEDI" label="Début samedi 3" />
+		<FIELD name="FIN_1_SAMEDI" label="Fin samedi 1" />
+		<FIELD name="FIN_2_SAMEDI" label="Fin samedi 2" />
+		<FIELD name="FIN_3_SAMEDI" label="Fin samedi 3" />
+
+
+		<FIELD name="DEBUT_1_DIM" label="Début dimanche 1" />
+		<FIELD name="DEBUT_2_DIM" label="Début dimanche 2" />
+		<FIELD name="DEBUT_3_DIM" label="Début dimanche 3" />
+		<FIELD name="FIN_1_DIM" label="Fin dimanche 1" />
+		<FIELD name="FIN_2_DIM" label="Fin dimanche 2" />
+		<FIELD name="FIN_3_DIM" label="Fin dimanche 3" />
+
+
+
+	</TABLE>
+
+
+</ROOT>
