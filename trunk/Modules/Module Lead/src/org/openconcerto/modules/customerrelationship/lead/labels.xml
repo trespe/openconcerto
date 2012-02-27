@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+	<TABLE name="LEAD">
+		<FIELD name="NAME" label="Nom" />
+		<FIELD name="NUMBER" label="Numéro" titlelabel="N°" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="COMPANY" label="Entreprise" titlelabel="Entreprise" />
+		<FIELD name="FIRSTNAME" label="Prénom" titlelabel="Prénom" />
+		<FIELD name="PHONE" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="MOBILE" label="Mobile" titlelabel="Mobile" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="EMAIL" label="Email" titlelabel="Email" />
+		<FIELD name="WEBSITE" label="Site internet" titlelabel="Site internet" />
+		<FIELD name="ID_ADRESSE" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="INFORMATION" label="Description" titlelabel="Description" />
+		<FIELD name="INDUSTRY" label="Secteur d'activité" titlelabel="Secteur" />
+		<FIELD name="REVENUE" label="Chiffre d'affaire" titlelabel="C.A." />
+		<FIELD name="EMPLOYEES" label="Nombre de salariés" titlelabel="Salariés" />
+		<FIELD name="RATING" label="Évaluation" titlelabel="Évaluation" />
+		<FIELD name="SOURCE" label="Origine du contact" titlelabel="Origine" />
+		<FIELD name="STATUS" label="Status" titlelabel="Status" />
+		<FIELD name="ID_COMMERCIAL" label="Assigné à" titlelabel="Assigné à" />
+	</TABLE>
+</ROOT>
