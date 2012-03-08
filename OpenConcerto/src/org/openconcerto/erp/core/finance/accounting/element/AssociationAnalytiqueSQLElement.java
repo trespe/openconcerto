@@ -52,4 +52,9 @@ public class AssociationAnalytiqueSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".analytic.relation";
+    }
 }

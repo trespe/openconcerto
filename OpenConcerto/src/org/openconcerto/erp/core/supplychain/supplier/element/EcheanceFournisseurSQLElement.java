@@ -122,4 +122,8 @@ public class EcheanceFournisseurSQLElement extends ComptaSQLConfElement {
         };
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".commitment";
+    }
 }

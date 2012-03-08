@@ -53,4 +53,9 @@ public class ImpressionRubriqueSQLElement extends ConfSQLElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return "humanresources.payroll.print";
+    }
 }

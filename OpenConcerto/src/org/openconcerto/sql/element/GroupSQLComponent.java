@@ -13,10 +13,9 @@
  
  package org.openconcerto.sql.element;
 
-import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLType;
+import org.openconcerto.sql.request.RowItemDesc;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
@@ -52,7 +51,6 @@ public class GroupSQLComponent extends BaseSQLComponent {
     private final boolean forceViewOnly = true;
     private final Map<String, JComponent> labels = new HashMap<String, JComponent>();
     private final Map<String, JComponent> editors = new HashMap<String, JComponent>();
-    private final Map<String, String> docs = new HashMap<String, String>();
 
     public GroupSQLComponent(final SQLElement element, final Group group) {
         super(element);
@@ -220,21 +218,10 @@ public class GroupSQLComponent extends BaseSQLComponent {
 
     }
 
-    public JComponent createLabel(final String id) {
-        final String fieldLabel = super.getLabelFor(id);
-        JLabel jLabel;
-        if (fieldLabel == null) {
-            jLabel = new JLabel(id);
-            jLabel.setForeground(Color.RED.darker());
-
-        } else {
-            jLabel = new JLabel(fieldLabel);
-        }
+    protected JComponent createLabel(final String id) {
+        final JLabel jLabel = new JLabel();
         jLabel.setHorizontalAlignment(SwingConstants.RIGHT);
         registerPopupMenu(jLabel, id);
-        final String doc = ((PropsConfiguration) Configuration.getInstance()).getMetadata().getDocumentation(this.getCode(), this.group.getId(), id);
-        setDocumentation(jLabel, id, doc);
-        jLabel.setToolTipText(doc);
         return jLabel;
     }
 
@@ -256,7 +243,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
 
                         @Override
                         public void actionPerformed(final ActionEvent e) {
-                            new DocumentationEditorFrame(GroupSQLComponent.this, id, getDocumentation(id)).setVisible(true);
+                            new DocumentationEditorFrame(GroupSQLComponent.this, id).setVisible(true);
 
                         }
                     });
@@ -271,24 +258,10 @@ public class GroupSQLComponent extends BaseSQLComponent {
 
     }
 
-    public void setDocumentation(final JComponent jLabel, final String id, final String text) {
-        this.docs.put(id, text);
-        if (text != null) {
-            jLabel.setToolTipText(text);
-        }
-    }
-
-    public void setDocumentation(final String id, final String text) {
-        setDocumentation(getLabel(id), id, text);
-    }
-
-    public void saveDocumentation(final String id, final String text) {
-        setDocumentation(id, text);
-        ((PropsConfiguration) Configuration.getInstance()).getMetadata().setDocumentation(this.getElement().getCode(), this.getCode(), this.group.getId(), id, text);
-    }
-
-    public String getDocumentation(final String id) {
-        return this.docs.get(id);
+    @Override
+    protected void updateUI(String id, RowItemDesc desc) {
+        super.updateUI(id, desc);
+        updateUI(id, getLabel(id), desc, Color.RED.darker());
     }
 
     public JComponent getLabel(final String id) {
@@ -296,6 +269,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
         if (label == null) {
             label = createLabel(id);
             this.labels.put(id, label);
+            updateUI(id, getRIVDesc(id));
         }
         return label;
     }

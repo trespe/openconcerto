@@ -21,6 +21,7 @@ import org.openconcerto.erp.modules.AbstractModule;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.modules.ModulePreferencePanelDesc;
 import org.openconcerto.erp.preferences.GenerationDeclarationDocPreferencePanel;
+import org.openconcerto.erp.preferences.GenerationDocGlobalPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentComptaPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentGestCommPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentPayePreferencePanel;
@@ -101,6 +102,8 @@ public class ComptaPrefTreeNode extends DefaultMutableTreeNode {
         // Numérotation
         final PrefTreeNode nNum = new PrefTreeNode(NumerotationPreferencePanel.class, "Numérotation", new String[] { "numérotation" });
         nsGlobale.add(nNum);
+
+        nsGlobale.add(new PrefTreeNode(GenerationDocGlobalPreferencePanel.class, "Génération des Documents", new String[] { "documents" }));
 
         // Impression
         final PrefTreeNode nPrint = new PrefTreeNode(EmptyPreferencePanel.class, "Impression", new String[] { "Impressions" });

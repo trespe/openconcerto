@@ -17,6 +17,7 @@ import static org.openconcerto.utils.CollectionUtils.join;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLTable.Index;
+import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
 import org.openconcerto.utils.CollectionMap;
@@ -210,14 +211,22 @@ public abstract class SQLSyntax {
      * @param fk the name of the foreign keys, eg ["ID_SITE"].
      * @param refTable the name of the referenced table, eg CTech.SITE.
      * @param referencedFields the fields in the foreign table, eg ["ID"].
+     * @param updateRule the update rule, <code>null</code> means use DB default.
+     * @param deleteRule the delete rule, <code>null</code> means use DB default.
      * @return a String declaring that <code>fk</code> points to <code>referencedFields</code>.
      */
-    public String getFK(final String constraintPrefix, final List<String> fk, final SQLName refTable, final List<String> referencedFields) {
+    public String getFK(final String constraintPrefix, final List<String> fk, final SQLName refTable, final List<String> referencedFields, final Rule updateRule, final Rule deleteRule) {
+        final String onUpdate = updateRule == null ? "" : " ON UPDATE " + getRuleSQL(updateRule);
+        final String onDelete = deleteRule == null ? "" : " ON DELETE " + getRuleSQL(deleteRule);
         // a prefix for the constraint name, since in psql constraints are db wide not table wide
         return SQLSelect.quote("CONSTRAINT %i FOREIGN KEY ( " + quoteIdentifiers(fk) + " ) REFERENCES %i ", constraintPrefix + join(fk, "__") + "_fkey", refTable) + "( "
         // don't put ON DELETE CASCADE since it's dangerous, plus MS SQL only supports 1 fk with
         // cascade : http://support.microsoft.com/kb/321843/en-us
-                + quoteIdentifiers(referencedFields) + " )";
+                + quoteIdentifiers(referencedFields) + " )" + onUpdate + onDelete;
+    }
+
+    protected String getRuleSQL(final Rule r) {
+        return r.asString();
     }
 
     public String getDropFK() {

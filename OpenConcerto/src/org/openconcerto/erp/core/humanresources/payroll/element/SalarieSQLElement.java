@@ -328,4 +328,9 @@ public class SalarieSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".employe";
+    }
 }

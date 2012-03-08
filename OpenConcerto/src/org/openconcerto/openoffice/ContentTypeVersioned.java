@@ -15,6 +15,7 @@
 
 import static java.util.Arrays.asList;
 import org.openconcerto.openoffice.ODPackage.RootElement;
+import org.openconcerto.utils.Tuple2;
 
 import org.jdom.Document;
 import org.jdom.Element;
@@ -103,6 +104,12 @@ public enum ContentTypeVersioned {
 
     public final String getExtension() {
         return this.extension;
+    }
+
+    public final String getFlatExtension() {
+        if (this.getVersion() == XMLVersion.OOo)
+            return null;
+        return 'f' + this.getExtension();
     }
 
     public final boolean isTemplate() {
@@ -270,5 +277,18 @@ public enum ContentTypeVersioned {
             if (t.shortName.equals(name) && t.getVersion() == version)
                 return t;
         return null;
+    }
+
+    // Boolean : is flat
+    static Tuple2<ContentTypeVersioned, Boolean> fromExtension(final String extension) {
+        if (extension != null && extension.length() != 0) {
+            for (final ContentTypeVersioned t : ContentTypeVersioned.values()) {
+                if (extension.equals(t.getExtension()))
+                    return Tuple2.create(t, false);
+                if (extension.equals(t.getFlatExtension()))
+                    return Tuple2.create(t, true);
+            }
+        }
+        return Tuple2.nullInstance();
     }
 }

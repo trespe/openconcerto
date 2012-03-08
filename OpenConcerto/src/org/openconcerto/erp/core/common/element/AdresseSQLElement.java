@@ -47,4 +47,9 @@ public class AdresseSQLElement extends ComptaSQLConfElement {
     public SQLComponent createComponent() {
         return new AdresseSQLComponent(this);
     }
+
+    @Override
+    protected String createCode() {
+        return "address";
+    }
 }

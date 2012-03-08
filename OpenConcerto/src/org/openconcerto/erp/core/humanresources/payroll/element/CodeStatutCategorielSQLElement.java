@@ -13,11 +13,14 @@
  
  package org.openconcerto.erp.core.humanresources.payroll.element;
 
-
 public class CodeStatutCategorielSQLElement extends AbstractCodeSQLElement {
 
     public CodeStatutCategorielSQLElement() {
         super("CODE_STATUT_CATEGORIEL", "un code statut catégoriel", "codes statuts catégoriels");
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".convention.category.code";
+    }
 }

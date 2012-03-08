@@ -50,7 +50,7 @@ public final class ExtractGenerator<R extends ReportGeneration<?>> extends Docum
         this.fireStatusChange(0);
         try {
             this.fireStatusChange(20);
-            ODSingleXMLDocument xml = ODSingleXMLDocument.createFromFile(this.fname);
+            ODSingleXMLDocument xml = ODSingleXMLDocument.createFromPackage(this.fname);
             this.fireStatusChange(100);
             return xml;
         } catch (JDOMException exn) {

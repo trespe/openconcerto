@@ -27,7 +27,6 @@ import javax.swing.JLabel;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
-
 public class ClassementConventionnelSQLElement extends ComptaSQLConfElement {
 
     public ClassementConventionnelSQLElement() {
@@ -138,5 +137,11 @@ public class ClassementConventionnelSQLElement extends ComptaSQLConfElement {
                 this.addSQLObject(textIndice, "INDICE");
             }
         };
+
+    }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".convention";
     }
 }

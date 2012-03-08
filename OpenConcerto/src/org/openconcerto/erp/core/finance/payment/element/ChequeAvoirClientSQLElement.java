@@ -107,4 +107,9 @@ public class ChequeAvoirClientSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".cheque.due";
+    }
 }

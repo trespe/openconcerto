@@ -25,6 +25,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.io.PrintWriter;
+import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -39,11 +40,48 @@ import org.jdom.Element;
  */
 public class Link extends DirectedEdge<SQLTable> {
 
+    public static enum Rule {
+
+        SET_NULL("SET NULL"), SET_DEFAULT("SET DEFAULT"), CASCADE("CASCADE"), RESTRICT("RESTRICT"), NO_ACTION("NO ACTION");
+
+        private final String sql;
+
+        private Rule(final String sql) {
+            this.sql = sql;
+        }
+
+        public static Rule fromShort(short s) {
+            switch (s) {
+            case DatabaseMetaData.importedKeyCascade:
+                return CASCADE;
+            case DatabaseMetaData.importedKeySetNull:
+                return SET_NULL;
+            case DatabaseMetaData.importedKeySetDefault:
+                return SET_DEFAULT;
+            case DatabaseMetaData.importedKeyRestrict:
+                return RESTRICT;
+            case DatabaseMetaData.importedKeyNoAction:
+                return NO_ACTION;
+            default:
+                throw new IllegalArgumentException("Unknown rule " + s);
+            }
+        }
+
+        public static Rule fromName(String n) {
+            return n == null ? null : valueOf(n);
+        }
+
+        public String asString() {
+            return this.sql;
+        }
+    }
+
     private final List<SQLField> cols;
     private final List<String> colsNames;
     private final List<SQLField> refCols;
     private final List<String> refColsNames;
     private final String name;
+    private final Rule updateRule, deleteRule;
 
     /**
      * Creates a link between two tables.
@@ -51,8 +89,10 @@ public class Link extends DirectedEdge<SQLTable> {
      * @param keys foreign fields of the source table.
      * @param referredCols fields of the destination table.
      * @param foreignKeyName the name of the constraint, can be <code>null</code>.
+     * @param updateRule what happens to a foreign key when the primary key is updated.
+     * @param deleteRule what happens to the foreign key when primary is deleted.
      */
-    public Link(List<SQLField> keys, List<SQLField> referredCols, String foreignKeyName) {
+    public Link(List<SQLField> keys, List<SQLField> referredCols, String foreignKeyName, Rule updateRule, Rule deleteRule) {
         super(keys.get(0).getTable(), referredCols.get(0).getTable());
         if (keys.size() != referredCols.size())
             throw new IllegalArgumentException("size mismatch: " + keys + " != " + referredCols);
@@ -67,6 +107,8 @@ public class Link extends DirectedEdge<SQLTable> {
             this.refColsNames.add(f.getName());
         }
         this.name = foreignKeyName;
+        this.updateRule = updateRule;
+        this.deleteRule = deleteRule;
     }
 
     public final List<SQLField> getFields() {
@@ -111,18 +153,29 @@ public class Link extends DirectedEdge<SQLTable> {
         return this.getTarget().getContextualSQLName(this.getSource());
     }
 
+    public final Rule getUpdateRule() {
+        return this.updateRule;
+    }
+
+    public final Rule getDeleteRule() {
+        return this.deleteRule;
+    }
+
+    @Override
     public String toString() {
         return "<" + this.getFields() + " -> " + this.getTarget() + (this.getName() != null ? " '" + this.getName() + "'" : "") + ">";
     }
 
+    @Override
     public boolean equals(Object other) {
         if (!(other instanceof Link)) {
             return false;
         }
         Link o = (Link) other;
-        return this.getFields().equals(o.getFields()) && this.getRefFields().equals(o.getRefFields());
+        return this.getFields().equals(o.getFields()) && this.getRefFields().equals(o.getRefFields()) && this.getUpdateRule() == o.getUpdateRule() && this.getDeleteRule() == o.getDeleteRule();
     }
 
+    @Override
     public int hashCode() {
         return this.getFields().hashCode() + this.getRefFields().hashCode();
     }
@@ -131,6 +184,10 @@ public class Link extends DirectedEdge<SQLTable> {
         pWriter.print("  <link to=\"" + OUTPUTTER.escapeAttributeEntities(this.getTarget().getSQLName().toString()) + "\" ");
         if (this.getName() != null)
             pWriter.print("name=\"" + OUTPUTTER.escapeAttributeEntities(this.getName()) + "\" ");
+        if (this.getUpdateRule() != null)
+            pWriter.print("updateRule=\"" + OUTPUTTER.escapeAttributeEntities(this.getUpdateRule().name()) + "\" ");
+        if (this.getDeleteRule() != null)
+            pWriter.print("deleteRule=\"" + OUTPUTTER.escapeAttributeEntities(this.getDeleteRule().name()) + "\" ");
         if (this.getFields().size() == 1) {
             toXML(pWriter, 0);
             pWriter.println("/>");
@@ -157,6 +214,8 @@ public class Link extends DirectedEdge<SQLTable> {
         final SQLName to = SQLName.parse(linkElem.getAttributeValue("to"));
         final SQLTable foreignTable = t.getDBSystemRoot().getDesc(to, SQLTable.class);
         final String linkName = linkElem.getAttributeValue("name");
+        final Rule updateRule = Rule.fromName(linkElem.getAttributeValue("updateRule"));
+        final Rule deleteRule = Rule.fromName(linkElem.getAttributeValue("deleteRule"));
         @SuppressWarnings("unchecked")
         final List<Element> lElems = linkElem.getAttribute("col") != null ? singletonList(linkElem) : linkElem.getChildren("l");
         final List<SQLField> cols = new ArrayList<SQLField>();
@@ -165,6 +224,6 @@ public class Link extends DirectedEdge<SQLTable> {
             cols.add(t.getField(l.getAttributeValue("col")));
             refcols.add(foreignTable.getField(l.getAttributeValue("refCol")));
         }
-        return new Link(cols, refcols, linkName);
+        return new Link(cols, refcols, linkName, updateRule, deleteRule);
     }
 }

@@ -236,4 +236,9 @@ public class ReglementPayeSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".payment";
+    }
 }

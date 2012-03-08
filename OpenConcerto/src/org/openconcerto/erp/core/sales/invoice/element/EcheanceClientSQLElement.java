@@ -155,4 +155,9 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
         };
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".commitment";
+    }
+
 }

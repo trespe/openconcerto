@@ -57,4 +57,9 @@ public class PieceSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".piece";
+    }
 }

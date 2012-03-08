@@ -14,10 +14,22 @@
  package org.openconcerto.sql.request;
 
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
+import org.openconcerto.sql.element.SQLElementDirectory.DirectoryListener;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowListRSH;
+import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLSchema;
+import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.utils.SQLCreateTable;
+import org.openconcerto.sql.utils.SQLUtils;
+import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.io.File;
@@ -25,9 +37,17 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.prefs.Preferences;
 
 import org.jdom.Document;
 import org.jdom.Element;
@@ -44,19 +64,51 @@ public class SQLFieldTranslator {
 
     private static final RowItemDesc NULL_DESC = new RowItemDesc(null, null);
 
-    // Instance members
+    private static final String METADATA_TABLENAME = SQLSchema.FWK_TABLENAME_PREFIX + "RIV_METADATA";
+    private static final String ELEM_FIELDNAME = "ELEMENT_CODE";
+    private static final String COMP_FIELDNAME = "COMPONENT_CODE";
+    private static final String ITEM_FIELDNAME = "ITEM";
 
-    private final Map<SQLTable, Map<String, RowItemDesc>> translation;
+    private static final String DOC_FIELDNAME = "DOCUMENTATION";
+    private static final String COL_TITLE_FIELDNAME = "COLUMN_TITLE";
+    private static final String LABEL_FIELDNAME = "LABEL";
 
-    private final SQLElementDirectory dir;
+    private static final String CORE_VARIANT = "CORE";
+    private static final String DB_VARIANT = "DB";
 
-    {
-        this.translation = new HashMap<SQLTable, Map<String, RowItemDesc>>();
+    static public SQLTable getMetaTable(final DBRoot root) throws SQLException {
+        if (!root.contains(METADATA_TABLENAME)) {
+            final SQLCreateTable createValueT = new SQLCreateTable(root, METADATA_TABLENAME);
+            createValueT.setPlain(true);
+            createValueT.addColumn(SQLSyntax.ID_NAME, createValueT.getSyntax().getPrimaryIDDefinition());
+            final String nullableVarChar = "varchar(" + Preferences.MAX_KEY_LENGTH + ")";
+            createValueT.addColumn(ELEM_FIELDNAME, nullableVarChar);
+            createValueT.addColumn(COMP_FIELDNAME, nullableVarChar);
+            createValueT.addColumn(ITEM_FIELDNAME, nullableVarChar + " NOT NULL");
+            createValueT.addUniqueConstraint("uniq", Arrays.asList(ELEM_FIELDNAME, COMP_FIELDNAME, ITEM_FIELDNAME));
+            createValueT.addVarCharColumn(LABEL_FIELDNAME, 256);
+            createValueT.addVarCharColumn(COL_TITLE_FIELDNAME, 256);
+            createValueT.addVarCharColumn(DOC_FIELDNAME, Math.min(8192, Preferences.MAX_VALUE_LENGTH));
+            root.createTable(createValueT);
+        }
+        return root.getTable(METADATA_TABLENAME);
     }
 
-    public SQLFieldTranslator(DBRoot base, File file) {
-        this.load(base, file);
-        this.dir = null;
+    // Instance members
+
+    // { SQLTable -> { compCode, variant, item -> RowItemDesc }}
+    private final Map<SQLTable, Map<List<String>, RowItemDesc>> translation;
+    private final SQLTable table;
+    private final SQLElementDirectory dir;
+    private final Set<String> unknownCodes;
+
+    {
+        this.translation = new HashMap<SQLTable, Map<List<String>, RowItemDesc>>();
+        this.unknownCodes = new HashSet<String>();
+    }
+
+    public SQLFieldTranslator(DBRoot base) {
+        this(base, null);
     }
 
     public SQLFieldTranslator(DBRoot base, InputStream inputStream) {
@@ -67,13 +119,33 @@ public class SQLFieldTranslator {
      * Create a new instance.
      * 
      * @param root the default root for tables.
-     * @param inputStream the xml.
+     * @param inputStream the XML, can be <code>null</code>.
      * @param dir the directory where to look for tables not in <code>root</code>, can be
      *        <code>null</code>.
      */
     public SQLFieldTranslator(DBRoot root, InputStream inputStream, SQLElementDirectory dir) {
+        try {
+            this.table = getMetaTable(root);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Couldn't get the meta table", e);
+        }
         this.dir = dir;
-        this.load(root, inputStream);
+        this.dir.addListener(new DirectoryListener() {
+            @Override
+            public void elementRemoved(SQLElement elem) {
+                // nothing, SQLElement is not required (only needed for code)
+            }
+
+            @Override
+            public void elementAdded(SQLElement elem) {
+                if (SQLFieldTranslator.this.unknownCodes.remove(elem.getCode())) {
+                    fetch(Collections.singleton(elem.getCode()));
+                }
+            }
+        });
+        if (inputStream != null)
+            this.load(root, inputStream);
+        fetchAndPut(this.table, null);
     }
 
     /**
@@ -103,22 +175,27 @@ public class SQLFieldTranslator {
      * Load more translations.
      * 
      * @param b the default root for tables.
-     * @param inputStream the xml.
+     * @param inputStream the XML.
      */
     public void load(DBRoot b, InputStream inputStream) {
+        this.load(b, CORE_VARIANT, inputStream);
+    }
+
+    public Set<SQLTable> load(DBRoot b, final String variant, InputStream inputStream) {
         if (inputStream == null)
             throw new NullPointerException("inputStream is null");
+        final Set<SQLTable> res = new HashSet<SQLTable>();
         try {
             final Document doc = new SAXBuilder().build(inputStream);
             // System.out.println("Base de donnée:"+base);
             for (final Element elem : getChildren(doc.getRootElement())) {
                 final String elemName = elem.getName().toLowerCase();
                 if (elemName.equals("table")) {
-                    load(b, elem);
+                    res.add(load(b, variant, elem));
                 } else if (elemName.equals("root")) {
                     final DBRoot root = b.getDBSystemRoot().getRoot(elem.getAttributeValue("name"));
                     for (final Element tableElem : getChildren(elem)) {
-                        load(root, tableElem);
+                        res.add(load(root, variant, tableElem));
                     }
                 }
             }
@@ -127,9 +204,10 @@ public class SQLFieldTranslator {
         } catch (IOException e) {
             e.printStackTrace();
         }
+        return res;
     }
 
-    private void load(DBRoot b, final Element tableElem) {
+    private SQLTable load(DBRoot b, final String variant, final Element tableElem) {
         final String tableName = tableElem.getAttributeValue("name");
         SQLTable table = b.getTable(tableName);
         if (table == null && this.dir != null && this.dir.getElement(tableName) != null)
@@ -137,49 +215,170 @@ public class SQLFieldTranslator {
         if (table == null) {
             Log.get().info("unknown table " + tableName);
         } else {
-            for (final Element fieldElem : getChildren(tableElem)) {
-                final String name = fieldElem.getAttributeValue("name");
-                final String label = fieldElem.getAttributeValue("label");
-                final String title = fieldElem.getAttributeValue("titlelabel", label);
-                final String documentation = fieldElem.getText();
-                this.putTranslation(table, name, new RowItemDesc(label, title, documentation));
+            for (final Element elem : getChildren(tableElem)) {
+                final String elemName = elem.getName().toLowerCase();
+                if (elemName.equals("field")) {
+                    this.load(table, SQLElement.DEFAULT_COMP_ID, variant, elem);
+                } else if (elemName.equals("component")) {
+                    final String compCode = elem.getAttributeValue("code");
+                    for (final Element fieldElem : getChildren(elem)) {
+                        this.load(table, compCode, variant, fieldElem);
+                    }
+                }
+            }
+        }
+        return table;
+    }
+
+    private void load(final SQLTable table, final String compCode, final String variant, final Element fieldElem) {
+        final String name = fieldElem.getAttributeValue("name");
+        final String label = fieldElem.getAttributeValue("label");
+        final String title = fieldElem.getAttributeValue("titlelabel", label);
+        final String documentation = fieldElem.getText();
+        this.setDescFor(table, compCode, variant, name, new RowItemDesc(label, title, documentation));
+    }
+
+    public final void fetch(final Set<String> codes) {
+        this.fetchAndPut(this.table, codes);
+    }
+
+    private List<SQLRow> fetchOnly(final SQLTable table, final Where w) {
+        return SQLRowListRSH.execute(new SQLSelect(table.getBase()).addSelectStar(table).setWhere(w));
+    }
+
+    private void fetchAndPut(final SQLTable table, final Set<String> codes) {
+        final Where w;
+        if (codes == null) {
+            w = null;
+            this.removeTranslation((SQLTable) null, null, DB_VARIANT, null);
+        } else {
+            w = new Where(table.getField(ELEM_FIELDNAME), codes);
+            for (final String elementCode : codes)
+                this.removeTranslation(this.dir.getElementForCode(elementCode).getTable(), null, DB_VARIANT, null);
+        }
+        for (final SQLRow r : fetchOnly(table, w)) {
+            final String elementCode = r.getString(ELEM_FIELDNAME);
+            if (!this.unknownCodes.contains(elementCode)) {
+                // needed since tables can be loaded at any time in SQLElementDirectory
+                // MAYBE use code as the map key instead of SQLTable
+                final SQLElement elem = this.dir.getElementForCode(elementCode);
+                if (elem != null) {
+                    final String componentCode = r.getString(COMP_FIELDNAME);
+                    final String item = r.getString(ITEM_FIELDNAME);
+                    final RowItemDesc desc = new RowItemDesc(r.getString(LABEL_FIELDNAME), r.getString(COL_TITLE_FIELDNAME), r.getString(DOC_FIELDNAME));
+                    putTranslation(elem.getTable(), componentCode, DB_VARIANT, item, desc);
+                } else {
+                    this.unknownCodes.add(elementCode);
+                }
             }
         }
     }
 
-    private final Map<String, RowItemDesc> getMap(SQLTable t) {
-        Map<String, RowItemDesc> m = this.translation.get(t);
-        if (m == null) {
-            m = new HashMap<String, RowItemDesc>();
-            this.translation.put(t, m);
+    private final Map<List<String>, RowItemDesc> getMap(final SQLTable t) {
+        Map<List<String>, RowItemDesc> elemMap = this.translation.get(t);
+        if (elemMap == null) {
+            elemMap = new HashMap<List<String>, RowItemDesc>();
+            this.translation.put(t, elemMap);
         }
-        return m;
+        return elemMap;
     }
 
-    private final void putTranslation(SQLTable t, String name, RowItemDesc desc) {
-        this.getMap(t).put(name, desc);
+    private final void putTranslation(SQLTable t, String compCode, String variant, String item, RowItemDesc desc) {
+        if (t == null)
+            throw new IllegalArgumentException("Table cannot be null");
+        // needed by remove()
+        if (compCode == null || variant == null || item == null)
+            throw new IllegalArgumentException("Values cannot be null");
+        this.getMap(t).put(Arrays.asList(compCode, variant, item), desc);
     }
 
-    private final RowItemDesc getTranslation(SQLTable t, String name) {
-        return this.getMap(t).get(name);
+    private final void removeTranslation(SQLTable t, String compCode, String variant, String name) {
+        // null means match everything, OK since we test in putTranslation() that we don't contain
+        // null values
+        if (t == null) {
+            for (final Map<List<String>, RowItemDesc> m : this.translation.values()) {
+                this.removeTranslation(m, compCode, variant, name);
+            }
+        } else {
+            this.removeTranslation(this.translation.get(t), compCode, variant, name);
+        }
+    }
+
+    private void removeTranslation(Map<List<String>, RowItemDesc> m, String compCode, String variant, String name) {
+        if (m == null)
+            return;
+
+        if (compCode == null && variant == null && name == null) {
+            m.clear();
+        } else if (compCode != null && variant != null && name != null) {
+            m.remove(Arrays.asList(compCode, variant, name));
+        } else {
+            final Iterator<List<String>> iter = m.keySet().iterator();
+            while (iter.hasNext()) {
+                final List<String> l = iter.next();
+                if ((compCode == null || compCode.equals(l.get(0))) && (variant == null || variant.equals(l.get(1))) && (name == null || name.equals(l.get(2))))
+                    iter.remove();
+            }
+        }
+    }
+
+    private final RowItemDesc getTranslation(SQLTable t, String compCode, String variant, String item) {
+        return this.getMap(t).get(Arrays.asList(compCode, variant, item));
+    }
+
+    private final RowItemDesc getTranslation(SQLTable t, String compCodeArg, List<String> variants, String name) {
+        final LinkedList<String> ll = new LinkedList<String>(variants);
+        ll.addFirst(DB_VARIANT);
+        ll.addLast(CORE_VARIANT);
+
+        final String[] compCodes;
+        if (compCodeArg == SQLElement.DEFAULT_COMP_ID)
+            compCodes = new String[] { SQLElement.DEFAULT_COMP_ID };
+        else
+            compCodes = new String[] { compCodeArg, SQLElement.DEFAULT_COMP_ID };
+        for (final String compCode : compCodes) {
+            for (final String variant : ll) {
+                final RowItemDesc labeledField = this.getTranslation(t, compCode, variant, name);
+                if (labeledField != null)
+                    return labeledField;
+            }
+        }
+        return null;
     }
 
     public RowItemDesc getDescFor(SQLTable t, String name) {
-        final String fullName = t.getName() + "." + name;
-        final RowItemDesc labeledField = this.getTranslation(t, name);
+        return getDescFor(t, SQLElement.DEFAULT_COMP_ID, name);
+    }
+
+    public RowItemDesc getDescFor(SQLTable t, String compCode, String name) {
+        return getDescFor(t, compCode, Collections.<String> emptyList(), name);
+    }
+
+    public RowItemDesc getDescFor(final String elementCode, String compCode, String name) {
+        return this.getDescFor(elementCode, compCode, Collections.<String> emptyList(), name);
+    }
+
+    public RowItemDesc getDescFor(final String elementCode, String compCode, List<String> variants, String name) {
+        return this.getDescFor(this.dir.getElementForCode(elementCode).getTable(), compCode, variants, name);
+    }
+
+    public RowItemDesc getDescFor(SQLTable t, String compCodeArg, List<String> variants, String name) {
+        RowItemDesc labeledField = this.getTranslation(t, compCodeArg, variants, name);
+        // if nothing found, re-fetch from the DB
         if (labeledField == null) {
-            String l = name.replaceAll("ID_", "").replaceAll("_", " de ");
-            if (l.length() > 1) {
-                l = l.substring(0, 1).toUpperCase() + l.substring(1).toLowerCase();
-            }
-            l = l.trim();
-            System.err.println("No translation for:" + fullName + "\n please add: <FIELD name=\"" + name + "\" label=\"" + l + "\" titlelabel=\"" + l + "\"/>");
+            this.fetchAndPut(this.table, Collections.singleton(this.dir.getElement(t).getCode()));
+            labeledField = this.getTranslation(t, compCodeArg, variants, name);
         }
-        return labeledField == null ? NULL_DESC : labeledField;
+        if (labeledField == null) {
+            Log.get().info("unknown item " + name + " in " + t);
+            return NULL_DESC;
+        } else {
+            return labeledField;
+        }
     }
 
     private RowItemDesc getDescFor(SQLField f) {
-        return this.getDescFor(f.getTable(), f.getName());
+        return this.getDescFor(f.getTable(), SQLElement.DEFAULT_COMP_ID, this.dir.getElement(f.getTable()).getMDPath(), f.getName());
     }
 
     public String getLabelFor(SQLField f) {
@@ -190,4 +389,63 @@ public class SQLFieldTranslator {
         return this.getDescFor(f).getTitleLabel();
     }
 
+    public final void setDescFor(final SQLTable table, final String componentCode, final String variant, final String name, final RowItemDesc desc) {
+        if (DB_VARIANT.equals(variant))
+            throw new IllegalArgumentException("Use storeDescFor()");
+        putTranslation(table, componentCode, variant, name, desc);
+    }
+
+    public final void removeDescFor(SQLTable t, String compCode, String variant, String name) {
+        if (DB_VARIANT.equals(variant))
+            throw new IllegalArgumentException("Cannot remove DB values, use deleteDescFor()");
+        this.removeTranslation(t, compCode, variant, name);
+    }
+
+    public final void storeDescFor(final String elementCode, final String componentCode, final String name, final RowItemDesc desc) throws SQLException {
+        this.storeDescFor(this.dir.getElementForCode(elementCode).getTable(), componentCode, name, desc);
+    }
+
+    public final void storeDescFor(final SQLTable table, final String componentCode, final String name, final RowItemDesc desc) throws SQLException {
+        final String elementCode = this.dir.getElement(table).getCode();
+        final Map<String, Object> m = new HashMap<String, Object>();
+        m.put(ELEM_FIELDNAME, elementCode);
+        m.put(COMP_FIELDNAME, componentCode);
+        m.put(ITEM_FIELDNAME, name);
+        final SQLTable mdT = this.table;
+        SQLUtils.executeAtomic(this.table.getDBSystemRoot().getDataSource(), new SQLFactory<Object>() {
+            @Override
+            public Object create() throws SQLException {
+                final List<SQLRow> existing = fetchOnly(mdT, Where.and(mdT, m));
+                assert existing.size() <= 1 : "Unique constraint failed for " + m;
+                final SQLRowValues vals;
+                if (existing.size() == 0)
+                    vals = new SQLRowValues(mdT, m);
+                else
+                    vals = existing.get(0).asRowValues();
+                vals.put(LABEL_FIELDNAME, desc.getLabel());
+                vals.put(COL_TITLE_FIELDNAME, desc.getTitleLabel());
+                vals.put(DOC_FIELDNAME, desc.getDocumentation());
+                vals.commit();
+                putTranslation(table, componentCode, DB_VARIANT, name, desc);
+                return null;
+            }
+        });
+    }
+
+    public final void deleteDescFor(final SQLTable elemTable, final String componentCode, final String name) throws SQLException {
+        Where w = null;
+        if (elemTable != null)
+            w = new Where(this.table.getField(ELEM_FIELDNAME), "=", this.dir.getElement(elemTable).getCode()).and(w);
+        if (componentCode != null)
+            w = new Where(this.table.getField(COMP_FIELDNAME), "=", componentCode).and(w);
+        if (name != null)
+            w = new Where(this.table.getField(ITEM_FIELDNAME), "=", name).and(w);
+        final String whereString = w == null ? "" : " where " + w.getClause();
+        try {
+            this.table.getDBSystemRoot().getDataSource().execute("DELETE FROM " + this.table.getSQLName().quote() + whereString);
+        } catch (Exception e) {
+            throw new SQLException(e);
+        }
+        this.removeTranslation(elemTable, componentCode, DB_VARIANT, name);
+    }
 }

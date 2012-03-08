@@ -75,4 +75,9 @@ public class MoisSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return "month";
+    }
 }

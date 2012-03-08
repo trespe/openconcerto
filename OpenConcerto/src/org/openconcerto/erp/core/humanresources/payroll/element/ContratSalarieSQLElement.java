@@ -254,4 +254,9 @@ public class ContratSalarieSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".contract.employe";
+    }
 }

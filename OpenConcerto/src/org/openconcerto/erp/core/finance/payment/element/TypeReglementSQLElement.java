@@ -105,4 +105,9 @@ public class TypeReglementSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".type";
+    }
 }

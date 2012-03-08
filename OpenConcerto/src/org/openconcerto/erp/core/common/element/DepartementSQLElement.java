@@ -82,4 +82,10 @@ public class DepartementSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return "department";
+    }
+
 }

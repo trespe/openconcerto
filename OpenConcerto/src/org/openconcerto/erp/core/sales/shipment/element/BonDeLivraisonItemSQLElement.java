@@ -111,4 +111,8 @@ public class BonDeLivraisonItemSQLElement extends ComptaSQLConfElement {
 
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".item";
+    }
 }

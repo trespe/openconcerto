@@ -27,7 +27,6 @@ import javax.swing.JLabel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 
-
 public class ModeleCourrierClientSQLElement extends ComptaSQLConfElement {
 
     public ModeleCourrierClientSQLElement() {
@@ -85,5 +84,10 @@ public class ModeleCourrierClientSQLElement extends ComptaSQLConfElement {
                 this.addSQLObject(this.textContenu, "CONTENU");
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return super.createCodeFromPackage() + ".mailtemplate";
     }
 }

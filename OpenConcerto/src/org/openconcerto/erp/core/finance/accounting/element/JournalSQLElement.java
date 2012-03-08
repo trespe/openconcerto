@@ -103,4 +103,9 @@ public class JournalSQLElement extends ComptaSQLConfElement {
             return -1;
         }
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".book";
+    }
 }

@@ -199,4 +199,5 @@ public class CaisseCotisationSQLElement extends ConfSQLElement {
             }
         };
     }
+
 }

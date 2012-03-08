@@ -33,6 +33,8 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.SQLKey;
+import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.sql.utils.ChangeTable;
 import org.openconcerto.sql.utils.DropTable;
@@ -52,8 +54,12 @@ import java.awt.event.ActionListener;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.swing.JButton;
@@ -65,6 +71,7 @@ import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 
 public class InstallationPanel extends JPanel {
+    private static final boolean DEBUG_FK = false;
 
     static private void insertUndef(final SQLCreateTable ct) {
         final String insert = "INSERT into " + getTableName(ct).quote() + "(" + SQLBase.quoteIdentifier(SQLSyntax.ORDER_NAME) + ") VALUES(" + ReOrder.MIN_ORDER + ")";
@@ -83,9 +90,10 @@ public class InstallationPanel extends JPanel {
         setOpaque(false);
         GridBagConstraints c = new DefaultGridBagConstraints();
         JButton user = new JButton("Créer l'utilisateur");
-
+        user.setOpaque(false);
         // JButton bd = new JButton("Créer la base de données");
         final JButton up = new JButton("Mise à niveau de la base");
+        up.setOpaque(false);
         up.addActionListener(new ActionListener() {
 
             @Override
@@ -185,9 +193,10 @@ public class InstallationPanel extends JPanel {
                                 }
                             }
 
-                            updateSocieteTable(conf.getRoot());
+                            // ///////////// updateSocieteTable(conf.getRoot());
 
                             // we need to upgrade all roots
+                            // ///////////////////////////
                             conf.getSystemRoot().getRootsToMap().clear();
                             conf.getSystemRoot().refetch();
 
@@ -227,7 +236,12 @@ public class InstallationPanel extends JPanel {
                                     }
                                 }
 
-                                if (childName.startsWith(conf.getAppName()) || childName.equalsIgnoreCase("Default")) {
+                                if (DEBUG_FK) {
+                                    findBadForeignKey(root);
+                                }
+                                if (childName.equalsIgnoreCase("Common")) {
+                                    updateCommon(root);
+                                } else if (childName.startsWith(conf.getAppName()) || childName.equalsIgnoreCase("Default")) {
                                     SQLUtils.executeAtomic(ds, new SQLUtils.SQLFactory<Object>() {
                                         @Override
                                         public Object create() throws SQLException {
@@ -436,12 +450,16 @@ public class InstallationPanel extends JPanel {
         c.insets = new Insets(10, 3, 2, 2);
         this.add(new JLabelBold("Paramètrages de la base de données"), c);
         c.gridy++;
+        c.insets = DefaultGridBagConstraints.getDefaultInsets();
+        this.add(new JLabel("Création des fonctions SQL nécessaires (plpgsql)."), c);
+        c.gridy++;
         c.weightx = 0;
         c.anchor = GridBagConstraints.EAST;
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.NONE;
-        c.insets = DefaultGridBagConstraints.getDefaultInsets();
+
         JButton buttonPL = new JButton("Lancer");
+        buttonPL.setOpaque(false);
         buttonPL.addActionListener(new ActionListener() {
 
             @Override
@@ -473,13 +491,18 @@ public class InstallationPanel extends JPanel {
         c.insets = new Insets(10, 3, 2, 2);
         this.add(new JLabelBold("Mise à niveau de la base OpenConcerto"), c);
         c.gridy++;
+        c.insets = DefaultGridBagConstraints.getDefaultInsets();
+        this.add(new JLabel("Cette opération est nécessaire à chaque mise à jour du logiciel."), c);
+        c.gridy++;
+        this.add(new JLabel("La mise à niveau peut prendre plusieurs minutes."), c);
+        c.gridy++;
         this.add(this.bar, c);
         c.gridy++;
         c.weightx = 0;
         c.anchor = GridBagConstraints.EAST;
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.NONE;
-        c.insets = DefaultGridBagConstraints.getDefaultInsets();
+
         this.add(up, c);
 
         c.anchor = GridBagConstraints.WEST;
@@ -589,6 +612,13 @@ public class InstallationPanel extends JPanel {
     }
 
     private void updateToV1Dot2(final DBRoot root) throws SQLException {
+        // bigint -> int ID_METRIQUE BON_DE_LIVRAISON_ELEMENT
+        final SQLTable tableLivraisonElement = root.getTable("BON_DE_LIVRAISON_ELEMENT");
+        AlterTable alter = new AlterTable(tableLivraisonElement);
+        alter.alterColumn("ID_METRIQUE_2", EnumSet.of(Properties.TYPE), "integer", null, null);
+        String req3 = alter.asString();
+        root.getDBSystemRoot().getDataSource().execute(req3);
+
         final SQLTable tableDevis = root.getTable("DEVIS");
         final SQLDataSource ds = root.getDBSystemRoot().getDataSource();
         if (!tableDevis.getFieldsName().contains("DATE_VALIDITE")) {
@@ -1334,6 +1364,7 @@ public class InstallationPanel extends JPanel {
         final SQLDataSource ds = sysRoot.getDataSource();
         System.out.println("InstallationPanel.InstallationPanel() UPDATE COMMERCIAL " + root);
         // Fix commercial Ordre
+
         SQLTable tableCommercial = root.getTable("COMMERCIAL");
         CorrectOrder orderCorrect = new CorrectOrder(sysRoot);
         orderCorrect.change(tableCommercial);
@@ -1496,6 +1527,136 @@ public class InstallationPanel extends JPanel {
             root.getSchema().updateVersion();
             root.refetch();
         }
+    }
+
+    private void findBadForeignKey(DBRoot root) {
+        Set<SQLTable> tables = root.getTables();
+        for (SQLTable table : tables) {
+            findBadForeignKey(root, table);
+        }
+
+    }
+
+    private void findBadForeignKey(DBRoot root, SQLTable table) {
+        System.out.println("====================================== " + table.getName());
+        Set<SQLField> ffields = table.getForeignKeys();
+        Set<SQLField> allFields = table.getFields();
+
+        Set<String> keysString = SQLKey.foreignKeys(table);
+        for (String string : keysString) {
+            ffields.add(table.getField(string));
+        }
+
+        if (ffields.size() == 0) {
+            System.out.println("No foreign fields");
+        }
+        System.out.println("Foreign field for table " + table.getName() + ":" + ffields);
+        // Map Champs-> Table sur lequel il pointe
+        Map<SQLField, SQLTable> map = new HashMap<SQLField, SQLTable>();
+        Set<SQLTable> extTables = new HashSet<SQLTable>();
+        for (SQLField sqlField : ffields) {
+            SQLTable t = null;
+            try {
+                t = SQLKey.keyToTable(sqlField);
+            } catch (Exception e) {
+                System.out.println("Ignoring field:" + sqlField.getName());
+            }
+            if (t == null) {
+                System.out.println("Unable to find table for ff " + sqlField.getName());
+            } else {
+                extTables.add(t);
+                map.put(sqlField, t);
+            }
+        }
+        // Verification des datas
+        System.out.println("Foreign table for table " + table.getName() + ":" + extTables);
+        // Recupere les ids de toutes les tables
+        Map<SQLTable, Set<Number>> ids = getIdsForTables(extTables);
+
+        //
+        SQLSelect s = new SQLSelect(root.getBase(), true);
+        if (table.getPrimaryKeys().size() != 1) {
+            return;
+        }
+        s.addSelect(table.getKey());
+        for (SQLField sqlField : map.keySet()) {
+            s.addSelect(sqlField);
+        }
+        List<Map> result = root.getDBSystemRoot().getDataSource().execute(s.asString());
+        for (Map resultRow : result) {
+
+            // Pour toutes les lignes
+            Set<String> fields = resultRow.keySet();
+            for (String field : fields) {
+                // Pour tous les champs
+                SQLField fField = table.getField(field);
+                if (table.getPrimaryKeys().contains(fField)) {
+                    continue;
+                }
+                SQLTable fTable = map.get(fField);
+                if (fTable == null) {
+                    System.out.println("Error: null table for field" + field);
+                    continue;
+                }
+                Set<Number> values = ids.get(fTable);
+
+                final Object id = resultRow.get(field);
+                if (id == null) {
+                    continue;
+                } else if (!values.contains((Number) id)) {
+                    System.out.println("Checking row " + resultRow);
+                    System.out.println("Error: No id found in table " + fTable.getName() + " for row " + field + "in table " + table.getName() + " " + resultRow + " knowns id:" + values);
+                }
+            }
+        }
+        System.out.println("======================================\n");
+    }
+
+    private Map<SQLTable, Set<Number>> getIdsForTables(Set<SQLTable> extTables) {
+        Map<SQLTable, Set<Number>> result = new HashMap<SQLTable, Set<Number>>();
+        for (SQLTable sqlTable : extTables) {
+            result.put(sqlTable, getIdsForTable(sqlTable));
+        }
+        return result;
+    }
+
+    private Set<Number> getIdsForTable(SQLTable table) {
+        final DBRoot dbRoot = table.getDBRoot();
+        SQLSelect s = new SQLSelect(dbRoot.getBase(), true);
+        s.addSelect(table.getKey());
+        List<Number> result = dbRoot.getDBSystemRoot().getDataSource().executeCol(s.asString());
+        return new HashSet<Number>(result);
+    }
+
+    private void updateCommon(DBRoot root) throws SQLException {
+        // rm ID 3 à 49 de EXERCICE_COMMON
+        final SQLTable tableExercice = root.getTable("EXERCICE_COMMON");
+        String req1a = "DELETE FROM " + tableExercice.getSQLName().quote() + " WHERE ";
+        req1a += new Where(tableExercice.getKey(), 3, 49).getClause();
+        root.getDBSystemRoot().getDataSource().execute(req1a);
+        // et 53-57
+        root.getDBSystemRoot().getDataSource().execute(req1a);
+        String req1b = "DELETE FROM " + tableExercice.getSQLName().quote() + " WHERE ";
+        req1b += new Where(tableExercice.getKey(), 53, 57).getClause();
+        root.getDBSystemRoot().getDataSource().execute(req1b);
+        //
+
+        // TACHE_COMMON, ID_USER_COMMON_*=0 -> 1
+        for (final String f : Arrays.asList("ID_USER_COMMON_TO", "ID_USER_COMMON_CREATE", "ID_USER_COMMON_ASSIGN_BY")) {
+            final SQLTable tableTache = root.getTable("TACHE_COMMON");
+            final UpdateBuilder updateBuilder = new UpdateBuilder(tableTache);
+            updateBuilder.set(f, "1").setWhere(new Where(tableTache.getField(f), "=", 0));
+            String req2 = updateBuilder.asString();
+            root.getDBSystemRoot().getDataSource().execute(req2);
+        }
+        // rm ID 43 - 47 de SOCIETE_COMMON
+        final SQLTable tableSociete = root.getTable("SOCIETE_COMMON");
+        String req3 = "DELETE FROM " + tableSociete.getSQLName().quote() + " WHERE ";
+        req3 += new Where(tableSociete.getKey(), 43, 47).getClause();
+        root.getDBSystemRoot().getDataSource().execute(req3);
+
+        // FK
+        new AddFK(root.getDBSystemRoot()).change(root);
     }
 
     private void updateSocieteTable(DBRoot root) throws SQLException {

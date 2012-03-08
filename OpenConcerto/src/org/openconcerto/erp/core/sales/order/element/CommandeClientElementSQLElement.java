@@ -24,7 +24,6 @@ import java.util.List;
 
 import javax.swing.JTextField;
 
-
 public class CommandeClientElementSQLElement extends ComptaSQLConfElement {
 
     public CommandeClientElementSQLElement() {
@@ -72,5 +71,10 @@ public class CommandeClientElementSQLElement extends ComptaSQLConfElement {
                 this.addSQLObject(new ElementComboBox(), "ID_TAXE", "right");
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".item";
     }
 }

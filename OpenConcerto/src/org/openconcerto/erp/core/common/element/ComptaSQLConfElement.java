@@ -73,6 +73,10 @@ public abstract class ComptaSQLConfElement extends SQLElement {
 
     @Override
     protected String createCode() {
+        return createCodeFromPackage();
+    }
+
+    protected String createCodeFromPackage() {
         String canonicalName = getClass().getName();
         if (canonicalName.contains("erp.core") && canonicalName.contains(".element")) {
             int i = canonicalName.indexOf("erp.core") + 9;

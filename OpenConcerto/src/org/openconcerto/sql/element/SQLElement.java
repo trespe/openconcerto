@@ -128,6 +128,7 @@ public abstract class SQLElement {
 
     private final Map<String, JComponent> additionalFields;
     private final List<SQLTableModelColumn> additionalListCols;
+    private List<String> mdPath;
 
     public SQLElement(String singular, String plural, SQLTable primaryTable) {
         this(singular, plural, primaryTable, null);
@@ -155,6 +156,7 @@ public abstract class SQLElement {
         // the components should always be in the same order
         this.additionalFields = new LinkedHashMap<String, JComponent>();
         this.additionalListCols = new ArrayList<SQLTableModelColumn>();
+        this.mdPath = Collections.emptyList();
     }
 
     /**
@@ -1477,6 +1479,22 @@ public abstract class SQLElement {
      * @return l'interface graphique de saisie.
      */
     protected abstract SQLComponent createComponent();
+
+    public final void addToMDPath(String mdVariant) {
+        final LinkedList<String> newL = new LinkedList<String>(this.mdPath);
+        newL.addFirst(mdVariant);
+        this.mdPath = Collections.unmodifiableList(newL);
+    }
+
+    public final void removeFromMDPath(String mdVariant) {
+        final LinkedList<String> newL = new LinkedList<String>(this.mdPath);
+        if (newL.remove(mdVariant))
+            this.mdPath = Collections.unmodifiableList(newL);
+    }
+
+    public final List<String> getMDPath() {
+        return this.mdPath;
+    }
 
     /**
      * Allows a module to add a view for a field to this element.

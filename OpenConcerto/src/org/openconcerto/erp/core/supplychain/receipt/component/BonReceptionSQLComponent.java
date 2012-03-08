@@ -41,6 +41,7 @@ import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.TitledSeparator;
+import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.preferences.DefaultProps;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
@@ -57,7 +58,6 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -305,8 +305,9 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
         c.weightx = 1;
         c.weighty = 0;
         c.fill = GridBagConstraints.BOTH;
-        final JTextArea textInfos = new JTextArea(4, 4);
+        final ITextArea textInfos = new ITextArea(4, 4);
         JScrollPane scrollPane = new JScrollPane(textInfos);
+        textInfos.setBorder(null);
         DefaultGridBagConstraints.lockMinimumSize(scrollPane);
 
         this.add(textInfos, c);

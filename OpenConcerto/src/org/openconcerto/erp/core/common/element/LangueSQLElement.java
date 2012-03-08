@@ -74,4 +74,9 @@ public class LangueSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return "language";
+    }
 }

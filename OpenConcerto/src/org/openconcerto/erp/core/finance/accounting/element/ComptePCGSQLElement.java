@@ -165,33 +165,8 @@ public class ComptePCGSQLElement extends ComptaSQLConfElement {
         };
     }
 
-    /*
-     * public static final void supprimePointInterrogation() { SQLTable compteTable =
-     * Configuration.getInstance().getBase().getTable("COMPTE_PCG");
-     * 
-     * SQLSelect selCompte = new SQLSelect(Configuration.getInstance().getBase());
-     * 
-     * selCompte.addSelect(compteTable.getField("ID"));
-     * 
-     * String req = selCompte.asString();
-     * 
-     * Object obj = Configuration.getInstance().getBase().getDataSource().execute(req, new
-     * ArrayListHandler());
-     * 
-     * List myList = (List) obj; SQLRowValues vals = new SQLRowValues(compteTable);
-     * 
-     * for (int i = 0; i < myList.size(); i++) {
-     * 
-     * Object[] tmp = (Object[]) myList.get(i);
-     * 
-     * SQLRow row = compteTable.getRow(new Integer(tmp[0].toString()).intValue());
-     * 
-     * String nom = row.getString("NOM"); String infos = row.getString("INFOS");
-     * 
-     * vals.put("NOM", nom.trim().replace('?', '\'')); vals.put("INFOS", infos.trim().replace('?',
-     * '\''));
-     * 
-     * try { vals.update(new Integer(tmp[0].toString()).intValue()); } catch (NumberFormatException
-     * e) { e.printStackTrace(); } catch (SQLException e) { // e.printStackTrace(); } } }
-     */
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".code.national";
+    }
 }

@@ -19,4 +19,8 @@ public class TypeRubriqueNetSQLElement extends AbstractTypeRubriqueSQLElement {
         super("TYPE_RUBRIQUE_NET", "un type de rubrique net", "types de rubrique net");
     }
 
+    @Override
+    protected String createCode() {
+        return "humanresources.payroll.category.type.net";
+    }
 }

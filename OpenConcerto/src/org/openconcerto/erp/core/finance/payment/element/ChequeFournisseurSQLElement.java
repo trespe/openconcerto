@@ -104,4 +104,9 @@ public class ChequeFournisseurSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".cheque.supplier";
+    }
 }

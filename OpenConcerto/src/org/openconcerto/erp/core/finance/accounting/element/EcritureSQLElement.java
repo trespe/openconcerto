@@ -595,4 +595,9 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
         });
         frameSaisieKm.setVisible(true);
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".entry.item";
+    }
 }

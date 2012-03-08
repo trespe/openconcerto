@@ -49,4 +49,9 @@ public class RepartitionAnalytiqueElementSQLElement extends ComptaSQLConfElement
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".distributionitem";
+    }
 }

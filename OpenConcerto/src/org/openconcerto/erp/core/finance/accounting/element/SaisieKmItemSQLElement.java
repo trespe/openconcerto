@@ -57,4 +57,8 @@ public class SaisieKmItemSQLElement extends ComptaSQLConfElement {
         };
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".userentry.item";
+    }
 }

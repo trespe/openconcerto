@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.generationDoc;
 
-import static org.openconcerto.task.config.ComptaBasePropsConfiguration.getStream;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.preferences.PrinterNXProps;
@@ -23,10 +22,10 @@ import org.openconcerto.odtemplate.Template;
 import org.openconcerto.odtemplate.engine.OGNLDataModel;
 import org.jopendocument.link.Component;
 import org.jopendocument.link.OOConnexion;
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
-import org.openconcerto.utils.Tuple2;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -91,10 +90,10 @@ public abstract class AbstractJOOReportsSheet {
                 if (this.askOverwriting) {
                     int answer = JOptionPane.showConfirmDialog(null, "Voulez vous écraser le document ?", "Remplacement d'un document", JOptionPane.YES_NO_OPTION);
                     if (answer == JOptionPane.YES_OPTION) {
-                        SheetUtils.convertToOldFile(fileName, outputDir, fileOutOO, ".odt");
+                        SheetUtils.convertToOldFile(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete(), fileName, outputDir, fileOutOO, ".odt");
                     }
                 } else {
-                    SheetUtils.convertToOldFile(fileName, outputDir, fileOutOO, ".odt");
+                    SheetUtils.convertToOldFile(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete(), fileName, outputDir, fileOutOO, ".odt");
                 }
             }
 

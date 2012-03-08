@@ -159,7 +159,14 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
         if (currentType != null && currentType.canFormat(obj.getClass())) {
             type = currentType;
         } else {
-            type = ODValueType.forObject(obj);
+            final ODValueType tmp = ODValueType.forObject(obj);
+            // allow any Object
+            if (allowTypeChange && tmp == null) {
+                type = ODValueType.STRING;
+                obj = String.valueOf(obj);
+            } else {
+                type = tmp;
+            }
         }
         if (type == null) {
             throw new IllegalArgumentException("Couldn't infer type of " + obj);

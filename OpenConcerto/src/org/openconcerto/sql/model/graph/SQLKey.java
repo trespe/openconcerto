@@ -45,7 +45,7 @@ public class SQLKey {
      * @param table la table.
      * @return l'ensemble des noms des clés étrangères.
      */
-    static Set<String> foreignKeys(SQLTable table) {
+    public static Set<String> foreignKeys(SQLTable table) {
         // we used to name the primary key ID_TABLE, so we must not interpret it as a self reference
         // getSole() so we can have join tables (e.g. ID_CONTENU and ID_SITE are the primary key)
         final String pkeyName = CollectionUtils.getSole(table.getPKsNames());
@@ -73,7 +73,7 @@ public class SQLKey {
      * @throws IllegalStateException si la table ne peut être déterminée.
      * @see #isKey(String)
      */
-    static SQLTable keyToTable(SQLField key) {
+    public static SQLTable keyToTable(SQLField key) {
         SQLTable table = key.getTable();
         String keyName = key.getName();
         if (isKey(keyName)) {

@@ -25,6 +25,7 @@ import org.openconcerto.xml.Step.Axis;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -125,16 +126,34 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
     }
 
     /**
-     * Create a document from a file.
+     * Create a document from a package.
      * 
      * @param f an OpenDocument package file.
      * @return the merged file.
      * @throws JDOMException if the file is not a valid OpenDocument file.
      * @throws IOException if the file can't be read.
      */
-    public static ODSingleXMLDocument createFromFile(File f) throws JDOMException, IOException {
+    public static ODSingleXMLDocument createFromPackage(File f) throws JDOMException, IOException {
         // this loads all linked files
         return new ODPackage(f).toSingle();
+    }
+
+    /**
+     * Create a document from a flat XML.
+     * 
+     * @param f an OpenDocument XML file.
+     * @return the created file.
+     * @throws JDOMException if the file is not a valid OpenDocument file.
+     * @throws IOException if the file can't be read.
+     */
+    public static ODSingleXMLDocument createFromFile(File f) throws JDOMException, IOException {
+        final ODSingleXMLDocument res = new ODSingleXMLDocument(OOUtils.getBuilder().build(f));
+        res.getPackage().setFile(f);
+        return res;
+    }
+
+    public static ODSingleXMLDocument createFromStream(InputStream ins) throws JDOMException, IOException {
+        return new ODSingleXMLDocument(OOUtils.getBuilder().build(ins));
     }
 
     /**

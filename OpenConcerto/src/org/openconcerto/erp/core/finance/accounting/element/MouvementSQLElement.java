@@ -223,4 +223,10 @@ public class MouvementSQLElement extends ComptaSQLConfElement {
         return id;
 
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".entry";
+    }
+
 }

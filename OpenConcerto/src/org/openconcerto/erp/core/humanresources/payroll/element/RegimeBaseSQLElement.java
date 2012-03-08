@@ -121,4 +121,9 @@ public class RegimeBaseSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".base";
+    }
 }

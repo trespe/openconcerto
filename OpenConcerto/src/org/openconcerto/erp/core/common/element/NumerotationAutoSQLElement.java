@@ -516,4 +516,8 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
 
     }
 
+    @Override
+    protected String createCode() {
+        return "autonumbering";
+    }
 }

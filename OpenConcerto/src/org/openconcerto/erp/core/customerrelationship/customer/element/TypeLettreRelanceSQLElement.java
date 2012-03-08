@@ -22,7 +22,6 @@ import java.util.List;
 
 import javax.swing.JTextField;
 
-
 public class TypeLettreRelanceSQLElement extends ComptaSQLConfElement {
 
     public TypeLettreRelanceSQLElement() {
@@ -53,5 +52,10 @@ public class TypeLettreRelanceSQLElement extends ComptaSQLConfElement {
                 this.addRequiredSQLObject(new JTextField(), "MODELE", "right");
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return super.createCodeFromPackage() + ".chaseletter.type";
     }
 }
