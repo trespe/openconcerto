@@ -249,4 +249,9 @@ public class AssociationCompteAnalytiqueSQLElement extends ComptaSQLConfElement 
         table.getTableHeader().setReorderingAllowed(false);
         return table;
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".analytic.account.relation";
+    }
 }

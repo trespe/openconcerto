@@ -77,4 +77,9 @@ public class MetriqueSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".quantity";
+    }
 }

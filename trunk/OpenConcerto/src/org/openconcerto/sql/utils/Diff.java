@@ -216,10 +216,16 @@ public class Diff {
                         alterTable.addForeignConstraint(link, false);
                     }
                     for (final String common : CollectionUtils.inter(aFKs, bFKs)) {
-                        final SQLName aPath = graph.getForeignLink(aT.getField(common)).getContextualName();
-                        final SQLName bPath = bGraph.getForeignLink(bT.getField(common)).getContextualName();
+                        final Link aLink = graph.getForeignLink(aT.getField(common));
+                        final Link bLink = bGraph.getForeignLink(bT.getField(common));
+                        final SQLName aPath = aLink.getContextualName();
+                        final SQLName bPath = bLink.getContextualName();
                         if (!aPath.equals(bPath))
                             throw new UnsupportedOperationException(common + " is different: " + aPath + " != " + bPath);
+                        if (aLink.getUpdateRule() != bLink.getUpdateRule() || aLink.getDeleteRule() != bLink.getDeleteRule()) {
+                            alterTable.dropForeignConstraint(aLink.getName());
+                            alterTable.addForeignConstraint(bLink, false);
+                        }
                     }
                 }
 

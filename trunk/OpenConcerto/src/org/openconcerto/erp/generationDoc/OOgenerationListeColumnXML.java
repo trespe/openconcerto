@@ -438,7 +438,7 @@ public class OOgenerationListeColumnXML {
             pathDest.mkdirs();
         }
 
-        SheetUtils.convertToOldFile(fileName, pathDest, fDest);
+        SheetUtils.convertToOldFile(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete(), fileName, pathDest, fDest);
 
         // Sauvegarde
         try {

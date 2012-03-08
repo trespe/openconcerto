@@ -312,7 +312,7 @@ public class ReportGeneration<C extends GenerationCommon> {
         final DocumentGenerator templateGenerator = this.getCommon().getStyleTemplateGenerator(this.type.getTemplate());
         if (templateGenerator == null)
             try {
-                f = ODSingleXMLDocument.createFromFile(this.type.getTemplate());
+                f = ODSingleXMLDocument.createFromPackage(this.type.getTemplate());
             } catch (JDOMException e) {
                 throw new IOException("invalid template " + this.type.getTemplate(), e);
             }

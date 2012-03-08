@@ -187,4 +187,9 @@ public class PeriodeValiditeSQLElement extends ConfSQLElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return "humanresources.payroll.validity";
+    }
 }

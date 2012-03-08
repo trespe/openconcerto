@@ -112,7 +112,7 @@ public class VariablePayeSQLElement extends ConfSQLElement {
         return l;
     }
 
-    static final boolean isForbidden(final String code) {
+    public static final boolean isForbidden(final String code) {
         final List<String> l = getForbiddenVarName();
         for (int i = 0; i < l.size(); i++) {
             if (l.get(i).trim().equalsIgnoreCase(code)) {
@@ -639,5 +639,10 @@ public class VariablePayeSQLElement extends ConfSQLElement {
         } else {
             super.archive(getTable().getRow(id), true);
         }
+    }
+
+    @Override
+    protected String createCode() {
+        return "humanresources.payroll.payment.variable";
     }
 }

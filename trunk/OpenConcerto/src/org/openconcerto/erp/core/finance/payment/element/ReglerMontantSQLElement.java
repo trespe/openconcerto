@@ -300,4 +300,9 @@ public class ReglerMontantSQLElement extends ComptaSQLConfElement {
             }
         };
     };
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".regulation";
+    }
 }

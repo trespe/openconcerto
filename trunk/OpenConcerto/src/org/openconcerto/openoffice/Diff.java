@@ -113,7 +113,7 @@ public class Diff {
     private String[] output(String file) throws JDOMException, IOException {
         final File f = new File(file);
         if (f.exists()) {
-            final ODSingleXMLDocument oodoc = ODSingleXMLDocument.createFromFile(f);
+            final ODSingleXMLDocument oodoc = ODSingleXMLDocument.createFromPackage(f);
             // don't compare settings
             oodoc.getChild("settings").detach();
             String contentS = OUTPUTTER.outputString(oodoc.getDocument());

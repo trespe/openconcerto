@@ -16,16 +16,26 @@
  */
 package org.openconcerto.sql.element;
 
+import org.openconcerto.sql.request.RowItemDesc;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.ui.FormLayouter;
+import org.openconcerto.ui.PopupMouseListener;
 
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.MouseEvent;
+import java.util.HashMap;
+import java.util.Map;
 
+import javax.swing.AbstractAction;
+import javax.swing.JComponent;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JTabbedPane;
 import javax.swing.LayoutFocusTraversalPolicy;
+import javax.swing.WindowConstants;
 
 public abstract class UISQLComponent extends BaseSQLComponent {
 
@@ -35,6 +45,7 @@ public abstract class UISQLComponent extends BaseSQLComponent {
     private static final String REQ_SUFFIX = System.getProperty(REQUIRED_SUFFIX_PROP, " *");
 
     private FormLayouter autoLayouter;
+    private final Map<String, JComponent> labels;
     private JPanel currentPanel;
     private JTabbedPane tabbedPane;
     // default values for the layouter
@@ -60,27 +71,53 @@ public abstract class UISQLComponent extends BaseSQLComponent {
         // ne pas instancier le layouter tout de suite
         // car on ne sait pas encore si tab ou pas
         this.autoLayouter = null;
+        this.labels = new HashMap<String, JComponent>();
     }
 
-    protected void addToUI(SQLRowItemView obj, String where) {
-        String desc = getDesc(obj);
+    protected void addToUI(final SQLRowItemView obj, String where) {
+        final RowItemDesc rivDesc = getRIVDesc(obj.getSQLName());
+        String desc = rivDesc.getLabel();
         if (this.getRequired().contains(obj))
             desc += REQ_SUFFIX;
         if (where == null)
             where = this.getDefaultWhere(obj);
+        final JComponent added;
         if (where == null)
-            this.getLayouter().add(desc, obj.getComp());
+            added = this.getLayouter().add(desc, obj.getComp());
         else if (where.equals("bordered")) {
-            this.getLayouter().addBordered(desc, obj.getComp(), 0);
+            added = this.getLayouter().addBordered(desc, obj.getComp(), 0);
         } else if (where.equals("left")) {
             this.getLayouter().newLine();
-            this.getLayouter().add(desc, obj.getComp(), this.getLayouter().getWidth() / 2);
+            added = this.getLayouter().add(desc, obj.getComp(), this.getLayouter().getWidth() / 2);
         } else if (where.equals("right"))
-            this.getLayouter().add(desc, obj.getComp(), (this.getLayouter().getWidth() + 1) / 2);
+            added = this.getLayouter().add(desc, obj.getComp(), (this.getLayouter().getWidth() + 1) / 2);
         else {
             final int aWidth = Integer.parseInt(where);
-            this.getLayouter().add(desc, obj.getComp(), aWidth);
+            added = this.getLayouter().add(desc, obj.getComp(), aWidth);
         }
+        this.labels.put(obj.getSQLName(), added);
+        updateUI(obj.getSQLName(), rivDesc);
+        final JPopupMenu menu = new JPopupMenu();
+        menu.add(new AbstractAction("Modifier la documentation") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                final DocumentationEditorFrame frame = new DocumentationEditorFrame(UISQLComponent.this, obj.getSQLName());
+                frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
+                frame.setVisible(true);
+            }
+        });
+        added.addMouseListener(new PopupMouseListener() {
+            @Override
+            protected JPopupMenu createPopup(MouseEvent e) {
+                return e.isControlDown() ? menu : null;
+            }
+        });
+    }
+
+    @Override
+    protected void updateUI(String itemName, RowItemDesc desc) {
+        super.updateUI(itemName, desc);
+        updateUI(itemName, this.labels.get(itemName), desc);
     }
 
     private String getDefaultWhere(SQLRowItemView obj) {

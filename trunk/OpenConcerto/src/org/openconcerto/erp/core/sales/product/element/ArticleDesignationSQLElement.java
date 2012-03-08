@@ -92,4 +92,8 @@ public class ArticleDesignationSQLElement extends ComptaSQLConfElement {
         };
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".name";
+    }
 }

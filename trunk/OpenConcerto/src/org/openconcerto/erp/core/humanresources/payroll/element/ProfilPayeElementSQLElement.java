@@ -52,4 +52,9 @@ public class ProfilPayeElementSQLElement extends ConfSQLElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return "humanresources.payroll.template.item";
+    }
 }

@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTable.Index;
 import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.model.graph.SQLKey;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
@@ -146,14 +147,17 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         private final List<String> cols;
         private final SQLName refTable;
         private final List<String> refCols;
+        private final Rule updateRule, deleteRule;
 
-        public FCSpec(List<String> cols, SQLName refTable, List<String> refCols) {
+        public FCSpec(List<String> cols, SQLName refTable, List<String> refCols, final Rule updateRule, final Rule deleteRule) {
             super();
             if (refTable.getItemCount() == 0)
                 throw new IllegalArgumentException(refTable + " is empty.");
             this.cols = Collections.unmodifiableList(new ArrayList<String>(cols));
             this.refTable = refTable;
             this.refCols = Collections.unmodifiableList(new ArrayList<String>(refCols));
+            this.updateRule = updateRule;
+            this.deleteRule = deleteRule;
         }
 
         public final List<String> getCols() {
@@ -166,6 +170,14 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
 
         public final List<String> getRefCols() {
             return this.refCols;
+        }
+
+        public final Rule getUpdateRule() {
+            return this.updateRule;
+        }
+
+        public final Rule getDeleteRule() {
+            return this.deleteRule;
         }
     }
 
@@ -301,7 +313,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     }
 
     public final T addForeignConstraint(Link l, boolean createIndex) {
-        return this.addForeignConstraint(l.getCols(), l.getContextualName(), createIndex, l.getRefCols());
+        return this.addForeignConstraint(new FCSpec(l.getCols(), l.getContextualName(), l.getRefCols(), l.getUpdateRule(), l.getDeleteRule()), createIndex);
     }
 
     public final T addForeignConstraint(String fieldName, SQLName refTable, String refCols) {
@@ -319,7 +331,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @return this.
      */
     public final T addForeignConstraint(final List<String> fieldName, SQLName refTable, boolean createIndex, List<String> refCols) {
-        return this.addForeignConstraint(new FCSpec(fieldName, refTable, refCols), createIndex);
+        return this.addForeignConstraint(new FCSpec(fieldName, refTable, refCols, null, null), createIndex);
     }
 
     public final T addForeignConstraint(final FCSpec fkSpec, boolean createIndex) {
@@ -514,7 +526,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
             // resolve relative path, a table is identified by root.table
             final SQLName relRefTable = fk.getRefTable();
             final SQLName refTable = relRefTable.getItemCount() == 1 ? new SQLName(rootName, relRefTable.getName()) : relRefTable;
-            res.add(getConstraintPrefix() + this.getSyntax().getFK(this.name + "_", fk.getCols(), refTable, fk.getRefCols()));
+            res.add(getConstraintPrefix() + this.getSyntax().getFK(this.name + "_", fk.getCols(), refTable, fk.getRefCols(), fk.getUpdateRule(), fk.getDeleteRule()));
         }
         return res;
     }

@@ -74,4 +74,8 @@ public class StyleSQLElement extends ComptaSQLConfElement {
         };
     }
 
+    @Override
+    protected String createCode() {
+        return "style";
+    }
 }

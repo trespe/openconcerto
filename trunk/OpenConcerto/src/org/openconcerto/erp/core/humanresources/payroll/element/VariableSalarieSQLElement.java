@@ -22,7 +22,6 @@ import java.util.List;
 
 import javax.swing.JTextField;
 
-
 public class VariableSalarieSQLElement extends ComptaSQLConfElement {
 
     public VariableSalarieSQLElement() {
@@ -73,5 +72,10 @@ public class VariableSalarieSQLElement extends ComptaSQLConfElement {
                 }
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".employe.variable";
     }
 }

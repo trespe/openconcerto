@@ -67,4 +67,9 @@ public class ReferenceClientSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return super.createCodeFromPackage() + ".ref";
+    }
 }

@@ -19,4 +19,8 @@ public class TypeRubriqueBrutSQLElement extends AbstractTypeRubriqueSQLElement {
         super("TYPE_RUBRIQUE_BRUT", "un type de rubrique brut", "types de rubrique brut");
     }
 
+    @Override
+    protected String createCode() {
+        return "humanresources.payroll.category.type.raw";
+    }
 }

@@ -13,11 +13,14 @@
  
  package org.openconcerto.erp.core.humanresources.payroll.element;
 
-
 public class CodeRegimeSQLElement extends AbstractCodeSQLElement {
 
     public CodeRegimeSQLElement() {
         super("CODE_REGIME", "un code régime", "codes régimes");
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".governement.code";
+    }
 }

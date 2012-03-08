@@ -264,4 +264,9 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
             System.err.println("Aucun mouvement associé, impossible de modifier ou d'accéder à la source de cette ecriture!");
         }
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".transaction";
+    }
 }

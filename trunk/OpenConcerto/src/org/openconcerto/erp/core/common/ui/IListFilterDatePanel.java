@@ -45,10 +45,10 @@ public class IListFilterDatePanel extends JPanel {
     private JDate dateDu, dateAu;
 
     private Map<IListe, SQLField> mapList;
-
+    // Cache des transformers initiaux
+    private Map<IListe, ITransformer<SQLSelect, SQLSelect>> mapListTransformer;
     // Liste des filtres
     private Map<String, Tuple2<Date, Date>> map;
-    private ITransformer<SQLSelect, SQLSelect> t;
 
     private final PropertyChangeListener listener = new PropertyChangeListener() {
         @Override
@@ -124,10 +124,6 @@ public class IListFilterDatePanel extends JPanel {
         return m;
     }
 
-    public void setITransformer(ITransformer<SQLSelect, SQLSelect> t) {
-        this.t = t;
-    }
-
     public IListFilterDatePanel(IListe l, SQLField fieldDate, Map<String, Tuple2<Date, Date>> m) {
         super(new GridBagLayout());
         Map<IListe, SQLField> map = new HashMap<IListe, SQLField>();
@@ -147,6 +143,12 @@ public class IListFilterDatePanel extends JPanel {
 
         this.setBorder(BorderFactory.createTitledBorder("Période"));
         this.mapList = mapList;
+
+        this.mapListTransformer = new HashMap<IListe, ITransformer<SQLSelect, SQLSelect>>();
+        for (IListe l : mapList.keySet()) {
+            this.mapListTransformer.put(l, l.getRequest().getSelectTransf());
+        }
+
         this.dateDu = new JDate();
         this.dateAu = new JDate();
         this.map = m;
@@ -229,15 +231,9 @@ public class IListFilterDatePanel extends JPanel {
 
         if (this.dateAu.getValue() == null && this.dateDu.getValue() == null) {
             System.err.println("Null ");
-            if (this.t != null) {
-                for (IListe list : this.mapList.keySet()) {
+            for (IListe list : this.mapList.keySet()) {
 
-                    list.getRequest().setSelectTransf(this.t);
-                }
-            } else {
-                for (IListe list : this.mapList.keySet()) {
-                    list.getRequest().setSelectTransf(null);
-                }
+                list.getRequest().setSelectTransf(this.mapListTransformer.get(list));
             }
             return;
         }
@@ -250,11 +246,12 @@ public class IListFilterDatePanel extends JPanel {
             c.set(Calendar.MINUTE, 0);
             c.set(Calendar.MILLISECOND, 1);
 
-            for (IListe list : this.mapList.keySet()) {
+            for (final IListe list : this.mapList.keySet()) {
                 final SQLField filterField = this.mapList.get(list);
                 list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
                     @Override
                     public SQLSelect transformChecked(SQLSelect input) {
+                        ITransformer<SQLSelect, SQLSelect> t = mapListTransformer.get(list);
                         if (t != null) {
                             input = t.transformChecked(input);
                         }
@@ -273,12 +270,13 @@ public class IListFilterDatePanel extends JPanel {
             c.set(Calendar.HOUR_OF_DAY, 23);
             c.set(Calendar.MINUTE, 59);
             c.set(Calendar.MILLISECOND, 59);
-            for (IListe list : this.mapList.keySet()) {
+            for (final IListe list : this.mapList.keySet()) {
                 final SQLField filterField = this.mapList.get(list);
 
                 list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
                     @Override
                     public SQLSelect transformChecked(SQLSelect input) {
+                        ITransformer<SQLSelect, SQLSelect> t = mapListTransformer.get(list);
                         if (t != null) {
                             input = t.transformChecked(input);
                         }
@@ -302,12 +300,13 @@ public class IListFilterDatePanel extends JPanel {
         c2.set(Calendar.HOUR_OF_DAY, 0);
         c2.set(Calendar.MINUTE, 0);
         c2.set(Calendar.MILLISECOND, 1);
-        for (IListe list : this.mapList.keySet()) {
+        for (final IListe list : this.mapList.keySet()) {
             final SQLField filterField = this.mapList.get(list);
 
             list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
                 @Override
                 public SQLSelect transformChecked(SQLSelect input) {
+                    ITransformer<SQLSelect, SQLSelect> t = mapListTransformer.get(list);
                     if (t != null) {
                         input = t.transformChecked(input);
                     }

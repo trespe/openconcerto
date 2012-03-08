@@ -64,4 +64,9 @@ public class EtatDevisSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".state";
+    }
 }

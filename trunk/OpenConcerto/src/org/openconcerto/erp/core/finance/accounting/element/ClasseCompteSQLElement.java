@@ -50,4 +50,9 @@ public class ClasseCompteSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".accountclass";
+    }
 }

@@ -59,13 +59,14 @@ public class NetUtils {
         }
     }
 
-    private static class CustomizedHostnameVerifier implements HostnameVerifier {
+    public static final HostnameVerifier HostnameNonVerifier = new HostnameVerifier() {
+        @Override
         public boolean verify(String hostname, SSLSession session) {
             return true;
         }
-    }
+    };
 
-    public static final String getHTTPContent(String address, boolean useCustomVerifier) {
+    public static final String getHTTPContent(String address, final boolean dontVerify) {
         String content = "";
         OutputStream out = null;
         HttpsURLConnection conn = null;
@@ -75,8 +76,8 @@ public class NetUtils {
             out = new ByteArrayOutputStream();
             conn = (HttpsURLConnection) url.openConnection();
             // Sur la connexion
-            if (useCustomVerifier) {
-                conn.setHostnameVerifier(new CustomizedHostnameVerifier());
+            if (dontVerify) {
+                conn.setHostnameVerifier(HostnameNonVerifier);
                 // ou globalement
                 // HttpsURLConnection.setDefaultHostnameVerifier(new CustomizedHostnameVerifier());
             }

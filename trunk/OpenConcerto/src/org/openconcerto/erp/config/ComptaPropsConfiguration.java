@@ -157,7 +157,6 @@ import org.jopendocument.link.OOConnexion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.ShowAs;
 import org.openconcerto.sql.element.GlobalMapper;
-import org.openconcerto.sql.element.RowItemViewMetadata;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.element.SharedSQLElement;
@@ -660,7 +659,21 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         for (SQLElement sqlElement : elements) {
             GlobalMapper.getInstance().map(sqlElement.getCode() + ".element", this);
         }
-
+        String s = "";
+        for (SQLElement sqlElement : elements) {
+            try {
+                SQLElement e = dir.getElementForCode(sqlElement.getCode());
+                if (e == null) {
+                    s += "Error while retrieving element from code " + sqlElement.getCode() + "\n";
+                }
+            } catch (Throwable e) {
+                s += "Error while retrieving element from code " + sqlElement.getCode() + " :\n " + e.getMessage() + "\n";
+            }
+        }
+        if (!s.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(new JFrame(), s);
+            System.out.println(s);
+        }
     }
 
     private void setSocieteSQLInjector() {
@@ -819,11 +832,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         new Thread() {
             public void run() {
                 Configuration.getInstance().getSystemRoot().getGraph();
-                try {
-                    metadata = new RowItemViewMetadata(getRootSociete());
-                } catch (SQLException e) {
-                    ExceptionHandler.handle("Metadata error", e);
-                }
             }
         }.start();
     }

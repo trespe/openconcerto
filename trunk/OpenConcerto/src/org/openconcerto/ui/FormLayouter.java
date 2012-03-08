@@ -94,10 +94,11 @@ public class FormLayouter {
      * 
      * @param desc le label du champ
      * @param comp le composant graphique d'edition ou null si titre
+     * @return the created label.
      */
-    public void add(String desc, Component comp) {
+    public JLabel add(String desc, Component comp) {
         if (comp != null) {
-            this.add(desc, comp, this.defaultWidth);
+            return this.add(desc, comp, this.defaultWidth);
         } else {
             this.newLine();
             final JLabel lab = new JLabel(desc);
@@ -105,6 +106,7 @@ public class FormLayouter {
             this.layout.setRowSpec(this.getY() - 1, new RowSpec("10dlu"));
             this.co.add(lab, this.constraints.xyw(this.getLabelX(), this.getY(), this.width * CELL_WIDTH - 1));
             this.endLine();
+            return lab;
         }
     }
 
@@ -114,17 +116,20 @@ public class FormLayouter {
      * @param desc le label du champ.
      * @param comp le composant graphique d'edition.
      * @param w la largeur, entre 1 et la largeur de ce layout, ou 0 pour toute la largeur.
+     * @return the created label.
      * @throws NullPointerException if comp is <code>null</code>.
      * @throws IllegalArgumentException if w is less than 1.
      */
-    public void add(String desc, Component comp, int w) {
+    public JLabel add(String desc, Component comp, int w) {
         w = this.checkArgs(comp, w);
 
         final int realWidth = this.getRealFieldWidth(w);
         // Guillaume : right alignment like the Mac ; vertically centred for checkboxes
-        this.co.add(new JLabel(desc), this.constraints.xy(this.getLabelX(), this.getY(), CellConstraints.RIGHT, CellConstraints.CENTER));
+        final JLabel lab = new JLabel(desc);
+        this.co.add(lab, this.constraints.xy(this.getLabelX(), this.getY(), CellConstraints.RIGHT, CellConstraints.CENTER));
         this.co.add(comp, this.constraints.xyw(this.getFieldX(), this.getY(), realWidth));
         this.x += w;
+        return lab;
     }
 
     // assure that comp & w are valid, and do a newLine if necessary
@@ -142,11 +147,11 @@ public class FormLayouter {
         return res;
     }
 
-    public void addBordered(String desc, Component comp) {
-        this.addBordered(desc, comp, this.defaultWidth);
+    public JPanel addBordered(String desc, Component comp) {
+        return this.addBordered(desc, comp, this.defaultWidth);
     }
 
-    public void addBordered(String desc, Component comp, int w) {
+    public JPanel addBordered(String desc, Component comp, int w) {
         w = this.checkArgs(comp, w);
 
         final int realWidth = w * CELL_WIDTH - 1;
@@ -158,6 +163,7 @@ public class FormLayouter {
 
         this.co.add(p, this.constraints.xyw(this.getLabelX(), this.getY(), realWidth));
         this.x += w;
+        return p;
     }
 
     private final int getRealFieldWidth(int w) {
@@ -194,11 +200,12 @@ public class FormLayouter {
         this.x = this.width;
     }
 
-    public void addRight(String desc, Component comp) {
+    public JLabel addRight(String desc, Component comp) {
         this.newLine();
         this.x = this.width - 1;
-        this.add(desc, comp);
+        final JLabel res = this.add(desc, comp);
         this.endLine();
+        return res;
     }
 
     public void add(JButton btn) {

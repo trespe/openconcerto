@@ -47,4 +47,9 @@ public class AxeAnalytiqueSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".analytic.axis";
+    }
 }

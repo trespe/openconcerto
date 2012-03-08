@@ -767,6 +767,17 @@ public final class FileUtils {
     }
 
     /**
+     * Return the string after the last dot.
+     * 
+     * @param fname a name, e.g. "test.odt" or "sans".
+     * @return the extension, e.g. "odt" or <code>null</code>.
+     */
+    public static final String getExtension(String fname) {
+        final int lastIndex = fname.lastIndexOf('.');
+        return lastIndex < 0 ? null : fname.substring(lastIndex + 1);
+    }
+
+    /**
      * Chars not valid in filenames.
      */
     public static final Collection<Character> INVALID_CHARS;

@@ -22,7 +22,6 @@ import java.util.List;
 
 import javax.swing.JTextField;
 
-
 public class ModeReglementPayeSQLElement extends ComptaSQLConfElement {
     public ModeReglementPayeSQLElement() {
         super("MODE_REGLEMENT_PAYE", "un mode de règlement de paye", "modes de règlement de paye");
@@ -53,5 +52,10 @@ public class ModeReglementPayeSQLElement extends ComptaSQLConfElement {
                 this.addSQLObject(new JTextField(), "NOM", "left");
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".payment.type";
     }
 }

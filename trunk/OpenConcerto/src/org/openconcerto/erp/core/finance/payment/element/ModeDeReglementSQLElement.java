@@ -119,4 +119,9 @@ public class ModeDeReglementSQLElement extends ComptaSQLConfElement {
         }
         return cal.getTime();
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".mode";
+    }
 }

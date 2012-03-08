@@ -25,10 +25,13 @@ import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.StringInputStream;
+import org.openconcerto.utils.StringUtils;
+import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.Zip;
 import org.openconcerto.utils.ZippedFilesProcessor;
 import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.io.DataInputStream;
 import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.Validator;
 
@@ -207,6 +210,103 @@ public class ODPackage {
         return pkg;
     }
 
+    /**
+     * Read from the input stream into memory and close it.
+     * 
+     * @param ins the package or flat XML.
+     * @param name the name, can be <code>null</code>.
+     * @return a package containing the document.
+     * @throws IOException if an error occurs.
+     */
+    public static ODPackage createFromStream(final InputStream ins, final String name) throws IOException {
+        try {
+            return create(null, ins, name);
+        } finally {
+            ins.close();
+        }
+    }
+
+    public static ODPackage createFromFile(final File f) throws IOException {
+        final FileInputStream ins = new FileInputStream(f);
+        try {
+            return create(f, ins, f.getName());
+        } finally {
+            ins.close();
+        }
+    }
+
+    private static final int mimetypeZipEndOffset = 250;
+
+    // ATTN ins is *not* always closed
+    private static ODPackage create(final File f, InputStream ins, final String name) throws IOException {
+        // first use extension
+        final Tuple2<ContentTypeVersioned, Boolean> fromExt = name != null ? ContentTypeVersioned.fromExtension(FileUtils.getExtension(name)) : Tuple2.<ContentTypeVersioned, Boolean> nullInstance();
+        ContentTypeVersioned contentType = fromExt.get0();
+        Boolean flat = fromExt.get1();
+        // then content
+        if (flat == null) {
+            ins = new BufferedInputStream(ins);
+            final String xmlStart = "<?xml";
+            if (ins.markSupported())
+                ins.mark(Math.max(xmlStart.length(), mimetypeZipEndOffset));
+            else
+                throw new IllegalStateException("Mark unsupported on " + ins);
+            final byte[] buffer = new byte[xmlStart.length()];
+            ins.read(buffer);
+            if (xmlStart.equals(new String(buffer, StringUtils.ASCII))) {
+                // would have to parse the whole document
+                contentType = null;
+                flat = true;
+            } else {
+                ins.reset();
+                contentType = getType(ins);
+                if (contentType != null)
+                    flat = false;
+            }
+            ins.reset();
+        }
+        final ODPackage res;
+        if (flat == null) {
+            res = null;
+        } else if (flat) {
+            try {
+                res = (f != null ? ODSingleXMLDocument.createFromFile(f) : ODSingleXMLDocument.createFromStream(ins)).getPackage();
+            } catch (JDOMException e) {
+                throw new IOException(e);
+            }
+        } else {
+            res = f != null ? new ODPackage(f) : new ODPackage(ins);
+        }
+        assert contentType == null || contentType == res.getContentType();
+        return res;
+    }
+
+    private static ContentTypeVersioned getType(final InputStream in) throws IOException {
+        final DataInputStream ins = new DataInputStream(in, true);
+        if (ins.read() != 'P' || ins.read() != 'K')
+            return null;
+        if (ins.skip(16) != 16)
+            return null;
+        final int compressedSize = ins.readInt();
+        final int uncompressedSize = ins.readInt();
+        // not a valid package and beyond that we would need to actually inflate the data
+        if (compressedSize != uncompressedSize)
+            return null;
+        final short fnameLength = ins.readShort();
+        if (fnameLength != MIMETYPE_ENTRY.length())
+            return null;
+        final short extraLength = ins.readShort();
+        final byte[] array = new byte[Math.max(fnameLength, compressedSize)];
+        ins.read(array, 0, fnameLength);
+        if (!new String(array, 0, fnameLength, StringUtils.ASCII).equals(MIMETYPE_ENTRY))
+            return null;
+        if (ins.skip(extraLength) != extraLength)
+            return null;
+        ins.read(array, 0, compressedSize);
+        final String data = new String(array, 0, compressedSize, MIMETYPE_ENC);
+        return ContentTypeVersioned.fromMime(data);
+    }
+
     static private XMLVersion getVersion(final XMLFormatVersion fv, final ContentTypeVersioned ct) {
         final XMLVersion v;
         if (ct == null && fv == null)
@@ -247,6 +347,12 @@ public class ODPackage {
         this.doc = null;
     }
 
+    /**
+     * Read from the input stream into memory and close it.
+     * 
+     * @param ins the package.
+     * @throws IOException if <code>ins</code> couldn't be read.
+     */
     public ODPackage(InputStream ins) throws IOException {
         this();
 

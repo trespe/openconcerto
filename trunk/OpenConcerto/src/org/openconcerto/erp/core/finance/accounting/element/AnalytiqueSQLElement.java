@@ -905,4 +905,9 @@ public class AnalytiqueSQLElement extends ComptaSQLConfElement {
             }
         }
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".analytic";
+    }
 }

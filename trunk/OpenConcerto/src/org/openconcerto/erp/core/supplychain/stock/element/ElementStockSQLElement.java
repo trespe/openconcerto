@@ -114,4 +114,9 @@ public class ElementStockSQLElement extends ComptaSQLConfElement {
 
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".item";
+    }
 }

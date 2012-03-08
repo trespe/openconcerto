@@ -24,6 +24,7 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLType;
 import org.openconcerto.sql.request.MutableRowItemView;
+import org.openconcerto.sql.request.RowItemDesc;
 import org.openconcerto.sql.request.RowNotFound;
 import org.openconcerto.sql.request.SQLForeignRowItemView;
 import org.openconcerto.sql.request.SQLRowItemView;
@@ -47,6 +48,7 @@ import org.openconcerto.ui.valuewrapper.ValueWrapperFactory;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.cc.Transformer;
 import org.openconcerto.utils.checks.EmptyListener;
@@ -56,6 +58,7 @@ import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Rectangle;
@@ -74,10 +77,12 @@ import java.util.Set;
 
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
+import javax.swing.border.TitledBorder;
 import javax.swing.text.JTextComponent;
 
 /**
@@ -493,9 +498,13 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         return ValidState.create(res, CollectionUtils.join(pbs, "\n"));
     }
 
-    protected static final String getDesc(final SQLRowItemView obj) {
-        final String desc = obj.getDescription();
-        return desc == null ? obj.getSQLName() : desc;
+    protected final String getDesc(final SQLRowItemView obj) {
+        return getDesc(obj.getSQLName(), getRIVDesc(obj.getSQLName())).get0();
+    }
+
+    static protected final Tuple2<String, Boolean> getDesc(final String itemName, final RowItemDesc desc) {
+        final boolean emptyLabel = desc.getLabel() == null || desc.getLabel().trim().length() == 0;
+        return Tuple2.create(emptyLabel ? itemName : desc.getLabel(), !emptyLabel);
     }
 
     /*
@@ -677,7 +686,45 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     }
 
     public final String getLabelFor(String field) {
-        return Configuration.getTranslator(this.getTable()).getDescFor(this.getTable(), field).getLabel();
+        return getDesc(field, getRIVDesc(field)).get0();
+    }
+
+    public final RowItemDesc getRIVDesc(String field) {
+        return Configuration.getInstance().getTranslator().getDescFor(this.getTable(), getCode(), getElement().getMDPath(), field);
+    }
+
+    public final void setRIVDesc(String itemName, RowItemDesc desc) {
+        try {
+            Configuration.getTranslator(this.getTable()).storeDescFor(this.getTable(), getCode(), itemName, desc);
+            updateUI(itemName, desc);
+        } catch (SQLException e) {
+            ExceptionHandler.handle(this, "Impossible d'enregistrer la documentation de " + itemName, e);
+        }
+    }
+
+    protected void updateUI(final String itemName, final RowItemDesc desc) {
+    }
+
+    static protected void updateUI(final String itemName, final JComponent label, final RowItemDesc desc) {
+        updateUI(itemName, label, desc, null);
+    }
+
+    static protected void updateUI(final String itemName, final JComponent label, final RowItemDesc desc, final Color emptyLabelColor) {
+        label.setToolTipText(desc.getDocumentation().trim().length() == 0 ? null : desc.getDocumentation());
+        final Tuple2<String, Boolean> tuple = getDesc(itemName, desc);
+        final String s = tuple.get0();
+        if (label instanceof JLabel) {
+            ((JLabel) label).setText(s);
+        } else if (label instanceof JTextComponent) {
+            ((JTextComponent) label).setText(s);
+        } else if (label.getBorder() instanceof TitledBorder) {
+            ((TitledBorder) label.getBorder()).setTitle(s);
+        } else {
+            Log.get().warning("Couldn't change label for " + itemName);
+        }
+        if (emptyLabelColor != null && !tuple.get1())
+            label.setForeground(emptyLabelColor);
+        label.repaint();
     }
 
     public void doNotShow(SQLField f) {

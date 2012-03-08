@@ -16,13 +16,21 @@
  */
 package org.openconcerto.sql.changer.convert;
 
+import static java.util.Collections.singletonList;
 import org.openconcerto.sql.changer.Changer;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTable.Index;
 import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.SQLKey;
+import org.openconcerto.sql.utils.AlterTable;
+import org.openconcerto.sql.utils.ChangeTable;
+import org.openconcerto.sql.utils.ChangeTable.ClauseType;
+import org.openconcerto.sql.utils.ChangeTable.DeferredClause;
 
 import java.sql.SQLException;
 import java.util.HashSet;
@@ -44,30 +52,53 @@ public class AddFK extends Changer<DBRoot> {
 
         for (final SQLTable t : tables) {
             final Set<Link> foreignLinks = t.getDBSystemRoot().getGraph().getForeignLinks(t);
-            if (foreignLinks.size() > 0) {
+            final Set<List<String>> realFKs = new HashSet<List<String>>();
+            for (final Link link : foreignLinks) {
+                // if name is null, link is virtual
+                if (link.getName() != null)
+                    realFKs.add(link.getCols());
+            }
+            final Set<List<String>> allFKs = new HashSet<List<String>>(realFKs);
+            for (final String virtualFK : SQLKey.foreignKeys(t))
+                allFKs.add(singletonList(virtualFK));
+
+            if (allFKs.size() > 0) {
                 // indexes already created
                 final Set<List<String>> indexes = new HashSet<List<String>>();
                 for (final Index i : t.getIndexes()) {
                     indexes.add(i.getCols());
                 }
 
-                for (final Link link : foreignLinks) {
-                    if (link.getName() == null) {
-                        final String s = this.getAddFK(link);
-                        System.err.println(s);
-                        this.getDS().execute(s);
-                    } else {
-                        System.err.println("pas besoin pour " + link);
+                final AlterTable alter = new AlterTable(t);
+                for (final List<String> cols : allFKs) {
+                    if (!realFKs.contains(cols)) {
+                        final SQLField key = t.getField(cols.get(0));
+                        final SQLTable foreignT = SQLKey.keyToTable(key);
+                        alter.addForeignConstraint(cols, new SQLName(foreignT.getName()), false, singletonList(t.getKey().getName()));
+                        System.err.println("ajout de " + key);
                     }
                     // MySQL automatically creates an index with a foreign key,
                     // but ours replace it
-                    if (!indexes.contains(link.getCols())) {
-                        final String s = this.getSyntax().getCreateIndex("_fki", link.getSource().getSQLName(), link.getCols());
-                        System.err.println(s);
-                        this.getDS().execute(s);
+                    if (!indexes.contains(cols)) {
+                        alter.addOutsideClause(new DeferredClause() {
+                            @Override
+                            public String asString(ChangeTable<?> ct, SQLName tableName) {
+                                return getSyntax().getCreateIndex("_fki", tableName, cols);
+                            }
+
+                            @Override
+                            public ClauseType getType() {
+                                return ClauseType.ADD_INDEX;
+                            }
+                        });
+                        System.err.println("ajout d'index pour " + cols);
                     } else {
-                        System.err.println("pas besoin d'index pour " + link);
+                        System.err.println("pas besoin d'index pour " + cols);
                     }
+                }
+                if (!alter.isEmpty()) {
+                    this.getDS().execute(alter.asString());
+                    t.getSchema().updateVersion();
                 }
             }
         }

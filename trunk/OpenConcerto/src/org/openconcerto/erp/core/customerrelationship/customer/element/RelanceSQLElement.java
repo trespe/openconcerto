@@ -267,4 +267,9 @@ public class RelanceSQLElement extends ComptaSQLConfElement {
 
         };
     }
+
+    @Override
+    protected String createCode() {
+        return super.createCodeFromPackage() + ".chaseletter";
+    }
 }

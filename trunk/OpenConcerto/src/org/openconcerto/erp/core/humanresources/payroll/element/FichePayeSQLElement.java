@@ -1038,4 +1038,9 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         int annee = rowFiche.getInt("ANNEE");
         return ((anneeClot == 0) ? true : annee > anneeClot) || ((moisClot == 0 || moisClot == 13) ? true : mois > moisClot);
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".payslip";
+    }
 }

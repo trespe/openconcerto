@@ -290,4 +290,9 @@ public class CommercialSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return super.createCodeFromPackage() + ".salesman";
+    }
 }

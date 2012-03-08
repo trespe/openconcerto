@@ -26,7 +26,6 @@ import java.util.List;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 
-
 public class CumulsCongesSQLElement extends ComptaSQLConfElement {
     public CumulsCongesSQLElement() {
         super("CUMULS_CONGES", "un cumul de congés", "cumuls de congés");
@@ -84,5 +83,10 @@ public class CumulsCongesSQLElement extends ComptaSQLConfElement {
                 this.addSQLObject(textRestant, "RESTANT");
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".vacation.total";
     }
 }

@@ -13,11 +13,14 @@
  
  package org.openconcerto.erp.core.humanresources.payroll.element;
 
-
 public class CodeDroitContratSQLElement extends AbstractCodeSQLElement {
 
     public CodeDroitContratSQLElement() {
         super("CODE_DROIT_CONTRAT", "un code emploi", "codes emplois");
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".rights.code";
+    }
 }

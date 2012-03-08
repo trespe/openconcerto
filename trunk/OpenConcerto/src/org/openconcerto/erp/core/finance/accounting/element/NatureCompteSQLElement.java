@@ -52,4 +52,9 @@ public class NatureCompteSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".account.kind";
+    }
 }

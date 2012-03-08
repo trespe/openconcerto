@@ -90,4 +90,9 @@ public class PaysSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return "country";
+    }
 }

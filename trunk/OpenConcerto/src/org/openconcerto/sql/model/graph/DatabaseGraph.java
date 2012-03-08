@@ -32,6 +32,7 @@ import org.openconcerto.sql.model.SQLServer;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
@@ -70,7 +71,14 @@ import org.jgrapht.graph.DirectedMultigraph;
  */
 public class DatabaseGraph extends BaseGraph {
 
-    private static final String XML_VERSION = "20090210-1530";
+    /**
+     * Whether to infer foreign constraints from fields' names.
+     * 
+     * @see SQLKey
+     */
+    public static final String INFER_FK = "org.openconcerto.sql.graph.inferFK";
+
+    private static final String XML_VERSION = "20120228-1810";
     private static final String FILENAME = "graph.xml";
 
     private final DBSystemRoot base;
@@ -161,8 +169,8 @@ public class DatabaseGraph extends BaseGraph {
         return res;
     }
 
-    private final void addLink(final List<SQLField> from, final List<SQLField> to, String foreignKeyName) {
-        addLink(new Link(from, to, foreignKeyName));
+    private final void addLink(final List<SQLField> from, final List<SQLField> to, String foreignKeyName, Rule updateRule, Rule deleteRule) {
+        addLink(new Link(from, to, foreignKeyName, updateRule, deleteRule));
     }
 
     private final void addLink(final Link l) {
@@ -181,6 +189,8 @@ public class DatabaseGraph extends BaseGraph {
         // accumulators for multi-field foreign key
         final List<SQLField> from = new ArrayList<SQLField>();
         final List<SQLField> to = new ArrayList<SQLField>();
+        Rule updateRule = null;
+        Rule deleteRule = null;
         String name = null;
         final Iterator ikIter = importedKeys.iterator();
         while (ikIter.hasNext()) {
@@ -224,24 +234,31 @@ public class DatabaseGraph extends BaseGraph {
             if (seq == 1) {
                 // if we start a new link add the current one
                 if (from.size() > 0)
-                    addLink(from, to, name);
+                    addLink(from, to, name, updateRule, deleteRule);
                 from.clear();
                 to.clear();
             }
             from.add(key);
             to.add(foreignTable.getField(foreignTableColName));
+            // "UPDATE_RULE"
+            updateRule = Rule.fromShort(((Number) m[9]).shortValue());
+            // "DELETE_RULE"
+            deleteRule = Rule.fromShort(((Number) m[10]).shortValue());
             name = foreignKeyName;
+            // MAYBE DEFERRABILITY
         }
         if (from.size() > 0)
-            addLink(from, to, name);
+            addLink(from, to, name, updateRule, deleteRule);
 
-        final Set<String> lexicalFKs = SQLKey.foreignKeys(table);
-        // already done
-        lexicalFKs.removeAll(metadataFKs);
-        // MAYBE option to print out foreign keys w/o constraint
-        for (final String keyName : lexicalFKs) {
-            final SQLField key = table.getField(keyName);
-            addLink(singletonList(key), singletonList(SQLKey.keyToTable(key).getKey()), null);
+        if (Boolean.getBoolean(INFER_FK)) {
+            final Set<String> lexicalFKs = SQLKey.foreignKeys(table);
+            // already done
+            lexicalFKs.removeAll(metadataFKs);
+            // MAYBE option to print out foreign keys w/o constraint
+            for (final String keyName : lexicalFKs) {
+                final SQLField key = table.getField(keyName);
+                addLink(singletonList(key), singletonList(SQLKey.keyToTable(key).getKey()), null, null, null);
+            }
         }
     }
 

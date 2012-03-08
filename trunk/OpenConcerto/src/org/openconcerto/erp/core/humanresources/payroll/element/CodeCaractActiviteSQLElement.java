@@ -13,11 +13,14 @@
  
  package org.openconcerto.erp.core.humanresources.payroll.element;
 
-
 public class CodeCaractActiviteSQLElement extends AbstractCodeSQLElement {
 
     public CodeCaractActiviteSQLElement() {
         super("CODE_CARACT_ACTIVITE", "un code caractéristique activité", "codes caractéristiques activités");
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".convention.code";
+    }
 }

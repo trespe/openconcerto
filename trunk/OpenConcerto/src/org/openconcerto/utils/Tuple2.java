@@ -25,6 +25,12 @@ import java.util.List;
  * @param <B> type of second value.
  */
 public class Tuple2<A, B> {
+    private static final Tuple2<Object, Object> NULL = new Tuple2<Object, Object>(null, null);
+
+    @SuppressWarnings("unchecked")
+    public static final <A, B> Tuple2<A, B> nullInstance() {
+        return (Tuple2<A, B>) NULL;
+    }
 
     // just to make the code shorter
     public static final <A, B> Tuple2<A, B> create(A a, B b) {

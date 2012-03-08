@@ -62,4 +62,9 @@ public class PosteAnalytiqueSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".analytic.set";
+    }
 }

@@ -70,4 +70,9 @@ public class AvoirClientElementSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return super.createCodeFromPackage() + ".item";
+    }
 }

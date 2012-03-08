@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.element;
 
+import org.openconcerto.sql.request.RowItemDesc;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.Dimension;
@@ -22,8 +23,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
@@ -31,30 +32,42 @@ import javax.swing.JTextField;
 
 public class DocumentationEditorFrame extends JFrame {
 
-    public DocumentationEditorFrame(final GroupSQLComponent groupSQLComponent, final String id, String doc) {
+    public DocumentationEditorFrame(final BaseSQLComponent sqlComponent, final String itemName) {
         this.setTitle("Documentation");
-        if (doc == null) {
-            doc = "";
-        }
-        JPanel p = new JPanel();
-        JComponent label = groupSQLComponent.createLabel(id);
-        p.setLayout(new GridBagLayout());
+        final JPanel p = new JPanel(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
 
         c.weightx = 1;
         c.gridwidth = 2;
         c.fill = GridBagConstraints.NONE;
-        p.add(label, c);
+        p.add(new JLabel(itemName), c);
 
-        // Editor
-        final JTextArea txt = new JTextArea();
-        txt.setFont(new JTextField().getFont());
-        txt.setText(doc);
+        final RowItemDesc rivDesc = sqlComponent.getRIVDesc(itemName);
+
+        // TODO JLabel for each field
+
+        // Label Editor
+        final JTextField labelTxt = new JTextField();
         c.weighty = 1;
         c.gridy++;
         c.fill = GridBagConstraints.BOTH;
-        txt.setText(groupSQLComponent.getDocumentation(id));
-        final JScrollPane comp = new JScrollPane(txt);
+        labelTxt.setText(rivDesc.getLabel());
+        p.add(labelTxt, c);
+        // Title Editor
+        final JTextField titleTxt = new JTextField();
+        c.weighty = 1;
+        c.gridy++;
+        c.fill = GridBagConstraints.BOTH;
+        titleTxt.setText(rivDesc.getTitleLabel());
+        p.add(titleTxt, c);
+        // Editor
+        final JTextArea docTxt = new JTextArea();
+        docTxt.setFont(new JTextField().getFont());
+        c.weighty = 1;
+        c.gridy++;
+        c.fill = GridBagConstraints.BOTH;
+        docTxt.setText(rivDesc.getDocumentation());
+        final JScrollPane comp = new JScrollPane(docTxt);
         comp.setMinimumSize(new Dimension(400, 300));
         comp.setPreferredSize(new Dimension(400, 300));
         p.add(comp, c);
@@ -77,7 +90,7 @@ public class DocumentationEditorFrame extends JFrame {
         bOk.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                groupSQLComponent.saveDocumentation(id, txt.getText());
+                sqlComponent.setRIVDesc(itemName, new RowItemDesc(labelTxt.getText(), titleTxt.getText(), docTxt.getText()));
                 dispose();
             }
         });

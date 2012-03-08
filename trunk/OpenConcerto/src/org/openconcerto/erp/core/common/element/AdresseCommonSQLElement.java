@@ -48,4 +48,9 @@ public class AdresseCommonSQLElement extends ConfSQLElement {
     public SQLComponent createComponent() {
         return new AdresseCommonSQLComponent(this);
     }
+
+    @Override
+    protected String createCode() {
+        return "common.address";
+    }
 }

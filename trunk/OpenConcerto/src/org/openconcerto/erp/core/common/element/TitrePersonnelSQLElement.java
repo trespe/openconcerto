@@ -84,4 +84,9 @@ public class TitrePersonnelSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return "civility";
+    }
 }

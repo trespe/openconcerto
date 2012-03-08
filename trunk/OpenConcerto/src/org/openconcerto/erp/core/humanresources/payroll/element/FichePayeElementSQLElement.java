@@ -22,7 +22,6 @@ import java.util.List;
 
 import javax.swing.JTextField;
 
-
 public class FichePayeElementSQLElement extends ComptaSQLConfElement {
     public FichePayeElementSQLElement() {
         super("FICHE_PAYE_ELEMENT", "un élément de fiche de paye", "éléments de fiche de paye");
@@ -74,5 +73,10 @@ public class FichePayeElementSQLElement extends ComptaSQLConfElement {
 
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".payslip.item";
     }
 }

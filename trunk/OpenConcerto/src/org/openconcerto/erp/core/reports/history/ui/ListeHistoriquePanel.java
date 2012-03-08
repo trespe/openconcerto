@@ -149,15 +149,6 @@ public class ListeHistoriquePanel extends JPanel {
                     liste.getListe().getRequest().setWhere(w);
                 }
                 liste.getListe().setSQLEditable(false);
-                liste.getListe().getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
-
-                    @Override
-                    public SQLSelect transformChecked(SQLSelect input) {
-                        // TODO Raccord de méthode auto-généré
-                        System.err.println(input);
-                        return input;
-                    }
-                });
                 // Set renderer
                 setRenderer(liste);
 

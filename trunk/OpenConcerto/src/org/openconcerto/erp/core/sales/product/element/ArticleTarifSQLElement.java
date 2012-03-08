@@ -64,4 +64,9 @@ public class ArticleTarifSQLElement extends ComptaSQLConfElement {
             }
         };
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".price";
+    }
 }

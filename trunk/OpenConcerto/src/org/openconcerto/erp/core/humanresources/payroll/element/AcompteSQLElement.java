@@ -91,7 +91,6 @@ public class AcompteSQLElement extends ComptaSQLConfElement {
                 c.fill = GridBagConstraints.NONE;
                 c.weightx = 0;
                 this.add(this.textMontant, c);
-               
 
                 this.addRequiredSQLObject(this.comboSelSal, "ID_SALARIE");
                 this.addRequiredSQLObject(this.textMontant, "MONTANT");
@@ -127,5 +126,10 @@ public class AcompteSQLElement extends ComptaSQLConfElement {
             }
 
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".advance";
     }
 }

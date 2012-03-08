@@ -13,11 +13,14 @@
  
  package org.openconcerto.erp.core.humanresources.payroll.element;
 
-
 public class CodeStatutProfSQLElement extends AbstractCodeSQLElement {
 
     public CodeStatutProfSQLElement() {
         super("CODE_STATUT_PROF", "un code statut professionnel", "codes statuts professionnels");
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".convention.job.code";
+    }
 }

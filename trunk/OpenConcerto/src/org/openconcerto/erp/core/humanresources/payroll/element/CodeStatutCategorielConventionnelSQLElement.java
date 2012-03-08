@@ -19,4 +19,8 @@ public class CodeStatutCategorielConventionnelSQLElement extends AbstractCodeSQL
         super("CODE_STATUT_CAT_CONV", "un code statut catégoriel conventionnel", "codes statuts catégoriels conventionnel");
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".convention.status.code";
+    }
 }

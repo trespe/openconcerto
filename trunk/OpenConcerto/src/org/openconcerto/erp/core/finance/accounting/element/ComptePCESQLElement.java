@@ -319,4 +319,9 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
         final String numeroDefault = getComptePceDefault(name);
         return getId(numeroDefault);
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".code.enterprise";
+    }
 }

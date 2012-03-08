@@ -723,7 +723,7 @@ public class OOgenerationXML {
             pathDest.mkdirs();
         }
 
-        fDest = SheetUtils.convertToOldFile(fileName, pathDest, fDest);
+        fDest = SheetUtils.convertToOldFile(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete(), fileName, pathDest, fDest);
 
         // Sauvegarde
         try {

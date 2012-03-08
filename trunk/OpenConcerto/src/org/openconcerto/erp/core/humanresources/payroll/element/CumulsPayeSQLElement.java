@@ -26,7 +26,6 @@ import java.util.List;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
 
-
 public class CumulsPayeSQLElement extends ComptaSQLConfElement {
     public CumulsPayeSQLElement() {
         super("CUMULS_PAYE", "un cumul de paye", "cumuls de paye");
@@ -117,5 +116,10 @@ public class CumulsPayeSQLElement extends ComptaSQLConfElement {
                 this.addSQLObject(textSalBrut, "SAL_BRUT_C");
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".total";
     }
 }

@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLTable.Index;
+import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
 import org.openconcerto.sql.utils.SQLUtils;
@@ -155,6 +156,13 @@ class SQLSyntaxMySQL extends SQLSyntax {
     @Override
     public String getDropFK() {
         return "DROP FOREIGN KEY ";
+    }
+
+    @Override
+    protected String getRuleSQL(Rule r) {
+        if (r == Rule.SET_DEFAULT)
+            throw new UnsupportedOperationException(r + " isn't supported");
+        return super.getRuleSQL(r);
     }
 
     @Override

@@ -1263,6 +1263,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
                 return "unequal path size : " + thisPath + " != " + oPath;
             if (!thisPath.getName().equals(oPath.getName()))
                 return "unequal referenced table name : " + thisPath.getName() + " != " + oPath.getName();
+            if (!l.getUpdateRule().equals(ol.getUpdateRule()))
+                return "unequal update rule for " + l + ": " + l.getUpdateRule() + " != " + ol.getUpdateRule();
+            if (!l.getDeleteRule().equals(ol.getDeleteRule()))
+                return "unequal delete rule for " + l + ": " + l.getDeleteRule() + " != " + ol.getDeleteRule();
         }
 
         // indexes

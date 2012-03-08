@@ -13,6 +13,9 @@
  
  package org.openconcerto.erp.generationDoc;
 
+import org.openconcerto.erp.preferences.GenerationDocGlobalPreferencePanel;
+import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Graphics2D;
@@ -38,9 +41,9 @@ import com.lowagie.text.pdf.PdfWriter;
 
 public class SheetUtils {
 
-    public static File convertToOldFile(String fileName, File pathDest, File fDest) {
+    public static File convertToOldFile(DBRoot root, String fileName, File pathDest, File fDest) {
         // FIXME: !!!!!!!!
-        return convertToOldFile(fileName, pathDest, fDest, ".ods");
+        return convertToOldFile(root, fileName, pathDest, fDest, ".ods");
     }
 
     /**
@@ -51,8 +54,9 @@ public class SheetUtils {
      * @param fDest
      * @return
      */
-    public static File convertToOldFile(String fileName, File pathDest, File fDest, String extension) {
-        if (fDest.exists()) {
+    public static File convertToOldFile(DBRoot root, String fileName, File pathDest, File fDest, String extension) {
+        SQLPreferences prefs = new SQLPreferences(root);
+        if (prefs.getBoolean(GenerationDocGlobalPreferencePanel.HISTORIQUE, true) && fDest.exists()) {
             int i = 0;
             String destName = fileName;
             File pathOld = new File(pathDest, "Historique");

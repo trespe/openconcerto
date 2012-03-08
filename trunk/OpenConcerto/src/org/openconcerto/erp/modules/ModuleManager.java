@@ -101,6 +101,10 @@ public class ModuleManager {
         return instance;
     }
 
+    private static String getMDVariant(ModuleFactory f) {
+        return f.getID();
+    }
+
     // only one version of each module
     private final Map<String, ModuleFactory> factories;
     private final Map<String, AbstractModule> runningModules;
@@ -782,15 +786,24 @@ public class ModuleManager {
                 throw new Exception("Couldn't install module " + module, e);
             }
             try {
+                final Set<SQLTable> tablesWithMD;
+                final String mdVariant = getMDVariant(module.getFactory());
                 final InputStream labels = module.getClass().getResourceAsStream("labels.xml");
                 if (labels != null) {
                     try {
-                        getConf().getTranslator().load(getRoot(), labels);
+                        // use module ID as variant to avoid overwriting
+                        tablesWithMD = getConf().getTranslator().load(getRoot(), mdVariant, labels);
                     } finally {
                         labels.close();
                     }
+                } else {
+                    tablesWithMD = Collections.emptySet();
                 }
                 this.registerSQLElements(module);
+                // insert just loaded labels into the search path
+                for (final SQLTable tableWithDoc : tablesWithMD) {
+                    this.getDirectory().getElement(tableWithDoc).addToMDPath(mdVariant);
+                }
                 this.setupComponents(module);
                 module.start();
             } catch (Exception e) {
@@ -846,6 +859,12 @@ public class ModuleManager {
         final AbstractModule m = this.runningModules.remove(id);
         m.stop();
         this.tearDownComponents(m);
+        // perhaps record which element this module modified in start()
+        final String mdVariant = getMDVariant(f);
+        for (final SQLElement elem : this.getDirectory().getElements()) {
+            elem.removeFromMDPath(mdVariant);
+        }
+        getConf().getTranslator().removeDescFor(null, null, mdVariant, null);
         if (persistent)
             getRunningIDsPrefs().remove(m.getFactory().getID());
         assert !this.isModuleRunning(id);

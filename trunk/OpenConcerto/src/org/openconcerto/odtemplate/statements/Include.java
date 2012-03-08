@@ -143,7 +143,7 @@ public class Include extends Statement {
         final ODSingleXMLDocument res;
         final CacheResult<ODSingleXMLDocument> cached = this.cache.check(ref);
         if (cached.getState() == CacheResult.State.NOT_IN_CACHE) {
-            res = ODSingleXMLDocument.createFromFile(ref);
+            res = ODSingleXMLDocument.createFromPackage(ref);
             this.cache.put(ref, res, Collections.<File> emptySet());
         } else {
             res = cached.getRes();

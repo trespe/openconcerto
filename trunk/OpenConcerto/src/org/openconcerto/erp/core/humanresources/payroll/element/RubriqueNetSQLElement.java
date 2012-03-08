@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.core.common.ui.SQLJavaEditor;
 import org.openconcerto.erp.core.humanresources.payroll.component.FormuleTreeNode;
+import org.openconcerto.erp.core.humanresources.payroll.component.RubriqueSQLComponent;
 import org.openconcerto.erp.core.humanresources.payroll.component.VariableTree;
 import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.ElementSQLObject;
@@ -348,5 +349,10 @@ public class RubriqueNetSQLElement extends ConfSQLElement {
                 });
             }
         };
+    }
+
+    @Override
+    protected String createCode() {
+        return "humanresources.payroll.category";
     }
 }

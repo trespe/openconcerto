@@ -919,4 +919,9 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             }
         }
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".sale";
+    }
 }

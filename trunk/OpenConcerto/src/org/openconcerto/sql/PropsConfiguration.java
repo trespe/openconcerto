@@ -13,7 +13,6 @@
  
  package org.openconcerto.sql;
 
-import org.openconcerto.sql.element.RowItemViewMetadata;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.element.SQLElementDirectory.DirectoryListener;
@@ -176,8 +175,6 @@ public class PropsConfiguration extends Configuration {
     // SSL
     private Session conn;
     private boolean isUsingSSH;
-
-    protected RowItemViewMetadata metadata;
 
     public PropsConfiguration() throws IOException {
         this(new File("fwk_SQL.properties"), DEFAULTS);
@@ -889,9 +886,5 @@ public class PropsConfiguration extends Configuration {
 
     private final void setWD(final File dir) {
         this.wd = dir;
-    }
-
-    public RowItemViewMetadata getMetadata() {
-        return metadata;
     }
 }

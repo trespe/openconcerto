@@ -13,11 +13,14 @@
  
  package org.openconcerto.erp.core.humanresources.payroll.element;
 
-
 public class CodeIdccSQLElement extends AbstractCodeSQLElement {
 
     public CodeIdccSQLElement() {
         super("IDCC", "un code de convention", "codes de conventions");
     }
 
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".conventions.code";
+    }
 }

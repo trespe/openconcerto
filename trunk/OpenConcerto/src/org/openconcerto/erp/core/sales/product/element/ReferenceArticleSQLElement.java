@@ -324,4 +324,9 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         return (rowVals1.getObject("CODE").equals(rowVals2.getObject("CODE")) && rowVals1.getString("VALEUR_METRIQUE_1").equals(rowVals2.getString("VALEUR_METRIQUE_1"))
                 && rowVals1.getString("VALEUR_METRIQUE_2").equals(rowVals2.getString("VALEUR_METRIQUE_2")) && rowVals1.getString("VALEUR_METRIQUE_3").equals(rowVals2.getString("VALEUR_METRIQUE_3")));
     }
+
+    @Override
+    protected String createCode() {
+        return createCodeFromPackage() + ".ref";
+    }
 }
