@@ -45,6 +45,7 @@ import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StringUtils;
+import org.openconcerto.utils.ThreadFactory;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.IdentityHashSet;
@@ -67,11 +68,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.Executor;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
 import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
+
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
 
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.EdgeFactory;
@@ -82,9 +90,12 @@ import org.jgrapht.graph.SimpleDirectedGraph;
  * 
  * @author Sylvain CUAZ
  */
+@ThreadSafe
 public class ModuleManager {
 
     private static final Logger L = Logger.getLogger(ModuleManager.class.getPackage().getName());
+    private static final Executor exec = new ThreadPoolExecutor(0, 2, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new ThreadFactory(ModuleManager.class.getSimpleName()
+            + " executor thread "));
 
     private static final int MIN_VERSION = 0;
     private static final String MODULE_COLNAME = "MODULE_NAME";
@@ -92,7 +103,9 @@ public class ModuleManager {
     private static final String TABLE_COLNAME = "TABLE";
     private static final String FIELD_COLNAME = "FIELD";
     private static final String ISKEY_COLNAME = "KEY";
-    private static final String FWK_MODULE_TABLENAME = "FWK_MODULE_METADATA";
+    // Don't use String literals for the synchronized blocks
+    private static final String FWK_MODULE_TABLENAME = new String("FWK_MODULE_METADATA");
+    private static final String fileMutex = new String("modules");
     private static ModuleManager instance = null;
 
     public static synchronized ModuleManager getInstance() {
@@ -106,13 +119,26 @@ public class ModuleManager {
     }
 
     // only one version of each module
+    @GuardedBy("factories")
     private final Map<String, ModuleFactory> factories;
+    // linked with dependencyGraph and to avoid starting twice the same module
+    // we synchronize the whole install/start and stop/uninstall
+    @GuardedBy("this")
     private final Map<String, AbstractModule> runningModules;
+    // in fact it is also already guarded by "this"
+    @GuardedBy("modulesElements")
     private final Map<String, Collection<SQLElement>> modulesElements;
+    // only in EDT
     private final Map<String, ComponentsContext> modulesComponents;
+    // graph of running modules
+    @GuardedBy("this")
     private final DirectedGraph<ModuleFactory, DirectedEdge<ModuleFactory>> dependencyGraph;
 
+    // perhaps add another mutex so we can query root or conf without having to wait for modules to
+    // install/uninstall
+    @GuardedBy("this")
     private DBRoot root;
+    @GuardedBy("this")
     private Configuration conf;
 
     public ModuleManager() {
@@ -252,7 +278,7 @@ public class ModuleManager {
         return true;
     }
 
-    // *** modules (in EDT)
+    // *** modules (thread-safe)
 
     /**
      * Call the passed closure at a time when modules can be started. In particular this manager has
@@ -264,7 +290,12 @@ public class ModuleManager {
         MainFrame.invoke(new Runnable() {
             @Override
             public void run() {
-                c.executeChecked(ModuleManager.this);
+                exec.execute(new Runnable() {
+                    @Override
+                    public void run() {
+                        c.executeChecked(ModuleManager.this);
+                    }
+                });
             }
         });
     }
@@ -308,6 +339,27 @@ public class ModuleManager {
     }
 
     /**
+     * Allow to access certain methods without a full {@link #setup(DBRoot, Configuration)}. If
+     * setup() is subsequently called it must be passed the same root instance.
+     * 
+     * @param root the root.
+     * @throws IllegalStateException if already set.
+     * @see #getDBInstalledModules()
+     * @see #getCreatedItems(String)
+     */
+    public synchronized final void setRoot(final DBRoot root) {
+        if (this.root != root) {
+            if (this.root != null)
+                throw new IllegalStateException("Root already set");
+            this.root = root;
+        }
+    }
+
+    public synchronized final boolean isSetup() {
+        return this.getRoot() != null && this.getConf() != null;
+    }
+
+    /**
      * Initialise the module manager.
      * 
      * @param root the root where the modules install.
@@ -317,23 +369,25 @@ public class ModuleManager {
     public synchronized final void setup(final DBRoot root, final Configuration conf) throws Exception {
         if (root == null || conf == null)
             throw new NullPointerException();
-        if (this.root != null || getConf() != null)
+        if (this.isSetup())
             throw new IllegalStateException("Already setup");
         // modulesElements can be non empty, if a previous setup() failed
         assert this.runningModules.isEmpty() && this.modulesComponents.isEmpty() : "Modules cannot start without root & conf";
-        this.root = root;
+        final DBRoot currentRoot = this.getRoot();
+        this.setRoot(root);
         this.conf = conf;
         try {
             this.registerRequiredModules();
         } catch (Exception e) {
             // allow setup() to be called again
-            this.root = null;
+            this.root = currentRoot;
             this.conf = null;
             throw e;
         }
         assert this.runningModules.isEmpty() && this.modulesComponents.isEmpty() : "registerRequiredModules() should not start modules";
     }
 
+    // Preferences is thread-safe
     private Preferences getPrefs() {
         // modules are installed per business entity (perhaps we could add a per user option, i.e.
         // for all businesses of all databases)
@@ -360,15 +414,17 @@ public class ModuleManager {
     }
 
     protected final ModuleVersion getModuleVersionInstalledLocally(String id) {
-        final File versionFile = getLocalVersionFile(id);
-        if (versionFile.exists()) {
-            try {
-                return new ModuleVersion(Long.valueOf(FileUtils.read(versionFile)));
-            } catch (IOException e) {
-                throw new IllegalStateException("Couldn't get installed version of " + id, e);
+        synchronized (fileMutex) {
+            final File versionFile = getLocalVersionFile(id);
+            if (versionFile.exists()) {
+                try {
+                    return new ModuleVersion(Long.valueOf(FileUtils.read(versionFile)));
+                } catch (IOException e) {
+                    throw new IllegalStateException("Couldn't get installed version of " + id, e);
+                }
+            } else {
+                return null;
             }
-        } else {
-            return null;
         }
     }
 
@@ -377,31 +433,35 @@ public class ModuleManager {
     }
 
     public final Map<String, ModuleVersion> getModulesVersionInstalledLocally() {
-        final File dir = getLocalDirectory();
-        if (!dir.isDirectory())
-            return Collections.emptyMap();
-        final Map<String, ModuleVersion> res = new HashMap<String, ModuleVersion>();
-        for (final File d : dir.listFiles()) {
-            final String id = d.getName();
-            final ModuleVersion version = getModuleVersionInstalledLocally(id);
-            if (version != null)
-                res.put(id, version);
+        synchronized (fileMutex) {
+            final File dir = getLocalDirectory();
+            if (!dir.isDirectory())
+                return Collections.emptyMap();
+            final Map<String, ModuleVersion> res = new HashMap<String, ModuleVersion>();
+            for (final File d : dir.listFiles()) {
+                final String id = d.getName();
+                final ModuleVersion version = getModuleVersionInstalledLocally(id);
+                if (version != null)
+                    res.put(id, version);
+            }
+            return res;
         }
-        return res;
     }
 
     private void setModuleInstalledLocally(ModuleFactory f, boolean b) {
         try {
-            if (b) {
-                final ModuleVersion vers = f.getVersion();
-                if (vers.getMerged() < MIN_VERSION)
-                    throw new IllegalStateException("Invalid version : " + vers);
-                final File versionFile = getLocalVersionFile(f.getID());
-                FileUtils.mkdir_p(versionFile.getParentFile());
-                FileUtils.write(String.valueOf(vers.getMerged()), versionFile);
-            } else {
-                // perhaps add a parameter to only remove the versionFile
-                FileUtils.rm_R(getLocalDirectory(f.getID()));
+            synchronized (fileMutex) {
+                if (b) {
+                    final ModuleVersion vers = f.getVersion();
+                    if (vers.getMerged() < MIN_VERSION)
+                        throw new IllegalStateException("Invalid version : " + vers);
+                    final File versionFile = getLocalVersionFile(f.getID());
+                    FileUtils.mkdir_p(versionFile.getParentFile());
+                    FileUtils.write(String.valueOf(vers.getMerged()), versionFile);
+                } else {
+                    // perhaps add a parameter to only remove the versionFile
+                    FileUtils.rm_R(getLocalDirectory(f.getID()));
+                }
             }
         } catch (IOException e) {
             throw new IllegalStateException("Couldn't change installed status of " + f, e);
@@ -409,28 +469,30 @@ public class ModuleManager {
     }
 
     private SQLTable getInstalledTable(final DBRoot r) throws SQLException {
-        if (!r.contains(FWK_MODULE_TABLENAME)) {
-            // store :
-            // - currently installed module (TABLE_COLNAME & FIELD_COLNAME are null)
-            // - created tables (FIELD_COLNAME is null)
-            // - created fields (and whether they are keys)
-            final SQLCreateTable createTable = new SQLCreateTable(r, FWK_MODULE_TABLENAME);
-            createTable.setPlain(true);
-            createTable.addColumn(SQLSyntax.ID_NAME, createTable.getSyntax().getPrimaryIDDefinition());
-            createTable.addVarCharColumn(MODULE_COLNAME, 128);
-            createTable.addColumn(TABLE_COLNAME, "varchar(128) NULL");
-            createTable.addColumn(FIELD_COLNAME, "varchar(128) NULL");
-            createTable.addColumn(ISKEY_COLNAME, "boolean NULL");
-            createTable.addColumn(MODULE_VERSION_COLNAME, "bigint NOT NULL");
+        synchronized (FWK_MODULE_TABLENAME) {
+            if (!r.contains(FWK_MODULE_TABLENAME)) {
+                // store :
+                // - currently installed module (TABLE_COLNAME & FIELD_COLNAME are null)
+                // - created tables (FIELD_COLNAME is null)
+                // - created fields (and whether they are keys)
+                final SQLCreateTable createTable = new SQLCreateTable(r, FWK_MODULE_TABLENAME);
+                createTable.setPlain(true);
+                createTable.addColumn(SQLSyntax.ID_NAME, createTable.getSyntax().getPrimaryIDDefinition());
+                createTable.addVarCharColumn(MODULE_COLNAME, 128);
+                createTable.addColumn(TABLE_COLNAME, "varchar(128) NULL");
+                createTable.addColumn(FIELD_COLNAME, "varchar(128) NULL");
+                createTable.addColumn(ISKEY_COLNAME, "boolean NULL");
+                createTable.addColumn(MODULE_VERSION_COLNAME, "bigint NOT NULL");
 
-            createTable.addUniqueConstraint("uniqModule", Arrays.asList(MODULE_COLNAME, TABLE_COLNAME, FIELD_COLNAME));
+                createTable.addUniqueConstraint("uniqModule", Arrays.asList(MODULE_COLNAME, TABLE_COLNAME, FIELD_COLNAME));
 
-            r.createTable(createTable);
+                r.createTable(createTable);
+            }
         }
         return r.getTable(FWK_MODULE_TABLENAME);
     }
 
-    protected final DBRoot getRoot() {
+    public synchronized final DBRoot getRoot() {
         return this.root;
     }
 
@@ -438,7 +500,7 @@ public class ModuleManager {
         return getRoot().getDBSystemRoot().getDataSource();
     }
 
-    protected final Configuration getConf() {
+    public synchronized final Configuration getConf() {
         return this.conf;
     }
 
@@ -505,7 +567,7 @@ public class ModuleManager {
         }
     }
 
-    protected final boolean isModuleInstalledLocallyOrInDB(String id) throws SQLException {
+    protected synchronized final boolean isModuleInstalledLocallyOrInDB(String id) throws SQLException {
         return this.isModuleInstalledLocally(id) || getDBInstalledModuleVersion(id) != null;
     }
 
@@ -595,6 +657,7 @@ public class ModuleManager {
     }
 
     private void install(final AbstractModule module) throws Exception {
+        assert Thread.holdsLock(this);
         final ModuleFactory factory = module.getFactory();
         final ModuleVersion localVersion = getModuleVersionInstalledLocally(factory.getID());
         final ModuleVersion lastInstalledVersion = getDBInstalledModuleVersion(factory.getID());
@@ -694,6 +757,7 @@ public class ModuleManager {
     }
 
     private void setupComponents(final AbstractModule module) throws SQLException {
+        assert SwingUtilities.isEventDispatchThread();
         final String id = module.getFactory().getID();
         if (!this.modulesComponents.containsKey(id)) {
             final SQLElementDirectory dir = getDirectory();
@@ -708,6 +772,13 @@ public class ModuleManager {
         startModules(Arrays.asList(getRequiredIDsPrefs().keys()));
     }
 
+    /**
+     * Start modules that were deemed persistent.
+     * 
+     * @throws Exception if an error occurs.
+     * @see #startModules(Collection, boolean)
+     * @see #stopModule(String, boolean)
+     */
     public final void startPreviouslyRunningModules() throws Exception {
         final List<String> ids = Arrays.asList(getRunningIDsPrefs().keys());
         startModules(ids);
@@ -722,7 +793,18 @@ public class ModuleManager {
         return res.isEmpty();
     }
 
-    public final Set<String> startModules(final Collection<String> ids, final boolean persistent) throws Exception {
+    /**
+     * Start the passed modules. If this method is called outside of the EDT the modules will be
+     * actually started using {@link SwingUtilities#invokeLater(Runnable)}, thus code that needs the
+     * module to be actually started must also be called inside an invokeLater().
+     * 
+     * @param ids which modules to start.
+     * @param persistent <code>true</code> to start them the next time the application is launched,
+     *        see {@link #startPreviouslyRunningModules()}.
+     * @return the started modules.
+     * @throws Exception if an error occurs.
+     */
+    public synchronized final Set<String> startModules(final Collection<String> ids, final boolean persistent) throws Exception {
         final Set<String> res = startModules(ids);
         if (persistent) {
             for (final String id : ids) {
@@ -740,9 +822,9 @@ public class ModuleManager {
 
     // modules created, and the ones that couldn't
     // i.e. if a module was already created it's in neither
-    private final Tuple2<Map<String, AbstractModule>, Set<String>> createModules(final Collection<String> ids, final boolean start, final boolean inSetup) throws Exception {
+    private synchronized final Tuple2<Map<String, AbstractModule>, Set<String>> createModules(final Collection<String> ids, final boolean start, final boolean inSetup) throws Exception {
         // in setup we're not in the EDT, but it's OK since by definition no modules are started
-        assert SwingUtilities.isEventDispatchThread() || inSetup && this.runningModules.isEmpty();
+        assert !inSetup || this.runningModules.isEmpty();
         // add currently running modules so that ModuleFactory can use them
         final Map<String, AbstractModule> modules = inSetup ? new LinkedHashMap<String, AbstractModule>(ids.size() * 2) : new LinkedHashMap<String, AbstractModule>(this.runningModules);
         final Set<String> cannotCreate = new HashSet<String>();
@@ -750,23 +832,56 @@ public class ModuleManager {
         synchronized (this.factories) {
             for (final String id : ids) {
                 final ModuleFactory f = getFactory(id);
-                if (canFactoryCreate(f, map)) {
-                    for (final ModuleFactory useableFactory : map.keySet()) {
-                        if (!modules.containsKey(useableFactory.getID()))
-                            modules.put(useableFactory.getID(), useableFactory.createModule(Collections.unmodifiableMap(modules)));
-                    }
-                } else {
+                if (!canFactoryCreate(f, map)) {
                     cannotCreate.add(id);
                 }
             }
+        }
+        for (final ModuleFactory useableFactory : map.keySet()) {
+            final String id = useableFactory.getID();
+            if (inSetup || !this.runningModules.containsKey(id))
+                modules.put(id, useableFactory.createModule(Collections.unmodifiableMap(modules)));
         }
         // only keep modules created by this method
         if (!inSetup)
             modules.keySet().removeAll(this.runningModules.keySet());
 
         if (start) {
-            for (final AbstractModule module : modules.values())
-                startModule(module);
+            final Collection<AbstractModule> toStart = modules.values();
+            for (final AbstractModule module : toStart)
+                installAndRegister(module);
+            for (final AbstractModule module : toStart) {
+                final ModuleFactory f = module.getFactory();
+                final String id = f.getID();
+                try {
+                    // execute right away if possible, allowing the caller to handle any exceptions
+                    if (SwingUtilities.isEventDispatchThread()) {
+                        startModule(module);
+                    } else {
+                        // keep the for outside to avoid halting the EDT too long
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    startModule(module);
+                                } catch (Exception e) {
+                                    ExceptionHandler.handle(MainFrame.getInstance(), "Unable to start " + f, e);
+                                }
+                            }
+                        });
+                    }
+                } catch (Exception e) {
+                    throw new Exception("Couldn't start module " + module, e);
+                }
+
+                this.runningModules.put(id, module);
+
+                // update graph
+                final boolean added = this.dependencyGraph.addVertex(f);
+                assert added : "Module was already in graph : " + f;
+                for (final String requiredID : f.getRequiredIDs())
+                    this.dependencyGraph.addEdge(f, this.runningModules.get(requiredID).getFactory());
+            }
         }
 
         // remove dependencies
@@ -774,63 +889,62 @@ public class ModuleManager {
         return Tuple2.create(modules, cannotCreate);
     }
 
-    private final boolean startModule(final AbstractModule module) throws Exception {
-        final ModuleFactory f = module.getFactory();
-        final String id = f.getID();
-        if (isModuleRunning(id)) {
-            return false;
-        } else {
-            try {
-                install(module);
-            } catch (Exception e) {
-                throw new Exception("Couldn't install module " + module, e);
-            }
-            try {
-                final Set<SQLTable> tablesWithMD;
-                final String mdVariant = getMDVariant(module.getFactory());
-                final InputStream labels = module.getClass().getResourceAsStream("labels.xml");
-                if (labels != null) {
-                    try {
-                        // use module ID as variant to avoid overwriting
-                        tablesWithMD = getConf().getTranslator().load(getRoot(), mdVariant, labels);
-                    } finally {
-                        labels.close();
-                    }
-                } else {
-                    tablesWithMD = Collections.emptySet();
+    private final void installAndRegister(final AbstractModule module) throws Exception {
+        assert Thread.holdsLock(this);
+        assert !isModuleRunning(module.getFactory().getID());
+        try {
+            install(module);
+        } catch (Exception e) {
+            throw new Exception("Couldn't install module " + module, e);
+        }
+        try {
+            final Set<SQLTable> tablesWithMD;
+            final String mdVariant = getMDVariant(module.getFactory());
+            final InputStream labels = module.getClass().getResourceAsStream("labels.xml");
+            if (labels != null) {
+                try {
+                    // use module ID as variant to avoid overwriting
+                    tablesWithMD = getConf().getTranslator().load(getRoot(), mdVariant, labels);
+                } finally {
+                    labels.close();
                 }
-                this.registerSQLElements(module);
-                // insert just loaded labels into the search path
-                for (final SQLTable tableWithDoc : tablesWithMD) {
-                    this.getDirectory().getElement(tableWithDoc).addToMDPath(mdVariant);
-                }
-                this.setupComponents(module);
-                module.start();
-            } catch (Exception e) {
-                throw new Exception("Couldn't start module " + module, e);
+            } else {
+                tablesWithMD = Collections.emptySet();
             }
-            this.runningModules.put(id, module);
-
-            // update graph
-            final boolean added = this.dependencyGraph.addVertex(f);
-            assert added : "Module was already in graph : " + f;
-            for (final String requiredID : f.getRequiredIDs())
-                this.dependencyGraph.addEdge(f, this.runningModules.get(requiredID).getFactory());
-
-            return true;
+            this.registerSQLElements(module);
+            // insert just loaded labels into the search path
+            for (final SQLTable tableWithDoc : tablesWithMD) {
+                this.getDirectory().getElement(tableWithDoc).addToMDPath(mdVariant);
+            }
+        } catch (Exception e) {
+            throw new Exception("Couldn't register module " + module, e);
         }
     }
 
-    public final boolean isModuleRunning(final String id) {
+    private final void startModule(final AbstractModule module) throws Exception {
         assert SwingUtilities.isEventDispatchThread();
+        this.setupComponents(module);
+        module.start();
+    }
+
+    public synchronized final boolean isModuleRunning(final String id) {
         return this.runningModules.containsKey(id);
     }
 
-    public final Map<String, AbstractModule> getRunningModules() {
-        return Collections.unmodifiableMap(this.runningModules);
+    /**
+     * The modules that are currently running. NOTE : if {@link #startModules(Collection, boolean)}
+     * or {@link #stopModule(String, boolean)} wasn't called from the EDT the modules will only be
+     * actually started/stopped when the EDT executes the invokeLater(). In other words a module can
+     * be in the result but not yet on screen, or module can no longer be in the result but still on
+     * screen.
+     * 
+     * @return the started modules.
+     */
+    public synchronized final Map<String, AbstractModule> getRunningModules() {
+        return new HashMap<String, AbstractModule>(this.runningModules);
     }
 
-    public final void stopModuleRecursively(final String id) {
+    public synchronized final void stopModuleRecursively(final String id) {
         if (!this.isModuleRunning(id))
             return;
 
@@ -846,8 +960,7 @@ public class ModuleManager {
         this.stopModule(id, true);
     }
 
-    public final void stopModule(final String id, final boolean persistent) {
-        assert SwingUtilities.isEventDispatchThread();
+    public synchronized final void stopModule(final String id, final boolean persistent) {
         if (!this.isModuleRunning(id))
             return;
 
@@ -857,8 +970,25 @@ public class ModuleManager {
             throw new IllegalArgumentException("Dependents still running : " + deps);
         this.dependencyGraph.removeVertex(f);
         final AbstractModule m = this.runningModules.remove(id);
-        m.stop();
-        this.tearDownComponents(m);
+        try {
+            // execute right away if possible, allowing the caller to handle any exceptions
+            if (SwingUtilities.isEventDispatchThread()) {
+                stopModule(m);
+            } else {
+                SwingUtilities.invokeLater(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            stopModule(m);
+                        } catch (Exception e) {
+                            ExceptionHandler.handle(MainFrame.getInstance(), "Unable to stop " + f, e);
+                        }
+                    }
+                });
+            }
+        } catch (Exception e) {
+            throw new IllegalStateException("Couldn't stop module " + m, e);
+        }
         // perhaps record which element this module modified in start()
         final String mdVariant = getMDVariant(f);
         for (final SQLElement elem : this.getDirectory().getElements()) {
@@ -868,6 +998,12 @@ public class ModuleManager {
         if (persistent)
             getRunningIDsPrefs().remove(m.getFactory().getID());
         assert !this.isModuleRunning(id);
+    }
+
+    private final void stopModule(final AbstractModule m) {
+        assert SwingUtilities.isEventDispatchThread();
+        m.stop();
+        this.tearDownComponents(m);
     }
 
     private void unregisterSQLElements(final AbstractModule module) {
@@ -883,6 +1019,7 @@ public class ModuleManager {
     }
 
     private void tearDownComponents(final AbstractModule module) {
+        assert SwingUtilities.isEventDispatchThread();
         final String id = module.getFactory().getID();
         if (this.modulesComponents.containsKey(id)) {
             final ComponentsContext ctxt = this.modulesComponents.remove(id);
@@ -912,7 +1049,7 @@ public class ModuleManager {
 
     // modules needing us are the ones currently started + the ones installed in the database
     // that need one of our fields
-    private final Collection<String> getDependentModules(final String id) throws Exception {
+    private synchronized final Collection<String> getDependentModules(final String id) throws Exception {
         final Set<String> depModules = new HashSet<String>(getDBDependentModules(id));
         final AbstractModule runningModule = this.runningModules.get(id);
         if (runningModule != null) {
@@ -931,7 +1068,7 @@ public class ModuleManager {
      *         first item isn't depended on).
      * @throws Exception if an error occurs.
      */
-    public final List<String> getDependentModulesRecursively(final String id) throws Exception {
+    public synchronized final List<String> getDependentModulesRecursively(final String id) throws Exception {
         final List<String> res = new ArrayList<String>();
         for (final String depModule : getDependentModules(id)) {
             res.add(depModule);
@@ -943,7 +1080,7 @@ public class ModuleManager {
     }
 
     // ids + modules depending on them in uninstallation order
-    private final LinkedHashSet<String> getAllOrderedDependentModulesRecursively(final Set<String> ids) throws Exception {
+    private synchronized final LinkedHashSet<String> getAllOrderedDependentModulesRecursively(final Set<String> ids) throws Exception {
         final LinkedHashSet<String> depModules = new LinkedHashSet<String>();
         for (final String id : ids) {
             if (!depModules.contains(id)) {
@@ -969,7 +1106,7 @@ public class ModuleManager {
         return res;
     }
 
-    public final Collection<String> uninstall(final Set<String> ids, final boolean recurse) throws Exception {
+    public synchronized final Collection<String> uninstall(final Set<String> ids, final boolean recurse) throws Exception {
         final Set<String> res;
         if (!recurse) {
             final LinkedHashSet<String> depModules = getAllOrderedDependentModulesRecursively(ids);
@@ -996,7 +1133,7 @@ public class ModuleManager {
         this.uninstall(id, false);
     }
 
-    public final Collection<String> uninstall(final String id, final boolean recurse) throws Exception {
+    public synchronized final Collection<String> uninstall(final String id, final boolean recurse) throws Exception {
         // even if it wasn't installed locally we might want to uninstall it from the DB
         if (!this.isModuleInstalledLocallyOrInDB(id))
             return Collections.emptySet();

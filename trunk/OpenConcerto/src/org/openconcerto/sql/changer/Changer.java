@@ -132,7 +132,7 @@ public abstract class Changer<L extends DBStructureItem> {
      * 
      * @return the level, eg DBRoot.class.
      */
-    protected Class<? extends DBStructureItem> getMinLevel() {
+    protected Class<? extends DBStructureItem<?>> getMinLevel() {
         return null;
     }
 
@@ -142,7 +142,7 @@ public abstract class Changer<L extends DBStructureItem> {
      * 
      * @return the level, eg SQLTable.class.
      */
-    protected Class<? extends DBStructureItem> getMaxLevel() {
+    protected Class<? extends DBStructureItem<?>> getMaxLevel() {
         return null;
     }
 

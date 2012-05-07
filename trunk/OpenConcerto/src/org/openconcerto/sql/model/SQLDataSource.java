@@ -46,6 +46,9 @@ import java.util.logging.Level;
 
 import javax.sql.DataSource;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
 import org.apache.commons.dbcp.BasicDataSource;
 import org.apache.commons.dbcp.PoolingDataSource;
 import org.apache.commons.dbcp.SQLNestedException;
@@ -66,6 +69,7 @@ import org.postgresql.util.PSQLException;
  * 
  * @author ILM Informatique 10 juin 2004
  */
+@ThreadSafe
 public final class SQLDataSource extends BasicDataSource implements Cloneable {
 
     // MAYBE add a cache, but ATTN synchronized : one connection per thread, but only one shared DS
@@ -138,26 +142,42 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     public static final MapListHandler MAP_LIST_HANDLER = new MapListHandler(ROW_PROC);
     public static final MapHandler MAP_HANDLER = new MapHandler(ROW_PROC);
 
-    // Cache
-    private SQLCache<List, Object> cache;
+    // Cache, linked to cacheEnable and tables
+    @GuardedBy("this")
+    private SQLCache<List<?>, Object> cache;
+    @GuardedBy("this")
     private boolean cacheEnabled;
     // tables that can be used in queries (and thus can impact the cache)
-    private final Set<SQLTable> tables;
+    @GuardedBy("this")
+    private Set<SQLTable> tables;
 
     private static int count = 0; // compteur de requetes
 
     private final SQLServer server;
     // une connexion par thread
+    @GuardedBy("this")
     private final Map<Thread, Connection> connections;
+    // no need to synchronize multiple call to this attribute since we only access the
+    // Thread.currentThread() key
+    @GuardedBy("handlers")
     private final Map<Thread, HandlersStack> handlers;
 
+    @GuardedBy("this")
     private ExecutorService exec = null;
 
+    @GuardedBy("this")
     private CleanUp cleanUp;
+
+    // linked to initialSchema and uptodate
+    @GuardedBy("this")
     private boolean initialShemaSet;
+    @GuardedBy("this")
     private String initialShema;
+    // which Connection have the right default schema
+    @GuardedBy("this")
     private final Map<Connection, Object> uptodate;
-    private int retryWait;
+
+    private volatile int retryWait;
 
     private final ReentrantLock testLock = new ReentrantLock();
 
@@ -215,20 +235,19 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         this.retryWait = retryWait;
     }
 
-    void setTables(Set<SQLTable> tables) {
+    synchronized void setTables(Set<SQLTable> tables) {
         // don't change the cache if we're only adding tables
         final boolean update = this.cache == null || !tables.containsAll(this.tables);
-        this.tables.clear();
-        this.tables.addAll(tables);
+        this.tables = Collections.unmodifiableSet(new HashSet<SQLTable>(tables));
         if (update)
             updateCache();
     }
 
-    private void updateCache() {
+    private synchronized void updateCache() {
         if (this.cache != null)
             this.cache.clear();
         if (this.cacheEnabled && this.tables.size() > 0)
-            this.cache = new SQLCache<List, Object>(30, 30, "results of " + this.getClass().getSimpleName());
+            this.cache = new SQLCache<List<?>, Object>(30, 30, "results of " + this.getClass().getSimpleName());
         else
             this.cache = null;
     }
@@ -240,7 +259,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      * 
      * @param b <code>true</code> to enable the cache.
      */
-    public final void setCacheEnabled(boolean b) {
+    public final synchronized void setCacheEnabled(boolean b) {
         if (this.cacheEnabled != b) {
             this.cacheEnabled = b;
             updateCache();
@@ -250,9 +269,9 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     /* pour le clonage */
     private SQLDataSource(SQLServer server) {
         this.server = server;
+        this.connections = new HashMap<Thread, Connection>();
         // on a besoin d'une implementation synchronisée
-        this.connections = new Hashtable<Thread, Connection>();
-        this.handlers = new HashMap<Thread, HandlersStack>();
+        this.handlers = new Hashtable<Thread, HandlersStack>();
         // weak, since this is only a hint to avoid initializing the connection
         // on each borrowal
         this.uptodate = new WeakHashMap<Connection, Object>();
@@ -271,7 +290,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         // but not too much as it can lock out other users (the server has a max connection count)
         this.setMaxIdle(16);
         // see #createDataSource() for properties not supported by this class
-        this.tables = new HashSet<SQLTable>();
+        this.tables = Collections.emptySet();
         this.cache = null;
         this.cacheEnabled = false;
     }
@@ -360,10 +379,6 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         return this.execute(query, rsh, null);
     }
 
-    private boolean canCache(String query) {
-        return this.cache != null && query.startsWith("SELECT");
-    }
-
     /**
      * Execute <code>query</code> within <code>c</code>, passing the result set to <code>rsh</code>.
      * 
@@ -406,9 +421,13 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         }
 
         final IResultSetHandler irsh = rsh instanceof IResultSetHandler ? (IResultSetHandler) rsh : null;
-        final List<Object> key = this.canCache(query) ? Arrays.asList(new Object[] { query, rsh }) : null;
+        final SQLCache<List<?>, Object> cache;
+        synchronized (this) {
+            cache = this.cache;
+        }
+        final List<Object> key = cache != null && query.startsWith("SELECT") ? Arrays.asList(new Object[] { query, rsh }) : null;
         if (key != null && (irsh == null || irsh.readCache())) {
-            final CacheResult<Object> l = this.cache.check(key);
+            final CacheResult<Object> l = cache.check(key);
             if (l.getState() == CacheResult.State.INTERRUPTED)
                 throw new RTInterruptedException("interrupted while waiting for the cache");
             else if (l.getState() == CacheResult.State.VALID) {
@@ -450,12 +469,11 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 stmt.close();
                 // if key was added to the cache
                 if (key != null) {
-                    if (irsh != null && irsh.writeCache()) {
-                        this.cache.put(key, result, irsh.getCacheModifiers() == null ? this.tables : irsh.getCacheModifiers());
-                    } else if (irsh == null && IResultSetHandler.shouldCache(result)) {
-                        this.cache.put(key, result, this.tables);
-                    } else
-                        this.cache.removeRunning(key);
+                    synchronized (this) {
+                        putInCache(cache, irsh, key, result, true);
+                        if (this.cache != cache)
+                            putInCache(this.cache, irsh, key, result, false);
+                    }
                 }
                 info.releaseConnection();
             } catch (SQLException exn) {
@@ -465,8 +483,8 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         } catch (RuntimeException e) {
             // for each #check() there must be a #removeRunning()
             // let the cache know we ain't gonna tell it the result
-            if (this.cache != null && key != null)
-                this.cache.removeRunning(key);
+            if (cache != null && key != null)
+                cache.removeRunning(key);
             if (info != null)
                 info.releaseConnection(e);
             throw e;
@@ -475,6 +493,16 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         SQLRequestLog.log(query, "", info, timeMs, durationSQL, System.nanoTime() - time);
 
         return result;
+    }
+
+    private synchronized void putInCache(final SQLCache<List<?>, Object> cache, final IResultSetHandler irsh, final List<Object> key, Object result, final boolean removeRunning) {
+        if (irsh != null && irsh.writeCache()) {
+            cache.put(key, result, irsh.getCacheModifiers() == null ? this.tables : irsh.getCacheModifiers());
+        } else if (irsh == null && IResultSetHandler.shouldCache(result)) {
+            cache.put(key, result, this.tables);
+        } else if (removeRunning) {
+            cache.removeRunning(key);
+        }
     }
 
     private synchronized final ExecutorService getExec() {
@@ -946,7 +974,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         // ATTN keep tables to be able to reopen
     }
 
-    private void noConnectionIsOpen() {
+    private synchronized void noConnectionIsOpen() {
         assert this.connectionPool.getNumIdle() + this.connectionPool.getNumActive() == 0;
         if (this.cache != null)
             this.cache.clear();
@@ -1102,11 +1130,12 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             if (e1.getCause() instanceof InterruptedException || (e1 instanceof PSQLException && e1.getMessage().equals(pgInterrupted))) {
                 throw new RTInterruptedException(e1);
             }
-            if (this.retryWait == 0)
+            final int retryWait = this.retryWait;
+            if (retryWait == 0)
                 throw new IllegalStateException("Impossible d'obtenir une connexion sur " + this, e1);
             try {
                 // on attend un petit peu
-                Thread.sleep(this.retryWait * 1000);
+                Thread.sleep(retryWait * 1000);
                 // avant de réessayer
                 result = super.getConnection();
             } catch (InterruptedException e) {
@@ -1124,7 +1153,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         return this.connectionPool.getNumActive();
     }
 
-    public final Set<Thread> getThreadsWithConnection() {
+    public synchronized final Set<Thread> getThreadsWithConnection() {
         return this.connections.keySet();
     }
 

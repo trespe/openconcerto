@@ -338,6 +338,7 @@ public enum SQLSystem {
         s.remove("INFORMATION_SCHEMA");
     }
 
+    // result must be thread-safe
     ITransformer<String, String> getURLTransf(final SQLServer s) {
         if (s.getSQLSystem() != this)
             throw new IllegalArgumentException(s + " is not " + this);

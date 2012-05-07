@@ -158,14 +158,24 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
      * @return the real index, eg 2.
      */
     static public int getValidIndex(final List<?> l, final int i) {
-        if (i > l.size()) {
-            return l.size();
+        return getValidIndex(l, i, false);
+    }
+
+    static public int getValidIndex(final List<?> l, final int i, final boolean strict) {
+        final int size = l.size();
+        if (i > size) {
+            if (strict)
+                throw new IndexOutOfBoundsException("Too high : " + i + " > " + size);
+            return size;
+        } else if (i < -size) {
+            if (strict)
+                throw new IndexOutOfBoundsException("Too low : " + i + " < " + -size);
+            return 0;
         } else if (i >= 0) {
             return i;
-        } else if (l.size() + i <= 0)
-            return 0;
-        else
-            return l.size() + i;
+        } else {
+            return size + i;
+        }
     }
 
     /**

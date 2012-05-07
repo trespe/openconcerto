@@ -19,8 +19,7 @@ import javax.swing.table.TableModel;
 /**
  * A table model using a delegate. If the indexes need to be translated you can use
  * {@link #adaptCol(int)} and {@link #adaptRow(int)} instead of overloading every method that use
- * indexes. Don't forget to override {@link #getColumnCount(int)} and {@link #getRowCount(int)} as
- * needed.
+ * indexes. Don't forget to override {@link #getColumnCount()} and {@link #getRowCount()} as needed.
  * 
  * @author Sylvain
  */

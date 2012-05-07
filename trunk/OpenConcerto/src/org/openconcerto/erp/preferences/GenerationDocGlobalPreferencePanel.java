@@ -16,6 +16,8 @@
  */
 package org.openconcerto.erp.preferences;
 
+import javax.swing.JCheckBox;
+
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.preferences.SQLPreferences;
@@ -25,6 +27,9 @@ import org.openconcerto.utils.PrefType;
 
 public class GenerationDocGlobalPreferencePanel extends JavaPrefPreferencePanel {
     public static String HISTORIQUE = "HistoriqueDocument";
+    public static String MULTIMOD = "MultiModele";
+
+    JCheckBox boxMultiMod = new JCheckBox("Activer la gestion multimodèle");
 
     public GenerationDocGlobalPreferencePanel() {
         super("Génération des documents", null);
@@ -36,5 +41,9 @@ public class GenerationDocGlobalPreferencePanel extends JavaPrefPreferencePanel 
         PrefView<Boolean> view = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Archiver les documents dans un dossier historique", HISTORIQUE);
         view.setDefaultValue(Boolean.TRUE);
         this.addView(view);
+
+        PrefView<Boolean> viewModele = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Activer la gestion multimodèle", MULTIMOD);
+        viewModele.setDefaultValue(Boolean.FALSE);
+        this.addView(viewModele);
     }
 }

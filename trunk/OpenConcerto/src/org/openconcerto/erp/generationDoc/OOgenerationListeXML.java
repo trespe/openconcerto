@@ -180,6 +180,15 @@ public class OOgenerationListeXML {
             if (nbPage > 2) {
                 sheet.duplicateFirstRows(endPageLine, nbPage - 2);
             }
+            String pageRef = tableau.getAttributeValue("pageRef");
+            if (pageRef != null && pageRef.trim().length() > 0) {
+                MutableCell<SpreadSheet> cell = sheet.getCellAt(pageRef);
+                cell.setValue("Page 1/" + nbPage);
+                for (int i = 1; i < nbPage; i++) {
+                    MutableCell<SpreadSheet> cell2 = sheet.getCellAt(cell.getX(), cell.getY() + (endPageLine * i));
+                    cell2.setValue("Page " + (i + 1) + "/" + nbPage);
+                }
+            }
             fillTable(tableau, liste, sheet, mapStyle, false, style);
         }
     }
@@ -288,7 +297,7 @@ public class OOgenerationListeXML {
 
                             Object oTmp = mTmp.get(new Integer(sheet.resolveHint(loc).x));
                             styleOO = oTmp == null ? null : oTmp.toString();
-                            System.err.println("Set style " + styleOO);
+                            // System.err.println("Set style " + styleOO);
                         }
 
                         int tmpCelluleAffect = fill(test ? "A1" : loc, value, sheet, replace, null, styleOO, test, controlLine);
@@ -400,12 +409,12 @@ public class OOgenerationListeXML {
         int nbCellule = 1;
         // est ce que la cellule est valide
         if (test || sheet.isCellValid(sheet.resolveHint(location).x, sheet.resolveHint(location).y)) {
-            MutableCell cell = sheet.getCellAt(location);
 
             // on divise en 2 cellules si il y a des retours à la ligne
             if (controlLine && (value != null && value.toString().indexOf('\n') >= 0)) {
 
                 if (!test) {
+                    MutableCell cell = sheet.getCellAt(location);
                     String firstPart = value.toString().substring(0, value.toString().indexOf('\n'));
                     String secondPart = value.toString().substring(value.toString().indexOf('\n') + 1, value.toString().length());
                     secondPart = secondPart.replace('\n', ',');
@@ -425,6 +434,7 @@ public class OOgenerationListeXML {
                 nbCellule = 2;
             } else {
                 if (!test) {
+                    MutableCell cell = sheet.getCellAt(location);
                     // application de la valeur
                     setCellValue(cell, value, replace, replacePattern);
 

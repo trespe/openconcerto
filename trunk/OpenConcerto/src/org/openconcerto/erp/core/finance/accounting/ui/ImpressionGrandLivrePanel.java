@@ -14,8 +14,9 @@
  package org.openconcerto.erp.core.finance.accounting.ui;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.finance.accounting.report.GrandLivreSheet;
-import org.openconcerto.erp.generationDoc.SpreadSheetGeneratorCompta;
+import org.openconcerto.erp.core.finance.accounting.report.GrandLivreSheetXML;
 import org.openconcerto.erp.generationDoc.SpreadSheetGeneratorListener;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
@@ -25,7 +26,6 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
 
-import java.awt.Color;
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -33,11 +33,10 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.Calendar;
 import java.util.Date;
+import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractAction;
-import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -254,26 +253,44 @@ public class ImpressionGrandLivrePanel extends JPanel implements SpreadSheetGene
                 bar.setValue(1);
                 new Thread(new Runnable() {
                     public void run() {
-                        GrandLivreSheet bSheet = new GrandLivreSheet(dateDeb.getDate(), dateEnd.getDate(), compteDeb.getText().trim(), compteEnd.getText().trim(), mode, boxCumulsAnts.isSelected(),
-                                !boxCompteSolde.isSelected(), boxCentralClient.isSelected(), boxCentralFourn.isSelected(), comboJrnl.getSelectedId());
-                        if (bSheet.getSize() == 0) {
-                            JOptionPane.showMessageDialog(ImpressionGrandLivrePanel.this, "Aucune écriture trouvée");
-                            SwingUtilities.invokeLater(new Runnable() {
-                                public void run() {
-                                    taskEnd();
-                                }
-                            });
-                        } else {
-                            final SpreadSheetGeneratorCompta generator = new SpreadSheetGeneratorCompta(bSheet, "GrandLivre" + Calendar.getInstance().getTimeInMillis(), checkImpr.isSelected(),
-                                    checkVisu.isSelected(), false);
-                            SwingUtilities.invokeLater(new Runnable() {
-                                public void run() {
-                                    bar.setValue(2);
-                                    generator.addGenerateListener(ImpressionGrandLivrePanel.this);
-                                }
-                            });
-                        }
+                        final GrandLivreSheetXML bSheet = new GrandLivreSheetXML(dateDeb.getDate(), dateEnd.getDate(), compteDeb.getText().trim(), compteEnd.getText().trim(), mode, boxCumulsAnts
+                                .isSelected(), !boxCompteSolde.isSelected(), boxCentralClient.isSelected(), boxCentralFourn.isSelected(), comboJrnl.getSelectedId());
+                        try {
+                            bSheet.createDocument();
 
+                            if (bSheet.getSize() == 0) {
+                                JOptionPane.showMessageDialog(ImpressionGrandLivrePanel.this, "Aucune écriture trouvée");
+
+                            } else {
+
+                                SwingUtilities.invokeLater(new Runnable() {
+                                    public void run() {
+                                        bar.setValue(2);
+                                        // bSheet.showPrintAndExport(false, false, true, true);
+
+                                    }
+                                });
+
+                                try {
+                                    // bSheet.getOrCreatePDFDocumentFile(true);
+                                    bSheet.getOrCreatePDFDocumentFile(true, true);
+                                    Gestion.openPDF(bSheet.getGeneratedPDFFile());
+                                } catch (Exception exn) {
+                                    // TODO Bloc catch auto-généré
+                                    exn.printStackTrace();
+                                }
+                            }
+
+                        } catch (InterruptedException exn) {
+                            // TODO Bloc catch auto-généré
+                            exn.printStackTrace();
+                        } catch (ExecutionException exn) {
+                            // TODO Bloc catch auto-généré
+                            exn.printStackTrace();
+                        } finally {
+
+                            taskEnd();
+                        }
                     }
                 }).start();
 

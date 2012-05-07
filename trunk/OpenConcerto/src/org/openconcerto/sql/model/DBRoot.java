@@ -41,13 +41,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.TreeMap;
+
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
 
 /**
  * The root of a database, in mysql a SQLBase, in postgresql a SQLSchema.
  * 
  * @author Sylvain
  */
+@ThreadSafe
 public final class DBRoot extends DBStructureItemDB {
 
     static DBRoot get(SQLBase b, String n) {
@@ -56,6 +60,7 @@ public final class DBRoot extends DBStructureItemDB {
         return (DBRoot) parent.getChild(n);
     }
 
+    @GuardedBy("this")
     private DatabaseGraph graph;
     private final PropertyChangeListener l;
 
@@ -86,6 +91,10 @@ public final class DBRoot extends DBStructureItemDB {
         return (SQLTable) getJDBC(this.getChild(name));
     }
 
+    protected final Map<String, SQLTable> getTablesMap() {
+        return this.getSchema().getChildrenMap();
+    }
+
     public SQLTable getTableDesc(String name) {
         return this.getDescLenient(name, SQLTable.class);
     }
@@ -95,8 +104,9 @@ public final class DBRoot extends DBStructureItemDB {
     }
 
     public SQLTable findTable(String name, final boolean mustExist) {
-        if (this.contains(name))
-            return this.getTable(name);
+        final SQLTable res = this.getTable(name);
+        if (res != null)
+            return res;
         else
             return this.getDBSystemRoot().findTable(name, mustExist);
     }
@@ -122,8 +132,10 @@ public final class DBRoot extends DBStructureItemDB {
     }
 
     public final SQLTable createTable(final SQLCreateTableBase<?> createTable, final Map<String, ?> undefinedNonDefaultValues) throws SQLException {
-        this.createTables(Collections.<SQLCreateTableBase<?>, Map<String, ?>> singletonMap(createTable, undefinedNonDefaultValues));
-        return this.getTable(createTable.getName());
+        synchronized (this.getDBSystemRoot().getTreeMutex()) {
+            this.createTables(Collections.<SQLCreateTableBase<?>, Map<String, ?>> singletonMap(createTable, undefinedNonDefaultValues));
+            return this.getTable(createTable.getName());
+        }
     }
 
     public final void createTables(final SQLCreateTableBase<?>... createTables) throws SQLException {
@@ -287,6 +299,7 @@ public final class DBRoot extends DBStructureItemDB {
 
     public synchronized DatabaseGraph getGraph() {
         if (this.graph == null) {
+            this.checkDropped();
             this.graph = new DatabaseGraph(this.getDBSystemRoot().getGraph(), this);
         }
         return this.graph;
@@ -306,11 +319,15 @@ public final class DBRoot extends DBStructureItemDB {
             throw new IllegalStateException();
     }
 
+    public void refetch(final String tableName) throws SQLException {
+        this.getSchema().fetchTable(tableName);
+    }
+
     public final SQLCreateRoot getDefinitionSQL(final SQLSystem sys) {
         final SQLCreateRoot res = new SQLCreateRoot(sys.getSyntax(), this.getName());
         // order by name to be able to do diffs
-        for (final String name : new TreeSet<String>(this.getChildrenNames())) {
-            res.addTable(this.getTable(name).getCreateTable(sys));
+        for (final SQLTable table : new TreeMap<String, SQLTable>(this.getTablesMap()).values()) {
+            res.addTable(table.getCreateTable(sys));
         }
         return res;
     }
@@ -325,13 +342,18 @@ public final class DBRoot extends DBStructureItemDB {
         if (null == o)
             return "other is null";
 
-        if (!this.getChildrenNames().equals(o.getChildrenNames()))
-            return "unequal table names: " + this.getChildrenNames() + " != " + o.getChildrenNames();
+        final Map<String, SQLTable> thisTables = this.getTablesMap();
+        final Map<String, SQLTable> oTables = o.getTablesMap();
 
-        for (final SQLTable t : this.getDescs(SQLTable.class)) {
-            final String eqDesc = t.equalsDesc(o.getTable(t.getName()), otherSystem, true);
+        if (!thisTables.keySet().equals(oTables.keySet()))
+            return "unequal table names: " + thisTables.keySet() + " != " + oTables.keySet();
+
+        for (final Entry<String, SQLTable> e : thisTables.entrySet()) {
+            final String name = e.getKey();
+            final SQLTable t = e.getValue();
+            final String eqDesc = t.equalsDesc(oTables.get(name), otherSystem, true);
             if (eqDesc != null)
-                return "unequal " + t.getName() + ": " + eqDesc;
+                return "unequal " + name + ": " + eqDesc;
         }
         return null;
     }
@@ -376,11 +398,9 @@ public final class DBRoot extends DBStructureItemDB {
      */
     public String dump() {
         String res = "";
-        for (final String tableName : new TreeSet<String>(this.getChildrenNames())) {
-            final SQLTable table = this.getTable(tableName);
+        for (final SQLTable table : new TreeMap<String, SQLTable>(this.getTablesMap()).values()) {
             res += table + "\n";
-            for (final String fieldName : new TreeSet<String>(table.getFieldsName())) {
-                SQLField f = table.getField(fieldName);
+            for (final SQLField f : new TreeMap<String, SQLField>(table.getChildrenMap()).values()) {
                 res += f.getName() + " t: " + f.getType() + " def: " + f.getDefaultValue() + "\n";
             }
             res += "\n";

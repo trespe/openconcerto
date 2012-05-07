@@ -55,6 +55,7 @@ import org.openconcerto.utils.JImage;
 import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Image;
 import java.awt.Insets;
 import java.io.InputStream;
 import java.sql.SQLException;
@@ -203,6 +204,10 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
         };
 
         final JImage image = new JImage(ComptaBasePropsConfiguration.class.getResource("logo.png"));
+        Image customImage = ComptaPropsConfiguration.getInstanceCompta().getCustomLogo();
+        if (customImage != null) {
+            image.setImage(customImage);
+        }
         image.setBackground(Color.WHITE);
         JPanel p = new JPanel();
 

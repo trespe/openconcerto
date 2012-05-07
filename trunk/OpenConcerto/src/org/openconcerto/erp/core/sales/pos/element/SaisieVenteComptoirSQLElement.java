@@ -734,7 +734,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 rowVals.put("DATE", rowVC.getObject("DATE"));
                 try {
                     SQLRow row = rowVals.insert();
-                    CollectionMap<SQLRow, List<SQLRowValues>> map = MouvementStockSQLElement.updateStock(Arrays.asList(row.getID()));
+                    CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
+                            Arrays.asList(row.getID()), false);
                     MouvementStockSQLElement.createCommandeF(map, null);
                 } catch (SQLException e) {
                     e.printStackTrace();
@@ -875,7 +876,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                     rowVals.put("DATE", row.getObject("DATE"));
                     try {
                         SQLRow rowNew = rowVals.insert();
-                        CollectionMap<SQLRow, List<SQLRowValues>> map = MouvementStockSQLElement.updateStock(Arrays.asList(rowNew.getID()));
+                        CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
+                                Arrays.asList(rowNew.getID()), false);
                         MouvementStockSQLElement.createCommandeF(map, null);
                     } catch (SQLException e) {
                         e.printStackTrace();

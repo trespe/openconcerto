@@ -120,11 +120,14 @@ class SQLSyntaxPG extends SQLSyntax {
 
     @Override
     public String disableFKChecks(DBRoot b) {
+        // MAYBE return "SET CONSTRAINTS ALL DEFERRED";
+        // NOTE: CASCADE, SET NULL, SET DEFAULT cannot be deferred (as of 9.1)
         return this.changeFKChecks(b, "DISABLE");
     }
 
     @Override
     public String enableFKChecks(DBRoot b) {
+        // MAYBE return "SET CONSTRAINTS ALL IMMEDIATE";
         return this.changeFKChecks(b, "ENABLE");
     }
 

@@ -12,6 +12,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -43,6 +45,8 @@ public class JavaEditor extends JPanel implements Scrollable {
     private final JLabel labelPopup = new JLabel();
     private boolean codeValid = true;
 
+    Map<String, Object> variable = new HashMap<String, Object>();
+
     public JavaEditor() {
 
         setOpaque(false);
@@ -73,6 +77,14 @@ public class JavaEditor extends JPanel implements Scrollable {
         this.varAssign = "$$$$$$";
         this.javaTokenMarker.addKeyword(this.varAssign, Token.LITERAL2);
 
+    }
+
+    public void putVariable(String var, Object value) {
+        this.variable.put(var, value);
+    }
+
+    public JEditTextArea getTextArea() {
+        return this.textFormule;
     }
 
     protected void setCodeValid(final boolean codeValid) {
@@ -126,13 +138,15 @@ public class JavaEditor extends JPanel implements Scrollable {
 
             final BufferedWriter bW = new BufferedWriter(new FileWriter(f));
 
+            for (String var : this.variable.keySet()) {
+                defineVariable(interpreter, bW, var, this.variable.get(var));
+            }
             bW.write(formule);
             bW.flush();
             bW.close();
 
             // Interpret the script
             bR = new BufferedReader(new FileReader(f));
-
             final Object interpreterResult = interpreter.interpret(bR, f.getAbsolutePath());
             bR.close();
             try {

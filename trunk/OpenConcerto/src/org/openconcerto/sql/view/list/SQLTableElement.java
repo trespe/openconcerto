@@ -52,6 +52,7 @@ public class SQLTableElement {
     private SQLBase base;
     private boolean isEditable;
     private boolean addElement = false;
+    private boolean chooseInListe = false;
     private int preferredSize = 70;
     private boolean addUndefined = false;
 
@@ -81,6 +82,11 @@ public class SQLTableElement {
         this.addUndefined = addUndefined;
         this.addElement = addElement;
         this.defaultRowValues = rowVals;
+    }
+
+    public SQLTableElement(SQLField field, boolean addUndefined, boolean addElement, boolean chooseInListe) {
+        this(field, addUndefined, addElement);
+        this.chooseInListe = chooseInListe;
     }
 
     public SQLTableElement(SQLField field, boolean addUndefined, boolean addElement) {
@@ -152,7 +158,7 @@ public class SQLTableElement {
             final SQLTable fTable = this.base.getGraph().getForeignTable(this.field);
             final SQLElement element = Configuration.getInstance().getDirectory().getElement(fTable);
 
-            this.comboBox = new SQLTextComboTableCellEditor(element, this.addUndefined);
+            this.comboBox = new SQLTextComboTableCellEditor(element, this.addUndefined, this.chooseInListe);
 
             // System.err.println("New Combo");
             if (this.addElement) {
@@ -238,8 +244,8 @@ public class SQLTableElement {
 
         // if (value instanceof IComboSelectionItem) {
         if (this.field != null && this.field.isKey()) {
-            Integer v = (Integer) value;
-            if (v == null || v < SQLRow.MIN_VALID_ID)
+            Number v = (Number) value;
+            if (v == null || v.longValue() < SQLRow.MIN_VALID_ID)
                 return this.field.getTable().getUndefinedID();
             else
                 return v;

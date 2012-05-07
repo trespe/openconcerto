@@ -58,15 +58,19 @@ public class ServerConfigListModel extends AbstractListModel {
         }
         ServerFinder f = new ServerFinder();
         File fH2 = new File(Configuration.getDefaultConfDir(), "OpenConcerto-GESTION_DEFAULT/DBData");
-        if (fH2.exists() && fH2.isDirectory()) {
+        if (ServerFinderPanel.containsValidH2DB(fH2)) {
             final ServerFinderConfig c = new ServerFinderConfig();
             c.setType(ServerFinderConfig.H2);
             c.setFile(fH2);
-            if (new File(fH2, "OpenConcerto.h2.db").exists()) {
-                c.setProduct("H2 OpenConcerto found");
-            } else {
-                c.setProduct("Unknown H2 database");
-            }
+            c.setProduct("H2 OpenConcerto found");
+            confs.add(c);
+        }
+        fH2 = new File(Configuration.getDefaultConfDir(), "OpenConcerto/DBData");
+        if (ServerFinderPanel.containsValidH2DB(fH2)) {
+            final ServerFinderConfig c = new ServerFinderConfig();
+            c.setType(ServerFinderConfig.H2);
+            c.setFile(fH2);
+            c.setProduct("H2 OpenConcerto found");
             confs.add(c);
         }
         List<String> l = f.getIPsToScan();

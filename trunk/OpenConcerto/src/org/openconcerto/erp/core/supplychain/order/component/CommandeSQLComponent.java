@@ -36,6 +36,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
+import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -77,6 +78,9 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
     private final JCheckBox checkVisu = new JCheckBox("Visualiser");
     private final ITextArea infos = new ITextArea(3, 3);
     private ElementComboBox fourn = new ElementComboBox();
+    final JCheckBox boxLivrClient = new JCheckBox("Livrer directement le client");
+    private DefaultElementSQLObject compAdr;
+    final JPanel panelAdrSpec = new JPanel(new GridBagLayout());
 
     public CommandeSQLComponent() {
         super(Configuration.getInstance().getDirectory().getElement("COMMANDE"));
@@ -135,7 +139,9 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             c.gridx = 2;
             c.weightx = 0;
             c.fill = GridBagConstraints.HORIZONTAL;
+            c.gridwidth = GridBagConstraints.REMAINDER;
             this.add(boxEnCours, c);
+            c.gridwidth = 1;
             this.addRequiredSQLObject(boxEnCours, "EN_COURS");
         }
 
@@ -173,46 +179,142 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         }
         // Adresse de livraison
         if (getTable().getFieldsName().contains("ID_ADRESSE")) {
-            c.gridx = 0;
-            c.gridy++;
-            c.weightx = 0;
-            c.fill = GridBagConstraints.HORIZONTAL;
-            this.add(new JLabel(getLabelFor("ID_ADRESSE")), c);
-            c.gridx++;
-            c.gridwidth = GridBagConstraints.REMAINDER;
-            c.gridy++;
-            this.addView("ID_ADRESSE");
-            final DefaultElementSQLObject comp = (DefaultElementSQLObject) this.getView("ID_ADRESSE").getComp();
-
             if (getTable().getFieldsName().contains("LIVRAISON_F")) {
-                final JCheckBox boxLivr = new JCheckBox("Livré par le fournisseur");
-                this.add(boxLivr, c);
-                this.addSQLObject(boxLivr, "LIVRAISON_F");
-                boxLivr.addActionListener(new ActionListener() {
+                c.gridx = 0;
+                c.gridy++;
+                c.weightx = 0;
+                c.fill = GridBagConstraints.HORIZONTAL;
+                this.add(new JLabel(getLabelFor("ID_ADRESSE")), c);
+                c.gridx++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                // c.gridy++;
+                this.addView("ID_ADRESSE");
+                final DefaultElementSQLObject comp = (DefaultElementSQLObject) this.getView("ID_ADRESSE").getComp();
+
+                if (getTable().getFieldsName().contains("LIVRAISON_F")) {
+                    final JCheckBox boxLivr = new JCheckBox("Livré par le fournisseur");
+                    this.add(boxLivr, c);
+                    this.addSQLObject(boxLivr, "LIVRAISON_F");
+                    boxLivr.addActionListener(new ActionListener() {
+
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            if (boxLivr.isSelected() && !comp.isCreated()) {
+                                comp.setCreated(true);
+                                if (CommandeSQLComponent.this.getTable().contains("ID_AFFAIRE")) {
+
+                                    SQLRowValues rowVals = getLivraisonAdr(((ElementComboBox) CommandeSQLComponent.this.getView("ID_AFFAIRE").getComp()).getSelectedRow());
+
+                                    comp.setValue(rowVals);
+                                }
+
+                            } else {
+                                if (!boxLivr.isSelected()) {
+                                    comp.setCreated(false);
+                                }
+                            }
+                        }
+                    });
+                }
+
+                c.gridy++;
+                this.add(comp, c);
+                this.add(this.getView("ID_ADRESSE").getComp(), c);
+            } else {
+
+                c.gridy++;
+                c.gridx = 0;
+                this.add(new JLabel("Livraison"), c);
+                c.gridx++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                this.add(boxLivrClient, c);
+                c.gridwidth = 1;
+
+                final GridBagConstraints cAdr = new DefaultGridBagConstraints();
+
+                panelAdrSpec.add(new JLabel(getLabelFor("ID_CLIENT"), SwingConstants.RIGHT), cAdr);
+                final ElementComboBox boxClient = new ElementComboBox(true);
+                cAdr.weightx = 1;
+                cAdr.gridx++;
+                panelAdrSpec.add(boxClient, cAdr);
+                this.addView(boxClient, "ID_CLIENT");
+
+                cAdr.gridy++;
+                cAdr.weightx = 0;
+                cAdr.gridx = 0;
+                panelAdrSpec.add(new JLabel("Adresse", SwingConstants.RIGHT), cAdr);
+                final SQLRequestComboBox boxAdr = new SQLRequestComboBox(true);
+                boxAdr.uiInit(Configuration.getInstance().getDirectory().getElement(getTable().getTable("ADRESSE")).getComboRequest(true));
+                boxClient.addValueListener(new PropertyChangeListener() {
 
                     @Override
-                    public void actionPerformed(ActionEvent e) {
-                        if (boxLivr.isSelected() && !comp.isCreated()) {
-                            comp.setCreated(true);
-                            if (CommandeSQLComponent.this.getTable().contains("ID_AFFAIRE")) {
-
-                                SQLRowValues rowVals = getLivraisonAdr(((ElementComboBox) CommandeSQLComponent.this.getView("ID_AFFAIRE").getComp()).getSelectedRow());
-
-                                comp.setValue(rowVals);
-                            }
-
+                    public void propertyChange(PropertyChangeEvent evt) {
+                        if (boxClient.getSelectedRow() != null && !boxClient.getSelectedRow().isUndefined()) {
+                            Where w = new Where(boxAdr.getRequest().getPrimaryTable().getField("ID_CLIENT"), "=", boxClient.getSelectedRow().getID());
+                            w = w.or(new Where(boxAdr.getRequest().getPrimaryTable().getKey(), "=", boxClient.getSelectedRow().getInt("ID_ADRESSE")));
+                            w = w.or(new Where(boxAdr.getRequest().getPrimaryTable().getKey(), "=", boxClient.getSelectedRow().getInt("ID_ADRESSE_F")));
+                            w = w.or(new Where(boxAdr.getRequest().getPrimaryTable().getKey(), "=", boxClient.getSelectedRow().getInt("ID_ADRESSE_L")));
+                            boxAdr.getRequest().setWhere(w);
                         } else {
-                            if (!boxLivr.isSelected()) {
-                                comp.setCreated(false);
-                            }
+                            boxAdr.getRequest().setWhere(null);
                         }
                     }
                 });
-            }
+                cAdr.weightx = 1;
+                cAdr.gridx++;
+                panelAdrSpec.add(boxAdr, cAdr);
 
-            c.gridy++;
-            this.add(comp, c);
-            this.add(this.getView("ID_ADRESSE").getComp(), c);
+                cAdr.gridx = 0;
+                cAdr.gridy++;
+                cAdr.weightx = 0;
+                if (getMode() == Mode.MODIFICATION) {
+                    panelAdrSpec.add(new JLabel(getLabelFor("ID_ADRESSE")), cAdr);
+                }
+                cAdr.gridx++;
+                cAdr.gridwidth = GridBagConstraints.REMAINDER;
+                this.addView("ID_ADRESSE");
+                compAdr = (DefaultElementSQLObject) this.getView("ID_ADRESSE").getComp();
+
+                cAdr.gridy++;
+                if (getMode() == Mode.MODIFICATION) {
+                    panelAdrSpec.add(compAdr, cAdr);
+                }
+                boxAdr.addValueListener(new PropertyChangeListener() {
+
+                    @Override
+                    public void propertyChange(PropertyChangeEvent evt) {
+                        SQLRow row = boxAdr.getSelectedRow();
+                        if (row != null && !row.isUndefined()) {
+                            compAdr.setCreated(true);
+                            SQLRowValues asRowValues = new SQLRowValues(row.asRowValues());
+                            compAdr.setValue(asRowValues);
+                        }
+                    }
+                });
+
+                c.gridy++;
+                c.gridx = 0;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                c.weightx = 1;
+                this.add(panelAdrSpec, c);
+                c.gridwidth = 1;
+                c.weightx = 0;
+
+                boxLivrClient.addActionListener(new ActionListener() {
+
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        panelAdrSpec.setVisible(boxLivrClient.isSelected());
+
+                        if (!boxLivrClient.isSelected()) {
+                            boxClient.setValue((Integer) null);
+                            boxAdr.setValue((Integer) null);
+                            compAdr.setCreated(false);
+                        }
+                    }
+                });
+                panelAdrSpec.setVisible(false);
+            }
         }
         c.gridwidth = 1;
 
@@ -443,9 +545,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
         addRequiredSQLObject(fieldTTC, "T_TTC");
         addRequiredSQLObject(fieldService, "T_SERVICE");
-        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
-                this.table.getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement(), fieldDevise,
-                this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
+        final TotalPanel totalTTC = new TotalPanel(this.table, fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, null, fieldDevise, null, null);
 
         c.gridx++;
         c.gridy--;
@@ -541,6 +641,16 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
     public void select(SQLRowAccessor r) {
         if (r != null) {
             this.numeroUniqueCommande.setIdSelected(r.getID());
+        }
+        if (!getTable().contains("LIVRAISON_F") && r != null && !r.isUndefined()) {
+
+            SQLRowAccessor adr = r.getForeign("ID_ADRESSE");
+            boxLivrClient.setSelected(adr != null && !adr.isUndefined());
+            panelAdrSpec.setVisible(boxLivrClient.isSelected());
+
+            if (!boxLivrClient.isSelected()) {
+                compAdr.setCreated(false);
+            }
         }
 
         super.select(r);

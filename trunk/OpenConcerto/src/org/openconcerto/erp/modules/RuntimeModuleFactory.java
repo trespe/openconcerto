@@ -19,11 +19,14 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Properties;
 
+import net.jcip.annotations.ThreadSafe;
+
 /**
  * A module factory which classes are already in the classpath.
  * 
  * @author Sylvain CUAZ
  */
+@ThreadSafe
 public final class RuntimeModuleFactory extends ModuleFactory {
 
     public RuntimeModuleFactory(final File props) throws IOException {

@@ -77,7 +77,7 @@ public class OOXMLElement {
         if (attributeValue.equalsIgnoreCase("DateEcheance")) {
             int idModeReglement = row.getInt("ID_MODE_REGLEMENT");
             Date d = (Date) row.getObject("DATE");
-            return getDateEcheance(idModeReglement, d);
+            return getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("DatePattern"));
         }
 
         final List<Element> eltFields = this.elt.getChildren("field");
@@ -177,10 +177,9 @@ public class OOXMLElement {
      * 
      * @param idModeRegl
      * @param currentDate
-     * @return la date d'échéance au format dd/MM/yy
+     * @return la date d'échéance au format dd/MM/yy si datePattern !=null sinon une Date
      */
-    protected String getDateEcheance(int idModeRegl, Date currentDate) {
-        final DateFormat format2 = new SimpleDateFormat("dd/MM/yyyy");
+    protected Object getDateEcheance(int idModeRegl, Date currentDate, String datePattern) {
         SQLElement eltModeRegl = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
         SQLRow row = eltModeRegl.getTable().getRow(idModeRegl);
         int aJ = row.getInt("AJOURS");
@@ -192,10 +191,13 @@ public class OOXMLElement {
                 return " ";
             }
         }
-        String s = format2.format(ModeDeReglementSQLElement.calculDate(aJ, nJ, currentDate));
-        System.err.println(s);
-        return s;
-        // return format2.format(ModeDeReglementSQLElement.calculDate(aJ, nJ, currentDate));
+        Date calculDate = ModeDeReglementSQLElement.calculDate(aJ, nJ, currentDate);
+        if (datePattern != null && datePattern.trim().length() > 0) {
+            final DateFormat format2 = new SimpleDateFormat(datePattern);
+            return format2.format(calculDate);
+        } else {
+            return calculDate;
+        }
     }
 
     public boolean isTypeReplace() {

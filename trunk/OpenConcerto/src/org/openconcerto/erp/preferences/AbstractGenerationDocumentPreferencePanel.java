@@ -14,11 +14,10 @@
  package org.openconcerto.erp.preferences;
 
 import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
-import org.openconcerto.erp.generationDoc.SheetXml;
-import org.openconcerto.erp.utils.FileUtility;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.preferences.DefaultPreferencePanel;
+import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.text.SimpleDocumentListener;
@@ -227,14 +226,14 @@ public abstract class AbstractGenerationDocumentPreferencePanel extends DefaultP
             final File z = new File(".");
             for (final Entry<Tuple2<String, String>, JTextField> entry : this.mapKeyTextOO.entrySet()) {
                 final File f = new File(entry.getValue().getText());
-                TemplateNXProps.getInstance().setProperty(entry.getKey().get1() + "OO", FileUtility.getPrimaryPath(z.getCanonicalFile(), f));
-                DocumentLocalStorageManager.getInstance().addDocumentDirectory(entry.getKey().get0(), new File(FileUtility.getPrimaryPath(z.getCanonicalFile(), f)));
+                TemplateNXProps.getInstance().setProperty(entry.getKey().get1() + "OO", FileUtils.relative(z, f));
+                DocumentLocalStorageManager.getInstance().addDocumentDirectory(entry.getKey().get0(), new File(FileUtils.relative(z, f)));
             }
 
             for (final Entry<Tuple2<String, String>, JTextField> entry : this.mapKeyTextPDF.entrySet()) {
                 final File f = new File(entry.getValue().getText());
-                TemplateNXProps.getInstance().setProperty(entry.getKey().get1() + "PDF", FileUtility.getPrimaryPath(z.getCanonicalFile(), f));
-                DocumentLocalStorageManager.getInstance().addPDFDirectory(entry.getKey().get0(), new File(FileUtility.getPrimaryPath(z.getCanonicalFile(), f)));
+                TemplateNXProps.getInstance().setProperty(entry.getKey().get1() + "PDF", FileUtils.relative(z, f));
+                DocumentLocalStorageManager.getInstance().addPDFDirectory(entry.getKey().get0(), new File(FileUtils.relative(z, f)));
             }
 
         } catch (final IOException e) {

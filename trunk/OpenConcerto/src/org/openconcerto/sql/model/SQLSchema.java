@@ -16,6 +16,7 @@
 import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
+import org.openconcerto.utils.cc.CopyOnWriteMap;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 import org.openconcerto.xml.JDOMUtils;
 
@@ -31,6 +32,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+
+import net.jcip.annotations.GuardedBy;
 
 import org.jdom.Element;
 
@@ -70,17 +73,16 @@ public final class SQLSchema extends SQLIdentifier {
         return base.getFwkMetadata(schemaName, VERSION_MDKEY);
     }
 
-    // values are null until getTable() or fillTableMap
-    private final Map<String, SQLTable> tables;
+    private final CopyOnWriteMap<String, SQLTable> tables;
     // name -> src
     private final Map<String, String> procedures;
-
+    @GuardedBy("this")
     private boolean fetchAllUndefIDs = true;
 
     SQLSchema(SQLBase base, String name) {
         super(base, name);
-        this.tables = new HashMap<String, SQLTable>();
-        this.procedures = new HashMap<String, String>();
+        this.tables = new CopyOnWriteMap<String, SQLTable>();
+        this.procedures = new CopyOnWriteMap<String, String>();
     }
 
     public final SQLBase getBase() {
@@ -98,12 +100,8 @@ public final class SQLSchema extends SQLIdentifier {
         return Collections.unmodifiableMap(this.procedures);
     }
 
-    final void addProcedure(String procName) {
-        this.procedures.put(procName, null);
-    }
-
-    final void setProcedureSource(String procName, String src) {
-        this.procedures.put(procName, src);
+    final void putProcedures(final Map<String, String> m) {
+        this.procedures.putAll(m);
     }
 
     // clear the attributes that are not preserved (ie SQLTable) but recreated each time (ie
@@ -112,39 +110,85 @@ public final class SQLSchema extends SQLIdentifier {
         this.procedures.clear();
     }
 
+    // XMLStructureSource always pre-verify so we don't need the system root lock
     void load(Element schemaElem) {
-        final List l = schemaElem.getChildren("table");
+        final List<?> l = schemaElem.getChildren("table");
         for (int i = 0; i < l.size(); i++) {
             final Element elementTable = (Element) l.get(i);
             this.refreshTable(elementTable);
         }
+        final Map<String, String> procMap = new HashMap<String, String>();
         for (final Object proc : schemaElem.getChild("procedures").getChildren("proc")) {
             final Element procElem = (Element) proc;
             final Element src = procElem.getChild("src");
-            this.setProcedureSource(procElem.getAttributeValue("name"), src == null ? null : src.getText());
+            procMap.put(procElem.getAttributeValue("name"), src == null ? null : src.getText());
+        }
+        this.putProcedures(procMap);
+    }
+
+    /**
+     * Fetch table from the DB.
+     * 
+     * @param tableName the name of the table to fetch.
+     * @return the up to date table, <code>null</code> if not found
+     * @throws SQLException if an error occurs.
+     */
+    public final SQLTable fetchTable(final String tableName) throws SQLException {
+        synchronized (getTreeMutex()) {
+            synchronized (this) {
+                final SQLTable existing = getTable(tableName);
+                if (existing != null) {
+                    existing.fetchFields();
+                } else {
+                    // like in StructureSource create temporary schema
+                    final SQLSchema tmp = new SQLSchema(getBase(), getName());
+                    // fetch the requested table
+                    tmp.addTable(tableName).fetchFields(true);
+                    // and check if it exists
+                    final SQLTable newTable = tmp.getTable(tableName);
+                    if (newTable != null) {
+                        final SQLTable res = this.addTable(tableName);
+                        res.mutateTo(newTable);
+                        this.getDBSystemRoot().descendantsChanged(true);
+                        res.save();
+                    }
+                }
+                return this.getTable(tableName);
+            }
         }
     }
 
     void mutateTo(SQLSchema newSchema) {
-        this.clearNonPersistent();
-        this.procedures.putAll(newSchema.procedures);
+        assert Thread.holdsLock(this.getDBSystemRoot().getTreeMutex());
+        synchronized (this) {
+            this.clearNonPersistent();
+            this.putProcedures(newSchema.procedures);
 
-        for (final SQLTable t : this.getTables()) {
-            t.mutateTo(newSchema.getTable(t.getName()));
+            for (final SQLTable t : this.getTables()) {
+                t.mutateTo(newSchema.getTable(t.getName()));
+            }
         }
     }
 
     // ** tables
 
-    final void addTable(String tableName) {
+    final SQLTable addTable(String tableName) {
+        synchronized (getTreeMutex()) {
+            return this.addTableWithoutSysRootLock(tableName);
+        }
+    }
+
+    final SQLTable addTableWithoutSysRootLock(String tableName) {
         if (this.contains(tableName))
             throw new IllegalStateException(tableName + " already in " + this);
         final CollectionChangeEventCreator c = this.createChildrenCreator();
-        this.tables.put(tableName, new SQLTable(this, tableName));
+        final SQLTable res = new SQLTable(this, tableName);
+        this.tables.put(tableName, res);
         this.fireChildrenChanged(c);
+        return res;
     }
 
-    final void refreshTable(Element tableElem) {
+    private final void refreshTable(Element tableElem) {
         final String tableName = tableElem.getAttributeValue("name");
         this.getTable(tableName).loadFields(tableElem);
     }
@@ -159,16 +203,26 @@ public final class SQLSchema extends SQLIdentifier {
      * @throws SQLException
      */
     final Boolean refreshTable(DatabaseMetaData metaData, ResultSet rs) throws SQLException {
-        final String tableName = rs.getString("TABLE_NAME");
-        if (this.contains(tableName)) {
-            return this.getTable(tableName).fetchFields(metaData, rs);
-        } else {
-            // eg in pg getColumns() return columns of BATIMENT_ID_seq
-            return null;
+        synchronized (getTreeMutex()) {
+            synchronized (this) {
+                final String tableName = rs.getString("TABLE_NAME");
+                if (this.contains(tableName)) {
+                    return this.getTable(tableName).fetchFields(metaData, rs);
+                } else {
+                    // eg in pg getColumns() return columns of BATIMENT_ID_seq
+                    return null;
+                }
+            }
         }
     }
 
     final void rmTable(String tableName) {
+        synchronized (getTreeMutex()) {
+            this.rmTableWithoutSysRootLock(tableName);
+        }
+    }
+
+    final void rmTableWithoutSysRootLock(String tableName) {
         final CollectionChangeEventCreator c = this.createChildrenCreator();
         final SQLTable tableToDrop = this.tables.remove(tableName);
         this.fireChildrenChanged(c);
@@ -199,13 +253,8 @@ public final class SQLSchema extends SQLIdentifier {
     }
 
     @Override
-    public SQLIdentifier getChild(String name) {
-        return this.getTable(name);
-    }
-
-    @Override
-    public Set<String> getChildrenNames() {
-        return this.tables.keySet();
+    public Map<String, SQLTable> getChildrenMap() {
+        return this.tables.getImmutable();
     }
 
     @Override
@@ -222,29 +271,33 @@ public final class SQLSchema extends SQLIdentifier {
             sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(this.getName()));
             sb.append('"');
         }
-        getVersionAttr(this, sb);
-        sb.append(" >\n");
+        synchronized (getTreeMutex()) {
+            synchronized (this) {
+                getVersionAttr(this, sb);
+                sb.append(" >\n");
 
-        sb.append("<procedures>\n");
-        for (final Entry<String, String> e : this.procedures.entrySet()) {
-            sb.append("<proc name=\"");
-            sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(e.getKey()));
-            sb.append("\" ");
-            if (e.getValue() == null) {
-                sb.append("/>");
-            } else {
-                sb.append("><src>");
-                sb.append(JDOMUtils.OUTPUTTER.escapeElementEntities(e.getValue()));
-                sb.append("</src></proc>\n");
+                sb.append("<procedures>\n");
+                for (final Entry<String, String> e : this.procedures.entrySet()) {
+                    sb.append("<proc name=\"");
+                    sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(e.getKey()));
+                    sb.append("\" ");
+                    if (e.getValue() == null) {
+                        sb.append("/>");
+                    } else {
+                        sb.append("><src>");
+                        sb.append(JDOMUtils.OUTPUTTER.escapeElementEntities(e.getValue()));
+                        sb.append("</src></proc>\n");
+                    }
+                }
+                sb.append("</procedures>\n");
+                for (final SQLTable table : this.getTables()) {
+                    // passing our sb to table don't go faster
+                    sb.append(table.toXML());
+                    sb.append("\n");
+                }
+                sb.append("</schema>");
             }
         }
-        sb.append("</procedures>\n");
-        for (final SQLTable table : this.getTables()) {
-            // passing our sb to table don't go faster
-            sb.append(table.toXML());
-            sb.append("\n");
-        }
-        sb.append("</schema>");
 
         return sb.toString();
     }
@@ -272,40 +325,43 @@ public final class SQLSchema extends SQLIdentifier {
     boolean setFwkMetadata(String name, String value, boolean createTable) throws SQLException {
         if (Boolean.getBoolean(NOAUTO_CREATE_METADATA))
             return false;
-        // don't refresh until after the insert, that way if the refresh triggers an access to the
-        // metadata name will already be set to value.
-        final boolean shouldRefresh;
-        if (createTable && !this.contains(METADATA_TABLENAME)) {
-            final SQLCreateTable create = new SQLCreateTable(this.getDBRoot(), METADATA_TABLENAME);
-            create.setPlain(true);
-            create.addVarCharColumn("NAME", 100).addVarCharColumn("VALUE", 250);
-            create.setPrimaryKey("NAME");
-            this.getBase().getDataSource().execute(create.asString());
-            shouldRefresh = true;
-        } else
-            shouldRefresh = false;
 
-        final boolean res;
-        if (createTable || this.contains(METADATA_TABLENAME)) {
-            // don't use SQLRowValues, cause it means getting the SQLTable and thus calling
-            // fetchTables(), but setFwkMetadata() might itself be called by fetchTables()
-            // furthermore SQLRowValues support only rowable tables
-            final SQLName tableName = new SQLName(this.getBase().getName(), this.getName(), METADATA_TABLENAME);
-            final String del = SQLSelect.quote("DELETE FROM %i WHERE %i = %s", tableName, "NAME", name);
-            final String ins = SQLSelect.quote("INSERT INTO %i(%i,%i) VALUES(%s,%s)", tableName, "NAME", "VALUE", name, value);
-            SQLUtils.executeAtomic(this.getBase().getDataSource(), new SQLFactory<Object>() {
-                public Object create() throws SQLException {
-                    getBase().getDataSource().execute(del);
-                    getBase().getDataSource().execute(ins);
-                    return null;
-                }
-            });
-            res = true;
-        } else
-            res = false;
-        if (shouldRefresh)
-            this.getBase().fetchTables(Collections.singleton(this.getName()));
-        return res;
+        synchronized (this.getTreeMutex()) {
+            // don't refresh until after the insert, that way if the refresh triggers an access to
+            // the metadata name will already be set to value.
+            final boolean shouldRefresh;
+            if (createTable && !this.contains(METADATA_TABLENAME)) {
+                final SQLCreateTable create = new SQLCreateTable(this.getDBRoot(), METADATA_TABLENAME);
+                create.setPlain(true);
+                create.addVarCharColumn("NAME", 100).addVarCharColumn("VALUE", 250);
+                create.setPrimaryKey("NAME");
+                this.getBase().getDataSource().execute(create.asString());
+                shouldRefresh = true;
+            } else
+                shouldRefresh = false;
+
+            final boolean res;
+            if (createTable || this.contains(METADATA_TABLENAME)) {
+                // don't use SQLRowValues, cause it means getting the SQLTable and thus calling
+                // fetchTables(), but setFwkMetadata() might itself be called by fetchTables()
+                // furthermore SQLRowValues support only rowable tables
+                final SQLName tableName = new SQLName(this.getBase().getName(), this.getName(), METADATA_TABLENAME);
+                final String del = SQLSelect.quote("DELETE FROM %i WHERE %i = %s", tableName, "NAME", name);
+                final String ins = SQLSelect.quote("INSERT INTO %i(%i,%i) VALUES(%s,%s)", tableName, "NAME", "VALUE", name, value);
+                SQLUtils.executeAtomic(this.getBase().getDataSource(), new SQLFactory<Object>() {
+                    public Object create() throws SQLException {
+                        getBase().getDataSource().execute(del);
+                        getBase().getDataSource().execute(ins);
+                        return null;
+                    }
+                });
+                res = true;
+            } else
+                res = false;
+            if (shouldRefresh)
+                this.getBase().fetchTables(Collections.singleton(this.getName()));
+            return res;
+        }
     }
 
     public final String getVersion() {
@@ -321,12 +377,15 @@ public final class SQLSchema extends SQLIdentifier {
     // Perhaps something like VERSION = date seconds || '_' || (select cast( substring(indexof '_')
     // as int ) + 1 from VERSION) ; e.g. 20110701-1021_01352
     public final String updateVersion() throws SQLException {
-        final String res = XMLStructureSource.XMLDATE_FMT.format(new Date());
+        final String res;
+        synchronized (XMLStructureSource.XMLDATE_FMT) {
+            res = XMLStructureSource.XMLDATE_FMT.format(new Date());
+        }
         this.setFwkMetadata(SQLSchema.VERSION_MDKEY, res);
         return res;
     }
 
-    public final void setFetchAllUndefinedIDs(final boolean b) {
+    public synchronized final void setFetchAllUndefinedIDs(final boolean b) {
         this.fetchAllUndefIDs = b;
     }
 
@@ -337,7 +396,7 @@ public final class SQLSchema extends SQLIdentifier {
      * 
      * @return <code>true</code> if all undefined IDs are fetched together.
      */
-    public final boolean isFetchAllUndefinedIDs() {
+    public synchronized final boolean isFetchAllUndefinedIDs() {
         return this.fetchAllUndefIDs;
     }
 }

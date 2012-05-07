@@ -43,6 +43,7 @@ public class AddFK extends Changer<DBRoot> {
         super(b);
     }
 
+    @Override
     protected void changeImpl(DBRoot root) throws SQLException {
         this.getStream().print(root + "... ");
         final Set<SQLTable> tables = root.getDescs(SQLTable.class);
@@ -74,7 +75,7 @@ public class AddFK extends Changer<DBRoot> {
                     if (!realFKs.contains(cols)) {
                         final SQLField key = t.getField(cols.get(0));
                         final SQLTable foreignT = SQLKey.keyToTable(key);
-                        alter.addForeignConstraint(cols, new SQLName(foreignT.getName()), false, singletonList(t.getKey().getName()));
+                        alter.addForeignConstraint(cols, new SQLName(foreignT.getName()), false, singletonList(foreignT.getKey().getName()));
                         System.err.println("ajout de " + key);
                     }
                     // MySQL automatically creates an index with a foreign key,

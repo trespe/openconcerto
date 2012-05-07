@@ -108,8 +108,8 @@ public abstract class EmailClient {
      * @return the mailto URI.
      * @throws IOException if an encoding error happens.
      * @see <a href="http://tools.ietf.org/html/rfc2368">RFC 2368</a>
-     * @see <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=67254">Don't allow attachment of
-     *      local file from non-local link</a>
+     * @see <a href="https://bugzilla.mozilla.org/show_bug.cgi?id=67254">Don&apos;t allow attachment
+     *      of local file from non-local link</a>
      */
     public final static URI getMailToURI(final String to, final String subject, final String body, final File... attachments) throws IOException {
         // mailto:p.dupond@example.com?subject=Sujet%20du%20courrier&cc=pierre@example.org&bcc=jacques@example.net&body=Bonjour
@@ -146,7 +146,9 @@ public abstract class EmailClient {
         final List<String> urls = new ArrayList<String>(attachments.length);
         for (final File attachment : attachments) {
             // Thunderbird doesn't parse java URI file:/C:/
-            final String tbURL = "file://" + attachment.toURI().getRawPath();
+            final String rawPath = attachment.toURI().getRawPath();
+            // handle UNC paths
+            final String tbURL = (rawPath.startsWith("//") ? "file:///" : "file://") + rawPath;
             urls.add(tbURL);
         }
         l.add(createEncodedParam("attachment", CollectionUtils.join(urls, ",")));
@@ -269,10 +271,7 @@ public abstract class EmailClient {
                 // https://bugzilla.mozilla.org/show_bug.cgi?id=472891
                 // MAYBE find out if launched and let handled=false
 
-                // we used to ask for the URL of the application file but since 10.7 it returns a
-                // file reference URL like "file:///.file/id=6723689.35865"
-                final File appDir = new File(cmdSubstitution("osascript", "-e", "tell application id \"com.apple.Finder\" to POSIX path of (application file id \"" + bundleID + "\" as string)")
-                        .trim());
+                final File appDir = ((Mac) de).getAppDir(bundleID);
                 final File exe = new File(appDir, "Contents/MacOS/thunderbird-bin");
 
                 return new ThunderbirdPath(exe);

@@ -49,7 +49,7 @@ public class RemoveDuplicates extends Changer<SQLTable> {
     }
 
     @Override
-    protected Class<? extends DBStructureItem> getMaxLevel() {
+    protected Class<? extends DBStructureItem<?>> getMaxLevel() {
         return SQLTable.class;
     }
 

@@ -27,8 +27,8 @@ import org.openconcerto.erp.core.finance.payment.component.ModeDeReglementSQLCom
 import org.openconcerto.erp.core.sales.credit.element.AvoirClientSQLElement;
 import org.openconcerto.erp.core.sales.credit.ui.AvoirItemTable;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
-import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirClientXmlSheet;
 import org.openconcerto.erp.generationEcritures.GenerationMvtAvoirClient;
 import org.openconcerto.erp.model.ISQLCompteSelector;
@@ -36,7 +36,6 @@ import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.ElementSQLObject;
 import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -61,7 +60,6 @@ import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -379,7 +377,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
             c.weightx = 0;
             c.weighty = 0;
             c.gridwidth = 1;
-            this.add(new JLabel("Tarif à appliquer"), c);
+            this.add(new JLabel("Tarif à appliquer", SwingConstants.RIGHT), c);
             c.gridx++;
             c.gridwidth = GridBagConstraints.REMAINDER;
 
@@ -547,9 +545,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         JTextField poids = new JTextField();
         if (getTable().getFieldsName().contains("T_POIDS"))
             addSQLObject(poids, "T_POIDS");
-        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
-                this.table.getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement(), fieldDevise,
-                this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
+        final TotalPanel totalTTC = new TotalPanel(this.table, fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, null, fieldDevise, poids, null);
         totalTTC.setOpaque(false);
         c.gridx++;
         c.gridy = 0;
@@ -650,9 +646,10 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
             // incrémentation du numéro auto
             if (NumerotationAutoSQLElement.getNextNumero(AvoirClientSQLElement.class, row.getDate("DATE").getTime()).equalsIgnoreCase(this.textNumero.getText().trim())) {
                 SQLRowValues rowVals = new SQLRowValues(tableNum);
-                int val = tableNum.getRow(2).getInt("AVOIR_START");
+                String label = NumerotationAutoSQLElement.getLabelNumberFor(AvoirClientSQLElement.class);
+                int val = tableNum.getRow(2).getInt(label);
                 val++;
-                rowVals.put("AVOIR_START", Integer.valueOf(val));
+                rowVals.put(label, Integer.valueOf(val));
 
                 try {
                     rowVals.update(2);
@@ -812,59 +809,23 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
 
     }
 
+    protected String getLibelleStock(SQLRow row, SQLRow rowElt) {
+        return "Avoir client N°" + row.getString("NUMERO");
+    }
+
     /**
      * Mise à jour des stocks pour chaque article composant la facture d'avoir
      */
     private void updateStock(int id) {
 
-        SQLElement eltArticleAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT_ELEMENT");
-        SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
-        SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement(sqlTableArticle);
-        SQLRow rowAvoir = getTable().getRow(id);
-
-        // On récupére les articles qui composent la facture
-        SQLSelect selEltAvoir = new SQLSelect(eltArticleAvoir.getTable().getBase());
-        selEltAvoir.addSelect(eltArticleAvoir.getTable().getField("ID"));
-        selEltAvoir.setWhere(new Where(eltArticleAvoir.getTable().getField("ID_AVOIR_CLIENT"), "=", id));
-
-        List lEltAvoir = (List) eltArticleAvoir.getTable().getBase().getDataSource().execute(selEltAvoir.asString(), new ArrayListHandler());
-
-        if (lEltAvoir != null) {
-            for (int i = 0; i < lEltAvoir.size(); i++) {
-
-                // Elt qui compose facture
-                Object[] tmp = (Object[]) lEltAvoir.get(i);
-                int idEltFact = ((Number) tmp[0]).intValue();
-                SQLRow rowEltAvoir = eltArticleAvoir.getTable().getRow(idEltFact);
-
-                // on récupére l'article qui lui correspond
-                SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
-                for (SQLField field : eltArticle.getTable().getFields()) {
-                    if (rowEltAvoir.getTable().getFieldsName().contains(field.getName())) {
-                        rowArticle.put(field.getName(), rowEltAvoir.getObject(field.getName()));
-                    }
-                }
-                // rowArticle.loadAllSafe(rowEltFact);
-                int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
-
-                // on crée un mouvement de stock pour chacun des articles
-                SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-                SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
-                rowVals.put("QTE", rowEltAvoir.getInt("QTE"));
-                rowVals.put("NOM", "Avoir client N°" + rowAvoir.getString("NUMERO"));
-                rowVals.put("IDSOURCE", id);
-                rowVals.put("SOURCE", getTable().getName());
-                rowVals.put("ID_ARTICLE", idArticle);
-                rowVals.put("DATE", rowAvoir.getObject("DATE"));
-                try {
-                    SQLRow row = rowVals.insert();
-                    MouvementStockSQLElement.updateStock(Arrays.asList(row.getID()));
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-
+        MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+        mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("AVOIR_CLIENT_ELEMENT"), new StockLabel() {
+            @Override
+            public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
+                return getLibelleStock(rowOrigin, rowElt);
             }
-        }
+        }, true);
+
     }
 
     public void actionPerformed(ActionEvent e) {

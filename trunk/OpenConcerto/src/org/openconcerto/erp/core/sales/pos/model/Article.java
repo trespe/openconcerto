@@ -24,12 +24,18 @@ public class Article {
     int priceHTInCents;
     String barCode = "empty barcode";
     String code = "";
+    private final int id;
     private static Map<String, Article> codes = new HashMap<String, Article>();
 
-    public Article(Categorie s1, String string) {
+    public Article(Categorie s1, String string, int id) {
         this.s = s1;
+        this.id = id;
         this.name = string;
         s1.addArticle(this);
+    }
+
+    public int getId() {
+        return this.id;
     }
 
     public int getPriceHTInCents() {

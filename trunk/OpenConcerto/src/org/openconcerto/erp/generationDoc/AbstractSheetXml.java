@@ -13,10 +13,15 @@
  
  package org.openconcerto.erp.generationDoc;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StringUtils;
+import org.openconcerto.utils.sync.SyncClient;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Future;
@@ -81,8 +86,43 @@ public abstract class AbstractSheetXml extends SheetXml {
 
     @Override
     public File getGeneratedFile() {
+        ComptaPropsConfiguration config = ComptaPropsConfiguration.getInstanceCompta();
+
+        final File outputDirectory = getDocumentOutputDirectory();
+        try {
+            FileUtils.mkdir_p(outputDirectory);
+        } catch (IOException e1) {
+            ExceptionHandler.handle("Impossible de créer le dossier " + outputDirectory.getAbsolutePath(), e1);
+        }
+
         if (this.generatedOpenDocumentFile == null)
-            this.generatedOpenDocumentFile = new File(getDocumentOutputDirectory(), getValidFileName(getName()) + ".ods");
+            this.generatedOpenDocumentFile = new File(outputDirectory, getValidFileName(getName()) + ".ods");
+        if (config.isOnCloud()) {
+            if (generatedOpenDocumentFile.exists()) {
+                long t = generatedOpenDocumentFile.lastModified();
+                if (System.currentTimeMillis() - t < 1000 * 10) {
+                    return generatedOpenDocumentFile;
+                }
+
+            }
+
+            String remotePath = config.getSocieteID() + "/" + getStoragePath();
+            remotePath = remotePath.replace('\\', '/');
+            final SyncClient client = new SyncClient("https://" + config.getStorageServer());
+
+            client.setVerifyHost(false);
+
+            try {
+
+                System.out.println("AbstractSheet: getFromCloud: " + remotePath + " " + generatedOpenDocumentFile.getName() + " to " + outputDirectory.getAbsolutePath());
+                client.retrieveFile(outputDirectory, remotePath, generatedOpenDocumentFile.getName(), config.getToken());
+                generatedOpenDocumentFile.setLastModified(System.currentTimeMillis());
+            } catch (Exception e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+        }
+
         return generatedOpenDocumentFile;
     }
 }

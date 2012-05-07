@@ -33,7 +33,11 @@ import org.jdom.Namespace;
 public class ODMeta extends ODNode {
 
     static ODMeta create(ODXMLDocument parent) {
-        final Element meta = parent.getChild("meta");
+        return create(parent, false);
+    }
+
+    static ODMeta create(ODXMLDocument parent, boolean b) {
+        final Element meta = parent.getChild("meta", b);
         return meta == null ? null : new ODMeta(meta, parent);
     }
 

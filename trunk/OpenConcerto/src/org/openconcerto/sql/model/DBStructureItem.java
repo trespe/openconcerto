@@ -21,18 +21,25 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+
+import net.jcip.annotations.ThreadSafe;
 
 /**
  * An item of the database tree structure (server/base/schema/...). Each server has 2 trees, the
- * JDBC one : {@link DBStructureItemJDBC} and the DB specific one : {@link DBStructureItemDB} .
+ * JDBC one : {@link DBStructureItemJDBC} and the DB specific one : {@link DBStructureItemDB}. This
+ * class and its subclasses are thread-safe.
  * 
  * @author Sylvain
  * @param <D> the type of items of the tree.
  */
+@ThreadSafe
 public abstract class DBStructureItem<D extends DBStructureItem<D>> {
 
+    // name is final and immutable : never need to synchronize its access
     private final String name;
+    // parent is final but mutable (e.g. its children)
     private final D parent;
 
     protected DBStructureItem(final D parent, final String name) {
@@ -71,7 +78,13 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
         return this.parent;
     }
 
-    public abstract D getChild(String name);
+    // result must not be modified (e.g. immutable or a private copy)
+    // may contain null values for children not loaded
+    public abstract Map<String, ? extends D> getChildrenMap();
+
+    public final D getChild(String name) {
+        return this.getChildrenMap().get(name);
+    }
 
     /**
      * Same as ({@link #getChild(String)} but checks that it exists.
@@ -81,19 +94,20 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
      * @throws DBStructureItemNotFound if there's no child named <code>name</code>.
      */
     public final D getCheckedChild(String name) {
-        if (this.getChildrenNames().contains(name))
-            return this.getChild(name);
+        final D res = this.getChild(name);
+        if (res != null)
+            return res;
         else
             throw new DBStructureItemNotFound(name + " is not a child of " + this);
     }
 
-    public abstract Set<String> getChildrenNames();
+    public final Set<String> getChildrenNames() {
+        return this.getChildrenMap().keySet();
+    }
 
     protected final Set<D> getChildren() {
         final Set<D> res = new HashSet<D>();
-        for (final String n : this.getChildrenNames()) {
-            res.add(this.getChild(n));
-        }
+        res.addAll(this.getChildrenMap().values());
         return res;
     }
 
@@ -140,8 +154,9 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
             return Collections.singleton(clazz.cast(this));
         } else {
             final Set<T> res = new HashSet<T>();
-            for (final D child : this.getChildren()) {
-                res.addAll(child.getDescendants(clazz));
+            for (final D child : this.getChildrenMap().values()) {
+                if (child != null)
+                    res.addAll(child.getDescendants(clazz));
             }
             return res;
         }
@@ -297,7 +312,7 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
     }
 
     @SuppressWarnings("unchecked")
-    public final <T extends DBStructureItem> Set<T> getDescs(Class<T> clazz) {
+    public final <T extends DBStructureItem<?>> Set<T> getDescs(Class<T> clazz) {
         // getDescendants() stays in the same tree, so start from the desired one.
         if (DBStructureItemDB.class.isAssignableFrom(clazz))
             return (Set<T>) this.getDB().getDescendants(clazz.asSubclass(DBStructureItemDB.class));
@@ -305,7 +320,7 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
             return (Set<T>) this.getJDBC().getDescendants(clazz.asSubclass(DBStructureItemJDBC.class));
     }
 
-    public final <T extends DBStructureItem> T getAnc(Class<T> clazz) {
+    public final <T extends DBStructureItem<?>> T getAnc(Class<T> clazz) {
         final DBStructureItem<?> res;
         if (DBStructureItemDB.class.isAssignableFrom(clazz))
             res = this.getDB().getAncestor(clazz.asSubclass(DBStructureItemDB.class));
@@ -317,7 +332,7 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
         return clazz.cast(res);
     }
 
-    public final int getHopsTo(Class<? extends DBStructureItem> clazz) {
+    public final int getHopsTo(Class<? extends DBStructureItem<?>> clazz) {
         return getLevels().getHops(this.getLevel(), this.getServer().getSQLSystem().getLevel(clazz));
     }
 
@@ -333,7 +348,7 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
 
     protected abstract DBStructureItemDB getDB();
 
-    protected final boolean isAlterEgoOf(DBStructureItem o) {
+    protected final boolean isAlterEgoOf(DBStructureItem<?> o) {
         // getJDBC() since getDB() might change level
         return o != null && (this == o || this.getJDBC() == o.getJDBC());
     }

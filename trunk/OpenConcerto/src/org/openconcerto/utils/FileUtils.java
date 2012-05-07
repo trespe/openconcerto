@@ -96,10 +96,14 @@ public final class FileUtils {
      * @return a List of String.
      */
     public static List<String> listR(File dir) {
-        return listR_rec(dir, ".");
+        return listR(dir, REGULAR_FILE_FILTER);
     }
 
-    private static List<String> listR_rec(File dir, String prefix) {
+    public static List<String> listR(File dir, FileFilter ff) {
+        return listR_rec(dir, ff, ".");
+    }
+
+    private static List<String> listR_rec(File dir, FileFilter ff, String prefix) {
         if (!dir.isDirectory())
             return null;
 
@@ -107,11 +111,11 @@ public final class FileUtils {
         final File[] children = dir.listFiles();
         for (int i = 0; i < children.length; i++) {
             final String newPrefix = prefix + "/" + children[i].getName();
-            if (children[i].isFile()) {
-                // MAYBE add a way to restrict added files
+            if (ff == null || ff.accept(children[i])) {
                 res.add(newPrefix);
-            } else if (children[i].isDirectory()) {
-                res.addAll(listR_rec(children[i], newPrefix));
+            }
+            if (children[i].isDirectory()) {
+                res.addAll(listR_rec(children[i], ff, newPrefix));
             }
         }
         return res;
@@ -146,25 +150,46 @@ public final class FileUtils {
      * @return a list of files <code>depth</code> levels beneath <code>root</code>.
      */
     public static final List<File> list(File root, final int depth, final FileFilter ff) {
+        return list(root, depth, depth, ff);
+    }
+
+    public static final List<File> list(final File root, final int minDepth, final int maxDepth, final FileFilter ff) {
+        return list(root, minDepth, maxDepth, ff, false);
+    }
+
+    public static final List<File> list(final File root, final int minDepth, final int maxDepth, final FileFilter ff, final boolean sort) {
+        if (minDepth > maxDepth)
+            throw new IllegalArgumentException(minDepth + " > " + maxDepth);
+        if (maxDepth < 0)
+            throw new IllegalArgumentException(maxDepth + " < 0");
         if (!root.exists())
             return Collections.<File> emptyList();
-        if (depth == 0) {
-            return ff.accept(root) ? Collections.singletonList(root) : Collections.<File> emptyList();
-        } else if (depth == 1) {
-            final File[] listFiles = root.listFiles(ff);
-            if (listFiles == null)
-                throw new IllegalStateException("cannot list " + root);
-            return Arrays.asList(listFiles);
+
+        final File currentFile = accept(ff, minDepth, maxDepth, root, 0) ? root : null;
+        if (maxDepth == 0) {
+            return currentFile == null ? Collections.<File> emptyList() : Collections.singletonList(currentFile);
         } else {
-            final File[] childDirs = root.listFiles(DIR_FILTER);
-            if (childDirs == null)
-                throw new IllegalStateException("cannot list " + root);
             final List<File> res = new ArrayList<File>();
-            for (final File child : childDirs) {
-                res.addAll(list(child, depth - 1, ff));
+            final File[] children = root.listFiles();
+            if (children == null)
+                throw new IllegalStateException("cannot list " + root);
+            if (sort)
+                Arrays.sort(children);
+            for (final File child : children) {
+                if (maxDepth > 1 && child.isDirectory()) {
+                    res.addAll(list(child, minDepth - 1, maxDepth - 1, ff, sort));
+                } else if (accept(ff, minDepth, maxDepth, child, 1)) {
+                    res.add(child);
+                }
             }
+            if (currentFile != null)
+                res.add(currentFile);
             return res;
         }
+    }
+
+    private static final boolean accept(final FileFilter ff, final int minDepth, final int maxDepth, final File f, final int depth) {
+        return minDepth <= depth && depth <= maxDepth && (ff == null || ff.accept(f));
     }
 
     /**

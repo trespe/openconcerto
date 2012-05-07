@@ -13,14 +13,16 @@
  
  package org.openconcerto.sql.users.rights;
 
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
+import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.utils.RTInterruptedException;
@@ -88,13 +90,20 @@ public class JListSQLTableModel extends DefaultListModel {
         this.undefined = undefined;
         this.list = new ArrayList<IComboSelectionItem>();
 
-        this.request = new ComboSQLRequest(table, listField);
+        List<SQLField> listSQLField = new ArrayList<SQLField>();
+        for (String string : listField) {
+            listSQLField.add(table.getField(string));
+        }
+        this.request = new ComboSQLRequest(Configuration.getInstance().getDirectory().getElement(table).getComboRequest(), listSQLField);
         this.request.setFieldSeparator(" ");
         if (undefined != null) {
             // add undefined
+            final ITransformer<SQLSelect, SQLSelect> trans = this.request.getSelectTransf();
             this.request.setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
                 @Override
                 public SQLSelect transformChecked(SQLSelect input) {
+                    if (trans != null)
+                        input = trans.transformChecked(input);
                     input.setExcludeUndefined(false, table);
                     return input;
                 }
@@ -249,8 +258,8 @@ public class JListSQLTableModel extends DefaultListModel {
             }
         }
         for (int i = 0; i < this.getSize(); i++) {
-            final SQLRowAccessor rowAt = getRowAt(i);
-            if (rowAt != null && id == rowAt.getID()) {
+            final IComboSelectionItem rowAt = this.list.get(i);
+            if (rowAt != null && id == rowAt.getId()) {
                 return i;
             }
         }

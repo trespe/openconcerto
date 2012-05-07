@@ -24,8 +24,6 @@ import java.util.Calendar;
 import java.util.List;
 
 public class ESCSerialPrinter extends DefaultTicketPrinter {
-    protected List<String> strings = new ArrayList<String>();
-    protected List<Integer> modes = new ArrayList<Integer>();
     private String port;
 
     public ESCSerialPrinter(String port) {
@@ -98,17 +96,17 @@ public class ESCSerialPrinter extends DefaultTicketPrinter {
 
                 System.out.println("Barcode:" + string);
 
-                // 
+                //
                 out.write(0x1D);
                 out.write(0x48);
                 out.write(0x02); // en bas
 
-                // 
+                //
                 out.write(0x1D);
                 out.write(0x77);
                 out.write(0x02); // Zoom 2
 
-                // 
+                //
                 out.write(0x1D);
                 out.write(0x68);
                 out.write(60); // Hauteur
@@ -134,7 +132,7 @@ public class ESCSerialPrinter extends DefaultTicketPrinter {
                 } else if (mode == BOLD_LARGE) {
                     out.write(0x1D);
                     out.write(0x21);
-                    out.write(0x11);// 
+                    out.write(0x11);//
                 }
 
                 for (int k = 0; k < string.length(); k++) {

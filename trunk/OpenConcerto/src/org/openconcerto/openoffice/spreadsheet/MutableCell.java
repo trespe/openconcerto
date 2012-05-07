@@ -21,7 +21,9 @@ import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ByteArrayProducer;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ImageProducer;
+import org.openconcerto.openoffice.style.data.BooleanStyle;
 import org.openconcerto.openoffice.style.data.DataStyle;
+import org.openconcerto.openoffice.style.data.DateStyle;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.Tuple3;
@@ -37,6 +39,7 @@ import java.text.NumberFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.Duration;
@@ -218,10 +221,17 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
                     text = TextPTimeFormat.format(((Calendar) obj).getTime());
                 }
             } else if (vt == ODValueType.BOOLEAN) {
-                if (lenient)
-                    text = obj.toString();
-                else
-                    throw new UnsupportedOperationException(vt + " not supported");
+                // LO do not use the the document language but the system language
+                // http://help.libreoffice.org/Common/Selecting_the_Document_Language
+                Locale l = Locale.getDefault();
+                // except of course if there's a data style
+                final CellStyle s = getStyle();
+                if (s != null) {
+                    final DataStyle ds = s.getDataStyle();
+                    if (ds != null)
+                        l = DateStyle.getLocale(ds.getElement());
+                }
+                text = BooleanStyle.toString((Boolean) obj, l, lenient);
             } else if (vt == ODValueType.STRING) {
                 text = obj.toString();
             } else {

@@ -14,9 +14,20 @@
  package org.openconcerto.erp.core.supplychain.order.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
+import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
+import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.view.IListFrame;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.ui.DefaultGridBagConstraints;
+
+import java.awt.GridBagConstraints;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -29,10 +40,28 @@ public class ListeSaisieAchatAction extends CreateFrameAbstractAction {
     }
 
     public JFrame createFrame() {
-        ListeGestCommEltPanel panel = new ListeGestCommEltPanel(Configuration.getInstance().getDirectory().getElement("SAISIE_ACHAT"));
+        SQLElement element = Configuration.getInstance().getDirectory().getElement("SAISIE_ACHAT");
+        ListeGestCommEltPanel panel = new ListeGestCommEltPanel(element);
         panel.setAddVisible(true);
         IListFrame frame = new IListFrame(panel);
+        IListTotalPanel total = new IListTotalPanel(frame.getPanel().getListe(), Arrays.asList(element.getTable().getField("MONTANT_HT"), element.getTable().getField("MONTANT_TTC")));
+        GridBagConstraints c = new DefaultGridBagConstraints();
+        c.gridy = 3;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.EAST;
+        frame.getPanel().add(total, c);
 
+        // Date panel
+        Map<IListe, SQLField> map = new HashMap<IListe, SQLField>();
+        map.put(frame.getPanel().getListe(), element.getTable().getField("DATE"));
+
+        IListFilterDatePanel datePanel = new IListFilterDatePanel(map, IListFilterDatePanel.getDefaultMap());
+        c.gridy = 4;
+        c.anchor = GridBagConstraints.CENTER;
+        c.weighty = 0;
+        datePanel.setFilterOnDefault();
+        frame.getPanel().add(datePanel, c);
         return frame;
     }
 }

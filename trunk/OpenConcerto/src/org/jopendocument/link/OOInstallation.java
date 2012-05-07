@@ -14,13 +14,12 @@
  package org.jopendocument.link;
 
 import org.openconcerto.utils.DesktopEnvironment;
+import org.openconcerto.utils.DesktopEnvironment.Mac;
 
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
 import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -98,11 +97,11 @@ public class OOInstallation {
         return null;
     }
 
-    private static String findBundleURL() throws IOException {
+    private static File findBundleDir() throws IOException {
+        final Mac de = (Mac) DesktopEnvironment.getDE();
         for (final String bundleID : new String[] { LOBundleID, OOBundleID }) {
-            // if not found prints nothing to out and a cryptic error to the standard error stream
-            final String url = cmdSubstitution("osascript", "-e", "tell application id \"com.apple.Finder\" to URL of application file id \"" + bundleID + "\"").trim();
-            if (url.length() > 0)
+            final File url = de.getAppDir(bundleID);
+            if (url != null)
                 return url;
         }
         return null;
@@ -140,13 +139,16 @@ public class OOInstallation {
 
     private static final void addUnixPaths(final List<File> cp, final File progDir) throws IOException {
         final File baseDir = progDir.getParentFile();
-        final String basisDir = baseDir.getPath() + File.separator + "basis-link";
-        final String ureDir = basisDir + File.separator + "ure-link";
-        addPaths(cp, progDir, basisDir, ureDir);
+        final File basisDir = new File(baseDir, "basis-link");
+        // basis-link was dropped from LO 3.5
+        final String basisPath = (basisDir.exists() ? basisDir : baseDir).getPath();
+        final String ureDir = basisPath + File.separator + "ure-link";
+        addPaths(cp, progDir, basisPath, ureDir);
     }
 
     private static void add(final List<File> res, final File f) {
-        if (f != null && f.isDirectory()) {
+        // e.g. on LO 3.5 BASIS is no longer 'Basis/' but './'
+        if (f != null && f.isDirectory() && !res.contains(f)) {
             res.add(f);
         }
     }
@@ -178,21 +180,28 @@ public class OOInstallation {
                 throw new IOException(unoPath + " is not a directory");
             exe = new File(unoPath, "soffice.exe");
 
+            // Perhaps check out parallel install but in Windows it's really cumbersome :
+            // http://wiki.documentfoundation.org/Installing_in_parallel
+
+            final String layerPath;
+            if (!libreOffice) {
+                layerPath = "\\Layers\\OpenOffice.org";
+            } else if (DesktopEnvironment.test("reg", "query", rootPath + "\\Layers")) {
+                layerPath = "\\Layers\\LibreOffice";
+            } else {
+                // LO 3.4
+                layerPath = "\\Layers_\\LibreOffice";
+            }
             // '/s' since variables are one level (the version) deeper
-            final Map<String, String> layersValues = getStringValues(rootPath + (libreOffice ? "\\Layers_\\LibreOffice" : "\\Layers\\OpenOffice.org"), "/s");
+            final Map<String, String> layersValues = getStringValues(rootPath + layerPath, "/s");
             addPaths(cp, unoPath, layersValues.get("BASISINSTALLLOCATION"), layersValues.get("UREINSTALLLOCATION"));
         } else if (os.startsWith("Mac OS")) {
-            final String url = findBundleURL();
-            if (url == null)
+            final File appPkg = findBundleDir();
+            if (appPkg == null)
                 return null;
-            try {
-                final File appPkg = new File(new URI(url).getPath());
-                // need to call soffice from the MacOS directory otherwise it fails
-                exe = new File(appPkg, "Contents/MacOS/soffice");
-                addUnixPaths(cp, new File(appPkg, "Contents/program"));
-            } catch (URISyntaxException e) {
-                throw new IOException(e);
-            }
+            // need to call soffice from the MacOS directory otherwise it fails
+            exe = new File(appPkg, "Contents/MacOS/soffice");
+            addUnixPaths(cp, new File(appPkg, "Contents/program"));
         } else if (os.startsWith("Linux")) {
             // soffice is usually a symlink in /usr/bin
             // if not found prints nothing at all

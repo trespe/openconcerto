@@ -16,6 +16,7 @@
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -54,18 +55,10 @@ public class ModeVenteArticleSQLElement extends ComptaSQLConfElement {
             public void addViews() {
 
                 this.setLayout(new GridBagLayout());
-                GridBagConstraints c = new GridBagConstraints();
-                c.gridx = 0;
-                c.gridy = 0;
-                c.gridheight = 1;
-                c.gridwidth = 1;
-                c.weightx = 0;
-                c.weighty = 0;
-                c.fill = GridBagConstraints.HORIZONTAL;
-                c.anchor = GridBagConstraints.WEST;
+                GridBagConstraints c = new DefaultGridBagConstraints();
 
                 // Nom
-                JLabel labelNom = new JLabel("Nom");
+                JLabel labelNom = new JLabel(getLabelFor("NOM"));
                 JTextField textNom = new JTextField();
 
                 this.add(labelNom, c);

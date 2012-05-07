@@ -22,6 +22,8 @@ import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.Tuple3;
+import org.openconcerto.utils.cc.CopyOnWriteMap;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 
@@ -41,15 +43,19 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
 /**
  * Une base de donnée SQL. Une base est unique, pour obtenir une instance il faut passer par
  * SQLServer. Une base permet d'accéder aux tables qui la composent, ainsi qu'à son graphe.
  * 
  * @author ILM Informatique 4 mai 2004
- * @see org.openconcerto.sql.model.SQLServer#getBase(String)
+ * @see org.openconcerto.sql.model.SQLServer#getOrCreateBase(String)
  * @see #getTable(String)
  * @see #getGraph()
  */
+@ThreadSafe
 public class SQLBase extends SQLIdentifier {
 
     /**
@@ -69,13 +75,14 @@ public class SQLBase extends SQLIdentifier {
     }
 
     // null is a valid name (MySQL doesn't support schemas)
-    private final Map<String, SQLSchema> schemas;
+    private final CopyOnWriteMap<String, SQLSchema> schemas;
+    @GuardedBy("this")
     private int[] dbVersion;
 
     /**
      * Crée une base dans <i>server </i> nommée <i>name </i>.
      * <p>
-     * Note: ne pas utiliser ce constructeur, utiliser {@link SQLServer#getBase(String)}
+     * Note: ne pas utiliser ce constructeur, utiliser {@link SQLServer#getOrCreateBase(String)}
      * </p>
      * 
      * @param server son serveur.
@@ -90,7 +97,7 @@ public class SQLBase extends SQLIdentifier {
     /**
      * Creates a base in <i>server</i> named <i>name</i>.
      * <p>
-     * Note: don't use this constructor, use {@link SQLServer#getBase(String)}
+     * Note: don't use this constructor, use {@link SQLServer#getOrCreateBase(String)}
      * </p>
      * 
      * @param server its server.
@@ -104,14 +111,16 @@ public class SQLBase extends SQLIdentifier {
         super(server, name);
         if (name == null)
             throw new NullPointerException("null base");
-        this.schemas = new HashMap<String, SQLSchema>();
+        this.schemas = new CopyOnWriteMap<String, SQLSchema>();
         this.dbVersion = null;
 
         // if this is the systemRoot we must init the datasource to be able to loadTables()
         final DBSystemRoot sysRoot = this.getDBSystemRoot();
         if (sysRoot.getJDBC() == this)
             sysRoot.setDS(login, pass, dsInit);
+    }
 
+    final void init() {
         try {
             loadTables(null, true);
         } catch (SQLException e) {
@@ -120,55 +129,58 @@ public class SQLBase extends SQLIdentifier {
     }
 
     @Override
-    protected void onDrop() {
+    protected synchronized void onDrop() {
         // allow schemas (and their descendants) to be gc'd even we aren't
         this.schemas.clear();
         super.onDrop();
     }
 
     private final Set<String> loadTables(final Set<String> childrenNames, boolean inCtor) throws SQLException {
+        this.checkDropped();
         final DBItemFileCache dir = getFileCache();
-        Map<String, SQLSchema> newStruct = null;
-        if (dir != null) {
-            try {
-                Log.get().config("for mapping " + this + " trying xmls in " + dir);
-                final long t1 = System.currentTimeMillis();
-                // don't call refreshTables() with XML :
-                // say you have one schema "s" and its file is missing or corrupted
-                // refreshTables(XML) will drop it from our children
-                // then we will call refreshTables(JDBC) and it will be re-added
-                // => so we removed our child for nothing (firing unneeded events, rendering java
-                // objects useless and possibly destroying the systemRoot path)
-                final XMLStructureSource xmlStructSrc = new XMLStructureSource(this, childrenNames);
-                xmlStructSrc.init();
-                newStruct = xmlStructSrc.getNewStructure();
-                final long t2 = System.currentTimeMillis();
-                Log.get().config("XML took " + (t2 - t1) + "ms for mapping " + this.getName() + "." + xmlStructSrc.getSchemas());
-            } catch (Exception e) {
-                logCacheError(dir, e);
-                // delete all files not just structure, since every information about obsolete
-                // schemas is obsolete
-                // delete all schemas, otherwise if afterwards we load one file it might be valid
-                // alone but we know that along with its siblings it's not
-                dir.delete();
-                if (!(e instanceof PrechangeException) && !inCtor) {
-                    throw new IllegalStateException("could not load XMLs", e);
+        synchronized (getTreeMutex()) {
+            Map<String, SQLSchema> newStruct = null;
+            if (dir != null) {
+                try {
+                    Log.get().config("for mapping " + this + " trying xmls in " + dir);
+                    final long t1 = System.currentTimeMillis();
+                    // don't call refreshTables() with XML :
+                    // say you have one schema "s" and its file is missing or corrupted
+                    // refreshTables(XML) will drop it from our children
+                    // then we will call refreshTables(JDBC) and it will be re-added
+                    // => so we removed our child for nothing (firing unneeded events, rendering
+                    // java objects useless and possibly destroying the systemRoot path)
+                    final XMLStructureSource xmlStructSrc = new XMLStructureSource(this, childrenNames);
+                    xmlStructSrc.init();
+                    newStruct = xmlStructSrc.getNewStructure();
+                    final long t2 = System.currentTimeMillis();
+                    Log.get().config("XML took " + (t2 - t1) + "ms for mapping " + this.getName() + "." + xmlStructSrc.getSchemas());
+                } catch (Exception e) {
+                    logCacheError(dir, e);
+                    // delete all files not just structure, since every information about obsolete
+                    // schemas is obsolete delete all schemas, otherwise if afterwards we load one
+                    // file it might be valid alone but we know that along with its siblings it's
+                    // not
+                    dir.delete();
+                    if (!(e instanceof PrechangeException) && !inCtor) {
+                        throw new IllegalStateException("could not load XMLs", e);
+                    }
+                    if (inCtor) {
+                        // remove successfully created schemas and descendants
+                        // no need to drop them since nobody holds a reference
+                        this.schemas.clear();
+                    }
+                    // if it was a PrechangeException, schemas weren't changed
                 }
-                if (inCtor) {
-                    // remove successfully created schemas and descendants
-                    // no need to drop them since nobody holds a reference
-                    this.schemas.clear();
-                }
-                // if it was a PrechangeException, schemas weren't changed
             }
-        }
 
-        final long t1 = System.currentTimeMillis();
-        // always do the fetchTables() since XML do nothing anymore
-        final JDBCStructureSource jdbcStructSrc = this.fetchTablesP(childrenNames, newStruct);
-        final long t2 = System.currentTimeMillis();
-        Log.get().config("JDBC took " + (t2 - t1) + "ms for mapping " + this.getName() + "." + jdbcStructSrc.getSchemas());
-        return jdbcStructSrc.getSchemas();
+            final long t1 = System.currentTimeMillis();
+            // always do the fetchTables() since XML do nothing anymore
+            final JDBCStructureSource jdbcStructSrc = this.fetchTablesP(childrenNames, newStruct);
+            final long t2 = System.currentTimeMillis();
+            Log.get().config("JDBC took " + (t2 - t1) + "ms for mapping " + this.getName() + "." + jdbcStructSrc.getSchemas());
+            return jdbcStructSrc.getSchemas();
+        }
     }
 
     public final void fetchTables() throws SQLException {
@@ -186,7 +198,6 @@ public class SQLBase extends SQLIdentifier {
         this.fetchTablesP(childrenNames, null);
     }
 
-    // no need to clear the graph in the ctor
     private JDBCStructureSource fetchTablesP(Set<String> childrenNames, Map<String, SQLSchema> newStruct) throws SQLException {
         return this.refreshTables(new JDBCStructureSource(this, childrenNames, newStruct));
     }
@@ -206,76 +217,77 @@ public class SQLBase extends SQLIdentifier {
         return this.loadTables(childrenNames, false);
     }
 
-    synchronized private final <T extends Exception, S extends StructureSource<T>> S refreshTables(final S src) throws T {
-        src.init();
+    private final <T extends Exception, S extends StructureSource<T>> S refreshTables(final S src) throws T {
+        this.checkDropped();
+        synchronized (getTreeMutex()) {
+            src.init();
 
-        // refresh schemas
-        final Set<String> newSchemas = src.getTotalSchemas();
-        final Set<String> currentSchemas = src.getSchemasToRefresh();
-        mustContain(this, newSchemas, currentSchemas, "schemas");
-        // remove all schemas that are not there anymore
-        for (final String schema : CollectionUtils.substract(currentSchemas, newSchemas)) {
-            final CollectionChangeEventCreator c = this.createChildrenCreator();
-            this.schemas.remove(schema).dropped();
-            this.fireChildrenChanged(c);
-        }
-        // delete the saved schemas that we could have fetched, but haven't
-        // (schemas that are not in scope are simply ignored, NOT deleted)
-        for (final DBItemFileCache savedSchema : this.getSavedCaches(false)) {
-            if (src.isInTotalScope(savedSchema.getName()) && !newSchemas.contains(savedSchema.getName())) {
-                savedSchema.delete();
+            // refresh schemas
+            final Set<String> newSchemas = src.getTotalSchemas();
+            final Set<String> currentSchemas = src.getSchemasToRefresh();
+            mustContain(this, newSchemas, currentSchemas, "schemas");
+            // remove all schemas that are not there anymore
+            for (final String schema : CollectionUtils.substract(currentSchemas, newSchemas)) {
+                final CollectionChangeEventCreator c = this.createChildrenCreator();
+                this.schemas.remove(schema).dropped();
+                this.fireChildrenChanged(c);
             }
-        }
-        // clearNonPersistent (will be recreated by fillTables())
-        for (final String schema : CollectionUtils.inter(currentSchemas, newSchemas)) {
-            this.getSchema(schema).clearNonPersistent();
-        }
-        // create the new ones
-        for (final String schema : newSchemas) {
-            this.createAndGetSchema(schema);
-        }
-
-        // refresh tables
-        final Set<SQLName> newTableNames = src.getTotalTablesNames();
-        final Set<SQLName> currentTables = src.getTablesToRefresh();
-        // we can only add, cause instances of SQLTable are everywhere
-        mustContain(this, newTableNames, currentTables, "tables");
-        // remove dropped tables
-        for (final SQLName tableName : CollectionUtils.substract(currentTables, newTableNames)) {
-            final SQLSchema s = this.getSchema(tableName.getItemLenient(-2));
-            s.rmTable(tableName.getName());
-        }
-        // clearNonPersistent
-        for (final SQLName tableName : CollectionUtils.inter(newTableNames, currentTables)) {
-            final SQLSchema s = this.getSchema(tableName.getItemLenient(-2));
-            s.getTable(tableName.getName()).clearNonPersistent();
-        }
-        // create new table descendants (including empty tables)
-        for (final SQLName tableName : CollectionUtils.substract(newTableNames, currentTables)) {
-            final SQLSchema s = this.getSchema(tableName.getItemLenient(-2));
-            s.addTable(tableName.getName());
-        }
-
-        // fill with columns
-        src.fillTables();
-        // if necessary create the metadata table and insert the version
-        for (final String sn : src.getSchemas()) {
-            final SQLSchema s = this.getSchema(sn);
-            if (s.getVersion() == null)
-                try {
-                    s.updateVersion();
-                } catch (SQLException e) {
-                    // tant pis, les metadata ne sont pas nécessaires
-                    e.printStackTrace();
+            // delete the saved schemas that we could have fetched, but haven't
+            // (schemas that are not in scope are simply ignored, NOT deleted)
+            for (final DBItemFileCache savedSchema : this.getSavedCaches(false)) {
+                if (src.isInTotalScope(savedSchema.getName()) && !newSchemas.contains(savedSchema.getName())) {
+                    savedSchema.delete();
                 }
-        }
+            }
+            // clearNonPersistent (will be recreated by fillTables())
+            for (final String schema : CollectionUtils.inter(currentSchemas, newSchemas)) {
+                this.getSchema(schema).clearNonPersistent();
+            }
+            // create the new ones
+            for (final String schema : newSchemas) {
+                this.createAndGetSchema(schema);
+            }
 
-        // don't signal our systemRoot if our server doesn't yet reference us,
-        // otherwise the server will create another instance and enter an infinite loop
-        // if the server doesn't reference us, putBase() will be called and it will do
-        // #descendantsChanged()
-        if (this.getServer().isCreated(this.getName()))
+            // refresh tables
+            final Set<SQLName> newTableNames = src.getTotalTablesNames();
+            final Set<SQLName> currentTables = src.getTablesToRefresh();
+            // we can only add, cause instances of SQLTable are everywhere
+            mustContain(this, newTableNames, currentTables, "tables");
+            // remove dropped tables
+            for (final SQLName tableName : CollectionUtils.substract(currentTables, newTableNames)) {
+                final SQLSchema s = this.getSchema(tableName.getItemLenient(-2));
+                s.rmTable(tableName.getName());
+            }
+            // clearNonPersistent
+            for (final SQLName tableName : CollectionUtils.inter(newTableNames, currentTables)) {
+                final SQLSchema s = this.getSchema(tableName.getItemLenient(-2));
+                s.getTable(tableName.getName()).clearNonPersistent();
+            }
+            // create new table descendants (including empty tables)
+            for (final SQLName tableName : CollectionUtils.substract(newTableNames, currentTables)) {
+                final SQLSchema s = this.getSchema(tableName.getItemLenient(-2));
+                s.addTable(tableName.getName());
+            }
+
+            // fill with columns
+            src.fillTables();
+            // if necessary create the metadata table and insert the version
+            for (final String sn : src.getSchemas()) {
+                final SQLSchema s = this.getSchema(sn);
+                if (s.getVersion() == null)
+                    try {
+                        s.updateVersion();
+                    } catch (SQLException e) {
+                        // tant pis, les metadata ne sont pas nécessaires
+                        e.printStackTrace();
+                    }
+            }
+
+            // don't signal our systemRoot if our server doesn't yet reference us,
+            // otherwise the server will create another instance and enter an infinite loop
+            assert this.getServer().getBase(this.getName()) == this;
             this.getDBSystemRoot().descendantsChanged();
+        }
         src.save();
         return src;
     }
@@ -395,13 +407,8 @@ public class SQLBase extends SQLIdentifier {
     // *** schemas
 
     @Override
-    public SQLIdentifier getChild(String name) {
-        return this.getSchema(name);
-    }
-
-    @Override
-    public Set<String> getChildrenNames() {
-        return this.schemas.keySet();
+    public Map<String, SQLSchema> getChildrenMap() {
+        return this.schemas.getImmutable();
     }
 
     public final Set<SQLSchema> getSchemas() {
@@ -418,14 +425,17 @@ public class SQLBase extends SQLIdentifier {
      * @return the default schema or <code>null</code>.
      */
     final SQLSchema getDefaultSchema() {
-        if (this.schemas.size() == 0) {
+        final Map<String, SQLSchema> children = this.getChildrenMap();
+        if (children.size() == 0) {
             return null;
-        } else if (this.schemas.size() == 1) {
-            return this.schemas.values().iterator().next();
-        } else if (this.getServer().getSQLSystem().getLevel(DBRoot.class) == HierarchyLevel.SQLSCHEMA)
-            return (SQLSchema) this.getDBSystemRoot().getDefaultRoot().getJDBC();
-        else
-            throw new IllegalStateException();
+        } else if (children.size() == 1) {
+            return children.values().iterator().next();
+        } else if (this.getServer().getSQLSystem().getLevel(DBRoot.class) == HierarchyLevel.SQLSCHEMA) {
+            final List<String> path = this.getDBSystemRoot().getRootPath();
+            if (path.size() > 0)
+                return children.get(path.get(0));
+        }
+        throw new IllegalStateException();
     }
 
     private SQLSchema createAndGetSchema(String name) {
@@ -461,10 +471,10 @@ public class SQLBase extends SQLIdentifier {
      * @return les inconsistences.
      * @see SQLTable#checkIntegrity()
      */
-    public Map<SQLTable, List> checkIntegrity() {
-        Map<SQLTable, List> inconsistencies = new HashMap<SQLTable, List>();
+    public Map<SQLTable, List<Tuple3<SQLRow, SQLField, SQLRow>>> checkIntegrity() {
+        final Map<SQLTable, List<Tuple3<SQLRow, SQLField, SQLRow>>> inconsistencies = new HashMap<SQLTable, List<Tuple3<SQLRow, SQLField, SQLRow>>>();
         for (final SQLTable table : this.getAllTables()) {
-            List tableInc = table.checkIntegrity();
+            List<Tuple3<SQLRow, SQLField, SQLRow>> tableInc = table.checkIntegrity();
             if (tableInc.size() > 0)
                 inconsistencies.put(table, tableInc);
         }
@@ -521,7 +531,7 @@ public class SQLBase extends SQLIdentifier {
         return this.getServer().getSQLSystem().getMDName(this.getName());
     }
 
-    public int[] getVersion() throws SQLException {
+    public synchronized int[] getVersion() throws SQLException {
         if (this.dbVersion == null) {
             this.dbVersion = this.getDataSource().useConnection(new ConnectionHandlerNoSetup<int[], SQLException>() {
                 @Override

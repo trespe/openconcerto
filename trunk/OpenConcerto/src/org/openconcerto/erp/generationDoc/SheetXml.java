@@ -17,6 +17,7 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.FastPrintAskFrame;
 import org.openconcerto.erp.core.common.ui.PreviewFrame;
 import org.openconcerto.erp.generationDoc.element.TypeModeleSQLElement;
+import org.openconcerto.erp.storage.CloudStorageEngine;
 import org.openconcerto.erp.storage.StorageEngine;
 import org.openconcerto.erp.storage.StorageEngines;
 import org.openconcerto.openoffice.OOUtils;
@@ -111,10 +112,14 @@ public abstract class SheetXml {
 
     }
 
+    public void showPrintAndExport(final boolean showDocument, final boolean printDocument, boolean exportToPDF) {
+        showPrintAndExport(showDocument, printDocument, exportToPDF, Boolean.getBoolean("org.openconcerto.oo.useODSViewer"));
+    }
+
     /**
      * Show, print and export the document to PDF. This method is synchronous
      * */
-    public void showPrintAndExport(final boolean showDocument, final boolean printDocument, boolean exportToPDF) {
+    public void showPrintAndExport(final boolean showDocument, final boolean printDocument, boolean exportToPDF, boolean useODSViewer) {
 
         final File generatedFile = getGeneratedFile();
         final File pdfFile = getGeneratedPDFFile();
@@ -124,7 +129,7 @@ public abstract class SheetXml {
         }
 
         try {
-            if (!Boolean.getBoolean("org.openconcerto.oo.useODSViewer")) {
+            if (!useODSViewer) {
                 final Component doc = ComptaPropsConfiguration.getOOConnexion().loadDocument(generatedFile, !showDocument);
 
                 if (printDocument) {
@@ -147,13 +152,17 @@ public abstract class SheetXml {
                     DefaultNXDocumentPrinter printer = new DefaultNXDocumentPrinter();
                     printer.print(doc);
                 }
+
+                // FIXME Profiler pour utiliser moins de ram --> ex : demande trop de mémoire pour
+                // faire
+                // un grand livre KD
                 if (exportToPDF) {
 
                     try {
                         SheetUtils.convert2PDF(doc, pdfFile);
 
                     } catch (Throwable e) {
-                        ExceptionHandler.handle("Impossible de créer le PDF");
+                        ExceptionHandler.handle("Impossible de créer le PDF.", e);
                     }
 
                     Thread t = new Thread(new Runnable() {
@@ -172,6 +181,18 @@ public abstract class SheetXml {
                                         storageEngine.disconnect();
                                     } catch (IOException e) {
                                         ExceptionHandler.handle("Impossible de sauvegarder le PDF");
+                                    }
+                                    if (storageEngine instanceof CloudStorageEngine) {
+                                        try {
+                                            storageEngine.connect();
+                                            final BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(generatedFile));
+                                            final String path = getStoragePath();
+                                            storageEngine.store(inStream, path, generatedFile.getName(), true);
+                                            inStream.close();
+                                            storageEngine.disconnect();
+                                        } catch (IOException e) {
+                                            ExceptionHandler.handle("Impossible de sauvegarder le fichier généré");
+                                        }
                                     }
                                 }
                             }
@@ -300,15 +321,19 @@ public abstract class SheetXml {
      * 
      * */
     public File getOrCreatePDFDocumentFile(boolean createRecent) throws Exception {
+        return getOrCreatePDFDocumentFile(createRecent, Boolean.getBoolean("org.openconcerto.oo.useODSViewer"));
+    }
+
+    public File getOrCreatePDFDocumentFile(boolean createRecent, boolean useODSViewer) throws Exception {
         File f = getGeneratedPDFFile();
         if (!f.exists()) {
             getOrCreateDocumentFile();
-            showPrintAndExport(false, false, true);
+            showPrintAndExport(false, false, true, useODSViewer);
             return f;
         } else {
             File fODS = getOrCreateDocumentFile();
             if (fODS.lastModified() > f.lastModified()) {
-                showPrintAndExport(false, false, true);
+                showPrintAndExport(false, false, true, useODSViewer);
             }
             return f;
         }

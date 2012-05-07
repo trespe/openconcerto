@@ -146,7 +146,7 @@ public abstract class DataStyle extends Style {
 
     public abstract String format(final Object o, final CellStyle defaultStyle, boolean lenient) throws UnsupportedOperationException;
 
-    protected final void reportError(String msg, boolean lenient) throws UnsupportedOperationException {
+    static protected final void reportError(String msg, boolean lenient) throws UnsupportedOperationException {
         if (lenient)
             Log.get().warning(msg);
         else

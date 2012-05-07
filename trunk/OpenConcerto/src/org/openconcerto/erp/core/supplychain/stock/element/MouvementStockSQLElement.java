@@ -19,11 +19,13 @@ import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElemen
 import org.openconcerto.erp.core.supplychain.order.component.CommandeSQLComponent;
 import org.openconcerto.erp.core.supplychain.supplier.component.MouvementStockSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
@@ -31,6 +33,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
@@ -45,7 +48,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
+
+import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class MouvementStockSQLElement extends ComptaSQLConfElement {
 
@@ -84,8 +90,108 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
         updateStock(Arrays.asList(row.getID()), true);
     }
 
-    public static CollectionMap<SQLRow, List<SQLRowValues>> updateStock(List<Integer> ids) {
-        return updateStock(ids, false);
+    // public CollectionMap<SQLRow, List<SQLRowValues>> updateStock(List<Integer> ids) {
+    // return updateStock(ids, false);
+    // }
+
+    private final SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
+
+    /**
+     * Ajout des mouvements de Stock
+     * 
+     * @param rowOrigin SQLRow de la piece d'origine (ex : BL)
+     * @param eltTable SQLTable des éléments de la pièce (ex : element du BL)
+     * @param label label pour les mouvements de stocks
+     * @param entry true si c'est une entrée de stock
+     * 
+     */
+    public void createMouvement(SQLRow rowOrigin, SQLTable eltTable, StockLabel label, boolean entry) {
+
+        // On récupére les articles qui composent la piéce
+        SQLSelect selEltfact = new SQLSelect(rowOrigin.getTable().getBase());
+        selEltfact.addSelectStar(eltTable);
+        selEltfact.setWhere(new Where((SQLField) eltTable.getForeignKeys(rowOrigin.getTable()).toArray()[0], "=", rowOrigin.getID()));
+
+        List<SQLRow> lElt = SQLRowListRSH.execute(selEltfact);
+
+        final boolean modeAvance = DefaultNXProps.getInstance().getBooleanValue("ArticleModeVenteAvance", false);
+        SQLPreferences prefs = new SQLPreferences(eltTable.getDBRoot());
+        final boolean createArticle = prefs.getBoolean(GestionArticleGlobalPreferencePanel.CREATE_ARTICLE_AUTO, true);
+
+        if (lElt != null) {
+            List<Integer> l = new ArrayList<Integer>();
+            for (SQLRow rowElt : lElt) {
+                SQLRow rowArticleAssocie = (rowElt.getTable().contains("ID_ARTICLE") ? rowElt.getForeign("ID_ARTICLE") : null);
+
+                int idArticle;
+
+                // Si on a bien sélectionné un article ou qu'il y a un code de saisi
+                if ((rowArticleAssocie != null && !rowArticleAssocie.isUndefined()) || rowElt.getString("CODE").trim().length() > 0) {
+
+                    // Si l'article est à créer ou le lien est à refaire (ancienne version saisie
+                    // sans ID_ARTICLE en BD)
+                    if (rowArticleAssocie == null || rowArticleAssocie.isUndefined()) {
+                        // on récupére l'article qui lui correspond
+                        SQLRowValues rowArticle = new SQLRowValues(sqlTableArticle);
+                        for (SQLField field : sqlTableArticle.getFields()) {
+                            if (rowElt.getTable().getFieldsName().contains(field.getName())) {
+                                rowArticle.put(field.getName(), rowElt.getObject(field.getName()));
+                            }
+                        }
+                        // rowArticle.loadAllSafe(rowEltFact);
+                        if (modeAvance)
+                            idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, createArticle);
+                        else {
+                            idArticle = ReferenceArticleSQLElement.getIdForCN(rowArticle, createArticle);
+                        }
+                        if (idArticle > 0 && idArticle != sqlTableArticle.getUndefinedID()) {
+                            SQLRowValues rowVals = rowElt.asRowValues();
+                            rowVals.put("ID_ARTICLE", idArticle);
+                            try {
+                                rowVals.update();
+                            } catch (SQLException exn) {
+                                // TODO Bloc catch auto-généré
+                                exn.printStackTrace();
+                            }
+                        }
+                    } else {
+                        idArticle = rowArticleAssocie.getID();
+                    }
+
+                    // on crée un mouvement de stock pour chacun des articles
+                    SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+                    SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
+                    if (entry) {
+                        rowVals.put("QTE", (rowElt.getInt("QTE")));
+                    } else {
+                        rowVals.put("QTE", -(rowElt.getInt("QTE")));
+                    }
+                    rowVals.put("NOM", label.getLabel(rowOrigin, rowElt));
+                    rowVals.put("IDSOURCE", rowOrigin.getID());
+                    rowVals.put("SOURCE", rowOrigin.getTable().getName());
+                    rowVals.put("ID_ARTICLE", idArticle);
+                    rowVals.put("DATE", rowOrigin.getObject("DATE"));
+                    try {
+                        SQLRow row = rowVals.insert();
+                        l.add(row.getID());
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            CollectionMap<SQLRow, List<SQLRowValues>> map = updateStock(l, false);
+            if (map.keySet().size() > 0) {
+                if (!rowOrigin.getTable().contains("ID_TARIF")) {
+                    System.err.println("Attention la table " + rowOrigin.getTable().getName()
+                            + " ne contient pas le champ ID_TARIF. La création automatique d'une commande fournisseur est donc impossible!");
+                    Thread.dumpStack();
+                } else {
+                    if (JOptionPane.showConfirmDialog(null, "Certains articles sont en dessous du stock minimum.\n Voulez créer une commande?") == JOptionPane.YES_OPTION) {
+                        MouvementStockSQLElement.createCommandeF(map, rowOrigin.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"));
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -94,7 +200,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
      * @param id mouvement stock
      * @param archive
      */
-    public static CollectionMap<SQLRow, List<SQLRowValues>> updateStock(List<Integer> ids, boolean archive) {
+    public CollectionMap<SQLRow, List<SQLRowValues>> updateStock(List<Integer> ids, boolean archive) {
         CollectionMap<SQLRow, List<SQLRowValues>> map = new CollectionMap<SQLRow, List<SQLRowValues>>();
         SQLTable tableCmdElt = Configuration.getInstance().getBase().getTable("COMMANDE_ELEMENT");
         for (Integer id : ids) {

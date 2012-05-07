@@ -27,7 +27,10 @@ import org.openconcerto.utils.CollectionUtils;
 import java.io.PrintWriter;
 import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+
+import net.jcip.annotations.ThreadSafe;
 
 import org.jdom.Element;
 
@@ -38,6 +41,7 @@ import org.jdom.Element;
  * 
  * @author ILM Informatique 13 mai 2004
  */
+@ThreadSafe
 public class Link extends DirectedEdge<SQLTable> {
 
     public static enum Rule {
@@ -76,6 +80,7 @@ public class Link extends DirectedEdge<SQLTable> {
         }
     }
 
+    // ArrayList is thread-safe if not modified
     private final List<SQLField> cols;
     private final List<String> colsNames;
     private final List<SQLField> refCols;
@@ -96,16 +101,18 @@ public class Link extends DirectedEdge<SQLTable> {
         super(keys.get(0).getTable(), referredCols.get(0).getTable());
         if (keys.size() != referredCols.size())
             throw new IllegalArgumentException("size mismatch: " + keys + " != " + referredCols);
-        this.cols = new ArrayList<SQLField>(keys);
-        this.colsNames = new ArrayList<String>(this.cols.size());
+        this.cols = Collections.unmodifiableList(new ArrayList<SQLField>(keys));
+        final ArrayList<String> tmpCols = new ArrayList<String>(this.cols.size());
         for (final SQLField f : this.cols) {
-            this.colsNames.add(f.getName());
+            tmpCols.add(f.getName());
         }
-        this.refCols = new ArrayList<SQLField>(referredCols);
-        this.refColsNames = new ArrayList<String>(this.refCols.size());
+        this.colsNames = Collections.unmodifiableList(tmpCols);
+        this.refCols = Collections.unmodifiableList(new ArrayList<SQLField>(referredCols));
+        final ArrayList<String> tmpRefCols = new ArrayList<String>(this.refCols.size());
         for (final SQLField f : this.refCols) {
-            this.refColsNames.add(f.getName());
+            tmpRefCols.add(f.getName());
         }
+        this.refColsNames = Collections.unmodifiableList(tmpRefCols);
         this.name = foreignKeyName;
         this.updateRule = updateRule;
         this.deleteRule = deleteRule;

@@ -35,4 +35,15 @@ public interface TemplateProvider {
      * Returns the content of template print configuration file (ex: the odsp file)
      * */
     public InputStream getTemplatePrintConfiguration(String templateId, String language, String type);
+
+    /**
+     * Returns true if the template is synchronized with other computers
+     */
+    public boolean isSynced(String templateId, String language, String type);
+
+    public void unSync(String templateId, String language, String type);
+
+    public void sync(String templateId, String language, String type);
+
+    public void restore(String templateId, String language, String type);
 }

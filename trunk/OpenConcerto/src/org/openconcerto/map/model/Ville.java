@@ -19,7 +19,12 @@ import org.openconcerto.utils.StringUtils;
 
 import java.awt.Color;
 import java.awt.Polygon;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,15 +35,16 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
 public class Ville {
-
+    // TODO: switch from Lambert to Mercator (see jmapprojlib SF project)
     private static Map<String, Ville> map = new HashMap<String, Ville>();
     private static DatabaseAccessor accessor;
-    private final static ArrayList<Ville> villes = new ArrayList<Ville>(39000);
-    private final static ArrayList<String> villesNames = new ArrayList<String>(39000);
-
+    private final static List<Ville> villes = new ArrayList<Ville>(39000);
+    private final static List<String> villesNames = new ArrayList<String>(39000);
+    private final static List<PropertyChangeListener> listeners = new ArrayList<PropertyChangeListener>();
     private static Thread init = null;
     private static boolean loaded = false;
     private int nbMatch = 0;
@@ -68,29 +74,32 @@ public class Ville {
 
     }
 
-    private static synchronized void parseFile() {
+    private static void parseFile() {
+        parseFile(null);
+    }
+
+    private static synchronized void parseFile(File mapDir) {
         if (loaded) {
             throw new IllegalStateException("Data already loaded");
         }
         long t1 = System.nanoTime();
         try {
-            final InputStreamReader fReader = new InputStreamReader(Ville.class.getResourceAsStream("villes.txt"), "UTF8");
-            final BufferedReader bufReader = new BufferedReader(fReader, 4 * 1024 * 1024);
-            String n = bufReader.readLine();
-
-            while (n != null) {
-                long pop = parsePositiveLong(bufReader.readLine());
-                long x = parsePositiveLong(bufReader.readLine());
-                long y = parsePositiveLong(bufReader.readLine());
-                String cp = bufReader.readLine();
-                final Ville v = new Ville(n, pop, x, y, cp);
-                if (v.xLambert > 0) {
-                    addVilleSilently(v);
+            InputStreamReader fReader = null;
+            if (mapDir != null && mapDir.exists() && mapDir.list().length > 0) {
+                File[] files = mapDir.listFiles();
+                for (int i = 0; i < files.length; i++) {
+                    final File file = files[i];
+                    fReader = new FileReader(file);
+                    parse(fReader);
+                    fReader.close();
                 }
-                n = bufReader.readLine();
+
+            } else {
+                fReader = new InputStreamReader(Ville.class.getResourceAsStream("villes.txt"), "UTF8");
+                parse(fReader);
+                fReader.close();
+
             }
-            bufReader.close();
-            fReader.close();
 
         } catch (final Exception e) {
             e.printStackTrace();
@@ -100,6 +109,24 @@ public class Ville {
         Collections.sort(villesNames);
         Region.parseFile();
         loaded = true;
+    }
+
+    private static void parse(InputStreamReader fReader) throws IOException {
+        final BufferedReader bufReader = new BufferedReader(fReader, 4 * 1024 * 1024);
+        String n = bufReader.readLine();
+
+        while (n != null) {
+            long pop = parsePositiveLong(bufReader.readLine());
+            long x = parsePositiveLong(bufReader.readLine());
+            long y = parsePositiveLong(bufReader.readLine());
+            String cp = bufReader.readLine();
+            final Ville v = new Ville(n, pop, x, y, cp);
+            if (v.xLambert > 0) {
+                addVilleSilently(v);
+            }
+            n = bufReader.readLine();
+        }
+        bufReader.close();
     }
 
     private static final void parseLine(final String line) {
@@ -124,9 +151,13 @@ public class Ville {
     }
 
     public static synchronized void addVille(final Ville v) {
+        final String villeEtCode = v.getVilleEtCode();
+        if (map.containsKey(villeEtCode)) {
+            return;
+        }
         addVilleSilently(v);
         accessor.store(v);
-        // FIXME: fire missing
+        fireListModified();
     }
 
     public static synchronized void removeVille(final Ville v) {
@@ -136,7 +167,7 @@ public class Ville {
         map.remove(villeEtCode);
 
         accessor.delete(v);
-        // FIXME: fire missing
+        fireListModified();
     }
 
     // ** getter
@@ -151,12 +182,12 @@ public class Ville {
         }
     }
 
-    public static synchronized ArrayList<Ville> getVilles() {
+    public static synchronized List<Ville> getVilles() {
         await();
         return villes;
     }
 
-    public static synchronized ArrayList<String> getVillesNames() {
+    public static synchronized List<String> getVillesNames() {
         await();
         return villesNames;
     }
@@ -367,7 +398,9 @@ public class Ville {
     }
 
     // *** instance
-
+    // Abbeville:WGS84 (GPS): 50.105467,1.8368330000000697 (N 50° 6' 19.68'',E 1° 50' 12.6'')
+    // L93: X:616 353,359 Y:7 001 496,893
+    // NTF: L. II étendue X: 563 846,221 Y: 2 567 930,242
     // 800001;Abbeville;0.409874955;0.031997697;80132;23787;900
     // --> 4098749550 , 0319976970 // dix chiffres apres la virgules
     private final String name;
@@ -467,11 +500,17 @@ public class Ville {
             System.out.println("DeltaY:" + (getMaxYLambert() - getMinYLambert()));
             final long t3 = System.nanoTime();
             System.out.println("Min: " + (t3 - t1) / 1000000 + " ms");
-            final JFrame f = new JFrame();
-            f.setContentPane(new MapViewerPanel());
-            f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-            f.setSize(1000, 600);
-            f.setVisible(true);
+            SwingUtilities.invokeLater(new Runnable() {
+
+                @Override
+                public void run() {
+                    final JFrame f = new JFrame();
+                    f.setContentPane(new MapViewerPanel());
+                    f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                    f.setSize(1000, 600);
+                    f.setVisible(true);
+                }
+            });
 
         } catch (final Exception e) {
             e.printStackTrace();
@@ -495,4 +534,21 @@ public class Ville {
         });
 
     }
+
+    public static void addListener(PropertyChangeListener listener) {
+        if (!listeners.contains(listener)) {
+            listeners.add(listener);
+        }
+    }
+
+    public static void removeListener(PropertyChangeListener listener) {
+        listeners.remove(listener);
+    }
+
+    private static void fireListModified() {
+        for (PropertyChangeListener l : listeners) {
+            l.propertyChange(new PropertyChangeEvent(Ville.class, "list", null, null));
+        }
+    }
+
 }

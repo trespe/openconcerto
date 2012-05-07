@@ -32,21 +32,38 @@ import java.util.Set;
 public class TransformedSet<T, TT> extends AbstractSet<TT> {
 
     private final Set<T> set;
+    private final boolean modifiable;
     private final ITransformer<T, TT> transf;
     private final ITransformer<TT, T> invTransf;
 
     public TransformedSet(Set<T> set, ITransformer<T, TT> transf, ITransformer<TT, T> invTransf) {
+        this(set, transf, invTransf, true);
+    }
+
+    public TransformedSet(Set<T> set, ITransformer<T, TT> transf, ITransformer<TT, T> invTransf, final boolean modifiable) {
         super();
+        if (transf == null)
+            throw new NullPointerException("null transformer");
         this.set = set;
+        this.modifiable = modifiable;
         this.transf = transf;
         this.invTransf = invTransf;
+        if (this.modifiable && this.invTransf == null)
+            throw new IllegalArgumentException("Inverse transformation needed for mutable set");
+    }
+
+    private void checkModifiable() {
+        if (!this.modifiable)
+            throw new IllegalStateException("Unmodifiable set");
     }
 
     public final boolean add(TT e) {
+        checkModifiable();
         return this.set.add(this.invTransf.transformChecked(e));
     }
 
     public boolean addAll(Collection<? extends TT> c) {
+        checkModifiable();
         final List<T> toAdd = transformCollection(c);
         return this.set.addAll(toAdd);
     }
@@ -60,19 +77,20 @@ public class TransformedSet<T, TT> extends AbstractSet<TT> {
     }
 
     public final void clear() {
+        checkModifiable();
         this.set.clear();
     }
 
     @SuppressWarnings("unchecked")
     public boolean contains(Object o) {
         // can throw ClassCastException as per the javadoc
-        return this.set.contains(this.invTransf.transformChecked((TT) o));
+        return this.invTransf == null ? super.contains(o) : this.set.contains(this.invTransf.transformChecked((TT) o));
     }
 
     @SuppressWarnings("unchecked")
     public boolean containsAll(Collection<?> c) {
         // can throw ClassCastException as per the javadoc
-        return this.set.containsAll(this.transformCollection((Collection<? extends TT>) c));
+        return this.invTransf == null ? super.containsAll(c) : this.set.containsAll(this.transformCollection((Collection<? extends TT>) c));
     }
 
     public final boolean isEmpty() {
@@ -94,6 +112,7 @@ public class TransformedSet<T, TT> extends AbstractSet<TT> {
 
             @Override
             public void remove() {
+                checkModifiable();
                 iter.remove();
             }
         };
@@ -101,18 +120,21 @@ public class TransformedSet<T, TT> extends AbstractSet<TT> {
 
     @SuppressWarnings("unchecked")
     public boolean remove(Object o) {
+        checkModifiable();
         // can throw ClassCastException as per the javadoc
         return this.set.remove(this.invTransf.transformChecked((TT) o));
     }
 
     @SuppressWarnings("unchecked")
     public boolean removeAll(Collection<?> c) {
+        checkModifiable();
         // can throw ClassCastException as per the javadoc
         return this.set.removeAll(this.transformCollection((Collection<? extends TT>) c));
     }
 
     @SuppressWarnings("unchecked")
     public boolean retainAll(Collection<?> c) {
+        checkModifiable();
         // can throw ClassCastException as per the javadoc
         return this.set.retainAll(this.transformCollection((Collection<? extends TT>) c));
     }

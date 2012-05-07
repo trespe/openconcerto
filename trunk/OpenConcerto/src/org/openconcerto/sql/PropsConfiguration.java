@@ -573,9 +573,17 @@ public class PropsConfiguration extends Configuration {
                 System.out.println("Log file: " + logFile.getAbsolutePath());
                 final OutputStream fileOut = new FileOutputStream(logFile, true);
                 final OutputStream out, err;
-                if (this.keepStandardStreamsWhenRedirectingToFile()) {
+                System.out.println("Java System console:" + System.console());
+                boolean launchedFromEclipse = new File(".classpath").exists();
+                if (launchedFromEclipse) {
+                    System.out.println("Launched from eclipse");
+                }
+                if ((System.console() != null || launchedFromEclipse) && this.keepStandardStreamsWhenRedirectingToFile()) {
+                    System.out.println("Redirecting standard output to file and console");
                     out = new MultipleOutputStream(fileOut, new FileOutputStream(FileDescriptor.out));
+                    System.out.println("Redirecting error output to file and console");
                     err = new MultipleOutputStream(fileOut, new FileOutputStream(FileDescriptor.err));
+
                 } else {
                     out = fileOut;
                     err = fileOut;

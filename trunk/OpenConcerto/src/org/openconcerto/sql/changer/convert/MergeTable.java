@@ -63,7 +63,7 @@ public class MergeTable extends Changer<SQLTable> {
     }
 
     @Override
-    protected Class<? extends DBStructureItem> getMaxLevel() {
+    protected Class<? extends DBStructureItem<?>> getMaxLevel() {
         // avoid deleting all tables
         return SQLTable.class;
     }

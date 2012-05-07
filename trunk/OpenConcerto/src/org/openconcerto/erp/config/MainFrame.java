@@ -132,6 +132,7 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -270,6 +271,11 @@ public class MainFrame extends JFrame {
         });
 
         setInstance(this);
+        // Overrive logo
+        Image im = ComptaPropsConfiguration.getInstanceCompta().getCustomLogo();
+        if (im != null) {
+            image.setImage(im);
+        }
         new NewsUpdater(this.image);
     }
 

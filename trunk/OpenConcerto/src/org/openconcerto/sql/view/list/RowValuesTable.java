@@ -352,11 +352,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
         return this;
     }
 
-    @Override
-    public String getDescription() {
-        return this.model.getSQLElement().getPluralName();
-    }
-
     private SQLField field;
     private String sqlName;
 
@@ -435,10 +430,5 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
             this.field = this.model.getRequiredField();
         }
         this.sqlName = sqlName;
-    }
-
-    @Override
-    public void setDescription(String s) {
-
     }
 }

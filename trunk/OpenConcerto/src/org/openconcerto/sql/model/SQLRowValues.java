@@ -356,10 +356,30 @@ public final class SQLRowValues extends SQLRowAccessor {
      * @return this.
      */
     public final SQLRowValues clearReferents() {
-        // copy otherwise ConcurrentModificationException
-        for (final Map.Entry<SQLField, Collection<SQLRowValues>> e : CopyUtils.copy(this.getReferents()).entrySet()) {
-            for (final SQLRowValues ref : e.getValue()) {
-                ref.put(e.getKey().getName(), null);
+        return this.changeReferents(null, false);
+    }
+
+    public final SQLRowValues removeReferents(final SQLField f) {
+        // don't use changeReferents() as it's less optimal
+        for (final SQLRowValues ref : new ArrayList<SQLRowValues>(this.getReferentRows(f))) {
+            ref.remove(f.getName());
+        }
+        return this;
+    }
+
+    public final SQLRowValues retainReferents(final SQLField f) {
+        return this.changeReferents(f, true);
+    }
+
+    private final SQLRowValues changeReferents(final SQLField f, final boolean retain) {
+        if (f != null || !retain) {
+            // copy otherwise ConcurrentModificationException
+            for (final Entry<SQLField, Collection<SQLRowValues>> e : CopyUtils.copy(this.getReferents()).entrySet()) {
+                if (f == null || e.getKey().equals(f) != retain) {
+                    for (final SQLRowValues ref : e.getValue()) {
+                        ref.put(e.getKey().getName(), null);
+                    }
+                }
             }
         }
         return this;

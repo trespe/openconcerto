@@ -15,10 +15,13 @@
 
 import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.erp.core.sales.pos.model.Ticket;
+import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.State;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.utils.ClassPathLoader;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.ProductInfo;
 
 import java.io.File;
 import java.net.MalformedURLException;
@@ -45,10 +48,18 @@ public class CaisseFrame extends JFrame {
             if (System.getProperty(State.DEAF) == null) {
                 System.setProperty(State.DEAF, "true");
             }
+
+            System.setProperty(PropsConfiguration.REDIRECT_TO_FILE, "true");
+            System.setProperty(SQLBase.ALLOW_OBJECT_REMOVAL, "true");
+
+            ExceptionHandler.setForceUI(true);
+            ExceptionHandler.setForumURL("http://www.openconcerto.org/forum");
+            ProductInfo.setInstance(new ProductInfo("OpenConcerto"));
+
             // SpeedUp Linux
             System.setProperty("sun.java2d.pmoffscreen", "false");
             System.setProperty("org.openconcerto.sql.structure.useXML", "true");
-
+            System.setProperty(PropsConfiguration.REDIRECT_TO_FILE, "true");
             if (Caisse.isUsingJPos()) {
                 ClassPathLoader c = ClassPathLoader.getInstance();
                 try {

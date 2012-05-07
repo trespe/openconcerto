@@ -100,7 +100,7 @@ public abstract class StructureSource<E extends Exception> {
         // create new table descendants (including empty tables)
         for (final SQLName tableName : newTableNames) {
             final SQLSchema s = res.get(tableName.getItemLenient(-2));
-            s.addTable(tableName.getName());
+            s.addTableWithoutSysRootLock(tableName.getName());
         }
         return res;
     }
@@ -197,6 +197,7 @@ public abstract class StructureSource<E extends Exception> {
      * @throws E if an error occurs.
      */
     public final void fillTables() throws E {
+        assert Thread.holdsLock(this.getBase().getDBSystemRoot().getTreeMutex());
         if (!this.preVerify)
             this.fillTables(this.getSchemas());
         else {

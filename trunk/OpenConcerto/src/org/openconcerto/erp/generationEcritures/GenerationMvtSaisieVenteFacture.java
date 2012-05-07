@@ -162,7 +162,7 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
                 }
             }
 
-            Map<Integer, Long> m = getMultiTVAFromRow(saisieRow, saisieVFTable.getTable("SAISIE_VENTE_FACTURE_ELEMENT"));
+            Map<Integer, Long> m = getMultiTVAFromRow(saisieRow, saisieVFTable.getTable("SAISIE_VENTE_FACTURE_ELEMENT"), true);
             long allTaxe = 0;
             for (Integer i : m.keySet()) {
                 Long l = m.get(i);

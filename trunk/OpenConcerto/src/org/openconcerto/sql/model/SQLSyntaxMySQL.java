@@ -198,7 +198,10 @@ class SQLSyntaxMySQL extends SQLSyntax {
     public List<String> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
         final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
         final String newType = toAlter.contains(Properties.TYPE) ? type : getType(f);
-        final String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, newType);
+        String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, newType);
+        // MySQL doesn't support "NOT NULL DEFAULT NULL" so use the equivalent "NOT NULL"
+        if (!newNullable && newDef != null && newDef.trim().toUpperCase().equals("NULL"))
+            newDef = null;
 
         return Collections.singletonList(SQLSelect.quote("MODIFY COLUMN %n " + newType + getNullableClause(newNullable) + getDefaultClause(newDef), f));
     }

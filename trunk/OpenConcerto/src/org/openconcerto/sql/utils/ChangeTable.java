@@ -351,6 +351,11 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         return thisAsT();
     }
 
+    public final T removeForeignConstraint(final FCSpec fkSpec) {
+        this.fks.remove(fkSpec);
+        return thisAsT();
+    }
+
     public final List<FCSpec> getForeignConstraints() {
         return Collections.unmodifiableList(this.fks);
     }
@@ -422,6 +427,8 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @see #addForeignColumn(String, SQLName, String, String)
      */
     public T addForeignColumn(String fk, SQLTable foreignTable, final boolean absolute) {
+        if (foreignTable == null)
+            throw new NullPointerException("null table for " + fk);
         final String defaultVal = foreignTable.getKey().getType().toString(foreignTable.getUndefinedIDNumber());
         final SQLName n = absolute ? foreignTable.getSQLName() : new SQLName(foreignTable.getName());
         return this.addForeignColumn(fk, n, foreignTable.getKey().getName(), defaultVal);

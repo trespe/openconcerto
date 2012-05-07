@@ -19,7 +19,7 @@ import org.openconcerto.utils.cc.IPredicate;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.Collection;
-import java.util.concurrent.BlockingDeque;
+import java.util.Deque;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
@@ -158,7 +158,7 @@ public class SleepingQueue {
         }
     }
 
-    public final void tasksDo(IClosure<? super BlockingDeque<FutureTask<?>>> c) {
+    public final void tasksDo(IClosure<? super Deque<FutureTask<?>>> c) {
         this.tasksQueue.itemsDo(c);
     }
 

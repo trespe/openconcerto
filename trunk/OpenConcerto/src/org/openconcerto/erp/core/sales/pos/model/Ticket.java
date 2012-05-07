@@ -18,6 +18,8 @@ import org.openconcerto.erp.core.sales.pos.io.DefaultTicketPrinter;
 import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
 import org.openconcerto.erp.core.sales.pos.ui.TicketCellRenderer;
 import org.openconcerto.erp.preferences.TemplateNXProps;
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
 
@@ -30,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import org.jdom.Attribute;
 import org.jdom.Document;
@@ -48,6 +51,8 @@ public class Ticket {
 
     // Propre à la caisse
     private int caisseNumber;
+
+    private static final SQLTable tableArticle = Configuration.getInstance().getRoot().findTable("ARTICLE");
 
     public static Ticket getTicketFromCode(String code) {
         // Code: 01_05042011_00002
@@ -109,7 +114,11 @@ public class Ticket {
                 String codebarre = element.getAttributeValue("codebarre");
                 String codeArt = element.getAttributeValue("code");
                 Categorie cat = new Categorie(categorie);
-                Article art = new Article(cat, name);
+
+                String valueID = element.getAttributeValue("id");
+
+                int id = valueID == null || valueID.trim().length() == 0 ? tableArticle.getUndefinedID() : Integer.parseInt(valueID);
+                Article art = new Article(cat, name, id);
                 art.priceInCents = prix_unitaire_cents;
                 art.setCode(codeArt);
                 art.setPriceHTInCents(prix_unitaire_cents_ht);
@@ -197,10 +206,8 @@ public class Ticket {
         // final String codeStart = code;
         final String codeStart = getPrefixCode();
         String[] files = dir.list(new FilenameFilter() {
-
             @Override
             public boolean accept(File dir, String name) {
-
                 return name.startsWith(codeStart) && name.endsWith(".xml");
             }
         });
@@ -271,6 +278,7 @@ public class Ticket {
             e.setAttribute("categorie", item.getFirst().getCategorie().getName());
             e.setAttribute("codebarre", item.getFirst().getBarCode());
             e.setAttribute("code", item.getFirst().getCode());
+            e.setAttribute("id", String.valueOf(item.getFirst().getId()));
             e.setText(item.getFirst().getName());
             topLevel.addContent(e);
         }
@@ -314,14 +322,16 @@ public class Ticket {
 
         // Date
         prt.addToBuffer("");
-        SimpleDateFormat df = new SimpleDateFormat("EEEE d MMMM yyyy à HH:mm");
+        SimpleDateFormat df = new SimpleDateFormat("EEEE d MMMM yyyy à HH:mm", Locale.FRENCH);
         prt.addToBuffer(DefaultTicketPrinter.formatRight(maxWidth, "Le " + df.format(getCreationDate())));
         prt.addToBuffer("");
 
         for (Pair<Article, Integer> item : this.items) {
-            prt.addToBuffer(DefaultTicketPrinter.formatRight(MAX_QTE_WIDTH, String.valueOf(item.getSecond())) + " "
-                    + DefaultTicketPrinter.formatLeft(maxWidth - 2 - MAX_PRICE_WIDTH - MAX_QTE_WIDTH, item.getFirst().getName()) + " "
-                    + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(item.getFirst().getPriceInCents())));
+            final Article article = item.getFirst();
+            final Integer nb = item.getSecond();
+            prt.addToBuffer(DefaultTicketPrinter.formatRight(MAX_QTE_WIDTH, String.valueOf(nb)) + " "
+                    + DefaultTicketPrinter.formatLeft(maxWidth - 2 - MAX_PRICE_WIDTH - MAX_QTE_WIDTH, article.getName()) + " "
+                    + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(nb * article.getPriceInCents())));
         }
 
         StringBuilder spacer = new StringBuilder();
@@ -429,9 +439,7 @@ public class Ticket {
         if (string.length() > l) {
             string = string.substring(0, l);
         }
-
-        StringBuffer str = new StringBuffer(l);
-
+        final StringBuffer str = new StringBuffer(l);
         final int stop = l - string.length();
         for (int i = 0; i < stop; i++) {
             str.append('0');
@@ -477,7 +485,6 @@ public class Ticket {
     }
 
     public List<Paiement> getPaiements() {
-
         return this.paiements;
     }
 
@@ -493,7 +500,6 @@ public class Ticket {
     }
 
     public List<Pair<Article, Integer>> getArticles() {
-
         return this.items;
     }
 
@@ -528,6 +534,7 @@ public class Ticket {
             }
         }
         if (toModify != null) {
+            System.out.println("Ticket.setArticleCount():" + article + " " + count);
             toModify.setSecond(count);
         }
 
@@ -554,7 +561,6 @@ public class Ticket {
         Pair<Article, Integer> lineToDelete = null;
         for (Pair<Article, Integer> line : this.items) {
             if (line.getFirst().equals(a)) {
-
                 final int count = line.getSecond() + 1;
                 if (count <= 0) {
                     lineToDelete = line;
@@ -571,7 +577,6 @@ public class Ticket {
 
     @Override
     public String toString() {
-
         return "Ticket " + getCode();
     }
 
@@ -592,7 +597,6 @@ public class Ticket {
     }
 
     public void deleteTicket() {
-
         File dir = this.getOutputDir();
         String name = this.getCode().replace(' ', '_') + ".xml";
         File f = new File(dir, name);

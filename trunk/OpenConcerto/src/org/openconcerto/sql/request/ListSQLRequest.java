@@ -17,9 +17,9 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.ShowAs;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
@@ -97,7 +97,8 @@ public class ListSQLRequest extends FilteredFillSQLRequest {
         this.listFields = new ArrayList<SQLField>(req.listFields);
     }
 
-    protected final ShowAs getShowAs() {
+    @Override
+    protected ShowAs getShowAs() {
         return Configuration.getInstance().getShowAs();
     }
 

@@ -60,7 +60,6 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
 
     private SQLField field;
     private String sqlName;
-    private String label;
 
     private List<String> items;
 
@@ -219,15 +218,6 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
                 keyEvent.consume();
             }
         });
-    }
-
-    public String getDescription() {
-        return this.label;
-    }
-
-    @Override
-    public void setDescription(String s) {
-        this.label = s;
     }
 
     public final void resetValue() {

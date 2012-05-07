@@ -109,7 +109,7 @@ public abstract class PrefType<T> {
 
     private PrefType(Class<T> clazz, Class<T> primitiveClass, T defaultValue) {
         this.clazz = clazz;
-        if(this.clazz == null)
+        if (this.clazz == null)
             throw new IllegalArgumentException();
         this.primitiveClass = primitiveClass;
         this.defaultValue = defaultValue;
@@ -137,7 +137,8 @@ public abstract class PrefType<T> {
      * The default value for this type as specified by the JLS.
      * 
      * @return the default value, e.g. 0.
-     * @see http://java.sun.com/docs/books/jls/third_edition/html/typesValues.html#4.12.5
+     * @see <a href="http://docs.oracle.com/javase/specs/jls/se7/html/jls-4.html#jls-4.12.5">Initial
+     *      Values of Variables in the JLS</a>
      */
     public final T getDefaultValue() {
         return this.defaultValue;

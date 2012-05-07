@@ -48,8 +48,8 @@ public class ValidState {
      *         {@link #getTrueInstance()}).
      * @see #createCached(boolean, String)
      */
-    static public final ValidState create(boolean valid, String reason) {
-        return create(valid, reason, false);
+    static public final ValidState create(boolean valid, String invalidityReason) {
+        return create(valid, invalidityReason, false);
     }
 
     /**
@@ -64,8 +64,8 @@ public class ValidState {
      * @return a new instance if not already cached.
      * @see #create(boolean, String)
      */
-    static public final ValidState createCached(boolean valid, String reason) {
-        return create(valid, reason, true);
+    static public final ValidState createCached(boolean valid, String invalidityReason) {
+        return create(valid, invalidityReason, true);
     }
 
     static public final ValidState create(boolean valid, String reason, final boolean cacheNonValid) {

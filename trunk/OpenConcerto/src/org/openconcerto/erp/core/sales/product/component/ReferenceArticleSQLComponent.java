@@ -18,11 +18,13 @@ import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
+import org.openconcerto.erp.core.sales.product.element.UniteVenteArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.ui.ArticleDesignationTable;
 import org.openconcerto.erp.core.sales.product.ui.ArticleTarifTable;
 import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -33,6 +35,7 @@ import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
@@ -289,6 +292,18 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.add(fieldCodeBarre, c);
         this.addView(fieldCodeBarre, "CODE_BARRE");
 
+        SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+        // Gestion des unités de vente
+        final boolean gestionUV = prefs.getBoolean(GestionArticleGlobalPreferencePanel.UNITE_VENTE, true);
+        if (gestionUV) {
+            c.gridy++;
+            c.gridx = 0;
+            this.add(new JLabel(getLabelFor("ID_UNITE_VENTE")), c);
+            c.gridx++;
+            ElementComboBox boxUnite = new ElementComboBox();
+            this.add(boxUnite, c);
+            this.addView(boxUnite, "ID_UNITE_VENTE");
+        }
         DefaultProps props = DefaultNXProps.getInstance();
 
         // Article détaillé
@@ -1057,6 +1072,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         SQLRow row = getTable().getRow(getTable().getUndefinedID());
 
         rowVals.put("ID_TAXE", row.getInt("ID_TAXE"));
+        rowVals.put("ID_UNITE_VENTE", UniteVenteArticleSQLElement.A_LA_PIECE);
         rowVals.put("ID_MODE_VENTE_ARTICLE", ReferenceArticleSQLElement.A_LA_PIECE);
         selectModeVente(ReferenceArticleSQLElement.A_LA_PIECE);
         rowVals.put("VALEUR_METRIQUE_1", Float.valueOf("1.0"));

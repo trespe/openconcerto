@@ -180,21 +180,24 @@ public class Path {
      * Append <code>p</code> to this path.
      * 
      * @param p the path to append.
+     * @return this.
      * @throws IllegalArgumentException if <code>p</code> doesn't begin where this ends.
      */
-    public final void append(Path p) {
+    public final Path append(Path p) {
         if (this.getLast() != p.getFirst())
             throw new IllegalArgumentException("this ends at " + this.getLast() + " while the other begins at " + p.getFirst());
         this.fields.addAll(p.fields);
         this.singleFields.addAll(p.singleFields);
         this.tables.addAll(p.tables.subList(1, p.tables.size()));
+        return this;
     }
 
-    private void add(Step step) {
+    private Path add(Step step) {
         assert step.getFrom() == this.getLast() : "broken path";
         this.fields.add(step);
         this.singleFields.add(step.getSingleField());
         this.tables.add(step.getTo());
+        return this;
     }
 
     /**
@@ -202,13 +205,14 @@ public class Path {
      * d'un champ (TABLE.FIELD_NAME).
      * 
      * @param item le nouveau maillon.
+     * @return this.
      */
-    public void add(String item) {
+    public Path add(String item) {
         int dot = item.indexOf('.');
         if (dot < 0) {
-            add(this.base.getTable(item));
+            return add(this.base.getTable(item));
         } else {
-            add(this.base.getDesc(item, SQLField.class));
+            return add(this.base.getDesc(item, SQLField.class));
         }
     }
 
@@ -217,22 +221,24 @@ public class Path {
      * between {@link #getLast()} and <code>destTable</code>.
      * 
      * @param destTable the table to add.
+     * @return this.
      * @throws IllegalArgumentException if <code>destTable</code> has no foreign fields between
      *         itself and the current end of this path.
      */
-    public final void add(final SQLTable destTable) {
-        this.add(Step.create(getLast(), destTable));
+    public final Path add(final SQLTable destTable) {
+        return this.add(Step.create(getLast(), destTable));
     }
 
     /**
      * Add a step to the path.
      * 
      * @param fField a foreign field.
+     * @return this.
      * @throws IllegalArgumentException if <code>fField</code> is not a foreign field or if neither
      *         of its ends are the current end of this path.
      */
-    public final void add(final SQLField fField) {
-        this.add(fField, null);
+    public final Path add(final SQLField fField) {
+        return this.add(fField, null);
     }
 
     /**
@@ -241,62 +247,66 @@ public class Path {
      * @param fField a foreign field.
      * @param direction <code>true</code> to cross from the source of <code>fField</code> to its
      *        destination, <code>null</code> to infer it.
+     * @return this.
      * @throws IllegalArgumentException if <code>fField</code> is not a foreign field or if neither
      *         of its ends are the current end of this path.
      */
-    public final void add(final SQLField fField, final Boolean direction) {
-        this.add(Step.create(getLast(), fField, direction));
+    public final Path add(final SQLField fField, final Boolean direction) {
+        return this.add(Step.create(getLast(), fField, direction));
     }
 
-    public final void addFields(final Collection<SQLField> fields) {
+    public final Path addFields(final Collection<SQLField> fields) {
         final Set<Link> links = new HashSet<Link>(fields.size());
         final DatabaseGraph graph = getFirst().getDBSystemRoot().getGraph();
         for (final SQLField f : fields) {
             links.add(graph.getForeignLink(f));
         }
-        this.add(links);
+        return this.add(links);
     }
 
     /**
      * Add a step to the path.
      * 
      * @param links links from the current end of this path to another table.
+     * @return this.
      * @throws IllegalArgumentException if <code>links</code> are not all between the current end
      *         and the same other table.
      */
-    public final void add(final Collection<Link> links) {
-        this.add(Step.create(getLast(), links));
+    public final Path add(final Collection<Link> links) {
+        return this.add(Step.create(getLast(), links));
     }
 
     /**
      * Ajoute un maillon a la chaine.
      * 
      * @param item un lien.
+     * @return this.
      * @throws IllegalArgumentException si aucune des extremités de item n'est connectée à ce
      *         chemin.
      */
-    public void add(Link item) {
-        this.add(item.getLabel());
+    public Path add(Link item) {
+        return this.add(item.getLabel());
     }
 
     /**
      * The step connecting the table i to i+1.
      * 
-     * @param i the step asked, from 0 to {@link #length()} -1.
+     * @param i the step asked, from 0 to {@link #length()} -1 or negative (the last step being -1).
      * @return the requested step.
      */
     public final Step getStep(int i) {
-        return this.fields.get(i);
+        return this.fields.get(CollectionUtils.getValidIndex(this.fields, i, true));
     }
 
     /**
      * The fields connecting the table i to i+1.
      * 
-     * @param i the step asked, from 0 to {@link #length()} -1.
+     * @param i the index of the step.
      * @return the fields connecting the table i to i+1.
+     * @see #getStep(int)
      */
     public final Set<SQLField> getStepFields(int i) {
-        return this.fields.get(i).getFields();
+        return this.getStep(i).getFields();
     }
 
     /**
@@ -344,7 +354,7 @@ public class Path {
      *         otherwise.
      */
     public final Boolean isBackwards(final int i) {
-        final Boolean foreign = this.fields.get(i).isForeign();
+        final Boolean foreign = this.getStep(i).isForeign();
         return foreign == null ? null : !foreign;
     }
 

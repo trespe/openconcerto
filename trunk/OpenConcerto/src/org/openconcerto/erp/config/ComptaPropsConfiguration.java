@@ -62,6 +62,7 @@ import org.openconcerto.erp.core.finance.tax.element.TaxeSQLElement;
 import org.openconcerto.erp.core.humanresources.employe.SituationFamilialeSQLElement;
 import org.openconcerto.erp.core.humanresources.employe.element.CommercialSQLElement;
 import org.openconcerto.erp.core.humanresources.employe.element.EtatCivilSQLElement;
+import org.openconcerto.erp.core.humanresources.employe.element.ObjectifSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.AcompteSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.CaisseCotisationSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.ClassementConventionnelSQLElement;
@@ -116,6 +117,7 @@ import org.openconcerto.erp.core.sales.product.element.FamilleArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.element.MetriqueSQLElement;
 import org.openconcerto.erp.core.sales.product.element.ModeVenteArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
+import org.openconcerto.erp.core.sales.product.element.UniteVenteArticleSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.DevisItemSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
@@ -153,6 +155,8 @@ import org.openconcerto.erp.injector.FactureCommandeSQLInjector;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.TemplateNXProps;
 import org.openconcerto.erp.rights.ComptaTotalUserRight;
+import org.openconcerto.erp.storage.CloudStorageEngine;
+import org.openconcerto.erp.storage.StorageEngines;
 import org.jopendocument.link.OOConnexion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.ShowAs;
@@ -170,13 +174,20 @@ import org.openconcerto.sql.request.SQLFieldTranslator;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.task.TacheActionManager;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
-import org.openconcerto.ui.ReloadPanel;
 import org.openconcerto.utils.DesktopEnvironment;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.NetUtils;
 import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StringInputStream;
 
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.geom.Rectangle2D;
+import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -191,7 +202,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 
-import javax.swing.JDialog;
+import javax.imageio.ImageIO;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -273,7 +284,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             final Properties props;
             // webstart should be self-contained, e.g. if a user launches from the web it shoudln't
             // read an old preference file but should always read its own configuration.
-            if (confFile.exists() && !inWebStart) {
+            if (confFile != null && confFile.exists() && !inWebStart) {
                 props = create(new FileInputStream(confFile), defaults);
             } else {
                 final InputStream stream = ComptaPropsConfiguration.class.getResourceAsStream(PROPERTIES);
@@ -287,18 +298,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             return new ComptaPropsConfiguration(props, inWebStart);
         } catch (final IOException e) {
             e.printStackTrace();
-
-            try {
-                SwingUtilities.invokeAndWait(new Runnable() {
-                    public void run() {
-                        ExceptionHandler.die("Impossible de lire le fichier de configuration.", e);
-                    }
-                });
-            } catch (InterruptedException e1) {
-                e1.printStackTrace();
-            } catch (InvocationTargetException e1) {
-                e1.printStackTrace();
-            }
+            ExceptionHandler.die("Impossible de lire le fichier de configuration.", e);
             // never reached since we're already dead
             return null;
         }
@@ -320,46 +320,48 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         }
 
         //
-        String token = getProperty("token");
+        String token = getToken();
         if (token != null) {
             this.isServerless = false;
             this.isOnCloud = true;
-            InProgressFrame progress = new InProgressFrame();
-            progress.show("Connexion sécurisée au cloud en cours");
-            String result = NetUtils.getHTTPContent("https://cloud.openconcerto.org/getAuthInfo?token=" + token, false);
-            if (result != null && !result.contains("ERROR")) {
-                Properties cProperty = new Properties();
-                try {
-                    cProperty.loadFromXML(new StringInputStream(result));
-                    setProperty("server.wan.only", "true");
-                    setProperty("server.wan.port", "22");
-                    // SSH
-                    setProperty("server.wan.addr", cProperty.getProperty("ssh.server"));
-                    setProperty("server.wan.user", cProperty.getProperty("ssh.login"));
-                    setProperty("server.wan.password", cProperty.getProperty("ssh.pass"));
-                    // DB
-                    setProperty("server.ip", "127.0.0.1:5432");
-                    setProperty("server.driver", "postgresql");
-                    setProperty("server.login", cProperty.getProperty("db.login"));
-                    setProperty("server.password", cProperty.getProperty("db.pass"));
-                    setProperty("systemRoot", cProperty.getProperty("db.name"));
-                    // Storage
-                    props.put("storage.server", cProperty.getProperty("storage.server"));
-                    progress.dispose();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    JOptionPane.showMessageDialog(new JFrame(), "Impossible récupérer les informations de connexion");
+            if (this.getProperty("storage.server") == null) {
+                InProgressFrame progress = new InProgressFrame();
+                progress.show("Connexion sécurisée au cloud en cours");
+                String result = NetUtils.getHTTPContent("https://cloud.openconcerto.org/getAuthInfo?token=" + token, false);
+                if (result != null && !result.contains("ERROR")) {
+                    Properties cProperty = new Properties();
+                    try {
+                        cProperty.loadFromXML(new StringInputStream(result));
+                        setProperty("server.wan.only", "true");
+                        setProperty("server.wan.port", "22");
+                        // SSH
+                        setProperty("server.wan.addr", cProperty.getProperty("ssh.server"));
+                        setProperty("server.wan.user", cProperty.getProperty("ssh.login"));
+                        setProperty("server.wan.password", cProperty.getProperty("ssh.pass"));
+                        // DB
+                        setProperty("server.ip", "127.0.0.1:5432");
+                        setProperty("server.driver", "postgresql");
+                        setProperty("server.login", cProperty.getProperty("db.login"));
+                        setProperty("server.password", cProperty.getProperty("db.pass"));
+                        setProperty("systemRoot", cProperty.getProperty("db.name"));
+                        // Storage
+                        props.put("storage.server", cProperty.getProperty("storage.server"));
+                        progress.dispose();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        JOptionPane.showMessageDialog(new JFrame(), "Impossible récupérer les informations de connexion");
+                        System.exit(1);
+                    }
+
+                } else if (result != null && result.contains("not paid")) {
+                    JOptionPane.showMessageDialog(new JFrame(), "Compte Cloud non crédité");
+                    System.exit(1);
+                } else {
+                    JOptionPane.showMessageDialog(new JFrame(), "Connexion impossible au Cloud");
                     System.exit(1);
                 }
-
-            } else if (result != null && result.contains("not paid")) {
-                JOptionPane.showMessageDialog(new JFrame(), "Compte Cloud non crédité");
-                System.exit(1);
-            } else {
-                JOptionPane.showMessageDialog(new JFrame(), "Connexion impossible au Cloud");
-                System.exit(1);
             }
-
+            StorageEngines.getInstance().addEngine(new CloudStorageEngine());
         } else {
             // Local database
             setProperty("server.login", "openconcerto");
@@ -375,6 +377,10 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         this.setupLogging("logs");
 
         UserRightsManager.getInstance().register(new ComptaTotalUserRight());
+    }
+
+    public String getToken() {
+        return getProperty("token");
     }
 
     @Override
@@ -563,7 +569,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new CommandeClientElementSQLElement());
 
             dir.addSQLElement(new CommercialSQLElement());
-
+        dir.addSQLElement(ObjectifSQLElement.class);
         dir.addSQLElement(new ComptePCESQLElement());
         dir.addSQLElement(new ComptePCGSQLElement());
 
@@ -655,6 +661,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new TypeReglementSQLElement());
 
         dir.addSQLElement(new VariableSalarieSQLElement());
+        dir.addSQLElement(UniteVenteArticleSQLElement.class);
         Collection<SQLElement> elements = dir.getElements();
         for (SQLElement sqlElement : elements) {
             GlobalMapper.getInstance().map(sqlElement.getCode() + ".element", this);
@@ -871,5 +878,48 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         SQLServer server = super.createServer();
         progress.dispose();
         return server;
+    }
+
+    public static ComptaPropsConfiguration getInstanceCompta() {
+        return (ComptaPropsConfiguration) getInstance();
+    }
+
+    public String getStorageServer() {
+        return this.getProperty("storage.server");
+    }
+
+    public Image getCustomLogo() {
+        final File dir = new File(getConfFile().getParent());
+        final File file = new File(dir, "logo.png");
+
+        BufferedImage im = null;
+        if (file.exists()) {
+            try {
+                im = ImageIO.read(file);
+                if (im.getHeight() < 16) {
+                    JOptionPane.showMessageDialog(new JFrame(), "Logo too small (height < 16 pixels)");
+                    return null;
+                }
+                if (im.getWidth() < 200) {
+                    JOptionPane.showMessageDialog(new JFrame(), "Logo too small (width < 200 pixels)");
+                    return null;
+                }
+                final Graphics g = im.getGraphics();
+
+                g.setFont(new Font(Font.SANS_SERIF, Font.ITALIC, 11));
+                ((Graphics2D) g).setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+                final String str = "Powered by OpenConcerto";
+                final Rectangle2D r = g.getFontMetrics().getStringBounds(str, g);
+                g.setColor(new Color(255, 255, 255, 200));
+                g.fillRect(0, im.getHeight() - (int) r.getHeight() - 2, (int) r.getWidth() + 8, (int) r.getHeight() + 4);
+                g.setColor(Color.BLACK);
+                g.drawString(str, 4, im.getHeight() - 4);
+                g.dispose();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+
+        }
+        return im;
     }
 }

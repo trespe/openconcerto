@@ -27,9 +27,9 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSchema;
 import org.openconcerto.sql.model.SQLSelect;
-import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.utils.ChangeTable.ConcatStep;
 import org.openconcerto.sql.utils.SQLCreateRoot;
 import org.openconcerto.utils.ExceptionHandler;
 
@@ -37,6 +37,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -80,7 +81,11 @@ public class ActionDB {
             final SQLCreateRoot createRoot = baseSQLDefault.getDefinitionSQL(sysRoot.getServer().getSQLSystem());
             final SQLDataSource ds = sysRoot.getDataSource();
             // be safe don't add DROP SCHEMA
-            ds.execute(createRoot.asString(newBase, false, true));
+            final List<String> sql = createRoot.asStringList(newBase, false, true, EnumSet.of(ConcatStep.ADD_FOREIGN));
+            // create root
+            ds.execute(sql.get(0));
+            // create tables (without constraints)
+            ds.execute(sql.get(1));
             sysRoot.getRootsToMap().add(newBase);
             // TODO find a more functional way
             final boolean origVal = Boolean.getBoolean(SQLSchema.NOAUTO_CREATE_METADATA);
@@ -93,10 +98,6 @@ public class ActionDB {
 
             final Set<SQLTable> newTables = baseSQLNew.getTables();
             int i = 0;
-            final SQLSyntax syntax = sysRoot.getServer().getSQLSystem().getSyntax();
-            // MAYBE SQLCreateRoot can avoid creating foreign constraints, then we insert data,
-            // finally SQLCreateRoot adds just the constraints
-            ds.execute(syntax.disableFKChecks(baseSQLNew));
             for (final SQLTable table : newTables) {
                 String tableName = table.getName();
 
@@ -106,9 +107,11 @@ public class ActionDB {
                 log(l, "Table " + tableName + " " + (i + 1) + "/" + newTables.size() + " OK");
                 i++;
             }
-            ds.execute(syntax.enableFKChecks(baseSQLNew));
+            // create constraints
+            ds.execute(sql.get(2));
+            assert sql.size() == 3;
 
-            if (syntax.getSystem() == SQLSystem.POSTGRESQL) {
+            if (sysRoot.getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
                 log(l, "Maj des séquences des tables");
                 new FixSerial(sysRoot).changeAll(baseSQLNew);
             }

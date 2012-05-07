@@ -39,7 +39,6 @@ import org.openconcerto.utils.cc.ITransformer;
 import java.util.ArrayList;
 import java.util.List;
 
-// TODO écouter les changements des tables affichées
 // final: use setSelectTransf()
 public final class ComboSQLRequest extends FilteredFillSQLRequest {
 
@@ -74,6 +73,7 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
 
     private String fieldSeparator = SEP_FIELD;
     private String undefLabel;
+    private boolean keepRows;
     private IClosure<IComboSelectionItem> customizeItem;
 
     private List<Path> order;
@@ -85,6 +85,8 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
     public ComboSQLRequest(SQLTable table, List<String> l, Where where) {
         super(table, where);
         this.undefLabel = null;
+        // don't use memory
+        this.keepRows = false;
         this.customizeItem = null;
         this.order = null;
         this.exp = new TransfFieldExpander(new ITransformer<SQLField, List<SQLField>>() {
@@ -102,10 +104,18 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
     }
 
     public ComboSQLRequest(ComboSQLRequest c) {
+        this(c, new ArrayList<SQLField>(c.comboFields));
+    }
+
+    public ComboSQLRequest(ComboSQLRequest c, List<SQLField> fields) {
         super(c);
         this.exp = new TransfFieldExpander(c.exp);
-        this.comboFields = new ArrayList<SQLField>(c.comboFields);
+        this.comboFields = fields;
         this.order = c.order == null ? null : new ArrayList<Path>(c.order);
+        this.fieldSeparator = c.fieldSeparator;
+        this.undefLabel = c.undefLabel;
+        this.keepRows = c.keepRows;
+        this.customizeItem = c.customizeItem;
     }
 
     private void addItemToCombo(String field) {
@@ -226,7 +236,8 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
                     return CollectionUtils.join(filtered, ComboSQLRequest.this.fieldSeparator);
                 }
             });
-        final IComboSelectionItem res = new IComboSelectionItem(rs.getID(), desc);
+        // don't store the whole SQLRowValues to save some memory
+        final IComboSelectionItem res = this.keepRows ? new IComboSelectionItem(rs.asRow(), desc) : new IComboSelectionItem(rs.getID(), desc);
         if (this.customizeItem != null)
             this.customizeItem.executeChecked(res);
         return res;
@@ -275,5 +286,15 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
      */
     public String getSeparatorsChars() {
         return SEP_CHILD + this.fieldSeparator;
+    }
+
+    /**
+     * Whether {@link IComboSelectionItem items} retain their rows.
+     * 
+     * @param b <code>true</code> if the rows should be retained.
+     * @see IComboSelectionItem#getRow()
+     */
+    public final void keepRows(boolean b) {
+        this.keepRows = b;
     }
 }

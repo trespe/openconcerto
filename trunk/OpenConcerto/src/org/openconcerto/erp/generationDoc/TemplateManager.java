@@ -47,7 +47,7 @@ public class TemplateManager {
 
     public void setDefaultProvider(String templateId, TemplateProvider provider) {
         defaultMap.put(templateId, provider);
-        knownTemplateIds.add(templateId);
+        register(templateId);
     }
 
     public void setDefaultProvider(TemplateProvider provider) {
@@ -128,7 +128,9 @@ public class TemplateManager {
     }
 
     public void register(String templateId) {
-        knownTemplateIds.add(templateId);
+        if (!knownTemplateIds.contains(templateId)) {
+            knownTemplateIds.add(templateId);
+        }
     }
 
     public void dump() {
@@ -161,5 +163,22 @@ public class TemplateManager {
 
     public boolean isKnwonTemplate(String templateId) {
         return this.knownTemplateIds.contains(templateId);
+    }
+
+    public List<String> getKnownTemplateIds() {
+        return knownTemplateIds;
+    }
+
+    /**
+     * Get the template provider
+     * 
+     * @return the TemplateProvider file, IllegalStateException if no template is found
+     * */
+    public TemplateProvider getProvider(String templateId) {
+        final TemplateProvider provider = defaultMap.get(templateId);
+        if (provider == null) {
+            return defautProvider;
+        }
+        return provider;
     }
 }

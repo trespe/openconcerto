@@ -14,6 +14,7 @@
  package org.openconcerto.sql.sqlobject;
 
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
@@ -469,13 +470,20 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     /**
      * The selected row or <code>null</code> if this is empty.
      * 
-     * @return a SQLRow (non fetched) or <code>null</code>.
+     * @return a SQLRow or <code>null</code>.
+     * @see ComboSQLRequest#keepRows(boolean)
      */
     public final SQLRow getSelectedRow() {
-        if (this.isEmpty())
+        if (this.isEmpty()) {
             return null;
-        else {
-            return new SQLRow(this.getForeignTable(), this.getSelectedId());
+        } else {
+            final IComboSelectionItem o = this.getValue();
+            final SQLRowAccessor r = o.getRow();
+            if (r != null) {
+                return r.asRow();
+            } else {
+                return new SQLRow(this.getForeignTable(), o.getId());
+            }
         }
     }
 

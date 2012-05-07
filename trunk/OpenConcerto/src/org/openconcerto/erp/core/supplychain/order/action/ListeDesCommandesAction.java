@@ -55,18 +55,8 @@ public class ListeDesCommandesAction extends CreateFrameAbstractAction {
 
                 bonAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
 
-                // Transfert vers facture
-                PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction("Transfert vers facture") {
-                    public void actionPerformed(ActionEvent e) {
-                        transfertFactureFournisseur(IListe.get(e).getSelectedRow());
-                    }
-                }, false);
-
-                factureAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
-
                 List<RowAction> l = new ArrayList<RowAction>();
                 l.add(bonAction);
-                l.add(factureAction);
                 return l;
             }
         }.getRowActions());
@@ -82,16 +72,6 @@ public class ListeDesCommandesAction extends CreateFrameAbstractAction {
     private void transfertBonReceptionClient(SQLRow row) {
         CommandeSQLElement elt = (CommandeSQLElement) Configuration.getInstance().getDirectory().getElement("COMMANDE");
         elt.transfertBR(row.getID());
-    }
-
-    /**
-     * Transfert en Facture
-     * 
-     * @param row
-     */
-    private void transfertFactureFournisseur(SQLRow row) {
-        CommandeSQLElement elt = (CommandeSQLElement) Configuration.getInstance().getDirectory().getElement("COMMANDE");
-        elt.transfertFacture(row.getID());
     }
 
 }

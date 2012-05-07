@@ -49,7 +49,7 @@ public class ListeDesEncaissementsAction extends CreateFrameAbstractAction {
         List<SQLField> fields = new ArrayList<SQLField>(2);
         fields.add(elementEchClient.getTable().getField("MONTANT"));
 
-        IListTotalPanel totalPanel = new IListTotalPanel(frame.getPanel().getListe(), fields, null, "Total Global");
+        IListTotalPanel totalPanel = new IListTotalPanel(frame.getPanel().getListe(), fields, "Total Global");
 
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridwidth = GridBagConstraints.REMAINDER;

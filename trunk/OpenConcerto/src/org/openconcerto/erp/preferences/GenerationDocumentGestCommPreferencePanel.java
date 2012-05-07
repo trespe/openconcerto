@@ -13,6 +13,9 @@
  
  package org.openconcerto.erp.preferences;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
 import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
@@ -24,8 +27,6 @@ import org.openconcerto.erp.generationDoc.gestcomm.CourrierClientSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.RelanceSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.ReleveChequeEmisSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.ReleveChequeSheet;
-import org.openconcerto.sql.Configuration;
-import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 
 public class GenerationDocumentGestCommPreferencePanel extends AbstractGenerationDocumentPreferencePanel {
@@ -44,13 +45,20 @@ public class GenerationDocumentGestCommPreferencePanel extends AbstractGeneratio
         this.mapKeyLabel.put(Tuple2.create(CourrierClientSheet.TEMPLATE_ID, CourrierClientSheet.TEMPLATE_PROPERTY_NAME), getLabelFromTable("COURRIER_CLIENT"));
         this.mapKeyLabel.put(Tuple2.create(ReleveChequeEmisSheet.TEMPLATE_ID, ReleveChequeEmisSheet.TEMPLATE_PROPERTY_NAME), "Relevé chèque émis");
         this.mapKeyLabel.put(Tuple2.create(ReleveChequeSheet.TEMPLATE_ID, ReleveChequeSheet.TEMPLATE_PROPERTY_NAME), "Relevé chèque");
+        for (Tuple2<String, String> t : mapKeyLabelCustom.keySet()) {
+            this.mapKeyLabel.put(t, mapKeyLabelCustom.get(t));
+        }
         // this.mapKeyLabel.put(SheetXml.tupleDefault.get0(), SheetXml.tupleDefault.get1());
         // uiInit();
     }
 
-    
+    protected static Map<Tuple2<String, String>, String> mapKeyLabelCustom = new HashMap<Tuple2<String, String>, String>();
 
     public String getTitleName() {
         return "Destination des documents générés";
+    }
+
+    public static void addPref(Tuple2<String, String> template, String label) {
+        mapKeyLabelCustom.put(template, label);
     }
 }

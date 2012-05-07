@@ -67,7 +67,7 @@ public class OOXMLTableField extends OOXMLField {
         } else if (this.type.equalsIgnoreCase("DescriptifArticle")) {
             value = getDescriptifArticle(this.row);
         } else if (this.type.equalsIgnoreCase("DateEcheance")) {
-            value = getDateEcheance(this.row.getInt("ID_MODE_REGLEMENT"), (Date) this.row.getObject("DATE"));
+            value = getDateEcheance(this.row.getInt("ID_MODE_REGLEMENT"), (Date) this.row.getObject("DATE"), this.elt.getAttributeValue("DatePattern"));
         } else if (this.type.equalsIgnoreCase("MontantRevise")) {
             value = getMontantRevise(this.row);
         } else if (this.type.equalsIgnoreCase("Localisation")) {

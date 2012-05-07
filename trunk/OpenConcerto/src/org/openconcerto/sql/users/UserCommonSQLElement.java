@@ -75,8 +75,8 @@ public class UserCommonSQLElement extends ConfSQLElement {
     }
 
     @Override
-    public ComboSQLRequest getComboRequest() {
-        final ComboSQLRequest res = super.getComboRequest();
+    protected ComboSQLRequest createComboRequest() {
+        final ComboSQLRequest res = super.createComboRequest();
         res.setFieldSeparator(" ");
         return res;
     }

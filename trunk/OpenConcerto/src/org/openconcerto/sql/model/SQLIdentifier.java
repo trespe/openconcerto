@@ -29,6 +29,12 @@ public abstract class SQLIdentifier extends DBStructureItemJDBC {
         super(parent, name);
     }
 
+    protected final Object getTreeMutex() {
+        final Object res = this.getDBSystemRoot().getTreeMutex();
+        assert Thread.holdsLock(res) || !Thread.holdsLock(this) : "Trying to lock treeMutex after locking this : " + this;
+        return res;
+    }
+
     // ** names
 
     /**

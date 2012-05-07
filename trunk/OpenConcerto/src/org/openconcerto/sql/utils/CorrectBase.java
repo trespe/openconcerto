@@ -16,17 +16,14 @@
  */
 package org.openconcerto.sql.utils;
 
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.changer.Change;
 import org.openconcerto.sql.changer.Correct;
-import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.Tuple3;
 
 import java.io.IOException;
 import java.sql.SQLException;
@@ -52,11 +49,10 @@ public class CorrectBase extends ChangeBase {
     // 0: archive, 1: put undefined, 2:delete
     public void restoreIntegrity(boolean inexistant, int modus, String table) {
         System.out.println("*** " + table);
-        final Iterator li = this.getBase().getTable(table).checkIntegrity().iterator();
-        while (li.hasNext()) {
-            SQLRow row = (SQLRow) li.next();
-            SQLField foreignKey = (SQLField) li.next();
-            SQLRow pb = (SQLRow) li.next();
+        for (Tuple3<SQLRow, SQLField, SQLRow> t : this.getBase().getTable(table).checkIntegrity()) {
+            SQLRow row = t.get0();
+            SQLField foreignKey = t.get1();
+            SQLRow pb = t.get2();
             if (!inexistant || !pb.exists()) {
                 final String update;
                 final String where = row.getTable().getKey().getName() + "=" + row.getID();
@@ -79,53 +75,6 @@ public class CorrectBase extends ChangeBase {
 
     public void deletePoint2NonExistant() {
         this.restoreIntegrity(true, 2);
-    }
-
-    // ATTN this method need the directory to be filled (ie no headless)
-    // correct multiple rows pointing to the same private row,
-    // eg ID_OBSERVATION_2 of ECLAIRAGE[123] and ECLAIRAGE[756] points to OBSERVATION[6665]
-    // OBSERVATION[6665] is cloned and affected to the second ECLAIRAGE
-    public void correctSharedPrivates() {
-        final SQLElementDirectory dir = Configuration.getInstance().getDirectory();
-        for (final SQLTable table : dir.getTables()) {
-            final SQLElement element = dir.getElement(table);
-            System.err.println(table);
-            final Iterator iter = element.getPrivateForeignFields().iterator();
-            while (iter.hasNext()) {
-                // eg ID_LIAISON_NEUTRE
-                final String f = (String) iter.next();
-                // eg LiaisonElement
-                final SQLElement foreignElement = element.getPrivateElement(f);
-                String sel = "SELECT " + f + ", ARCHIVE FROM " + element.getTable().getName() + " WHERE ARCHIVE=0" + " GROUP BY " + f;
-                sel += " HAVING count(" + f + ") > 1 and " + f + "!= " + foreignElement.getTable().getUndefinedID();
-                final List sharedPrivateIDs = this.getBase().getDataSource().executeCol(sel);
-                if (sharedPrivateIDs.size() > 0) {
-                    System.err.println(sharedPrivateIDs);
-                    final Iterator idIter = sharedPrivateIDs.iterator();
-                    while (idIter.hasNext()) {
-                        // eg 12
-                        final Number sharedPrivateID = (Number) idIter.next();
-                        // eg LIAISON[12]
-                        final SQLRow foreignRow = foreignElement.getTable().getRow(sharedPrivateID.intValue());
-                        final List invalidRows = foreignRow.getReferentRows(element.getTable().getField(f));
-                        // laisser le 1er
-                        final Iterator invalidRowsIter = invalidRows.listIterator(1);
-                        while (invalidRowsIter.hasNext()) {
-                            // eg TRANSFO[1325]
-                            final SQLRow invalidR = (SQLRow) invalidRowsIter.next();
-                            try {
-                                final SQLRow clone = foreignElement.copy(foreignRow);
-                                System.err.println("Updating " + invalidR + " by putting " + clone.getID() + " in " + f);
-                                final SQLRowValues vals = invalidR.createEmptyUpdateRow().put(f, clone.getID());
-                                vals.update();
-                            } catch (SQLException e) {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 
     public void deleteArchived() throws SQLException {

@@ -107,12 +107,43 @@ public abstract class DesktopEnvironment {
             return false;
         }
 
-        @Override
+        // on Windows program themselves are required to parse the command line, thus a lot of them
+        // do it differently, see http://www.autohotkey.net/~deleyd/parameters/parameters.htm
+
+        static private final Pattern quotePatrn = Pattern.compile("([\\\\]*)\"");
+        static private final Pattern endSlashPatrn = Pattern.compile("([\\\\]*)\\z");
+
         // see http://bugs.sun.com/view_bug.do?bug_id=6468220
-        public String quoteParamForExec(final String s) {
+        // e.g. find.exe, choice.exe
+        public String quoteParamForMsftC(String s) {
             if (!needsQuoting(s))
                 return s;
+            if (s.length() > 0) {
+                // replace '(\*)"' by '$1$1\"', e.g. '\quote " \"' by '\quote \" \\\"'
+                // $1 needed so that the backslash we add isn't escaped itself by a preceding
+                // backslash
+                s = quotePatrn.matcher(s).replaceAll("$1$1\\\\\"");
+                // replace '(\*)\z' by '$1$1', e.g. 'foo\' by 'foo\\'
+                // needed to not escape closing quote
+                s = endSlashPatrn.matcher(s).replaceAll("$1$1");
+            }
+            return '"' + s + '"';
+        }
+
+        // e.g. bash.exe
+        public String quoteParamForGCC(String s) {
             return StringUtils.doubleQuote(s);
+        }
+
+        public String quoteParamForScript(final String s) {
+            if (s.indexOf('"') >= 0)
+                throw new IllegalArgumentException("Can not pass a double quote as part of a parameter");
+            return '"' + s + '"';
+        }
+
+        @Override
+        public String quoteParamForExec(final String s) {
+            return quoteParamForMsftC(s);
         }
     }
 
@@ -162,6 +193,15 @@ public abstract class DesktopEnvironment {
             }
         }
 
+        public File getAppDir(final String bundleID) throws IOException {
+            // we used to ask for the URL of the application file but since 10.7 it returns a
+            // file reference URL like "file:///.file/id=6723689.35865"
+            final ProcessBuilder processBuilder = new ProcessBuilder("osascript", "-e", "tell application id \"com.apple.Finder\" to POSIX path of (application file id \"" + bundleID
+                    + "\" as string)");
+            // if not found prints nothing to out and a cryptic error to the standard error stream
+            final String dir = cmdSubstitution(processBuilder.start()).trim();
+            return dir.length() == 0 ? null : new File(dir);
+        }
     }
 
     /**

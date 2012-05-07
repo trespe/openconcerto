@@ -21,10 +21,10 @@ import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElemen
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.ui.BonReceptionItemTable;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -51,7 +51,6 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.sql.SQLException;
-import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.JLabel;
@@ -85,6 +84,7 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
     @Override
     protected SQLRowValues createDefaults() {
         this.tableBonItem.getModel().clearRows();
+        this.textNumeroUnique.setText(NumerotationAutoSQLElement.getNextNumero(BonReceptionSQLElement.class));
         return super.createDefaults();
     }
 
@@ -307,7 +307,6 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
         c.fill = GridBagConstraints.BOTH;
         final ITextArea textInfos = new ITextArea(4, 4);
         JScrollPane scrollPane = new JScrollPane(textInfos);
-        textInfos.setBorder(null);
         DefaultGridBagConstraints.lockMinimumSize(scrollPane);
 
         this.add(textInfos, c);
@@ -534,48 +533,22 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
         }
     }
 
+    protected String getLibelleStock(SQLRow row, SQLRow rowElt) {
+        return "Bon de réception N°" + row.getString("NUMERO");
+    }
+
     /**
      * Mise à jour des stocks pour chaque article composant du bon
      */
     private void updateStock(int id) {
+        MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+        mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("BON_RECEPTION_ELEMENT"), new StockLabel() {
+            @Override
+            public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
 
-        SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
-        SQLTable sqlTableBonElt = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("BON_RECEPTION_ELEMENT");
-        SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement(sqlTableArticle);
-        SQLRow row = getTable().getRow(id);
-
-        // On récupére les articles qui composent la facture
-        List<SQLRow> elts = row.getReferentRows(sqlTableBonElt);
-
-        for (SQLRow rowElt : elts) {
-
-            // on récupére l'article qui lui correspond
-            SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
-            for (SQLField field : eltArticle.getTable().getFields()) {
-                if (rowElt.getTable().getFieldsName().contains(field.getName())) {
-                    rowArticle.put(field.getName(), rowElt.getObject(field.getName()));
-                }
+                return getLibelleStock(rowOrigin, rowElt);
             }
-            // rowArticle.loadAllSafe(rowEltFact);
-            int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
-
-            // on crée un mouvement de stock pour chacun des articles
-            SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-            SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
-            rowVals.put("QTE", rowElt.getInt("QTE"));
-            rowVals.put("NOM", "Bon de réception N°" + row.getString("NUMERO"));
-            rowVals.put("IDSOURCE", id);
-            rowVals.put("SOURCE", getTable().getName());
-            rowVals.put("ID_ARTICLE", idArticle);
-            rowVals.put("DATE", row.getObject("DATE"));
-            try {
-                SQLRow rowInsert = rowVals.insert();
-                MouvementStockSQLElement.updateStock(Arrays.asList(rowInsert.getID()));
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
-
-        }
+        }, true);
 
     }
 }

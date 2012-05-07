@@ -38,6 +38,7 @@ public class AvoirClientSQLElement extends ComptaSQLConfElement {
     public List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
         l.add("NUMERO");
+            l.add("ID_COMMERCIAL");
         l.add("ID_CLIENT");
 
         l.add("NOM");

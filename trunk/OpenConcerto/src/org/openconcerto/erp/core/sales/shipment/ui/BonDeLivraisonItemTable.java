@@ -20,11 +20,18 @@ import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.ui.ArticleRowValuesRenderer;
+import org.openconcerto.erp.core.sales.product.ui.QteUnitRowValuesRenderer;
 import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
+import org.openconcerto.sql.sqlobject.ITextWithCompletion;
 import org.openconcerto.sql.view.list.AutoCompletionManager;
 import org.openconcerto.sql.view.list.CellDynamicModifier;
 import org.openconcerto.sql.view.list.RowValuesTable;
@@ -32,6 +39,8 @@ import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.ui.table.XTableColumnModel;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
@@ -45,6 +54,7 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
     // private final Map<Integer, Boolean> map = new HashMap<Integer, Boolean>();
 
     private SQLTableElement tableElementPoidsTotalLivree;
+    private SQLTable tableArticle = Configuration.getInstance().getBase().getTable("ARTICLE");
 
     public BonDeLivraisonItemTable(List<JButton> l) {
         super(l);
@@ -54,8 +64,17 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
     protected void init() {
         final SQLElement e = getSQLElement();
 
+        SQLPreferences prefs = new SQLPreferences(getSQLElement().getTable().getDBRoot());
+        final boolean selectArticle = prefs.getBoolean(GestionArticleGlobalPreferencePanel.USE_CREATED_ARTICLE, false);
+        final boolean createAuto = prefs.getBoolean(GestionArticleGlobalPreferencePanel.CREATE_ARTICLE_AUTO, true);
+
         final List<SQLTableElement> list = new Vector<SQLTableElement>();
         list.add(new SQLTableElement(e.getTable().getField("ID_STYLE")));
+
+        // Article
+        final SQLTableElement tableElementArticle = new SQLTableElement(e.getTable().getField("ID_ARTICLE"), true, true, true);
+        list.add(tableElementArticle);
+
         // Code article
         final SQLTableElement tableElementCode = new SQLTableElement(e.getTable().getField("CODE"));
         list.add(tableElementCode);
@@ -156,9 +175,31 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         // DeviseCellEditor());
         // list.add(tableElement_PrixMetrique3_AchatHT);
 
+        SQLTableElement qteU = new SQLTableElement(e.getTable().getField("QTE_UNITAIRE"), BigDecimal.class) {
+            @Override
+            public boolean isCellEditable(SQLRowValues vals) {
+
+                SQLRowAccessor row = vals.getForeign("ID_UNITE_VENTE");
+                if (row != null && !row.isUndefined() && row.getBoolean("A_LA_PIECE")) {
+                    return false;
+                } else {
+                    return super.isCellEditable(vals);
+                }
+            }
+
+            @Override
+            public TableCellRenderer getTableCellRenderer() {
+                return new QteUnitRowValuesRenderer();
+            }
+        };
+        list.add(qteU);
+
+        SQLTableElement uniteVente = new SQLTableElement(e.getTable().getField("ID_UNITE_VENTE"));
+        list.add(uniteVente);
+
         // Quantité
-        final SQLTableElement tableElement_Quantite = new SQLTableElement(e.getTable().getField("QTE"), Integer.class);
-        list.add(tableElement_Quantite);
+        this.qte = new SQLTableElement(e.getTable().getField("QTE"), Integer.class);
+        list.add(this.qte);
 
         // Mode de vente
         final SQLTableElement tableElement_ModeVente = new SQLTableElement(e.getTable().getField("ID_MODE_VENTE_ARTICLE"));
@@ -180,8 +221,8 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         list.add(tableElement_PrixVente_HT);
 
         // TVA
-        final SQLTableElement tableElement_Taxe = new SQLTableElement(e.getTable().getField("ID_TAXE"));
-        list.add(tableElement_Taxe);
+        this.tableElementTVA = new SQLTableElement(e.getTable().getField("ID_TAXE"));
+        list.add(this.tableElementTVA);
 
         // Quantité Livrée
         final SQLTableElement tableElement_QuantiteLivree = new SQLTableElement(e.getTable().getField("QTE_LIVREE"), Integer.class);
@@ -217,44 +258,77 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         ToolTipManager.sharedInstance().unregisterComponent(this.table);
         ToolTipManager.sharedInstance().unregisterComponent(this.table.getTableHeader());
 
+        List<String> completionField = new ArrayList<String>();
+        SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
+        if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
+
+            completionField.add("CODE_DOUANIER");
+        }
+        if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
+            completionField.add("ID_PAYS");
+        }
+        completionField.add("ID_UNITE_VENTE");
+        completionField.add("PA_HT");
+        completionField.add("PV_HT");
+        completionField.add("ID_TAXE");
+        completionField.add("POIDS");
+        completionField.add("PRIX_METRIQUE_HA_1");
+        completionField.add("PRIX_METRIQUE_HA_2");
+        completionField.add("PRIX_METRIQUE_HA_3");
+        completionField.add("VALEUR_METRIQUE_1");
+        completionField.add("VALEUR_METRIQUE_2");
+        completionField.add("VALEUR_METRIQUE_3");
+        completionField.add("ID_MODE_VENTE_ARTICLE");
+        completionField.add("PRIX_METRIQUE_VT_1");
+        completionField.add("PRIX_METRIQUE_VT_2");
+        completionField.add("PRIX_METRIQUE_VT_3");
+        completionField.add("SERVICE");
+        if (getSQLElement().getTable().getFieldsName().contains("DESCRIPTIF")) {
+            completionField.add("DESCRIPTIF");
+        }
+        if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
+            completionField.add("ID_DEVISE");
+        }
+        if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
+            completionField.add("PV_U_DEVISE");
+        }
+        if (getSQLElement().getTable().getFieldsName().contains("QTE_ACHAT") && sqlTableArticle.getTable().getFieldsName().contains("QTE_ACHAT")) {
+            completionField.add("QTE_ACHAT");
+        }
+
         // Autocompletion
         final AutoCompletionManager m = new AutoCompletionManager(tableElementCode, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.CODE"), this.table,
                 this.table.getRowValuesTableModel());
         m.fill("NOM", "NOM");
-        m.fill("PA_HT", "PA_HT");
-        m.fill("PV_HT", "PV_HT");
-        m.fill("ID_MODE_VENTE_ARTICLE", "ID_MODE_VENTE_ARTICLE");
-        m.fill("POIDS", "POIDS");
-        m.fill("PRIX_METRIQUE_HA_1", "PRIX_METRIQUE_HA_1");
-        m.fill("PRIX_METRIQUE_HA_2", "PRIX_METRIQUE_HA_2");
-        m.fill("PRIX_METRIQUE_HA_3", "PRIX_METRIQUE_HA_3");
-        m.fill("VALEUR_METRIQUE_1", "VALEUR_METRIQUE_1");
-        m.fill("VALEUR_METRIQUE_2", "VALEUR_METRIQUE_2");
-        m.fill("VALEUR_METRIQUE_3", "VALEUR_METRIQUE_3");
-        m.fill("PRIX_METRIQUE_VT_1", "PRIX_METRIQUE_VT_1");
-        m.fill("PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_2");
-        m.fill("PRIX_METRIQUE_VT_3", "PRIX_METRIQUE_VT_3");
-        m.fill("SERVICE", "SERVICE");
+        m.fill("ID", "ID_ARTICLE");
+        for (String string : completionField) {
+            m.fill(string, string);
+        }
+        m.setWhere(new Where(sqlTableArticle.getField("OBSOLETE"), "=", Boolean.FALSE));
+
         final AutoCompletionManager m2 = new AutoCompletionManager(tableElementNom, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.NOM"), this.table,
                 this.table.getRowValuesTableModel());
         m2.fill("CODE", "CODE");
-        m2.fill("PA_HT", "PA_HT");
-        m2.fill("PV_HT", "PV_HT");
-        m2.fill("POIDS", "POIDS");
-        m2.fill("ID_MODE_VENTE_ARTICLE", "ID_MODE_VENTE_ARTICLE");
-        m2.fill("PRIX_METRIQUE_HA_1", "PRIX_METRIQUE_HA_1");
-        m2.fill("PRIX_METRIQUE_HA_2", "PRIX_METRIQUE_HA_2");
-        m2.fill("PRIX_METRIQUE_HA_3", "PRIX_METRIQUE_HA_3");
-        m2.fill("VALEUR_METRIQUE_1", "VALEUR_METRIQUE_1");
-        m2.fill("VALEUR_METRIQUE_2", "VALEUR_METRIQUE_2");
-        m2.fill("VALEUR_METRIQUE_3", "VALEUR_METRIQUE_3");
-        m2.fill("PRIX_METRIQUE_VT_1", "PRIX_METRIQUE_VT_1");
-        m2.fill("PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_2");
-        m2.fill("PRIX_METRIQUE_VT_3", "PRIX_METRIQUE_VT_3");
-        m2.fill("SERVICE", "SERVICE");
+        m2.fill("ID", "ID_ARTICLE");
+        for (String string : completionField) {
+            m2.fill(string, string);
+        }
+
+        m2.setWhere(new Where(sqlTableArticle.getField("OBSOLETE"), "=", Boolean.FALSE));
+
+        final AutoCompletionManager m3 = new AutoCompletionManager(tableElementArticle, sqlTableArticle.getField("NOM"), this.table, this.table.getRowValuesTableModel(),
+                ITextWithCompletion.MODE_CONTAINS, true, true);
+        m3.fill("CODE", "CODE");
+        m3.fill("NOM", "NOM");
+        for (String string : completionField) {
+            m3.fill(string, string);
+        }
+
+        m3.setWhere(new Where(sqlTableArticle.getField("OBSOLETE"), "=", Boolean.FALSE));
 
         // Calcul automatique du total HT
-        tableElement_Quantite.addModificationListener(totalHT);
+        this.qte.addModificationListener(totalHT);
+        qteU.addModificationListener(totalHT);
         tableElement_PrixVente_HT.addModificationListener(totalHT);
         this.totalHT.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(final SQLRowValues row) {
@@ -262,25 +336,27 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
                 Number f = (Number) row.getObject("PV_HT");
                 System.out.println("Qte:" + qte + " et PV_HT:" + f);
-                long r = f.longValue() * qte;
+                BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
+                long r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
                 return new Long(r);
             }
 
         });
         // Calcul automatique du total TTC
-        tableElement_Quantite.addModificationListener(tableElementTotalTTC);
+        this.qte.addModificationListener(tableElementTotalTTC);
+        qteU.addModificationListener(tableElementTotalTTC);
         tableElement_PrixVente_HT.addModificationListener(tableElementTotalTTC);
-        tableElement_Taxe.addModificationListener(tableElementTotalTTC);
+        this.tableElementTVA.addModificationListener(tableElementTotalTTC);
         this.tableElementTotalTTC.setModifier(new CellDynamicModifier() {
             @Override
             public Object computeValueFrom(SQLRowValues row) {
-                int qte = Integer.parseInt(row.getObject("QTE").toString());
-                Number f = (Number) row.getObject("PV_HT");
+
+                Number f = (Number) row.getObject("T_PV_HT");
                 int idTaux = Integer.parseInt(row.getObject("ID_TAXE").toString());
 
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(idTaux);
 
-                PrixHT pHT = new PrixHT(f.longValue() * qte);
+                PrixHT pHT = new PrixHT(f.longValue());
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
                 Long r = new Long(pHT.calculLongTTC(taux / 100f));
                 return r;
@@ -299,12 +375,16 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         });
         // Calcul automatique du poids total
         tableElementPoids.addModificationListener(this.tableElementPoidsTotal);
-        tableElement_Quantite.addModificationListener(this.tableElementPoidsTotal);
+        this.qte.addModificationListener(this.tableElementPoidsTotal);
+        qteU.addModificationListener(this.tableElementPoidsTotal);
         this.tableElementPoidsTotal.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(SQLRowValues row) {
                 Number f = (Number) row.getObject("POIDS");
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
-                return new Float(f.floatValue() * qte);
+                BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
+                // FIXME convertir en float autrement pour éviter une valeur non valeur transposable
+                // avec floatValue ou passer POIDS en bigDecimal
+                return b.multiply(new BigDecimal(f.floatValue() * qte)).floatValue();
             }
 
         });
@@ -321,7 +401,10 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
                 int qte = (qteOb == null) ? 0 : Integer.parseInt(qteOb.toString());
 
                 float fValue = (f == null) ? 0.0F : f.floatValue();
-                return new Float(fValue * qte);
+                BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
+                // FIXME convertir en float autrement pour éviter une valeur non transposable
+                // avec floatValue ou passer POIDS en bigDecimal
+                return b.multiply(new BigDecimal(fValue * qte)).floatValue();
             }
         });
 
@@ -346,6 +429,19 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
 
         this.table.readState();
 
+        tableElementCode.addModificationListener(tableElementArticle);
+        tableElementArticle.setModifier(new CellDynamicModifier() {
+            @Override
+            public Object computeValueFrom(SQLRowValues row) {
+                SQLRowAccessor foreign = row.getForeign("ID_ARTICLE");
+                if (foreign != null && !foreign.isUndefined() && foreign.getObject("CODE") != null && foreign.getString("CODE").equals(row.getString("CODE"))) {
+                    return foreign.getID();
+                } else {
+                    return tableArticle.getUndefinedID();
+                }
+            }
+        });
+
         // Mode Gestion article avancé
         String valModeAvanceVt = DefaultNXProps.getInstance().getStringProperty("ArticleModeVenteAvance");
         Boolean bModeAvance = Boolean.valueOf(valModeAvanceVt);
@@ -356,6 +452,16 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
             hideColumn(model.getColumnForField("PV_HT"));
             hideColumn(model.getColumnForField("ID_MODE_VENTE_ARTICLE"));
         }
+
+        setColumnVisible(this.model.getColumnForField("ID_ARTICLE"), selectArticle);
+        setColumnVisible(this.model.getColumnForField("CODE"), !selectArticle || (selectArticle && createAuto));
+        setColumnVisible(this.model.getColumnForField("NOM"), !selectArticle || (selectArticle && createAuto));
+
+        // Gestion des unités de vente
+        final boolean gestionUV = prefs.getBoolean(GestionArticleGlobalPreferencePanel.UNITE_VENTE, true);
+        setColumnVisible(this.model.getColumnForField("QTE_UNITAIRE"), gestionUV);
+        setColumnVisible(this.model.getColumnForField("ID_UNITE_VENTE"), gestionUV);
+
         // On réécrit la configuration au cas ou les preferences aurait changé
         this.table.writeState();
 

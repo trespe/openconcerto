@@ -71,9 +71,16 @@ public class ServerFinderConfig {
 
     public void setFile(File file) {
         if (file == null) {
-            JOptionPane.showMessageDialog(new JFrame(), "Dossier de base de donnée vide");
+            JOptionPane.showMessageDialog(new JFrame(), "Dossier de base de données non défini");
         } else if (!file.exists()) {
-            JOptionPane.showMessageDialog(new JFrame(), "Dossier de base de donnée inexistant");
+            JOptionPane.showMessageDialog(new JFrame(), "Dossier de base de données inexistant");
+        } else {
+            final File h2File = new File(file, "OpenConcerto.h2.db");
+            if (!h2File.exists()) {
+                JOptionPane.showMessageDialog(new JFrame(), "Le dossier de base de données ne contient pas OpenConcerto.h2.db");
+            } else if (h2File.length() < 50000) {
+                JOptionPane.showMessageDialog(new JFrame(), "Le dossier de base de données contient un fichier OpenConcerto.h2.db vide");
+            }
         }
         this.file = file;
     }
@@ -230,7 +237,7 @@ public class ServerFinderConfig {
                     input.getRootsToMap().add("postgres");
                 }
             }, null);
-            Number n = (Number) server.getBase("postgres").getDataSource().executeScalar("SELECT COUNT(*) FROM pg_user WHERE usename='openconcerto'");
+            Number n = (Number) server.getOrCreateBase("postgres").getDataSource().executeScalar("SELECT COUNT(*) FROM pg_user WHERE usename='openconcerto'");
             if (n.intValue() > 0) {
                 return false;
             }

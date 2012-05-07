@@ -89,6 +89,10 @@ public class DevisSQLComponent extends BaseSQLComponent {
         super(elt);
     }
 
+    public DevisItemTable getRowValuesTable() {
+        return this.table;
+    }
+
     @Override
     public void addViews() {
         setLayout(new GridBagLayout());
@@ -140,7 +144,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         this.radioEtat.setLayout(new VFlowLayout());
         this.radioEtat.setBorder(BorderFactory.createTitledBorder(getLabelFor("ID_ETAT_DEVIS")));
         c.gridwidth = GridBagConstraints.REMAINDER;
-        c.gridheight = 3;
+        c.gridheight = 5;
         c.weightx = 0;
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.EAST;
@@ -265,7 +269,8 @@ public class DevisSQLComponent extends BaseSQLComponent {
             c.weightx = 0;
             c.weighty = 0;
             c.gridwidth = 1;
-            this.add(new JLabel("Tarif à appliquer"), c);
+            JLabel comp = new JLabel("Tarif à appliquer", SwingConstants.RIGHT);
+            this.add(comp, c);
             c.gridx++;
             c.gridwidth = GridBagConstraints.REMAINDER;
 
@@ -286,7 +291,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         this.table = new DevisItemTable();
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
-        c.gridy++;
+        c.gridy += 2;
         c.weighty = 1;
         c.gridwidth = GridBagConstraints.REMAINDER;
         this.add(this.table, c);
@@ -402,14 +407,15 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
         // FIXME Field add field T_HA dans installation avec recalcul des devis deja saisis
         final DeviseField fieldHA = new DeviseField();
-        if (getTable().contains("T_HA")) {
+
+        if (getTable().contains("PREBILAN")) {
+            addSQLObject(fieldHA, "PREBILAN");
+        } else if (getTable().contains("T_HA")) {
 
             addSQLObject(fieldHA, "T_HA");
         }
 
-        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
-                this.table.getQteElement(), this.fieldHT, fieldTVA, fieldTTC, textPortHT, this.textRemiseHT, fieldService, this.table.getPrixServiceElement(), null, fieldHA, fieldDevise,
-                this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
+        final TotalPanel totalTTC = new TotalPanel(this.table, this.fieldHT, fieldTVA, fieldTTC, textPortHT, this.textRemiseHT, fieldService, fieldHA, fieldDevise, poids, null);
 
         cBottom.gridy = 0;
         cBottom.gridx += 2;

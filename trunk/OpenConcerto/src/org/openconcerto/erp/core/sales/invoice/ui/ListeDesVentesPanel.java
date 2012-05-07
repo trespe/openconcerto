@@ -72,7 +72,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
 
     private ListeGestCommEltPanel listeFact;
     private JButton buttonEnvoye, buttonRegle, buttonDupliquer;
-    private static SQLElement eltClient = Configuration.getInstance().getDirectory().getElement("CLIENT");
+    private static SQLElement eltClient = Configuration.getInstance().getDirectory().getElement(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("CLIENT"));
     JLabelBold textField = new JLabelBold("0");
     JLabelBold textField2 = new JLabelBold("0");
 
@@ -112,7 +112,8 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
         final SQLTableModelColumn dateEnvoiCol = src.getColumn(eltFacture.getTable().getField("DATE_ENVOI"));
             ((SQLTableModelColumnPath) dateEnvoiCol).setEditable(true);
         final SQLTableModelColumn dateReglCol = src.getColumn(eltFacture.getTable().getField("DATE_REGLEMENT"));
-        ((SQLTableModelColumnPath) dateReglCol).setEditable(true);
+        if (dateReglCol != null)
+            ((SQLTableModelColumnPath) dateReglCol).setEditable(true);
 
             // Edition des dates d'envois
             dateEnvoiCol.setColumnInstaller(new IClosure<TableColumn>() {
@@ -124,13 +125,15 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
             });
 
         // Edition des dates de reglement
-        dateReglCol.setColumnInstaller(new IClosure<TableColumn>() {
-            @Override
-            public void executeChecked(TableColumn columnDateReglement) {
-                columnDateReglement.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
-                columnDateReglement.setCellRenderer(new DateEnvoiRenderer());
-            }
-        });
+        if (dateReglCol != null) {
+            dateReglCol.setColumnInstaller(new IClosure<TableColumn>() {
+                @Override
+                public void executeChecked(TableColumn columnDateReglement) {
+                    columnDateReglement.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
+                    columnDateReglement.setCellRenderer(new DateEnvoiRenderer());
+                }
+            });
+        }
 
         this.listeFact = new ListeGestCommEltPanel(eltFacture, new IListe(src), true);
         this.listeFact.setOpaque(false);
@@ -172,7 +175,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
         List<SQLField> l = new ArrayList<SQLField>();
         l.add(eltFacture.getTable().getField("T_HT"));
         l.add(eltFacture.getTable().getField("T_TTC"));
-        final IListTotalPanel total = new IListTotalPanel(this.listeFact.getListe(), l, null, null);
+        final IListTotalPanel total = new IListTotalPanel(this.listeFact.getListe(), l);
         cFacture.weighty = 0;
         cFacture.fill = GridBagConstraints.NONE;
         cFacture.gridy++;
@@ -261,7 +264,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
                 final List<SQLField> l2 = new ArrayList<SQLField>();
                 l2.add(panelTicket.getElement().getTable().getField("TOTAL_HT"));
                 l2.add(panelTicket.getElement().getTable().getField("TOTAL_TTC"));
-                final IListTotalPanel total2 = new IListTotalPanel(panelTicket.getListe(), l2, null, null);
+                final IListTotalPanel total2 = new IListTotalPanel(panelTicket.getListe(), l2);
                 cc.weighty = 0;
                 cc.fill = GridBagConstraints.NONE;
                 cc.gridy++;
@@ -302,7 +305,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
                 final List<SQLField> l2 = new ArrayList<SQLField>();
                 l2.add(listeVC.getElement().getTable().getField("MONTANT_HT"));
                 l2.add(listeVC.getElement().getTable().getField("MONTANT_TTC"));
-                final IListTotalPanel total2 = new IListTotalPanel(listeVC.getListe(), l2, null, null);
+                final IListTotalPanel total2 = new IListTotalPanel(listeVC.getListe(), l2);
                 cc.weighty = 0;
                 cc.fill = GridBagConstraints.NONE;
                 cc.gridy++;

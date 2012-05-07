@@ -24,10 +24,12 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.dbutils.BasicRowProcessor;
@@ -153,17 +155,21 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
 
         final SQLSystem system = getBase().getServer().getSQLSystem();
         // procedures
-        final CollectionMap<String, String> proceduresBySchema = new CollectionMap<String, String>();
+        final Map<String, Map<String, String>> proceduresBySchema = new HashMap<String, Map<String, String>>();
         for (final String s : newSchemas) {
             final ResultSet rsProc = metaData.getProcedures(this.getBase().getMDName(), s, "%");
             while (rsProc.next()) {
                 // to ignore case : pg.AbstractJdbc2DatabaseMetaData doesn't quote aliases
-                final Map map = BasicRowProcessor.instance().toMap(rsProc);
-                final String schemaName = (String) map.get("PROCEDURE_SCHEM");
+                final Map rsMap = BasicRowProcessor.instance().toMap(rsProc);
+                final String schemaName = (String) rsMap.get("PROCEDURE_SCHEM");
                 if (newSchemas.contains(schemaName)) {
-                    final String procName = (String) map.get("PROCEDURE_NAME");
-                    proceduresBySchema.put(schemaName, procName);
-                    getNewSchema(schemaName).addProcedure(procName);
+                    final String procName = (String) rsMap.get("PROCEDURE_NAME");
+                    Map<String, String> map = proceduresBySchema.get(schemaName);
+                    if (map == null) {
+                        map = new HashMap<String, String>();
+                        proceduresBySchema.put(schemaName, map);
+                    }
+                    map.put(procName, null);
                 }
             }
         }
@@ -174,10 +180,14 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
                 // don't cache since we don't listen on system tables
                 for (final Object o : (List) getBase().getDataSource().execute(sel, new IResultSetHandler(SQLDataSource.MAP_LIST_HANDLER, false))) {
                     final Map m = (Map) o;
-                    final SQLSchema newSchema = getNewSchema((String) m.get("schema"));
-                    if (newSchema != null)
-                        newSchema.setProcedureSource((String) m.get("name"), (String) m.get("src"));
+                    final String schemaName = (String) m.get("schema");
+                    final String procName = (String) m.get("name");
+                    assert proceduresBySchema.get(schemaName).containsKey(procName) : "metaData.getProcedures() hadn't found " + procName + " in " + schemaName;
+                    proceduresBySchema.get(schemaName).put(procName, (String) m.get("src"));
                 }
+            }
+            for (final Entry<String, Map<String, String>> e : proceduresBySchema.entrySet()) {
+                getNewSchema(e.getKey()).putProcedures(e.getValue());
             }
         }
 

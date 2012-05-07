@@ -16,13 +16,15 @@
  */
 package org.openconcerto.erp.panel;
 
-import org.openconcerto.erp.preferences.TemplateNXProps;
-import org.openconcerto.erp.preferences.TemplatePreferencePanel;
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.preferences.GenerationDocGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.cc.ITransformer;
@@ -44,11 +46,18 @@ public class PanelOOSQLComponent extends JPanel {
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridx = GridBagConstraints.RELATIVE;
         this.setOpaque(false);
+        SQLPreferences prefs = new SQLPreferences(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete());
+        if (prefs.getBoolean(GenerationDocGlobalPreferencePanel.MULTIMOD, false)) {
 
-        if (TemplateNXProps.getInstance().getBooleanValue(TemplatePreferencePanel.MULTIMOD, false)) {
             if (comp.getElement().getTable().getFieldsName().contains("ID_MODELE")) {
-                JLabel labelModele = new JLabel(comp.getLabelFor("ID_MODELE"));
-                ElementComboBox boxModele = new ElementComboBox();
+                String labelFor = comp.getLabelFor("ID_MODELE");
+                if (labelFor == null || labelFor.trim().length() == 0) {
+                    labelFor = "Modéles";
+                }
+                JLabel labelModele = new JLabel(labelFor);
+                ElementComboBox boxModele = new ElementComboBox(true, 25);
+                SQLElement modeleElement = Configuration.getInstance().getDirectory().getElement("MODELE");
+                boxModele.init(modeleElement, modeleElement.getComboRequest(true));
                 comp.addView(boxModele, "ID_MODELE");
                 boxModele.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
 
@@ -62,6 +71,7 @@ public class PanelOOSQLComponent extends JPanel {
                     }
                 });
                 this.add(labelModele, c);
+                DefaultGridBagConstraints.lockMinimumSize(boxModele);
                 this.add(boxModele, c);
             } else {
                 System.err.println("Impossible d'ajouter la combo pour le choix des modèles car le champ ID_MODELE n'est pas présent dans la table " + comp.getElement().getTable().getName());

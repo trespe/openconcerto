@@ -28,6 +28,8 @@ import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
 import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
 import org.openconcerto.erp.core.sales.shipment.report.BonLivraisonXmlSheet;
+import org.openconcerto.erp.generationDoc.AbstractLocalTemplateProvider;
+import org.openconcerto.erp.generationDoc.DefaultCloudTemplateProvider;
 import org.openconcerto.erp.generationDoc.DefaultLocalTemplateProvider;
 import org.openconcerto.erp.generationDoc.DocumentLocalStorageManager;
 import org.openconcerto.erp.generationDoc.SheetXml;
@@ -65,9 +67,7 @@ public class TemplateNXProps extends TemplateProps {
 
         if (!f2.exists()) {
             final InputStream fConf = ComptaBasePropsConfiguration.getStreamStatic("/Configuration/Template.properties");
-            if (fConf == null) {
-                JOptionPane.showMessageDialog(null, "L'emplacement des modéles n'est pas défini.");
-            } else {
+            if (fConf != null) {
                 try {
                     StreamUtils.copy(fConf, f2);
                     fConf.close();
@@ -95,7 +95,6 @@ public class TemplateNXProps extends TemplateProps {
 
     @Override
     public String getPropertySuffix() {
-
         return societeBaseName;
     }
 
@@ -150,7 +149,7 @@ public class TemplateNXProps extends TemplateProps {
 
     }
 
-    private void register(String templateId, String propertyBaseName, String defaultSubFolder) {
+    public void register(String templateId, String propertyBaseName, String defaultSubFolder) {
         if (templateId == null) {
             throw new IllegalArgumentException("null template id");
         }
@@ -190,10 +189,18 @@ public class TemplateNXProps extends TemplateProps {
 
     private void initDefaulTemplateProvider() {
         final String property = getProperty("LocationTemplate");
-        final DefaultLocalTemplateProvider provider = new DefaultLocalTemplateProvider();
-        if (property != null) {
-            provider.setBaseDirectory(new File(property));
+        final AbstractLocalTemplateProvider provider;
+
+        final ComptaPropsConfiguration configuration = (ComptaPropsConfiguration) ComptaPropsConfiguration.getInstance();
+        if (!configuration.isOnCloud()) {
+            provider = new DefaultLocalTemplateProvider();
+            if (property != null) {
+                ((DefaultLocalTemplateProvider) provider).setBaseDirectory(new File(property));
+            }
+        } else {
+            provider = new DefaultCloudTemplateProvider(configuration.getSocieteID());
         }
+
         TemplateManager.getInstance().setDefaultProvider(provider);
         TemplateManager.getInstance().dump();
     }

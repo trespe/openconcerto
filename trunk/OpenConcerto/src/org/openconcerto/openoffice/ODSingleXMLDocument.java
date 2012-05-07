@@ -15,8 +15,10 @@
 
 import static org.openconcerto.openoffice.ODPackage.RootElement.CONTENT;
 import org.openconcerto.openoffice.ODPackage.RootElement;
+import org.openconcerto.utils.Base64;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CopyUtils;
-import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.cc.IFactory;
 import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.SimpleXMLPath;
@@ -37,7 +39,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.Transformer;
 import org.jdom.Attribute;
 import org.jdom.Document;
@@ -52,6 +53,11 @@ import org.jdom.xpath.XPath;
  * @author Sylvain CUAZ 24 nov. 2004
  */
 public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
+
+    private static final SimpleXMLPath<Attribute> ALL_HREF_ATTRIBUTES = SimpleXMLPath.allAttributes("href", "xlink");
+    private static final SimpleXMLPath<Element> ALL_BINARY_DATA_ELEMENTS = SimpleXMLPath.allElements("binary-data", "office");
+    // see 10.4.5 <office:binary-data> of OpenDocument-v1.2-os
+    private static final Set<String> BINARY_DATA_PARENTS = CollectionUtils.createSet("draw:image", "draw:object-ole", "style:background-image", "text:list-level-style-image");
 
     final static Set<String> DONT_PREFIX;
     static {
@@ -176,7 +182,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
     private Element pageBreak;
 
     public ODSingleXMLDocument(Document content) {
-        this(content, new ODPackage());
+        this(content, null);
     }
 
     /**
@@ -192,27 +198,36 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         // inited in getPageBreak()
         this.pageBreak = null;
 
-        this.pkg = pkg;
+        final boolean contentIsFlat = pkg == null;
+        this.pkg = contentIsFlat ? new ODPackage() : pkg;
         for (final RootElement e : RootElement.getPackageElements())
             this.pkg.rmFile(e.getZipEntry());
         this.pkg.putFile(CONTENT.getZipEntry(), this, "text/xml");
 
-        // set the generator
-        // creates if necessary meta at the right position
-        this.getChild("meta", true);
-        ProductInfo props = ProductInfo.getInstance();
-        // MAYBE add a version number for this framework (using
-        // ODPackage.class.getResourceAsStream("product.properties") and *not* "/product.properties"
-        // as it might interfere with products using this framework)
-        if (props == null)
-            props = new ProductInfo(this.getClass().getName());
-        final String generator;
-        if (props.getVersion() == null)
-            generator = props.getName();
-        else
-            generator = props.getName() + "/" + props.getVersion();
-        this.meta = ODMeta.create(this);
-        this.meta.setGenerator(generator);
+        // update href
+        if (contentIsFlat) {
+            // OD thinks of the ZIP archive as an additional folder
+            for (final Attribute hrefAttr : ALL_HREF_ATTRIBUTES.selectNodes(getDocument().getRootElement())) {
+                final String href = hrefAttr.getValue();
+                if (!URI.create(href).isAbsolute())
+                    hrefAttr.setValue("../" + href);
+            }
+        }
+        // decode Base64 binaries
+        for (final Element binaryDataElem : ALL_BINARY_DATA_ELEMENTS.selectNodes(getDocument().getRootElement())) {
+            final String name;
+            int i = 1;
+            final Set<String> entries = getPackage().getEntries();
+            final Element binaryParentElement = binaryDataElem.getParentElement();
+            while (entries.contains(binaryParentElement.getName() + "/" + i))
+                i++;
+            name = binaryParentElement.getName() + "/" + i;
+            getPackage().putFile(name, Base64.decode(binaryDataElem.getText()));
+            binaryParentElement.setAttribute("href", name, binaryDataElem.getNamespace("xlink"));
+            binaryDataElem.detach();
+        }
+
+        this.meta = this.getPackage().getMeta(true);
 
         final ODUserDefinedMeta userMeta = this.meta.getUserMeta(COUNT);
         if (userMeta != null) {
@@ -528,7 +543,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
     }
 
     private ContentTypeVersioned getContentTypeVersioned() {
-        return ContentType.TEXT.getVersioned(getVersion());
+        return getPackage().getContentType();
     }
 
     /**
@@ -789,9 +804,14 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         }
         // content
         {
+            // store before emptying package
+            final ContentTypeVersioned contentTypeVersioned = getContentTypeVersioned();
+            // needed since the content will be emptied (which can cause methods of ODPackage to
+            // fail, e.g. setTypeAndVersion())
+            this.pkg.rmFile(RootElement.CONTENT.getZipEntry());
             this.pkg = null;
             final Document content = createDocument(res, RootElement.CONTENT, officeVersion);
-            getContentTypeVersioned().setType(content);
+            contentTypeVersioned.setType(content);
             content.getRootElement().addContent(root.removeContent());
         }
         return res;
@@ -811,8 +831,39 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
      * @return the actual file where it has been saved (with extension), eg "dir/myfile.odt".
      * @throws IOException if an error occurs.
      */
-    public File saveAs(File f) throws IOException {
+    public File saveToPackageAs(File f) throws IOException {
         return this.pkg.saveAs(f);
+    }
+
+    public File save() throws IOException {
+        return this.saveAs(this.getPackage().getFile());
+    }
+
+    public File saveAs(File fNoExt) throws IOException {
+        final Document doc = (Document) getDocument().clone();
+        for (final Attribute hrefAttr : ALL_HREF_ATTRIBUTES.selectNodes(doc.getRootElement())) {
+            final String href = hrefAttr.getValue();
+            if (href.startsWith("../")) {
+                // update href
+                hrefAttr.setValue(href.substring(3));
+            } else if (!URI.create(href).isAbsolute()) {
+                // encode binaries
+                final Element hrefParent = hrefAttr.getParent();
+                if (!BINARY_DATA_PARENTS.contains(hrefParent.getQualifiedName()))
+                    throw new IllegalStateException("Cannot convert to binary data element : " + hrefParent);
+                final Element binaryData = new Element("binary-data", getPackage().getVersion().getOFFICE());
+
+                binaryData.setText(Base64.encodeBytes(getPackage().getBinaryFile(href)));
+                hrefParent.addContent(binaryData);
+                // If this element is present, an xlink:href attribute in its parent element
+                // shall be ignored. But LO doesn't respect that
+                hrefAttr.detach();
+            }
+        }
+
+        final File f = this.getPackage().getContentType().addExt(fNoExt, true);
+        FileUtils.write(ODPackage.createOutputter().outputString(doc), f);
+        return f;
     }
 
     private Element getPageBreak() {
