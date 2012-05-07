@@ -35,23 +35,25 @@ import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class PlanComptableGModel extends AbstractTableModel {
 
-    private Vector titres = new Vector();
-    private Vector comptes = new Vector();
+    private Vector<String> titres = new Vector<String>();
+    private Vector<Compte> comptes = new Vector<Compte>();
 
     // Compte ID - Vecteur compte index
-    private Map mapCompte = new HashMap();
+    private Map<Integer, Integer> mapCompte = new HashMap<Integer, Integer>();
 
     /**
      * Permet d'afficher le plan comptable général d'une classe
      * 
      * @param classeDuCompte classe de compte à afficher
-     * @param typePlan type de plan 1 : base, 2 : abrégé, 3 : developpé
+     * @param typePlan type de plan 1 : base, 2 : abrégé, 3 : developpé (0: plan comptable
+     *        entreprise)
      */
     public PlanComptableGModel(ClasseCompte classeDuCompte, int typePlan) {
         this(classeDuCompte, typePlan, "COMPTE_PCG");
     }
 
     protected PlanComptableGModel(ClasseCompte classeDuCompte, String table) {
+        // type de plan 0 pour plan comptable entreprise
         this(classeDuCompte, 0, table);
     }
 
@@ -62,11 +64,9 @@ public class PlanComptableGModel extends AbstractTableModel {
             @Override
             protected String doInBackground() throws Exception {
                 // on recupere les comptes
-                SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-                SQLTable compteTable = base.getTable(table);
-
-                // SQLBase base = elt.getTable().getBase();
-                SQLSelect selCompte = new SQLSelect(base);
+                final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
+                final SQLTable compteTable = base.getTable(table);
+                final SQLSelect selCompte = new SQLSelect(base);
                 selCompte.addSelect(compteTable.getField("ID"));
                 selCompte.addSelect(compteTable.getField("NUMERO"));
                 selCompte.addSelect(compteTable.getField("NOM"));
@@ -76,19 +76,16 @@ public class PlanComptableGModel extends AbstractTableModel {
                 String match = classeDuCompte.getTypeNumeroCompte();
                 if (Configuration.getInstance().getBase().getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
                     function = "~";
-                    // function = "SIMILAR TO";
-                    // match = match.replace(".*", "%");
-                    // match = match.replace("^", "");
                 }
 
                 Where w1 = new Where(compteTable.getField("NUMERO"), function, match);
-                Where w2;
-                if (typePlan == 0) {
-                    w2 = null;
-                } else if (typePlan == 1) {
+                final Where w2;
+                if (typePlan == 1) {
                     w2 = new Where(compteTable.getField("ID_TYPE_COMPTE_PCG_BASE"), "!=", 1);
                 } else if (typePlan == 2) {
                     w2 = new Where(compteTable.getField("ID_TYPE_COMPTE_PCG_AB"), "!=", 1);
+                } else if (typePlan == 3 || typePlan == 0) {
+                    w2 = null;
                 } else {
                     throw new IllegalArgumentException("Type de PCG inconnu : " + typePlan);
                 }
@@ -111,8 +108,9 @@ public class PlanComptableGModel extends AbstractTableModel {
                     for (int i = 0; i < size; i++) {
                         Object[] objTmp = (Object[]) myListCompte.get(i);
 
-                        PlanComptableGModel.this.mapCompte.put(new Integer(Integer.parseInt(objTmp[0].toString())), new Integer(PlanComptableGModel.this.comptes.size()));
-                        PlanComptableGModel.this.comptes.add(new Compte(Integer.parseInt(objTmp[0].toString()), objTmp[1].toString(), objTmp[2].toString(), objTmp[3].toString()));
+                        final Integer numero = new Integer(Integer.parseInt(objTmp[0].toString()));
+                        PlanComptableGModel.this.mapCompte.put(numero, new Integer(PlanComptableGModel.this.comptes.size()));
+                        PlanComptableGModel.this.comptes.add(new Compte(numero, objTmp[1].toString(), objTmp[2].toString(), objTmp[3].toString()));
                     }
                 }
                 return null;
@@ -146,27 +144,27 @@ public class PlanComptableGModel extends AbstractTableModel {
 
     public Object getValueAt(int rowIndex, int columnIndex) {
         if (columnIndex == 0) {
-            return ((Compte) this.comptes.get(rowIndex)).getNumero();
+            return this.comptes.get(rowIndex).getNumero();
         } else if (columnIndex == 1) {
-            return ((Compte) this.comptes.get(rowIndex)).getNom();
+            return this.comptes.get(rowIndex).getNom();
         }
         return null;
     }
 
     public int getId(int row) {
-        return ((Compte) this.comptes.get(row)).getId();
+        return this.comptes.get(row).getId();
     }
 
-    public Map getMapComptes() {
+    public Map<Integer, Integer> getMapComptes() {
         return this.mapCompte;
     }
 
-    public Vector getComptes() {
+    public Vector<Compte> getComptes() {
         return this.comptes;
     }
 
     public String getInfosAt(int row) {
-        return ((Compte) this.comptes.get(row)).getInfos();
+        return this.comptes.get(row).getInfos();
     }
 
 }

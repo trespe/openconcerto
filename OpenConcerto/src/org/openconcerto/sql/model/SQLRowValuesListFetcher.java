@@ -50,6 +50,101 @@ import org.apache.commons.dbutils.ResultSetHandler;
  */
 public class SQLRowValuesListFetcher {
 
+    /**
+     * Create a fetcher with the necessary grafts to fetch the passed graph.
+     * 
+     * @param graph what to fetch, can be any tree.
+     * @return the fetcher.
+     */
+    public static SQLRowValuesListFetcher create(final SQLRowValues graph) {
+        // path -> longest referent only path
+        // i.e. map each path to the main fetcher or a referent graft
+        final Map<Path, Path> handledPaths = new HashMap<Path, Path>();
+        final Path emptyPath = new Path(graph.getTable());
+        handledPaths.put(emptyPath, emptyPath);
+        // find out referent only paths (yellow in the diagram)
+        graph.getGraph().walk(graph, null, new ITransformer<State<Object>, Object>() {
+            @Override
+            public Path transformChecked(State<Object> input) {
+                final Path p = input.getPath();
+                for (int i = p.length(); i > 0; i--) {
+                    final Path subPath = p.subPath(0, i);
+                    if (handledPaths.containsKey(subPath))
+                        break;
+                    handledPaths.put(subPath, p);
+                }
+                return null;
+            }
+        }, RecursionType.DEPTH_FIRST, false);
+
+        // find out needed grafts
+        final Map<Path, SQLRowValuesListFetcher> grafts = new HashMap<Path, SQLRowValuesListFetcher>();
+        graph.getGraph().walk(graph, null, new ITransformer<State<Object>, Object>() {
+            @Override
+            public Path transformChecked(State<Object> input) {
+                final Path p = input.getPath();
+                if (!handledPaths.containsKey(p)) {
+                    final Path pMinusLast = p.minusLast();
+                    if (!input.isBackwards()) {
+                        // Forwards can be fetched by existing fetcher (blue in the diagram)
+                        final Path existingRefPath = handledPaths.get(pMinusLast);
+                        assert existingRefPath != null;
+                        handledPaths.put(p, existingRefPath);
+                    } else {
+                        // Backwards needs another fetcher
+                        if (!grafts.containsKey(pMinusLast)) {
+                            final SQLRowValues copy = graph.deepCopy();
+                            final SQLRowValues graftNode = copy.followPath(pMinusLast);
+                            graftNode.clear();
+                            final SQLRowValues previous = copy.followPath(pMinusLast.minusLast());
+                            assert p.getStep(-2).isForeign();
+                            previous.remove(p.getStep(-2).getSingleField().getName());
+                            // don't recurse forever
+                            if (previous.getGraph() == graftNode.getGraph())
+                                throw new IllegalArgumentException("Graph is not a tree");
+                            // ATTN pMinusLast might not be on the main fetcher
+                            grafts.put(pMinusLast, create(graftNode));
+                        }
+                        throw new SQLRowValuesCluster.StopRecurseException().setCompletely(false);
+                    }
+                }
+                return null;
+            }
+        }, RecursionType.BREADTH_FIRST, null, false);
+
+        final Set<Path> refPaths = new HashSet<Path>(handledPaths.values());
+        // remove the main fetcher
+        refPaths.remove(emptyPath);
+        final Map<Path, SQLRowValuesListFetcher> graftedFetchers;
+        // create the main fetcher and grafts
+        final SQLRowValuesListFetcher res;
+        if (refPaths.size() == 1) {
+            res = new SQLRowValuesListFetcher(graph, refPaths.iterator().next());
+            graftedFetchers = Collections.emptyMap();
+        } else {
+            res = new SQLRowValuesListFetcher(graph, false);
+            graftedFetchers = new HashMap<Path, SQLRowValuesListFetcher>();
+            if (refPaths.size() > 0) {
+                final Path graftPath = new Path(graph.getTable());
+                final SQLRowValues copy = graph.deepCopy();
+                copy.clear();
+                for (final Path refPath : refPaths) {
+                    final SQLRowValuesListFetcher f = new SQLRowValuesListFetcher(copy, refPath, true);
+                    res.graft(f, graftPath);
+                    graftedFetchers.put(refPath, f);
+                }
+            }
+        }
+        // now graft recursively created grafts
+        for (final Entry<Path, SQLRowValuesListFetcher> e : grafts.entrySet()) {
+            final Path graftPath = e.getKey();
+            final Path refPath = handledPaths.get(graftPath);
+            final SQLRowValuesListFetcher f = graftedFetchers.containsKey(refPath) ? graftedFetchers.get(refPath) : res;
+            f.graft(e.getValue(), graftPath);
+        }
+        return res;
+    }
+
     // return the referent single link path starting from graph
     private static Path computePath(SQLRowValues graph) {
         // check that there's only one referent for each row
@@ -137,21 +232,49 @@ public class SQLRowValuesListFetcher {
     /**
      * Construct a new instance.
      * 
-     * @param graph graph what SQLRowValues should be returned by {@link #fetch()}.
+     * @param graph what SQLRowValues should be returned by {@link #fetch()}.
      * @param referentPath a {@link Path#isSingleLink() single link} path from the primary table,
      *        <code>null</code> meaning don't fetch referent rows.
      */
     public SQLRowValuesListFetcher(SQLRowValues graph, final Path referentPath) {
+        this(graph, referentPath, true);
+    }
+
+    /**
+     * Construct a new instance.
+     * 
+     * @param graph what SQLRowValues should be returned by {@link #fetch()}.
+     * @param referentPath a {@link Path#isSingleLink() single link} path from the primary table,
+     *        <code>null</code> meaning don't fetch referent rows.
+     * @param prune if <code>true</code> the graph will be pruned to only contain
+     *        <code>referentPath</code>. If <code>false</code> the graph will be kept as is, which
+     *        can produce undefined results if there exist more than one referent row outside of
+     *        <code>referentPath</code>.
+     */
+    SQLRowValuesListFetcher(final SQLRowValues graph, final Path referentPath, final boolean prune) {
         super();
         this.graph = graph.deepCopy();
-        if (referentPath == null)
-            // don't keep unneeded values
-            this.graph.clearReferents();
-        else if (graph.followPath(referentPath) == null)
-            throw new IllegalArgumentException("path is not contained in the passed rowValues : " + referentPath + "\n" + graph.printTree());
-        this.descendantPath = referentPath == null || referentPath.length() == 0 ? null : referentPath;
+        this.descendantPath = referentPath == null ? new Path(graph.getTable()) : referentPath;
+        final SQLRowValues descRow = this.graph.followPath(this.descendantPath);
+        if (descRow == null)
+            throw new IllegalArgumentException("path is not contained in the passed rowValues : " + referentPath + "\n" + this.graph.printTree());
         // followPath() do the following check
-        assert this.descendantPath == null || (this.descendantPath.getFirst() == graph.getTable() && this.descendantPath.isSingleLink());
+        assert this.descendantPath.getFirst() == this.graph.getTable() && this.descendantPath.isSingleLink();
+
+        if (prune) {
+            this.graph.getGraph().walk(descRow, null, new ITransformer<State<Object>, Object>() {
+                @Override
+                public Object transformChecked(State<Object> input) {
+                    if (input.getFrom() == null) {
+                        input.getCurrent().clearReferents();
+                    } else {
+                        input.getCurrent().retainReferents(input.getFrom());
+                    }
+                    return null;
+                }
+            }, RecursionType.BREADTH_FIRST, true);
+        }
+
         // always need IDs
         for (final SQLRowValues curr : this.getGraph().getGraph().getItems()) {
             // don't overwrite existing values
@@ -218,17 +341,26 @@ public class SQLRowValuesListFetcher {
     public final void setFullOnly(boolean b) {
         this.checkFrozen();
         if (b)
-            this.minGraph = this.getGraph();
+            this.minGraph = this.getGraph().deepCopy();
         else
             this.minGraph = null;
     }
 
-    private final boolean requirePath(final Path p) {
+    public final void requirePath(final Path p) {
+        this.checkFrozen();
+        if (this.getGraph().followPath(p) == null)
+            throw new IllegalArgumentException("Path not included in this graph : " + p);
+        if (this.minGraph == null)
+            this.minGraph = new SQLRowValues(getGraph().getTable());
+        this.minGraph.assurePath(p);
+    }
+
+    private final boolean isPathRequired(final Path p) {
         return this.minGraph != null && this.minGraph.followPath(p) != null;
     }
 
     private boolean fetchReferents() {
-        return this.descendantPath != null;
+        return this.descendantPath.length() > 0;
     }
 
     /**
@@ -304,7 +436,8 @@ public class SQLRowValuesListFetcher {
             throw new IllegalArgumentException("shouldn't have foreign rows");
 
         final Path descendantPath = computePath(other.getGraph());
-        if (descendantPath.length() == 0)
+        final int descendantPathLength = descendantPath.length();
+        if (descendantPathLength == 0)
             throw new IllegalArgumentException("empty path");
         // checked by computePath
         assert descendantPath.isSingleLink();
@@ -313,24 +446,36 @@ public class SQLRowValuesListFetcher {
             throw new IllegalArgumentException(descendantPath.getStep(0) + " already fetched");
         if (!this.grafts.containsKey(graftPath)) {
             this.grafts.put(graftPath, new HashMap<Path, SQLRowValuesListFetcher>(4));
-            // if descendantPath already exists, replace it
-        } else if (!this.grafts.get(graftPath).containsKey(descendantPath)) {
-            // otherwise check for duplicate path
-            for (final Path p : this.grafts.get(graftPath).keySet()) {
-                if (p.startsWith(descendantPath) || descendantPath.startsWith(p))
-                    throw new IllegalArgumentException(descendantPath + " already grafted at " + graftPath + " : " + p);
+        } else {
+            final Map<Path, SQLRowValuesListFetcher> map = this.grafts.get(graftPath);
+            // e.g. fetching *BATIMENT* <- LOCAL and *BATIMENT* <- LOCAL <- CPI (with different
+            // WHERE) and LOCAL have different fields. This isn't supported since we would have to
+            // merge fields in merge() and it would be quite long
+            for (Entry<Path, SQLRowValuesListFetcher> e : map.entrySet()) {
+                final Path fetcherPath = e.getKey();
+                final SQLRowValuesListFetcher fetcher = e.getValue();
+                for (int i = 1; i <= descendantPathLength; i++) {
+                    final Path subPath = descendantPath.subPath(0, i);
+                    if (fetcherPath.startsWith(subPath)) {
+                        if (!fetcher.getGraph().followPath(subPath).getFields().equals(other.getGraph().followPath(subPath).getFields()))
+                            throw new IllegalArgumentException("The same node have different fields in different fetcher\n" + graftPath + "\n" + subPath);
+                    } else {
+                        break;
+                    }
+                }
             }
         }
         return this.grafts.get(graftPath).put(descendantPath, other);
     }
 
-    public void ungraft() {
-        this.ungraft(new Path(getGraph().getTable()));
+    public final Collection<SQLRowValuesListFetcher> ungraft() {
+        return this.ungraft(new Path(getGraph().getTable()));
     }
 
-    public final void ungraft(final Path graftPath) {
+    public final Collection<SQLRowValuesListFetcher> ungraft(final Path graftPath) {
         checkFrozen();
-        this.grafts.remove(graftPath);
+        final Map<Path, SQLRowValuesListFetcher> res = this.grafts.remove(graftPath);
+        return res == null ? null : res.values();
     }
 
     private final void addFields(final SQLSelect sel, final SQLRowValues vals, final String alias) {
@@ -359,15 +504,15 @@ public class SQLRowValuesListFetcher {
                 if (input.getFrom() != null) {
                     alias = getAlias(input.getAcc(), input.getPath());
                     final String aliasPrev = input.getPath().length() == 1 ? null : input.getAcc().followPath(t.getName(), input.getPath().subPath(0, -1));
+                    final String joinType = isPathRequired(input.getPath()) ? "INNER" : "LEFT";
                     if (input.isBackwards()) {
                         // eg LEFT JOIN loc on loc.ID_BATIMENT = BATIMENT.ID
-                        input.getAcc().addBackwardJoin("LEFT", alias, input.getFrom(), aliasPrev);
+                        input.getAcc().addBackwardJoin(joinType, alias, input.getFrom(), aliasPrev);
                         // order is only meaningfull for backwards
                         // as going forward there's at most 1 row for each row in t
                         if (isOrdered())
                             input.getAcc().addOrderSilent(alias);
                     } else {
-                        final String joinType = requirePath(input.getPath()) ? "INNER" : "LEFT";
                         input.getAcc().addJoin(joinType, new AliasedField(input.getFrom(), aliasPrev), alias);
                     }
 
@@ -622,7 +767,7 @@ public class SQLRowValuesListFetcher {
                 return index;
             }
         });
-        assert l.size() == graphSize : "All nodes weren't explored once : " + l.size() + " != " + graphSize;
+        assert l.size() == graphSize : "All nodes weren't explored once : " + l.size() + " != " + graphSize + "\n" + this.getGraph().printGraph();
 
         // if we wanted to use the cache, we'd need to copy the returned list and its items (i.e.
         // deepCopy()), since we modify them afterwards. Or perhaps include the code after this line
@@ -783,16 +928,15 @@ public class SQLRowValuesListFetcher {
         final int stop = descendantPath.length();
         for (final SQLRowValues v : graft) {
             boolean doAdd = true;
-            // 2 grafts cannot have the same path, so the last rowValues cannot be merged
-            SQLRowValues previous = v.followPath(descendantPath);
-            assert previous == null || !map.containsKey(Tuple2.create(descendantPath, previous.getIDNumber())) : "Fetched twice: " + previous;
-            for (int i = stop - 1; i >= 0 && doAdd; i--) {
+            SQLRowValues previous = null;
+            for (int i = stop; i >= 0 && doAdd; i--) {
                 final Path subPath = descendantPath.subPath(0, i);
                 final SQLRowValues desc = v.followPath(subPath);
                 if (desc != null) {
                     final Tuple2<Path, Number> row = Tuple2.create(subPath, desc.getIDNumber());
                     if (map.containsKey(row)) {
                         doAdd = false;
+                        assert ((List<SQLRowValues>) map.getNonNull(row)).get(0).getFields().containsAll(desc.getFields()) : "Discarding an SQLRowValues with more fields : " + desc;
                         // previous being null can happen when 2 grafted paths share some steps at
                         // the start, e.g. SOURCE -> LOCAL and CPI -> LOCAL with a LOCAL having a
                         // SOURCE but no CPI

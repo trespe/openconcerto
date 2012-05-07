@@ -22,11 +22,14 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.jar.JarFile;
 
+import net.jcip.annotations.ThreadSafe;
+
 /**
  * A module factory created from a {@link ModulePackager packaged} module.
  * 
  * @author Sylvain CUAZ
  */
+@ThreadSafe
 public final class JarModuleFactory extends ModuleFactory {
 
     private static Properties getProperties(final File jar) throws IOException {
@@ -84,6 +87,7 @@ public final class JarModuleFactory extends ModuleFactory {
 
     protected final URL[] getClassPath() {
         try {
+            // File is immutable and URI is stack confined
             return new URL[] { this.jar.toURI().toURL() };
         } catch (MalformedURLException e) {
             // shouldn't happen since we create the URL from an URI

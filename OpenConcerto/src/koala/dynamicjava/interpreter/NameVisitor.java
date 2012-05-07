@@ -687,7 +687,8 @@ public class NameVisitor extends VisitorObject {
 
         while (l.size() > 0) {
             final String s = TreeUtilities.listToName(l);
-            if (b = this.context.classExists(s)) {
+            boolean check = b = this.context.classExists(s);
+            if (check) {
                 break;
             }
             l.remove(l.size() - 1);

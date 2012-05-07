@@ -16,13 +16,12 @@
 import org.openconcerto.map.model.Ville;
 import org.openconcerto.ui.component.ITextComboCache;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JOptionPane;
 
 public class ITextComboCacheVille implements ITextComboCache {
-    final ArrayList<String> villesNames = Ville.getVillesNames();
+    final List<String> villesNames = Ville.getVillesNames();
 
     public Ville createVilleFrom(String string) {
         string = string.trim();
@@ -75,4 +74,5 @@ public class ITextComboCacheVille implements ITextComboCache {
     public String toString() {
         return getClass().getSimpleName() + " with " + this.villesNames.size() + " cities";
     }
+
 }

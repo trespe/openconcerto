@@ -14,7 +14,9 @@
  package org.openconcerto.erp.modules;
 
 import org.openconcerto.utils.CompareUtils;
+import net.jcip.annotations.Immutable;
 
+@Immutable
 public class ModuleVersion implements Comparable<ModuleVersion> {
 
     public static final int MAX = 10000;

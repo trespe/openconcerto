@@ -15,25 +15,57 @@
 
 import org.openconcerto.sql.view.AbstractFileTransfertHandler;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.component.WaitIndeterminatePanel;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 
+import java.awt.Dialog.ModalityType;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
+import java.text.ChoiceFormat;
+import java.text.MessageFormat;
 import java.util.Collection;
 
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 
 public class AvailableModulesPanel extends JPanel {
+
+    static final MessageFormat MODULE_FMT;
+
+    static {
+        final ChoiceFormat choiceForm = new ChoiceFormat(new double[] { 1, 2 }, new String[] { "d'un module", "de {0} modules" });
+        MODULE_FMT = new MessageFormat("{0}");
+        MODULE_FMT.setFormatByArgumentIndex(0, choiceForm);
+    }
+
+    // prevent the user from interacting when un/installing modules
+    static JDialog displayDialog(JComponent parent, final String text) {
+        final WaitIndeterminatePanel panel = new WaitIndeterminatePanel(text);
+        final JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(parent), ModalityType.APPLICATION_MODAL);
+        dialog.add(panel);
+        dialog.pack();
+        dialog.setLocationRelativeTo(parent);
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                dialog.setVisible(true);
+            }
+        });
+        return dialog;
+    }
+
     private final AvailableModuleTableModel tm;
 
     AvailableModulesPanel(final ModuleFrame moduleFrame) {
@@ -76,17 +108,34 @@ public class AvailableModulesPanel extends JPanel {
             @Override
             public void actionPerformed(ActionEvent evt) {
                 final Collection<ModuleFactory> checkedRows = AvailableModulesPanel.this.tm.getCheckedRows();
-                final ModuleManager mngr = ModuleManager.getInstance();
-                try {
-                    // TODO install out of EDT
-                    for (final ModuleFactory f : checkedRows) {
-                        mngr.startModule(f.getID(), true);
-                    }
-                } catch (Exception e) {
-                    ExceptionHandler.handle(AvailableModulesPanel.this, "Impossible de démarrer les modules", e);
+                if (checkedRows.isEmpty()) {
+                    JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Aucune ligne cochée");
+                    return;
                 }
-                // some might have started
-                moduleFrame.reload();
+
+                final JDialog dialog = displayDialog(AvailableModulesPanel.this, "Installation " + MODULE_FMT.format(new Object[] { checkedRows.size() }));
+                final ModuleManager mngr = ModuleManager.getInstance();
+                new SwingWorker<Object, Object>() {
+                    @Override
+                    protected Object doInBackground() throws Exception {
+                        for (final ModuleFactory f : checkedRows) {
+                            mngr.startModule(f.getID(), true);
+                        }
+                        return null;
+                    }
+
+                    @Override
+                    protected void done() {
+                        try {
+                            this.get();
+                        } catch (Exception e) {
+                            ExceptionHandler.handle(AvailableModulesPanel.this, "Impossible de démarrer les modules", e);
+                        }
+                        // some might have started
+                        moduleFrame.reload();
+                        dialog.dispose();
+                    }
+                }.execute();
             }
         });
         activateButton.setOpaque(false);

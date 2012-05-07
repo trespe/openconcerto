@@ -15,9 +15,11 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
+import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.MontantPanel;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
+import org.openconcerto.erp.core.supplychain.credit.element.AvoirFournisseurSQLElement;
 import org.openconcerto.erp.generationEcritures.GenerationMvtAvoirFournisseur;
 import org.openconcerto.erp.model.ISQLCompteSelector;
 import org.openconcerto.sql.Configuration;
@@ -40,6 +42,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.sql.SQLException;
+import java.util.Date;
 
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -61,13 +65,12 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
 
         public void propertyChange(PropertyChangeEvent evt) {
 
-            int idSeleted = AvoirFournisseurSQLComponent.this.selectFournisseur.getValue().intValue();
+            SQLRow rowSelected = AvoirFournisseurSQLComponent.this.selectFournisseur.getSelectedRow();
 
-            if (idSeleted > 1) {
-                SQLElement fournisseur = Configuration.getInstance().getDirectory().getElement("FOURNISSEUR");
-                SQLRow rowFourn = fournisseur.getTable().getRow(idSeleted);
-                AvoirFournisseurSQLComponent.this.montantPanel.setUE(rowFourn.getBoolean("UE"));
-                int idModeRegl = rowFourn.getInt("ID_MODE_REGLEMENT");
+            if (rowSelected != null && !rowSelected.isUndefined()) {
+                rowSelected = rowSelected.asRow();
+                AvoirFournisseurSQLComponent.this.montantPanel.setUE(rowSelected.getBoolean("UE"));
+                int idModeRegl = rowSelected.getInt("ID_MODE_REGLEMENT");
 
                 if (idModeRegl > 1 && AvoirFournisseurSQLComponent.this.eltModeRegl != null) {
                     SQLElement sqlEltModeRegl = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
@@ -104,6 +107,7 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
         }
         vals.put("ID_COMPTE_PCE", idCompteAchat);
         vals.put("ID_TAXE", 2);
+        vals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(AvoirFournisseurSQLElement.class, new Date()));
         return vals;
     }
 
@@ -277,6 +281,24 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
         int id = getSelectedID();
 
         id = super.insert(order);
+
+        final SQLTable tableNum = this.getTable().getBase().getTable("NUMEROTATION_AUTO");
+        final SQLRow row = getTable().getRow(id);
+
+        // incrémentation du numéro auto
+        if (NumerotationAutoSQLElement.getNextNumero(AvoirFournisseurSQLElement.class, row.getDate("DATE").getTime()).equalsIgnoreCase(this.textNumero.getText().trim())) {
+            SQLRowValues rowVals = new SQLRowValues(tableNum);
+            int val = tableNum.getRow(2).getInt("AVOIR_F_START");
+            val++;
+            rowVals.put("AVOIR_F_START", Integer.valueOf(val));
+
+            try {
+                rowVals.update(2);
+            } catch (SQLException e) {
+
+                e.printStackTrace();
+            }
+        }
 
         GenerationMvtAvoirFournisseur gen = new GenerationMvtAvoirFournisseur(id);
         gen.genereMouvement();

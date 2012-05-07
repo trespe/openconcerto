@@ -23,6 +23,7 @@ import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElem
 import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
 import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonSQLElement;
+import org.openconcerto.erp.core.supplychain.credit.element.AvoirFournisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionSQLElement;
 import org.openconcerto.sql.Configuration;
@@ -64,8 +65,8 @@ import javax.swing.Icon;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 
 // FIXME bug JTextField for input bigInt
 
@@ -125,7 +126,7 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
                         added.add(prefix);
                         SQLElement elt = Configuration.getInstance().getDirectory().getElement(class1);
                         // Avoir
-                        JLabel labelAvoirFormat = new JLabel(StringUtils.firstUp(elt.getPluralName()) + " " + getLabelFor(prefix + FORMAT));
+                        JLabel labelAvoirFormat = new JLabel(StringUtils.firstUp(elt.getPluralName()) + " " + getLabelFor(prefix + FORMAT), SwingConstants.RIGHT);
                         this.add(labelAvoirFormat, c);
                         c.gridx++;
                         c.weightx = 1;
@@ -465,6 +466,7 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         map.put(AvoirClientSQLElement.class, "AVOIR");
         map.put(SaisieVenteFactureSQLElement.class, "FACT");
         map.put(AvoirClientSQLElement.class, "AVOIR");
+        map.put(AvoirFournisseurSQLElement.class, "AVOIR_F");
         map.put(DevisSQLElement.class, "DEVIS");
         map.put(BonDeLivraisonSQLElement.class, "BON_L");
         map.put(BonReceptionSQLElement.class, "BON_R");

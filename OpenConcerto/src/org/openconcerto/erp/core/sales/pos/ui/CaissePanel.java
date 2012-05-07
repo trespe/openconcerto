@@ -149,7 +149,7 @@ public class CaissePanel extends JPanel implements CaisseListener {
 
             final Categorie s1 = m.get(row.getInt("ID_FAMILLE_ARTICLE"));
             if (s1 != null) {
-                Article a = new Article(s1, row.getString("NOM"));
+                Article a = new Article(s1, row.getString("NOM"), row.getID());
                 a.setBarCode(row.getString("CODE_BARRE"));
                 a.setCode(row.getString("CODE"));
                 a.setIdTaxe(row.getInt("ID_TAXE"));
@@ -177,22 +177,22 @@ public class CaissePanel extends JPanel implements CaisseListener {
         c2.add(s2_2);
 
         for (int i = 0; i < 100; i++) {
-            final Article al = new Article(s2_2, "ILM" + i);
+            final Article al = new Article(s2_2, "ILM" + i, 1);
             al.setPriceInCents(5000);
             al.setBarCode("INFORMATIQUE " + i);
         }
-        final Article a = new Article(s1, "012345678901234567890123456789");
+        final Article a = new Article(s1, "012345678901234567890123456789", 1);
         a.setPriceInCents(106);
-        final Article b = new Article(s1, "St Valery");
+        final Article b = new Article(s1, "St Valery", 1);
         b.setBarCode("ST VALERY");
         b.setPriceInCents(300);
-        final Article cc = new Article(s1, "Cayeux");
+        final Article cc = new Article(s1, "Cayeux", 1);
         cc.setPriceInCents(300);
-        final Article v1 = new Article(s2, "Abbeville");
+        final Article v1 = new Article(s2, "Abbeville", 1);
         v1.setPriceInCents(106);
-        final Article v2 = new Article(s2, "Amiens");
+        final Article v2 = new Article(s2, "Amiens", 1);
         v2.setPriceInCents(300);
-        final Article v3 = new Article(s2, "Rue");
+        final Article v3 = new Article(s2, "Rue", 1);
         v3.setPriceInCents(300);
         this.controler.addArticle(a);
         this.controler.addArticle(a);

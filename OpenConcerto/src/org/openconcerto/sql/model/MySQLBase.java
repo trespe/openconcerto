@@ -28,7 +28,7 @@ public class MySQLBase extends SQLBase {
         this.modes = null;
     }
 
-    public final List<String> getModes() {
+    public synchronized final List<String> getModes() {
         if (this.modes == null) {
             final String modes = (String) this.getDataSource().executeScalar("SELECT @@global.sql_mode;");
             this.modes = Arrays.asList(modes.split(","));

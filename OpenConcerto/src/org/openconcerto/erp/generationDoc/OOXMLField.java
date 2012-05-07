@@ -345,7 +345,7 @@ public class OOXMLField extends OOXMLElement {
                 // Retourne la date d'échéance
                 int idModeReglement = this.row.getInt("ID_MODE_REGLEMENT");
                 Date d = (Date) this.row.getObject("DATE");
-                return getDateEcheance(idModeReglement, d);
+                return getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("DatePattern"));
             } else if (typeComp.equalsIgnoreCase("Jour")) {
                 int day = this.row.getInt(field);
                 stringValue = "le " + String.valueOf(day);
@@ -413,19 +413,34 @@ public class OOXMLField extends OOXMLElement {
 
         long cumul = 0;
 
-        // On recupere les missions associées
-        SQLTable tableElt = Configuration.getInstance().getRoot().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
-        Collection<? extends SQLRowAccessor> factElts = rowFact.getReferentRows(tableElt);
+        SQLRowAccessor rowAff = rowFact.getForeign("ID_AFFAIRE");
+        Calendar date = rowFact.getDate("DATE");
+        if (rowAff != null && !rowAff.isUndefined()) {
+            if (rowAff.getBoolean("CCI")) {
 
-        for (SQLRowAccessor row : factElts) {
+                List<SQLRow> rows = rowAff.asRow().getReferentRows(rowFact.getTable());
+                for (SQLRow sqlRow : rows) {
+                    if (sqlRow.getID() != rowFact.getID() && sqlRow.getDate("DATE").before(date)) {
+                        cumul += sqlRow.getLong("T_HT");
+                    }
+                }
+            }
+        } else {
 
-            final SQLRowAccessor foreign = row.getForeign("ID_MISSION");
-            if (foreign.getID() > 1) {
-                Collection<? extends SQLRowAccessor> rowsElt = foreign.getReferentRows(tableElt);
-                for (SQLRowAccessor row2 : rowsElt) {
-                    SQLRowAccessor rowFacture = row2.getForeign("ID_SAISIE_VENTE_FACTURE");
-                    if (rowFacture.getDate("DATE").before(rowFact.getDate("DATE"))) {
-                        cumul += row2.getLong("T_PV_HT");
+            // On recupere les missions associées
+            SQLTable tableElt = Configuration.getInstance().getRoot().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
+            Collection<? extends SQLRowAccessor> factElts = rowFact.getReferentRows(tableElt);
+
+            for (SQLRowAccessor row : factElts) {
+
+                final SQLRowAccessor foreign = row.getForeign("ID_MISSION");
+                if (foreign.getID() > 1) {
+                    Collection<? extends SQLRowAccessor> rowsElt = foreign.getReferentRows(tableElt);
+                    for (SQLRowAccessor row2 : rowsElt) {
+                        SQLRowAccessor rowFacture = row2.getForeign("ID_SAISIE_VENTE_FACTURE");
+                        if (rowFacture.getDate("DATE").before(date)) {
+                            cumul += row2.getLong("T_PV_HT");
+                        }
                     }
                 }
             }

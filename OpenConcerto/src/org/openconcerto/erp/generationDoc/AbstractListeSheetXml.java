@@ -13,7 +13,7 @@
  
  package org.openconcerto.erp.generationDoc;
 
-import static org.openconcerto.erp.generationDoc.SheetXml.getValidFileName;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.StringUtils;
 
 import java.io.File;
@@ -40,6 +40,11 @@ public abstract class AbstractListeSheetXml extends SheetXml {
 
     private File generatedOpenDocumentFile;
 
+    public AbstractListeSheetXml(SQLRow row) {
+        this.row = row;
+        generatedOpenDocumentFile = new File(getDocumentOutputDirectory(), getValidFileName(getName()) + ".ods");
+    }
+
     public AbstractListeSheetXml() {
         generatedOpenDocumentFile = new File(getDocumentOutputDirectory(), getValidFileName(getName()) + ".ods");
     }
@@ -52,6 +57,17 @@ public abstract class AbstractListeSheetXml extends SheetXml {
                     createListeValues();
                     generatedOpenDocumentFile = OOgenerationListeXML.genere(getTemplateId(), getDocumentOutputDirectory(), getValidFileName(getName()), listAllSheetValues, mapAllSheetValues,
                             styleAllSheetValues, sheetNames, null);
+                    // Flush values after creation
+                    if (listAllSheetValues != null) {
+                        listAllSheetValues.clear();
+                    }
+                    if (mapAllSheetValues != null) {
+                        mapAllSheetValues.clear();
+                    }
+                    if (styleAllSheetValues != null) {
+                        styleAllSheetValues.clear();
+                    }
+
                     return AbstractListeSheetXml.this;
                 } catch (Exception e) {
                     DEFAULT_HANDLER.uncaughtException(null, e);

@@ -28,6 +28,7 @@ public class EtatDevisSQLElement extends ComptaSQLConfElement {
     public static final int REFUSE = 3;
     public static final int ACCEPTE = 4;
     public static final int EN_ATTENTE = 2;
+    public static final int EN_COURS = 5;
 
     public EtatDevisSQLElement() {
         super("ETAT_DEVIS", "un état de devis", "états de devis");

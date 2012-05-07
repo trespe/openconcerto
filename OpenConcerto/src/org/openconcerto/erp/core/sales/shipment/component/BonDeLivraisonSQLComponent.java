@@ -22,8 +22,11 @@ import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonItemSQLEle
 import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonSQLElement;
 import org.openconcerto.erp.core.sales.shipment.report.BonLivraisonXmlSheet;
 import org.openconcerto.erp.core.sales.shipment.ui.BonDeLivraisonItemTable;
+import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.panel.PanelOOSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLInjector;
@@ -32,6 +35,8 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
@@ -168,11 +173,11 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
             this.addView(dateLivraison, "DATE_LIVRAISON");
         }
         // Client
-        JLabel labelClient = new JLabel(getLabelFor("ID_CLIENT"));
-        labelClient.setHorizontalAlignment(SwingConstants.RIGHT);
+        JLabel labelClient = new JLabel(getLabelFor("ID_CLIENT"), SwingConstants.RIGHT);
         c.gridx = 0;
         c.gridy++;
         c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
         c.weighty = 0;
         this.add(labelClient, c);
 
@@ -496,6 +501,12 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
                 }
             }
 
+            SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+
+            if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
+
+                updateStock(idBon);
+            }
             // updateQte(idBon);
         } else {
             ExceptionHandler.handle("Impossible d'ajouter, numéro de bon de livraison existant.");
@@ -552,6 +563,30 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         BonLivraisonXmlSheet bSheet = new BonLivraisonXmlSheet(getTable().getRow(getSelectedID()));
         bSheet.createDocumentAsynchronous();
         bSheet.showPrintAndExportAsynchronous(this.panelOO.isVisualisationSelected(), this.panelOO.isImpressionSelected(), true);
+
+        SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+        SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+        if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
+            // On efface les anciens mouvements de stocks
+            SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
+            sel.addSelect(eltMvtStock.getTable().getField("ID"));
+            Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", getSelectedID());
+            Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+            sel.setWhere(w.and(w2));
+
+            List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+            if (l != null) {
+                for (int i = 0; i < l.size(); i++) {
+                    Object[] tmp = (Object[]) l.get(i);
+                    try {
+                        eltMvtStock.archive(((Number) tmp[0]).intValue());
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            updateStock(getSelectedID());
+        }
 
     }
 
@@ -704,6 +739,28 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
             e.printStackTrace();
         }
 
+    }
+
+    protected String getLibelleStock(SQLRow row, SQLRow rowElt) {
+        return "BL N°" + row.getString("NUMERO");
+    }
+
+    /**
+     * Mise à jour des stocks pour chaque article composant la facture
+     */
+    private void updateStock(int id) {
+
+        SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+        if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
+
+            MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+            mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("BON_DE_LIVRAISON_ELEMENT"), new StockLabel() {
+                @Override
+                public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
+                    return getLibelleStock(rowOrigin, rowElt);
+                }
+            }, false);
+        }
     }
 
 }

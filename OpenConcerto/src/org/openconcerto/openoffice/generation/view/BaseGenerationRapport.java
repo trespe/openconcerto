@@ -284,7 +284,7 @@ public abstract class BaseGenerationRapport<R extends ReportGeneration<?>> exten
             if (report != null) {
                 for (Entry<String, ODSingleXMLDocument> e : report.entrySet()) {
                     try {
-                        final File reportFile = e.getValue().saveAs(this.getFile(rg, e.getKey()));
+                        final File reportFile = e.getValue().saveToPackageAs(this.getFile(rg, e.getKey()));
                         if (sel == FileAction.OPEN)
                             OOUtils.open(reportFile);
                         else if (sel == FileAction.MAIL) {

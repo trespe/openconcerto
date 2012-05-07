@@ -14,9 +14,12 @@
  package org.openconcerto.sql.utils;
 
 import org.openconcerto.sql.model.SQLSyntax;
+import org.openconcerto.sql.utils.ChangeTable.ConcatStep;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
 import java.util.List;
 
 /**
@@ -66,26 +69,57 @@ public final class SQLCreateRoot {
     }
 
     /**
-     * The sql to update this root.
+     * The SQL to update this root.
      * 
      * @param r the name of the updated root, <code>null</code> meaning {@link #getName()}.
      * @param drop whether to first drop the root.
-     * @param create whether to create the root, eg <code>false</code> if adding some tables to an
+     * @param create whether to create the root, e.g. <code>false</code> if adding some tables to an
      *        existing root.
-     * @return the sql needed.
+     * @return the SQL needed.
      */
     public String asString(final String r, final boolean drop, final boolean create) {
+        return CollectionUtils.join(asStringList(r, drop, create, EnumSet.noneOf(ConcatStep.class)), "\n");
+    }
+
+    public List<String> asStringList(final String r, final boolean drop, final boolean create, final EnumSet<ConcatStep> boundaries) {
+        final List<List<String>> lists = this.asLists(r, drop, create, boundaries);
+        final List<String> res = new ArrayList<String>(lists.size());
+        for (final List<String> l : lists) {
+            res.add(CollectionUtils.join(l, "\n"));
+        }
+        return res;
+    }
+
+    /**
+     * The SQL to update this root. The first item of the result is the drop/creation of the root
+     * and the {@link #addClause(String) clauses}, then <code>boundaries</code> size + 1 items for
+     * creating the tables.
+     * 
+     * @param r the name of the updated root, <code>null</code> meaning {@link #getName()}.
+     * @param drop whether to first drop the root.
+     * @param create whether to create the root, e.g. <code>false</code> if adding some tables to an
+     *        existing root.
+     * @param boundaries where to split the SQL statements.
+     * @return the SQL needed, the list size is two more than <code>boundaries</code> size.
+     * @see ChangeTable#cat(Collection, String, EnumSet)
+     */
+    public List<List<String>> asLists(final String r, final boolean drop, final boolean create, final EnumSet<ConcatStep> boundaries) {
         final String rootName = r == null ? this.getName() : r;
         final List<String> genClauses = new ArrayList<String>(this.clauses);
         if (create)
             genClauses.add(0, this.getSyntax().getCreateRoot(rootName));
         if (drop)
             genClauses.add(0, this.getSyntax().getDropRoot(rootName));
+        final String initRoot = this.getSyntax().getInitRoot(rootName);
+        if (initRoot.trim().length() > 0)
+            genClauses.add(initRoot);
 
-        genClauses.addAll(ChangeTable.cat(this.tables, rootName));
-        genClauses.add(this.getSyntax().getInitRoot(rootName));
+        final List<List<String>> res = new ArrayList<List<String>>(boundaries.size() + 2);
+        res.add(genClauses);
+        res.addAll(ChangeTable.cat(this.tables, rootName, boundaries));
+        assert res.size() == boundaries.size() + 2;
 
-        return CollectionUtils.join(genClauses, "\n");
+        return res;
     }
 
     public final String toString() {

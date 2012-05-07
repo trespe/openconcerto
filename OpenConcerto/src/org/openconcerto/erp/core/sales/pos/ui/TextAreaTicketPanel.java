@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.sales.pos.ui;
 
 import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.erp.core.sales.pos.model.Article;
 import org.openconcerto.erp.core.sales.pos.model.Categorie;
@@ -103,8 +104,11 @@ public class TextAreaTicketPanel extends JPanel {
         List<SQLRow> l2 = row.getReferentRows(eltArticle.getTable());
         Categorie c = new Categorie("");
         for (SQLRow row2 : l2) {
-            Article a = new Article(c, row2.getString("NOM"));
-            a.setPriceInCents((int) row2.getLong("PV_HT"));
+            Article a = new Article(c, row2.getString("NOM"), row2.getInt("ID_ARTICLE"));
+            int ht = (int) row2.getLong("PV_HT");
+            a.setPriceHTInCents(ht);
+            float tva = TaxeCache.getCache().getTauxFromId(row2.getInt("ID_TAXE"));
+            a.setPriceInCents((int) Math.round(ht * (1.0 + (tva / 100.0D))));
             t.addArticle(a);
             t.setArticleCount(a, row2.getInt("QTE"));
         }

@@ -53,7 +53,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
 
     private final PropertyChangeSupport supp = new PropertyChangeSupport(this);
 
-    public BaseFillSQLRequest(final SQLTable primaryTable, Where w) {
+    public BaseFillSQLRequest(final SQLTable primaryTable, final Where w) {
         super();
         if (primaryTable == null)
             throw new NullPointerException();
@@ -64,7 +64,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         this.graphToFetch = null;
     }
 
-    public BaseFillSQLRequest(BaseFillSQLRequest req) {
+    public BaseFillSQLRequest(final BaseFillSQLRequest req) {
         super();
         this.primaryTable = req.getPrimaryTable();
         this.where = req.where;
@@ -108,7 +108,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
     /**
      * The graph to fetch, should be a superset of {@link #getGraph()}.
      * 
-     * @return the graph to fetch.
+     * @return the graph to fetch, can be modified.
      */
     public final SQLRowValues getGraphToFetch() {
         if (this.graphToFetch == null && this.getGraph() != null) {
@@ -118,12 +118,13 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         return this.graphToFetch;
     }
 
-    protected void customizeToFetch(SQLRowValues graphToFetch) {
+    protected void customizeToFetch(final SQLRowValues graphToFetch) {
     }
 
     protected final SQLRowValuesListFetcher getFetcher(final Where w) {
         final String tableName = getPrimaryTable().getName();
-        final SQLRowValuesListFetcher fetcher = new SQLRowValuesListFetcher(getGraphToFetch(), true);
+        // graphToFetch can be modified freely so don't the use the simple constructor
+        final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(getGraphToFetch());
         setupForeign(fetcher);
         fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
             @Override
@@ -144,7 +145,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         return Collections.singletonList(new Path(getPrimaryTable()));
     }
 
-    public final void setWhere(Where w) {
+    public final void setWhere(final Where w) {
         this.where = w;
         fireWhereChange();
     }
@@ -153,6 +154,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         return this.where;
     }
 
+    @Override
     public final Collection<SQLField> getAllFields() {
         // don't rely on the expansion of our fields, since our fetcher can be arbitrary modified
         // (eg by adding a where on a field of a non-displayed table)
@@ -161,7 +163,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
 
     protected abstract Collection<SQLField> getFields();
 
-    protected SQLSelect transformSelect(SQLSelect sel) {
+    protected SQLSelect transformSelect(final SQLSelect sel) {
         return this.selTransf == null ? sel : this.selTransf.transformChecked(sel);
     }
 
@@ -174,7 +176,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
      * 
      * @param transf the transformer to apply.
      */
-    public final void setSelectTransf(ITransformer<SQLSelect, SQLSelect> transf) {
+    public final void setSelectTransf(final ITransformer<SQLSelect, SQLSelect> transf) {
         this.selTransf = transf;
         this.fireWhereChange();
     }
@@ -189,14 +191,15 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         this.supp.firePropertyChange("where", null, null);
     }
 
-    public final void addWhereListener(PropertyChangeListener l) {
+    public final void addWhereListener(final PropertyChangeListener l) {
         this.supp.addPropertyChangeListener("where", l);
     }
 
-    public final void rmWhereListener(PropertyChangeListener l) {
+    public final void rmWhereListener(final PropertyChangeListener l) {
         this.supp.removePropertyChangeListener("where", l);
     }
 
+    @Override
     public String toString() {
         return this.getClass().getName() + " on " + this.getPrimaryTable();
     }

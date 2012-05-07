@@ -231,18 +231,17 @@ public class PlanComptableGPanel extends JPanel {
         this.add(split, c);
     }
 
-// TODO from UCDetector: Change visibility of Method "PlanComptableGPanel.creerJTable(ClasseCompte)" to private
+    // TODO from UCDetector: Change visibility of Method
+    // "PlanComptableGPanel.creerJTable(ClasseCompte)" to private
     public JTable creerJTable(ClasseCompte ccTmp) { // NO_UCD
 
         final PlanComptableGModel model;
         if (this.radioCompteDeveloppe.isSelected()) {
             model = new PlanComptableGModel(ccTmp, 3);
+        } else if (this.radioCompteAbrege.isSelected()) {
+            model = new PlanComptableGModel(ccTmp, 2);
         } else {
-            if (this.radioCompteAbrege.isSelected()) {
-                model = new PlanComptableGModel(ccTmp, 2);
-            } else {
-                model = new PlanComptableGModel(ccTmp, 1);
-            }
+            model = new PlanComptableGModel(ccTmp, 1);
         }
 
         final JTable table = new JTable(model) {

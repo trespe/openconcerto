@@ -16,8 +16,9 @@
 import org.openconcerto.utils.cc.IClosure;
 
 import java.util.Collection;
-import java.util.concurrent.BlockingDeque;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.Deque;
+import java.util.LinkedList;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
@@ -30,11 +31,11 @@ import java.util.concurrent.locks.ReentrantLock;
  */
 public abstract class DropperQueue<T> extends Thread {
 
-    private final BlockingDeque<T> items;
-    private final Lock addLock;
+    private final Deque<T> items;
+    private final Lock itemsLock;
+    private final Condition notEmpty;
     private boolean stop;
     private boolean sleeping;
-    private boolean looping;
     private boolean executing;
 
     /**
@@ -44,12 +45,12 @@ public abstract class DropperQueue<T> extends Thread {
      */
     public DropperQueue(String name) {
         super(name);
-        this.items = new LinkedBlockingDeque<T>();
+        this.items = new LinkedList<T>();
         this.stop = false;
         this.sleeping = false;
-        this.looping = false;
         this.executing = false;
-        this.addLock = new ReentrantLock();
+        this.itemsLock = new ReentrantLock();
+        this.notEmpty = this.itemsLock.newCondition();
     }
 
     // *** boolean
@@ -71,16 +72,6 @@ public abstract class DropperQueue<T> extends Thread {
 
     public synchronized boolean isSleeping() {
         return this.sleeping;
-    }
-
-    private synchronized final void setLooping(boolean b) {
-        if (this.looping == b)
-            // MAYBE use ReentrantLock and Condition for looping and sleeping
-            // don't allow reentrant looping otherwise the inner loop will set looping to false
-            // while the outer loop isn't finished.
-            throw new IllegalStateException("Reentrant looping");
-        this.looping = b;
-        this.signalChange();
     }
 
     private synchronized void signalChange() {
@@ -107,7 +98,7 @@ public abstract class DropperQueue<T> extends Thread {
 
     private void await() throws InterruptedException {
         synchronized (this) {
-            if (this.sleeping || this.looping) {
+            if (this.sleeping) {
                 this.wait();
             }
         }
@@ -132,7 +123,16 @@ public abstract class DropperQueue<T> extends Thread {
         while (!this.isDead()) {
             try {
                 this.await();
-                final T item = this.items.take();
+                final T item;
+                // lockInterruptibly() to avoid taking another item after being put to sleep
+                this.itemsLock.lockInterruptibly();
+                try {
+                    while (this.items.isEmpty())
+                        this.notEmpty.await();
+                    item = this.items.removeFirst();
+                } finally {
+                    this.itemsLock.unlock();
+                }
                 this.setExecuting(true);
                 // we should not carry the interrupted status in process()
                 // we only use it to stop waiting and check variables again, but if we're here we
@@ -160,11 +160,12 @@ public abstract class DropperQueue<T> extends Thread {
      * @param item the item to add.
      */
     public final void put(T item) {
-        this.addLock.lock();
+        this.itemsLock.lock();
         try {
             this.items.add(item);
+            this.notEmpty.signal();
         } finally {
-            this.addLock.unlock();
+            this.itemsLock.unlock();
         }
     }
 
@@ -185,14 +186,14 @@ public abstract class DropperQueue<T> extends Thread {
      * 
      * @param c what to do with our queue.
      */
-    public final void itemsDo(IClosure<? super BlockingDeque<T>> c) {
-        this.addLock.lock();
-        this.setLooping(true);
+    public final void itemsDo(IClosure<? super Deque<T>> c) {
+        this.itemsLock.lock();
         try {
             c.executeChecked(this.items);
+            if (!this.items.isEmpty())
+                this.notEmpty.signal();
         } finally {
-            this.setLooping(false);
-            this.addLock.unlock();
+            this.itemsLock.unlock();
         }
     }
 

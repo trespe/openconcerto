@@ -320,22 +320,21 @@ public class SocieteCommonSQLElement extends ConfSQLElement {
                 c.gridy++;
                 c.insets = new Insets(10, 2, 1, 2);
                 this.add(this.sepPlan, c);
-
-                c.gridx = 0;
-                c.gridy++;
-                c.gridwidth = 2;
-                c.insets = new Insets(2, 2, 1, 2);
-                this.labelPlan = new JLabel("Choix du plan comptable");
-                this.add(this.labelPlan, c);
-
+                JPanel panelPlan = new JPanel();
+                this.labelPlan = new JLabel("Choix du plan comptable", SwingConstants.RIGHT);
                 this.combo = new JComboBox();
-
                 this.combo.addItem("Base");
                 this.combo.addItem("Abrégé");
                 this.combo.addItem("Développé");
-                c.gridx++;
-                c.gridx = GridBagConstraints.RELATIVE;
-                this.add(this.combo, c);
+                panelPlan.add(this.labelPlan);
+                panelPlan.add(this.combo);
+
+                c.gridx = 0;
+                c.gridy++;
+                c.gridwidth = GridBagConstraints.REMAINDER;
+                c.insets = new Insets(2, 2, 1, 2);
+                c.fill = GridBagConstraints.NONE;
+                this.add(panelPlan, c);
 
                 this.addRequiredSQLObject(this.textNom, "NOM");
                 // this.addSQLObject(this.textAdresse, "ADRESSE");

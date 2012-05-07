@@ -24,8 +24,8 @@ import org.openconcerto.erp.core.sales.pos.model.Article;
 import org.openconcerto.erp.core.sales.pos.model.Paiement;
 import org.openconcerto.erp.core.sales.pos.model.Ticket;
 import org.openconcerto.erp.core.sales.pos.model.TicketLine;
-import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.generationEcritures.GenerationMvtTicketCaisse;
 import org.openconcerto.erp.generationEcritures.GenerationMvtVirement;
 import org.openconcerto.erp.generationEcritures.GenerationReglementVenteNG;
@@ -33,7 +33,6 @@ import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -50,7 +49,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 
@@ -58,7 +56,6 @@ import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.input.SAXBuilder;
@@ -115,7 +112,7 @@ public class Caisse {
 
     public static void createConnexion() {
         final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create();
-        conf.setupLogging("Logs");
+        conf.setupLogging("logs");
         Configuration.setInstance(conf);
         try {
             conf.getBase();
@@ -131,6 +128,7 @@ public class Caisse {
         } catch (Exception e) {
             JOptionPane.showMessageDialog(new JFrame(), "Impossible de configurer la connexion à la base de donnée.\n ID société: " + getSocieteID() + " \n ID utilisateur: " + getUserID());
             e.printStackTrace();
+            System.exit(2);
         }
     }
 
@@ -161,19 +159,21 @@ public class Caisse {
                             // Articles
                             for (Pair<Article, Integer> item : ticket.getArticles()) {
                                 SQLRowValues rowValsElt = new SQLRowValues(eltFact.getTable());
-
-                                rowValsElt.put("QTE", item.getSecond());
-                                rowValsElt.put("PV_HT", Long.valueOf(item.getFirst().getPriceInCents()));
-                                final long value = Long.valueOf(item.getFirst().getPriceInCents()) * item.getSecond();
-                                final long valueHT = Long.valueOf(item.getFirst().getPriceHTInCents()) * item.getSecond();
+                                final Article article = item.getFirst();
+                                final Integer nb = item.getSecond();
+                                rowValsElt.put("QTE", nb);
+                                rowValsElt.put("PV_HT", Long.valueOf(article.getPriceHTInCents()));
+                                final long value = Long.valueOf(article.getPriceInCents()) * nb;
+                                final long valueHT = Long.valueOf(article.getPriceHTInCents()) * nb;
                                 total += value;
                                 totalHT += valueHT;
                                 rowValsElt.put("T_PV_HT", valueHT);
                                 rowValsElt.put("T_PV_TTC", value);
-                                rowValsElt.put("ID_TAXE", item.getFirst().getIdTaxe());
-                                rowValsElt.put("CODE", item.getFirst().getCode());
-                                rowValsElt.put("NOM", item.getFirst().getName());
+                                rowValsElt.put("ID_TAXE", article.getIdTaxe());
+                                rowValsElt.put("CODE", article.getCode());
+                                rowValsElt.put("NOM", article.getName());
                                 rowValsElt.put("ID_TICKET_CAISSE", rowVals);
+                                rowValsElt.put("ID_ARTICLE", article.getId());
                             }
                             rowVals.put("TOTAL_HT", totalHT);
 
@@ -197,7 +197,6 @@ public class Caisse {
                                     try {
                                         rowValsElt.put("ID_CLIENT", getClientCaisse().getID());
                                     } catch (SQLException e) {
-                                        // TODO Auto-generated catch block
                                         e.printStackTrace();
                                     }
                                     long montant = Long.valueOf(paiement.getMontantInCents());
@@ -212,17 +211,20 @@ public class Caisse {
                             }
 
                             SQLRow rowFinal = rowVals.insert();
-                            Thread t = new Thread(new GenerationMvtTicketCaisse(rowFinal));
-                            t.start();
+                            GenerationMvtTicketCaisse mvt = new GenerationMvtTicketCaisse(rowFinal);
+                            final Integer idMvt;
                             try {
-                                t.join();
-                            } catch (InterruptedException exn) {
-                                // TODO Bloc catch auto-généré
+                                idMvt = mvt.genereMouvement().call();
+                            } catch (Exception exn) {
                                 exn.printStackTrace();
+                                throw new SQLException(exn);
                             }
 
+                            SQLRowValues valTicket = rowFinal.asRowValues();
+                            valTicket.put("ID_MOUVEMENT", Integer.valueOf(idMvt));
+                            rowFinal = valTicket.update();
+
                             // msie à jour du mouvement
-                            rowFinal = rowFinal.getTable().getRow(rowFinal.getID());
                             List<SQLRow> rowsEnc = rowFinal.getReferentRows(eltEnc.getTable());
                             long totalEnc = 0;
                             for (SQLRow sqlRow : rowsEnc) {
@@ -251,8 +253,6 @@ public class Caisse {
 
                         @Override
                         public void run() {
-                            // TODO Raccord de méthode auto-généré
-
                             JOptionPane.showMessageDialog(null, "Clôture de la caisse terminée.");
                         }
                     });
@@ -260,7 +260,6 @@ public class Caisse {
                 }
             });
         } catch (Exception exn) {
-            // TODO Bloc catch auto-généré
             ExceptionHandler.handle("Une erreur est survenue pendant la clôture.", exn);
         }
 
@@ -308,56 +307,15 @@ public class Caisse {
 
     private static void updateStock(int id) {
 
-        final SQLElement eltArticleFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
-        final SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
         final SQLElement elt = Configuration.getInstance().getDirectory().getElement("TICKET_CAISSE");
-        final SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement(sqlTableArticle);
-        final SQLRow rowFacture = elt.getTable().getRow(id);
-
-        // On récupére les articles qui composent la facture
-        final SQLSelect selEltfact = new SQLSelect(eltArticleFact.getTable().getBase());
-        selEltfact.addSelect(eltArticleFact.getTable().getField("ID"));
-        selEltfact.setWhere(new Where(eltArticleFact.getTable().getField("ID_TICKET_CAISSE"), "=", id));
-
-        final List lEltFact = (List) eltArticleFact.getTable().getBase().getDataSource().execute(selEltfact.asString(), new ArrayListHandler());
-
-        if (lEltFact != null) {
-            for (int i = 0; i < lEltFact.size(); i++) {
-
-                // Elt qui compose facture
-                final Object[] tmp = (Object[]) lEltFact.get(i);
-                final int idEltFact = ((Number) tmp[0]).intValue();
-                final SQLRow rowEltFact = eltArticleFact.getTable().getRow(idEltFact);
-
-                // on récupére l'article qui lui correspond
-                final SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
-                for (SQLField field : eltArticle.getTable().getFields()) {
-                    if (rowEltFact.getTable().getFieldsName().contains(field.getName())) {
-                        rowArticle.put(field.getName(), rowEltFact.getObject(field.getName()));
-                    }
-                }
-                // rowArticle.loadAllSafe(rowEltFact);
-                final int idArticle = ReferenceArticleSQLElement.getIdForCN(rowArticle, true);
-
-                // on crée un mouvement de stock pour chacun des articles
-                final SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-                final SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
-                rowVals.put("QTE", -(rowEltFact.getInt("QTE")));
-                rowVals.put("NOM", "Ticket N°" + rowFacture.getString("NUMERO"));
-                rowVals.put("IDSOURCE", id);
-                rowVals.put("SOURCE", elt.getTable().getName());
-                rowVals.put("ID_ARTICLE", idArticle);
-                rowVals.put("DATE", rowFacture.getObject("DATE"));
-                try {
-                    final SQLRow row = rowVals.insert();
-                    // MAYBE Show warning if qte min
-                    MouvementStockSQLElement.updateStock(Arrays.asList(row.getID()));
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-
+        final SQLElement eltArticleFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
+        MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+        mvtStock.createMouvement(elt.getTable().getRow(id), eltArticleFact.getTable(), new StockLabel() {
+            @Override
+            public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
+                return "Ticket N°" + rowOrigin.getString("NUMERO");
             }
-        }
+        }, false);
     }
 
     public static int getID() {

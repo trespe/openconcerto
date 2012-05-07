@@ -33,10 +33,12 @@ import java.util.prefs.Preferences;
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JButton;
+import javax.swing.JDialog;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableModel;
 
 public class InstalledModulesPanel extends JPanel {
@@ -120,8 +122,13 @@ public class InstalledModulesPanel extends JPanel {
         JButton uninstallButton = new JButton(new AbstractAction("Désinstaller") {
             @Override
             public void actionPerformed(ActionEvent evt) {
-                final ModuleManager mngr = ModuleManager.getInstance();
                 final Collection<ModuleFactory> checkedRows = InstalledModulesPanel.this.tm.getCheckedRows();
+                if (checkedRows.isEmpty()) {
+                    JOptionPane.showMessageDialog(InstalledModulesPanel.this, "Aucune ligne cochée");
+                    return;
+                }
+
+                final ModuleManager mngr = ModuleManager.getInstance();
                 final int answer = JOptionPane.showConfirmDialog(InstalledModulesPanel.this,
                         "Êtes-vous sûr de vouloir désinstaller ces modules ?\nToutes les données seront irrémédiablement effacées.", "Désinstallation de modules", JOptionPane.YES_NO_OPTION,
                         JOptionPane.WARNING_MESSAGE);
@@ -129,7 +136,6 @@ public class InstalledModulesPanel extends JPanel {
                     return;
 
                 try {
-                    // TODO uninstall out of EDT
                     final Set<String> ids = new HashSet<String>();
                     for (final ModuleFactory f : checkedRows) {
                         ids.add(f.getID());
@@ -141,12 +147,27 @@ public class InstalledModulesPanel extends JPanel {
                         if (selectAnswer == JOptionPane.NO_OPTION)
                             return;
                     }
-                    mngr.uninstall(ids, true);
+                    final JDialog dialog = AvailableModulesPanel.displayDialog(InstalledModulesPanel.this,
+                            "Désinstallation " + AvailableModulesPanel.MODULE_FMT.format(new Object[] { checkedRows.size() }));
+                    new SwingWorker<Object, Object>() {
+                        protected Object doInBackground() throws Exception {
+                            mngr.uninstall(ids, true);
+                            return null;
+                        }
+
+                        protected void done() {
+                            try {
+                                this.get();
+                            } catch (Exception e) {
+                                ExceptionHandler.handle(InstalledModulesPanel.this, "Impossible de désinstaller les modules", e);
+                            }
+                            moduleFrame.reload();
+                            dialog.dispose();
+                        }
+                    }.execute();
                 } catch (Exception e) {
-                    ExceptionHandler.handle(InstalledModulesPanel.this, "Impossible de désinstaller les modules", e);
+                    ExceptionHandler.handle(InstalledModulesPanel.this, "Impossible de trouver les modules à désinstaller", e);
                 }
-                // some might have started
-                moduleFrame.reload();
             }
         });
         uninstallButton.setOpaque(false);

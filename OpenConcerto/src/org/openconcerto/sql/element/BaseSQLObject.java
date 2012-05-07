@@ -30,7 +30,6 @@ import javax.swing.JPanel;
 public abstract class BaseSQLObject extends JPanel implements MutableRowItemView {
 
     private SQLField field;
-    private String label;
     private String sqlName;
 
     public BaseSQLObject() {
@@ -54,18 +53,7 @@ public abstract class BaseSQLObject extends JPanel implements MutableRowItemView
         return this.field;
     }
 
-    @Override
-    public final String getDescription() {
-        return this.label;
-    }
-
-    @Override
-    public final void setDescription(String s) {
-        this.label = s;
-    }
-
     public SQLTable getTable() {
         return this.getField().getTable();
     }
-
 }

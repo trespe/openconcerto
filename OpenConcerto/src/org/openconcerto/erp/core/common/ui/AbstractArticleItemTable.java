@@ -15,6 +15,8 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
+import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
@@ -22,6 +24,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableControlPanel;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
@@ -44,10 +47,12 @@ import javax.swing.JScrollPane;
 public abstract class AbstractArticleItemTable extends JPanel {
     protected RowValuesTable table;
     protected SQLTableElement totalHT;
+    protected SQLTableElement tableElementTVA;
     protected SQLTableElement tableElementTotalTTC;
     protected SQLTableElement tableElementTotalDevise;
     protected SQLTableElement service, qte, ha;
     protected SQLTableElement tableElementPoidsTotal;
+    protected SQLTableElement prebilan;
     protected RowValuesTableModel model;
     protected SQLRowValues defaultRowVals;
     private List<JButton> buttons = null;
@@ -80,12 +85,13 @@ public abstract class AbstractArticleItemTable extends JPanel {
     protected void uiInit() {
         // Ui init
         setLayout(new GridBagLayout());
+        this.setOpaque(false);
         final GridBagConstraints c = new DefaultGridBagConstraints();
 
         c.weightx = 1;
 
         control = new RowValuesTableControlPanel(this.table, this.buttons);
-
+        control.setOpaque(false);
         this.add(control, c);
 
         c.gridy++;
@@ -121,6 +127,10 @@ public abstract class AbstractArticleItemTable extends JPanel {
         return this.table.getRowValuesTableModel();
     }
 
+    public SQLTableElement getPrebilanElement() {
+        return this.prebilan;
+    }
+
     public SQLTableElement getPrixTotalHTElement() {
         return this.totalHT;
     }
@@ -143,6 +153,10 @@ public abstract class AbstractArticleItemTable extends JPanel {
 
     public SQLTableElement getHaElement() {
         return this.ha;
+    }
+
+    public SQLTableElement getTVAElement() {
+        return this.tableElementTVA;
     }
 
     public SQLTableElement getTableElementTotalDevise() {
@@ -184,6 +198,10 @@ public abstract class AbstractArticleItemTable extends JPanel {
 
         final SQLTable tableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
 
+        final boolean modeAvance = DefaultNXProps.getInstance().getBooleanValue("ArticleModeVenteAvance", false);
+        SQLPreferences prefs = new SQLPreferences(tableArticle.getDBRoot());
+        final boolean createArticle = prefs.getBoolean(GestionArticleGlobalPreferencePanel.CREATE_ARTICLE_AUTO, true);
+
         // On récupére les articles qui composent la table
         final List<SQLRow> listElts = eltSource.getTable().getRow(id).getReferentRows(eltArticleTable.getTable());
         final SQLRowValues rowArticle = new SQLRowValues(tableArticle);
@@ -203,7 +221,13 @@ public abstract class AbstractArticleItemTable extends JPanel {
                 }
             }
             // crée les articles si il n'existe pas
-            ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
+
+            if (modeAvance)
+                ReferenceArticleSQLElement.getIdForCNM(rowArticle, createArticle);
+            else {
+                ReferenceArticleSQLElement.getIdForCN(rowArticle, createArticle);
+            }
+            // ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
         }
         // }
     }

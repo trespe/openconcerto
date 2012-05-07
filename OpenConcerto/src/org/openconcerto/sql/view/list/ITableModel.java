@@ -324,11 +324,15 @@ public class ITableModel extends AbstractTableModel {
     // *** tableModel
 
     protected void updateColNames() {
+        this.setUpdating(true);
+
         // getColumnNames() used to take more than 20% of SearchRunnable.matchFilter(), so cache it.
         this.colNames.clear();
         for (final SQLTableModelColumn col : getCols())
             this.colNames.add(this.isDebug() ? col.getName() + " " + col.getPaths().toString() : col.getName());
         this.fireTableStructureChanged();
+
+        this.setUpdating(false);
     }
 
     public List<String> getColumnNames() {
@@ -509,6 +513,8 @@ public class ITableModel extends AbstractTableModel {
         return this.updating;
     }
 
+    // signify that the program is making a change not the user
+    // i.e. should be called before and after every fireTable*()
     private synchronized void setUpdating(boolean searching) {
         final boolean old = this.updating;
         if (old != searching) {

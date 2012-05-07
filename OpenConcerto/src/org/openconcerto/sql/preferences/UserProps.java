@@ -52,7 +52,10 @@ public class UserProps extends AbstractProps {
 
     @Override
     protected String getPropsFileName() {
-        return Configuration.getInstance().getConfDir() + File.separator + "Configuration" + File.separator + "User.properties";
+        final Configuration conf = Configuration.getInstance();
+        String string = conf.getConfDir() + File.separator + "Configuration" + File.separator;
+        string += conf.getSystemRoot().getName() + "_";
+        return string + "User.properties";
     }
 
     public synchronized static UserProps getInstance() {

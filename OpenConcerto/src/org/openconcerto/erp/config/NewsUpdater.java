@@ -53,7 +53,6 @@ public class NewsUpdater {
                     out.close();
                     in.close();
                     final ImageIcon im = new ImageIcon(tempFile.getAbsolutePath());
-                    System.out.println(im.getImageLoadStatus());
 
                     if (im.getImageLoadStatus() == MediaTracker.COMPLETE) {
                         SwingUtilities.invokeLater(new Runnable() {

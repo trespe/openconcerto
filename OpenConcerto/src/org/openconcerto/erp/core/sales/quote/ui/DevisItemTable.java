@@ -13,6 +13,9 @@
  
  package org.openconcerto.erp.core.sales.quote.ui;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -29,5 +32,11 @@ public class DevisItemTable extends AbstractVenteArticleItemTable {
     public SQLElement getSQLElement() {
         return Configuration.getInstance().getDirectory().getElement("DEVIS_ELEMENT");
 
+    }
+
+    public static Map<String, Boolean> map = new HashMap<String, Boolean>();
+
+    protected Map<String, Boolean> getCustomVisibilityMap() {
+        return map;
     }
 }

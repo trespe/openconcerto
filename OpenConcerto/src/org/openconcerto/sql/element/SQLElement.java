@@ -860,11 +860,30 @@ public abstract class SQLElement {
 
     // *** request
 
-    public ComboSQLRequest getComboRequest() {
-        if (this.combo == null) {
-            this.combo = new ComboSQLRequest(this.getTable(), this.getComboFields());
+    public final ComboSQLRequest getComboRequest() {
+        return getComboRequest(false);
+    }
+
+    /**
+     * Return a combo request for this element.
+     * 
+     * @param create <code>true</code> if a new instance should be returned, <code>false</code> to
+     *        return a shared instance.
+     * @return a combo request for this.
+     */
+    public final ComboSQLRequest getComboRequest(final boolean create) {
+        if (!create) {
+            if (this.combo == null) {
+                this.combo = this.createComboRequest();
+            }
+            return this.combo;
+        } else {
+            return this.createComboRequest();
         }
-        return this.combo;
+    }
+
+    protected ComboSQLRequest createComboRequest() {
+        return new ComboSQLRequest(this.getTable(), this.getComboFields());
     }
 
     abstract protected List<String> getComboFields();

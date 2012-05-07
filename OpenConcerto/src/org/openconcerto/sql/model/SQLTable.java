@@ -19,6 +19,7 @@ import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.SystemQueryExecutor.QueryExn;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.utils.ChangeTable;
 import org.openconcerto.sql.utils.SQLCreateMoveableTable;
@@ -27,6 +28,8 @@ import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.Tuple3;
+import org.openconcerto.utils.cc.CopyOnWriteMap;
 import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 import org.openconcerto.xml.JDOMUtils;
@@ -48,9 +51,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.collections.OrderedMap;
-import org.apache.commons.collections.map.CaseInsensitiveMap;
-import org.apache.commons.collections.map.ListOrderedMap;
+import net.jcip.annotations.GuardedBy;
+
 import org.apache.commons.dbutils.ResultSetHandler;
 import org.jdom.Element;
 
@@ -120,15 +122,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return UNDEFINED_IDs.get(schema);
     }
 
-    private static final Number getUndefID(SQLSchema b, String tableName) {
+    private static final Tuple2<Boolean, Number> getUndefID(SQLSchema b, String tableName) {
         synchronized (UNDEFINED_IDs) {
-            return getUndefIDs(b).get(tableName);
-        }
-    }
-
-    private static final boolean containsUndefID(SQLSchema b, String tableName) {
-        synchronized (UNDEFINED_IDs) {
-            return getUndefIDs(b).containsKey(tableName);
+            final Map<String, Number> map = getUndefIDs(b);
+            return Tuple2.create(map.containsKey(tableName), map.get(tableName));
         }
     }
 
@@ -137,11 +134,12 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
             final SQLTable undefT = schema.getTable(undefTable);
             final String sql = undefT.getField("UNDEFINED_ID").getType().toString(value);
             final boolean modified;
-            if (!containsUndefID(schema, tableName)) {
+            final Tuple2<Boolean, Number> currentValue = getUndefID(schema, tableName);
+            if (!currentValue.get0()) {
                 // INSERT
                 SQLRowValues.insertCount(undefT, "(\"TABLENAME\", \"UNDEFINED_ID\") VALUES(" + schema.getBase().quoteString(tableName) + ", " + sql + ")");
                 modified = true;
-            } else if (!CompareUtils.equals(getUndefID(schema, tableName), value)) {
+            } else if (!CompareUtils.equals(currentValue.get1(), value)) {
                 // UPDATE
                 final UpdateBuilder update = new UpdateBuilder(undefT).set("UNDEFINED_ID", sql);
                 update.setWhere(new Where(undefT.getField("TABLENAME"), "=", tableName));
@@ -157,36 +155,48 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         }
     }
 
-    private static ListOrderedMap createMap() {
-        return (ListOrderedMap) ListOrderedMap.decorate(new CaseInsensitiveMap());
-    }
-
-    private final ListOrderedMap fields;
+    private final CopyOnWriteMap<String, SQLField> fields;
+    @GuardedBy("this")
     private final Set<SQLField> primaryKeys;
     // the vast majority of our code use getKey(), so cache it for performance
+    @GuardedBy("this")
     private SQLField primaryKey;
     // true if there's at most 1 primary key
+    @GuardedBy("this")
     private boolean primaryKeyOK;
+    @GuardedBy("this")
     private Set<SQLField> keys;
+    @GuardedBy("this")
     private final Map<String, Trigger> triggers;
     // null means it couldn't be retrieved
+    @GuardedBy("this")
     private Set<Constraint> constraints;
     // always immutable so that fire can iterate safely ; to modify it, simply copy it before
     // (adding listeners is a lot less common than firing events)
+    @GuardedBy("this")
     private List<SQLTableModifiedListener> tableModifiedListeners;
     // the id that foreign keys pointing to this, can use instead of NULL
     // a null value meaning not yet known
+    @GuardedBy("this")
     private Integer undefinedID;
 
+    @GuardedBy("this")
     private String comment;
+    @GuardedBy("this")
     private String type;
 
     // empty table
     SQLTable(SQLSchema schema, String name) {
         super(schema, name);
         this.tableModifiedListeners = Collections.emptyList();
-        // ne pas se soucier de la casse
-        this.fields = createMap();
+        // needed for getOrderedFields()
+        this.fields = new CopyOnWriteMap<String, SQLField>() {
+            @Override
+            public Map<String, SQLField> copy(Map<? extends String, ? extends SQLField> src) {
+                return new LinkedHashMap<String, SQLField>(src);
+            }
+        };
+        assert isOrdered(this.fields);
         // order matters (eg for indexes)
         this.primaryKeys = new LinkedHashSet<SQLField>();
         this.primaryKey = null;
@@ -201,7 +211,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
 
     // *** setter
 
-    void clearNonPersistent() {
+    synchronized void clearNonPersistent() {
         this.triggers.clear();
         // non-null, see ctor
         this.constraints = new HashSet<Constraint>();
@@ -225,33 +235,37 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         }
 
         final String undefAttr = xml.getAttributeValue("undefID");
-        this.setState(newFields, newPrimaryKeys, undefAttr == null ? null : Integer.valueOf(undefAttr));
+        synchronized (getTreeMutex()) {
+            synchronized (this) {
+                this.setState(newFields, newPrimaryKeys, undefAttr == null ? null : Integer.valueOf(undefAttr));
 
-        final Element triggersElem = xml.getChild("triggers");
-        if (triggersElem != null)
-            for (final Element triggerElem : (List<Element>) triggersElem.getChildren()) {
-                this.addTrigger(Trigger.fromXML(this, triggerElem));
+                final Element triggersElem = xml.getChild("triggers");
+                if (triggersElem != null)
+                    for (final Element triggerElem : (List<Element>) triggersElem.getChildren()) {
+                        this.addTrigger(Trigger.fromXML(this, triggerElem));
+                    }
+
+                final Element constraintsElem = xml.getChild("constraints");
+                if (constraintsElem == null)
+                    this.addConstraint((Constraint) null);
+                else
+                    for (final Element elem : (List<Element>) constraintsElem.getChildren()) {
+                        this.addConstraint(Constraint.fromXML(this, elem));
+                    }
+
+                final Element commentElem = xml.getChild("comment");
+                if (commentElem != null)
+                    this.setComment(commentElem.getText());
+                this.setType(xml.getAttributeValue("type"));
             }
-
-        final Element constraintsElem = xml.getChild("constraints");
-        if (constraintsElem == null)
-            this.addConstraint((Constraint) null);
-        else
-            for (final Element elem : (List<Element>) constraintsElem.getChildren()) {
-                this.addConstraint(Constraint.fromXML(this, elem));
-            }
-
-        final Element commentElem = xml.getChild("comment");
-        if (commentElem != null)
-            this.setComment(commentElem.getText());
-        this.setType(xml.getAttributeValue("type"));
+        }
     }
 
-    private void addTrigger(final Trigger t) {
+    synchronized private void addTrigger(final Trigger t) {
         this.triggers.put(t.getName(), t);
     }
 
-    private void addConstraint(final Constraint c) {
+    synchronized private void addConstraint(final Constraint c) {
         if (c == null) {
             this.constraints = null;
         } else {
@@ -264,47 +278,63 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     // * from JDBC
 
     public void fetchFields() throws SQLException {
-        this.getBase().getDataSource().useConnection(new ConnectionHandlerNoSetup<Object, SQLException>() {
-            @Override
-            public Object handle(SQLDataSource ds) throws SQLException {
-                final DatabaseMetaData metaData = ds.getConnection().getMetaData();
-                final ResultSet rs = metaData.getColumns(getBase().getMDName(), getSchema().getName(), getName(), null);
-                // call next() to position the cursor
-                if (!rs.next()) {
-                    // empty table
-                    emptyFields();
-                } else
-                    fetchFields(metaData, rs);
+        this.fetchFields(false);
+    }
 
-                final ResultSet tableRS = metaData.getTables(getBase().getMDName(), getSchema().getName(), getName(), new String[] { "TABLE", "SYSTEM TABLE", "VIEW" });
-                if (!tableRS.next()) {
-                    // inexistant table
-                    // TODO drop table like in SQLBase
-                    setType(null);
-                    setComment(null);
+    void fetchFields(final boolean onlyUseSchema) throws SQLException {
+        synchronized (getTreeMutex()) {
+            synchronized (this) {
+                final boolean removed = this.getBase().getDataSource().useConnection(new ConnectionHandlerNoSetup<Boolean, SQLException>() {
+                    @Override
+                    public Boolean handle(SQLDataSource ds) throws SQLException {
+                        final DatabaseMetaData metaData = ds.getConnection().getMetaData();
+
+                        final ResultSet tableRS = metaData.getTables(getBase().getMDName(), getSchema().getName(), getName(), new String[] { "TABLE", "SYSTEM TABLE", "VIEW" });
+                        final boolean removed = !tableRS.next();
+                        if (!removed) {
+                            setType(tableRS.getString("TABLE_TYPE"));
+                            setComment(tableRS.getString("REMARKS"));
+
+                            final ResultSet rs = metaData.getColumns(getBase().getMDName(), getSchema().getName(), getName(), null);
+                            // call next() to position the cursor
+                            if (!rs.next()) {
+                                // empty table
+                                emptyFields();
+                            } else {
+                                fetchFields(metaData, rs);
+                            }
+                        }
+
+                        return removed;
+                    }
+                });
+                if (removed) {
+                    SQLBase.mustContain(this, Collections.<SQLTable> emptySet(), Collections.singleton(this), "tables");
+                    if (onlyUseSchema)
+                        getSchema().rmTableWithoutSysRootLock(getName());
+                    else
+                        getSchema().rmTable(getName());
                 } else {
-                    setType(tableRS.getString("TABLE_TYPE"));
-                    setComment(tableRS.getString("REMARKS"));
+                    this.clearNonPersistent();
+                    new JDBCStructureSource.TriggerQueryExecutor(null).apply(this);
+                    new JDBCStructureSource.ColumnsQueryExecutor(null).apply(this);
+                    try {
+                        new JDBCStructureSource.ConstraintsExecutor(null).apply(this);
+                    } catch (QueryExn e) {
+                        // constraints are not essential continue
+                        e.printStackTrace();
+                        this.addConstraint((Constraint) null);
+                    }
                 }
 
-                return null;
+                if (!onlyUseSchema) {
+                    // we might have added/dropped a foreign key even if the set of tables hasn't
+                    // changed
+                    this.getDBSystemRoot().descendantsChanged(removed);
+                    this.save();
+                }
             }
-        });
-        this.clearNonPersistent();
-        new JDBCStructureSource.TriggerQueryExecutor(null).apply(this);
-        new JDBCStructureSource.ColumnsQueryExecutor(null).apply(this);
-        try {
-            new JDBCStructureSource.ConstraintsExecutor(null).apply(this);
-        } catch (QueryExn e) {
-            // constraints are not essential continue
-            e.printStackTrace();
-            this.addConstraint((Constraint) null);
         }
-
-        // we might have added/dropped a foreign key but the set of tables hasn't changed
-        this.getDBSystemRoot().descendantsChanged(false);
-
-        this.save();
     }
 
     /**
@@ -320,25 +350,29 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         if (!this.isUs(rs))
             throw new IllegalStateException("rs current row does not describe " + this);
 
-        // we need to match the database ordering of fields
-        final LinkedHashMap<String, SQLField> newFields = new LinkedHashMap<String, SQLField>();
-        // fields
-        boolean hasNext = true;
-        while (hasNext && this.isUs(rs)) {
-            final SQLField f = SQLField.create(this, rs);
-            newFields.put(f.getName(), f);
-            hasNext = rs.next();
+        synchronized (getTreeMutex()) {
+            synchronized (this) {
+                // we need to match the database ordering of fields
+                final LinkedHashMap<String, SQLField> newFields = new LinkedHashMap<String, SQLField>();
+                // fields
+                boolean hasNext = true;
+                while (hasNext && this.isUs(rs)) {
+                    final SQLField f = SQLField.create(this, rs);
+                    newFields.put(f.getName(), f);
+                    hasNext = rs.next();
+                }
+
+                final List<String> newPrimaryKeys = new ArrayList<String>();
+                final ResultSet pkRS = metaData.getPrimaryKeys(this.getBase().getMDName(), this.getSchema().getName(), this.getName());
+                while (pkRS.next()) {
+                    newPrimaryKeys.add(pkRS.getString("COLUMN_NAME"));
+                }
+
+                this.setState(newFields, newPrimaryKeys, null);
+
+                return hasNext;
+            }
         }
-
-        final List<String> newPrimaryKeys = new ArrayList<String>();
-        final ResultSet pkRS = metaData.getPrimaryKeys(this.getBase().getMDName(), this.getSchema().getName(), this.getName());
-        while (pkRS.next()) {
-            newPrimaryKeys.add(pkRS.getString("COLUMN_NAME"));
-        }
-
-        this.setState(newFields, newPrimaryKeys, null);
-
-        return hasNext;
     }
 
     void emptyFields() {
@@ -361,15 +395,16 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     // must be called in setState() after fields have been set (for isRowable())
-    private int fetchUndefID() {
+    synchronized private int fetchUndefID() {
         final int res;
         if (isRowable()) {
-            if (!containsUndefID(this.getSchema(), this.getName())) {
+            final Tuple2<Boolean, Number> currentValue = getUndefID(this.getSchema(), this.getName());
+            if (!currentValue.get0()) {
                 // no row
                 res = this.findMinID();
             } else {
                 // a row
-                final Number id = getUndefID(this.getSchema(), this.getName());
+                final Number id = currentValue.get1();
                 res = id == null ? SQLRow.NONEXISTANT_ID : id.intValue();
             }
         } else
@@ -378,7 +413,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     // no undef id found
-    private int findMinID() {
+    synchronized private int findMinID() {
         final String debugUndef = "fwk_sql.debug.undefined_id";
         if (System.getProperty(debugUndef) != null)
             Log.get().warning("The system property '" + debugUndef + "' is deprecated, use the '" + UNDEFINED_ID_POLICY + "' metadata");
@@ -408,90 +443,102 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
 
     // * from Java
 
-    @SuppressWarnings("unchecked")
     void mutateTo(SQLTable table) {
-        this.clearNonPersistent();
-        this.setState(table.fields, table.getPKsNames(), table.undefinedID);
-        this.triggers.putAll(table.triggers);
-        if (table.constraints == null)
-            this.constraints = null;
-        else {
-            this.constraints.addAll(table.constraints);
+        synchronized (getTreeMutex()) {
+            synchronized (this) {
+                this.clearNonPersistent();
+                this.setState(table.fields, table.getPKsNames(), table.undefinedID);
+                this.triggers.putAll(table.triggers);
+                if (table.constraints == null)
+                    this.constraints = null;
+                else {
+                    this.constraints.addAll(table.constraints);
+                }
+                this.setType(table.getType());
+                this.setComment(table.getComment());
+            }
         }
-        this.setType(table.getType());
-        this.setComment(table.getComment());
     }
 
     // * update attributes
 
-    private void setState(Map<String, SQLField> fields, final List<String> primaryKeys, final Integer undef) {
-        if (!(fields instanceof LinkedHashMap) && !(fields instanceof OrderedMap))
-            throw new IllegalArgumentException("fields is of class " + fields.getClass());
+    static private <K, V> boolean isOrdered(Map<K, V> m) {
+        if (m instanceof CopyOnWriteMap)
+            return isOrdered(((CopyOnWriteMap<K, V>) m).copy(Collections.<K, V> emptyMap()));
+        return (m instanceof LinkedHashMap);
+    }
+
+    private synchronized void setState(Map<String, SQLField> fields, final List<String> primaryKeys, final Integer undef) {
+        assert isOrdered(fields);
         // checks new fields' table (don't use ==, see below)
         for (final SQLField newField : fields.values()) {
             if (!newField.getTable().getSQLName().equals(this.getSQLName()))
                 throw new IllegalArgumentException(newField + " is in table " + newField.getTable().getSQLName() + " not us: " + this.getSQLName());
         }
-        final CollectionChangeEventCreator c = this.createChildrenCreator();
+        synchronized (getTreeMutex()) {
+            synchronized (this) {
+                final CollectionChangeEventCreator c = this.createChildrenCreator();
 
-        if (!fields.keySet().containsAll(this.getFieldsName())) {
-            for (String removed : CollectionUtils.substract(this.getFieldsName(), fields.keySet())) {
-                ((SQLField) this.fields.remove(removed)).dropped();
+                if (!fields.keySet().containsAll(this.getFieldsName())) {
+                    for (String removed : CollectionUtils.substract(this.getFieldsName(), fields.keySet())) {
+                        ((SQLField) this.fields.remove(removed)).dropped();
+                    }
+                }
+
+                for (final SQLField newField : fields.values()) {
+                    if (getChildrenNames().contains(newField.getName())) {
+                        // re-use old instances by refreshing existing ones
+                        this.getField(newField.getName()).mutateTo(newField);
+                    } else {
+                        final SQLField fieldToAdd;
+                        // happens when the new structure is loaded in-memory
+                        // before the current one is mutated to it
+                        // (we already checked the fullname of the table)
+                        if (newField.getTable() != this)
+                            fieldToAdd = new SQLField(this, newField);
+                        else
+                            fieldToAdd = newField;
+                        this.fields.put(newField.getName(), fieldToAdd);
+                    }
+                }
+
+                this.primaryKeys.clear();
+                for (final String pk : primaryKeys)
+                    this.primaryKeys.add(this.getField(pk));
+                this.primaryKey = primaryKeys.size() == 1 ? this.getField(primaryKeys.get(0)) : null;
+                this.primaryKeyOK = primaryKeys.size() <= 1;
+
+                // don't fetch the ID now as it could be too early (e.g. we just created the table
+                // but haven't inserted the undefined row)
+                this.undefinedID = undef;
+                this.fireChildrenChanged(c);
             }
         }
-
-        for (final SQLField newField : fields.values()) {
-            if (getChildrenNames().contains(newField.getName())) {
-                // re-use old instances by refreshing existing ones
-                this.getField(newField.getName()).mutateTo(newField);
-            } else {
-                final SQLField fieldToAdd;
-                // happens when the new structure is loaded in-memory
-                // before the current one is mutated to it
-                // (we already checked the fullname of the table)
-                if (newField.getTable() != this)
-                    fieldToAdd = new SQLField(this, newField);
-                else
-                    fieldToAdd = newField;
-                this.fields.put(newField.getName(), fieldToAdd);
-            }
-        }
-
-        this.primaryKeys.clear();
-        for (final String pk : primaryKeys)
-            this.primaryKeys.add(this.getField(pk));
-        this.primaryKey = primaryKeys.size() == 1 ? this.getField(primaryKeys.get(0)) : null;
-        this.primaryKeyOK = primaryKeys.size() <= 1;
-
-        // don't fetch the ID now as it could be too early (e.g. we just created the table but
-        // haven't inserted the undefined row)
-        this.undefinedID = undef;
-        this.fireChildrenChanged(c);
     }
 
     // *** getter
 
-    void setType(String type) {
+    synchronized void setType(String type) {
         this.type = type;
     }
 
-    public final String getType() {
+    public synchronized final String getType() {
         return this.type;
     }
 
-    void setComment(String comm) {
+    synchronized void setComment(String comm) {
         this.comment = comm;
     }
 
-    public final String getComment() {
+    public synchronized final String getComment() {
         return this.comment;
     }
 
-    public final Trigger getTrigger(String name) {
+    public synchronized final Trigger getTrigger(String name) {
         return this.triggers.get(name);
     }
 
-    public final Map<String, Trigger> getTriggers() {
+    public synchronized final Map<String, Trigger> getTriggers() {
         return Collections.unmodifiableMap(this.triggers);
     }
 
@@ -500,7 +547,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return the constraints or <code>null</code> if they couldn't be retrieved.
      */
-    public final Set<Constraint> getAllConstraints() {
+    public synchronized final Set<Constraint> getAllConstraints() {
         return this.constraints == null ? null : Collections.unmodifiableSet(this.constraints);
     }
 
@@ -510,7 +557,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return the constraints or <code>null</code> if they couldn't be retrieved.
      */
-    public final Set<Constraint> getConstraints() {
+    public synchronized final Set<Constraint> getConstraints() {
         if (this.constraints == null)
             return null;
         final Set<Constraint> res = new HashSet<Constraint>();
@@ -530,7 +577,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @return the matching constraint, <code>null</code> if it cannot be found or if constraints
      *         couldn't be retrieved.
      */
-    public final Constraint getConstraint(ConstraintType type, List<String> cols) {
+    public synchronized final Constraint getConstraint(ConstraintType type, List<String> cols) {
         if (this.constraints == null)
             return null;
         for (final Constraint c : this.constraints) {
@@ -546,7 +593,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return <code>true</code> if rows of this table can be represented as SQLRow.
      */
-    public boolean isRowable() {
+    public synchronized boolean isRowable() {
         return this.getPrimaryKeys().size() == 1 && Number.class.isAssignableFrom(this.getKey().getType().getJavaType());
     }
 
@@ -564,7 +611,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @return the field which is the key of this table, or <code>null</code> if it doesn't exist.
      * @throws IllegalStateException if there's more than one primary key.
      */
-    public SQLField getKey() {
+    public synchronized SQLField getKey() {
         if (!this.primaryKeyOK)
             throw new IllegalStateException(this + " has more than 1 primary key: " + this.getPrimaryKeys());
         return this.primaryKey;
@@ -575,7 +622,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return the fields (SQLField) which are the keys of this table, can be empty.
      */
-    public Set<SQLField> getPrimaryKeys() {
+    public synchronized Set<SQLField> getPrimaryKeys() {
         return Collections.unmodifiableSet(this.primaryKeys);
     }
 
@@ -618,7 +665,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return toutes les clefs de cette table, can be empty.
      */
-    public Set<SQLField> getKeys() {
+    public synchronized Set<SQLField> getKeys() {
         if (this.keys == null) {
             // getForeignKeys cree un nouveau set a chaque fois, pas besoin de dupliquer
             this.keys = this.getForeignKeys();
@@ -642,22 +689,19 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     public SQLField getField(String fieldName) {
         SQLField res = this.getFieldRaw(fieldName);
         if (res == null) {
-            throw new IllegalArgumentException("unknown field " + fieldName + " in " + this.getName() + ". The table " + this.getName() + " contains the followins fields: " + this.fields.asList());
+            throw new IllegalArgumentException("unknown field " + fieldName + " in " + this.getName() + ". The table " + this.getName() + " contains the followins fields: " + this.getFieldsName());
         }
         return res;
     }
 
     /**
      * Return the field named <i>fieldName</i> in this table.
-     * <p>
-     * Note: the field names are case insensitive.
-     * </p>
      * 
      * @param fieldName the name of the field.
      * @return the matching field or <code>null</code> if none exists.
      */
     public SQLField getFieldRaw(String fieldName) {
-        return (SQLField) this.fields.get(fieldName);
+        return this.fields.get(fieldName);
     }
 
     /**
@@ -665,7 +709,6 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return a Set of the fields.
      */
-    @SuppressWarnings("unchecked")
     public Set<SQLField> getFields() {
         return new HashSet<SQLField>(this.fields.values());
     }
@@ -680,7 +723,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return this.getContentFields(false);
     }
 
-    public Set<SQLField> getContentFields(final boolean includeMetadata) {
+    public synchronized Set<SQLField> getContentFields(final boolean includeMetadata) {
         final Set<SQLField> res = this.getFields();
         res.removeAll(this.getPrimaryKeys());
         res.remove(this.getArchiveField());
@@ -701,7 +744,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @return les champs du contenu local de cette table.
      * @see #getContentFields()
      */
-    public Set<SQLField> getLocalContentFields() {
+    public synchronized Set<SQLField> getLocalContentFields() {
         Set<SQLField> res = this.getContentFields();
         res.removeAll(this.getForeignKeys());
         return res;
@@ -712,7 +755,6 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return the names of all the fields.
      */
-    @SuppressWarnings("unchecked")
     public Set<String> getFieldsName() {
         return this.fields.keySet();
     }
@@ -722,19 +764,13 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * 
      * @return a List of the fields.
      */
-    @SuppressWarnings("unchecked")
     public List<SQLField> getOrderedFields() {
         return new ArrayList<SQLField>(this.fields.values());
     }
 
     @Override
-    public SQLIdentifier getChild(String name) {
-        return this.getField(name);
-    }
-
-    @Override
-    public Set<String> getChildrenNames() {
-        return this.getFieldsName();
+    public Map<String, SQLField> getChildrenMap() {
+        return this.fields.getImmutable();
     }
 
     public final SQLTable getTable(String name) {
@@ -761,7 +797,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return this.getMaxOrder(true);
     }
 
-    BigDecimal getMaxOrder(Boolean useCache) {
+    synchronized BigDecimal getMaxOrder(Boolean useCache) {
         if (!this.isOrdered())
             throw new IllegalStateException(this + " is not ordered");
 
@@ -828,28 +864,34 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * SQLRow (la ligne incohérente), SQLField (le champ incohérent), SQLRow (la ligne invalide de
      * la table étrangère).
      * 
-     * @return une liste de triplet SQLRow, SQLField, SQLRow.
+     * @return a list of inconsistencies or <code>null</code> if this table is not rowable.
      */
-    public List<Object> checkIntegrity() {
-        final List<Object> inconsistencies = new ArrayList<Object>();
+    public List<Tuple3<SQLRow, SQLField, SQLRow>> checkIntegrity() {
+        final SQLField pk;
+        final Set<SQLField> fks;
+        synchronized (this) {
+            if (!this.isRowable())
+                return null;
+            pk = this.getKey();
+            fks = this.getForeignKeys();
+        }
 
+        final List<Tuple3<SQLRow, SQLField, SQLRow>> inconsistencies = new ArrayList<Tuple3<SQLRow, SQLField, SQLRow>>();
         // si on a pas de relation externe, c'est OK
-        if (!this.getKeys().isEmpty()) {
+        if (!fks.isEmpty()) {
             SQLSelect sel = new SQLSelect(this.getBase());
             // on ne vérifie pas les lignes archivées mais l'indéfinie oui.
             sel.setExcludeUndefined(false);
-            sel.addAllSelect(this.getKeys());
+            sel.addSelect(pk);
+            sel.addAllSelect(fks);
             this.getBase().getDataSource().execute(sel.asString(), new ResultSetHandler() {
                 public Object handle(ResultSet rs) throws SQLException {
                     while (rs.next()) {
-                        Iterator<SQLField> iter = SQLTable.this.getForeignKeys().iterator();
-                        while (iter.hasNext()) {
-                            SQLField fk = iter.next();
-                            SQLRow pb = SQLTable.this.checkValidity(fk.getName(), rs.getInt(fk.getFullName()));
+                        for (final SQLField fk : fks) {
+                            final SQLRow pb = SQLTable.this.checkValidity(fk.getName(), rs.getInt(fk.getFullName()));
                             if (pb != null) {
-                                inconsistencies.add(SQLTable.this.getRow(rs.getInt(getKey().getFullName())));
-                                inconsistencies.add(fk);
-                                inconsistencies.add(pb);
+                                final SQLRow row = SQLTable.this.getRow(rs.getInt(pk.getFullName()));
+                                inconsistencies.add(Tuple3.create(row, fk, pb));
                             }
                         }
                     }
@@ -941,23 +983,33 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @return the empty id or {@link SQLRow#NONEXISTANT_ID} if this table has no UNDEFINED_ID.
      */
     public final int getUndefinedID() {
-        synchronized (UNDEFINED_IDs) {
-            if (this.undefinedID == null) {
-                if (this.getSchema().isFetchAllUndefinedIDs()) {
-                    // init all undefined, MAYBE one request with UNION ALL
-                    for (final SQLTable sibling : this.getSchema().getTables()) {
+        Integer res = null;
+        synchronized (this) {
+            if (this.undefinedID != null)
+                res = this.undefinedID;
+        }
+        if (res == null) {
+            if (this.getSchema().isFetchAllUndefinedIDs()) {
+                // init all undefined, MAYBE one request with UNION ALL
+                for (final SQLTable sibling : this.getSchema().getTables()) {
+                    synchronized (sibling) {
                         if (sibling.undefinedID == null)
                             sibling.undefinedID = sibling.fetchUndefID();
+                        if (sibling == this)
+                            res = sibling.undefinedID;
                     }
-                    // save all tables
-                    this.getBase().save(this.getSchema().getName());
-                } else {
-                    this.undefinedID = this.fetchUndefID();
-                    this.save();
                 }
+                // save all tables
+                this.getBase().save(this.getSchema().getName());
+            } else {
+                res = this.fetchUndefID();
+                synchronized (this) {
+                    this.undefinedID = res;
+                }
+                this.save();
             }
-            return this.undefinedID.intValue();
         }
+        return res.intValue();
     }
 
     public final Number getUndefinedIDNumber() {
@@ -969,7 +1021,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     // save just this table
-    private final void save() {
+    final void save() {
         // (for now save all tables)
         this.getBase().save(this.getSchema().getName());
     }
@@ -1123,8 +1175,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         fireTableModified(Tuple2.create(dispatchingListeners.iterator(), evt));
     }
 
-    @SuppressWarnings("unchecked")
-    public String toXML() {
+    public synchronized String toXML() {
         final StringBuilder sb = new StringBuilder(16000);
         sb.append("<table name=\"");
         sb.append(JDOMUtils.OUTPUTTER.escapeAttributeEntities(this.getName()));
@@ -1137,12 +1188,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
             sb.append('"');
         }
 
-        synchronized (UNDEFINED_IDs) {
-            if (this.undefinedID != null) {
-                sb.append(" undefID=\"");
-                sb.append(this.undefinedID);
-                sb.append('"');
-            }
+        if (this.undefinedID != null) {
+            sb.append(" undefID=\"");
+            sb.append(this.undefinedID);
+            sb.append('"');
         }
 
         if (getType() != null) {
@@ -1217,7 +1266,14 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return this.equalsDesc(o, null, compareName);
     }
 
-    public String equalsDesc(SQLTable o, SQLSystem otherSystem, boolean compareName) {
+    // ATTN otherSystem can be null, meaning compare exactly (even if the system of this table and
+    // the system of the other table do not support the same features and thus tables cannot be
+    // equal)
+    // if otherSystem isn't null, then this method is more lenient and return true if the two tables
+    // are the closest possible. NOTE that otherSystem is not required to be the system of the other
+    // table, it might be something else if the other table was loaded into a system different than
+    // the one which created the dump.
+    public synchronized String equalsDesc(SQLTable o, SQLSystem otherSystem, boolean compareName) {
         if (o == null)
             return "other table is null";
         final boolean name = !compareName || this.getName().equals(o.getName());
@@ -1240,7 +1296,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return this.equalsChildren(o, otherSystem);
     }
 
-    private String equalsChildren(SQLTable o, SQLSystem otherSystem) {
+    private synchronized String equalsChildren(SQLTable o, SQLSystem otherSystem) {
         if (!this.getChildrenNames().equals(o.getChildrenNames()))
             return "fields differences: " + this.getChildrenNames() + "\n" + o.getChildrenNames();
 
@@ -1263,9 +1319,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
                 return "unequal path size : " + thisPath + " != " + oPath;
             if (!thisPath.getName().equals(oPath.getName()))
                 return "unequal referenced table name : " + thisPath.getName() + " != " + oPath.getName();
-            if (!l.getUpdateRule().equals(ol.getUpdateRule()))
+            final SQLSystem thisSystem = this.getServer().getSQLSystem();
+            if (!getRule(l.getUpdateRule(), thisSystem, otherSystem).equals(getRule(ol.getUpdateRule(), thisSystem, otherSystem)))
                 return "unequal update rule for " + l + ": " + l.getUpdateRule() + " != " + ol.getUpdateRule();
-            if (!l.getDeleteRule().equals(ol.getDeleteRule()))
+            if (!getRule(l.getDeleteRule(), thisSystem, otherSystem).equals(getRule(ol.getDeleteRule(), thisSystem, otherSystem)))
                 return "unequal delete rule for " + l + ": " + l.getDeleteRule() + " != " + ol.getDeleteRule();
         }
 
@@ -1284,6 +1341,17 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return null;
     }
 
+    private final Rule getRule(Rule r, SQLSystem thisSystem, SQLSystem otherSystem) {
+        // compare exactly
+        if (otherSystem == null)
+            return r;
+        // see http://code.google.com/p/h2database/issues/detail?id=352
+        if (r == Rule.NO_ACTION && (thisSystem == SQLSystem.H2 || otherSystem == SQLSystem.H2))
+            return Rule.RESTRICT;
+        else
+            return r;
+    }
+
     /**
      * Compare the fields of this table, ignoring foreign constraints.
      * 
@@ -1291,7 +1359,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @param otherSystem the system <code>o</code> originates from, can be <code>null</code>.
      * @return <code>null</code> if each fields of this exists in <code>o</code> and is equal to it.
      */
-    public final String equalsChildrenNoLink(SQLTable o, SQLSystem otherSystem) {
+    public synchronized final String equalsChildrenNoLink(SQLTable o, SQLSystem otherSystem) {
         for (final SQLField f : this.getFields()) {
             final SQLField oField = o.getField(f.getName());
             final boolean isPrimary = this.getPrimaryKeys().contains(f);
@@ -1308,7 +1376,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return this.getCreateTable(this.getServer().getSQLSystem());
     }
 
-    public final SQLCreateMoveableTable getCreateTable(final SQLSystem system) {
+    public synchronized final SQLCreateMoveableTable getCreateTable(final SQLSystem system) {
         final SQLSyntax syntax = SQLSyntax.get(system);
         final SQLCreateMoveableTable res = new SQLCreateMoveableTable(syntax, this.getName());
         for (final SQLField f : this.getOrderedFields()) {
@@ -1354,7 +1422,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         return this.getPKsNames(new ArrayList<String>());
     }
 
-    public final <C extends Collection<String>> C getPKsNames(C pks) {
+    public synchronized final <C extends Collection<String>> C getPKsNames(C pks) {
         for (final SQLField f : this.getPrimaryKeys()) {
             pks.add(f.getName());
         }
@@ -1388,7 +1456,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @return the list of indexes.
      * @throws SQLException if an error occurs.
      */
-    public final List<Index> getIndexes() throws SQLException {
+    public synchronized final List<Index> getIndexes() throws SQLException {
         // in pg, a unique constraint creates a unique index that is not removeable
         // (except of course if we drop the constraint)
         // in mysql unique constraints and indexes are one and the same thing

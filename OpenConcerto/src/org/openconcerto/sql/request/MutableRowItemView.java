@@ -19,9 +19,6 @@ import java.util.Set;
 
 public interface MutableRowItemView extends SQLRowItemView {
 
-    // TODO rename to getLabel
-    public void setDescription(String s);
-
     public void init(String sqlName, Set<SQLField> fields);
 
 }

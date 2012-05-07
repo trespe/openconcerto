@@ -73,18 +73,23 @@ public class CellStyle extends StyleStyle {
         protected Element evaluateConditions(final StyledNode<CellStyle, ?> styledNode, final List<Element> styleMaps) {
             final Cell<?> cell = (Cell<?>) styledNode;
             final Object cellValue = cell.getValue();
+            final boolean cellIsEmpty = cell.isEmpty();
             for (final Element styleMap : styleMaps) {
                 final String condition = styleMap.getAttributeValue("condition", getVersion().getSTYLE()).trim();
                 Matcher matcher = cellContentPatrn.matcher(condition);
                 if (matcher.matches()) {
-                    if (RelationalOperator.getInstance(matcher.group(1)).compare(cellValue, parse(matcher.group(2))))
+                    final Object parsed = parse(matcher.group(2));
+                    final Object usedCellValue = getValue(cellIsEmpty, cellValue, parsed);
+                    if (RelationalOperator.getInstance(matcher.group(1)).compare(usedCellValue, parsed))
                         return styleMap;
                 } else if ((matcher = cellContentBetweenPatrn.matcher(condition)).matches()) {
                     final boolean wantBetween = condition.startsWith("cell-content-is-between");
                     assert wantBetween ^ condition.startsWith("cell-content-is-not-between");
                     final Object o1 = parse(matcher.group(1));
                     final Object o2 = parse(matcher.group(2));
-                    final boolean isBetween = CompareUtils.compare(cellValue, o1) >= 0 && CompareUtils.compare(cellValue, o2) <= 0;
+                    assert o1.getClass() == o2.getClass();
+                    final Object usedCellValue = getValue(cellIsEmpty, cellValue, o1);
+                    final boolean isBetween = CompareUtils.compare(usedCellValue, o1) >= 0 && CompareUtils.compare(usedCellValue, o2) <= 0;
                     if (isBetween == wantBetween)
                         return styleMap;
                 } else {
@@ -123,12 +128,16 @@ public class CellStyle extends StyleStyle {
         return (DataStyle) Style.getReferencedStyle(getPackage(), name);
     }
 
+    final DataStyle getDataStyle() {
+        return getDataStyle(this.getElement().getAttribute("data-style-name", this.getSTYLE()));
+    }
+
     // return value since it can be changed depending on the data style.
     // e.g. in OO if we input 12:30 in an empty cell, it will have value-type="time"
     // but if we had previously set a number style (like 0,00) it would have been converted to 0,52
     // value-type="float"
     final Tuple3<DataStyle, ODValueType, Object> getDataStyle(final Object cellValue, final ODValueType valueType, final boolean onlyCast) {
-        DataStyle res = getDataStyle(this.getElement().getAttribute("data-style-name", this.getSTYLE()));
+        DataStyle res = getDataStyle();
         ODValueType returnValueType = valueType;
         Object returnCellValue = cellValue;
         // if the type is null, then the cell is empty so don't try to convert the cell value or
@@ -178,6 +187,22 @@ public class CellStyle extends StyleStyle {
             return escapedQuotePatrn.matcher(val.substring(1, val.length() - 1)).replaceAll("\"");
         else
             return new BigDecimal(val);
+    }
+
+    static private Object getDefault(Class<?> clazz) {
+        if (clazz == Boolean.class)
+            return Boolean.FALSE;
+        else if (clazz == String.class)
+            return "";
+        else if (clazz == BigDecimal.class)
+            return BigDecimal.ZERO;
+        else
+            throw new IllegalStateException("Unknown default for " + clazz);
+    }
+
+    // LO uses the default value for the type when the cell is empty
+    static private Object getValue(boolean cellIsEmpty, Object cellValue, Object parsed) {
+        return !cellIsEmpty ? cellValue : getDefault(parsed.getClass());
     }
 
     public final Color getBackgroundColor() {

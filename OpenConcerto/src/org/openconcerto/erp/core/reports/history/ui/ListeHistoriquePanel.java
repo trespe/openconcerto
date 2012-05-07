@@ -88,6 +88,7 @@ public class ListeHistoriquePanel extends JPanel {
     private Map<SQLTable, SQLField> listFieldMap = new HashMap<SQLTable, SQLField>();
     private Map<String, Where> whereList = new HashMap<String, Where>();
     private static Map<SQLElement, Class<? extends AbstractSheetXml>> elementSheet = new HashMap<SQLElement, Class<? extends AbstractSheetXml>>();
+    private String undefinedLabel;
 
     static {
         SQLElementDirectory dir = Configuration.getInstance().getDirectory();
@@ -103,6 +104,11 @@ public class ListeHistoriquePanel extends JPanel {
             int selectIndex = ListeHistoriquePanel.this.jListePanel.getSelectedIndex();
 
             SQLRowAccessor row = ListeHistoriquePanel.this.jListePanel.getModel().getRowAt(selectIndex);
+
+            if ((row == null || row.isUndefined()) && undefinedLabel == null) {
+                return;
+            }
+
             int id = SQLRow.NONEXISTANT_ID;
             if (row != null) {
                 id = row.getID();
@@ -167,6 +173,10 @@ public class ListeHistoriquePanel extends JPanel {
         }
     };
 
+    public ListeHistoriquePanel(final String title, final SQLTable tableList, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
+        this(title, tableList, listTableOnglet, panelBottom, listFieldMap, "Tous");
+    }
+
     // TODO verifier que les tables contiennent bien la clef etrangere
     /**
      * @param title titre de la JList
@@ -175,8 +185,10 @@ public class ListeHistoriquePanel extends JPanel {
      * @param panelBottom panel à afficher en bas de la frame
      * @param listFieldMap jointure d'une table pour utiliser le filtre si la table ne contient pas
      *        de foreignKey pointant sur tableList
+     * @param undefinedLabel label pour l'indéfini permettant de tout sélectionner, null si
+     *        l'undefined n'est pas à inclure.
      */
-    public ListeHistoriquePanel(final String title, final SQLTable tableList, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
+    public ListeHistoriquePanel(final String title, final SQLTable tableList, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap, String undefinedLabel) {
         super();
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -297,7 +309,7 @@ public class ListeHistoriquePanel extends JPanel {
         SQLElement e = Configuration.getInstance().getDirectory().getElement(tableList);
 
         List<String> fields = getListSQLField(e.getComboRequest().getFields());
-        this.jListePanel = new JListSQLTablePanel(tableList, fields, "Tous");
+        this.jListePanel = new JListSQLTablePanel(tableList, fields, undefinedLabel);
 
         // Right panel
         JPanel rightPanel = new JPanel();

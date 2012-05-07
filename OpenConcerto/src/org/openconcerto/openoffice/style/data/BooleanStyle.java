@@ -46,6 +46,13 @@ public class BooleanStyle extends DataStyle {
             return null;
     }
 
+    public static final String toString(final boolean b, final Locale locale, final boolean lenient) {
+        final ResourceBundle bundle = ResourceBundle.getBundle(I18nUtils.RSRC_BASENAME, locale);
+        if (!bundle.getLocale().getLanguage().equals(locale.getLanguage()))
+            reportError("Boolean not localized", lenient);
+        return bundle.getString(I18nUtils.getBooleanKey(b)).toUpperCase(locale);
+    }
+
     public BooleanStyle(final ODPackage pkg, Element elem) {
         super(pkg, elem, ODValueType.BOOLEAN);
     }
@@ -68,10 +75,7 @@ public class BooleanStyle extends DataStyle {
                 if (elem.getName().equals("text")) {
                     sb.append(elem.getText());
                 } else if (elem.getName().equals("boolean")) {
-                    final ResourceBundle bundle = ResourceBundle.getBundle(I18nUtils.RSRC_BASENAME, styleLocale);
-                    if (!bundle.getLocale().getLanguage().equals(styleLocale.getLanguage()))
-                        reportError("Boolean not localized", lenient);
-                    sb.append(bundle.getString(I18nUtils.getBooleanKey(b)).toUpperCase(styleLocale));
+                    sb.append(toString(b, styleLocale, lenient));
                 }
             }
         }

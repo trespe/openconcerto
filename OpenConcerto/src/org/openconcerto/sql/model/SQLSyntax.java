@@ -46,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.TreeMap;
 
 /**
  * A class that abstract the syntax of different SQL systems. Type is an SQL datatype like 'int' or
@@ -732,9 +733,10 @@ public abstract class SQLSyntax {
 
     public final void storeData(final DBRoot r, final Set<String> tableNames, final File dir) {
         dir.mkdirs();
-        final Set<String> tables = tableNames == null ? r.getChildrenNames() : tableNames;
-        for (final String table : tables) {
-            final SQLTable t = r.getTable(table);
+        final Map<String, SQLTable> tables = new TreeMap<String, SQLTable>(r.getTablesMap());
+        if (tableNames != null)
+            tables.keySet().retainAll(tableNames);
+        for (final SQLTable t : tables.values()) {
             _storeData(t, new File(dir, t.getName() + DATA_EXT));
         }
     }

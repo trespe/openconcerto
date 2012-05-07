@@ -23,6 +23,8 @@ import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CopyUtils;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.utils.PropertiesUtils;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.StringInputStream;
 import org.openconcerto.utils.StringUtils;
@@ -55,6 +57,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Properties;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 
@@ -74,11 +77,15 @@ import org.jdom.output.XMLOutputter;
  */
 public class ODPackage {
 
-    // use raw format, otherwise spaces are added to every spreadsheet cell
-    private static final XMLOutputter OUTPUTTER = new XMLOutputter(Format.getRawFormat());
     static final String MIMETYPE_ENTRY = "mimetype";
     /** Normally mimetype contains only ASCII characters */
     static final Charset MIMETYPE_ENC = Charset.forName("UTF-8");
+
+    // not a constant since XMLOutputter isn't thread-safe
+    static final XMLOutputter createOutputter() {
+        // use raw format, otherwise spaces are added to every spreadsheet cell
+        return new XMLOutputter(Format.getRawFormat());
+    }
 
     /**
      * Root element of an OpenDocument document. See section 22.2.1 of v1.2-part1-cd04.
@@ -336,6 +343,7 @@ public class ODPackage {
     private final Map<String, ODPackageEntry> files;
     private ContentTypeVersioned type;
     private XMLFormatVersion version;
+    private ODMeta meta;
     private File file;
     private ODDocument doc;
 
@@ -343,6 +351,7 @@ public class ODPackage {
         this.files = new HashMap<String, ODPackageEntry>();
         this.type = null;
         this.version = null;
+        this.meta = null;
         this.file = null;
         this.doc = null;
     }
@@ -423,6 +432,7 @@ public class ODPackage {
         }
         this.type = o.type;
         this.version = o.version;
+        this.meta = null;
         this.file = o.file;
         this.doc = null;
     }
@@ -436,10 +446,7 @@ public class ODPackage {
     }
 
     private final File addExt(File f) {
-        final String ext = '.' + this.getContentType().getExtension();
-        if (!f.getName().endsWith(ext))
-            f = new File(f.getParentFile(), f.getName() + ext);
-        return f;
+        return this.getContentType().addExt(f, false);
     }
 
     /**
@@ -656,12 +663,26 @@ public class ODPackage {
     }
 
     public final ODMeta getMeta() {
-        final ODMeta meta;
-        if (this.getEntries().contains(META.getZipEntry()))
-            meta = ODMeta.create(this.getXMLFile(META.getZipEntry()));
-        else
-            meta = ODMeta.create(this.getContent());
-        return meta;
+        return this.getMeta(false);
+    }
+
+    public final ODMeta getMeta(final boolean create) {
+        if (this.meta == null) {
+            if (this.isSingle()) {
+                this.meta = ODMeta.create(this.getContent(), create);
+            } else {
+                final String metaEntry = META.getZipEntry();
+                ODXMLDocument xmlFile = this.getXMLFile(metaEntry);
+                if (xmlFile == null && create) {
+                    this.putFile(metaEntry, RootElement.META.createDocument(getFormatVersion()));
+                    xmlFile = this.getXMLFile(metaEntry);
+                }
+                if (xmlFile != null) {
+                    this.meta = ODMeta.create(xmlFile, create);
+                }
+            }
+        }
+        return this.meta;
     }
 
     /**
@@ -883,9 +904,11 @@ public class ODPackage {
      */
     public ODSingleXMLDocument toSingle() {
         if (!this.isSingle()) {
+            this.meta = null;
             return ODSingleXMLDocument.create(this);
-        } else
+        } else {
             return (ODSingleXMLDocument) this.getContent();
+        }
     }
 
     public final boolean isSingle() {
@@ -902,13 +925,15 @@ public class ODPackage {
     public final boolean split() {
         final boolean res;
         if (this.isSingle()) {
+            // store now, as split() empties us
+            final XMLFormatVersion version = getFormatVersion();
             final Map<RootElement, Document> split = ((ODSingleXMLDocument) this.getContent()).split();
             // from 22.2.1 (D1.1.2) of OpenDocument-v1.2-part1-cd04
             assert (split.containsKey(RootElement.CONTENT) || split.containsKey(RootElement.STYLES)) && RootElement.getPackageElements().containsAll(split.keySet()) : "wrong elements " + split;
-            final XMLFormatVersion version = getFormatVersion();
             for (final Entry<RootElement, Document> e : split.entrySet()) {
                 this.putFile(e.getKey().getZipEntry(), new ODXMLDocument(e.getValue(), version));
             }
+            this.meta = null;
             res = true;
         } else {
             res = false;
@@ -930,12 +955,29 @@ public class ODPackage {
             return;
         }
 
+        // set the generator
+        ProductInfo productInfo = ProductInfo.getInstance();
+        if (productInfo == null) {
+            // do *not* use "/product.properties" as it might interfere with products using this
+            // framework
+            final Properties props = PropertiesUtils.createFromResource(this.getClass(), "product.properties");
+            props.put(ProductInfo.NAME, this.getClass().getName());
+            productInfo = new ProductInfo(props);
+        }
+        final String generator;
+        if (productInfo.getVersion() == null)
+            generator = productInfo.getName();
+        else
+            generator = productInfo.getName() + "/" + productInfo.getVersion();
+        this.getMeta(true).setGenerator(generator);
+
         final Zip z = new Zip(out);
 
         // magic number, see section 17.4
         z.zipNonCompressed(MIMETYPE_ENTRY, this.getMimeType().getBytes(MIMETYPE_ENC));
 
         final Manifest manifest = new Manifest(this.getVersion(), this.getMimeType());
+        final XMLOutputter outputter = createOutputter();
         for (final String name : this.files.keySet()) {
             // added at the end
             if (name.equals(MIMETYPE_ENTRY) || name.equals(Manifest.ENTRY_NAME))
@@ -946,7 +988,7 @@ public class ODPackage {
             if (val != null) {
                 if (val instanceof ODXMLDocument) {
                     final OutputStream o = z.createEntry(name);
-                    OUTPUTTER.output(((ODXMLDocument) val).getDocument(), o);
+                    outputter.output(((ODXMLDocument) val).getDocument(), o);
                     o.close();
                 } else {
                     z.zip(name, (byte[]) val, entry.isCompressed());

@@ -26,20 +26,20 @@ import org.openconcerto.erp.core.finance.payment.component.ModeDeReglementSQLCom
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.ui.SaisieVenteFactureItemTable;
-import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.generationEcritures.GenerationMvtSaisieVenteFacture;
 import org.openconcerto.erp.model.BanqueModifiedListener;
 import org.openconcerto.erp.model.ISQLCompteSelector;
 import org.openconcerto.erp.panel.PanelOOSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.erp.preferences.ModeReglementDefautPrefPanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.ElementSQLObject;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLBase;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -48,6 +48,8 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
+import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.ISQLElementWithCodeSelector;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
@@ -61,7 +63,6 @@ import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.text.SimpleDocumentListener;
@@ -84,6 +85,7 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -224,9 +226,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         c.weightx = 1;
         c.fill = GridBagConstraints.NONE;
         final JDate dateSaisie = new JDate(true);
-
         this.add(dateSaisie, c);
-
 
         // Ligne 2 : reference
         c.gridx = 0;
@@ -247,20 +247,20 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         this.addSQLObject(textLibelle, "NOM");
         c.fill = GridBagConstraints.HORIZONTAL;
         this.comboCommercial = new ElementComboBox(false);
-            // Commercial
-            String field;
-                field = "ID_COMMERCIAL";
-            c.gridx++;
-            c.weightx = 0;
-            c.fill = GridBagConstraints.HORIZONTAL;
-            this.add(new JLabel(getLabelFor(field), SwingConstants.RIGHT), c);
+        // Commercial
+        String field;
+            field = "ID_COMMERCIAL";
+        c.gridx++;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel(getLabelFor(field), SwingConstants.RIGHT), c);
 
-            c.gridx++;
-            c.weightx = 1;
-            c.fill = GridBagConstraints.NONE;
+        c.gridx++;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.NONE;
 
-            this.add(this.comboCommercial, c);
-            this.addRequiredSQLObject(this.comboCommercial, field);
+        this.add(this.comboCommercial, c);
+        this.addRequiredSQLObject(this.comboCommercial, field);
         // Client
         c.gridx = 0;
         c.gridy++;
@@ -275,12 +275,49 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
 
         this.add(this.comboClient, c);
 
+        if (getTable().contains("ID_ECHEANCIER_CCI")) {
+            // Echeancier
+            c.gridx++;
+            c.weightx = 0;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            this.add(new JLabel(getLabelFor("ID_ECHEANCIER_CCI"), SwingConstants.RIGHT), c);
+
+            c.gridx++;
+            c.weightx = 1;
+            c.fill = GridBagConstraints.NONE;
+            final ElementComboBox echeancier = new ElementComboBox();
+            final SQLElement contactElement = Configuration.getInstance().getDirectory().getElement("ECHEANCIER_CCI");
+            echeancier.init(contactElement, new ComboSQLRequest(contactElement.getComboRequest()));
+            DefaultGridBagConstraints.lockMinimumSize(echeancier);
+            this.addView(echeancier, "ID_ECHEANCIER_CCI");
+
+            selAffaire.addValueListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(PropertyChangeEvent arg0) {
+                    // TODO Raccord de méthode auto-généré
+                    if (selAffaire.getSelectedRow() != null) {
+                        echeancier.getRequest().setWhere(new Where(contactElement.getTable().getField("ID_AFFAIRE"), "=", selAffaire.getSelectedRow().getID()));
+
+                        if (!isFilling()) {
+                            SQLRow rowPole = selAffaire.getSelectedRow().getForeignRow("ID_POLE_PRODUIT");
+                            comboCommercial.setValue(rowPole);
+                        }
+                    } else {
+                        echeancier.getRequest().setWhere(null);
+                    }
+                }
+            });
+            this.add(echeancier, c);
+
+        }
+
         this.comboClient.addValueListener(this.changeClientListener);
 
         this.comboAdresse = new ElementComboBox();
         this.comboAdresse.setAddIconVisible(false);
         this.comboAdresse.setListIconVisible(false);
-            JLabel labelAdresse = new JLabel(getLabelFor("ID_ADRESSE"));
+            JLabel labelAdresse = new JLabel(getLabelFor("ID_ADRESSE"), SwingConstants.RIGHT);
             c.gridy++;
             c.gridx = 0;
             c.gridwidth = 1;
@@ -292,6 +329,14 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             c.gridwidth = GridBagConstraints.REMAINDER;
             c.weightx = 1;
             this.add(this.comboAdresse, c);
+
+        // Acompte
+        this.checkAcompte = new JCheckBox(getLabelFor("ACOMPTE"));
+        c.gridx++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        // this.add(this.checkAcompte, c);
+        c.gridwidth = 1;
+        this.addView(this.checkAcompte, "ACOMPTE");
 
         Boolean bCompteCli = Boolean.valueOf(DefaultNXProps.getInstance().getStringProperty("HideCompteFacture"));
         if (!bCompteCli) {
@@ -345,10 +390,6 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         setCompteServiceVisible(!(bServ != null && !bServ.booleanValue()));
 
 
-        // Acompte
-        this.checkAcompte = new JCheckBox(getLabelFor("ACOMPTE"));
-        this.addView(this.checkAcompte, "ACOMPTE");
-
         final JPanel pAcompte = new JPanel();
         final DeviseField textAcompteHT = new DeviseField();
         pAcompte.add(new JLabel("Acompte HT"));
@@ -381,7 +422,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             c.weightx = 0;
             c.weighty = 0;
             c.gridwidth = 1;
-            this.add(new JLabel("Tarif à appliquer"), c);
+            this.add(new JLabel("Tarif à appliquer", SwingConstants.RIGHT), c);
             c.gridx++;
             c.gridwidth = GridBagConstraints.REMAINDER;
 
@@ -401,13 +442,13 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         c.weightx = 1;
         c.weighty = 1;
         c.gridwidth = GridBagConstraints.REMAINDER;
-
         c.fill = GridBagConstraints.BOTH;
-        this.add(this.tableFacture, c);
+
+        ITextArea infos = new ITextArea(4, 4);
+            this.add(this.tableFacture, c);
 
         // FIXME
         this.addView(this.tableFacture.getRowValuesTable(), "");
-
 
         /*******************************************************************************************
          * * MODE DE REGLEMENT
@@ -484,9 +525,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         addRequiredSQLObject(fieldService, "T_SERVICE");
         JTextField poids = new JTextField();
         addSQLObject(poids, "T_POIDS");
-        totalTTC = new TotalPanel(this.tableFacture.getRowValuesTable(), this.tableFacture.getPrixTotalHTElement(), this.tableFacture.getPrixTotalTTCElement(), this.tableFacture.getHaElement(),
-                this.tableFacture.getQteElement(), fieldHT, fieldTVA, this.fieldTTC, this.textPortHT, this.textRemiseHT, fieldService, this.tableFacture.getPrixServiceElement(), null, fieldTHA,
-                fieldDevise, this.tableFacture.getTableElementTotalDevise(), poids, this.tableFacture.getPoidsTotalElement());
+        totalTTC = new TotalPanel(this.tableFacture, fieldHT, fieldTVA, this.fieldTTC, this.textPortHT, this.textRemiseHT, fieldService, fieldTHA, fieldDevise, poids, null);
         DefaultGridBagConstraints.lockMinimumSize(totalTTC);
         cBottom.gridx++;
         cBottom.weightx = 1;
@@ -513,19 +552,18 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         this.add(createPanelAvoir(), c);
 
         // Infos
-        c.gridy++;
-        c.gridx = 0;
-        c.gridwidth = 4;
-        c.fill = GridBagConstraints.BOTH;
-        this.add(new TitledSeparator(getLabelFor("INFOS")), c);
+            c.gridy++;
+            c.gridx = 0;
+            c.gridwidth = 4;
+            c.fill = GridBagConstraints.BOTH;
+            this.add(new TitledSeparator(getLabelFor("INFOS")), c);
 
-        ITextArea infos = new ITextArea(4, 4);
-        c.gridy++;
+            c.gridy++;
 
-        final JScrollPane comp = new JScrollPane(infos);
-        infos.setBorder(null);
-        DefaultGridBagConstraints.lockMinimumSize(comp);
-        this.add(comp, c);
+            final JScrollPane comp = new JScrollPane(infos);
+            infos.setBorder(null);
+            DefaultGridBagConstraints.lockMinimumSize(comp);
+            this.add(comp, c);
 
         this.panelOO = new PanelOOSQLComponent(this);
         c.gridy++;
@@ -842,7 +880,8 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         if (compteSel != null) {
             this.compteSel.rmValueListener(this.changeCompteListener);
         }
-        this.comboClient.rmValueListener(this.listenerModeReglDefaut);
+        if (this.comboClient != null)
+            this.comboClient.rmValueListener(this.listenerModeReglDefaut);
         this.rowSelected = r;
         if (r != null) {
             this.textNumeroUnique.setIdSelected(r.getID());
@@ -860,8 +899,10 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
                 setAcompte(false);
             }
         }
-        this.comboClient.addValueListener(this.listenerModeReglDefaut);
-        this.comboClient.addValueListener(this.changeClientListener);
+        if (this.comboClient != null) {
+            this.comboClient.addValueListener(this.listenerModeReglDefaut);
+            this.comboClient.addValueListener(this.changeClientListener);
+        }
         if (this.compteSel != null) {
             this.compteSel.addValueListener(this.changeCompteListener);
         } // nomClient.addValueListener(changeClientListener);
@@ -899,9 +940,11 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
                 // incrémentation du numéro auto
                 if (NumerotationAutoSQLElement.getNextNumero(SaisieVenteFactureSQLElement.class, rowFacture.getDate("DATE").getTime()).equalsIgnoreCase(this.textNumeroUnique.getText().trim())) {
                     SQLRowValues rowVals = new SQLRowValues(this.tableNum);
-                    int val = this.tableNum.getRow(2).getInt("FACT_START");
+
+                    String labelNumberFor = NumerotationAutoSQLElement.getLabelNumberFor(SaisieVenteFactureSQLElement.class);
+                    int val = this.tableNum.getRow(2).getInt(labelNumberFor);
                     val++;
-                    rowVals.put("FACT_START", Integer.valueOf(val));
+                    rowVals.put(labelNumberFor, Integer.valueOf(val));
 
                     try {
                         rowVals.update(2);
@@ -912,26 +955,27 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             } else {
                 if (JOptionPane.showConfirmDialog(this, "Attention en modifiant cette facture, vous supprimerez les chéques et les échéances associés. Continuer?", "Modification de facture",
                         JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+                    if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
+                        // On efface les anciens mouvements de stocks
+                        SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
+                        sel.addSelect(eltMvtStock.getTable().getField("ID"));
+                        Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", getSelectedID());
+                        Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+                        sel.setWhere(w.and(w2));
 
-                    // On efface les anciens mouvements de stocks
-                    SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
-                    sel.addSelect(eltMvtStock.getTable().getField("ID"));
-                    Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", getSelectedID());
-                    Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
-                    sel.setWhere(w.and(w2));
-
-                    List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
-                    if (l != null) {
-                        for (int i = 0; i < l.size(); i++) {
-                            Object[] tmp = (Object[]) l.get(i);
-                            try {
-                                eltMvtStock.archive(((Number) tmp[0]).intValue());
-                            } catch (SQLException e) {
-                                e.printStackTrace();
+                        List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+                        if (l != null) {
+                            for (int i = 0; i < l.size(); i++) {
+                                Object[] tmp = (Object[]) l.get(i);
+                                try {
+                                    eltMvtStock.archive(((Number) tmp[0]).intValue());
+                                } catch (SQLException e) {
+                                    e.printStackTrace();
+                                }
                             }
                         }
                     }
-
                     // On recupere l'ancien total HT
                     rowFactureOld = this.getTable().getRow(getSelectedID());
                     lFactureOld = ((Number) rowFactureOld.getObject("T_HT")).longValue();
@@ -983,6 +1027,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
                 System.err.println("Fin regeneration");
 
                 // Mise à jour des stocks
+
                 updateStock(idSaisieVF);
 
                 // On retire l'avoir
@@ -1381,70 +1426,27 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         this.refClient.setText(text);
     }
 
+    protected String getLibelleStock(SQLRow row, SQLRow rowElt) {
+        return "Saisie vente facture N°" + row.getString("NUMERO");
+    }
+
     /**
      * Mise à jour des stocks pour chaque article composant la facture
      */
     private void updateStock(int id) {
 
-        SQLElement eltArticleFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
-        SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
-        SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement(sqlTableArticle);
-        SQLRow rowFacture = getTable().getRow(id);
+        SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+        if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
 
-        // FIXME Si la facture vient d'un bon de livraison le stock a deja été mis à jour
-        // if (rowFacture.getString("SOURCE").equalsIgnoreCase("BON_DE_LIVRAISON")) {
-        // return;
-        // }
+            MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+            mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("SAISIE_VENTE_FACTURE_ELEMENT"), new StockLabel() {
 
-        // On récupére les articles qui composent la facture
-        SQLSelect selEltfact = new SQLSelect(eltArticleFact.getTable().getBase());
-        selEltfact.addSelect(eltArticleFact.getTable().getField("ID"));
-        selEltfact.setWhere(new Where(eltArticleFact.getTable().getField("ID_SAISIE_VENTE_FACTURE"), "=", id));
-
-        List lEltFact = (List) eltArticleFact.getTable().getBase().getDataSource().execute(selEltfact.asString(), new ArrayListHandler());
-
-        if (lEltFact != null) {
-            List<Integer> l = new ArrayList<Integer>();
-            for (int i = 0; i < lEltFact.size(); i++) {
-
-                // Elt qui compose facture
-                Object[] tmp = (Object[]) lEltFact.get(i);
-                int idEltFact = ((Number) tmp[0]).intValue();
-                SQLRow rowEltFact = eltArticleFact.getTable().getRow(idEltFact);
-
-                // on récupére l'article qui lui correspond
-                SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
-                for (SQLField field : eltArticle.getTable().getFields()) {
-                    if (rowEltFact.getTable().getFieldsName().contains(field.getName())) {
-                        rowArticle.put(field.getName(), rowEltFact.getObject(field.getName()));
-                    }
+                @Override
+                public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
+                    return getLibelleStock(rowOrigin, rowElt);
                 }
-                // rowArticle.loadAllSafe(rowEltFact);
-                int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
+            }, false);
 
-                // on crée un mouvement de stock pour chacun des articles
-                SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-                SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
-                rowVals.put("QTE", -(rowEltFact.getInt("QTE")));
-                rowVals.put("NOM", "Saisie vente facture N°" + rowFacture.getString("NUMERO"));
-                rowVals.put("IDSOURCE", id);
-                rowVals.put("SOURCE", getTable().getName());
-                rowVals.put("ID_ARTICLE", idArticle);
-                rowVals.put("DATE", rowFacture.getObject("DATE"));
-                try {
-                    SQLRow row = rowVals.insert();
-                    l.add(row.getID());
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-                // }
-            }
-            CollectionMap<SQLRow, List<SQLRowValues>> map = MouvementStockSQLElement.updateStock(l);
-            if (map.keySet().size() > 0) {
-                if (JOptionPane.showConfirmDialog(null, "Certains articles sont en dessous du stock minimum.\n Voulez créer une commande?") == JOptionPane.YES_OPTION) {
-                    MouvementStockSQLElement.createCommandeF(map, rowFacture.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"));
-                }
-            }
         }
     }
 }

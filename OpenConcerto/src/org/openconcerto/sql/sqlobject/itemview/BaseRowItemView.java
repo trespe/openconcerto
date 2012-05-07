@@ -32,7 +32,6 @@ public abstract class BaseRowItemView implements MutableRowItemView {
     private final List<SQLField> fields;
 
     private String sqlName;
-    private String label;
 
     public BaseRowItemView() {
         this.fields = new ArrayList<SQLField>();
@@ -40,7 +39,6 @@ public abstract class BaseRowItemView implements MutableRowItemView {
 
     public final void init(String sqlName, Set<SQLField> fields) {
         this.sqlName = sqlName;
-        this.label = sqlName;
         this.fields.addAll(fields);
 
         this.init();
@@ -52,14 +50,6 @@ public abstract class BaseRowItemView implements MutableRowItemView {
     }
 
     protected abstract void init();
-
-    public final void setDescription(String desc) {
-        this.label = desc;
-    }
-
-    public final String getDescription() {
-        return this.label;
-    }
 
     protected final List<SQLField> getFields() {
         return this.fields;

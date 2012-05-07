@@ -17,7 +17,11 @@ import org.openconcerto.utils.EnumOrderedSet;
 
 import java.beans.PropertyChangeListener;
 import java.util.Collections;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Map.Entry;
+
+import net.jcip.annotations.ThreadSafe;
 
 /**
  * An item of the database specific tree, ie it might leave out some JDBC level (for example MySQL
@@ -25,6 +29,7 @@ import java.util.Set;
  * 
  * @author Sylvain
  */
+@ThreadSafe
 public class DBStructureItemDB extends DBStructureItem<DBStructureItemDB> {
 
     static DBStructureItemDB create(final DBStructureItemJDBC jdbc) {
@@ -43,6 +48,8 @@ public class DBStructureItemDB extends DBStructureItem<DBStructureItemDB> {
     }
 
     private final DBStructureItemJDBC jdbc;
+    private Map<String, ? extends DBStructureItemJDBC> childrenJDBC;
+    private Map<String, DBStructureItemDB> children;
 
     protected DBStructureItemDB(final DBStructureItemJDBC jdbc) {
         super(getDB(jdbc.getParent()), jdbc.getName());
@@ -52,6 +59,10 @@ public class DBStructureItemDB extends DBStructureItem<DBStructureItemDB> {
     @Override
     public boolean isDropped() {
         return this.getJDBC().isDropped();
+    }
+
+    protected final void checkDropped() {
+        this.getJDBC().checkDropped();
     }
 
     public final DBStructureItemJDBC getJDBC() {
@@ -64,21 +75,33 @@ public class DBStructureItemDB extends DBStructureItem<DBStructureItemDB> {
     }
 
     @Override
-    public DBStructureItemDB getChild(String name) {
+    public Map<String, ? extends DBStructureItemDB> getChildrenMap() {
         final DBStructureItemJDBC nonNullDBParent = this.getJDBC().getNonNullDBParent();
-        if (nonNullDBParent == null)
-            return null;
-        else
-            return getDB(nonNullDBParent.getChild(name));
-    }
-
-    @Override
-    public Set<String> getChildrenNames() {
-        final DBStructureItemJDBC nonNullDBParent = this.getJDBC().getNonNullDBParent();
-        if (nonNullDBParent == null)
-            return Collections.emptySet();
-        else
-            return nonNullDBParent.getChildrenNames();
+        if (nonNullDBParent == null) {
+            return Collections.emptyMap();
+        } else {
+            final Map<String, ? extends DBStructureItemJDBC> jdbcChildren = nonNullDBParent.getChildrenMap();
+            assert jdbcChildren != null : "Cannot be null for the first comparison (when this.childrenJDBC is null)";
+            Map<String, DBStructureItemDB> res = null;
+            synchronized (this) {
+                // OK to test with reference equality since jdbcChildren doesn't change
+                if (this.childrenJDBC == jdbcChildren) {
+                    res = this.children;
+                    assert res != null : "Cannot be null for the comparison below";
+                }
+            }
+            if (res == null) {
+                res = new HashMap<String, DBStructureItemDB>();
+                for (final Entry<String, ? extends DBStructureItemJDBC> e : jdbcChildren.entrySet()) {
+                    res.put(e.getKey(), getDB(e.getValue()));
+                }
+                synchronized (this) {
+                    this.childrenJDBC = jdbcChildren;
+                    this.children = res;
+                }
+            }
+            return res;
+        }
     }
 
     @Override

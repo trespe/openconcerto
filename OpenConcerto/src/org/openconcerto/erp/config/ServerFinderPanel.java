@@ -90,7 +90,7 @@ public class ServerFinderPanel extends JPanel {
 
         ExceptionHandler.setForceUI(true);
         ExceptionHandler.setForumURL("http://www.openconcerto.org/forum");
-        ProductInfo.setInstance(new ProductInfo("OpenConcerto_Configuration"));
+        ProductInfo.setInstance(new ProductInfo("OpenConcerto"));
         PropsConfiguration conf = new PropsConfiguration(new Properties()) {
             @Override
             protected File createWD() {
@@ -122,12 +122,28 @@ public class ServerFinderPanel extends JPanel {
         });
     }
 
+    public static final boolean containsValidH2DB(File dir) {
+        if (dir.exists()) {
+            File db = new File(dir, "OpenConcerto.h2.db");
+            if (db.exists() && db.length() > 50000) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     protected void loadConfigFile() {
         this.textMainProperties.setText(confFile.getAbsolutePath());
         if (!this.confFile.exists()) {
             System.out.println("Unable to find: " + this.confFile.getAbsolutePath());
 
-            this.textFile.setText(new File(Configuration.getDefaultConfDir(), "OpenConcerto-GESTION_DEFAULT/DBData").getAbsolutePath());
+            final File dir1 = new File(Configuration.getDefaultConfDir(), "OpenConcerto-GESTION_DEFAULT/DBData");
+            final File dir2 = new File(Configuration.getDefaultConfDir(), "OpenConcerto/DBData");
+            if (containsValidH2DB(dir1)) {
+                this.textFile.setText(dir1.getAbsolutePath());
+            } else if (containsValidH2DB(dir2)) {
+                this.textFile.setText(dir2.getAbsolutePath());
+            }
             return;
         }
         System.out.println("Loading: " + this.confFile.getAbsolutePath());
@@ -295,12 +311,20 @@ public class ServerFinderPanel extends JPanel {
         c.fill = GridBagConstraints.BOTH;
         this.tabbedPane = new JTabbedPane(JTabbedPane.TOP);
         this.add(this.tabbedPane, c);
-        this.tabbedPane.addTab("Configuration", createPanelConfig());
-        this.tabbedPane.addTab("Recherche", createPanelFinder());
+        final JPanel configurationPanel = createPanelConfig();
+        final JPanel findServerPanel = createPanelFinder();
+        if (getToken() == null) {
+            this.tabbedPane.addTab("Configuration", configurationPanel);
+            this.tabbedPane.addTab("Recherche", findServerPanel);
+        }
         final ConfigCaissePanel createPanelCaisse = createPanelCaisse();
         this.tabbedPane.addTab("Caisse", createPanelCaisse);
         this.tabbedPane.addTab("Installation", new InstallationPanel(this));
         this.tabbedPane.addTab("Cloud", new CloudPanel(this));
+        if (getToken() != null) {
+            this.tabbedPane.setSelectedIndex(2);
+        }
+
         final JPanel buttons = new JPanel();
         buttons.setLayout(new FlowLayout(FlowLayout.RIGHT, 2, 1));
         buttons.setOpaque(false);

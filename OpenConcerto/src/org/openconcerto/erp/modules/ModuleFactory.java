@@ -20,6 +20,7 @@ import org.openconcerto.utils.cc.IPredicate;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -29,11 +30,14 @@ import java.util.prefs.Preferences;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import net.jcip.annotations.ThreadSafe;
+
 /**
  * Parse module properties, and allow to create modules.
  * 
  * @author Sylvain CUAZ
  */
+@ThreadSafe
 public abstract class ModuleFactory {
 
     public static final String NAME_KEY = "name";
@@ -101,19 +105,20 @@ public abstract class ModuleFactory {
         this.contact = getRequiredProp(props, "contact");
         final String depends = props.getProperty("depends", "").trim();
         final String[] dependsArray = depends.length() == 0 ? new String[0] : dependsSplitPatrn.split(depends);
-        this.dependsPredicates = new HashMap<String, IPredicate<ModuleFactory>>(dependsArray.length);
+        final HashMap<String, IPredicate<ModuleFactory>> map = new HashMap<String, IPredicate<ModuleFactory>>(dependsArray.length);
         for (final String depend : dependsArray) {
             final Matcher dependMatcher = dependsPatrn.matcher(depend);
             if (!dependMatcher.matches())
                 throw new IllegalArgumentException("'" + depend + "' doesn't match " + dependsPatrn.pattern());
             final ModuleVersion depVersion = getVersion(dependMatcher, 2);
-            this.dependsPredicates.put(dependMatcher.group(1), new IPredicate<ModuleFactory>() {
+            map.put(dependMatcher.group(1), new IPredicate<ModuleFactory>() {
                 @Override
                 public boolean evaluateChecked(ModuleFactory input) {
                     return input.getVersion().compareTo(depVersion) >= 0;
                 }
             });
         }
+        this.dependsPredicates = Collections.unmodifiableMap(map);
 
         final String entryPoint = checkMatch(javaIdentifiedPatrn, props.getProperty("entryPoint", "Module"), "Entry point");
         this.mainClass = this.id + "." + entryPoint;
@@ -153,7 +158,8 @@ public abstract class ModuleFactory {
         return this.dependsPredicates.get(f.getID()).evaluateChecked(f);
     }
 
-    protected final ResourceBundle getResourceBundle() {
+    // ResourceBundle is thread-safe
+    protected synchronized final ResourceBundle getResourceBundle() {
         if (this.rsrcBundle == null) {
             // don't allow classes to simplify class loaders
             this.rsrcBundle = ResourceBundle.getBundle(getID() + ".ModuleResources", Locale.getDefault(), getRsrcClassLoader(),
@@ -174,7 +180,8 @@ public abstract class ModuleFactory {
 
     public abstract AbstractModule createModule(Map<String, AbstractModule> alreadyCreated) throws Exception;
 
-    protected final AbstractModule createModule(final Class<?> c) throws Exception {
+    // not sure if Class or Constructor are thread-safe
+    protected synchronized final AbstractModule createModule(final Class<?> c) throws Exception {
         return (AbstractModule) c.getConstructor(ModuleFactory.class).newInstance(this);
     }
 

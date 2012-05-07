@@ -32,9 +32,6 @@ public interface SQLRowItemView extends EmptyObj, ValidObject {
     // eg DESIGNATION, OBSERVATIONS
     public String getSQLName();
 
-    // TODO rename to getLabel
-    public String getDescription();
-
     // TODO renvoyer un Set
     public SQLField getField();
 

@@ -19,6 +19,8 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.order.component.CommandeClientSQLComponent;
 import org.openconcerto.erp.core.sales.quote.component.DevisSQLComponent;
+import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
+import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -41,6 +43,9 @@ public class DevisSQLElement extends ComptaSQLConfElement {
 
     public DevisSQLElement() {
         super(TABLENAME, "un devis", "devis");
+
+        MouseSheetXmlListeListener l = new MouseSheetXmlListeListener(DevisXmlSheet.class);
+        getRowActions().addAll(l.getRowActions());
     }
 
     protected List<String> getComboFields() {

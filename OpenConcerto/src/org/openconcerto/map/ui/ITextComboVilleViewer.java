@@ -14,6 +14,7 @@
  package org.openconcerto.map.ui;
 
 import org.openconcerto.map.model.Ville;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.IComboCacheListModel;
 import org.openconcerto.ui.component.combo.ISearchableTextCombo;
@@ -29,18 +30,26 @@ import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidState;
 
-import java.awt.BorderLayout;
 import java.awt.Dimension;
+import java.awt.Frame;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ContainerEvent;
+import java.awt.event.ContainerListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 
+import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
+import javax.swing.SwingUtilities;
 import javax.swing.WindowConstants;
 import javax.swing.text.Document;
 import javax.swing.text.JTextComponent;
@@ -54,6 +63,7 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
     private static final long serialVersionUID = 3397210337907076649L;
     private final ISearchableTextCombo text;
     private final JButton button = new JButton("Afficher sur la carte");
+    private final JButton buttonAdd;
     private Ville currentVille = null;
     private final EmptyObjectHelper emptyHelper;
 
@@ -62,10 +72,14 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
 
     public ITextComboVilleViewer() {
         this.setOpaque(false);
-        this.setLayout(new BorderLayout());
+        this.setLayout(new GridBagLayout());
+        GridBagConstraints c = new DefaultGridBagConstraints();
+        c.insets = new Insets(0, 0, 0, 2);
 
+        this.buttonAdd = new JButton(new ImageIcon(this.getClass().getResource("add.png")));
         this.supp = new ValueChangeSupport<String>(this);
         this.cache = new ITextComboCacheVille();
+
         this.text = new ISearchableTextCombo(ComboLockedMode.LOCKED_ITEMS_UNLOCKED, 0, 17) {
             @Override
             protected String stringToT(String t) {
@@ -97,10 +111,43 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
             }
         });
 
-        new IComboCacheListModel(this.cache).initCacheLater(this.text);
-        this.add(this.text, BorderLayout.CENTER);
+        final IComboCacheListModel comboCacheListModel = new IComboCacheListModel(this.cache);
+        comboCacheListModel.initCacheLater(this.text);
+        // Listen on data
+        final PropertyChangeListener listener = new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                comboCacheListModel.reload();
+            }
+        };
 
-        this.add(this.button, BorderLayout.EAST);
+        this.addContainerListener(new ContainerListener() {
+            @Override
+            public void componentRemoved(ContainerEvent e) {
+                Ville.removeListener(listener);
+            }
+
+            @Override
+            public void componentAdded(ContainerEvent e) {
+                Ville.addListener(listener);
+            }
+        });
+
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(this.text, c);
+        c.weightx = 0;
+        c.gridx++;
+        this.button.setOpaque(false);
+        this.add(this.button, c);
+        c.gridx++;
+        this.buttonAdd.setPreferredSize(new Dimension(24, 16));
+        this.buttonAdd.setBorder(null);
+        this.buttonAdd.setOpaque(false);
+        this.buttonAdd.setContentAreaFilled(false);
+        this.buttonAdd.setFocusPainted(false);
+        this.buttonAdd.setFocusable(false);
+        this.add(this.buttonAdd, c);
         this.button.addActionListener(new ActionListener() {
 
             public void actionPerformed(final ActionEvent e) {
@@ -131,6 +178,22 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
                 ITextComboVilleViewer.this.button.setEnabled(ITextComboVilleViewer.this.currentVille != null && ITextComboVilleViewer.this.isEnabled());
             }
         });
+        this.buttonAdd.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                final JDialog d = new JDialog((Frame) SwingUtilities.getAncestorOfClass(Frame.class, ITextComboVilleViewer.this), true);
+
+                final String rawTtext = text.getTextComp().getText();
+                d.setContentPane(new VilleEditorPanel(rawTtext));
+                d.setTitle("Nouvelle ville");
+                d.pack();
+                d.setResizable(false);
+                d.setLocationRelativeTo(ITextComboVilleViewer.this);
+                d.setVisible(true);
+            }
+        });
+
     }
 
     @Override
@@ -210,4 +273,5 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
     public void setValue(final String val) {
         this.text.setValue(val);
     }
+
 }

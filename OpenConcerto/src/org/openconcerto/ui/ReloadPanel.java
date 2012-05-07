@@ -100,7 +100,7 @@ public class ReloadPanel extends JComponent {
         this.addAncestorListener(new AncestorListener() {
 
             public void ancestorAdded(AncestorEvent event) {
-                final Thread t = new Thread(ReloadPanel.this.r);
+                final Thread t = new Thread(ReloadPanel.this.r, "Reload Panel");
                 t.setPriority(Thread.MIN_PRIORITY);
                 try {
                     t.start();

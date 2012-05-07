@@ -18,56 +18,91 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.InputStream;
 
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+
 public abstract class AbstractLocalTemplateProvider implements TemplateProvider {
 
     @Override
-    public InputStream getTemplate(String templateId, String langage, String type) {
+    public InputStream getTemplate(String templateId, String language, String type) {
+        final File file = getFileTemplate(templateId, language, type);
+        return (file == null ? null : getInputStream(file));
+    }
+
+    private FileInputStream getInputStream(File f) {
         try {
-            final File templateFile = getTemplateFile(templateId, langage, type);
-            if (templateFile == null || !templateFile.exists()) {
-                return null;
-            }
-            return new FileInputStream(templateFile);
+            return new FileInputStream(f);
         } catch (FileNotFoundException e) {
-            return null;
+            System.err.println("Error: no file:" + f.getAbsolutePath());
+            e.printStackTrace();
         }
+        return null;
     }
 
-    @Override
-    public InputStream getTemplatePrintConfiguration(String templateId, String langage, String type) {
-        final File t = getTemplateFile(templateId, langage, type);
-        final String name = t.getName();
-        if (name.toLowerCase().endsWith(".ods")) {
-            final File file = new File(t.getParent(), name.substring(0, name.length() - 4) + ".odsp");
-            try {
-                return new FileInputStream(file);
-            } catch (FileNotFoundException e) {
-                System.err.println("No print configuration " + file.getAbsolutePath() + " for template id: " + templateId);
-                e.printStackTrace();
-            }
+    public File getFileTemplate(String templateId, String language, String type) {
+        File templateFile = getTemplateFromLocalFile(templateId, language, type);
+        if (templateFile != null && templateFile.exists()) {
+            return templateFile;
+        }
+        templateFile = getTemplateFromLocalFile(templateId + ".ods", language, type);
+        if (templateFile != null && templateFile.exists()) {
+            return templateFile;
+        }
+        templateFile = getTemplateFromLocalFile(templateId + ".odt", language, type);
+        if (templateFile != null && templateFile.exists()) {
+            return templateFile;
         }
         return null;
     }
 
     @Override
-    public InputStream getTemplateConfiguration(String templateId, String langage, String type) {
-        final File t = getTemplateFile(templateId, langage, type);
-        final String name = t.getName();
-        if (name.toLowerCase().endsWith(".ods")) {
-            final File file = new File(t.getParent(), name.substring(0, name.length() - 4) + ".xml");
-            try {
-                return new FileInputStream(file);
-            } catch (FileNotFoundException e) {
-                System.err.println("No template configuration " + file.getAbsolutePath() + " for template id: " + templateId);
-                e.printStackTrace();
-            }
-        }
-        return null;
+    public InputStream getTemplatePrintConfiguration(String templateId, String language, String type) {
+        final File file = getFileTemplatePrintConfiguration(templateId, language, type);
+        return getInputStream(file);
     }
 
-    public abstract File getTemplateFile(String templateId, String langage, String type);
+    public File getFileTemplatePrintConfiguration(String templateId, String language, String type) {
+        final File file = getTemplateFromLocalFile(templateId + ".odsp", language, type);
+        return file;
+    }
 
     @Override
-    public abstract String getTemplatePath(String templateId, String langage, String type);
+    public InputStream getTemplateConfiguration(String templateId, String language, String type) {
+        final File file = getFileTemplateConfiguration(templateId, language, type);
+        return getInputStream(file);
+    }
 
+    public File getFileTemplateConfiguration(String templateId, String language, String type) {
+        final File file = getTemplateFromLocalFile(templateId + ".xml", language, type);
+        return file;
+    }
+
+    protected abstract File getTemplateFromLocalFile(String templateIdWithExtension, String language, String type);
+
+    @Override
+    public abstract String getTemplatePath(String templateId, String language, String type);
+
+    public static String insertBeforeExtenstion(String fileName, String text) {
+        final int index = fileName.lastIndexOf('.');
+        if (index < 0) {
+            throw new IllegalArgumentException("No extension found in fileName '" + fileName + "'");
+        }
+        if (index == 0) {
+            return fileName + text;
+        }
+        final String name = fileName.substring(0, index);
+        final String ext = fileName.substring(index);
+        return name + text + ext;
+    }
+
+    void ensureDelete(File f) {
+        for (int i = 0; i < 2; i++) {
+            if (f.delete()) {
+                return;
+            }
+            JOptionPane.showMessageDialog(new JFrame(), "Fichier " + f.getAbsolutePath() + " vérrouillé.\nMerci de fermer tout programme pouvant y accéder (OpenOffice).");
+        }
+        f.deleteOnExit();
+
+    }
 }

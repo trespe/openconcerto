@@ -44,7 +44,6 @@ public final class PrivateFFItemPool extends FFItemPool {
         newItem.setDecorated(false);
         this.added.add(newItem);
         ((ElementSQLObject) newItem).init(f.getName(), Collections.singleton(f));
-        ((ElementSQLObject) newItem).setDescription(this.getLabel(f));
         return newItem;
     }
 

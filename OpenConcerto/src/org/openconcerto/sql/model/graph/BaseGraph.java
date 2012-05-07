@@ -19,6 +19,9 @@ import org.openconcerto.sql.model.SQLTable;
 import java.util.Iterator;
 import java.util.Set;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
 import org.jgrapht.DirectedGraph;
 import org.jgrapht.Graph;
 import org.jgrapht.UndirectedGraph;
@@ -29,9 +32,11 @@ import org.jgrapht.alg.ConnectivityInspector;
  * 
  * @author ILM Informatique 22 décembre 2004
  */
+@ThreadSafe
 public abstract class BaseGraph {
 
-    private Graph<SQLTable, Link> graph;
+    @GuardedBy("this")
+    private final Graph<SQLTable, Link> graph;
 
     protected BaseGraph(DirectedGraph<SQLTable, Link> g) {
         this.graph = g;
@@ -49,14 +54,14 @@ public abstract class BaseGraph {
      *        B
      *        C
      *   
-     *        A	B	label
+     *        A B   label
      * </pre>
      * 
      * Utile pour visualiser le graphe de la table dans JGraphPad.
      * 
      * @return une représentation de ce graphe.
      */
-    public String dump() {
+    public synchronized String dump() {
         StringBuffer sb = new StringBuffer();
 
         Set vertices = this.graph.vertexSet();
@@ -86,7 +91,7 @@ public abstract class BaseGraph {
      * @param table la table source.
      * @return toutes les tables qui sont liées à la table passée.
      */
-    public Set<SQLTable> getConnectedSet(SQLTable table) {
+    public synchronized Set<SQLTable> getConnectedSet(SQLTable table) {
         final ConnectivityInspector<SQLTable, Link> insp;
         if (this.graph instanceof DirectedGraph)
             insp = new ConnectivityInspector<SQLTable, Link>((DirectedGraph<SQLTable, Link>) this.graph);
@@ -95,11 +100,11 @@ public abstract class BaseGraph {
         return insp.connectedSetOf(table);
     }
 
-    public final Set<SQLTable> getAllTables() {
+    public synchronized final Set<SQLTable> getAllTables() {
         return this.graph.vertexSet();
     }
 
-    protected Graph<SQLTable, Link> getGraph() {
+    protected synchronized final Graph<SQLTable, Link> getGraph() {
         return this.graph;
     }
 }

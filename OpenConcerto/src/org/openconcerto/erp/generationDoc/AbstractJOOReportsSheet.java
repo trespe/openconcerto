@@ -106,7 +106,7 @@ public abstract class AbstractJOOReportsSheet {
                 OGNLDataModel model = new OGNLDataModel(createMap);
 
                 model.putAll(createMap);
-                template.createDocument(model).saveAs(fileOutOO);
+                template.createDocument(model).saveToPackageAs(fileOutOO);
 
             }
 

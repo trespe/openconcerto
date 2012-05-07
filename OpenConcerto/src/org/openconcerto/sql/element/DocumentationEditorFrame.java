@@ -23,6 +23,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -37,54 +38,44 @@ public class DocumentationEditorFrame extends JFrame {
         final JPanel p = new JPanel(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
 
-        c.weightx = 1;
-        c.gridwidth = 2;
-        c.fill = GridBagConstraints.NONE;
-        p.add(new JLabel(itemName), c);
+        addLine(p, c, "Identifiant", new JLabel(itemName));
 
         final RowItemDesc rivDesc = sqlComponent.getRIVDesc(itemName);
 
-        // TODO JLabel for each field
-
         // Label Editor
         final JTextField labelTxt = new JTextField();
-        c.weighty = 1;
-        c.gridy++;
-        c.fill = GridBagConstraints.BOTH;
         labelTxt.setText(rivDesc.getLabel());
-        p.add(labelTxt, c);
+        addLine(p, c, "Nom", labelTxt);
+
         // Title Editor
         final JTextField titleTxt = new JTextField();
-        c.weighty = 1;
-        c.gridy++;
-        c.fill = GridBagConstraints.BOTH;
         titleTxt.setText(rivDesc.getTitleLabel());
-        p.add(titleTxt, c);
+        addLine(p, c, "Titre de colonne", titleTxt);
+
         // Editor
         final JTextArea docTxt = new JTextArea();
         docTxt.setFont(new JTextField().getFont());
         c.weighty = 1;
-        c.gridy++;
-        c.fill = GridBagConstraints.BOTH;
         docTxt.setText(rivDesc.getDocumentation());
         final JScrollPane comp = new JScrollPane(docTxt);
         comp.setMinimumSize(new Dimension(400, 300));
         comp.setPreferredSize(new Dimension(400, 300));
-        p.add(comp, c);
+        addLine(p, c, "Documentation", comp);
+
         // Ok, Cancel
-        c.gridwidth = 1;
-        c.gridy++;
+        final JPanel btnPanel = new JPanel();
+        c.gridx = 1;
         c.weighty = 0;
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.SOUTHEAST;
         JButton bOk = new JButton("Valider");
-        c.gridx = 0;
-        p.add(bOk, c);
-        c.gridx++;
-        c.weightx = 0;
+        btnPanel.add(bOk);
 
         JButton bCancel = new JButton("Annuler");
-        p.add(bCancel, c);
+        btnPanel.add(bCancel);
+
+        p.add(btnPanel, c);
+
         this.setContentPane(p);
         // Listeners
         bOk.addActionListener(new ActionListener() {
@@ -102,5 +93,17 @@ public class DocumentationEditorFrame extends JFrame {
         });
         pack();
         setLocationRelativeTo(null);
+    }
+
+    private void addLine(final JPanel p, final GridBagConstraints c, final String label, final JComponent comp) {
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        p.add(new JLabel(label), c);
+        c.gridx++;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.BOTH;
+        p.add(comp, c);
+        c.gridx = 0;
+        c.gridy++;
     }
 }

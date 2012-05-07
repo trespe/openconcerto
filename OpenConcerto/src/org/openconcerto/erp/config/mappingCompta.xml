@@ -25,6 +25,11 @@
 	</TABLE>
 	<TABLE name="AFFAIRE">
 		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="CCI" label="CCI" titlelabel="CCI" />
+		<FIELD name="ID_VERIFICATEUR" label="Chargé d'affaire"
+			titlelabel="Chargé d'affaire" />
+		<FIELD name="DATE_DEMARRAGE" label="Date de démarrage"
+			titlelabel="Date de démarrage" />
 		<FIELD name="MARCHE" label="Marché" titlelabel="Marché" />
 		<FIELD name="NUMERO" label="Numéro affaire" titlelabel="Numéro affaire" />
 		<FIELD name="DATE" label="Date" titlelabel="Date" />
@@ -62,6 +67,8 @@
 		<FIELD name="DATE_FIN_CONTRAT" label="Date de fin de contrat"
 			titlelabel="Date de fin de contrat" />
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="DUREE_PREVISIONNELLE" label="Durée prévue"
+			titlelabel="Durée prévue" />
 		<FIELD name="ID_DOSSIER" label="Dossier" titlelabel="Dossier" />
 		<FIELD name="ID_TAXE" label="TVA" titlelabel="TVA" />
 		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
@@ -98,6 +105,7 @@
 	</TABLE>
 
 	<TABLE name="ARTICLE">
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
 		<FIELD name="QTE_ACHAT" label="Quantité multiple d'achat à respecter"
 			titlelabel="Quantité multiple d'achat à respecter" />
 		<FIELD name="CODE_BARRE" label="Code barres" titlelabel="Code barres" />
@@ -117,8 +125,8 @@
 		<FIELD name="POIDS" label="Poids en Kg" titlelabel="Poids" />
 		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
 		<FIELD name="ID_STOCK" label="Stock" titlelabel="Stock" />
-		<FIELD name="PRIX_METRIQUE_VT_1" label="PV UV HT" titlelabel="PV UV HT" />
-		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV HT" titlelabel="PHA UV HT" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
 		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut"
 			titlelabel="Longueur par défaut" />
 		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
@@ -152,7 +160,7 @@
 		<FIELD name="PV_HT" label="Prix vente HT" titlelabel="Prix vente HT" />
 		<FIELD name="PV_TTC" label="Prix vente TTC" titlelabel="Prix vente TTC" />
 
-		<FIELD name="PRIX_METRIQUE_VT_1" label="PV UV HT" titlelabel="PV UV HT" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
 	</TABLE>
 
 	<TABLE name="ARTICLE_DESIGNATION">
@@ -221,6 +229,9 @@
 	</TABLE>
 
 	<TABLE name="AVOIR_CLIENT_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
 		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
@@ -235,16 +246,16 @@
 		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
 		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
-		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
 		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
-		<FIELD name="T_PA_HT" label="Total HA HT" titlelabel="Poids total" />
+		<FIELD name="T_PA_HT" label="Total achat HT" titlelabel="Poids total" />
 		<FIELD name="T_PV_HT" label="Total HT" titlelabel="Total HT" />
 		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
 		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
 		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
-		<FIELD name="PRIX_METRIQUE_VT_1" label="PV UV HT" titlelabel="PV UV HT" />
-		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV HT" titlelabel="PHA UV HT" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
 		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut"
 			titlelabel="Longueur par défaut" />
 		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
@@ -356,6 +367,9 @@
 	</TABLE>
 
 	<TABLE name="BON_RECEPTION_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />	
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
 		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
@@ -367,9 +381,9 @@
 
 		<FIELD name="QTE" label="Qté reçue" titlelabel="Qté reçue" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
-		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
-		<FIELD name="PRIX_METRIQUE_VT_1" label="PV UV HT" titlelabel="PV UV HT" />
-		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV² HT" titlelabel="PHA UV HT" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV² HT" titlelabel="P.A. UV HT" />
 		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut"
 			titlelabel="Longueur par défaut" />
 		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
@@ -414,6 +428,9 @@
 		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
 	</TABLE>
 	<TABLE name="BON_DE_LIVRAISON_ELEMENT">
+	<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
 		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
@@ -436,9 +453,9 @@
 		<FIELD name="QTE_LIVREE" label="Quantité livrée" titlelabel="Qté livrée" />
 		<FIELD name="QTE_A_LIVRER" label="Quantité à livrer" titlelabel="Qté à livrer" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
-		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
-		<FIELD name="PRIX_METRIQUE_VT_1" label="PV UV HT" titlelabel="PV UV HT" />
-		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV HT" titlelabel="PHA UV HT" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
 		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut"
 			titlelabel="Longueur par défaut" />
 		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
@@ -740,9 +757,15 @@
 		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
 		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
 		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+	<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+	<FIELD name="ID_ADRESSE" label="Adresse de livraison spécifique"
+		titlelabel="Adresse de livraison spécifique" />
 	</TABLE>
 
 	<TABLE name="COMMANDE_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />	
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
 		<FIELD name="PA_DEVISE" label="PA Devise" titlelabel="PA Devise" />
 		<FIELD name="PA_DEVISE_T" label="PA Devise Total" titlelabel="PA Devise Total" />
@@ -754,11 +777,11 @@
 		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
 		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
-		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
 		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
 		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
-		<FIELD name="PRIX_METRIQUE_VT_1" label="PV UV HT" titlelabel="PV UV HT" />
-		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV HT" titlelabel="PHA UV HT" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
 		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut"
 			titlelabel="Longueur par défaut" />
 		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
@@ -800,6 +823,9 @@
 	</TABLE>
 
 	<TABLE name="COMMANDE_CLIENT_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />	
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="POURCENT_REMISE" label="% remise" titlelabel="% remise" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
@@ -815,11 +841,11 @@
 		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
-		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
 		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
 		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
-		<FIELD name="PRIX_METRIQUE_VT_1" label="PV UV HT" titlelabel="PV UV HT" />
-		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV HT" titlelabel="PHA UV HT" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
 		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut"
 			titlelabel="Longueur par défaut" />
 		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
@@ -950,6 +976,9 @@
 		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
 	</TABLE>
 	<TABLE name="DEVIS_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="POURCENT_REMISE" label="% remise" titlelabel="% remise" />
@@ -965,15 +994,15 @@
 		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
 		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
-		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
 		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
-		<FIELD name="T_PA_HT" label="Total HA HT" titlelabel="Total HA HT" />
+		<FIELD name="T_PA_HT" label="Total achat HT" titlelabel="Total achat HT" />
 		<FIELD name="T_PV_HT" label="Total HT" titlelabel="Total HT" />
 		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
 		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
 		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
-		<FIELD name="PRIX_METRIQUE_VT_1" label="PV UV HT" titlelabel="PV UV HT" />
-		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV HT" titlelabel="PHA UV HT" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
 		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut"
 			titlelabel="Longueur par défaut" />
 		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
@@ -1026,6 +1055,13 @@
 			titlelabel="Nombre de relance" />
 		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
 		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+	</TABLE>
+
+	<TABLE name="ECHEANCIER_CCI">
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="NOM" label="Intitulé" titlelabel="Intitulé" />
+		<FIELD name="ID_AFFAIRE" label="Affaire" titlelabel="Affaire" />
 	</TABLE>
 
 	<TABLE name="ECOTAXE">
@@ -1238,6 +1274,8 @@
 	</TABLE>
 
 	<TABLE name="FOURNISSEUR">
+		<FIELD name="ID_COMPTE_PCE_CHARGE" label="Compte de charge par défaut"
+			titlelabel="Compte de charge par défaut" />
 		<FIELD name="TYPE" label="Type" titlelabel="Type" />
 		<FIELD name="RESPONSABLE" label="Responsable" titlelabel="Responsable" />
 		<FIELD name="TEL_P" label="Mobile" titlelabel="Mobile" />
@@ -1388,6 +1426,8 @@
 		<FIELD name="AFFAIRE_START" label="Prochain numéro" titlelabel="Prochain numéro" />
 		<FIELD name="AVOIR_FORMAT" label="Format" titlelabel="Format" />
 		<FIELD name="AVOIR_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="AVOIR_F_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="AVOIR_F_START" label="Prochain numéro" titlelabel="Prochain numéro" />
 		<FIELD name="DEVIS_FORMAT" label="Format" titlelabel="Format" />
 		<FIELD name="DEVIS_START" label="Prochain numéro" titlelabel="Prochain numéro" />
 		<FIELD name="BON_L_FORMAT" label="Format" titlelabel="Format" />
@@ -1411,6 +1451,15 @@
 		<FIELD name="CODE_LETTRAGE" label="Code de lettrage" titlelabel="Code de lettrage" />
 		<FIELD name="COURRIER_FORMAT" label="Format" titlelabel="Format" />
 		<FIELD name="COURRIER_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+	</TABLE>
+	<TABLE name="OBJECTIF_COMMERCIAL">
+		<FIELD name="ANNEE" label="Année" titlelabel="Année" />
+		<FIELD name="MOIS" label="Mois" titlelabel="Mois" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
+		<FIELD name="POURCENT_MARGE" label="% Marge" titlelabel="% Marge" />
+		<FIELD name="CHIFFRE_AFFAIRE" label="Chiffre d'affaire"
+			titlelabel="Chiffre d'affaire" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
 	</TABLE>
 
 	<TABLE name="ORDRE_MISSION">
@@ -1758,11 +1807,15 @@
 		<FIELD name="ID_REFERENCE_CLIENT" label="Référence client"
 			titlelabel="Référence client" />
 		<FIELD name="ID_VERIFICATEUR" label="Vérificateur" titlelabel="Vérificateur" />
+		<FIELD name="ID_MODELE" label="Modéle" titlelabel="Modéle" />
 		<FIELD name="CONTROLE_TECHNIQUE" label="Facture CTC" titlelabel="Facture CTC" />
 		<FIELD name="COMPTE_SERVICE_AUTO" label="Gestion automatique du compte de service"
 			titlelabel="Gestion automatique du compte de service" />
 	</TABLE>
 	<TABLE name="SAISIE_VENTE_FACTURE_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
 		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
@@ -1785,7 +1838,7 @@
 		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
-		<FIELD name="POIDS" label="Poids" titlelabel="Poids" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
 		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
 		<FIELD name="QTE_LIVREE" label="Quantité livrée" titlelabel="Qté livrée" />
 		<FIELD name="LIVREE" label="Livrée" titlelabel="Livrée" />
@@ -1963,6 +2016,11 @@
 		<FIELD name="CONGES_PRIS" label="Congés pris" titlelabel="Congés pris" />
 		<FIELD name="HEURE_TRAV" label="Heures travaillées" titlelabel="Heures travaillées" />
 		<FIELD name="HEURE_ABS" label="Heures d'abscence" titlelabel="Heures d'abscence" />
+	</TABLE>
+	
+	<TABLE name="UNITE_VENTE">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellè" titlelabel="Libellé" />
 	</TABLE>
 
 </ROOT>

@@ -17,14 +17,20 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
+import org.openconcerto.sql.view.IListFrame;
+import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.ui.FrameUtil;
+import org.openconcerto.ui.list.selection.BaseListStateModel;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.EventObject;
 
+import javax.swing.AbstractAction;
 import javax.swing.AbstractCellEditor;
 import javax.swing.Action;
 import javax.swing.JComponent;
@@ -41,19 +47,54 @@ public class SQLTextComboTableCellEditor extends AbstractCellEditor implements T
 
     boolean addUndefined;
 
+    private IListFrame listFrame = null;
+
     public SQLTextComboTableCellEditor(final SQLElement elt, final boolean addUndefined) {
+        this(elt, addUndefined, false);
+    }
+
+    /**
+     * 
+     * @param elt Element à afficher dans la combo
+     * @param addUndefined ajout de l'indéfini
+     * @param chooseInListe possibilité de choisir via une IListe
+     */
+    public SQLTextComboTableCellEditor(final SQLElement elt, final boolean addUndefined, boolean chooseInListe) {
         super();
 
         this.addUndefined = addUndefined;
 
         this.comboBox = new SQLRequestComboBox(addUndefined);
+
         // Mimic JTable.GenericEditor behavior
         this.comboBox.getTextComp().setBorder(new EmptyBorder(0, 0, 0, 18));
         this.comboBox.setBorder(new LineBorder(Color.black));
         ((JComponent) this.comboBox.getPulseComponent()).setBorder(null);
 
-        ComboSQLRequest c = new ComboSQLRequest(elt.getComboRequest());
+        ComboSQLRequest c = elt.getComboRequest(true);
         this.comboBox.uiInit(c);
+
+        if (chooseInListe) {
+            this.comboBox.getActions().add(0, new AbstractAction("Tout afficher") {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+
+                    if (SQLTextComboTableCellEditor.this.listFrame == null) {
+                        SQLTextComboTableCellEditor.this.listFrame = new IListFrame(new ListeAddPanel(elt));
+
+                        SQLTextComboTableCellEditor.this.listFrame.getPanel().getListe().getSelection().addPropertyChangeListener("userSelectedID", new PropertyChangeListener() {
+                            @Override
+                            public void propertyChange(PropertyChangeEvent evt) {
+                                final int newID = ((Number) evt.getNewValue()).intValue();
+                                SQLTextComboTableCellEditor.this.comboBox.setValue(newID == BaseListStateModel.INVALID_ID ? null : newID);
+                            }
+                        });
+                        SQLTextComboTableCellEditor.this.listFrame.getPanel().getListe().selectID(SQLTextComboTableCellEditor.this.comboBox.getSelectedId());
+                    }
+                    FrameUtil.show(SQLTextComboTableCellEditor.this.listFrame);
+                }
+            });
+        }
     }
 
     public SQLRequestComboBox getCombo() {

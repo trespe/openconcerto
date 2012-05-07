@@ -15,24 +15,34 @@
 
 import org.openconcerto.utils.EnumOrderedSet;
 import org.openconcerto.utils.change.AddAllCreator;
+import org.openconcerto.utils.change.CollectionChangeEvent;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
 
 /**
  * An item of the database structure as returned by JDBC.
  * 
  * @author Sylvain
  */
+@ThreadSafe
 public abstract class DBStructureItemJDBC extends DBStructureItem<DBStructureItemJDBC> {
 
     private static final String CHILDREN = "children";
 
+    // linked to alterEgoCreated
+    @GuardedBy("this")
     private DBStructureItemDB alterEgo;
     // alterEgo can be null, so we can't use that
+    @GuardedBy("this")
     private boolean alterEgoCreated;
+    @GuardedBy("this")
     private boolean dropped;
+    @GuardedBy("supp")
     private final PropertyChangeSupport supp;
 
     protected DBStructureItemJDBC(final DBStructureItemJDBC parent, final String name) {
@@ -44,29 +54,51 @@ public abstract class DBStructureItemJDBC extends DBStructureItem<DBStructureIte
     }
 
     final void dropped() {
-        this.dropped = true;
+        assert this.getParent() == null || this.getParent().getChild(getName()) != this : "Dropped child still in its parent : " + this;
+        this.droppedRec();
+    }
+
+    private final void droppedRec() {
         for (final DBStructureItemJDBC child : this.getChildren()) {
-            child.dropped();
+            if (child != null)
+                child.droppedRec();
+        }
+        final DBStructureItemDB alterEgo;
+        synchronized (this) {
+            if (this.dropped)
+                throw new IllegalStateException("Already dropped : " + this);
+            this.dropped = true;
+            alterEgo = this.alterEgo;
         }
         // don't create it to drop it
-        if (this.alterEgo != null)
-            this.alterEgo.onDrop();
+        if (alterEgo != null)
+            alterEgo.onDrop();
         this.onDrop();
     }
 
     @Override
-    public boolean isDropped() {
+    public synchronized final boolean isDropped() {
         return this.dropped;
     }
 
+    protected final synchronized void checkDropped() {
+        if (this.dropped)
+            throw new IllegalStateException("Already dropped");
+    }
+
+    // ATTN called back with the lock on this
     @Override
     public final void addChildrenListener(final PropertyChangeListener l) {
-        this.supp.addPropertyChangeListener(CHILDREN, l);
+        synchronized (this.supp) {
+            this.supp.addPropertyChangeListener(CHILDREN, l);
+        }
     }
 
     @Override
     public final void rmChildrenListener(final PropertyChangeListener l) {
-        this.supp.removePropertyChangeListener(CHILDREN, l);
+        synchronized (this.supp) {
+            this.supp.removePropertyChangeListener(CHILDREN, l);
+        }
     }
 
     protected final CollectionChangeEventCreator createChildrenCreator() {
@@ -74,9 +106,14 @@ public abstract class DBStructureItemJDBC extends DBStructureItem<DBStructureIte
     }
 
     protected final void fireChildrenChanged(final CollectionChangeEventCreator cc) {
+        assert getDBSystemRoot() == null || Thread.holdsLock(getDBSystemRoot().getTreeMutex()) : "State might have already changed by the time Listeners are notified";
         if (!cc.getName().equals(CHILDREN))
             throw new IllegalArgumentException("wrong name: " + cc.getName() + " ; should use createChildrenCreator()");
-        this.supp.firePropertyChange(cc.create(this.getChildrenNames()));
+        final CollectionChangeEvent event = cc.create(this.getChildrenNames());
+        // can be removed when in java 7
+        synchronized (this.supp) {
+            this.supp.firePropertyChange(event);
+        }
     }
 
     private final HierarchyLevel getNextLevel() {
@@ -93,18 +130,18 @@ public abstract class DBStructureItemJDBC extends DBStructureItem<DBStructureIte
         final HierarchyLevel nextLevel = this.getNextLevel();
         if (nextLevel == null || this.getDB().getLevels().contains(nextLevel))
             return this;
-        else if (this.getChildrenNames().contains(null))
-            return this.getChild(null).getNonNullDBParent();
-        else
-            return null;
+
+        final DBStructureItemJDBC child = this.getChild(null);
+        return child != null ? child.getNonNullDBParent() : null;
     }
 
     protected final EnumOrderedSet<HierarchyLevel> getLevels() {
         return HierarchyLevel.getAll();
     }
 
-    final DBStructureItemDB getRawAlterEgo() {
+    synchronized final DBStructureItemDB getRawAlterEgo() {
         if (!this.alterEgoCreated) {
+            checkDropped();
             this.alterEgo = DBStructureItemDB.create(this);
             this.alterEgoCreated = true;
         }

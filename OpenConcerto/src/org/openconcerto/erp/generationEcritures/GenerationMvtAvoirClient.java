@@ -26,6 +26,7 @@ import org.openconcerto.utils.ExceptionHandler;
 
 import java.sql.SQLException;
 import java.util.Date;
+import java.util.Map;
 
 public class GenerationMvtAvoirClient extends GenerationEcritures {
 
@@ -142,19 +143,56 @@ public class GenerationMvtAvoirClient extends GenerationEcritures {
             }
 
             // compte TVA
-            int idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_VENTE");
-            if (idCompteTVA <= 1) {
-                try {
-                    idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVACollectee");
-                } catch (Exception e) {
-
-                    e.printStackTrace();
+            if (prixTVA.getLongValue() > 0) {
+                int idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_VENTE");
+                if (idCompteTVA <= 1) {
+                    try {
+                        idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVACollectee");
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 }
+
+                Map<Integer, Long> m = getMultiTVAFromRow(avoirRow, avoirClientTable.getTable("AVOIR_CLIENT_ELEMENT"), true);
+                long allTaxe = 0;
+                for (Integer i : m.keySet()) {
+                    Long l = m.get(i);
+                    if (l != null && l > 0) {
+                        // FIXME
+                        int idCpt = i;
+                        if (idCpt <= 1) {
+                            idCpt = idCompteTVA;
+                        }
+                        this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCpt));
+                        this.mEcritures.put("DEBIT", Long.valueOf(0));
+                        this.mEcritures.put("CREDIT", Long.valueOf(l));
+                        ajoutEcriture();
+                        allTaxe += l;
+                    }
+                }
+                if (allTaxe < prixTVA.getLongValue()) {
+                    this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTVA));
+                    this.mEcritures.put("DEBIT", Long.valueOf(0));
+                    this.mEcritures.put("CREDIT", Long.valueOf(prixTVA.getLongValue() - allTaxe));
+                    ajoutEcriture();
+                }
+
             }
-            this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTVA));
-            this.mEcritures.put("DEBIT", Long.valueOf(prixTVA.getLongValue()));
-            this.mEcritures.put("CREDIT", Long.valueOf(0));
-            ajoutEcriture();
+            //
+            // // compte TVA
+            // int idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_VENTE");
+            // if (idCompteTVA <= 1) {
+            // try {
+            // idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVACollectee");
+            // } catch (Exception e) {
+            //
+            // e.printStackTrace();
+            // }
+            // }
+            // this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTVA));
+            // this.mEcritures.put("DEBIT", Long.valueOf(prixTVA.getLongValue()));
+            // this.mEcritures.put("CREDIT", Long.valueOf(0));
+            // ajoutEcriture();
 
             // compte Clients
             int idCompteClient = avoirRow.getForeignRow("ID_CLIENT").getInt("ID_COMPTE_PCE");

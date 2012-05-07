@@ -262,17 +262,16 @@ public class StringUtils {
         return result.toString();
     }
 
-    static private final Pattern quotePatrn = Pattern.compile("([\\\\]*)\"");
-    static private final Pattern endSlashPatrn = Pattern.compile("([\\\\]*)\\z");
+    static private final Pattern quotePatrn = Pattern.compile("\"", Pattern.LITERAL);
+    static private final Pattern slashPatrn = Pattern.compile("(\\\\+)");
 
     static public String doubleQuote(String s) {
+        // http://developer.apple.com/library/mac/#documentation/applescript/conceptual/applescriptlangguide/reference/ASLR_classes.html#//apple_ref/doc/uid/TP40000983-CH1g-SW6
+        // http://docs.oracle.com/javase/specs/jls/se7/html/jls-3.html#jls-3.10.5
+        // https://developer.mozilla.org/en/JavaScript/Guide/Values%2C_Variables%2C_and_Literals#Escaping_characters
         if (s.length() > 0) {
-            // replace '(\*)"' by '$1$1\"', e.g. '\quote " \"' by '\quote \" \\\"'
-            // $1 needed so that the backslash we add isn't escaped itself by a preceding backslash
-            s = quotePatrn.matcher(s).replaceAll("$1$1\\\\\"");
-            // replace '(\*)\z' by '$1$1', e.g. 'foo\' by 'foo\\'
-            // needed to not escape closing quote
-            s = endSlashPatrn.matcher(s).replaceAll("$1$1");
+            s = slashPatrn.matcher(s).replaceAll("$1$1");
+            s = quotePatrn.matcher(s).replaceAll("\\\\\"");
         }
         return '"' + s + '"';
     }

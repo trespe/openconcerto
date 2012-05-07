@@ -18,14 +18,20 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.shipment.component.BonDeLivraisonSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.preferences.DefaultProps;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -33,6 +39,8 @@ import java.util.Set;
 
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
+
+import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
 
@@ -111,5 +119,31 @@ public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
         editFactureFrame.pack();
         editFactureFrame.setState(JFrame.NORMAL);
         editFactureFrame.setVisible(true);
+    }
+
+    @Override
+    protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
+        // TODO Raccord de méthode auto-généré
+        super.archive(row, cutLinks);
+
+        SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+        if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
+
+            // Mise à jour des stocks
+            SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+            SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
+            sel.addSelect(eltMvtStock.getTable().getField("ID"));
+            Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+            Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+            sel.setWhere(w.and(w2));
+
+            List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+            if (l != null) {
+                for (int i = 0; i < l.size(); i++) {
+                    Object[] tmp = (Object[]) l.get(i);
+                    eltMvtStock.archive(((Number) tmp[0]).intValue());
+                }
+            }
+        }
     }
 }

@@ -117,6 +117,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         c.gridwidth = GridBagConstraints.REMAINDER;
         final JPanel addP = new JPanel();
 
+
         this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1;
@@ -304,7 +305,9 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         DeviseField fieldTTC = new DeviseField();
         DeviseField fieldDevise = new DeviseField();
         DeviseField fieldService = new DeviseField();
+        DeviseField fieldHA = new DeviseField();
         fieldHT.setOpaque(false);
+        fieldHA.setOpaque(false);
         fieldTVA.setOpaque(false);
         fieldTTC.setOpaque(false);
         fieldService.setOpaque(false);
@@ -313,11 +316,15 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         addRequiredSQLObject(fieldTVA, "T_TVA");
         addRequiredSQLObject(fieldTTC, "T_TTC");
         addRequiredSQLObject(fieldService, "T_SERVICE");
+        if (getTable().contains("PREBILAN")) {
+            addSQLObject(fieldHA, "PREBILAN");
+        } else if (getTable().contains("T_HA")) {
+            addSQLObject(fieldHA, "T_HA");
+        }
+
         JTextField poids = new JTextField();
         // addSQLObject(poids, "T_POIDS");
-        final TotalPanel totalTTC = new TotalPanel(this.table.getRowValuesTable(), this.table.getPrixTotalHTElement(), this.table.getPrixTotalTTCElement(), this.table.getHaElement(),
-                this.table.getQteElement(), fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, this.table.getPrixServiceElement(), fieldDevise,
-                this.table.getTableElementTotalDevise(), poids, this.table.getPoidsTotalElement());
+        final TotalPanel totalTTC = new TotalPanel(this.table, fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, fieldHA, fieldDevise, poids, null);
 
         c.gridx = GridBagConstraints.RELATIVE;
         c.gridy--;
@@ -331,7 +338,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
         this.panelOO = new PanelOOSQLComponent(this);
         c.gridwidth = 1;
-        c.fill = GridBagConstraints.HORIZONTAL;
+        c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.EAST;
         c.gridx = 0;
         c.gridy += 3;

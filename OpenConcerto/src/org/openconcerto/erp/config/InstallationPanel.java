@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.config;
 
+import org.openconcerto.erp.modules.ModuleManager;
+import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.changer.convert.AddFK;
 import org.openconcerto.sql.changer.correct.CorrectOrder;
 import org.openconcerto.sql.changer.correct.FixSerial;
@@ -51,6 +53,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.IOException;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -124,6 +127,8 @@ public class InstallationPanel extends JPanel {
                             updateVariablePaye(table, "TRANCHE_A", 2946);
                             updateVariablePaye(table, "PART_SAL_GarantieMP", 23.83);
                             updateVariablePaye(table, "PART_PAT_GarantieMP", 38.98);
+
+                            updateSocieteTable(conf.getRoot());
 
                             if (!table.getDBRoot().contains("DEVISE")) {
                                 System.out.println("InstallationPanel.InstallationPanel() ADD DEVISE");
@@ -223,6 +228,11 @@ public class InstallationPanel extends JPanel {
                                 });
                                 i++;
                                 final DBRoot root = conf.getSystemRoot().getRoot(childName);
+                                try {
+                                    conf.getSystemRoot().getDataSource().execute("CREATE LANGUAGE plpgsql;");
+                                } catch (Exception e) {
+                                    System.err.println("Warning: cannot add language plpgsql" + e.getMessage());
+                                }
                                 final SQLTable tableUndef = root.getTable(SQLTable.undefTable);
                                 if (tableUndef != null && tableUndef.getField("UNDEFINED_ID").isNullable() == Boolean.FALSE) {
                                     final AlterTable alterUndef = new AlterTable(tableUndef);
@@ -247,7 +257,11 @@ public class InstallationPanel extends JPanel {
                                         public Object create() throws SQLException {
                                             fixUnboundedVarchar(root);
                                             fixUnboundedNumeric(root);
-                                            updateSocieteSchema(root);
+                                            try {
+                                                updateSocieteSchema(root);
+                                            } catch (Exception e) {
+                                                throw new SQLException(e);
+                                            }
                                             updateToV1Dot2(root);
                                             return null;
                                         }
@@ -256,7 +270,7 @@ public class InstallationPanel extends JPanel {
 
                             }
                             error = false;
-                        } catch (Exception e1) {
+                        } catch (Throwable e1) {
                             ExceptionHandler.handle("Echec de mise à jour", e1);
                             error = true;
                         }
@@ -280,208 +294,215 @@ public class InstallationPanel extends JPanel {
             }
 
         });
+        if (finderPanel.getToken() == null) {
+            c.weightx = 1;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+            this.add(new JLabelBold("Création de l'utilisateur openconcerto dans la base"), c);
+            c.gridy++;
+            c.weightx = 1;
+            this.add(new JLabel("Identifiant de connexion de votre base "), c);
+            c.gridy++;
+            c.gridwidth = 1;
+            c.weightx = 0;
+            this.add(new JLabel("Login"), c);
+            c.gridx++;
 
-        c.weightx = 1;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        this.add(new JLabelBold("Création de l'utilisateur openconcerto dans la base"), c);
-        c.gridy++;
-        c.weightx = 1;
-        this.add(new JLabel("Identifiant de connexion de votre base "), c);
-        c.gridy++;
-        c.gridwidth = 1;
-        c.weightx = 0;
-        this.add(new JLabel("Login"), c);
-        c.gridx++;
+            final JTextField login = new JTextField();
+            c.weightx = 1;
+            this.add(login, c);
 
-        final JTextField login = new JTextField();
-        c.weightx = 1;
-        this.add(login, c);
+            c.gridx++;
+            c.weightx = 0;
+            this.add(new JLabel("Mot de passe"), c);
+            c.gridx++;
+            final JTextField mdp = new JTextField();
+            c.weightx = 1;
+            this.add(mdp, c);
 
-        c.gridx++;
-        c.weightx = 0;
-        this.add(new JLabel("Mot de passe"), c);
-        c.gridx++;
-        final JTextField mdp = new JTextField();
-        c.weightx = 1;
-        this.add(mdp, c);
+            c.gridx = 0;
+            c.gridy++;
+            c.weightx = 0;
+            c.anchor = GridBagConstraints.EAST;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+            c.fill = GridBagConstraints.NONE;
+            this.add(user, c);
+            c.anchor = GridBagConstraints.WEST;
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.gridwidth = 1;
+            user.addActionListener(new ActionListener() {
 
-        c.gridx = 0;
-        c.gridy++;
-        c.weightx = 0;
-        c.anchor = GridBagConstraints.EAST;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.fill = GridBagConstraints.NONE;
-        this.add(user, c);
-        c.anchor = GridBagConstraints.WEST;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        c.gridwidth = 1;
-        user.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                // TODO Auto-generated method stub
-                try {
-                    if (finderPanel.getServerConfig().createUserIfNeeded(login.getText(), mdp.getText())) {
-                        JOptionPane.showMessageDialog(InstallationPanel.this, "L'utilisateur openconcerto a été correctement ajouté.");
-                    } else {
-                        JOptionPane.showMessageDialog(InstallationPanel.this, "L'utilisateur openconcerto existe déjà dans la base.");
-                    }
-                } catch (Exception e1) {
-                    // TODO Auto-generated catch block
-                    e1.printStackTrace();
-                    JOptionPane.showMessageDialog(InstallationPanel.this, "Une erreur est survenue pendant la connexion au serveur, vérifiez vos paramètres de connexion.");
-                }
-            }
-        });
-
-        // Injection SQL
-        // c.gridy++;
-        // c.weightx = 1;
-        // c.gridwidth = GridBagConstraints.REMAINDER;
-        // c.insets = new Insets(10, 3, 2, 2);
-        // this.add(new TitledSeparator("Injecter la base", true), c);
-        //
-        // c.gridy++;
-        // c.weightx = 0;
-        // c.gridwidth = 1;
-        // c.insets = DefaultGridBagConstraints.getDefaultInsets();
-        // this.add(new JLabel("Fichier"), c);
-        //
-        // final JTextField chemin = new JTextField();
-        // c.gridx++;
-        // c.weightx = 1;
-        // this.add(chemin, c);
-        //
-        // c.gridx++;
-        // c.weightx = 0;
-        // JButton browse = new JButton("...");
-        // browse.addActionListener(new ActionListener() {
-        //
-        // @Override
-        // public void actionPerformed(ActionEvent e) {
-        // JFileChooser choose = new JFileChooser();
-        // if (choose.showOpenDialog(InstallationPanel.this) == JFileChooser.APPROVE_OPTION) {
-        // chemin.setText(choose.getSelectedFile().getAbsolutePath());
-        // }
-        // }
-        // });
-        // this.add(browse, c);
-        //
-        // c.gridy++;
-        // c.gridx = 0;
-        // JButton inject = new JButton("Injecter");
-        // this.add(inject, c);
-        // inject.addActionListener(new ActionListener() {
-        //
-        // @Override
-        // public void actionPerformed(ActionEvent e) {
-        // File f = new File(chemin.getText());
-        // if (!f.exists()) {
-        // JOptionPane.showMessageDialog(InstallationPanel.this, "Impossible de trouver le fichier "
-        // + chemin.getText());
-        // return;
-        // }
-        // BufferedReader input = null;
-        // try {
-        //
-        // input = new BufferedReader(new FileReader(f));
-        // StringBuffer sql = new StringBuffer();
-        // String s;
-        // while ((s = input.readLine()) != null) {
-        // sql.append(s + "\n");
-        // }
-        // input.close();
-        //
-        // try {
-        // final SQLServer sqlServer = finderPanel.getServerConfig().createSQLServer();
-        // Number n = (Number)
-        // sqlServer.getBase("postgres").getDataSource().executeScalar("select COUNT(*) from pg_database WHERE datname='OpenConcerto'");
-        // if (n.intValue() > 0) {
-        // JOptionPane.showMessageDialog(InstallationPanel.this,
-        // "La base OpenConcerto est déjà présente sur le serveur!");
-        // return;
-        // }
-        // // System.err.println(sqlServer.getBase("OpenConcerto"));
-        // sqlServer.getBase("postgres").getDataSource()
-        // .execute("CREATE DATABASE \"OpenConcerto\" WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'fr_FR.UTF-8' LC_CTYPE = 'fr_FR.UTF-8';");
-        //
-        // sqlServer.getBase("postgres").getDataSource().execute("ALTER DATABASE \"OpenConcerto\" OWNER TO openconcerto;");
-        //
-        // SQLUtils.executeScript(sql.toString(), sqlServer.getSystemRoot("OpenConcerto"));
-        // sqlServer.destroy();
-        // JOptionPane.showMessageDialog(InstallationPanel.this,
-        // "Création de la base OpenConerto terminée.");
-        // System.err.println("Création de la base OpenConerto terminée.");
-        //
-        // } catch (SQLException e1) {
-        // // TODO Auto-generated catch block
-        //
-        // e1.printStackTrace();
-        // JOptionPane.showMessageDialog(InstallationPanel.this,
-        // "Une erreur s'est produite pendant l'injection du script, vérifier la connexion au serveur et le script.");
-        // }
-        //
-        // } catch (FileNotFoundException ex) {
-        // // TODO Auto-generated catch block
-        // ex.printStackTrace();
-        // } catch (IOException ex) {
-        // // TODO Auto-generated catch block
-        // ex.printStackTrace();
-        // } finally {
-        // if (input != null) {
-        // try {
-        // input.close();
-        // } catch (IOException ex) {
-        // // TODO Auto-generated catch block
-        // ex.printStackTrace();
-        // }
-        // }
-        // }
-        //
-        // }
-        // });
-
-        // c.gridy++;
-        // this.add(bd, c);
-
-        c.gridy++;
-        c.weightx = 1;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.insets = new Insets(10, 3, 2, 2);
-        this.add(new JLabelBold("Paramètrages de la base de données"), c);
-        c.gridy++;
-        c.insets = DefaultGridBagConstraints.getDefaultInsets();
-        this.add(new JLabel("Création des fonctions SQL nécessaires (plpgsql)."), c);
-        c.gridy++;
-        c.weightx = 0;
-        c.anchor = GridBagConstraints.EAST;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.fill = GridBagConstraints.NONE;
-
-        JButton buttonPL = new JButton("Lancer");
-        buttonPL.setOpaque(false);
-        buttonPL.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (!finderPanel.getServerConfig().getType().equals(ServerFinderConfig.POSTGRESQL)) {
-
-                } else {
-                    final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create(true);
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    // TODO Auto-generated method stub
                     try {
-                        final SQLDataSource ds = conf.getSystemRoot().getDataSource();
-                        ds.execute("CREATE FUNCTION plpgsql_call_handler() RETURNS language_handler AS '$libdir/plpgsql' LANGUAGE C;" + "\n"
-                                + "CREATE FUNCTION plpgsql_validator(oid) RETURNS void AS '$libdir/plpgsql' LANGUAGE C;" + "\n"
-                                + "CREATE TRUSTED PROCEDURAL LANGUAGE plpgsql HANDLER plpgsql_call_handler VALIDATOR plpgsql_validator;");
-                    } catch (Exception ex) {
-                        System.err.println("Impossible d'ajouter le langage PLPGSQL. Peut etre est il déjà installé.");
+                        if (finderPanel.getServerConfig().createUserIfNeeded(login.getText(), mdp.getText())) {
+                            JOptionPane.showMessageDialog(InstallationPanel.this, "L'utilisateur openconcerto a été correctement ajouté.");
+                        } else {
+                            JOptionPane.showMessageDialog(InstallationPanel.this, "L'utilisateur openconcerto existe déjà dans la base.");
+                        }
+                    } catch (Exception e1) {
+                        // TODO Auto-generated catch block
+                        e1.printStackTrace();
+                        JOptionPane.showMessageDialog(InstallationPanel.this, "Une erreur est survenue pendant la connexion au serveur, vérifiez vos paramètres de connexion.");
                     }
                 }
-                JOptionPane.showConfirmDialog(null, "Paramètrage terminé.");
-            }
-        });
-        this.add(buttonPL, c);
+            });
 
+            // Injection SQL
+            // c.gridy++;
+            // c.weightx = 1;
+            // c.gridwidth = GridBagConstraints.REMAINDER;
+            // c.insets = new Insets(10, 3, 2, 2);
+            // this.add(new TitledSeparator("Injecter la base", true), c);
+            //
+            // c.gridy++;
+            // c.weightx = 0;
+            // c.gridwidth = 1;
+            // c.insets = DefaultGridBagConstraints.getDefaultInsets();
+            // this.add(new JLabel("Fichier"), c);
+            //
+            // final JTextField chemin = new JTextField();
+            // c.gridx++;
+            // c.weightx = 1;
+            // this.add(chemin, c);
+            //
+            // c.gridx++;
+            // c.weightx = 0;
+            // JButton browse = new JButton("...");
+            // browse.addActionListener(new ActionListener() {
+            //
+            // @Override
+            // public void actionPerformed(ActionEvent e) {
+            // JFileChooser choose = new JFileChooser();
+            // if (choose.showOpenDialog(InstallationPanel.this) == JFileChooser.APPROVE_OPTION) {
+            // chemin.setText(choose.getSelectedFile().getAbsolutePath());
+            // }
+            // }
+            // });
+            // this.add(browse, c);
+            //
+            // c.gridy++;
+            // c.gridx = 0;
+            // JButton inject = new JButton("Injecter");
+            // this.add(inject, c);
+            // inject.addActionListener(new ActionListener() {
+            //
+            // @Override
+            // public void actionPerformed(ActionEvent e) {
+            // File f = new File(chemin.getText());
+            // if (!f.exists()) {
+            // JOptionPane.showMessageDialog(InstallationPanel.this,
+            // "Impossible de trouver le fichier "
+            // + chemin.getText());
+            // return;
+            // }
+            // BufferedReader input = null;
+            // try {
+            //
+            // input = new BufferedReader(new FileReader(f));
+            // StringBuffer sql = new StringBuffer();
+            // String s;
+            // while ((s = input.readLine()) != null) {
+            // sql.append(s + "\n");
+            // }
+            // input.close();
+            //
+            // try {
+            // final SQLServer sqlServer = finderPanel.getServerConfig().createSQLServer();
+            // Number n = (Number)
+            // sqlServer.getBase("postgres").getDataSource().executeScalar("select COUNT(*) from pg_database WHERE datname='OpenConcerto'");
+            // if (n.intValue() > 0) {
+            // JOptionPane.showMessageDialog(InstallationPanel.this,
+            // "La base OpenConcerto est déjà présente sur le serveur!");
+            // return;
+            // }
+            // // System.err.println(sqlServer.getBase("OpenConcerto"));
+            // sqlServer.getBase("postgres").getDataSource()
+            // .execute("CREATE DATABASE \"OpenConcerto\" WITH TEMPLATE = template0 ENCODING = 'UTF8' LC_COLLATE = 'fr_FR.UTF-8' LC_CTYPE = 'fr_FR.UTF-8';");
+            //
+            // sqlServer.getBase("postgres").getDataSource().execute("ALTER DATABASE \"OpenConcerto\" OWNER TO openconcerto;");
+            //
+            // SQLUtils.executeScript(sql.toString(), sqlServer.getSystemRoot("OpenConcerto"));
+            // sqlServer.destroy();
+            // JOptionPane.showMessageDialog(InstallationPanel.this,
+            // "Création de la base OpenConerto terminée.");
+            // System.err.println("Création de la base OpenConerto terminée.");
+            //
+            // } catch (SQLException e1) {
+            // // TODO Auto-generated catch block
+            //
+            // e1.printStackTrace();
+            // JOptionPane.showMessageDialog(InstallationPanel.this,
+            // "Une erreur s'est produite pendant l'injection du script, vérifier la connexion au serveur et le script.");
+            // }
+            //
+            // } catch (FileNotFoundException ex) {
+            // // TODO Auto-generated catch block
+            // ex.printStackTrace();
+            // } catch (IOException ex) {
+            // // TODO Auto-generated catch block
+            // ex.printStackTrace();
+            // } finally {
+            // if (input != null) {
+            // try {
+            // input.close();
+            // } catch (IOException ex) {
+            // // TODO Auto-generated catch block
+            // ex.printStackTrace();
+            // }
+            // }
+            // }
+            //
+            // }
+            // });
+
+            // c.gridy++;
+            // this.add(bd, c);
+
+            c.gridy++;
+            c.weightx = 1;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+            c.insets = new Insets(10, 3, 2, 2);
+            this.add(new JLabelBold("Paramètrages de la base de données"), c);
+            c.gridy++;
+            c.insets = DefaultGridBagConstraints.getDefaultInsets();
+            this.add(new JLabel("Création des fonctions SQL nécessaires (plpgsql)."), c);
+            c.gridy++;
+            c.weightx = 0;
+            c.anchor = GridBagConstraints.EAST;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+            c.fill = GridBagConstraints.NONE;
+
+            JButton buttonPL = new JButton("Lancer");
+            buttonPL.setOpaque(false);
+            buttonPL.addActionListener(new ActionListener() {
+
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (!finderPanel.getServerConfig().getType().equals(ServerFinderConfig.POSTGRESQL)) {
+
+                    } else {
+                        final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create(true);
+                        try {
+                            final SQLDataSource ds = conf.getSystemRoot().getDataSource();
+                            // ds.execute("CREATE FUNCTION plpgsql_call_handler() RETURNS language_handler AS '$libdir/plpgsql' LANGUAGE C;"
+                            // + "\n"
+                            // +
+                            // "CREATE FUNCTION plpgsql_validator(oid) RETURNS void AS '$libdir/plpgsql' LANGUAGE C;"
+                            // + "\n"
+                            // +
+                            // "CREATE TRUSTED PROCEDURAL LANGUAGE plpgsql HANDLER plpgsql_call_handler VALIDATOR plpgsql_validator;");
+                            ds.execute("CREATE LANGUAGE plpgsql;");
+
+                        } catch (Exception ex) {
+                            System.err.println("Impossible d'ajouter le langage PLPGSQL. Peut etre est il déjà installé.");
+                        }
+                    }
+                    JOptionPane.showMessageDialog(null, "Paramètrage terminé.");
+                }
+            });
+            this.add(buttonPL, c);
+        }
         c.gridy++;
         c.gridx = 0;
         c.weightx = 1;
@@ -641,6 +662,13 @@ public class InstallationPanel extends JPanel {
             }
         }
 
+        final SQLTable tableEtatDevis = root.getTable("ETAT_DEVIS");
+        if (tableEtatDevis.getRow(5) == null && tableEtatDevis.getRowCount() <= 4) {
+            SQLRowValues rowVals = new SQLRowValues(tableEtatDevis);
+            rowVals.put("NOM", "En cours de rédaction");
+            rowVals.commit();
+        }
+
         // Bon de livraison
         {
             SQLTable tableBL = root.getTable("BON_DE_LIVRAISON");
@@ -669,6 +697,52 @@ public class InstallationPanel extends JPanel {
                 }
             }
         }
+
+        // Fournisseur
+        {
+            SQLTable tableBL = root.getTable("FOURNISSEUR");
+            boolean alterBL = false;
+            AlterTable t = new AlterTable(tableBL);
+            if (!tableBL.getFieldsName().contains("ID_COMPTE_PCE_CHARGE")) {
+                t.addForeignColumn("ID_COMPTE_PCE_CHARGE", root.getTable("COMPTE_PCE"));
+                alterBL = true;
+            }
+            if (alterBL) {
+                try {
+                    ds.execute(t.asString());
+                    tableBL.getSchema().updateVersion();
+                    tableBL.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table FOURNISSEUR", ex);
+                }
+            }
+        }
+
+        // Numérotation
+        {
+            SQLTable tableNum = root.getTable("NUMEROTATION_AUTO");
+            boolean alterNum = false;
+            AlterTable t = new AlterTable(tableNum);
+            if (!tableNum.getFieldsName().contains("AVOIR_F_START")) {
+                t.addColumn("AVOIR_F_START", "integer DEFAULT 0");
+                alterNum = true;
+            }
+            if (!tableNum.getFieldsName().contains("AVOIR_F_FORMAT")) {
+                t.addVarCharColumn("AVOIR_F_FORMAT", 48);
+                alterNum = true;
+            }
+
+            if (alterNum) {
+                try {
+                    ds.execute(t.asString());
+                    tableNum.getSchema().updateVersion();
+                    tableNum.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table NUMEROTATION_AUTO", ex);
+                }
+            }
+        }
+
         SQLTable tableArticle = root.getTable("ARTICLE");
 
         AlterTable t = new AlterTable(tableArticle);
@@ -698,11 +772,11 @@ public class InstallationPanel extends JPanel {
             alterArticle = true;
         }
         if (!tableArticle.getFieldsName().contains("ID_DEVISE")) {
-            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE", true));
             alterArticle = true;
         }
         if (!tableArticle.getFieldsName().contains("ID_FOURNISSEUR")) {
-            t.addForeignColumn("ID_FOURNISSEUR", root.findTable("FOURNISSEUR"));
+            t.addForeignColumn("ID_FOURNISSEUR", root.findTable("FOURNISSEUR", true));
             alterArticle = true;
         }
         if (!tableArticle.getFieldsName().contains("PV_U_DEVISE")) {
@@ -710,7 +784,7 @@ public class InstallationPanel extends JPanel {
             alterArticle = true;
         }
         if (!tableArticle.getFieldsName().contains("ID_DEVISE_HA")) {
-            t.addForeignColumn("ID_DEVISE_HA", root.findTable("DEVISE"));
+            t.addForeignColumn("ID_DEVISE_HA", root.findTable("DEVISE", true));
             alterArticle = true;
         }
         if (!tableArticle.getFieldsName().contains("PA_DEVISE")) {
@@ -718,7 +792,7 @@ public class InstallationPanel extends JPanel {
             alterArticle = true;
         }
         if (!tableArticle.getFieldsName().contains("ID_PAYS")) {
-            t.addForeignColumn("ID_PAYS", root.findTable("PAYS"));
+            t.addForeignColumn("ID_PAYS", root.findTable("PAYS", true));
             alterArticle = true;
         }
         if (alterArticle) {
@@ -733,6 +807,26 @@ public class InstallationPanel extends JPanel {
 
         // Création de la table Langue
         boolean refetchRoot = false;
+        if (!root.contains("OBJECTIF_COMMERCIAL")) {
+
+            SQLCreateTable createObjectif = new SQLCreateTable(root, "OBJECTIF_COMMERCIAL");
+            createObjectif.addVarCharColumn("MOIS", 32);
+            createObjectif.addColumn("ANNEE", "integer");
+            createObjectif.addColumn("MARGE_HT", "bigint DEFAULT 0");
+            createObjectif.addColumn("POURCENT_MARGE", "numeric (16,8)");
+            createObjectif.addColumn("CHIFFRE_AFFAIRE", "bigint DeFAULT 0");
+            createObjectif.addForeignColumn("COMMERCIAL");
+            try {
+                ds.execute(createObjectif.asString());
+                insertUndef(createObjectif);
+                tableDevis.getSchema().updateVersion();
+                refetchRoot = true;
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table OBJECTIF_COMMERCIAL", ex);
+            }
+
+        }
+
         if (!root.contains("LANGUE")) {
 
             SQLCreateTable createLangue = new SQLCreateTable(root, "LANGUE");
@@ -743,7 +837,7 @@ public class InstallationPanel extends JPanel {
                 ds.execute(createLangue.asString());
                 insertUndef(createLangue);
                 tableDevis.getSchema().updateVersion();
-                refetchRoot = true;
+                root.refetch(createLangue.getName());
             } catch (SQLException ex) {
                 throw new IllegalStateException("Erreur lors de la création de la table LANGUE", ex);
             }
@@ -767,7 +861,7 @@ public class InstallationPanel extends JPanel {
 
             SQLCreateTable createModele = new SQLCreateTable(root, "MODELE");
             createModele.addVarCharColumn("NOM", 256);
-            createModele.addForeignColumn("ID_TYPE_MODELE", root.findTable("TYPE_MODELE"));
+            createModele.addForeignColumn("ID_TYPE_MODELE", root.findTable("TYPE_MODELE", true));
             try {
                 ds.execute(createModele.asString());
                 insertUndef(createModele);
@@ -809,29 +903,27 @@ public class InstallationPanel extends JPanel {
 
             SQLCreateTable createTarif = new SQLCreateTable(root, "TARIF");
             createTarif.addVarCharColumn("NOM", 256);
-            createTarif.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
-            createTarif.addForeignColumn("ID_TAXE", root.findTable("TAXE"));
+            createTarif.addForeignColumn("ID_DEVISE", root.findTable("DEVISE", true));
+            createTarif.addForeignColumn("ID_TAXE", root.findTable("TAXE", true));
             createTarif.asString();
             try {
                 ds.execute(createTarif.asString());
                 insertUndef(createTarif);
                 tableDevis.getSchema().updateVersion();
-                refetchRoot = true;
+                root.refetch(createTarif.getName());
             } catch (SQLException ex) {
                 throw new IllegalStateException("Erreur lors de la création de la table TARIF", ex);
             }
         }
-        if (refetchRoot)
-            root.refetch();
 
         // Création de la table article Tarif
         if (!root.contains("ARTICLE_TARIF")) {
 
             SQLCreateTable createTarif = new SQLCreateTable(root, "ARTICLE_TARIF");
-            createTarif.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
-            createTarif.addForeignColumn("ID_TAXE", root.findTable("TAXE"));
-            createTarif.addForeignColumn("ID_TARIF", root.findTable("TARIF"));
-            createTarif.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE"));
+            createTarif.addForeignColumn("ID_DEVISE", root.findTable("DEVISE", true));
+            createTarif.addForeignColumn("ID_TAXE", root.findTable("TAXE", true));
+            createTarif.addForeignColumn("ID_TARIF", root.findTable("TARIF", true));
+            createTarif.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE", true));
             createTarif.addColumn("PV_HT", "bigint DEFAULT 0");
             createTarif.addColumn("PV_TTC", "bigint DEFAULT 0");
             createTarif.addColumn("PRIX_METRIQUE_VT_1", "bigint DEFAULT 0");
@@ -842,6 +934,7 @@ public class InstallationPanel extends JPanel {
                 ds.execute(createTarif.asString());
                 insertUndef(createTarif);
                 tableDevis.getSchema().updateVersion();
+                refetchRoot = true;
             } catch (SQLException ex) {
                 throw new IllegalStateException("Erreur lors de la création de la table ARTICLE_TARIF", ex);
             }
@@ -851,16 +944,55 @@ public class InstallationPanel extends JPanel {
         if (!root.contains("ARTICLE_DESIGNATION")) {
 
             SQLCreateTable createTarif = new SQLCreateTable(root, "ARTICLE_DESIGNATION");
-            createTarif.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE"));
-            createTarif.addForeignColumn("ID_LANGUE", root.findTable("LANGUE"));
+            createTarif.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE", true));
+            createTarif.addForeignColumn("ID_LANGUE", root.findTable("LANGUE", true));
             createTarif.addVarCharColumn("NOM", 1024);
             createTarif.asString();
             try {
                 ds.execute(createTarif.asString());
                 insertUndef(createTarif);
                 tableDevis.getSchema().updateVersion();
+                refetchRoot = true;
             } catch (SQLException ex) {
                 throw new IllegalStateException("Erreur lors de la création de la table ARTICLE_DESIGNATION", ex);
+            }
+        }
+
+        if (!root.contains("UNITE_VENTE")) {
+
+            SQLCreateTable createUnite = new SQLCreateTable(root, "UNITE_VENTE");
+            createUnite.addVarCharColumn("CODE", 32);
+            createUnite.addVarCharColumn("NOM", 256);
+            createUnite.addColumn("A_LA_PIECE", "boolean DEFAULT false");
+            createUnite.addVarCharColumn("INFOS", 256);
+            try {
+                ds.execute(createUnite.asString());
+                insertUndef(createUnite);
+                final String insert = "INSERT into "
+                        + getTableName(createUnite).quote()
+                        + "(\"CODE\",\"NOM\",\"A_LA_PIECE\",\"ORDRE\") VALUES('pièce','à la pièce',true,1),('m','mètres',false,2),('m²','mètres carré',false,3),('m3','mètres cube',false,4),('l','litres',false,5),('kg','kilos',false,6),('h','heures',false,7),('j','jours',false,8),('mois','mois',false,9)";
+                root.getDBSystemRoot().getDataSource().execute(insert);
+                tableDevis.getSchema().updateVersion();
+                refetchRoot = true;
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table UNITE_VENTE", ex);
+            }
+
+        }
+
+        // Chargement des tables fraichement créées
+        if (refetchRoot)
+            root.refetch();
+
+        if (!tableArticle.getFieldsName().contains("ID_UNITE_VENTE")) {
+            AlterTable alterTableArticle = new AlterTable(tableArticle);
+            alterTableArticle.addForeignColumn("ID_UNITE_VENTE", root.findTable("UNITE_VENTE", true).getSQLName(), "ID", "2");
+            try {
+                ds.execute(alterTableArticle.asString());
+                tableArticle.getSchema().updateVersion();
+                tableArticle.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout du champ UNITE_VENTE sur la table ARTICLE", ex);
             }
         }
 
@@ -893,7 +1025,18 @@ public class InstallationPanel extends JPanel {
 
         if (!tableCommande.getFieldsName().contains("ID_ADRESSE")) {
             AlterTable alterCmd = new AlterTable(tableCommande);
-            alterCmd.addForeignColumn("ID_ADRESSE", root.findTable("ADRESSE"));
+            alterCmd.addForeignColumn("ID_ADRESSE", root.findTable("ADRESSE", true));
+            try {
+                ds.execute(alterCmd.asString());
+                tableCommande.getSchema().updateVersion();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table COMMANDE", ex);
+            }
+
+        }
+        if (!tableCommande.getFieldsName().contains("ID_CLIENT")) {
+            AlterTable alterCmd = new AlterTable(tableCommande);
+            alterCmd.addForeignColumn("ID_CLIENT", root.findTable("CLIENT"));
             try {
                 ds.execute(alterCmd.asString());
                 tableCommande.getSchema().updateVersion();
@@ -934,20 +1077,20 @@ public class InstallationPanel extends JPanel {
             boolean alterClient = false;
 
             if (!tableClient.getFieldsName().contains("ID_TARIF")) {
-                tClient.addForeignColumn("ID_TARIF", root.findTable("TARIF"));
+                tClient.addForeignColumn("ID_TARIF", root.findTable("TARIF", true));
                 alterClient = true;
             }
             if (!tableClient.getFieldsName().contains("ID_PAYS")) {
-                tClient.addForeignColumn("ID_PAYS", root.findTable("PAYS"));
+                tClient.addForeignColumn("ID_PAYS", root.findTable("PAYS", true));
                 alterClient = true;
             }
             if (!tableClient.getFieldsName().contains("ID_LANGUE")) {
-                tClient.addForeignColumn("ID_LANGUE", root.findTable("LANGUE"));
+                tClient.addForeignColumn("ID_LANGUE", root.findTable("LANGUE", true));
                 alterClient = true;
             }
 
             if (!tableClient.getFieldsName().contains("ID_DEVISE")) {
-                tClient.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+                tClient.addForeignColumn("ID_DEVISE", root.findTable("DEVISE", true));
                 alterClient = true;
             }
             if (alterClient) {
@@ -968,11 +1111,11 @@ public class InstallationPanel extends JPanel {
             boolean alterPays = false;
 
             if (!tablePays.getFieldsName().contains("ID_TARIF")) {
-                tPays.addForeignColumn("ID_TARIF", root.findTable("TARIF"));
+                tPays.addForeignColumn("ID_TARIF", root.findTable("TARIF", true));
                 alterPays = true;
             }
             if (!tablePays.getFieldsName().contains("ID_LANGUE")) {
-                tPays.addForeignColumn("ID_LANGUE", root.findTable("LANGUE"));
+                tPays.addForeignColumn("ID_LANGUE", root.findTable("LANGUE", true));
                 alterPays = true;
             }
             if (alterPays) {
@@ -1012,11 +1155,11 @@ public class InstallationPanel extends JPanel {
             boolean alterFourn = false;
 
             if (!tableFournisseur.getFieldsName().contains("ID_LANGUE")) {
-                tFourn.addForeignColumn("ID_LANGUE", root.findTable("LANGUE"));
+                tFourn.addForeignColumn("ID_LANGUE", root.findTable("LANGUE", true));
                 alterFourn = true;
             }
             if (!tableFournisseur.getFieldsName().contains("ID_DEVISE")) {
-                tFourn.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+                tFourn.addForeignColumn("ID_DEVISE", root.findTable("DEVISE", true));
                 alterFourn = true;
             }
             if (!tableFournisseur.getFieldsName().contains("RESPONSABLE")) {
@@ -1138,7 +1281,7 @@ public class InstallationPanel extends JPanel {
         }
 
         {
-            SQLTable tableContrat = root.findTable("CONTRAT_SALARIE");
+            SQLTable tableContrat = root.findTable("CONTRAT_SALARIE", true);
             boolean alter2 = false;
             AlterTable t2 = new AlterTable(tableContrat);
             // UGRR
@@ -1171,7 +1314,7 @@ public class InstallationPanel extends JPanel {
             }
 
             if (!tableContrat.getFieldsName().contains("ID_CODE_STATUT_CAT_CONV")) {
-                t2.addForeignColumn("ID_CODE_STATUT_CAT_CONV", root.findTable("CODE_STATUT_CAT_CONV"));
+                t2.addForeignColumn("ID_CODE_STATUT_CAT_CONV", root.findTable("CODE_STATUT_CAT_CONV", true));
                 alter2 = true;
             }
 
@@ -1192,7 +1335,7 @@ public class InstallationPanel extends JPanel {
         boolean alter = false;
         AlterTable t = new AlterTable(table);
         if (!table.getFieldsName().contains("ID_DEVISE")) {
-            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE", true));
             alter = true;
         }
 
@@ -1220,16 +1363,24 @@ public class InstallationPanel extends JPanel {
             t.addColumn("QTE_ACHAT", "integer DEFAULT 1");
             alter = true;
         }
-        // if (!table.getFieldsName().contains("ID_ARTICLE")) {
-        // t.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE"));
-        // alter = true;
-        // }
+        if (!table.getFieldsName().contains("QTE_UNITAIRE")) {
+            t.addColumn("QTE_UNITAIRE", "numeric(16,6) DEFAULT 1");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("ID_UNITE_VENTE")) {
+            t.addForeignColumn("ID_UNITE_VENTE", root.findTable("UNITE_VENTE", true).getSQLName(), "ID", "2");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("ID_ARTICLE")) {
+            t.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE", true));
+            alter = true;
+        }
         if (!table.getFieldsName().contains("PA_DEVISE")) {
             t.addColumn("PA_DEVISE", "bigint default 0");
             alter = true;
         }
         if (!table.getFieldsName().contains("ID_DEVISE")) {
-            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE", true));
             alter = true;
         }
 
@@ -1284,7 +1435,7 @@ public class InstallationPanel extends JPanel {
             alter = true;
         }
         if (!table.getFieldsName().contains("ID_TARIF")) {
-            t.addForeignColumn("ID_TARIF", root.findTable("TARIF"));
+            t.addForeignColumn("ID_TARIF", root.findTable("TARIF", true));
             alter = true;
         }
 
@@ -1307,10 +1458,18 @@ public class InstallationPanel extends JPanel {
             t.addColumn("QTE_ACHAT", "integer DEFAULT 1");
             alter = true;
         }
-        // if (!table.getFieldsName().contains("ID_ARTICLE")) {
-        // t.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE"));
-        // alter = true;
-        // }
+        if (!table.getFieldsName().contains("QTE_UNITAIRE")) {
+            t.addColumn("QTE_UNITAIRE", "numeric(16,6) DEFAULT 1");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("ID_UNITE_VENTE")) {
+            t.addForeignColumn("ID_UNITE_VENTE", root.findTable("UNITE_VENTE", true).getSQLName(), "ID", "2");
+            alter = true;
+        }
+        if (!table.getFieldsName().contains("ID_ARTICLE")) {
+            t.addForeignColumn("ID_ARTICLE", root.findTable("ARTICLE", true));
+            alter = true;
+        }
         if (!table.getFieldsName().contains("CODE_DOUANIER")) {
             t.addVarCharColumn("CODE_DOUANIER", 256);
             alter = true;
@@ -1320,7 +1479,7 @@ public class InstallationPanel extends JPanel {
             alter = true;
         }
         if (!table.getFieldsName().contains("ID_PAYS")) {
-            t.addForeignColumn("ID_PAYS", root.findTable("PAYS"));
+            t.addForeignColumn("ID_PAYS", root.findTable("PAYS", true));
             alter = true;
         }
         if (!table.getFieldsName().contains("MARGE_HT")) {
@@ -1329,7 +1488,7 @@ public class InstallationPanel extends JPanel {
         }
 
         if (!table.getFieldsName().contains("ID_DEVISE")) {
-            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE"));
+            t.addForeignColumn("ID_DEVISE", root.findTable("DEVISE", true));
             alter = true;
         }
         if (!table.getFieldsName().contains("PV_U_DEVISE")) {
@@ -1359,7 +1518,7 @@ public class InstallationPanel extends JPanel {
         }
     }
 
-    private void updateSocieteSchema(final DBRoot root) throws SQLException {
+    private void updateSocieteSchema(final DBRoot root) throws IOException, Exception {
         final DBSystemRoot sysRoot = root.getDBSystemRoot();
         final SQLDataSource ds = sysRoot.getDataSource();
         System.out.println("InstallationPanel.InstallationPanel() UPDATE COMMERCIAL " + root);
@@ -1470,9 +1629,9 @@ public class InstallationPanel extends JPanel {
             // Suppression des champs 1.0
             System.out.println("InstallationPanel.InstallationPanel() UPDATE FROM 1.0 " + root);
             final List<ChangeTable<?>> changes = new ArrayList<ChangeTable<?>>();
-
             List<String> tablesToRemove = new ArrayList<String>();
             tablesToRemove.add("AFFAIRE");
+            tablesToRemove.add("AFFAIRE_ELEMENT");
             tablesToRemove.add("RAPPORT");
             tablesToRemove.add("CODE_MISSION");
             tablesToRemove.add("FICHE_RENDEZ_VOUS");
@@ -1483,16 +1642,25 @@ public class InstallationPanel extends JPanel {
             tablesToRemove.add("FICHE_RENDEZ_VOUS_ELEMENT");
             tablesToRemove.add("POURCENT_SERVICE");
             tablesToRemove.add("PROPOSITION");
-            tablesToRemove.add("AFFAIRE_ELEMENT");
             tablesToRemove.add("PROPOSITION_ELEMENT");
             tablesToRemove.add("POLE_PRODUIT");
             tablesToRemove.add("BANQUE_POLE_PRODUIT");
             tablesToRemove.add("AFFACTURAGE");
             tablesToRemove.add("SECTEUR_ACTIVITE");
 
+            //
+            final ModuleManager instance = new ModuleManager();
+            instance.setRoot(root);
+            final Set<String> modulesIds = instance.getDBInstalledModules().keySet();
+            final Set<String> allUsedTable = new HashSet<String>();
+            for (String id : modulesIds) {
+                Set<String> tableNames = instance.getCreatedItems(id).get0();
+                allUsedTable.addAll(tableNames);
+            }
+            System.out.println("Tables used by modules:" + allUsedTable);
             final DatabaseGraph graph = sysRoot.getGraph();
             for (String tableName : tablesToRemove) {
-                if (root.contains(tableName)) {
+                if (!allUsedTable.contains(tableName) && root.contains(tableName)) {
 
                     final SQLTable table = root.getTable(tableName);
                     for (final Link link : graph.getReferentLinks(table)) {
@@ -1629,6 +1797,13 @@ public class InstallationPanel extends JPanel {
     }
 
     private void updateCommon(DBRoot root) throws SQLException {
+
+        // rm ID 43 - 47 de SOCIETE_COMMON
+        final SQLTable tableSociete = root.getTable("SOCIETE_COMMON");
+        String req3 = "DELETE FROM " + tableSociete.getSQLName().quote() + " WHERE ";
+        req3 += new Where(tableSociete.getKey(), 43, 47).getClause();
+        root.getDBSystemRoot().getDataSource().execute(req3);
+
         // rm ID 3 à 49 de EXERCICE_COMMON
         final SQLTable tableExercice = root.getTable("EXERCICE_COMMON");
         String req1a = "DELETE FROM " + tableExercice.getSQLName().quote() + " WHERE ";
@@ -1649,11 +1824,6 @@ public class InstallationPanel extends JPanel {
             String req2 = updateBuilder.asString();
             root.getDBSystemRoot().getDataSource().execute(req2);
         }
-        // rm ID 43 - 47 de SOCIETE_COMMON
-        final SQLTable tableSociete = root.getTable("SOCIETE_COMMON");
-        String req3 = "DELETE FROM " + tableSociete.getSQLName().quote() + " WHERE ";
-        req3 += new Where(tableSociete.getKey(), 43, 47).getClause();
-        root.getDBSystemRoot().getDataSource().execute(req3);
 
         // FK
         new AddFK(root.getDBSystemRoot()).change(root);

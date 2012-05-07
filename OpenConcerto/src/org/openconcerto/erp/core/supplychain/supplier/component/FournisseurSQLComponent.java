@@ -25,6 +25,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.ElementSQLObject;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -309,6 +310,34 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         c.anchor = GridBagConstraints.NORTHWEST;
         this.add(panel, c);
 
+        // Compte charge par défaut
+
+        c.gridx = 0;
+        c.gridy++;
+        c.weightx = 1;
+        c.weighty = 0;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        TitledSeparator sepCompteCharge = new TitledSeparator("Compte de charge par défaut");
+        this.add(sepCompteCharge, c);
+
+        JPanel panel2 = new JPanel(new GridBagLayout());
+        GridBagConstraints c3 = new DefaultGridBagConstraints();
+
+        panel2.add(new JLabel(getLabelFor("ID_COMPTE_PCE_CHARGE")), c3);
+        ISQLCompteSelector compteSelCharge = new ISQLCompteSelector(true);
+        c3.gridx++;
+        c3.weightx = 1;
+        panel2.add(compteSelCharge, c3);
+        addView(compteSelCharge, "ID_COMPTE_PCE_CHARGE");
+
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 1;
+        c.weighty = 1;
+        c.anchor = GridBagConstraints.NORTHWEST;
+        this.add(panel2, c);
+
         // INfos
         c.gridx = 0;
         c.gridy++;
@@ -416,6 +445,20 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
             System.err.println("Impossible de sélectionner le mode de règlement par défaut du client.");
             e.printStackTrace();
         }
+
+        // Select Compte charge par defaut
+        final SQLTable tablePrefCompte = getTable().getTable("PREFS_COMPTE");
+        final SQLRow rowPrefsCompte = SQLBackgroundTableCache.getInstance().getCacheForTable(tablePrefCompte).getRowFromId(2);
+        // compte Achat
+        int idCompteAchat = rowPrefsCompte.getInt("ID_COMPTE_PCE_ACHAT");
+        if (idCompteAchat <= 1) {
+            try {
+                idCompteAchat = ComptePCESQLElement.getIdComptePceDefault("Achats");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+        vals.put("ID_COMPTE_PCE_CHARGE", idCompteAchat);
         return vals;
     }
 

@@ -28,8 +28,12 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
-import java.util.TreeSet;
+import java.util.TreeMap;
+
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
 
 /**
  * The root of a database system ie all its tables can reference each other. For example in mysql a
@@ -37,57 +41,89 @@ import java.util.TreeSet;
  * 
  * @author Sylvain
  */
+@ThreadSafe
 public final class DBSystemRoot extends DBStructureItemDB {
 
+    private final Object treeMutex = new String("Tree mutex");
+    @GuardedBy("graphMutex")
     private DatabaseGraph graph;
+    private final Object graphMutex = new String("Graph mutex");
+    @GuardedBy("rootsToMap")
     private final Set<String> rootsToMap;
 
+    @GuardedBy("supp")
     private final PropertyChangeSupport supp;
 
+    // linked to schemaPath and incoherentPath
+    @GuardedBy("this")
     private SQLDataSource ds;
-    private final List<String> schemaPath;
+    // immutable
+    @GuardedBy("this")
+    private List<String> schemaPath;
     // whether this.getTable("T") is the same as "SELECT FROM T"
+    @GuardedBy("this")
     private boolean incoherentPath;
     private final PropertyChangeListener coherenceListener;
 
     DBSystemRoot(DBStructureItemJDBC delegate) {
         super(delegate);
         this.graph = null;
-        this.rootsToMap = new HashSet<String>();
+        this.rootsToMap = Collections.synchronizedSet(new HashSet<String>());
         this.ds = null;
-        this.schemaPath = new ArrayList<String>();
+        this.schemaPath = Collections.emptyList();
         this.incoherentPath = false;
 
         this.supp = new PropertyChangeSupport(this);
         this.coherenceListener = new PropertyChangeListener() {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
-                if (isIncoherentPath())
-                    // our path is empty so nothing can be removed
-                    setRootPathFromDS();
-                else {
-                    @SuppressWarnings("unchecked")
-                    final Collection<String> newVal = (Collection<String>) evt.getNewValue();
-                    final Collection<String> inexistant = CollectionUtils.substract(getRootPath(), newVal);
-                    if (inexistant.size() > 0) {
-                        // remove inexistant
-                        DBSystemRoot.this.schemaPath.removeAll(inexistant);
-                        // set ds path since inexistant might just mean hidden by rootsToMap not
-                        // dropped from the db
-                        if (DBSystemRoot.this.schemaPath.size() > 0)
-                            setRootPath(DBSystemRoot.this.schemaPath);
-                        else
-                            unsetRootPath();
-                    }
-                }
+                rootsChanged(evt);
             }
         };
 
         this.getServer().init(this);
     }
 
+    private synchronized void rootsChanged(PropertyChangeEvent evt) {
+        if (isIncoherentPath()) {
+            // our path is empty so nothing can be removed
+            setRootPathFromDS();
+        } else {
+            @SuppressWarnings("unchecked")
+            final Collection<String> newVal = (Collection<String>) evt.getNewValue();
+            final List<String> rootPath = getRootPath();
+            final Collection<String> inexistant = CollectionUtils.substract(rootPath, newVal);
+            if (inexistant.size() > 0) {
+                // remove inexistant
+                final List<String> copy = new ArrayList<String>(rootPath);
+                copy.removeAll(inexistant);
+                // set ds path since inexistant might just mean hidden by rootsToMap not
+                // dropped from the db
+                if (copy.size() > 0)
+                    setRootPathWithPrivate(copy);
+                else
+                    unsetRootPath();
+            }
+        }
+    }
+
+    /**
+     * Lock that is held when the tree rooted here is modified.
+     * 
+     * @return the tree lock.
+     */
+    public final Object getTreeMutex() {
+        return this.treeMutex;
+    }
+
     public final DBRoot getRoot(final String name) {
         return (DBRoot) this.getCheckedChild(name);
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public Map<String, DBRoot> getChildrenMap() {
+        return (Map<String, DBRoot>) super.getChildrenMap();
     }
 
     public Set<String> getRootsToMap() {
@@ -107,12 +143,16 @@ public final class DBSystemRoot extends DBStructureItemDB {
      * @throws DBStructureItemNotFound if <code>mustExist</code> and no table was found.
      */
     public final SQLTable findTable(String name, final boolean mustExist) {
-        for (final String root : this.schemaPath) {
-            if (this.contains(root) && this.getRoot(root).contains(name))
-                return this.getRoot(root).getTable(name);
+        final Map<String, DBRoot> children = this.getChildrenMap();
+        final List<String> path = this.getRootPath();
+        for (final String root : path) {
+            final DBRoot child = children.get(root);
+            final SQLTable res = child == null ? null : child.getTable(name);
+            if (res != null)
+                return res;
         }
         if (mustExist)
-            throw new DBStructureItemNotFound("table " + name + " not found in " + this.schemaPath);
+            throw new DBStructureItemNotFound("table " + name + " not found in " + path);
         else
             return null;
     }
@@ -124,10 +164,14 @@ public final class DBSystemRoot extends DBStructureItemDB {
      * @return the children it can create or <code>null</code> for no restriction.
      */
     final Set<String> getNodesToCreate(DBStructureItemJDBC parent) {
-        if (isSystemRoot(parent))
-            return this.getRootsToMap().size() == 0 ? null : this.getRootsToMap();
-        else
+        if (isSystemRoot(parent)) {
+            final Set<String> rootsToMap = this.getRootsToMap();
+            synchronized (rootsToMap) {
+                return rootsToMap.size() == 0 ? null : rootsToMap;
+            }
+        } else {
             return null;
+        }
     }
 
     final boolean createNode(DBStructureItemJDBC parent, String childName) {
@@ -140,7 +184,10 @@ public final class DBSystemRoot extends DBStructureItemDB {
     }
 
     private boolean shouldMap(String childName) {
-        return this.getRootsToMap().size() == 0 || this.getRootsToMap().contains(childName);
+        final Set<String> rootsToMap = this.getRootsToMap();
+        synchronized (rootsToMap) {
+            return rootsToMap.size() == 0 || rootsToMap.contains(childName);
+        }
     }
 
     private boolean isSystemRoot(DBStructureItemJDBC parent) {
@@ -160,9 +207,16 @@ public final class DBSystemRoot extends DBStructureItemDB {
     }
 
     private final void setGraph(DatabaseGraph graph) {
-        final DatabaseGraph oldValue = this.graph;
-        this.graph = graph;
-        this.supp.firePropertyChange("graph", oldValue, this.graph);
+        if (graph != null)
+            this.checkDropped();
+        final DatabaseGraph oldValue;
+        synchronized (this.graphMutex) {
+            oldValue = this.graph;
+            this.graph = graph;
+        }
+        synchronized (this.supp) {
+            this.supp.firePropertyChange("graph", oldValue, graph);
+        }
     }
 
     void descendantsChanged() {
@@ -170,6 +224,7 @@ public final class DBSystemRoot extends DBStructureItemDB {
     }
 
     void descendantsChanged(final boolean tableListChange) {
+        assert Thread.holdsLock(getTreeMutex()) : "By definition descendants must be changed with the tree lock";
         this.clearGraph();
         // the dataSource must always have all tables, to listen to them for its cache
         if (tableListChange)
@@ -180,29 +235,36 @@ public final class DBSystemRoot extends DBStructureItemDB {
         this.setGraph(null);
     }
 
-    // synch otherwise multiple graph can be created
-    public synchronized DatabaseGraph getGraph() {
-        if (this.graph == null)
-            try {
-                this.setGraph(new DatabaseGraph(this));
-            } catch (SQLException e) {
-                throw new IllegalStateException("could not graph " + this, e);
+    public DatabaseGraph getGraph() {
+        assert Thread.holdsLock(this.getTreeMutex()) || !Thread.holdsLock(this.graphMutex) : "Global public lock, then private lock";
+        synchronized (this.getTreeMutex()) {
+            synchronized (this.graphMutex) {
+                if (this.graph == null) {
+                    try {
+                        // keep new DatabaseGraph() inside the synchronized to prevent two
+                        // concurrent expensive creations
+                        this.setGraph(new DatabaseGraph(this));
+                    } catch (SQLException e) {
+                        throw new IllegalStateException("could not graph " + this, e);
+                    }
+                }
+                return this.graph;
             }
-        return this.graph;
+        }
     }
 
-    public final SQLDataSource getDataSource() {
+    public synchronized final SQLDataSource getDataSource() {
         if (this.ds == null)
             throw new IllegalStateException("setDS() was not called");
         return this.ds;
     }
 
-    public final boolean hasDataSource() {
+    public synchronized final boolean hasDataSource() {
         return this.ds != null;
     }
 
     @Override
-    protected void onDrop() {
+    protected synchronized void onDrop() {
         this.rmChildrenListener(this.coherenceListener);
         // if setDS() was never called
         if (this.ds != null) {
@@ -253,9 +315,11 @@ public final class DBSystemRoot extends DBStructureItemDB {
     public final void addRoots(final List<String> roots) throws SQLException {
         this.getRootsToMap().addAll(roots);
         this.reload(new HashSet<String>(roots));
-        final List<String> newPath = new ArrayList<String>(this.schemaPath);
-        newPath.addAll(roots);
-        this.setRootPath(newPath);
+        synchronized (this) {
+            final List<String> newPath = new ArrayList<String>(this.getRootPath());
+            newPath.addAll(roots);
+            this.setRootPathWithPrivate(newPath);
+        }
     }
 
     /**
@@ -274,11 +338,15 @@ public final class DBSystemRoot extends DBStructureItemDB {
     }
 
     public final void addListener(PropertyChangeListener l) {
-        this.supp.addPropertyChangeListener(l);
+        synchronized (this.supp) {
+            this.supp.addPropertyChangeListener(l);
+        }
     }
 
     public final void rmListener(PropertyChangeListener l) {
-        this.supp.removePropertyChangeListener(l);
+        synchronized (this.supp) {
+            this.supp.removePropertyChangeListener(l);
+        }
     }
 
     /**
@@ -288,17 +356,17 @@ public final class DBSystemRoot extends DBStructureItemDB {
      */
     public String dump() {
         String res = "";
-        for (final String rootName : new TreeSet<String>(this.getChildrenNames())) {
-            final DBRoot root = this.getRoot(rootName);
+        for (final DBRoot root : new TreeMap<String, DBRoot>(this.getChildrenMap()).values()) {
             res += root + "\n\n";
             res += root.dump() + "\n\n\n";
         }
         return res;
     }
 
-    final void setDS(String login, String pass, IClosure<SQLDataSource> dsInit) {
+    synchronized final void setDS(String login, String pass, IClosure<SQLDataSource> dsInit) {
         if (this.ds != null)
             throw new IllegalStateException("already set: " + this.ds);
+        this.checkDropped();
         // either base or above
         final String baseName = this.getLevel() == HierarchyLevel.SQLBASE ? this.getName() : "";
         this.ds = new SQLDataSource(this.getServer(), baseName, login, pass);
@@ -310,7 +378,7 @@ public final class DBSystemRoot extends DBStructureItemDB {
         setRootPathFromDS();
     }
 
-    private void setRootPathFromDS() {
+    private synchronized void setRootPathFromDS() {
         final String dsSchema = this.ds.getSchema();
         final Set<String> childrenNames = getChildrenNames();
         if (dsSchema != null && childrenNames.contains(dsSchema)) {
@@ -322,11 +390,11 @@ public final class DBSystemRoot extends DBStructureItemDB {
                 this.setDefaultRoot(childrenNames.iterator().next());
             } else if (this.getServer().getSQLSystem().isNoDefaultSchemaSupported()) {
                 // prefer not to choose so unset default schema
-                this.setRootPath(Collections.<String> emptyList());
+                this.clearRootPath();
             } else {
                 // we've got no schemas and the ds schema is set to something
                 // (since isNoDefaultSchemaSupported() is false)
-                this.schemaPath.clear();
+                this.schemaPath = Collections.emptyList();
                 this.incoherentPath = true;
                 Log.get().warning("db default schema is " + dsSchema + " and the schemas of " + this + " are empty ; the first created schema will become the default one");
             }
@@ -339,7 +407,7 @@ public final class DBSystemRoot extends DBStructureItemDB {
      * @return <code>true</code> if both paths are not coherent.
      * @see #setDefaultRoot(String)
      */
-    public final boolean isIncoherentPath() {
+    public synchronized final boolean isIncoherentPath() {
         return this.incoherentPath;
     }
 
@@ -353,39 +421,43 @@ public final class DBSystemRoot extends DBStructureItemDB {
      * @see SQLDataSource#setSchema(String)
      */
     public final void setDefaultRoot(String schemaName) {
-        this.setRootPath(Collections.singletonList(schemaName));
+        this.setRootPathWithImmutable(Collections.singletonList(schemaName));
     }
 
-    public final void appendToRootPath(String schemaName) {
-        final List<String> newPath = new ArrayList<String>(this.schemaPath);
+    public synchronized final void appendToRootPath(String schemaName) {
+        final List<String> newPath = new ArrayList<String>(this.getRootPath());
         newPath.add(schemaName);
-        this.setRootPath(newPath);
+        this.setRootPathWithPrivate(newPath);
     }
 
-    public final void prependToRootPath(String schemaName) {
-        final List<String> newPath = new ArrayList<String>(this.schemaPath);
+    public synchronized final void prependToRootPath(String schemaName) {
+        final List<String> newPath = new ArrayList<String>(this.getRootPath());
         newPath.add(0, schemaName);
-        this.setRootPath(newPath);
+        this.setRootPathWithPrivate(newPath);
     }
 
     public final void clearRootPath() {
-        this.setRootPath(Collections.<String> emptyList());
+        this.setRootPathWithImmutable(Collections.<String> emptyList());
     }
 
-    public final void unsetRootPath() {
+    public synchronized final void unsetRootPath() {
         this.getDataSource().unsetInitialSchema();
         this.setRootPathFromDS();
     }
 
     public final void setRootPath(List<String> schemaNames) {
+        this.setRootPathWithPrivate(new ArrayList<String>(schemaNames));
+    }
+
+    private final void setRootPathWithPrivate(List<String> schemaNames) {
+        this.setRootPathWithImmutable(Collections.unmodifiableList(schemaNames));
+    }
+
+    private synchronized final void setRootPathWithImmutable(List<String> schemaNames) {
         if (!this.getChildrenNames().containsAll(schemaNames))
             throw new IllegalArgumentException(schemaNames + " are not all in " + this + ": " + this.getChildrenNames());
 
-        // allow setRootPath(this.schemaPath);
-        if (schemaNames != this.schemaPath) {
-            this.schemaPath.clear();
-            this.schemaPath.addAll(schemaNames);
-        }
+        this.schemaPath = schemaNames;
 
         // coherence with ds so that table.getRowCount() and
         // "select count(*) from table" mean the same
@@ -394,13 +466,14 @@ public final class DBSystemRoot extends DBStructureItemDB {
         this.incoherentPath = false;
     }
 
-    public final List<String> getRootPath() {
-        return Collections.unmodifiableList(this.schemaPath);
+    public synchronized final List<String> getRootPath() {
+        return this.schemaPath;
     }
 
     public final DBRoot getDefaultRoot() {
-        if (this.schemaPath.size() > 0) {
-            return this.getRoot(this.schemaPath.get(0));
+        final List<String> path = this.getRootPath();
+        if (path.size() > 0) {
+            return this.getRoot(path.get(0));
         } else
             return null;
     }

@@ -22,10 +22,7 @@ import org.openconcerto.ui.component.ITextArea;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
-import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -70,23 +67,26 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         c.gridx = 0;
         c.weightx = 0;
         c.gridwidth = 1;
+
         this.add(labelVille, c);
         c.gridwidth = 1;
         c.gridx++;
         c.weightx = 1;
+        c.fill = GridBagConstraints.NONE;
         DefaultGridBagConstraints.lockMinimumSize(textVille);
         this.add(textVille, c);
 
         // Cedex
-        final JCheckBox checkCedex = new JCheckBox(getLabelFor("CEDEX"), false);
-        checkCedex.setOpaque(false);
-        c.gridx++;
+        final JLabel labelCedex = new JLabel(getLabelFor("CEDEX"), SwingConstants.RIGHT);
+        c.gridx = 0;
+        c.gridy++;
         c.weightx = 0;
         c.gridwidth = 1;
-        this.add(checkCedex, c);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(labelCedex, c);
         final JTextField cedex = new JTextField(6);
         c.gridx++;
-        cedex.setEditable(false);
+        c.fill = GridBagConstraints.NONE;
         this.add(cedex, c);
 
         // Pays
@@ -94,24 +94,21 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         c.gridx = 0;
         c.weightx = 0;
         c.gridwidth = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
         final JLabel labelPays = new JLabel(getLabelFor("PAYS"), SwingConstants.RIGHT);
         this.add(labelPays, c);
-        final JTextField pays = new JTextField();
+        final JTextField pays = new JTextField(16);
         c.gridx++;
+        c.fill = GridBagConstraints.NONE;
         this.add(pays, c);
 
         this.addSQLObject(textRue, "RUE");
         this.addView(textVille, "VILLE", REQ);
         this.addView(cedex, "CEDEX");
         this.addView(destinataire, "DEST");
-        this.addView(checkCedex, "HAS_CEDEX");
+
         this.addRequiredSQLObject(pays, "PAYS");
 
-        checkCedex.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                cedex.setEditable(checkCedex.isSelected());
-            }
-        });
     }
 
     protected SQLRowValues createDefaults() {

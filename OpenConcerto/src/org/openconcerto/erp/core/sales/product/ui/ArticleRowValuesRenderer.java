@@ -63,18 +63,20 @@ public class ArticleRowValuesRenderer extends DeviseNiceTableCellRenderer {
             if (mode != null && this.listColorModeVente != null && this.listColorModeVente.contains(Integer.valueOf(mode.intValue()))) {
                 if (!isSelected) {
                     comp.setBackground(light);
-                } else {
-                    comp.setBackground(darker);
-                }
+                } 
+//                else {
+//                    comp.setBackground(darker);
+//                }
                 return comp;
             }
 
             if (!model.isCellEditable(row, column)) {
                 if (!isSelected) {
                     comp.setBackground(lightBlack);
-                } else {
-                    comp.setBackground(lightBlackDarker);
-                }
+                } 
+                // else {
+                // comp.setBackground(lightBlackDarker);
+                // }
                 return comp;
             }
         }

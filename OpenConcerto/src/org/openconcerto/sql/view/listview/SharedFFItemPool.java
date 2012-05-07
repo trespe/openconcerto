@@ -39,7 +39,6 @@ public final class SharedFFItemPool extends FFItemPool {
         final SQLField f = (SQLField) this.availables.remove(0);
         this.added.add(newItem);
         newItem.init(f.getName(), Collections.singleton(f));
-        newItem.setDescription(this.getLabel(f));
         return newItem;
     }
 

@@ -14,11 +14,14 @@
  package org.openconcerto.erp.core.supplychain.order.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
+import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
+import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
-import org.openconcerto.erp.core.sales.order.ui.CommandeClientRenderer;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
@@ -35,10 +38,7 @@ import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
-import javax.swing.BorderFactory;
 import javax.swing.JFrame;
-import javax.swing.JPanel;
-import javax.swing.JTable;
 
 public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
 
@@ -48,7 +48,8 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
     }
 
     public JFrame createFrame() {
-        final IListFrame frame = new IListFrame(new ListeAddPanel(Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT")) {
+        SQLElement eltCmd = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
+        ListeAddPanel listeAddPanel = new ListeAddPanel(eltCmd, new IListe(eltCmd.getTableSource(true))) {
             @Override
             protected GridBagConstraints createConstraints() {
                 // TODO Auto-generated method stub
@@ -56,23 +57,46 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
                 c.gridy++;
                 return c;
             }
-        });
+        };
 
-        final CommandeClientRenderer rend = CommandeClientRenderer.getInstance();
+        List<SQLField> fields = new ArrayList<SQLField>(2);
+        fields.add(eltCmd.getTable().getField("T_HT"));
+        // fields.add(eltCmd.getTable().getField("T_TTC"));
+        IListTotalPanel totalPanel = new IListTotalPanel(listeAddPanel.getListe(), fields, "Total Global");
+
         GridBagConstraints c = new DefaultGridBagConstraints();
-        final JPanel legendePanel = rend.getLegendePanel();
-        legendePanel.setBorder(BorderFactory.createTitledBorder("Légende"));
-        legendePanel.setOpaque(true);
+        c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.NONE;
-        frame.getPanel().add(legendePanel, c);
-        JTable table = frame.getPanel().getListe().getJTable();
-        for (int i = 0; i < table.getColumnCount(); i++) {
-            // if (table.getColumnClass(i) == Long.class ||
-            // table.getColumnClass(i) ==
-            // BigInteger.class) {
-            table.getColumnModel().getColumn(i).setCellRenderer(rend);
-            // }
-        }
+        c.anchor = GridBagConstraints.EAST;
+        c.weightx = 1;
+        c.gridy = 4;
+
+        listeAddPanel.add(totalPanel, c);
+
+        // Date panel
+        IListFilterDatePanel datePanel = new IListFilterDatePanel(listeAddPanel.getListe(), eltCmd.getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
+        c.gridy++;
+        c.anchor = GridBagConstraints.CENTER;
+        listeAddPanel.add(datePanel, c);
+
+        final IListFrame frame = new IListFrame(listeAddPanel);
+
+        // FIXME Probleme avec le renderer
+        // final CommandeClientRenderer rend = CommandeClientRenderer.getInstance();
+        // c = new DefaultGridBagConstraints();
+        // final JPanel legendePanel = rend.getLegendePanel();
+        // legendePanel.setBorder(BorderFactory.createTitledBorder("Légende"));
+        // legendePanel.setOpaque(true);
+        // c.fill = GridBagConstraints.NONE;
+        // frame.getPanel().add(legendePanel, c);
+        // JTable table = frame.getPanel().getListe().getJTable();
+        // for (int i = 0; i < table.getColumnCount(); i++) {
+        // // if (table.getColumnClass(i) == Long.class ||
+        // // table.getColumnClass(i) ==
+        // // BigInteger.class) {
+        // table.getColumnModel().getColumn(i).setCellRenderer(rend);
+        // // }
+        // }
 
         frame.getPanel().getListe().addIListeActions(new MouseSheetXmlListeListener(CommandeClientXmlSheet.class) {
             @Override
@@ -110,6 +134,8 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
                 return l;
             }
         }.getRowActions());
+
+        datePanel.setFilterOnDefault();
 
         return frame;
     }

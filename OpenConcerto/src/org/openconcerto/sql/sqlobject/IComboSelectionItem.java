@@ -16,6 +16,7 @@
  */
 package org.openconcerto.sql.sqlobject;
 
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.ui.component.combo.VarDesc;
 
 /**
@@ -28,17 +29,28 @@ public class IComboSelectionItem implements VarDesc, Comparable<IComboSelectionI
     public static final int ERROR_FLAG = 2;
     public static final int IMPORTANT_FLAG = 3;
 
+    private final SQLRowAccessor row;
     private final int fId;
     private final String fLabel;
     private int flag;
 
     public IComboSelectionItem(final int id, final String label) {
+        this(null, id, label);
+    }
+
+    public IComboSelectionItem(final SQLRowAccessor row, final String label) {
+        this(row, row.getID(), label);
+    }
+
+    private IComboSelectionItem(final SQLRowAccessor row, final int id, final String label) {
+        this.row = row;
         this.fId = id;
         this.fLabel = label;
         this.setFlag(NO_FLAG);
     }
 
     public IComboSelectionItem(final IComboSelectionItem o) {
+        this.row = o.row;
         this.fId = o.getId();
         this.fLabel = o.getLabel();
         this.setFlag(o.getFlag());
@@ -46,6 +58,10 @@ public class IComboSelectionItem implements VarDesc, Comparable<IComboSelectionI
 
     public final int getId() {
         return this.fId;
+    }
+
+    public final SQLRowAccessor getRow() {
+        return this.row;
     }
 
     public final String getLabel() {

@@ -32,7 +32,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
+
+import net.jcip.annotations.ThreadSafe;
 
 import org.jdom.Element;
 
@@ -43,6 +44,7 @@ import org.jdom.Element;
  * 
  * @author ILM Informatique 4 mai 2004
  */
+@ThreadSafe
 public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
 
     /**
@@ -134,6 +136,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
 
     private final String fullName;
 
+    // all following attributes guarded by "this"
     private SQLType type;
     private final Map<String, Object> metadata;
     private Object defaultValue;
@@ -180,7 +183,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         this.xml = f.xml;
     }
 
-    void mutateTo(SQLField f) {
+    synchronized void mutateTo(SQLField f) {
         if (this == f)
             return;
         this.type = f.type;
@@ -193,7 +196,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
     }
 
     @SuppressWarnings("unchecked")
-    void setColsFromInfoSchema(Map m) {
+    synchronized void setColsFromInfoSchema(Map m) {
         this.infoSchemaCols.clear();
         this.infoSchemaCols.putAll(m);
         this.infoSchemaCols.keySet().removeAll(SQLSyntax.INFO_SCHEMA_NAMES_KEYS);
@@ -209,7 +212,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
      * 
      * @return le nom complet de ce champ, ie NOM_TABLE.NOM_CHAMP.
      */
-    public final String getFullName() {
+    public synchronized final String getFullName() {
         return this.fullName;
     }
 
@@ -217,7 +220,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         return (SQLTable) this.getParent();
     }
 
-    public SQLType getType() {
+    public synchronized SQLType getType() {
         return this.type;
     }
 
@@ -238,7 +241,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
      * @return the value.
      * @see DatabaseMetaData#getColumns(String, String, String, String)
      */
-    public Object getMetadata(String name) {
+    public synchronized Object getMetadata(String name) {
         return this.metadata.get(name);
     }
 
@@ -248,11 +251,11 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
      * @return metadata from INFORMATION_SCHEMA.
      * @see #getMetadata(String)
      */
-    public final Map<String, Object> getInfoSchema() {
+    public synchronized final Map<String, Object> getInfoSchema() {
         return Collections.unmodifiableMap(this.infoSchemaCols);
     }
 
-    public Object getDefaultValue() {
+    public synchronized Object getDefaultValue() {
         return this.defaultValue;
     }
 
@@ -262,7 +265,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
      * @return <code>true</code> if it does, <code>false</code> if not, <code>null</code> if
      *         unknown.
      */
-    public final Boolean isNullable() {
+    public synchronized final Boolean isNullable() {
         return this.nullable;
     }
 
@@ -288,7 +291,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         return this.getTable().getName();
     }
 
-    public String toXML() {
+    public synchronized String toXML() {
         if (this.xml == null) {
             final StringBuilder sb = new StringBuilder(2048);
             sb.append("<field name=\"");
@@ -305,13 +308,8 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
     }
 
     @Override
-    public SQLIdentifier getChild(String name) {
-        throw new UnsupportedOperationException("a " + this.getClass().getSimpleName() + " has no children");
-    }
-
-    @Override
-    public Set<String> getChildrenNames() {
-        return Collections.emptySet();
+    public Map<String, ? extends DBStructureItemJDBC> getChildrenMap() {
+        return Collections.emptyMap();
     }
 
     // MAYBE equalsDesc in DBStructureItem
@@ -337,7 +335,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
      * @param compareDefault <code>true</code> if defaults should be compared.
      * @return a map containing properties that differs and their values.
      */
-    public Map<Properties, String> getDiffMap(SQLField o, SQLSystem otherSystem, boolean compareDefault) {
+    public synchronized Map<Properties, String> getDiffMap(SQLField o, SQLSystem otherSystem, boolean compareDefault) {
         final Map<Properties, String> res = new HashMap<Properties, String>();
         if (o == null)
             res.put(null, "other field is null");

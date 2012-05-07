@@ -13,8 +13,11 @@
  
  package org.openconcerto.sql.model.graph;
 
+import net.jcip.annotations.ThreadSafe;
+
 import org.jgrapht.Graph;
 
+@ThreadSafe
 public class DirectedEdge<V> {
 
     private final V src;

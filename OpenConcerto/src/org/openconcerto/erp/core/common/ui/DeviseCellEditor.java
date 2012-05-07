@@ -48,6 +48,7 @@ public class DeviseCellEditor extends AbstractCellEditor implements TableCellEdi
     public DeviseCellEditor() {
         // Mimic JTable.GenericEditor behavior
         this.textField.setBorder(new LineBorder(Color.black));
+        this.textField.setHorizontalAlignment(JTextField.RIGHT);
         // On ne peut saisir qu'un chiffre à 2 décimales
         textField.addKeyListener(new KeyAdapter() {
             public void keyTyped(java.awt.event.KeyEvent keyEvent) {

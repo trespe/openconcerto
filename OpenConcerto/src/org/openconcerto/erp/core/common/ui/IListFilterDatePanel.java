@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.common.ui;
 
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
@@ -49,6 +50,9 @@ public class IListFilterDatePanel extends JPanel {
     private Map<IListe, ITransformer<SQLSelect, SQLSelect>> mapListTransformer;
     // Liste des filtres
     private Map<String, Tuple2<Date, Date>> map;
+    private static LinkedHashMap<String, Tuple2<Date, Date>> mapDefault;
+
+    private JComboBox combo;
 
     private final PropertyChangeListener listener = new PropertyChangeListener() {
         @Override
@@ -62,11 +66,25 @@ public class IListFilterDatePanel extends JPanel {
 
     public IListFilterDatePanel(IListe l, SQLField fieldDate) {
         this(l, fieldDate, null);
+        if (l.getRequest() == Configuration.getInstance().getDirectory().getElement(l.getSource().getPrimaryTable()).getListRequest()) {
+            System.err.println("Attention il ne faut pas utiliser la listrequest par défaut sinon les filtres restes !!!");
+            Thread.dumpStack();
+        }
     }
 
     public static Map<String, Tuple2<Date, Date>> getDefaultMap() {
-        Calendar c = Calendar.getInstance();
+
+        if (mapDefault == null) {
+            initDefaultMap();
+        }
         Map<String, Tuple2<Date, Date>> m = new LinkedHashMap<String, Tuple2<Date, Date>>();
+        m.putAll(mapDefault);
+        return m;
+    }
+
+    private static void initDefaultMap() {
+        mapDefault = new LinkedHashMap<String, Tuple2<Date, Date>>();
+        Calendar c = Calendar.getInstance();
 
         // Année courante
         c.set(Calendar.DATE, 1);
@@ -75,7 +93,7 @@ public class IListFilterDatePanel extends JPanel {
         c.set(Calendar.DATE, 31);
         c.set(Calendar.MONTH, 11);
         Date d2 = c.getTime();
-        m.put("Année courante", Tuple2.create(d1, d2));
+        mapDefault.put("Année courante", Tuple2.create(d1, d2));
 
         // Année précedente
         c.set(Calendar.DATE, 1);
@@ -85,7 +103,7 @@ public class IListFilterDatePanel extends JPanel {
         c.set(Calendar.DATE, 31);
         c.set(Calendar.MONTH, 11);
         Date d4 = c.getTime();
-        m.put("Année précédente", Tuple2.create(d3, d4));
+        mapDefault.put("Année précédente", Tuple2.create(d3, d4));
 
         // Mois courant
         c = Calendar.getInstance();
@@ -93,7 +111,7 @@ public class IListFilterDatePanel extends JPanel {
         Date d5 = c.getTime();
         c.set(Calendar.DATE, c.getActualMaximum(Calendar.DATE));
         Date d6 = c.getTime();
-        m.put("Mois courant", Tuple2.create(d5, d6));
+        mapDefault.put("Mois courant", Tuple2.create(d5, d6));
 
         // Mois précédent
         c = Calendar.getInstance();
@@ -102,7 +120,7 @@ public class IListFilterDatePanel extends JPanel {
         Date d7 = c.getTime();
         c.set(Calendar.DATE, c.getActualMaximum(Calendar.DATE));
         Date d8 = c.getTime();
-        m.put("Mois précédent", Tuple2.create(d7, d8));
+        mapDefault.put("Mois précédent", Tuple2.create(d7, d8));
 
         // semaine courante
         c = Calendar.getInstance();
@@ -110,7 +128,7 @@ public class IListFilterDatePanel extends JPanel {
         Date d9 = c.getTime();
         c.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
         Date d10 = c.getTime();
-        m.put("Semaine courante", Tuple2.create(d9, d10));
+        mapDefault.put("Semaine courante", Tuple2.create(d9, d10));
 
         // semaine précédente
         c = Calendar.getInstance();
@@ -119,13 +137,18 @@ public class IListFilterDatePanel extends JPanel {
         Date d11 = c.getTime();
         c.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
         Date d12 = c.getTime();
-        m.put("Semaine précédente", Tuple2.create(d11, d12));
+        mapDefault.put("Semaine précédente", Tuple2.create(d11, d12));
+    }
 
-        return m;
+    public static void addDefaultValue(String label, Tuple2<Date, Date> period) {
+        if (mapDefault == null)
+            initDefaultMap();
+        mapDefault.put(label, period);
     }
 
     public IListFilterDatePanel(IListe l, SQLField fieldDate, Map<String, Tuple2<Date, Date>> m) {
         super(new GridBagLayout());
+        setOpaque(false);
         Map<IListe, SQLField> map = new HashMap<IListe, SQLField>();
         map.put(l, fieldDate);
 
@@ -165,7 +188,8 @@ public class IListFilterDatePanel extends JPanel {
                 model.addElement(s);
             }
 
-            final JComboBox combo = new JComboBox(model);
+            this.combo = new JComboBox(model);
+
             c.weightx = 0;
             this.add(combo, c);
 
@@ -194,15 +218,22 @@ public class IListFilterDatePanel extends JPanel {
         this.dateAu.setValue(d);
     }
 
-    public void setFilterOnCurrentYear() {
-        Calendar c = Calendar.getInstance();
-        c.set(Calendar.MONTH, 0);
-        c.set(Calendar.DAY_OF_MONTH, 1);
-        Date d = c.getTime();
-        c.set(Calendar.MONTH, 11);
-        c.set(Calendar.DAY_OF_MONTH, c.getMaximum(Calendar.DAY_OF_MONTH));
-        Date d2 = c.getTime();
-        setPeriode(d, d2);
+    private static Tuple2<String, Tuple2<Date, Date>> DEFAULT_FILTER = null;
+
+    public static void setDefaultFilter(Tuple2<String, Tuple2<Date, Date>> t) {
+        DEFAULT_FILTER = t;
+    }
+
+    public void setFilterOnDefault() {
+
+        if (DEFAULT_FILTER != null) {
+
+            if (this.combo != null) {
+                this.combo.setSelectedItem(DEFAULT_FILTER.get0());
+            } else {
+                setPeriode(DEFAULT_FILTER.get1().get0(), DEFAULT_FILTER.get1().get1());
+            }
+        }
     }
 
     public void setPeriode(Tuple2<Date, Date> t) {

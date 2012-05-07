@@ -17,6 +17,8 @@ import static java.util.Arrays.asList;
 import org.openconcerto.openoffice.ODPackage.RootElement;
 import org.openconcerto.utils.Tuple2;
 
+import java.io.File;
+
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.Namespace;
@@ -110,6 +112,13 @@ public enum ContentTypeVersioned {
         if (this.getVersion() == XMLVersion.OOo)
             return null;
         return 'f' + this.getExtension();
+    }
+
+    final File addExt(File f, final boolean flat) {
+        final String ext = '.' + (flat ? this.getFlatExtension() : this.getExtension());
+        if (!f.getName().endsWith(ext))
+            f = new File(f.getParentFile(), f.getName() + ext);
+        return f;
     }
 
     public final boolean isTemplate() {

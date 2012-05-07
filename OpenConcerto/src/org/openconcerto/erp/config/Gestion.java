@@ -126,10 +126,7 @@ public class Gestion {
         System.out.println(System.getProperty("java.runtime.version", "??") + " - " + System.getProperty("os.name", "??"));
         ExceptionHandler.setForceUI(true);
         ExceptionHandler.setForumURL("http://www.openconcerto.org/forum");
-        final boolean logRequests = Boolean.getBoolean("org.openconcerto.sql.logRequests");
-        if (logRequests) {
-            SQLRequestLog.setEnabled(true);
-        }
+
         System.setProperty(PropsConfiguration.REDIRECT_TO_FILE, "true");
         // Mac
         // only works with Aqua laf
@@ -155,6 +152,7 @@ public class Gestion {
 
             System.setProperty("org.openconcerto.oo.useODSViewer", "true");
         }
+
         if (System.getProperty(State.DEAF) == null) {
             System.setProperty(State.DEAF, "true");
         }
@@ -182,6 +180,13 @@ public class Gestion {
             System.setSecurityManager(null);
         }
         Configuration.setInstance(conf);
+
+        final boolean logRequests = Boolean.valueOf(conf.getProperty("logRequests", "false"));
+
+        if (logRequests) {
+            SQLRequestLog.setEnabled(true);
+        }
+
         if (Boolean.valueOf(conf.getProperty("minimal", "false"))) {
             System.setProperty(MINIMAL_PROP, Boolean.TRUE.toString());
         }

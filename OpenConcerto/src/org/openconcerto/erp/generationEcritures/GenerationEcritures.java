@@ -23,6 +23,8 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.ExceptionHandler;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.Date;
 import java.util.HashMap;
@@ -320,20 +322,35 @@ public class GenerationEcritures {
         return 1;
     }
 
-    protected Map<Integer, Long> getMultiTVAFromRow(SQLRow row, SQLTable foreign) {
+    protected Map<Integer, Long> getMultiTVAFromRow(SQLRow row, SQLTable foreign, boolean vente) {
         List<SQLRow> rows = row.getReferentRows(foreign);
 
-        Map<Integer, Long> map = new HashMap<Integer, Long>();
+        // Total HT par TVA
+        Map<SQLRow, Long> mapTaxeHT = new HashMap<SQLRow, Long>();
         for (SQLRow sqlRow : rows) {
             SQLRow taxe = sqlRow.getForeignRow("ID_TAXE");
-            long val = sqlRow.getLong("T_PV_TTC") - sqlRow.getLong("T_PV_HT");
-            Long l = map.get(taxe.getInt("ID_COMPTE_PCE_COLLECTE"));
+            long val = sqlRow.getLong("T_PV_HT");
+            Long l = mapTaxeHT.get(taxe);
             if (l == null) {
-                map.put(taxe.getInt("ID_COMPTE_PCE_COLLECTE"), Long.valueOf(val));
+                mapTaxeHT.put(taxe, Long.valueOf(val));
             } else {
-                map.put(taxe.getInt("ID_COMPTE_PCE_COLLECTE"), Long.valueOf(val + l));
+                mapTaxeHT.put(taxe, Long.valueOf(val + l));
             }
         }
+
+        Map<Integer, Long> map = new HashMap<Integer, Long>();
+        for (SQLRow sqlRow : mapTaxeHT.keySet()) {
+            BigDecimal d = new BigDecimal(sqlRow.getFloat("TAUX"));
+            BigDecimal result = d.multiply(new BigDecimal(mapTaxeHT.get(sqlRow)), MathContext.DECIMAL128).movePointLeft(2);
+            int compte;
+            if (vente) {
+                compte = sqlRow.getInt("ID_COMPTE_PCE_COLLECTE");
+            } else {
+                compte = sqlRow.getInt("ID_COMPTE_PCE_DED");
+            }
+            map.put(compte, result.setScale(0, BigDecimal.ROUND_HALF_UP).longValue());
+        }
+
         return map;
     }
 

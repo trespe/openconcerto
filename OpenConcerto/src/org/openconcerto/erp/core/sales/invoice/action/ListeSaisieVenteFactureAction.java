@@ -85,10 +85,16 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
     private SQLElement eltEcheance = Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT");
     private SQLElement eltMvt = Configuration.getInstance().getDirectory().getElement("MOUVEMENT");
     private boolean affact = UserManager.getInstance().getCurrentUser().getRights().haveRight(NXRights.ACCES_RETOUR_AFFACTURAGE.getCode());
+    private boolean filterOnCurrentYear = false;
 
     public ListeSaisieVenteFactureAction() {
+        this(false);
+    }
+
+    public ListeSaisieVenteFactureAction(boolean filterOnCurrentYear) {
         super();
         this.putValue(Action.NAME, "Liste des factures");
+        this.filterOnCurrentYear = filterOnCurrentYear;
     }
 
     public JFrame createFrame() {
@@ -139,7 +145,7 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
                 return c;
             }
         };
-
+        this.listeAddPanel.setAddVisible(true);
         this.listeAddPanel.getListe().getModel().setEditable(true);
         GridBagConstraints c = new DefaultGridBagConstraints();
         // Total panel
@@ -161,7 +167,7 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
 
         fields.add(eltFacture.getTable().getField("T_HT"));
         fields.add(eltFacture.getTable().getField("T_TTC"));
-        IListTotalPanel totalPanel = new IListTotalPanel(this.listeAddPanel.getListe(), fields, null, "Total Global");
+        IListTotalPanel totalPanel = new IListTotalPanel(this.listeAddPanel.getListe(), IListTotalPanel.initListe(this.listeAddPanel.getListe(), fields), null, "Total Global");
 
         panelTotal.add(totalPanel);
 
@@ -172,6 +178,9 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
         c.gridy++;
         c.anchor = GridBagConstraints.CENTER;
         this.listeAddPanel.add(datePanel, c);
+        if (this.filterOnCurrentYear) {
+            datePanel.setFilterOnDefault();
+        }
 
         this.frame = new IListFrame(this.listeAddPanel);
 

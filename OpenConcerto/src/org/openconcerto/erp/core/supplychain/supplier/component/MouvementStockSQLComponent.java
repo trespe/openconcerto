@@ -108,16 +108,16 @@ public class MouvementStockSQLComponent extends BaseSQLComponent {
     @Override
     public int insert(SQLRow order) {
         int id = super.insert(order);
-        MouvementStockSQLElement.updateStock(Arrays.asList(id));
+        ((MouvementStockSQLElement) getElement()).updateStock(Arrays.asList(id), false);
         return id;
     }
 
     @Override
     public void update() {
         int id = getSelectedID();
-        MouvementStockSQLElement.updateStock(Arrays.asList(id), true);
+        ((MouvementStockSQLElement) getElement()).updateStock(Arrays.asList(id), true);
         super.update();
-        MouvementStockSQLElement.updateStock(Arrays.asList(id));
+        ((MouvementStockSQLElement) getElement()).updateStock(Arrays.asList(id), false);
     }
 
 }

@@ -13,9 +13,9 @@
  
  package org.openconcerto.erp.preferences;
 
-import org.openconcerto.erp.utils.FileUtility;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.preferences.DefaultPreferencePanel;
+import org.openconcerto.utils.FileUtils;
 
 import java.awt.Color;
 import java.awt.GridBagConstraints;
@@ -134,9 +134,9 @@ public class GenerationDeclarationDocPreferencePanel extends DefaultPreferencePa
         File z = new File(".");
 
         try {
-            TemplateNXProps.getInstance().setProperty("Location2033APDF", FileUtility.getPrimaryPath(z.getCanonicalFile(), f2033APDF));
-            TemplateNXProps.getInstance().setProperty("Location2033BPDF", FileUtility.getPrimaryPath(z.getCanonicalFile(), f2033BPDF));
-            TemplateNXProps.getInstance().setProperty("Location2033CPDF", FileUtility.getPrimaryPath(z.getCanonicalFile(), f2033CPDF));
+            TemplateNXProps.getInstance().setProperty("Location2033APDF", FileUtils.relative(z, f2033APDF));
+            TemplateNXProps.getInstance().setProperty("Location2033BPDF", FileUtils.relative(z, f2033BPDF));
+            TemplateNXProps.getInstance().setProperty("Location2033CPDF", FileUtils.relative(z, f2033CPDF));
         } catch (IOException e) {
             e.printStackTrace();
         }

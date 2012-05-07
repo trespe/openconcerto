@@ -54,6 +54,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import net.jcip.annotations.ThreadSafe;
+
 import org.apache.commons.collections.CollectionUtils;
 import org.jdom.Document;
 import org.jdom.Element;
@@ -69,6 +71,7 @@ import org.jgrapht.graph.DirectedMultigraph;
  * @author ILM Informatique 13 mai 2004
  * @see org.openconcerto.sql.model.graph.SQLKey
  */
+@ThreadSafe
 public class DatabaseGraph extends BaseGraph {
 
     /**
@@ -82,7 +85,7 @@ public class DatabaseGraph extends BaseGraph {
     private static final String FILENAME = "graph.xml";
 
     private final DBSystemRoot base;
-    private DBRoot context;
+    private final DBRoot context;
     private final List<String> mappedFromFile;
     // cache
     private final Map<SQLTable, Set<Link>> foreignLinks = new HashMap<SQLTable, Set<Link>>();
@@ -98,12 +101,15 @@ public class DatabaseGraph extends BaseGraph {
         super(new DirectedMultigraph<SQLTable, Link>(Link.class));
         this.base = root;
         this.context = null;
-        this.mappedFromFile = this.mapTables();
+        synchronized (root.getTreeMutex()) {
+            this.mappedFromFile = Collections.unmodifiableList(this.mapTables());
+        }
     }
 
     public DatabaseGraph(DatabaseGraph g, DBRoot root) {
         super(g.getGraphP());
-        this.base = root.getDBSystemRoot();
+        assert g.base == root.getDBSystemRoot();
+        this.base = g.base;
         this.context = root;
         this.mappedFromFile = g.mappedFromFile;
     }
@@ -121,10 +127,6 @@ public class DatabaseGraph extends BaseGraph {
         return this.base.getAnc(SQLServer.class);
     }
 
-    public void setContext(DBRoot root) {
-        this.context = root;
-    }
-
     private DBRoot getContext() {
         return this.context;
     }
@@ -136,6 +138,7 @@ public class DatabaseGraph extends BaseGraph {
      * @throws SQLException if an error occurs.
      */
     private List<String> mapTables() throws SQLException {
+        assert Thread.holdsLock(this.base.getTreeMutex()) : "Cannot graph a changing object";
         List<String> res = Collections.emptyList();
         final Set<SQLTable> tables = this.base.getDescs(SQLTable.class);
         Graphs.addAllVertices(this.getGraphP(), tables);
@@ -325,14 +328,13 @@ public class DatabaseGraph extends BaseGraph {
         else
             try {
                 FileUtils.mkdir_p(rootFile.getParentFile());
-                final DBRoot root = this.base.getRoot(rootName);
                 PrintWriter pWriter = new PrintWriter(new FileOutputStream(rootFile));
                 pWriter.print("<root codecVersion=\"");
                 pWriter.print(XML_VERSION);
                 pWriter.print("\"");
                 SQLSchema.getVersionAttr(r.getSchema(), pWriter);
                 pWriter.println(" >\n");
-                for (final SQLTable t : root.getDescs(SQLTable.class)) {
+                for (final SQLTable t : r.getDescs(SQLTable.class)) {
                     final Set<Link> flinks = this.getForeignLinks(t);
                     if (!flinks.isEmpty()) {
                         pWriter.print("<table name=\"");
@@ -402,7 +404,7 @@ public class DatabaseGraph extends BaseGraph {
      * @param table la table dont on veut connaitre les liens.
      * @return tous les liens qui partent ou arrivent sur cette table.
      */
-    public Set<Link> getAllLinks(SQLTable table) {
+    public synchronized Set<Link> getAllLinks(SQLTable table) {
         if (table == null)
             throw new NullPointerException();
         return this.getGraphP().edgesOf(table);
@@ -416,7 +418,7 @@ public class DatabaseGraph extends BaseGraph {
      * @param table la table dont on veut connaitre les liens.
      * @return tous les liens qui partent de cette table.
      */
-    public Set<Link> getForeignLinks(SQLTable table) {
+    public synchronized Set<Link> getForeignLinks(SQLTable table) {
         Set<Link> res = this.foreignLinks.get(table);
         // works because res cannot be null
         if (res == null) {
@@ -452,7 +454,7 @@ public class DatabaseGraph extends BaseGraph {
         return this.getForeignLink(fks);
     }
 
-    public Link getForeignLink(final List<SQLField> fk) {
+    public synchronized Link getForeignLink(final List<SQLField> fk) {
         if (fk.size() == 0)
             throw new IllegalArgumentException("empty list");
         // result can be null
@@ -484,7 +486,7 @@ public class DatabaseGraph extends BaseGraph {
      * @return les liens de t1 à t2.
      * @throws NullPointerException if either t1 or t2 is <code>null</code>.
      */
-    public Set<Link> getForeignLinks(SQLTable t1, SQLTable t2) {
+    public synchronized Set<Link> getForeignLinks(SQLTable t1, SQLTable t2) {
         if (t1 == null || t2 == null)
             throw new NullPointerException("t1: " + t1 + ", t2: " + t2);
         return this.getGraphP().getAllEdges(t1, t2);
@@ -502,7 +504,7 @@ public class DatabaseGraph extends BaseGraph {
      * @param table la table dont on veut connaitre les liens.
      * @return tous les liens qui arrivent sur cette table.
      */
-    public Set<Link> getReferentLinks(SQLTable table) {
+    public synchronized Set<Link> getReferentLinks(SQLTable table) {
         return this.getGraphP().incomingEdgesOf(table);
     }
 
@@ -671,10 +673,6 @@ public class DatabaseGraph extends BaseGraph {
         return res;
     }
 
-    public Set<Where> getStraightJoin(List<String> path) {
-        return this.getStraightJoin(Path.create(this.getContext(), path));
-    }
-
     public Set<Where> getStraightJoin(final Path p) {
         if (p.length() == 0) {
             throw new IllegalArgumentException("Path empty");
@@ -703,11 +701,11 @@ public class DatabaseGraph extends BaseGraph {
         return new Where(p.getFirst().getKey(), "=", ID).and(this.getJointure(p));
     }
 
-    public GraFFF cloneForFilter(List<SQLTable> linksToRemove) {
+    public synchronized GraFFF cloneForFilter(List<SQLTable> linksToRemove) {
         return GraFFF.create(this.getGraphP(), linksToRemove);
     }
 
-    public GraFFF cloneForFilterKeep(Set<SQLField> linksToKeep) {
+    public synchronized GraFFF cloneForFilterKeep(Set<SQLField> linksToKeep) {
         return GraFFF.createKeep(this.getGraphP(), linksToKeep);
     }
 

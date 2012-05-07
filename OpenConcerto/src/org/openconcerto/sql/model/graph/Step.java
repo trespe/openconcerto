@@ -17,19 +17,23 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.CollectionUtils;
 
+import java.util.AbstractMap;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
+
+import net.jcip.annotations.ThreadSafe;
 
 /**
  * An immutable step in a {@link Path}.
  * 
  * @author Sylvain CUAZ
  */
+@ThreadSafe
 public class Step {
 
     /**
@@ -112,6 +116,8 @@ public class Step {
         assert fields.size() > 0;
         assert CollectionUtils.getSole(fields.keySet()) == singleField;
         assert !new HashSet<Boolean>(fields.values()).contains(null) : "some directions are unknown : " + fields;
+        // thread-safe since only mutable attributes are volatile
+        assert fields instanceof AbstractMap : "Fields might not be thread-safe";
         this.from = start;
         this.to = end;
         this.fields = Collections.unmodifiableMap(fields);

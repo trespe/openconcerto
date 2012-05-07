@@ -15,8 +15,8 @@
 
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
-import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.view.list.UpdateRunnable.RmAllRunnable;
 import org.openconcerto.utils.IFutureTask;
 import org.openconcerto.utils.SleepingQueue;
@@ -24,7 +24,7 @@ import org.openconcerto.utils.cc.IClosure;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.util.concurrent.BlockingDeque;
+import java.util.Deque;
 import java.util.concurrent.FutureTask;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -178,9 +178,9 @@ final class UpdateQueue extends SleepingQueue {
             // si on met tout à jour, ne sert à rien de garder les maj précédentes.
             // ATTN aux runnables qui dépendent des update, si on enlève les maj
             // elles vont s'executer sans que sa maj soit faite
-            this.tasksDo(new IClosure<BlockingDeque<FutureTask<?>>>() {
+            this.tasksDo(new IClosure<Deque<FutureTask<?>>>() {
                 @Override
-                public void executeChecked(final BlockingDeque<FutureTask<?>> tasks) {
+                public void executeChecked(final Deque<FutureTask<?>> tasks) {
                     // on part de la fin et on supprime toutes les maj jusqu'a ce qu'on trouve
                     // un runnable qui n'est pas un UpdateRunnable
                     FutureTask<?> current = tasks.peekLast();

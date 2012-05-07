@@ -41,12 +41,14 @@ public class ListeDesAvoirsClientsAction extends CreateFrameAbstractAction {
 
     public JFrame createFrame() {
         final SQLElement element = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
-        final IListFrame frame = new IListFrame(new ListeGestCommEltPanel(element));
+        ListeGestCommEltPanel panel = new ListeGestCommEltPanel(element);
+        panel.setAddVisible(true);
+        final IListFrame frame = new IListFrame(panel);
 
         List<SQLField> fields = new ArrayList<SQLField>(2);
         fields.add(element.getTable().getField("MONTANT_HT"));
         fields.add(element.getTable().getField("MONTANT_TTC"));
-        IListTotalPanel totalPanel = new IListTotalPanel(frame.getPanel().getListe(), fields, null, "Total Global");
+        IListTotalPanel totalPanel = new IListTotalPanel(frame.getPanel().getListe(), fields, "Total Global");
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.NONE;

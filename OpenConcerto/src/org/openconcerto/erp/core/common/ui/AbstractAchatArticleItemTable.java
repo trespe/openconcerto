@@ -16,8 +16,10 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
+import org.openconcerto.erp.core.sales.product.ui.QteUnitRowValuesRenderer;
 import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
@@ -25,12 +27,16 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
+import org.openconcerto.sql.sqlobject.ITextWithCompletion;
 import org.openconcerto.sql.view.list.AutoCompletionManager;
 import org.openconcerto.sql.view.list.CellDynamicModifier;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -38,6 +44,7 @@ import java.util.Map;
 import java.util.Vector;
 
 import javax.swing.ToolTipManager;
+import javax.swing.table.TableCellRenderer;
 
 public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemTable {
 
@@ -46,7 +53,8 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
     }
 
     AutoCompletionManager m;
-    AutoCompletionManager m2;
+    AutoCompletionManager m2, m3;
+    private final SQLTable tableArticle = getSQLElement().getTable().getTable("ARTICLE");
 
     /**
      * 
@@ -55,11 +63,15 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
 
         final SQLElement e = getSQLElement();
 
+        SQLPreferences prefs = new SQLPreferences(getSQLElement().getTable().getDBRoot());
+        final boolean selectArticle = prefs.getBoolean(GestionArticleGlobalPreferencePanel.USE_CREATED_ARTICLE, false);
+        final boolean createAuto = prefs.getBoolean(GestionArticleGlobalPreferencePanel.CREATE_ARTICLE_AUTO, true);
+
         final List<SQLTableElement> list = new Vector<SQLTableElement>();
         list.add(new SQLTableElement(e.getTable().getField("ID_STYLE")));
 
-        // final SQLTableElement tableElementArticle = new SQLTableElement("ID_ARTICLE");
-        // list.add(tableElementArticle);
+        final SQLTableElement tableElementArticle = new SQLTableElement(e.getTable().getField("ID_ARTICLE"), true, true, true);
+        list.add(tableElementArticle);
 
         if (e.getTable().getFieldsName().contains("ID_FAMILLE_ARTICLE")) {
             final SQLTableElement tableFamille = new SQLTableElement(e.getTable().getField("ID_FAMILLE_ARTICLE"));
@@ -113,6 +125,28 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         this.ha.setRenderer(new DeviseNiceTableCellRenderer());
         list.add(this.ha);
 
+        SQLTableElement qteU = new SQLTableElement(e.getTable().getField("QTE_UNITAIRE"), BigDecimal.class) {
+            @Override
+            public boolean isCellEditable(SQLRowValues vals) {
+
+                SQLRowAccessor row = vals.getForeign("ID_UNITE_VENTE");
+                if (row != null && !row.isUndefined() && row.getBoolean("A_LA_PIECE")) {
+                    return false;
+                } else {
+                    return super.isCellEditable(vals);
+                }
+            }
+
+            @Override
+            public TableCellRenderer getTableCellRenderer() {
+                return new QteUnitRowValuesRenderer();
+            }
+        };
+        list.add(qteU);
+
+        SQLTableElement uniteVente = new SQLTableElement(e.getTable().getField("ID_UNITE_VENTE"));
+        list.add(uniteVente);
+
         // Quantité
         final SQLTableElement qteElement = new SQLTableElement(e.getTable().getField("QTE"), Integer.class) {
             protected Object getDefaultNullValue() {
@@ -121,8 +155,8 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         };
         list.add(qteElement);
         // TVA
-        final SQLTableElement tableElement_Taxe = new SQLTableElement(e.getTable().getField("ID_TAXE"));
-        list.add(tableElement_Taxe);
+        this.tableElementTVA = new SQLTableElement(e.getTable().getField("ID_TAXE"));
+        list.add(this.tableElementTVA);
         // Poids piece
         SQLTableElement tableElementPoids = new SQLTableElement(e.getTable().getField("POIDS"), Float.class);
         list.add(tableElementPoids);
@@ -162,7 +196,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
 
         // Autocompletion
         List<String> completionFields = new ArrayList<String>();
-
+        completionFields.add("ID_UNITE_VENTE");
         completionFields.add("PA_HT");
         completionFields.add("PV_HT");
         completionFields.add("POIDS");
@@ -200,7 +234,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
             }
         };
         m.fill("NOM", "NOM");
-        // m.fill("ID", "ID_ARTICLE");
+        m.fill("ID", "ID_ARTICLE");
         for (String string : completionFields) {
             m.fill(string, string);
         }
@@ -217,34 +251,32 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
             }
         };
         m2.fill("CODE", "CODE");
-        // m2.fill("ID", "ID_ARTICLE");
+        m2.fill("ID", "ID_ARTICLE");
         for (String string : completionFields) {
             m2.fill(string, string);
         }
 
-        // final AutoCompletionManager m3 = new AutoCompletionManager(tableElementArticle,
-        // ((ComptaPropsConfiguration)
-        // Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.NOM"),
-        // this.table, this.table.getRowValuesTableModel(), ITextWithCompletion.MODE_CONTAINS, true,
-        // true) {
-        // @Override
-        // protected Object getValueFrom(SQLRow row, String field) {
-        // Object res = tarifCompletion(row, field);
-        // if (res == null) {
-        // return super.getValueFrom(row, field);
-        // } else {
-        // return res;
-        // }
-        // }
-        // };
-        // m3.fill("CODE", "CODE");
-        // m3.fill("NOM", "NOM");
-        // for (String string : completionFields) {
-        // m3.fill(string, string);
-        // }
+        this.m3 = new AutoCompletionManager(tableElementArticle, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.NOM"), this.table,
+                this.table.getRowValuesTableModel(), ITextWithCompletion.MODE_CONTAINS, true, true) {
+            @Override
+            protected Object getValueFrom(SQLRow row, String field) {
+                Object res = tarifCompletion(row, field);
+                if (res == null) {
+                    return super.getValueFrom(row, field);
+                } else {
+                    return res;
+                }
+            }
+        };
+        m3.fill("CODE", "CODE");
+        m3.fill("NOM", "NOM");
+        for (String string : completionFields) {
+            m3.fill(string, string);
+        }
 
         // Calcul automatique du total HT
         qteElement.addModificationListener(this.totalHT);
+        qteU.addModificationListener(this.totalHT);
         this.ha.addModificationListener(this.totalHT);
         this.totalHT.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(final SQLRowValues row) {
@@ -255,13 +287,15 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
                 Number f = (Number) row.getObject("PA_HT");
                 System.err.println("Qte:" + qte + " et PA_HT:" + f);
                 // long longValue = (f == null) ? 0 : f.longValue();
-                long r = f.longValue() * qte;
+                BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
+                long r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
                 return new Long(r);
             }
 
         });
         if (DefaultNXProps.getInstance().getBooleanValue(AbstractVenteArticleItemTable.ARTICLE_SHOW_DEVISE, false)) {
             qteElement.addModificationListener(this.tableElementTotalDevise);
+            qteU.addModificationListener(this.tableElementTotalDevise);
             tableElement_PA_Devise.addModificationListener(this.tableElementTotalDevise);
             this.tableElementTotalDevise.setModifier(new CellDynamicModifier() {
                 public Object computeValueFrom(final SQLRowValues row) {
@@ -271,16 +305,18 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
                     int qte = Integer.parseInt(row.getObject("QTE").toString());
                     Number f = (Number) row.getObject("PA_DEVISE");
                     // long longValue = (f == null) ? 0 : f.longValue();
-                    long r = f.longValue() * qte;
-                    return new Long(r);
+                    BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
+                    long r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
+                    return r;
                 }
 
             });
         }
         // Calcul automatique du total TTC
         qteElement.addModificationListener(this.tableElementTotalTTC);
+        qteU.addModificationListener(this.tableElementTotalTTC);
         this.ha.addModificationListener(this.tableElementTotalTTC);
-        tableElement_Taxe.addModificationListener(this.tableElementTotalTTC);
+        this.tableElementTVA.addModificationListener(this.tableElementTotalTTC);
         this.tableElementTotalTTC.setModifier(new CellDynamicModifier() {
             @Override
             public Object computeValueFrom(SQLRowValues row) {
@@ -294,17 +330,32 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
                 }
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(idTaux);
 
-                PrixHT pHT = new PrixHT(f.longValue() * qte);
+                BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
+                long r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
+                PrixHT pHT = new PrixHT(r);
                 // System.err.println("Calcul du total TTC : taux " + resultTaux + " : HT " + pHT);
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
                 // float taux = resultTaux.floatValue();
-                Long r = new Long(pHT.calculLongTTC(taux / 100f));
-                return r;
+                Long total = new Long(pHT.calculLongTTC(taux / 100f));
+                return total;
             }
 
         });
 
         this.table.readState();
+
+        tableElementCode.addModificationListener(tableElementArticle);
+        tableElementArticle.setModifier(new CellDynamicModifier() {
+            @Override
+            public Object computeValueFrom(SQLRowValues row) {
+                SQLRowAccessor foreign = row.getForeign("ID_ARTICLE");
+                if (foreign != null && !foreign.isUndefined() && foreign.getObject("CODE") != null && foreign.getString("CODE").equals(row.getString("CODE"))) {
+                    return foreign.getID();
+                } else {
+                    return tableArticle.getUndefinedID();
+                }
+            }
+        });
 
         // Mode Gestion article avancé
         String valModeAvanceVt = DefaultNXProps.getInstance().getStringProperty("ArticleModeVenteAvance");
@@ -316,6 +367,17 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         setColumnVisible(this.model.getColumnForField("PRIX_METRIQUE_VT_1"), view);
         setColumnVisible(this.model.getColumnForField("ID_MODE_VENTE_ARTICLE"), view);
         setColumnVisible(this.model.getColumnForField("PA_HT"), view);
+
+        // Gestion des unités de vente
+        final boolean gestionUV = prefs.getBoolean(GestionArticleGlobalPreferencePanel.UNITE_VENTE, true);
+        setColumnVisible(this.model.getColumnForField("QTE_UNITAIRE"), gestionUV);
+        setColumnVisible(this.model.getColumnForField("ID_UNITE_VENTE"), gestionUV);
+
+        setColumnVisible(this.model.getColumnForField("ID_STYLE"), DefaultNXProps.getInstance().getBooleanValue("ArticleShowStyle", true));
+
+        setColumnVisible(this.model.getColumnForField("ID_ARTICLE"), selectArticle);
+        setColumnVisible(this.model.getColumnForField("CODE"), !selectArticle || (selectArticle && createAuto));
+        setColumnVisible(this.model.getColumnForField("NOM"), !selectArticle || (selectArticle && createAuto));
 
         // Calcul automatique du poids unitaire
         tableElement_ValeurMetrique1.addModificationListener(tableElementPoids);
@@ -330,12 +392,19 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         // Calcul automatique du poids total
         tableElementPoids.addModificationListener(this.tableElementPoidsTotal);
         qteElement.addModificationListener(this.tableElementPoidsTotal);
+        qteU.addModificationListener(this.tableElementPoidsTotal);
         this.tableElementPoidsTotal.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(SQLRowValues row) {
                 System.err.println("Calcul du poids total ");
                 Number f = (Number) row.getObject("POIDS");
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
-                return new Float(f.floatValue() * qte);
+
+                // return new Float(f.floatValue() * qte);
+                //
+                BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
+                // FIXME convertir en float autrement pour éviter une valeur non transposable
+                // avec floatValue ou passer POIDS en bigDecimal
+                return b.multiply(new BigDecimal(f.floatValue() * qte)).floatValue();
             }
 
         });
@@ -356,6 +425,19 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
                     return Long.valueOf(prixHAFromDetails);
                 }
 
+            }
+
+        });
+
+        uniteVente.addModificationListener(qteU);
+        qteU.setModifier(new CellDynamicModifier() {
+            public Object computeValueFrom(SQLRowValues row) {
+                SQLRowAccessor rowUnite = row.getForeign("ID_UNITE_VENTE");
+                if (rowUnite != null && !rowUnite.isUndefined() && rowUnite.getBoolean("A_LA_PIECE")) {
+                    return BigDecimal.ONE;
+                } else {
+                    return row.getObject("QTE_UNITAIRE");
+                }
             }
 
         });
@@ -405,15 +487,17 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
 
     public void setFournisseurFilterOnCompletion(SQLRow row) {
         if (row != null && !row.isUndefined()) {
-            SQLTable tableArticle = getSQLElement().getTable().getTable("ARTICLE");
+
             Where w = new Where(tableArticle.getField("ID_FOURNISSEUR"), "=", row.getID());
             w = w.or(new Where(tableArticle.getField("ID_FOURNISSEUR"), "IS", (Object) null));
             w = w.or(new Where(tableArticle.getField("ID_FOURNISSEUR"), "=", getSQLElement().getTable().getTable("FOURNISSEUR").getUndefinedID()));
             this.m.setWhere(w);
             this.m2.setWhere(w);
+            this.m3.setWhere(w);
         } else {
             this.m.setWhere(null);
             this.m2.setWhere(null);
+            this.m3.setWhere(null);
         }
     }
 

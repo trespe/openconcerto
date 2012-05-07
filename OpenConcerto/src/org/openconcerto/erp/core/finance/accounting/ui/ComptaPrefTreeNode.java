@@ -25,6 +25,7 @@ import org.openconcerto.erp.preferences.GenerationDocGlobalPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentComptaPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentGestCommPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentPayePreferencePanel;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.erp.preferences.ImpressionGestCommPreferencePanel;
 import org.openconcerto.erp.preferences.ModeReglementDefautPrefPanel;
 import org.openconcerto.erp.preferences.NumerotationPreferencePanel;
@@ -103,6 +104,8 @@ public class ComptaPrefTreeNode extends DefaultMutableTreeNode {
         final PrefTreeNode nNum = new PrefTreeNode(NumerotationPreferencePanel.class, "Numérotation", new String[] { "numérotation" });
         nsGlobale.add(nNum);
 
+        nsGlobale.add(new PrefTreeNode(GestionArticleGlobalPreferencePanel.class, "Gestion des articles", new String[] { "articles", "stock" }));
+
         nsGlobale.add(new PrefTreeNode(GenerationDocGlobalPreferencePanel.class, "Génération des Documents", new String[] { "documents" }));
 
         // Impression
@@ -118,7 +121,7 @@ public class ComptaPrefTreeNode extends DefaultMutableTreeNode {
 
         // Emplacement des modéles
         final PrefTreeNode nGeneration = new PrefTreeNode(EmptyPreferencePanel.class, "Génération des documents", new String[] { "générations", "document" });
-        final PrefTreeNode nLocModele = new PrefTreeNode(TemplatePreferencePanel.class, "Emplacement des modèles", new String[] { "destination" });
+        final PrefTreeNode nLocModele = new PrefTreeNode(TemplatePreferencePanel.class, "Modèles", new String[] { "destination", "modèle", "modele" });
         nGeneration.add(nLocModele);
 
         // Destination des documents générés
