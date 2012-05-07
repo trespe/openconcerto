@@ -21,9 +21,7 @@ import org.openconcerto.erp.modules.ModuleFactory;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.modules.ModulePackager;
 import org.openconcerto.erp.modules.ModulePreferencePanelDesc;
-import org.openconcerto.erp.modules.RuntimeModuleFactory;
 import org.openconcerto.sql.element.SQLElementDirectory;
-import org.openconcerto.sql.model.SQLRequestLog;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 import org.openconcerto.sql.model.SQLTable;
@@ -52,16 +50,18 @@ public final class Module extends AbstractModule {
     @Override
     protected void install(DBContext ctxt) {
         super.install(ctxt);
-        final SQLCreateTable createTable = ctxt.getCreateTable(TABLE_NAME);
-        createTable.addDateAndTimeColumn("DATE");
-        createTable.addVarCharColumn("TYPE", 128);
-        createTable.addVarCharColumn("NUMBER_FROM", 32);
-        createTable.addVarCharColumn("NUMBER_TO", 32);
-        createTable.addVarCharColumn("FROM", 128);
-        createTable.addVarCharColumn("TO", 128);
-        createTable.addVarCharColumn("DESCRIPTION", 512);
-        createTable.addIntegerColumn("DURATION", 0);
-        createTable.addVarCharColumn("OVHID", 16);
+        if (!ctxt.getTablesPreviouslyCreated().contains(TABLE_NAME)) {
+            final SQLCreateTable createTable = ctxt.getCreateTable(TABLE_NAME);
+            createTable.addDateAndTimeColumn("DATE");
+            createTable.addVarCharColumn("TYPE", 128);
+            createTable.addVarCharColumn("NUMBER_FROM", 32);
+            createTable.addVarCharColumn("NUMBER_TO", 32);
+            createTable.addVarCharColumn("FROM", 128);
+            createTable.addVarCharColumn("TO", 128);
+            createTable.addVarCharColumn("DESCRIPTION", 512);
+            createTable.addIntegerColumn("DURATION", 0);
+            createTable.addVarCharColumn("OVHID", 16);
+        }
     }
 
     @Override
