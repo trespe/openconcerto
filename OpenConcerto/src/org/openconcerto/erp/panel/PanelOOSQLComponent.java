@@ -64,9 +64,8 @@ public class PanelOOSQLComponent extends JPanel {
                     @Override
                     public SQLSelect transformChecked(SQLSelect input) {
                         SQLTable table = Configuration.getInstance().getDirectory().getElement("TYPE_MODELE").getTable();
-                        Where w = new Where(table.getField("TABLE"), "=", comp.getElement().getTable().getName());
+                        Where w = new Where(input.getAlias(table.getField("TABLE")), "=", comp.getElement().getTable().getName());
                         input.setWhere(w);
-                        System.err.println(input.asString());
                         return input;
                     }
                 });

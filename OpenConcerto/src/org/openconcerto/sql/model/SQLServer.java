@@ -16,6 +16,7 @@
  */
 package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.model.LoadingListener.StructureLoadingEvent;
 import org.openconcerto.sql.utils.SQL_URL;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.CopyOnWriteMap;
@@ -23,6 +24,7 @@ import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -206,15 +208,23 @@ public final class SQLServer extends DBStructureItemJDBC {
         if (this.getDS() != null) {
             // for mysql we must know our children, since they can reference each other and thus the
             // graph needs them
+            final StructureLoadingEvent evt = new StructureLoadingEvent(this, namesToRefresh);
             try {
+                this.getDBSystemRoot().fireLoading(evt);
                 synchronized (this.getTreeMutex()) {
                     final Set<String> childrenToRefresh = CollectionUtils.inter(namesToRefresh, this.getChildrenNames());
                     // don't save the result in files since getCatalogs() is at least as quick as
                     // executing a request to check if the cache is obsolete
-                    @SuppressWarnings("unchecked")
-                    final List<String> allCats = (List<String>) SQLDataSource.COLUMN_LIST_HANDLER.handle(this.getDS().getConnection().getMetaData().getCatalogs());
-                    this.getDS().returnConnection();
-                    final Set<String> cats = CollectionUtils.inter(namesToRefresh, new HashSet<String>(allCats));
+                    final Set<String> allCats;
+                    final Connection conn = this.getDS().getNewConnection();
+                    try {
+                        @SuppressWarnings("unchecked")
+                        final List<String> allCatsList = (List<String>) SQLDataSource.COLUMN_LIST_HANDLER.handle(conn.getMetaData().getCatalogs());
+                        allCats = new HashSet<String>(allCatsList);
+                    } finally {
+                        this.getDS().returnConnection(conn);
+                    }
+                    final Set<String> cats = CollectionUtils.inter(namesToRefresh, allCats);
                     this.getDBSystemRoot().filterNodes(this, cats);
 
                     SQLBase.mustContain(this, cats, childrenToRefresh, "bases");
@@ -255,6 +265,8 @@ public final class SQLServer extends DBStructureItemJDBC {
                 }
             } catch (SQLException e) {
                 throw new IllegalStateException("could not get children names", e);
+            } finally {
+                this.getDBSystemRoot().fireLoading(evt.createFinishingEvent());
             }
         } else if (!init) {
             throw new IllegalArgumentException("Cannot create bases since this server cannot have a connection");

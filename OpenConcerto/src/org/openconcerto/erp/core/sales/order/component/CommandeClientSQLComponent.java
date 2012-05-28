@@ -16,6 +16,7 @@
 import static org.openconcerto.utils.CollectionUtils.createSet;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
+import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
@@ -115,8 +116,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
-
+        final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
 
         this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
         c.fill = GridBagConstraints.HORIZONTAL;

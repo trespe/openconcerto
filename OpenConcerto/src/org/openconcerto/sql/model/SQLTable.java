@@ -173,8 +173,9 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     private Set<Constraint> constraints;
     // always immutable so that fire can iterate safely ; to modify it, simply copy it before
     // (adding listeners is a lot less common than firing events)
-    @GuardedBy("this")
+    @GuardedBy("listenersMutex")
     private List<SQLTableModifiedListener> tableModifiedListeners;
+    private final Object listenersMutex = new String("tableModifiedListeners mutex");
     // the id that foreign keys pointing to this, can use instead of NULL
     // a null value meaning not yet known
     @GuardedBy("this")
@@ -395,13 +396,17 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     // must be called in setState() after fields have been set (for isRowable())
-    synchronized private int fetchUndefID() {
+    private int fetchUndefID() {
         final int res;
-        if (isRowable()) {
+        final SQLField pk;
+        synchronized (this) {
+            pk = isRowable() ? this.getKey() : null;
+        }
+        if (pk != null) {
             final Tuple2<Boolean, Number> currentValue = getUndefID(this.getSchema(), this.getName());
             if (!currentValue.get0()) {
                 // no row
-                res = this.findMinID();
+                res = this.findMinID(pk);
             } else {
                 // a row
                 final Number id = currentValue.get1();
@@ -413,14 +418,14 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     // no undef id found
-    synchronized private int findMinID() {
+    private int findMinID(SQLField pk) {
         final String debugUndef = "fwk_sql.debug.undefined_id";
         if (System.getProperty(debugUndef) != null)
             Log.get().warning("The system property '" + debugUndef + "' is deprecated, use the '" + UNDEFINED_ID_POLICY + "' metadata");
 
         final String policy = getSchema().getFwkMetadata(UNDEFINED_ID_POLICY);
         if (Boolean.getBoolean(debugUndef) || "min".equals(policy)) {
-            final SQLSelect sel = new SQLSelect(this.getBase(), true).addSelect(this.getKey(), "min");
+            final SQLSelect sel = new SQLSelect(this.getBase(), true).addSelect(pk, "min");
             final Number undef = (Number) this.getBase().getDataSource().executeScalar(sel.asString());
             if (undef == null) {
                 // empty table
@@ -983,21 +988,23 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @return the empty id or {@link SQLRow#NONEXISTANT_ID} if this table has no UNDEFINED_ID.
      */
     public final int getUndefinedID() {
+        return this.getUndefinedID(false).intValue();
+    }
+
+    private final Integer getUndefinedID(final boolean internal) {
         Integer res = null;
         synchronized (this) {
             if (this.undefinedID != null)
                 res = this.undefinedID;
         }
         if (res == null) {
-            if (this.getSchema().isFetchAllUndefinedIDs()) {
+            if (!internal && this.getSchema().isFetchAllUndefinedIDs()) {
                 // init all undefined, MAYBE one request with UNION ALL
                 for (final SQLTable sibling : this.getSchema().getTables()) {
-                    synchronized (sibling) {
-                        if (sibling.undefinedID == null)
-                            sibling.undefinedID = sibling.fetchUndefID();
-                        if (sibling == this)
-                            res = sibling.undefinedID;
-                    }
+                    Integer siblingRes = getUndefinedID(true);
+                    assert siblingRes != null;
+                    if (sibling == this)
+                        res = siblingRes;
                 }
                 // save all tables
                 this.getBase().save(this.getSchema().getName());
@@ -1006,10 +1013,11 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
                 synchronized (this) {
                     this.undefinedID = res;
                 }
-                this.save();
+                if (!internal)
+                    this.save();
             }
         }
-        return res.intValue();
+        return res;
     }
 
     public final Number getUndefinedIDNumber() {
@@ -1046,7 +1054,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     private void addTableModifiedListener(SQLTableModifiedListener l, final boolean before) {
-        synchronized (this) {
+        synchronized (this.listenersMutex) {
             final List<SQLTableModifiedListener> newListeners = new ArrayList<SQLTableModifiedListener>(this.tableModifiedListeners.size() + 1);
             if (before)
                 newListeners.add(l);
@@ -1058,7 +1066,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     public void removeTableModifiedListener(SQLTableModifiedListener l) {
-        synchronized (this) {
+        synchronized (this.listenersMutex) {
             final List<SQLTableModifiedListener> newListeners = new ArrayList<SQLTableModifiedListener>(this.tableModifiedListeners);
             if (newListeners.remove(l))
                 this.tableModifiedListeners = Collections.unmodifiableList(newListeners);
@@ -1169,7 +1177,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     private void fireTableModified(final SQLTableEvent evt) {
         // no need to copy since this.tableModifiedListeners is immutable
         final List<SQLTableModifiedListener> dispatchingListeners;
-        synchronized (this) {
+        synchronized (this.listenersMutex) {
             dispatchingListeners = this.tableModifiedListeners;
         }
         fireTableModified(Tuple2.create(dispatchingListeners.iterator(), evt));

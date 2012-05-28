@@ -22,6 +22,7 @@ import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueChangeSupport;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.model.ListComboBoxModel;
@@ -43,7 +44,6 @@ import javax.swing.ComboBoxEditor;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
-import javax.swing.SwingWorker;
 import javax.swing.event.DocumentEvent;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
@@ -301,7 +301,7 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
             this.setEnabled(false);
             this.objToSelect = this.getValue();
             this.cacheLoading = true;
-            final SwingWorker<List<String>, Object> sw = new SwingWorker<List<String>, Object>() {
+            final SwingWorker2<List<String>, Object> sw = new SwingWorker2<List<String>, Object>() {
                 @Override
                 protected List<String> doInBackground() throws Exception {
                     return force ? ITextCombo.this.cache.loadCache(false) : ITextCombo.this.cache.getCache();

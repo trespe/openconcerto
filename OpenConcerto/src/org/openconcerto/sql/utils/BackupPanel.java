@@ -308,7 +308,6 @@ public class BackupPanel extends JPanel implements ActionListener {
                                 // FIXME Close Connection
 
                                 try {
-                                    Configuration.getInstance().getBase().getDataSource().closeConnection();
                                     Configuration.getInstance().getBase().getDataSource().close();
 
                                 } catch (SQLException e) {

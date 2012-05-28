@@ -29,6 +29,7 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
+import org.jdom.Attribute;
 import org.jdom.Element;
 
 public class OOXMLTableField extends OOXMLField {
@@ -39,8 +40,8 @@ public class OOXMLTableField extends OOXMLField {
     private int idRef;
     private String style = "";
 
-    public OOXMLTableField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, int filterId, SQLRow rowLanguage, int idRef) {
-        super(eltField, row, sqlElt, id, rowLanguage);
+    public OOXMLTableField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, int filterId, SQLRow rowLanguage, int idRef, OOXMLCache cache) {
+        super(eltField, row, sqlElt, id, rowLanguage, cache);
         this.type = eltField.getAttributeValue("type");
         this.lineOption = eltField.getAttributeValue("lineOption");
         this.filterId = filterId;
@@ -62,6 +63,16 @@ public class OOXMLTableField extends OOXMLField {
     public Object getValue() {
         Object value = null;
 
+        SpreadSheetCellValueProvider provider = SpreadSheetCellValueProviderManager.get(type);
+        if (provider != null) {
+            final SpreadSheetCellValueContext context = new SpreadSheetCellValueContext(this.row);
+            List<Attribute> attrs = this.elt.getAttributes();
+            for (Attribute attr : attrs) {
+                context.put(attr.getName(), attr.getValue());
+            }
+            return provider.getValue(context);
+        }
+
         if (this.type.equalsIgnoreCase("LineReference")) {
             return idRef;
         } else if (this.type.equalsIgnoreCase("DescriptifArticle")) {
@@ -73,7 +84,7 @@ public class OOXMLTableField extends OOXMLField {
         } else if (this.type.equalsIgnoreCase("Localisation")) {
             value = getLocalisation(this.row);
         } else {
-            OOXMLElement eltXml = new OOXMLElement(this.elt, this.sqlElt, this.id, this.row, this.rowLanguage);
+            OOXMLElement eltXml = new OOXMLElement(this.elt, this.sqlElt, this.id, this.row, this.rowLanguage, cache);
             value = eltXml.getValue();
         }
 
@@ -147,7 +158,7 @@ public class OOXMLTableField extends OOXMLField {
      * @param row
      * @return la formule de calcul du montant revise
      */
-    private static String getMontantRevise(SQLRowAccessor row) {
+    private String getMontantRevise(SQLRowAccessor row) {
         long indice0 = (Long) row.getObject("INDICE_0");
         long indiceN = (Long) row.getObject("INDICE_N");
         long montantInit = (Long) row.getObject("MONTANT_INITIAL");
@@ -160,12 +171,12 @@ public class OOXMLTableField extends OOXMLField {
         try {
             SQLRowAccessor rowFact;
             if (row.getTable().getName().startsWith("SAISIE_VENTE_FACTURE")) {
-                rowFact = OOXMLCache.getForeignRow(row, row.getTable().getField("ID_SAISIE_VENTE_FACTURE"));
+                rowFact = cache.getForeignRow(row, row.getTable().getField("ID_SAISIE_VENTE_FACTURE"));
             } else {
-                rowFact = OOXMLCache.getForeignRow(row, row.getTable().getField("ID_AVOIR_CLIENT"));
+                rowFact = cache.getForeignRow(row, row.getTable().getField("ID_AVOIR_CLIENT"));
             }
             if (rowFact != null) {
-                SQLRowAccessor rowClient = OOXMLCache.getForeignRow(rowFact, rowFact.getTable().getField("ID_CLIENT"));
+                SQLRowAccessor rowClient = cache.getForeignRow(rowFact, rowFact.getTable().getField("ID_CLIENT"));
                 if (rowClient != null) {
                     clientPrive = rowClient.getBoolean("MARCHE_PRIVE");
                 }

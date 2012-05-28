@@ -16,6 +16,7 @@
  */
 package org.openconcerto.erp.core.humanresources.employe.element;
 
+import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.humanresources.employe.panel.ObjectifEditPanel;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -219,7 +220,7 @@ public class CommercialSQLComponent extends BaseSQLComponent {
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
+        final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
         addP.setOpaque(false);
         this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
         panelInfos.add(addP, c);

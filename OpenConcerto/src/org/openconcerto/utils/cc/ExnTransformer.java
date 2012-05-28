@@ -26,7 +26,7 @@ import org.apache.commons.collections.Transformer;
  * @param <T> return type
  * @param <X> exception type
  */
-public abstract class ExnTransformer<E, T, X extends Exception> implements Transformer {
+public abstract class ExnTransformer<E, T, X extends Exception> implements Transformer, ITransformerExn<E, T, X> {
 
     @SuppressWarnings("unchecked")
     public final Object transform(Object input) {
@@ -92,6 +92,7 @@ public abstract class ExnTransformer<E, T, X extends Exception> implements Trans
         }
     }
 
+    @Override
     public abstract T transformChecked(E input) throws X;
 
 }

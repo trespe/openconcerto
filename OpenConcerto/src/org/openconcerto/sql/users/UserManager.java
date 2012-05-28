@@ -70,7 +70,7 @@ public class UserManager {
         fetcher.setOrdered(true);
         for (final SQLRowValues v : fetcher.fetch()) {
             final User u = new User(v.getID(), v.getString("NOM"));
-            u.setLastName(v.getString("PRENOM"));
+            u.setFirstName(v.getString("PRENOM"));
             u.setNickName(v.getString("SURNOM"));
             this.byID.put(v.getID(), u);
         }

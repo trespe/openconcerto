@@ -225,7 +225,7 @@ public class UserRightPanelDetail extends JPanel {
 
         this.selectedUser = selectedUser;
 
-        labelDocumentation1.setText(" Autorisations de l'utilisateur " + selectedUser.getLastName() + " " + selectedUser.getName());
+        labelDocumentation1.setText(" Autorisations de l'utilisateur " + selectedUser.getFirstName() + " " + selectedUser.getName());
         labelDocumentation2.setText(" Double cliquez sur un nom d'une des colonnes suivantes pour activer/désactiver le droit correspondant.");
         List<UserTaskRight> l = UserTaskRight.getUserTaskRight(selectedUser);
         cellRenderer1.setUserTaskRight(l);

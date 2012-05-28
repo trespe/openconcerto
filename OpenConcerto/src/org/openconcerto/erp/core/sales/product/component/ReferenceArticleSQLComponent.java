@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.sales.product.component;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
@@ -321,7 +322,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
+        final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
         this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
         this.add(addP, c);
 

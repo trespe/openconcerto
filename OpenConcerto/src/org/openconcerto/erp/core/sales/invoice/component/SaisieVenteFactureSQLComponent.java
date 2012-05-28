@@ -16,6 +16,7 @@
 import static org.openconcerto.utils.CollectionUtils.createSet;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
+import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.AbstractArticleItemTable;
 import org.openconcerto.erp.core.common.ui.DeviseField;
@@ -191,7 +192,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
+        final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
         this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
         this.add(addP, c);
 
@@ -996,15 +997,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             this.tableFacture.updateField("ID_SAISIE_VENTE_FACTURE", idSaisieVF);
 
 
-            // generation du document
-            final VenteFactureXmlSheet sheet = new VenteFactureXmlSheet(rowFacture);
-
-            try {
-                sheet.createDocumentAsynchronous();
-                sheet.showPrintAndExportAsynchronous(panelOO.isVisualisationSelected(), panelOO.isImpressionSelected(), true);
-            } catch (Exception e) {
-                ExceptionHandler.handle("Impossible de générer la facture", e);
-            }
+            createDocument(rowFacture);
 
             int idMvt = -1;
             if (getMode() == Mode.MODIFICATION) {
@@ -1100,6 +1093,18 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             }
         }
         return idSaisieVF;
+    }
+
+    public void createDocument(SQLRow row) {
+        // generation du document
+        final VenteFactureXmlSheet sheet = new VenteFactureXmlSheet(row);
+
+        try {
+            sheet.createDocumentAsynchronous();
+            sheet.showPrintAndExportAsynchronous(panelOO.isVisualisationSelected(), panelOO.isImpressionSelected(), true);
+        } catch (Exception e) {
+            ExceptionHandler.handle("Impossible de générer la facture", e);
+        }
     }
 
     @Override

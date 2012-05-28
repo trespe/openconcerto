@@ -24,6 +24,37 @@ import org.apache.commons.dbutils.ResultSetHandler;
 
 public final class SQLRowListRSH implements ResultSetHandler {
 
+    // hashCode()/equals() needed for data source cache
+    private static final class RSH implements ResultSetHandler {
+        private final Tuple2<SQLTable, List<String>> names;
+
+        private RSH(Tuple2<SQLTable, List<String>> names) {
+            this.names = names;
+        }
+
+        @Override
+        public List<SQLRow> handle(ResultSet rs) throws SQLException {
+            return SQLRow.createListFromRS(this.names.get0(), rs, this.names.get1());
+        }
+
+        @Override
+        public int hashCode() {
+            return this.names.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            final RSH other = (RSH) obj;
+            return this.names.equals(other.names);
+        }
+    }
+
     private static Tuple2<SQLTable, List<String>> getIndexes(SQLSelect sel, final SQLTable passedTable, final boolean findTable) {
         final List<SQLField> selectFields = sel.getSelectFields();
         final int size = selectFields.size();
@@ -80,12 +111,7 @@ public final class SQLRowListRSH implements ResultSetHandler {
     }
 
     static private ResultSetHandler create(final Tuple2<SQLTable, List<String>> names) {
-        return new ResultSetHandler() {
-            @Override
-            public Object handle(ResultSet rs) throws SQLException {
-                return SQLRow.createListFromRS(names.get0(), rs, names.get1());
-            }
-        };
+        return new RSH(names);
     }
 
     @SuppressWarnings("unchecked")

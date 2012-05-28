@@ -45,6 +45,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.customerrelationship.customer.ui.AdresseClientItemTable;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
@@ -344,7 +345,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
+        final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
         this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
         this.add(addP, c);
 

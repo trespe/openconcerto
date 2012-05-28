@@ -13,8 +13,9 @@
  
  package org.openconcerto.utils.cc;
 
-public interface ITransformer<E, T> {
+public interface ITransformer<E, T> extends ITransformerExn<E, T, RuntimeException> {
 
+    @Override
     public abstract T transformChecked(E input);
 
 }

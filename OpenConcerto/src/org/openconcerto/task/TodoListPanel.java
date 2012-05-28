@@ -249,7 +249,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         c.weighty = 0;
         c.gridwidth = 6;
         // SEP
-        TitledSeparator sep = new TitledSeparator(currentUser.getLastName() + " " + currentUser.getName().toUpperCase() + "      Tâches en cours...");
+        TitledSeparator sep = new TitledSeparator(currentUser.getFirstName() + " " + currentUser.getName().toUpperCase() + "      Tâches en cours...");
         this.add(sep, c);
 
         c.gridwidth = 1;

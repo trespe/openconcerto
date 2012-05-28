@@ -15,7 +15,6 @@
 
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
-import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
@@ -34,9 +33,7 @@ public class LangueSQLElement extends ComptaSQLConfElement {
 
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
-
         l.add("NOM");
-
         return l;
     }
 

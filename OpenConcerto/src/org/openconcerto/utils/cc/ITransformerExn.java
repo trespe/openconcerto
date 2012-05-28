@@ -11,21 +11,10 @@
  * When distributing the software, include this License Header Notice in each file.
  */
  
- package org.openconcerto.task.ui;
+ package org.openconcerto.utils.cc;
 
-import org.openconcerto.sql.users.User;
+public interface ITransformerExn<E, T, X extends Exception> {
 
-import java.awt.Component;
-
-import javax.swing.DefaultListCellRenderer;
-import javax.swing.JList;
-
-public class UserListCellRenderer extends DefaultListCellRenderer {
-
-    public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-        User user=(User)value;
-        String newValue=user.getFirstName()+" "+user.getName();
-        return super.getListCellRendererComponent(list, newValue, index, isSelected, cellHasFocus);
-    }
+    public abstract T transformChecked(E input) throws X;
 
 }

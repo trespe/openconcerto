@@ -13,8 +13,10 @@
  
  package org.openconcerto.sql.utils;
 
+import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
 import org.openconcerto.sql.model.FieldRef;
 import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSyntax;
@@ -22,7 +24,6 @@ import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.UpdateBuilder;
-import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -102,12 +103,12 @@ public abstract class ReOrder {
 
     // MAYBE return affected IDs
     public final void exec() throws SQLException {
-        final Connection conn = this.t.getBase().getDataSource().getConnection();
         final UpdateBuilder updateUndef = new UpdateBuilder(this.t).set(this.t.getOrderField().getName(), MIN_ORDER.toPlainString());
         updateUndef.setWhere(new Where(this.t.getKey(), "=", this.t.getUndefinedID()));
-        SQLUtils.executeAtomic(conn, new SQLFactory<Object>() {
+        SQLUtils.executeAtomic(this.t.getBase().getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
             @Override
-            public Object create() throws SQLException {
+            public Object handle(SQLDataSource ds) throws SQLException, SQLException {
+                final Connection conn = ds.getConnection();
                 final Statement stmt = conn.createStatement();
                 if (isAll()) {
                     // reorder all, undef must be at 0

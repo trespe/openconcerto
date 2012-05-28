@@ -17,6 +17,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.preferences.UserProps;
+import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.IComboModel;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
@@ -68,7 +69,8 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         if (Boolean.getBoolean(QUICK_LOGIN) && lastLogin.length() > 0 && pass != null && (!societeSelector || UserProps.getInstance().getLastSocieteID() >= SQLRow.MIN_VALID_ID)) {
             final Tuple2<String, String> res = new Login(Configuration.getInstance().getRoot()).connectEnc(lastLogin, pass);
             if (res.get0() == null) {
-                r.run();
+                // ConnexionPanel normally executes r outside of the EDT, do the same
+                execute(r);
                 // no need to display a panel
                 return true;
             }
@@ -226,7 +228,10 @@ public class ConnexionPanel extends JPanel implements ActionListener {
             }
 
             this.comboSociete = new SQLRequestComboBox(false, 25);
-            final IComboModel model = new IComboModel(Configuration.getInstance().getDirectory().getElement(tableSociete).getComboRequest());
+            final ComboSQLRequest req = Configuration.getInstance().getDirectory().getElement(tableSociete).getComboRequest(true);
+            // keep rows for checkValidity()
+            req.keepRows(true);
+            final IComboModel model = new IComboModel(req);
             final int lastSociete = UserProps.getInstance().getLastSocieteID();
             if (lastSociete >= SQLRow.MIN_VALID_ID) {
                 model.setValue(lastSociete);
@@ -280,7 +285,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         panelButton.add(this.reloadPanel, c2);
         c2.gridx++;
         c2.weightx = 0;
-        buttonConnect.setOpaque(false);
+        this.buttonConnect.setOpaque(false);
         panelButton.add(this.buttonConnect, c2);
 
         c.gridy++;
@@ -325,12 +330,15 @@ public class ConnexionPanel extends JPanel implements ActionListener {
 
         setConnecting(true);
 
-        final Thread t = new Thread(new Runnable() {
+        execute(new Runnable() {
             public void run() {
                 connect();
             }
         });
-        t.setName("ConnexionPanel Login");
+    }
+
+    static private void execute(Runnable runnable) {
+        final Thread t = new Thread(runnable, "ConnexionPanel Login");
         t.setPriority(Thread.MIN_PRIORITY);
         t.start();
     }

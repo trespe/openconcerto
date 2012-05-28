@@ -381,6 +381,7 @@ public class PropsConfiguration extends Configuration {
             @Override
             public void executeChecked(final DBSystemRoot input) {
                 input.getRootsToMap().addAll(getRootsToMap());
+                initSystemRoot(input);
             }
         }, new IClosure<SQLDataSource>() {
             @Override
@@ -474,6 +475,10 @@ public class PropsConfiguration extends Configuration {
                     res.appendToRootPath(root);
         }
         return res;
+    }
+
+    // called at the end of the DBSystemRoot constructor (before having a data source)
+    protected void initSystemRoot(DBSystemRoot input) {
     }
 
     protected void initDS(final SQLDataSource ds) {

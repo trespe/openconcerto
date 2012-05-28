@@ -292,10 +292,20 @@ class SQLSyntaxPG extends SQLSyntax {
         // you can't specify line separator to pg, so use STDOUT as it always use \n
         try {
             final String sql = "COPY (" + selectAll(t).asString() + ") to STDOUT " + getDataOptions(t.getBase()) + " FORCE QUOTE " + cols + " ;";
-            final Connection conn = ((DelegatingConnection) t.getBase().getDataSource().getConnection()).getInnermostDelegate();
-            final FileOutputStream out = new FileOutputStream(f);
-            ((PGConnection) conn).getCopyAPI().copyOut(sql, out);
-            out.close();
+            t.getDBSystemRoot().getDataSource().useConnection(new ConnectionHandlerNoSetup<Number, IOException>() {
+                @Override
+                public Number handle(SQLDataSource ds) throws SQLException, IOException {
+                    final Connection conn = ((DelegatingConnection) ds.getConnection()).getInnermostDelegate();
+                    FileOutputStream out = null;
+                    try {
+                        out = new FileOutputStream(f);
+                        return ((PGConnection) conn).getCopyAPI().copyOut(sql, out);
+                    } finally {
+                        if (out != null)
+                            out.close();
+                    }
+                }
+            });
         } catch (Exception e) {
             throw new IllegalStateException("unable to store " + t + " into " + f, e);
         }

@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.common.ui;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
@@ -408,11 +409,13 @@ public class TotalPanel extends JPanel implements TableModelListener {
             Map<SQLRowAccessor, Long> mapHtTVA = new HashMap<SQLRowAccessor, Long>();
             Map<SQLRowAccessor, Long> mapHtTVASel = new HashMap<SQLRowAccessor, Long>();
 
+
             for (int i = 0; i < this.table.getRowValuesTableModel().getRowCount(); i++) {
 
                 Number nHT = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexHT);
                 totalHT += nHT.longValue();
 
+                // Total HA
                 if (this.gestionHA) {
                     Number nHA = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexHA);
                     Number nQte = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexQte);
@@ -422,6 +425,8 @@ public class TotalPanel extends JPanel implements TableModelListener {
                         totalHA += (nHA.longValue() * nQte.intValue());
                     }
                 }
+
+                // Total Service
                 String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
                 Boolean bServiceActive = Boolean.valueOf(val);
                 if (bServiceActive != null && bServiceActive) {
@@ -430,14 +435,15 @@ public class TotalPanel extends JPanel implements TableModelListener {
                         totalService += nHT.longValue();
                     }
                 }
+
+                // Total Devise
                 Number nDevise = null;
                 if (this.textTotalDevise != null) {
                     nDevise = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexDevise);
                     totalDevise += nDevise.longValue();
                 }
-                // Number nTTC = (Number) this.table.getRowValuesTableModel().getValueAt(i,
-                // this.columnIndexTTC);
-                // totalTTC += nTTC.longValue();
+
+                // Total TVA
                 if (mapHtTVA.get(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE")) == null) {
                     mapHtTVA.put(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE"), nHT.longValue());
                 } else {
@@ -445,9 +451,11 @@ public class TotalPanel extends JPanel implements TableModelListener {
                     mapHtTVA.put(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE"), l + nHT.longValue());
                 }
 
+                // Total Poids
                 Number nPoids = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexPoids);
                 totalPoids += nPoids == null ? 0 : nPoids.doubleValue();
 
+                // Calcul total sélectionné
                 if (containsInt(selectedRows, i)) {
 
                     totalHTSel += nHT.longValue();
@@ -482,6 +490,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
                 }
             }
 
+            // Frais de port à inclure
             if (this.textPortHT.getText().trim().length() > 0) {
                 if (!this.textPortHT.getText().trim().equals("-")) {
                     valPortHT = GestionDevise.parseLongCurrency(this.textPortHT.getText().trim());
@@ -492,6 +501,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
                 valPortHT = 0;
             }
 
+            // Remise à inclure
             if (this.textRemiseHT.getText().trim().length() > 0) {
                 if (!this.textRemiseHT.getText().trim().equals("-")) {
                     valRemiseHT = GestionDevise.parseLongCurrency(this.textRemiseHT.getText().trim());
@@ -508,7 +518,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
             long realTotalTVA = 0;
             for (SQLRowAccessor row : mapHtTVA.keySet()) {
-                BigDecimal d = new BigDecimal(row.getFloat("TAUX"));
+                BigDecimal d = new BigDecimal(TaxeCache.getCache().getTauxFromId(row.getID()));
                 BigDecimal result = d.multiply(new BigDecimal(mapHtTVA.get(row)), MathContext.DECIMAL128).movePointLeft(2);
                 realTotalTVA += result.setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
             }
@@ -529,7 +539,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
             long realTotalTVASel = 0;
             for (SQLRowAccessor row : mapHtTVASel.keySet()) {
-                BigDecimal d = new BigDecimal(row.getFloat("TAUX"));
+                BigDecimal d = new BigDecimal(TaxeCache.getCache().getTauxFromId(row.getID()));
                 BigDecimal result = d.multiply(new BigDecimal(mapHtTVASel.get(row)), MathContext.DECIMAL128).movePointLeft(2);
                 realTotalTVASel += result.setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
             }

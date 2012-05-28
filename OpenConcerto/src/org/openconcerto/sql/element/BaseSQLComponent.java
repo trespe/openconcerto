@@ -60,7 +60,6 @@ import org.openconcerto.utils.checks.ValidState;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
@@ -355,13 +354,8 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
             if (spec.isAdditional()) {
                 if (this.additionalFieldsPanel == null)
                     Log.get().warning("No additionalFieldsPanel for " + v.getField() + " : " + v);
-                else {
-                    final Container component = this.additionalFieldsPanel.getComponent();
-                    if (!component.isVisible()) {
-                        component.setVisible(true);
-                    }
+                else
                     this.additionalFieldsPanel.add(getDesc(v), v.getComp());
-                }
             } else {
                 this.addToUI(v, spec.getWhere());
             }
@@ -438,7 +432,6 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     }
 
     protected final void setAdditionalFieldsPanel(FormLayouter panel) {
-        panel.getComponent().setVisible(false);
         this.additionalFieldsPanel = panel;
     }
 

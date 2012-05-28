@@ -48,8 +48,8 @@ public class OOXMLField extends OOXMLElement {
 
     private String op = "";
 
-    public OOXMLField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, SQLRow rowLanguage) {
-        super(eltField, sqlElt, id, rowLanguage);
+    public OOXMLField(Element eltField, SQLRowAccessor row, SQLElement sqlElt, int id, SQLRow rowLanguage, OOXMLCache cache) {
+        super(eltField, sqlElt, id, rowLanguage, cache);
 
         String base = eltField.getAttributeValue("base");
         this.op = eltField.getAttributeValue("op");
@@ -97,7 +97,7 @@ public class OOXMLField extends OOXMLElement {
                     }
                 }
 
-                SQLRowAccessor foreignRow = OOXMLCache.getForeignRow(this.row, sqlField);
+                SQLRowAccessor foreignRow = cache.getForeignRow(this.row, sqlField);
                 if (foreignRow != null && foreignRow.getID() > 1) {
                     final List<Element> children = this.elt.getChildren("field");
                     if (children.size() > 1) {
@@ -105,7 +105,7 @@ public class OOXMLField extends OOXMLElement {
 
                             String result = "";
                             for (Element ssComposant : children) {
-                                OOXMLField childElt = new OOXMLField(ssComposant, foreignRow, this.sqlElt, this.id, this.rowLanguage);
+                                OOXMLField childElt = new OOXMLField(ssComposant, foreignRow, this.sqlElt, this.id, this.rowLanguage, cache);
                                 final Object valueComposantO = childElt.getValue();
                                 result += (valueComposantO == null) ? "" : valueComposantO.toString() + " ";
                             }
@@ -119,7 +119,7 @@ public class OOXMLField extends OOXMLElement {
                         }
                     } else {
                         if (isValid()) {
-                            OOXMLField childElt = new OOXMLField(this.elt.getChild("field"), foreignRow, this.sqlElt, this.id, this.rowLanguage);
+                            OOXMLField childElt = new OOXMLField(this.elt.getChild("field"), foreignRow, this.sqlElt, this.id, this.rowLanguage, cache);
                             return childElt.getValue();
                         } else {
                             return "";

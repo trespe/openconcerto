@@ -135,6 +135,10 @@ import org.openconcerto.erp.core.supplychain.supplier.element.EcheanceFournisseu
 import org.openconcerto.erp.core.supplychain.supplier.element.FournisseurSQLElement;
 import org.openconcerto.erp.generationDoc.element.ModeleSQLElement;
 import org.openconcerto.erp.generationDoc.element.TypeModeleSQLElement;
+import org.openconcerto.erp.generationDoc.provider.PrixUnitaireRemiseProvider;
+import org.openconcerto.erp.generationDoc.provider.UserCreateInitialsValueProvider;
+import org.openconcerto.erp.generationDoc.provider.UserCurrentInitialsValueProvider;
+import org.openconcerto.erp.generationDoc.provider.UserModifyInitialsValueProvider;
 import org.openconcerto.erp.injector.ArticleCommandeEltSQLInjector;
 import org.openconcerto.erp.injector.BonFactureSQLInjector;
 import org.openconcerto.erp.injector.BrFactureAchatSQLInjector;
@@ -166,6 +170,7 @@ import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.element.SharedSQLElement;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.LoadingListener;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLServer;
@@ -179,6 +184,7 @@ import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.NetUtils;
 import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StringInputStream;
+import org.openconcerto.utils.SwingWorker2;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -192,7 +198,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.InvocationTargetException;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -201,8 +206,14 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import javax.imageio.ImageIO;
+import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -321,7 +332,9 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
         //
         String token = getToken();
+        SwingWorker2.setMaxWorkerThreads(4);
         if (token != null) {
+            SwingWorker2.setMaxWorkerThreads(2);
             this.isServerless = false;
             this.isOnCloud = true;
             if (this.getProperty("storage.server") == null) {
@@ -375,8 +388,70 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         // ATTN this works because this is executed last (i.e. if you put this in a superclass
         // this won't work since e.g. app.name won't have its correct value)
         this.setupLogging("logs");
-
+        registerCellValueProvider();
         UserRightsManager.getInstance().register(new ComptaTotalUserRight());
+    }
+
+    private void registerCellValueProvider() {
+        UserCreateInitialsValueProvider.register();
+        UserModifyInitialsValueProvider.register();
+        UserCurrentInitialsValueProvider.register();
+        PrixUnitaireRemiseProvider.register();
+    }
+
+    @Override
+    protected void initSystemRoot(DBSystemRoot input) {
+        super.initSystemRoot(input);
+        final JDialog f = new JOptionPane("Mise à jour des caches en cours...\nCette opération prend généralement moins d'une minute.", JOptionPane.INFORMATION_MESSAGE, JOptionPane.DEFAULT_OPTION,
+                null, new Object[] {}).createDialog("Veuillez patienter");
+        input.addLoadingListener(new LoadingListener() {
+
+            private int loadingCount = 0;
+            private final ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+                @Override
+                public Thread newThread(Runnable r) {
+                    return new Thread(r, "Loading listener thread");
+                }
+            });
+            private ScheduledFuture<?> future = null;
+
+            @Override
+            public synchronized void loading(LoadingEvent evt) {
+                this.loadingCount += evt.isStarting() ? 1 : -1;
+                if (this.loadingCount < 0) {
+                    throw new IllegalStateException();
+                } else if (this.loadingCount == 0) {
+                    this.future.cancel(false);
+                    this.future = null;
+                    SwingUtilities.invokeLater(new Runnable() {
+                        @Override
+                        public void run() {
+                            f.setVisible(false);
+                        }
+                    });
+                } else if (this.future == null) {
+                    this.future = this.exec.schedule(new Runnable() {
+                        @Override
+                        public void run() {
+                            SwingUtilities.invokeLater(new Runnable() {
+                                @Override
+                                public void run() {
+                                    f.setVisible(true);
+                                }
+                            });
+                        }
+                    }, 1, TimeUnit.SECONDS);
+                }
+            }
+        });
+    }
+
+    @Override
+    protected void initDS(SQLDataSource ds) {
+        super.initDS(ds);
+        ds.setInitialSize(3);
+        ds.setMinIdle(2);
+        ds.setMaxActive(4);
     }
 
     public String getToken() {
@@ -825,6 +900,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         setSocieteShowAs();
         setSocieteSQLInjector();
         setMapper();
+
         String sfe = DefaultNXProps.getInstance().getStringProperty("ArticleSFE");
         Boolean bSfe = Boolean.valueOf(sfe);
         boolean isSFE = bSfe != null && bSfe.booleanValue();
