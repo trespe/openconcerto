@@ -154,9 +154,6 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     private static int count = 0; // compteur de requetes
 
     private final SQLServer server;
-    // une connexion par thread
-    @GuardedBy("this")
-    private final Map<Thread, Connection> connections;
     // no need to synchronize multiple call to this attribute since we only access the
     // Thread.currentThread() key
     @GuardedBy("handlers")
@@ -164,9 +161,6 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
 
     @GuardedBy("this")
     private ExecutorService exec = null;
-
-    @GuardedBy("this")
-    private CleanUp cleanUp;
 
     // linked to initialSchema and uptodate
     @GuardedBy("this")
@@ -178,6 +172,8 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     private final Map<Connection, Object> uptodate;
 
     private volatile int retryWait;
+    @GuardedBy("this")
+    private boolean blockWhenExhausted;
 
     private final ReentrantLock testLock = new ReentrantLock();
 
@@ -269,13 +265,11 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     /* pour le clonage */
     private SQLDataSource(SQLServer server) {
         this.server = server;
-        this.connections = new HashMap<Thread, Connection>();
         // on a besoin d'une implementation synchronisée
         this.handlers = new Hashtable<Thread, HandlersStack>();
         // weak, since this is only a hint to avoid initializing the connection
         // on each borrowal
         this.uptodate = new WeakHashMap<Connection, Object>();
-        this.cleanUp = null;
         this.initialShemaSet = false;
         this.initialShema = null;
 
@@ -289,6 +283,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         this.setMinIdle(2);
         // but not too much as it can lock out other users (the server has a max connection count)
         this.setMaxIdle(16);
+        this.setBlockWhenExhausted(false);
         // see #createDataSource() for properties not supported by this class
         this.tables = Collections.emptySet();
         this.cache = null;
@@ -445,6 +440,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         try {
             info = new QueryInfo(query, changeState, passedConn);
             try {
+                long tStartSQL = System.nanoTime();
                 final Object[] res = this.executeTwice(info);
                 final Statement stmt = (Statement) res[0];
                 ResultSet rs = (ResultSet) res[1];
@@ -457,7 +453,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 // }
                 // });
                 // and OK won't be returned if "req" returns a null rs.
-                durationSQL = System.nanoTime() - time;
+                durationSQL = System.nanoTime() - tStartSQL;
                 if (rsh != null && rs != null) {
                     if (this.getSystem() == SQLSystem.DERBY || this.getSystem() == SQLSystem.POSTGRESQL) {
                         rs = new SQLResultSet(rs);
@@ -948,18 +944,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         // super close and unset our pool, but we need to keep it
         // to allow used connections to be closed, see #closeConnection(Connection)
         this.connectionPool = pool;
-        // cleanUp will be recreated if necessary
-        final CleanUp toStop = this.cleanUp;
-        this.cleanUp = null;
-        // happens if the datasource was never used
-        if (toStop != null)
-            toStop.interrupt();
-        // since we're stopping cleanUp we have to close connections
-        // if you don't want your connections to close at any time: #useConnection()
-        for (final Connection conn : this.connections.values()) {
-            this.closeConnection(conn);
-        }
-        this.connections.clear();
+
         // interrupt to force waiting threads to close their connections
         if (this.exec != null) {
             this.exec.shutdownNow();
@@ -985,79 +970,32 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     }
 
     /**
-     * Invalide la connection actuelle.
+     * Retourne la connection à cette source de donnée.
+     * 
+     * @return la connection à cette source de donnée.
+     * @throws IllegalStateException if not called from within useConnection().
+     * @see #useConnection(ConnectionHandler)
      */
-    public void closeConnection() {
-        this.releaseConnection(Thread.currentThread(), true);
+    public final Connection getConnection() {
+        final HandlersStack res = this.handlers.get(Thread.currentThread());
+        if (res == null)
+            throw new IllegalStateException("useConnection() wasn't called");
+        return res.getConnection();
     }
 
     /**
-     * Retourne la connexion actuelle dans le pool des connexions libres. Attention à partir de ce
-     * moment cette connexion peut être utilisée par d'autres.
-     */
-    public void returnConnection() {
-        this.releaseConnection(Thread.currentThread(), false);
-    }
-
-    // remove the connection for the passed thread, the calling method must
-    // then return or close it otherwise it will stay borrowed.
-    protected synchronized Connection rmConnection(Thread th) {
-        return this.connections.remove(th);
-    }
-
-    public synchronized void releaseConnection(Thread th, final boolean close) {
-        if (this.handlers.containsKey(th)) {
-            if (close)
-                throw new IllegalArgumentException("cannot close the connection, it is in use by " + this.handlers.get(th));
-            // else nothing it will be released by useConnection().
-            Log.get().fine("ignoring " + close + " for " + th);
-        } else if (this.connections.containsKey(th)) {
-            if (close)
-                this.closeConnection(this.rmConnection(th));
-            else
-                this.returnConnection(this.rmConnection(th));
-        }
-    }
-
-    protected synchronized boolean isInCharge(final CleanUp cleanUp) {
-        return this.cleanUp == cleanUp;
-    }
-
-    final Set<Thread> getThreads(final Set<Thread> threads) {
-        threads.clear();
-        synchronized (this) {
-            threads.addAll(this.connections.keySet());
-        }
-        return threads;
-    }
-
-    /**
-     * Retourne une connection à cette source de donnée. Si la connexion échoue cette méthode va
-     * réessayer quelques secondes plus tard.
+     * Retourne une connection à cette source de donnée (generally
+     * {@link #useConnection(ConnectionHandler)} should be used). Si la connexion échoue cette
+     * méthode va réessayer quelques secondes plus tard.
      * <p>
-     * Note : il y a une connexion par thread donc attention a ne pas créer d'instance de Thread a
-     * la pelle.
+     * Note : you <b>must</b> return this connection (e.g. use try/finally).
      * <p>
      * 
      * @return une connection à cette source de donnée.
+     * @see #returnConnection(Connection)
+     * @see #closeConnection(Connection)
      */
-    public Connection getConnection() {
-        return this.getConnection(Thread.currentThread());
-    }
-
-    private synchronized Connection getConnection(Thread th) {
-        if (this.handlers.containsKey(th)) {
-            return this.handlers.get(th).getConnection();
-        }
-        Connection res = this.connections.get(th);
-        if (res == null) {
-            res = this.getNewConnection();
-            this.connections.put(th, res);
-        }
-        return res;
-    }
-
-    private final Connection getNewConnection() {
+    protected final Connection getNewConnection() {
         try {
             return this.borrowConnection(false);
         } catch (RTInterruptedException e) {
@@ -1122,6 +1060,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     private static final String pgInterrupted = GT.tr("Interrupted while attempting to connect.");
 
     private Connection getRawConnection() {
+        assert !Thread.holdsLock(this) : "super.getConnection() might block (see setWhenExhaustedAction()), and since return/closeConnection() need this lock, this method cannot wait while holding the lock";
         Connection result = null;
         try {
             result = super.getConnection();
@@ -1153,8 +1092,15 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         return this.connectionPool.getNumActive();
     }
 
-    public synchronized final Set<Thread> getThreadsWithConnection() {
-        return this.connections.keySet();
+    public synchronized boolean blocksWhenExhausted() {
+        return this.blockWhenExhausted;
+    }
+
+    public synchronized void setBlockWhenExhausted(boolean block) {
+        this.blockWhenExhausted = block;
+        if (this.connectionPool != null) {
+            this.connectionPool.setWhenExhaustedAction(block ? GenericObjectPool.WHEN_EXHAUSTED_BLOCK : GenericObjectPool.WHEN_EXHAUSTED_GROW);
+        }
     }
 
     @Override
@@ -1163,9 +1109,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             // initialize lotta things
             super.createDataSource();
             this.connectionPool.setLifo(true);
-            // don't block (threads block while owning SQLDataSource lock, thus preventing others
-            // from releasing connections)
-            this.connectionPool.setWhenExhaustedAction(GenericObjectPool.WHEN_EXHAUSTED_GROW);
+            this.setBlockWhenExhausted(this.blockWhenExhausted);
             // after 40s idle connections are closed
             this.connectionPool.setTimeBetweenEvictionRunsMillis(4000);
             this.connectionPool.setNumTestsPerEvictionRun(5);
@@ -1195,7 +1139,6 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                     throw new UnsupportedOperationException();
                 }
             };
-            this.cleanUp = new CleanUp(15000);
         }
         return this.dataSource;
     }
@@ -1277,10 +1220,12 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             final Connection newConn = this.getNewConnection();
             try {
                 this.setSchema(schemaName, newConn);
-            } finally {
+            } catch (RuntimeException e) {
                 this.closeConnection(newConn);
+                throw e;
             }
             this.setInitialSchema(true, schemaName);
+            this.returnConnection(newConn);
         } else if (this.server.getSQLSystem().isDBPathEmpty()) {
             this.unsetInitialSchema();
         } else
@@ -1399,40 +1344,4 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         ds.setDriverClassName(this.getDriverClassName());
         return ds;
     }
-
-    /**
-     * This thread periodically check for dead borrowers and return their connection.
-     */
-    final private class CleanUp extends Thread {
-        private final int period;
-
-        public CleanUp(final int period) {
-            super("Clean up for " + SQLDataSource.this);
-            this.period = period;
-            this.setDaemon(true);
-            this.start();
-        }
-
-        public void run() {
-            final Set<Thread> threads = new HashSet<Thread>();
-            while (SQLDataSource.this.isInCharge(this)) {
-                for (final Thread th : getThreads(threads)) {
-                    // a thread cannot re-live, so it's safe to return its connection
-                    // likewise it's ok if it has already returned its connection
-                    // (on its own, or even by another CleanUp instance)
-                    if (!th.isAlive()) {
-                        SQLDataSource.this.releaseConnection(th, false);
-                    }
-                }
-                try {
-                    Thread.sleep(this.period);
-                } catch (InterruptedException e) {
-                    // ignore, ne s'arrêter que lorsque le while le dit
-                    Log.get().fine("Interruption ignored for " + this);
-                }
-            }
-            Log.get().fine("done " + this);
-        }
-    }
-
 }

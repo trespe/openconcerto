@@ -28,7 +28,11 @@ import java.util.List;
 import java.util.Map;
 
 public class OOXMLCache {
-    protected static SQLRowAccessor getForeignRow(SQLRowAccessor row, SQLField field) {
+
+    private Map<SQLRowAccessor, Map<SQLTable, List<SQLRowAccessor>>> cacheReferent = new HashMap<SQLRowAccessor, Map<SQLTable, List<SQLRowAccessor>>>();
+    private Map<String, Map<Integer, SQLRowAccessor>> cacheForeign = new HashMap<String, Map<Integer, SQLRowAccessor>>();
+
+    protected SQLRowAccessor getForeignRow(SQLRowAccessor row, SQLField field) {
         Map<Integer, SQLRowAccessor> c = cacheForeign.get(field.getName());
 
         if (row.getObject(field.getName()) == null) {
@@ -54,15 +58,14 @@ public class OOXMLCache {
 
             return foreign;
         }
-        // return row.getForeignRow(field.getName());
 
     }
 
-    protected static List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, SQLTable tableForeign) {
+    protected List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, SQLTable tableForeign) {
         return getReferentRows(row, tableForeign, null);
     }
 
-    protected static List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, final SQLTable tableForeign, String groupBy) {
+    protected List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, final SQLTable tableForeign, String groupBy) {
         Map<SQLTable, List<SQLRowAccessor>> c = cacheReferent.get(row.get(0));
 
         if (c != null && c.get(tableForeign) != null) {
@@ -132,7 +135,7 @@ public class OOXMLCache {
         // return row.getReferentRows(tableForeign);
     }
 
-    private static void cumulRows(final List<String> params, SQLRow sqlRow, SQLRowValues rowVals) {
+    private void cumulRows(final List<String> params, SQLRow sqlRow, SQLRowValues rowVals) {
 
         for (int i = 1; i < params.size(); i++) {
 
@@ -150,14 +153,11 @@ public class OOXMLCache {
         }
     }
 
-    private static Map<SQLRowAccessor, Map<SQLTable, List<SQLRowAccessor>>> cacheReferent = new HashMap<SQLRowAccessor, Map<SQLTable, List<SQLRowAccessor>>>();
-    private static Map<String, Map<Integer, SQLRowAccessor>> cacheForeign = new HashMap<String, Map<Integer, SQLRowAccessor>>();
-
-    public static Map<SQLRowAccessor, Map<SQLTable, List<SQLRowAccessor>>> getCacheReferent() {
+    public Map<SQLRowAccessor, Map<SQLTable, List<SQLRowAccessor>>> getCacheReferent() {
         return cacheReferent;
     }
 
-    public static void clearCache() {
+    public void clearCache() {
         cacheReferent.clear();
         cacheForeign.clear();
     }

@@ -24,6 +24,7 @@ import org.openconcerto.sql.view.search.SearchSpec;
 import org.openconcerto.sql.view.search.SearchSpecUtils;
 import org.openconcerto.ui.component.combo.Log;
 import org.openconcerto.utils.RTInterruptedException;
+import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.checks.EmptyChangeSupport;
 import org.openconcerto.utils.checks.EmptyListener;
@@ -42,7 +43,6 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 
 import javax.swing.SwingUtilities;
-import javax.swing.SwingWorker;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
 
@@ -68,7 +68,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     private final PropertyChangeSupport propSupp;
 
     // est ce que la combo va se remplir, access must be synchronized
-    private SwingWorker<?, ?> willUpdate;
+    private SwingWorker2<?, ?> willUpdate;
     protected final List<Runnable> runnables;
     // true from when the combo is filled with the sole "dots" item until it is loaded with actual
     // items, no need to synchronize (EDT)
@@ -280,7 +280,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
             // copy the current search, if it changes fillCombo() will be called
             final SearchSpec search = this.getSearch();
             // commencer l'update après, sinon modeToSelect == 0
-            final SwingWorker<List<IComboSelectionItem>, Object> worker = new SwingWorker<List<IComboSelectionItem>, Object>() {
+            final SwingWorker2<List<IComboSelectionItem>, Object> worker = new SwingWorker2<List<IComboSelectionItem>, Object>() {
 
                 @Override
                 protected List<IComboSelectionItem> doInBackground() throws InterruptedException {
@@ -663,7 +663,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         return this.getSearch() != null && !this.getSearch().isEmpty();
     }
 
-    private synchronized void setWillUpdate(SwingWorker<?, ?> w) {
+    private synchronized void setWillUpdate(SwingWorker2<?, ?> w) {
         this.willUpdate = w;
         this.propSupp.firePropertyChange("willUpdate", null, this.willUpdate);
         if (this.willUpdate == null) {

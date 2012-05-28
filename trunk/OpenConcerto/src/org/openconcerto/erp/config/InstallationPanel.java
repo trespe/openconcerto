@@ -669,6 +669,19 @@ public class InstallationPanel extends JPanel {
             rowVals.commit();
         }
 
+        // Ajout de la TVA à 0
+        SQLSelect selTVA = new SQLSelect(root.getBase());
+        SQLTable tableTaxe = root.getTable("TAXE");
+        selTVA.addSelect(tableTaxe.getKey(), "COUNT");
+        selTVA.setWhere(new Where(tableTaxe.getField("TAUX"), "=", 0));
+        Object result = root.getBase().getDataSource().executeScalar(selTVA.asString());
+        if (result == null || ((Number) result).longValue() == 0) {
+            SQLRowValues rowVals = new SQLRowValues(tableTaxe);
+            rowVals.put("NOM", "Non applicable");
+            rowVals.put("TAUX", Float.valueOf(0));
+            rowVals.commit();
+        }
+
         // Bon de livraison
         {
             SQLTable tableBL = root.getTable("BON_DE_LIVRAISON");

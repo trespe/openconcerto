@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.view.list;
 
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTableEvent;
@@ -86,7 +87,7 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
 
     private void loadCacheAsynchronous() {
         this.isLoading = true;
-        final Thread thread = new Thread(new Runnable() {
+        Configuration.getInstance().getNonInteractiveSQLExecutor().execute(new Runnable() {
             public void run() {
                 List<IComboSelectionItem> items = KeyTableCellRenderer.this.el.getComboRequest().getComboItems();
                 final Map<Integer, IComboSelectionItem> m = new HashMap<Integer, IComboSelectionItem>();
@@ -111,6 +112,6 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
                 }
             }
         });
-        thread.start();
+
     }
 }

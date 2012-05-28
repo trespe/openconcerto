@@ -17,7 +17,7 @@ import org.openconcerto.sql.users.rights.UserRights;
 
 public class User {
     private final int id;
-    private String name, lastName, nickName;
+    private String name, firstName, nickName;
     private final UserRights userRights;
 
     public User(int id, String name) {
@@ -43,16 +43,16 @@ public class User {
         return this.getFullName() + " /" + getId();
     }
 
-    public void setLastName(String string) {
-        this.lastName = string;
+    public void setFirstName(String string) {
+        this.firstName = string;
     }
 
     public void setNickName(String string) {
         this.nickName = string;
     }
 
-    public String getLastName() {
-        return this.lastName;
+    public String getFirstName() {
+        return this.firstName;
     }
 
     public String getNickName() {
@@ -60,7 +60,7 @@ public class User {
     }
 
     public String getFullName() {
-        return getLastName() + " " + getName();
+        return getFirstName() + " " + getName();
     }
 
 }

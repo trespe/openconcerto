@@ -134,7 +134,7 @@ import javax.swing.table.TableModel;
  * 
  * @author ILM Informatique
  */
-public final class IListe extends JPanel implements AncestorListener {
+public final class IListe extends JPanel {
 
     static private final class FormatRenderer extends DefaultTableCellRenderer {
         private final Format fmt;
@@ -644,7 +644,27 @@ public final class IListe extends JPanel implements AncestorListener {
         for (final Map.Entry<Class<?>, FormatGroup> e : this.getFormats().entrySet())
             this.jTable.setDefaultEditor(e.getKey(), new FormatEditor(e.getValue()));
         this.sorter.setTableHeader(this.jTable.getTableHeader());
-        this.addAncestorListener(this);
+        this.addAncestorListener(new AncestorListener() {
+
+            // these callbacks are called later than the change, and by that time the visibility
+            // might have changed several times thus use isVisible() to avoid flip-flopping for
+            // nothing
+
+            @Override
+            public void ancestorRemoved(AncestorEvent event) {
+                visibilityChanged();
+            }
+
+            @Override
+            public void ancestorAdded(AncestorEvent event) {
+                visibilityChanged();
+            }
+
+            @Override
+            public void ancestorMoved(AncestorEvent event) {
+                // nothing to do
+            }
+        });
         // we used to rm this listener, possibly to avoid events once dead, but this doesn't seem
         // necessary anymore
         this.jTable.getSelectionModel().addListSelectionListener(this.selectionListener);
@@ -1003,30 +1023,12 @@ public final class IListe extends JPanel implements AncestorListener {
             getModel().rmPropertyChangeListener(l);
     }
 
-    // *** Ancestors ***//
-
-    @Override
-    public void ancestorAdded(AncestorEvent event) {
-        // there was an if added in r989, but from the javadoc it isn't needed
-        assert event.getAncestor().isVisible();
-        // ancestorAdded means we've just been added to a visible hierarchy, not that we were added
-        // to our parent
-        this.getModel().setSleeping(false);
-    }
-
-    @Override
-    public void ancestorRemoved(AncestorEvent event) {
+    protected final void visibilityChanged() {
         // test isDead() since in JComponent.removeNotify() first setDisplayable(false) (in super)
         // then firePropertyChange("ancestor", null).
         // thus we can still be visible while not displayable anymore
-        assert !event.getAncestor().isVisible() || !event.getAncestor().isDisplayable();
         if (!this.isDead())
-            this.getModel().setSleeping(true);
-    }
-
-    @Override
-    public void ancestorMoved(AncestorEvent event) {
-        // nothing to do
+            this.getModel().setSleeping(!this.isVisible());
     }
 
     public void setSQLEditable(boolean b) {

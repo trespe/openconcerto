@@ -288,6 +288,10 @@ public class Path {
         return this.add(item.getLabel());
     }
 
+    public final List<Step> getSteps() {
+        return Collections.unmodifiableList(this.fields);
+    }
+
     /**
      * The step connecting the table i to i+1.
      * 

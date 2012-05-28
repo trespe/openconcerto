@@ -14,6 +14,9 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.model.LoadingListener.GraphLoadingEvent;
+import org.openconcerto.sql.model.LoadingListener.LoadingChangeSupport;
+import org.openconcerto.sql.model.LoadingListener.LoadingEvent;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.IClosure;
@@ -65,6 +68,8 @@ public final class DBSystemRoot extends DBStructureItemDB {
     private boolean incoherentPath;
     private final PropertyChangeListener coherenceListener;
 
+    private final LoadingChangeSupport loadingListenersSupp;
+
     DBSystemRoot(DBStructureItemJDBC delegate) {
         super(delegate);
         this.graph = null;
@@ -80,6 +85,7 @@ public final class DBSystemRoot extends DBStructureItemDB {
                 rootsChanged(evt);
             }
         };
+        this.loadingListenersSupp = new LoadingChangeSupport(this);
 
         this.getServer().init(this);
     }
@@ -240,12 +246,16 @@ public final class DBSystemRoot extends DBStructureItemDB {
         synchronized (this.getTreeMutex()) {
             synchronized (this.graphMutex) {
                 if (this.graph == null) {
+                    final LoadingEvent evt = new GraphLoadingEvent(this);
                     try {
+                        fireLoading(evt);
                         // keep new DatabaseGraph() inside the synchronized to prevent two
                         // concurrent expensive creations
                         this.setGraph(new DatabaseGraph(this));
                     } catch (SQLException e) {
                         throw new IllegalStateException("could not graph " + this, e);
+                    } finally {
+                        fireLoading(evt.createFinishingEvent());
                     }
                 }
                 return this.graph;
@@ -304,6 +314,23 @@ public final class DBSystemRoot extends DBStructureItemDB {
             ((SQLBase) this.getJDBC()).loadTables(childrenNames);
         else
             refetch(childrenNames);
+    }
+
+    /**
+     * Adds a listener for this and its children.
+     * 
+     * @param l the listener.
+     */
+    public final void addLoadingListener(LoadingListener l) {
+        this.loadingListenersSupp.addLoadingListener(l);
+    }
+
+    final void fireLoading(LoadingEvent evt) {
+        this.loadingListenersSupp.fireLoading(evt);
+    }
+
+    public final void removeLoadingListener(LoadingListener l) {
+        this.loadingListenersSupp.removeLoadingListener(l);
     }
 
     /**

@@ -15,11 +15,11 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.element.GlobalMapper;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.ui.AutoHideListener;
 import org.openconcerto.ui.table.TableCellRendererUtils;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.convertor.ValueConvertor;
@@ -29,6 +29,7 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import javax.swing.JLabel;
+import javax.swing.JPanel;
 import javax.swing.JTable;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableCellRenderer;
@@ -56,6 +57,10 @@ public abstract class ComptaSQLConfElement extends SQLElement {
             return res;
         }
     };
+
+    static public final JPanel createAdditionalPanel() {
+        return AutoHideListener.listen(new JPanel());
+    }
 
     private static DBRoot getBaseSociete() {
         if (baseSociete == null)

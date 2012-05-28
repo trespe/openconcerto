@@ -34,10 +34,12 @@ public class OOXMLTableElement {
     private SQLElement elt;
     private String foreignTableWhere, typeWhere, fieldWhere;
     private Element tableau;
+    private OOXMLCache cache;
 
-    public OOXMLTableElement(Element tableau, SQLRow row) {
+    public OOXMLTableElement(Element tableau, SQLRow row, OOXMLCache cache) {
 
         this.tableau = tableau;
+        this.cache = cache;
         this.foreignTableWhere = tableau.getAttributeValue("tableForeignWhere");
         this.fieldWhere = tableau.getAttributeValue("fieldWhere");
 
@@ -122,7 +124,7 @@ public class OOXMLTableElement {
             // }
             // // #endif
 
-            return OOXMLCache.getReferentRows(this.row, tableElt, this.tableau.getAttributeValue("groupBy"));
+            return cache.getReferentRows(this.row, tableElt, this.tableau.getAttributeValue("groupBy"));
 
         } else {
             System.err.println("OOXMLTableElement.getRows() Table " + tableElt + " is null!");

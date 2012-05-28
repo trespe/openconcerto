@@ -137,8 +137,8 @@ public abstract class RowBacked {
         return this.r;
     }
 
-    protected final SQLRow getSQLRow() {
-        return (SQLRow) this.getRow();
+    public final SQLRow getSQLRow() {
+        return this.getRow().asRow();
     }
 
     public final int getID() {

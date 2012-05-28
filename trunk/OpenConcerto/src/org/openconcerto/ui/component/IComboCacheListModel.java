@@ -14,6 +14,7 @@
  package org.openconcerto.ui.component;
 
 import org.openconcerto.ui.component.combo.ISearchableCombo;
+import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.change.CollectionChangeEvent;
 import org.openconcerto.utils.change.IListDataEvent;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
@@ -22,7 +23,6 @@ import org.openconcerto.utils.model.Reloadable;
 import java.util.Collection;
 import java.util.List;
 
-import javax.swing.SwingWorker;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
 
@@ -76,7 +76,7 @@ public class IComboCacheListModel extends DefaultIMutableListModel<String> imple
 
     public final void load(final Runnable r, final boolean readCache) {
         if (this.cache.isValid()) {
-            new SwingWorker<List<String>, Object>() {
+            new SwingWorker2<List<String>, Object>() {
 
                 @Override
                 protected List<String> doInBackground() throws Exception {

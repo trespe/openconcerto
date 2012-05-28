@@ -30,6 +30,8 @@ import org.openconcerto.utils.FileUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 /**
  * Regroupe les objets nécessaires au framework.
@@ -55,6 +57,8 @@ public abstract class Configuration {
     public static final void setInstance(Configuration instance) {
         Configuration.instance = instance;
     }
+
+    private Executor nonInteractiveSQLExecutor;
 
     public abstract ShowAs getShowAs();
 
@@ -143,4 +147,15 @@ public abstract class Configuration {
      * Signal that this conf will not be used anymore.
      */
     public abstract void destroy();
+
+    public Executor getNonInteractiveSQLExecutor() {
+        if (nonInteractiveSQLExecutor == null) {
+            nonInteractiveSQLExecutor = createNonInteractiveSQLExecutor();
+        }
+        return nonInteractiveSQLExecutor;
+    }
+
+    protected Executor createNonInteractiveSQLExecutor() {
+        return Executors.newFixedThreadPool(2);
+    }
 }

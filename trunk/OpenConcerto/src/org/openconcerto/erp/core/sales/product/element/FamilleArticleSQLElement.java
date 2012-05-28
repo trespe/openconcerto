@@ -94,7 +94,7 @@ public class FamilleArticleSQLElement extends ComptaSQLConfElement {
                 c.gridx = 0;
                 c.gridy++;
                 c.gridwidth = GridBagConstraints.REMAINDER;
-                final JPanel addP = new JPanel();
+                final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
 
                 this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
                 c.fill = GridBagConstraints.HORIZONTAL;

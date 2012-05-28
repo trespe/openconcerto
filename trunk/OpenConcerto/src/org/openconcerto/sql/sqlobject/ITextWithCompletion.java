@@ -21,6 +21,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.utils.OrderedSet;
+import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.checks.MutableValueObject;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
 import org.openconcerto.utils.text.DocumentFilterList;
@@ -50,7 +51,6 @@ import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
-import javax.swing.SwingWorker;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.AbstractDocument;
@@ -258,7 +258,7 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
         synchronized (this) {
             this.isLoading = true;
         }
-        final SwingWorker worker = new SwingWorker<Object, Object>() {
+        final SwingWorker2<Object, Object> worker = new SwingWorker2<Object, Object>() {
 
             // Runs on the event-dispatching thread.
             @Override

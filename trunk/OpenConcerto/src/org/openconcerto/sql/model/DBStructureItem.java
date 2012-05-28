@@ -125,6 +125,10 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
 
     public abstract void rmChildrenListener(final PropertyChangeListener l);
 
+    public final D getSibling(String name) {
+        return this.getParent().getChild(name);
+    }
+
     // ** far
 
     public final D getDescendant(SQLName name) {

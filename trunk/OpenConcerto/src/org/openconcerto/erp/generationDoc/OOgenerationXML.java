@@ -62,21 +62,28 @@ import org.jdom.input.SAXBuilder;
  * 
  */
 public class OOgenerationXML {
-
-    private static DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
-
-    // Cache pour la recherche des styles
-    private static Map<Sheet, Map<String, Map<Integer, String>>> cacheStyle = new HashMap<Sheet, Map<String, Map<Integer, String>>>();
-
-    // Cache pour les SQLRow du tableau
-    private static Map<String, List<? extends SQLRowAccessor>> rowsEltCache = new HashMap<String, List<? extends SQLRowAccessor>>();
-
     private static int answer = JOptionPane.NO_OPTION;
 
-    public static synchronized File createDocument(String templateId, File outputDirectory, final String expectedFileName, SQLRow row, SQLRow rowLanguage) {
+    private DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+
+    // Cache pour la recherche des styles
+    private Map<Sheet, Map<String, Map<Integer, String>>> cacheStyle = new HashMap<Sheet, Map<String, Map<Integer, String>>>();
+    private Map<SQLRowAccessor, Map<String, Object>> taxe = new HashMap<SQLRowAccessor, Map<String, Object>>();
+    private Map<String, Map<Integer, SQLRowAccessor>> cacheForeign = new HashMap<String, Map<Integer, SQLRowAccessor>>();
+
+    // Cache pour les SQLRow du tableau
+    private Map<String, List<? extends SQLRowAccessor>> rowsEltCache = new HashMap<String, List<? extends SQLRowAccessor>>();
+    private final OOXMLCache rowRefCache = new OOXMLCache();
+    private final SQLRow row;
+
+    public OOgenerationXML(SQLRow row) {
+        this.row = row;
+    }
+
+    public synchronized File createDocument(String templateId, File outputDirectory, final String expectedFileName, SQLRow rowLanguage) {
         final String langage = rowLanguage != null ? rowLanguage.getString("CHEMIN") : null;
         cacheStyle.clear();
-        OOXMLCache.clearCache();
+        rowRefCache.clearCache();
         rowsEltCache.clear();
         taxe.clear();
         cacheForeign.clear();
@@ -146,7 +153,7 @@ public class OOgenerationXML {
 
                 for (Element tableChild : listTable) {
                     // On remplit les cellules du tableau
-                    parseTableauXML(tableChild, row, spreadSheet, rowLanguage);
+                    parseTableauXML(tableChild, spreadSheet, rowLanguage);
                 }
             } catch (Exception e) {
                 ExceptionHandler.handle("Impossible de remplir le document " + templateId + " " + ((rowLanguage == null) ? "" : rowLanguage.getString("CHEMIN")), e);
@@ -182,7 +189,7 @@ public class OOgenerationXML {
      * @param id
      * @param sheet
      */
-    private static void parseTableauXML(Element tableau, SQLRow row, SpreadSheet spreadsheet, SQLRow rowLanguage) {
+    private void parseTableauXML(Element tableau, SpreadSheet spreadsheet, SQLRow rowLanguage) {
 
         if (tableau == null) {
             return;
@@ -284,10 +291,8 @@ public class OOgenerationXML {
      * @param test remplir ou non avec les valeurs
      * @return le nombre de page
      */
-    static Map<SQLRowAccessor, Map<String, Object>> taxe = new HashMap<SQLRowAccessor, Map<String, Object>>();
-    private static Map<String, Map<Integer, SQLRowAccessor>> cacheForeign = new HashMap<String, Map<Integer, SQLRowAccessor>>();
 
-    protected static SQLRowAccessor getForeignRow(SQLRowAccessor row, SQLField field) {
+    protected SQLRowAccessor getForeignRow(SQLRowAccessor row, SQLField field) {
         Map<Integer, SQLRowAccessor> c = cacheForeign.get(field.getName());
 
         int i = row.getInt(field.getName());
@@ -313,7 +318,7 @@ public class OOgenerationXML {
 
     }
 
-    private static int fillTable(Element tableau, SQLRow row, Sheet sheet, Map<String, Map<Integer, String>> mapStyle, boolean test, SQLRow rowLanguage) {
+    private int fillTable(Element tableau, SQLRow row, Sheet sheet, Map<String, Map<Integer, String>> mapStyle, boolean test, SQLRow rowLanguage) {
 
         if (tableau == null) {
             return 1;
@@ -322,7 +327,7 @@ public class OOgenerationXML {
         int nbPage = 1;
         int nbCellules = 0;
 
-        OOXMLTableElement tableElement = new OOXMLTableElement(tableau, row);
+        OOXMLTableElement tableElement = new OOXMLTableElement(tableau, row, this.rowRefCache);
         int currentLineTmp = tableElement.getFirstLine();
         int currentLine = tableElement.getFirstLine();
 
@@ -395,7 +400,7 @@ public class OOgenerationXML {
                 for (Element e : listElts) {
 
                     OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId(),
-                            rowLanguage, numeroRef);
+                            rowLanguage, numeroRef, this.rowRefCache);
                     final Object value = tableField.getValue();
 
                     mapValues.put(e, value);
@@ -413,7 +418,7 @@ public class OOgenerationXML {
                 for (Element e : listElts) {
 
                     OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId(),
-                            rowLanguage, numeroRef);
+                            rowLanguage, numeroRef, this.rowRefCache);
 
                     if (!test && styleName != null && tableElement.getListBlankLineStyle().contains(styleName) && first) {
                         toAdd++;
@@ -518,7 +523,7 @@ public class OOgenerationXML {
         return d;
     }
 
-    private static void fillTaxe(Element tableau, Sheet sheet, Map<String, Map<Integer, String>> mapStyle, boolean test) {
+    private void fillTaxe(Element tableau, Sheet sheet, Map<String, Map<Integer, String>> mapStyle, boolean test) {
 
         int line = Integer.valueOf(tableau.getAttributeValue("firstLine"));
         List<Element> listElts = tableau.getChildren("element");
@@ -568,11 +573,11 @@ public class OOgenerationXML {
      * @param sqlElt
      * @param id
      */
-    private static void parseElementsXML(List<Element> elts, SQLRow row, SpreadSheet spreadSheet) {
+    private void parseElementsXML(List<Element> elts, SQLRow row, SpreadSheet spreadSheet) {
         SQLElement sqlElt = Configuration.getInstance().getDirectory().getElement(row.getTable());
         for (Element elt : elts) {
 
-            OOXMLElement OOElt = new OOXMLElement(elt, sqlElt, row.getID(), row);
+            OOXMLElement OOElt = new OOXMLElement(elt, sqlElt, row.getID(), row, this.rowRefCache);
             Object result = OOElt.getValue();
             if (result != null) {
                 Object o = elt.getAttributeValue("sheet");
@@ -612,7 +617,7 @@ public class OOgenerationXML {
      * @param replace efface ou non le contenu original de la cellule
      * @param styleOO style à appliquer
      */
-    private static int fill(String location, Object value, Sheet sheet, boolean replace, String replacePattern, String styleOO, boolean test, boolean controleMultiline) {
+    private int fill(String location, Object value, Sheet sheet, boolean replace, String replacePattern, String styleOO, boolean test, boolean controleMultiline) {
 
         int nbCellule = (test && styleOO == null) ? 2 : 1;
         // est ce que la cellule est valide
@@ -681,7 +686,7 @@ public class OOgenerationXML {
      * @param value
      * @param replace
      */
-    private static void setCellValue(MutableCell cell, Object value, boolean replace, String replacePattern) {
+    private void setCellValue(MutableCell cell, Object value, boolean replace, String replacePattern) {
         if (value == null) {
             return;
             // value = "";
@@ -759,7 +764,7 @@ public class OOgenerationXML {
     /**
      * parcourt l'ensemble de la feuille pour trouver les style définit
      */
-    private static Map<String, Map<Integer, String>> searchStyle(Sheet sheet, int colEnd, int rowEnd) {
+    private Map<String, Map<Integer, String>> searchStyle(Sheet sheet, int colEnd, int rowEnd) {
 
         if (cacheStyle.get(sheet) != null) {
             return cacheStyle.get(sheet);
@@ -818,7 +823,7 @@ public class OOgenerationXML {
         return mapStyleDef;
     }
 
-    public static boolean needAnnexe(String templateId, SQLRow row, SQLRow rowLanguage) {
+    public boolean needAnnexe(String templateId, SQLRow row, SQLRow rowLanguage) {
         final String langage = rowLanguage != null ? rowLanguage.getString("CHEMIN") : null;
         final SAXBuilder builder = new SAXBuilder();
         try {
@@ -868,8 +873,7 @@ public class OOgenerationXML {
         return false;
     }
 
-    protected static String getStringProposition(SQLRow rowProp) {
-
+    protected String getStringProposition(SQLRow rowProp) {
         return "Notre proposition " + rowProp.getString("NUMERO") + " du " + dateFormat.format(rowProp.getObject("DATE"));
     }
 

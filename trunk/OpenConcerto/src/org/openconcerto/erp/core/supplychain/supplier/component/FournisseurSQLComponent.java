@@ -17,6 +17,7 @@
 package org.openconcerto.erp.core.supplychain.supplier.component;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.ContactItemTable;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.model.ISQLCompteSelector;
@@ -188,7 +189,7 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        final JPanel addP = new JPanel();
+        final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
         this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
         this.add(addP, c);
 

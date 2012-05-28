@@ -17,6 +17,8 @@
 package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.model.LoadingListener.LoadingEvent;
+import org.openconcerto.sql.model.LoadingListener.StructureLoadingEvent;
 import org.openconcerto.sql.model.StructureSource.PrechangeException;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.utils.CollectionUtils;
@@ -199,7 +201,14 @@ public class SQLBase extends SQLIdentifier {
     }
 
     private JDBCStructureSource fetchTablesP(Set<String> childrenNames, Map<String, SQLSchema> newStruct) throws SQLException {
-        return this.refreshTables(new JDBCStructureSource(this, childrenNames, newStruct));
+        final LoadingEvent evt = new StructureLoadingEvent(this, childrenNames);
+        final DBSystemRoot sysRoot = this.getDBSystemRoot();
+        try {
+            sysRoot.fireLoading(evt);
+            return this.refreshTables(new JDBCStructureSource(this, childrenNames, newStruct));
+        } finally {
+            sysRoot.fireLoading(evt.createFinishingEvent());
+        }
     }
 
     public final Set<String> loadTables() throws SQLException {

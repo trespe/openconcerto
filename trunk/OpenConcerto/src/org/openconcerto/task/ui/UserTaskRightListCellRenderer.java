@@ -38,7 +38,7 @@ public class UserTaskRightListCellRenderer extends DefaultListCellRenderer {
 
     public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
         User user = (User) value;
-        String newValue = user.getLastName() + " " + user.getName();
+        String newValue = user.getFirstName() + " " + user.getName();
         Component c = super.getListCellRendererComponent(list, newValue, index, false, cellHasFocus);
         setForeground(Color.LIGHT_GRAY);
         if (usersRight != null) {

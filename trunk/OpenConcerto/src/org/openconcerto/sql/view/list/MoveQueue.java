@@ -20,8 +20,8 @@ import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.SleepingQueue;
 
 import java.sql.SQLException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.Callable;
+import java.util.concurrent.FutureTask;
 
 final class MoveQueue extends SleepingQueue {
 
@@ -35,25 +35,19 @@ final class MoveQueue extends SleepingQueue {
     public void move(final int id, final int inc) {
         this.put(new Runnable() {
             public void run() {
-                final AtomicReference<Integer> destID = new AtomicReference<Integer>();
-                final CountDownLatch latch = new CountDownLatch(1);
-                MoveQueue.this.tableModel.invokeLater(new Runnable() {
-                    public void run() {
-                        destID.set(MoveQueue.this.tableModel.getDestID(id, inc));
-                        latch.countDown();
+                final FutureTask<Integer> destID = new FutureTask<Integer>(new Callable<Integer>() {
+                    @Override
+                    public Integer call() {
+                        return MoveQueue.this.tableModel.getDestID(id, inc);
                     }
                 });
+                MoveQueue.this.tableModel.invokeLater(destID);
                 try {
-                    latch.await();
-                } catch (InterruptedException e) {
-                    throw ExceptionUtils.createExn(IllegalStateException.class, "move failed", e);
-                }
-                if (destID.get() != null) {
-                    try {
+                    if (destID.get() != null) {
                         moveQuick(id, destID.get());
-                    } catch (SQLException e) {
-                        throw ExceptionUtils.createExn(IllegalStateException.class, "move failed", e);
                     }
+                } catch (Exception e) {
+                    throw ExceptionUtils.createExn(IllegalStateException.class, "move failed", e);
                 }
             }
         });

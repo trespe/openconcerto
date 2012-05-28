@@ -19,7 +19,6 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.GestionDevise;
 
 import java.text.DateFormat;
@@ -29,52 +28,50 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
+import org.jdom.Attribute;
 import org.jdom.Element;
 
 public class OOXMLElement {
     protected Element elt;
     protected SQLElement sqlElt;
     protected int id;
-    protected SQLRowAccessor row = null;
+    protected SQLRowAccessor row;
     protected SQLRow rowLanguage;
+    protected OOXMLCache cache;
 
-    public OOXMLElement(Element elt, SQLElement sqlElt, int id, SQLRow rowLanguage) {
-        this.elt = elt;
-        this.sqlElt = sqlElt;
-        this.id = id;
-        this.rowLanguage = rowLanguage;
+    public OOXMLElement(Element elt, SQLElement sqlElt, int id, SQLRow rowLanguage, OOXMLCache cache) {
+        this(elt, sqlElt, id, null, rowLanguage, cache);
+
     }
 
-    public OOXMLElement(Element elt, SQLElement sqlElt, int id, SQLRowAccessor row, SQLRow rowLanguage) {
+    public OOXMLElement(Element elt, SQLElement sqlElt, int id, SQLRowAccessor row, SQLRow rowLanguage, OOXMLCache cache) {
         this.elt = elt;
         this.sqlElt = sqlElt;
         this.id = id;
         this.row = row;
         this.rowLanguage = rowLanguage;
+        this.cache = cache;
     }
 
     public Object getValue() {
         Object res = "";
 
-        final String attributeValue = this.elt.getAttributeValue("type");
-
-        if (attributeValue.equalsIgnoreCase("InitialesUtilisateur")) {
-            return getInitialesUser();
+        final String type = this.elt.getAttributeValue("type");
+        SpreadSheetCellValueProvider provider = SpreadSheetCellValueProviderManager.get(type);
+        if (provider != null) {
+            final SpreadSheetCellValueContext context = new SpreadSheetCellValueContext(this.row);
+            List<Attribute> attrs = this.elt.getAttributes();
+            for (Attribute attr : attrs) {
+                context.put(attr.getName(), attr.getValue());
+            }
+            return provider.getValue(context);
         }
 
-        if (attributeValue.equalsIgnoreCase("InitialesUtilisateurModif")) {
-            return getInitialesUserModify();
-        }
-
-        if (attributeValue.equalsIgnoreCase("InitialesUtilisateurCreate")) {
-            return getInitialesUserCreate();
-        }
-
-        if (attributeValue.equalsIgnoreCase("TotalHTTable")) {
+        if (type.equalsIgnoreCase("TotalHTTable")) {
             return getTotalHTTable(row);
         }
 
-        if (attributeValue.equalsIgnoreCase("DateEcheance")) {
+        if (type.equalsIgnoreCase("DateEcheance")) {
             int idModeReglement = row.getInt("ID_MODE_REGLEMENT");
             Date d = (Date) row.getObject("DATE");
             return getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("DatePattern"));
@@ -87,7 +84,7 @@ public class OOXMLElement {
                 String result = "";
                 for (Element eltField : eltFields) {
 
-                    OOXMLField field = new OOXMLField(eltField, this.row, this.sqlElt, this.id, this.rowLanguage);
+                    OOXMLField field = new OOXMLField(eltField, this.row, this.sqlElt, this.id, this.rowLanguage, cache);
 
                     Object value = field.getValue();
                     if (value != null) {
@@ -96,57 +93,11 @@ public class OOXMLElement {
                 }
                 res = result;
             } else {
-                OOXMLField field = new OOXMLField(eltFields.get(0), this.row, this.sqlElt, this.id, this.rowLanguage);
+                OOXMLField field = new OOXMLField(eltFields.get(0), this.row, this.sqlElt, this.id, this.rowLanguage, cache);
                 res = field.getValue();
             }
         }
         return res;
-    }
-
-    private String getInitialesUserModify() {
-
-        SQLRowAccessor rowUser = this.row.getForeign("ID_USER_COMMON_MODIFY");
-        String s = rowUser.getString("NOM");
-        String s2 = rowUser.getString("PRENOM");
-
-        StringBuffer result = new StringBuffer(4);
-        if (s2 != null && s2.trim().length() > 0) {
-            result.append(s2.charAt(0));
-        }
-        if (s != null && s.trim().length() > 0) {
-            result.append(s.charAt(0));
-        }
-        return result.toString();
-    }
-
-    private String getInitialesUserCreate() {
-        SQLRowAccessor rowUser = this.row.getForeign("ID_USER_COMMON_CREATE");
-        String s = rowUser.getString("NOM");
-        String s2 = rowUser.getString("PRENOM");
-
-        StringBuffer result = new StringBuffer(4);
-        if (s2 != null && s2.trim().length() > 0) {
-            result.append(s2.charAt(0));
-        }
-        if (s != null && s.trim().length() > 0) {
-            result.append(s.charAt(0));
-        }
-        return result.toString();
-    }
-
-    private String getInitialesUser() {
-
-        String s = UserManager.getInstance().getCurrentUser().getLastName();
-        String s2 = UserManager.getInstance().getCurrentUser().getName();
-
-        StringBuffer result = new StringBuffer(4);
-        if (s2 != null && s2.trim().length() > 0) {
-            result.append(s2.charAt(0));
-        }
-        if (s != null && s.trim().length() > 0) {
-            result.append(s.charAt(0));
-        }
-        return result.toString();
     }
 
 
