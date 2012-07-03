@@ -41,7 +41,7 @@ public class SpreadSheetCellValueContext {
         fields.addAll(row.getFields());
         Collections.sort(fields);
         for (String field : fields) {
-            prt.print(StringUtils.rightAlign(field, 20));
+            prt.print(StringUtils.rightAlign(field, 30));
             prt.print(" : ");
             prt.println(row.getObject(field));
         }
@@ -50,9 +50,9 @@ public class SpreadSheetCellValueContext {
         params.addAll(map.keySet());
         Collections.sort(params);
         for (String param : params) {
-            prt.print(StringUtils.rightAlign(param, 20));
+            prt.print(StringUtils.rightAlign(param, 30));
             prt.print(" : ");
-            prt.println(row.getObject(param));
+            prt.println(map.get(param));
         }
 
     }
