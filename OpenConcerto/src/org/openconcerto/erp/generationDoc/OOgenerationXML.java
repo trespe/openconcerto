@@ -577,7 +577,7 @@ public class OOgenerationXML {
         SQLElement sqlElt = Configuration.getInstance().getDirectory().getElement(row.getTable());
         for (Element elt : elts) {
 
-            OOXMLElement OOElt = new OOXMLElement(elt, sqlElt, row.getID(), row, this.rowRefCache);
+            OOXMLElement OOElt = new OOXMLElement(elt, sqlElt, row.getID(), row, null, this.rowRefCache);
             Object result = OOElt.getValue();
             if (result != null) {
                 Object o = elt.getAttributeValue("sheet");
