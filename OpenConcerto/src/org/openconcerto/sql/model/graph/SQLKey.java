@@ -62,7 +62,8 @@ public class SQLKey {
     }
 
     /**
-     * Pour une clé retourne la table correspondante.
+     * Pour une clé retourne la table correspondante. The target table will be searched in the same
+     * root then in the path.
      * <p>
      * Attention : cette méthode utilise un heuristique et n'est pas infaillible.
      * </p>

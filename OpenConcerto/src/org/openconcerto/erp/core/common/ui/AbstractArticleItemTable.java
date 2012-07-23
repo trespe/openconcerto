@@ -43,6 +43,7 @@ import java.util.Set;
 import javax.swing.JButton;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
 
 public abstract class AbstractArticleItemTable extends JPanel {
     protected RowValuesTable table;
@@ -99,6 +100,7 @@ public abstract class AbstractArticleItemTable extends JPanel {
         c.weightx = 1;
         c.weighty = 1;
         final JScrollPane comp = new JScrollPane(this.table);
+        comp.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
         this.add(comp, c);
         this.table.setDefaultRenderer(Long.class, new RowValuesTableRenderer());
     }

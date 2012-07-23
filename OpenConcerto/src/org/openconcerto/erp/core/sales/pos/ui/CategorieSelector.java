@@ -66,17 +66,20 @@ public class CategorieSelector extends JPanel implements ListSelectionListener, 
 
             @Override
             public void mousePressed(MouseEvent e) {
-                final Categorie prev = CategorieSelector.this.previous;
-                CategorieSelector.this.model.setRoot(prev);
+                // User pressed "Previous" button on category
+                final Categorie newCategory = CategorieSelector.this.previous;
+                CategorieSelector.this.model.setRoot(newCategory);
                 CategorieSelector.this.list.clearSelection();
-                if (prev == null) {
+                if (newCategory == null) {
                     CategorieSelector.this.comp.setTitle("Catégories");
                     CategorieSelector.this.comp.setPrevious(false);
-                    articleModel.setCategorie(null);
+                    CategorieSelector.this.previous = null;
                 } else {
-                    CategorieSelector.this.comp.setTitle(prev.getName());
+                    CategorieSelector.this.comp.setTitle(newCategory.getName());
                     CategorieSelector.this.comp.setPrevious(true);
+                    CategorieSelector.this.previous = newCategory.getParent();
                 }
+                articleModel.setCategorie(newCategory);
             }
 
         });
@@ -84,9 +87,9 @@ public class CategorieSelector extends JPanel implements ListSelectionListener, 
 
     @Override
     public void valueChanged(ListSelectionEvent e) {
-        Object sel = this.list.getSelectedValue();
+        final Object sel = this.list.getSelectedValue();
         if (sel != null && !e.getValueIsAdjusting()) {
-            Categorie c = (Categorie) sel;
+            final Categorie c = (Categorie) sel;
             if (!c.getSubCategories().isEmpty()) {
                 // Descend la hierarchie
                 this.previous = this.model.getRoot();
@@ -104,10 +107,9 @@ public class CategorieSelector extends JPanel implements ListSelectionListener, 
     public void caisseStateChanged() {
         final Article articleSelected = this.controller.getArticleSelected();
         if (articleSelected != null) {
-            Categorie c = articleSelected.getCategorie();
+            final Categorie c = articleSelected.getCategorie();
             if (c.getParent() != null) {
                 this.previous = c.getParent().getParent();
-
                 this.model.setRoot(c.getParent());
                 this.comp.setTitle(c.getParent().getName());
             }

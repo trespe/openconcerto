@@ -18,7 +18,6 @@ package org.openconcerto.sql.changer.convert;
 
 import static java.util.Collections.singletonList;
 import org.openconcerto.sql.changer.Changer;
-import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
@@ -37,21 +36,26 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class AddFK extends Changer<DBRoot> {
+/**
+ * Add foreign constraints.
+ * 
+ * @author Sylvain
+ * @see {@link SQLKey#keyToTable(SQLField)}
+ */
+public class AddFK extends Changer<SQLTable> {
 
     public AddFK(DBSystemRoot b) {
         super(b);
     }
 
     @Override
-    protected void changeImpl(DBRoot root) throws SQLException {
-        this.getStream().print(root + "... ");
-        final Set<SQLTable> tables = root.getDescs(SQLTable.class);
+    protected void changeImpl(SQLTable t) throws SQLException {
+        this.getStream().println(t + "... ");
 
         if (this.getSystemRoot().getServer().getSQLSystem() == SQLSystem.MYSQL)
-            toInno(tables);
+            toInno(t);
 
-        for (final SQLTable t : tables) {
+        {
             final Set<Link> foreignLinks = t.getDBSystemRoot().getGraph().getForeignLinks(t);
             final Set<List<String>> realFKs = new HashSet<List<String>>();
             for (final Link link : foreignLinks) {
@@ -75,8 +79,8 @@ public class AddFK extends Changer<DBRoot> {
                     if (!realFKs.contains(cols)) {
                         final SQLField key = t.getField(cols.get(0));
                         final SQLTable foreignT = SQLKey.keyToTable(key);
-                        alter.addForeignConstraint(cols, new SQLName(foreignT.getName()), false, singletonList(foreignT.getKey().getName()));
-                        System.err.println("ajout de " + key);
+                        alter.addForeignConstraint(cols, foreignT.getContextualSQLName(key.getTable()), false, singletonList(foreignT.getKey().getName()));
+                        getStream().println("ajout de " + key);
                     }
                     // MySQL automatically creates an index with a foreign key,
                     // but ours replace it
@@ -92,9 +96,9 @@ public class AddFK extends Changer<DBRoot> {
                                 return ClauseType.ADD_INDEX;
                             }
                         });
-                        System.err.println("ajout d'index pour " + cols);
+                        getStream().println("ajout d'index pour " + cols);
                     } else {
-                        System.err.println("pas besoin d'index pour " + cols);
+                        getStream().println("pas besoin d'index pour " + cols);
                     }
                 }
                 if (!alter.isEmpty()) {
@@ -105,11 +109,9 @@ public class AddFK extends Changer<DBRoot> {
         }
     }
 
-    private void toInno(Set<SQLTable> tables) {
-        for (final SQLTable t : tables) {
-            if (!this.getDS().execute1("show table status like '" + t.getName() + "'").get("Engine").equals("InnoDB"))
-                this.getDS().execute("ALTER TABLE " + t.getName() + " ENGINE = InnoDB;");
-        }
+    private void toInno(SQLTable t) {
+        if (!this.getDS().execute1("show table status like '" + t.getName() + "'").get("Engine").equals("InnoDB"))
+            this.getDS().execute("ALTER TABLE " + t.getName() + " ENGINE = InnoDB;");
     }
 
 }

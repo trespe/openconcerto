@@ -14,10 +14,12 @@
  package org.openconcerto.erp.core.finance.accounting.ui;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.finance.accounting.model.SelectJournauxModel;
 import org.openconcerto.erp.core.finance.accounting.report.GrandLivreSheet;
 import org.openconcerto.erp.core.finance.accounting.report.JournauxMoisSheet;
 import org.openconcerto.erp.core.finance.accounting.report.JournauxSheet;
+import org.openconcerto.erp.core.finance.accounting.report.JournauxSheetXML;
 import org.openconcerto.erp.generationDoc.SpreadSheetGeneratorCompta;
 import org.openconcerto.erp.generationDoc.SpreadSheetGeneratorListener;
 import org.openconcerto.erp.preferences.DefaultNXProps;
@@ -26,6 +28,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Dimension;
@@ -55,6 +58,7 @@ import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 
@@ -62,11 +66,8 @@ public class ImpressionJournauxPanel extends JPanel implements SpreadSheetGenera
 
     private final JDate dateDeb, dateEnd;
     private JTable tableJrnl;
-    // private boolean isValidated;
     private JButton valid;
     private JButton annul;
-    private JCheckBox checkImpr;
-    private JCheckBox checkVisu;
     private JCheckBox checkCentralMois;
     private JTextField compteDeb, compteEnd;
     private int mode = GrandLivreSheet.MODEALL;
@@ -84,7 +85,7 @@ public class ImpressionJournauxPanel extends JPanel implements SpreadSheetGenera
         this.dateEnd = new JDate();
         this.tableJrnl = new JTable(new SelectJournauxModel());
 
-        this.add(new JLabel("Période du"), c);
+        this.add(new JLabel("Période du", SwingConstants.RIGHT), c);
         c.gridx++;
         c.weightx = 1;
         this.add(this.dateDeb, c);
@@ -118,7 +119,7 @@ public class ImpressionJournauxPanel extends JPanel implements SpreadSheetGenera
         this.compteEnd = new JTextField();
         c.gridy++;
         c.gridx = 0;
-        this.add(new JLabel("Du compte "), c);
+        this.add(new JLabel("Du compte ", SwingConstants.RIGHT), c);
         c.gridx++;
         c.weightx = 1;
         this.add(this.compteDeb, c);
@@ -156,8 +157,6 @@ public class ImpressionJournauxPanel extends JPanel implements SpreadSheetGenera
 
         this.valid = new JButton("Valider");
         this.annul = new JButton("Fermer");
-        this.checkImpr = new JCheckBox("Impression");
-        this.checkVisu = new JCheckBox("Visualisation");
 
         // Radio mode
         JRadioButton radioAll = new JRadioButton(new AbstractAction("Toutes") {
@@ -215,22 +214,16 @@ public class ImpressionJournauxPanel extends JPanel implements SpreadSheetGenera
         this.bar.setStringPainted(true);
         this.add(this.bar, c);
 
-        c.gridwidth = 2;
         c.gridy++;
-        c.weightx = 0;
-        c.weighty = 0;
-        this.add(this.checkImpr, c);
-        this.checkImpr.setSelected(true);
-        c.gridx += 2;
-        this.add(this.checkVisu, c);
-
-        c.gridy++;
-        c.gridx = 0;
+        c.gridx = 3;
         c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.CENTER;
-        this.add(this.valid, c);
-        c.gridx += 2;
-        this.add(this.annul, c);
+        c.anchor = GridBagConstraints.EAST;
+        c.gridwidth = 1;
+        final JPanel actionPanel = new JPanel();
+        actionPanel.add(this.valid);
+        actionPanel.add(this.annul);
+
+        this.add(actionPanel, c);
         checkValidity();
 
         this.valid.addActionListener(new ActionListener() {
@@ -241,21 +234,43 @@ public class ImpressionJournauxPanel extends JPanel implements SpreadSheetGenera
                 new Thread(new Runnable() {
                     public void run() {
                         int[] idS = ((SelectJournauxModel) tableJrnl.getModel()).getSelectedIds(tableJrnl.getSelectedRows());
-                        JournauxSheet bSheet;
                         if (checkCentralMois.isSelected()) {
+                            JournauxSheet bSheet;
                             bSheet = new JournauxMoisSheet(idS, dateDeb.getDate(), dateEnd.getDate(), mode);
+                            final SpreadSheetGeneratorCompta generator = new SpreadSheetGeneratorCompta(bSheet, "Journal_" + Calendar.getInstance().getTimeInMillis(), false, true);
+                            SwingUtilities.invokeLater(new Runnable() {
+                                public void run() {
+                                    bar.setValue(2);
+                                    generator.addGenerateListener(ImpressionJournauxPanel.this);
+                                }
+                            });
                         } else {
-                            bSheet = new JournauxSheet(idS, dateDeb.getDate(), dateEnd.getDate(), mode, compteDeb.getText().trim(), compteEnd.getText().trim());
+                            for (int i = 0; i < idS.length; i++) {
+                                final JournauxSheetXML xmlSheet = new JournauxSheetXML(idS[i], dateDeb.getDate(), dateEnd.getDate(), mode, compteDeb.getText().trim(), compteEnd.getText().trim());
+                                SwingUtilities.invokeLater(new Runnable() {
+                                    public void run() {
+                                        bar.setValue(2);
+                                    }
+                                });
+                                try {
+                                    xmlSheet.createDocument();
+                                    xmlSheet.getOrCreatePDFDocumentFile(false, true);
+                                    Gestion.openPDF(xmlSheet.getGeneratedPDFFile());
+                                } catch (Exception exn) {
+                                    ExceptionHandler.handle("Erreur lors de la création du journal !", exn);
+                                }
+
+                            }
+                            SwingUtilities.invokeLater(new Runnable() {
+                                public void run() {
+                                    bar.setValue(3);
+                                    bar.setString("Terminée");
+                                    valid.setEnabled(true);
+                                }
+                            });
+
                         }
 
-                        final SpreadSheetGeneratorCompta generator = new SpreadSheetGeneratorCompta(bSheet, "Journal_" + Calendar.getInstance().getTimeInMillis(), checkImpr.isSelected(), checkVisu
-                                .isSelected());
-                        SwingUtilities.invokeLater(new Runnable() {
-                            public void run() {
-                                bar.setValue(2);
-                                generator.addGenerateListener(ImpressionJournauxPanel.this);
-                            }
-                        });
                     }
                 }).start();
             }
@@ -315,7 +330,6 @@ public class ImpressionJournauxPanel extends JPanel implements SpreadSheetGenera
         Date beginDate = this.dateDeb.getDate();
         Date endDate = this.dateEnd.getDate();
 
-        // System.err.println("Check validity between ");
         if (beginDate == null || endDate == null) {
             this.valid.setEnabled(false);
         } else {
@@ -336,7 +350,7 @@ public class ImpressionJournauxPanel extends JPanel implements SpreadSheetGenera
             if (this.compteDeb.getText().trim().compareToIgnoreCase(this.compteEnd.getText().trim()) > 0) {
                 this.valid.setEnabled(false);
             } else {
-                if (beginDate.after(endDate)) {
+                if (beginDate == null || beginDate.after(endDate)) {
                     this.valid.setEnabled(false);
                 }
             }

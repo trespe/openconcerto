@@ -135,7 +135,7 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
                 @Override
                 public void hierarchyChanged(HierarchyEvent e) {
                     if ((e.getChangeFlags() & HierarchyEvent.SHOWING_CHANGED) != 0) {
-                        if (!e.getComponent().isVisible()) {
+                        if (!e.getComponent().isShowing()) {
                             if (getPanel().getSQLComponent().getResetMode().isOnHide())
                                 getPanel().resetValue();
                             EditFrame.this.wasFilled = false;

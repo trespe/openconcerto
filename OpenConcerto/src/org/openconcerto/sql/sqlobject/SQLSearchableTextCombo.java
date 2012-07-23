@@ -52,9 +52,10 @@ public class SQLSearchableTextCombo extends ISearchableTextCombo implements RowI
         super(mode, rows, columns, textArea);
     }
 
+    @Override
     public void init(SQLRowItemView v) {
-        // after uiInit since our superclass add listeners to our UI
-        this.initCacheLater(new ISQLListModel(v.getField()));
+        if (this.getCache() == null)
+            this.initCache(new ISQLListModel(v.getField()).load());
     }
 
     /**

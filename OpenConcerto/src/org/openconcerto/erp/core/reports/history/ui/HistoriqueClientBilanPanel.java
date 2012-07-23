@@ -113,7 +113,7 @@ public class HistoriqueClientBilanPanel extends JPanel {
                 selVF.addSelect(tableVF.getField("T_HT"), "SUM");
 
                 if (idClient > 1) {
-                    selVF.setWhere("SAISIE_VENTE_FACTURE.ID_CLIENT", "=", idClient);
+                    selVF.setWhere(tableVF.getField("ID_CLIENT"), "=", idClient);
                 }
                 final String req = selVF.asString();
                 // System.err.println(req);
@@ -125,7 +125,7 @@ public class HistoriqueClientBilanPanel extends JPanel {
                 selVC.addSelect(tableVC.getField("MONTANT_HT"), "SUM");
 
                 if (idClient > 1) {
-                    selVC.setWhere("SAISIE_VENTE_COMPTOIR.ID_CLIENT", "=", idClient);
+                    selVC.setWhere(tableVC.getField("ID_CLIENT"), "=", idClient);
                 }
                 final String reqVC = selVC.asString();
                 // System.err.println(reqVC);

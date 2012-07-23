@@ -58,7 +58,7 @@ public class GenerationPointagePanel extends JPanel implements ActionListener {
         this.add(new JLabel("Mois"), c);
         c.gridx++;
 
-        ComboSQLRequest comboReq = new ComboSQLRequest(moisElt.getComboRequest());
+        ComboSQLRequest comboReq = moisElt.getComboRequest(true);
         this.combo.uiInit(comboReq);
         this.add(this.combo, c);
 

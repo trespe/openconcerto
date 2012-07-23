@@ -609,4 +609,5 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
             this.select(injector.createRowValuesFrom(id));
         }
     }
+
 }

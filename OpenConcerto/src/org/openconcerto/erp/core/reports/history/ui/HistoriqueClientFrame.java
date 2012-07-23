@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.users.rights.JListSQLTablePanel;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -64,7 +65,7 @@ public class HistoriqueClientFrame {
         map.put(b.getTable("DEVIS_ELEMENT"), b.getTable("DEVIS_ELEMENT").getField("ID_DEVIS"));
 
         final HistoriqueClientBilanPanel bilanPanel = new HistoriqueClientBilanPanel();
-        this.listPanel = new ListeHistoriquePanel("Clients", b.getTable("CLIENT"), mapList, bilanPanel, map);
+        this.listPanel = new ListeHistoriquePanel("Clients", JListSQLTablePanel.createComboRequest(b.getTable("CLIENT"), true), mapList, bilanPanel, map);
 
         this.listPanel.addListenerTable(new TableModelListener() {
             public void tableChanged(TableModelEvent arg0) {

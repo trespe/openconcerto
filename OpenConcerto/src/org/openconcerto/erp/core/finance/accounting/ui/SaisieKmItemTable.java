@@ -32,7 +32,10 @@ import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableControlPanel;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
+import org.openconcerto.sql.view.list.TextTableCellEditorWithCompletion;
+import org.openconcerto.sql.view.list.ValidStateChecker;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -109,7 +112,18 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
 
         // Autocompletion
         final AutoCompletionManager m = new AutoCompletionManager(this.tableElementNumeroCompte, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField(
-                "COMPTE_PCE.NUMERO"), this.table, this.table.getRowValuesTableModel(), ITextWithCompletion.MODE_STARTWITH, true);
+                "COMPTE_PCE.NUMERO"), this.table, this.table.getRowValuesTableModel(), ITextWithCompletion.MODE_STARTWITH, true, false, new ValidStateChecker() {
+
+            ComptePCESQLElement elt = Configuration.getInstance().getDirectory().getElement(ComptePCESQLElement.class);
+
+            @Override
+            public ValidState getValidState(Object o) {
+                if (o != null) {
+                    return elt.getCompteNumeroValidState(o.toString());
+                }
+                return super.getValidState(o);
+            }
+        });
         m.fill("NOM", "NOM");
         m.setFillWithField("NUMERO");
 
@@ -118,6 +132,8 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
                 this.table, this.table.getRowValuesTableModel(), ITextWithCompletion.MODE_CONTAINS, true);
         m2.fill("NUMERO", "NUMERO");
         m2.setFillWithField("NOM");
+
+        TextTableCellEditorWithCompletion t = (TextTableCellEditorWithCompletion) this.tableElementNumeroCompte.getTableCellEditor(this.table);
 
         this.add(new RowValuesTableControlPanel(this.table), c);
 

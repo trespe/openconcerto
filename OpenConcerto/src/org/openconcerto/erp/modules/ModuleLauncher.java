@@ -47,7 +47,13 @@ public class ModuleLauncher {
         // always update dist/ to avoid out of date problems
         final File distDir = new File(moduleDir, "dist");
         FileUtils.mkdir_p(distDir);
-        final File jar = new ModulePackager(propsFile, classes).writeToDir(distDir);
+        final ModulePackager pkger = new ModulePackager(propsFile, classes);
+        final File libDir = new File(moduleDir, "lib");
+        if (libDir.exists()) {
+            pkger.setSkipDuplicateFiles(true);
+            pkger.addJarsFromDir(libDir);
+        }
+        final File jar = pkger.writeToDir(distDir);
         // to avoid out of date modules from OpenConcerto (e.g. when launching this module, the jars
         // of MODULES_DIR are used for dependencies)
         FileUtils.mkdir_p(Gestion.MODULES_DIR);

@@ -72,7 +72,7 @@ public abstract class ModulePreferencePanel extends JavaPrefPreferencePanel {
             if (comp instanceof SQLTextCombo) {
                 ((SQLTextCombo) comp).initCache(createCache(prefPanel));
             } else if (comp instanceof SQLSearchableTextCombo) {
-                ((SQLSearchableTextCombo) comp).initCacheLater(new ISQLListModel(createCache(prefPanel)));
+                ((SQLSearchableTextCombo) comp).initCache(new ISQLListModel(createCache(prefPanel)).load());
             }
         }
 

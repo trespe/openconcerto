@@ -159,8 +159,14 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
         return this.locked == LOCKED;
     }
 
-    public void initCache(ITextComboCache cache) {
-        if (this.cache != null)
+    public final boolean hasCache() {
+        return this.cache != null;
+    }
+
+    public final void initCache(ITextComboCache cache) {
+        if (cache == null)
+            throw new NullPointerException("null cache");
+        if (this.hasCache())
             throw new IllegalStateException("cache already set " + this.cache);
 
         this.cache = cache;

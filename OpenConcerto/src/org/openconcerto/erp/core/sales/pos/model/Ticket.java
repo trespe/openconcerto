@@ -89,7 +89,7 @@ public class Ticket {
 
             // Loading file
             File dir = t.getOutputDir();
-            File file = new File(dir, code.replace(' ', '_') + ".xml");
+            File file = new File(dir, getFileName(code));
             if (!file.exists()) {
                 return null;
             }
@@ -159,6 +159,10 @@ public class Ticket {
 
     }
 
+    private static String getFileName(String code) {
+        return code.replace(' ', '_') + ".xml";
+    }
+
     public Ticket(int caisse) {
         this.caisseNumber = caisse;
         this.date = Calendar.getInstance().getTime();
@@ -177,7 +181,6 @@ public class Ticket {
     private void initNumber() {
         if (!inited) {
             this.number = 1;
-
             String[] files = getCompatibleFileNames();
             for (int i = 0; i < files.length; i++) {
                 String name = files[i];
@@ -187,25 +190,14 @@ public class Ticket {
                 if (n >= this.number) {
                     this.number = n + 1;
                 }
-
             }
-
         }
     }
 
     public String[] getCompatibleFileNames() {
-        File dir = getOutputDir();
-        // Calendar cal = Calendar.getInstance();
-        //
-        // int j = cal.get(Calendar.DAY_OF_MONTH);
-        // int m = cal.get(Calendar.MONTH) + 1;
-        // int a = cal.get(Calendar.YEAR);
-        // String code = "";
-        // code += format(2, this.getCaisseNumber()) + "_";
-        // code += format(2, j) + format(2, m) + format(4, a) + "_";
-        // final String codeStart = code;
+        final File dir = getOutputDir();
         final String codeStart = getPrefixCode();
-        String[] files = dir.list(new FilenameFilter() {
+        final String[] files = dir.list(new FilenameFilter() {
             @Override
             public boolean accept(File dir, String name) {
                 return name.startsWith(codeStart) && name.endsWith(".xml");
@@ -227,15 +219,6 @@ public class Ticket {
     }
 
     public String getCode() {
-        // Calendar cal = Calendar.getInstance();
-        // cal.setTime(this.date);
-        // int j = cal.get(Calendar.DAY_OF_MONTH);
-        // int m = cal.get(Calendar.MONTH) + 1;
-        // int a = cal.get(Calendar.YEAR) - 2000;
-        // String code = "";
-        // code += format(2, this.getCaisseNumber());
-        // code += format(2, j) + format(2, m) + format(2, a);
-        // code += format(5, this.getNumber());
         String code = getPrefixCode();
         code += format(5, this.getNumber());
         return code;
@@ -262,7 +245,7 @@ public class Ticket {
 
         // Hierarchie: 2010/04/05/01_05042010_00002.xml
         File dir = getOutputDir();
-        File f = new File(dir, getCode().replace(' ', '_') + ".xml");
+        File f = new File(dir, getFileName(getCode()));
         Element topLevel = new Element("ticket");
         topLevel.setAttribute(new Attribute("code", this.getCode()));
         topLevel.setAttribute("hour", String.valueOf(hour));
@@ -303,7 +286,9 @@ public class Ticket {
         }
         try {
             final XMLOutputter out = new XMLOutputter(Format.getPrettyFormat());
-            out.output(topLevel, new FileOutputStream(f));
+            final FileOutputStream fileOutputStream = new FileOutputStream(f);
+            out.output(topLevel, fileOutputStream);
+            fileOutputStream.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -598,9 +583,8 @@ public class Ticket {
 
     public void deleteTicket() {
         File dir = this.getOutputDir();
-        String name = this.getCode().replace(' ', '_') + ".xml";
+        String name = getFileName(this.getCode());
         File f = new File(dir, name);
         f.renameTo(new File(dir, name + "_deleted"));
-
     }
 }

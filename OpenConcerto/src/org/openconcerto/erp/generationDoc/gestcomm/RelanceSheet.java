@@ -117,7 +117,7 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
         sel.addSelect(this.rowRelance.getTable().getKey());
         sel.setWhere(new Where(this.rowRelance.getTable().getField("ID_SAISIE_VENTE_FACTURE"), "=", this.rowRelance.getInt("ID_SAISIE_VENTE_FACTURE")));
-        sel.addFieldOrder(this.rowRelance.getTable().getField("DATE").getFullName());
+        sel.addFieldOrder(this.rowRelance.getTable().getField("DATE"));
         @SuppressWarnings("unchecked")
         List<Map<String, Number>> listResult = Configuration.getInstance().getBase().getDataSource().execute(sel.asString());
         if (listResult != null && listResult.size() > 0) {
@@ -148,7 +148,7 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         return true;
     }
 
-    public String getFileName() {
+    protected String getName() {
         return "Relance_" + this.rowRelance.getString("NUMERO");
     }
 }

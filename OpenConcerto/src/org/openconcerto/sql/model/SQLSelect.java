@@ -13,6 +13,8 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.model.Order.Direction;
+import org.openconcerto.sql.model.Order.Nulls;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.ITransformer;
@@ -51,7 +53,6 @@ public final class SQLSelect {
         return SQLBase.quoteStd(pattern, params);
     }
 
-    private final SQLBase base;
     // [String], eg : [SITE.ID_SITE, AVG(AGE)]
     private final List<String> select;
     // [SQLField], eg : [|SITE.ID_SITE|], known fields in this select (addRawSelect)
@@ -86,6 +87,12 @@ public final class SQLSelect {
     // number of rows to return
     private Integer limit;
 
+    /**
+     * Create a new SQLSelect.
+     * 
+     * @param base the database of the request.
+     * @deprecated use {@link #SQLSelect(DBSystemRoot)}
+     */
     public SQLSelect(SQLBase base) {
         this(base, false);
     }
@@ -96,8 +103,29 @@ public final class SQLSelect {
      * @param base the database of the request.
      * @param plain whether this request should automatically add a where clause for archived and
      *        undefined.
+     * @deprecated use {@link #SQLSelect(DBSystemRoot, boolean)}
      */
     public SQLSelect(SQLBase base, boolean plain) {
+        this(base.getDBSystemRoot(), plain);
+    }
+
+    public SQLSelect() {
+        this(false);
+    }
+
+    public SQLSelect(boolean plain) {
+        this((DBSystemRoot) null, plain);
+    }
+
+    /**
+     * Create a new SQLSelect.
+     * 
+     * @param sysRoot the database of the request, can be <code>null</code> (it will come from
+     *        declared tables).
+     * @param plain whether this request should automatically add a where clause for archived and
+     *        undefined.
+     */
+    public SQLSelect(DBSystemRoot sysRoot, boolean plain) {
         this.select = new ArrayList<String>();
         this.selectFields = new ArrayList<SQLField>();
         this.where = null;
@@ -106,10 +134,9 @@ public final class SQLSelect {
         this.having = null;
         this.order = new ArrayList<String>();
         this.from = new FromClause();
-        this.declaredTables = new AliasedTables();
+        this.declaredTables = new AliasedTables(sysRoot);
         this.joinAliases = new HashSet<String>();
         this.joins = new ArrayList<SQLSelectJoin>();
-        this.base = base;
         // false by default cause it slows things down
         this.distinct = false;
         this.excludeUndefined = new HashMap<SQLTable, Boolean>();
@@ -146,7 +173,6 @@ public final class SQLSelect {
         this.declaredTables = new AliasedTables(orig.declaredTables);
         this.joinAliases = new HashSet<String>(orig.joinAliases);
         this.joins = new ArrayList<SQLSelectJoin>(orig.joins);
-        this.base = orig.base;
         this.generalExcludeUndefined = orig.generalExcludeUndefined;
         this.excludeUndefined = new HashMap<SQLTable, Boolean>(orig.excludeUndefined);
         this.archivedPolicy = new HashMap<SQLTable, ArchiveMode>(orig.archivedPolicy);
@@ -156,8 +182,12 @@ public final class SQLSelect {
         this.waitTrxTables = new ArrayList<String>(orig.waitTrxTables);
     }
 
+    public final SQLSystem getSQLSystem() {
+        return this.declaredTables.getSysRoot().getServer().getSQLSystem();
+    }
+
     public String asString() {
-        final SQLSystem sys = this.base.getServer().getSQLSystem();
+        final SQLSystem sys = this.getSQLSystem();
 
         final StringBuffer result = new StringBuffer(512);
         result.append("SELECT ");
@@ -320,23 +350,47 @@ public final class SQLSelect {
      * @see SQLTable#isOrdered()
      */
     public SQLSelect addOrder(String t) {
-        final SQLTable table = this.getTable(t);
-        if (!table.isOrdered())
-            throw new IllegalArgumentException("table is not ordered.");
-        return this.addFieldOrder(this.createRef(t, table.getOrderField()));
+        return this.addOrder(this.getTableRef(t));
     }
 
-    public SQLSelect addFieldOrder(String fieldRef) {
-        return this.addFieldOrder(this.createRef(fieldRef));
+    public SQLSelect addOrder(TableRef t) {
+        return this.addOrder(t, true);
+    }
+
+    /**
+     * Add an ORDER BY {@link SQLTable#getOrderField() t.ORDER}.
+     * 
+     * @param t the table.
+     * @param fieldMustExist if <code>true</code> then <code>t</code> must be
+     *        {@link SQLTable#isOrdered() ordered}.
+     * @return this.
+     * @throws IllegalArgumentException if <code>t</code> isn't ordered and <code>mustExist</code>
+     *         is <code>true</code>.
+     */
+    public SQLSelect addOrder(TableRef t, final boolean fieldMustExist) {
+        final SQLField orderField = t.getTable().getOrderField();
+        if (orderField != null)
+            this.addFieldOrder(t.getField(orderField.getName()));
+        else if (fieldMustExist)
+            throw new IllegalArgumentException("table is not ordered : " + t);
+        return this;
     }
 
     public SQLSelect addFieldOrder(FieldRef fieldRef) {
+        return this.addFieldOrder(fieldRef, Order.asc());
+    }
+
+    public SQLSelect addFieldOrder(FieldRef fieldRef, final Direction dir) {
+        return this.addFieldOrder(fieldRef, dir, null);
+    }
+
+    public SQLSelect addFieldOrder(FieldRef fieldRef, final Direction dir, final Nulls nulls) {
         // with Derby if you ORDER BY w/o mentioning the field in the select clause
         // you can't get the table names of columns in a result set.
-        if (this.base.getServer().getSQLSystem().equals(SQLSystem.DERBY))
+        if (this.getSQLSystem().equals(SQLSystem.DERBY))
             this.addSelect(fieldRef);
 
-        return this.addRawOrder(fieldRef.getFieldRef());
+        return this.addRawOrder(fieldRef.getFieldRef() + dir.getSQL() + (nulls == null ? "" : nulls.getSQL()));
     }
 
     /**
@@ -363,19 +417,10 @@ public final class SQLSelect {
      * @throws IllegalStateException si t n'est pas dans cette requete.
      */
     public SQLSelect addOrderSilent(String t) {
-        try {
-            this.addOrder(t);
-        } catch (IllegalArgumentException e) {
-            // ignore
-        }
-        return this;
+        return this.addOrder(this.getTableRef(t), false);
     }
 
     // *** select
-
-    public SQLSelect addSelect(String f) {
-        return this.addSelect(f, null);
-    }
 
     /**
      * Ajoute un champ au SELECT.
@@ -412,10 +457,6 @@ public final class SQLSelect {
             this.addSelect(t.getField(fieldName));
         }
         return this;
-    }
-
-    public SQLSelect addSelect(String f, String function) {
-        return this.addSelect(this.createRef(f, false), function);
     }
 
     /**
@@ -471,67 +512,25 @@ public final class SQLSelect {
         return this;
     }
 
-    public SQLSelect addSelectStar(String table) {
-        return this.addSelectStar(this.base.getTable(table));
-    }
-
     // *** from
 
-    public SQLSelect addFrom(SQLTable table) {
-        return this.addFrom(table, null);
+    public SQLSelect addFrom(SQLTable table, String alias) {
+        return this.addFrom(new AliasedTable(table, alias));
     }
 
     /**
      * Explicitely add a table to the from clause. Rarely needed since tables are auto added by
      * addSelect(), setWhere() and addJoin().
      * 
-     * @param table the table to add.
-     * @param alias table alias, can be <code>null</code>.
+     * @param t the table to add.
      * @return this.
      */
-    public SQLSelect addFrom(SQLTable table, String alias) {
-        this.from.add(this.declaredTables.add(alias, table));
+    public SQLSelect addFrom(TableRef t) {
+        this.from.add(this.declaredTables.add(t));
         return this;
     }
 
     // *** where
-
-    public Where createWhereJ(String f1, String op, String f2) {
-        return new Where(this.base.getFieldChecked(f1), op, this.base.getField(f2));
-    }
-
-    public Where createWhereS(String f1, String op, String scalar) {
-        return new Where(this.base.getFieldChecked(f1), op, scalar);
-    }
-
-    /**
-     * Renvoie une clause WHERE. Attention utilise une heuristique pour trouver la bonne méthode.
-     * L'algo est si <code>s</code> est un champ de la base, alors on utilise createWhereJ() sinon
-     * createWhereS().
-     * 
-     * @param field un champ de la base.
-     * @param op l'opérateur.
-     * @param s un nom de champ ou une valeur.
-     * @return la clause WHERE correspondante.
-     * @see #createWhereJ(String, String, String)
-     * @see #createWhereS(String, String, String)
-     */
-    Where createWhere(String field, String op, String s) {
-        boolean isField;
-        try {
-            isField = this.base.getField(s) != null;
-        } catch (IllegalArgumentException e) {
-            isField = false;
-        }
-        if (isField)
-            return this.createWhereJ(field, op, s);
-        else
-            return this.createWhereS(field, op, s);
-    }
-
-    Where createWhere(String f1, String op, int scalar) {
-        return new Where(this.createRef(f1), op, scalar);
-    }
 
     /**
      * Change la clause where de cette requete.
@@ -553,12 +552,8 @@ public final class SQLSelect {
         return this;
     }
 
-    public SQLSelect setWhere(String field, String op, String s) {
-        return this.setWhere(this.createWhere(field, op, s));
-    }
-
-    public SQLSelect setWhere(String field, String op, int i) {
-        return this.setWhere(this.createWhere(field, op, i));
+    public SQLSelect setWhere(FieldRef field, String op, int i) {
+        return this.setWhere(new Where(field, op, i));
     }
 
     /**
@@ -587,17 +582,6 @@ public final class SQLSelect {
     // simple joins (with foreign field)
 
     /**
-     * Add a join to this SELECT.
-     * 
-     * @param joinType can be INNER, LEFT or RIGHT.
-     * @param fk the full name of a foreign key, eg 'BATIMENT.ID_SITE'.
-     * @return the added join.
-     */
-    public SQLSelectJoin addJoin(String joinType, String fk) {
-        return this.addJoin(joinType, this.base.getFieldChecked(fk));
-    }
-
-    /**
      * Add a join to this SELECT. Eg if <code>f</code> is |BATIMENT.ID_SITE|, then "join SITE on
      * BATIMENT.ID_SITE = SITE.ID" will be added.
      * 
@@ -605,12 +589,8 @@ public final class SQLSelect {
      * @param f a foreign key, eg |BATIMENT.ID_SITE|.
      * @return the added join.
      */
-    public SQLSelectJoin addJoin(String joinType, SQLField f) {
+    public SQLSelectJoin addJoin(String joinType, FieldRef f) {
         return this.addJoin(joinType, f, null);
-    }
-
-    public SQLSelectJoin addJoin(String joinType, String fk, String alias) {
-        return this.addJoin(joinType, createRef(fk), alias);
     }
 
     /**
@@ -623,11 +603,11 @@ public final class SQLSelect {
      * @return the added join.
      */
     public SQLSelectJoin addJoin(String joinType, FieldRef f, final String alias) {
-        final SQLTable foreignTable = this.base.getGraph().getForeignTable(f.getField());
+        final SQLTable foreignTable = f.getField().getForeignTable();
         // check that f is contained in this
         this.getTable(f.getAlias());
         // handle null
-        final AliasedTable aliased = this.declaredTables.add(alias, foreignTable);
+        final TableRef aliased = this.declaredTables.add(alias, foreignTable);
         return this.addJoin(new SQLSelectJoin(this, joinType, aliased, f, aliased));
     }
 
@@ -663,7 +643,7 @@ public final class SQLSelect {
 
     public SQLSelectJoin addJoin(String joinType, SQLTable joinedTable, final String alias, final Where w) {
         // handle null
-        final AliasedTable aliased = this.declaredTables.add(alias, joinedTable);
+        final TableRef aliased = this.declaredTables.add(alias, joinedTable);
         return this.addJoin(new SQLSelectJoin(this, joinType, aliased, w));
     }
 
@@ -679,16 +659,30 @@ public final class SQLSelect {
      * @return the added join.
      */
     public SQLSelectJoin addBackwardJoin(String joinType, final String joinAlias, SQLField ff, final String foreignTableAlias) {
-        final SQLTable foreignTable = this.base.getGraph().getForeignTable(ff);
-        // handle null foreignTableAlias
-        final AliasedTable aliasedFT = new AliasedTable(foreignTable, foreignTableAlias);
-        // verify aliasedFT coherence and that the alias already exists
-        if (aliasedFT.getTable() != this.getTable(aliasedFT.getAlias()))
-            throw new IllegalArgumentException("wrong alias: " + foreignTableAlias + " is not an alias to the target of " + ff);
+        return this.addBackwardJoin(joinType, new AliasedField(ff, joinAlias), foreignTableAlias);
+    }
 
-        // handle null
-        final AliasedTable aliased = this.declaredTables.add(joinAlias, ff.getTable());
-        return this.addJoin(new SQLSelectJoin(this, joinType, aliased, new AliasedField(ff, joinAlias), aliasedFT));
+    /**
+     * Add a join that goes backward through a foreign key, eg LEFT JOIN "KD_2006"."BATIMENT" "bat"
+     * on "s"."ID" = "bat"."ID_SITE".
+     * 
+     * @param joinType can be INNER, LEFT or RIGHT.
+     * @param ff the foreign field, the alias must not exist, e.g. bat.ID_SITE.
+     * @param foreignTableAlias the alias for the foreign table, must exist, e.g. "sit" or
+     *        <code>null</code> for "SITE".
+     * @return the added join.
+     */
+    public SQLSelectJoin addBackwardJoin(String joinType, final FieldRef ff, final String foreignTableAlias) {
+        final SQLTable foreignTable = ff.getField().getForeignTable();
+        // handle null foreignTableAlias
+        // verify that the alias already exists
+        final TableRef aliasedFT = this.getTableRef(foreignTableAlias == null ? foreignTable.getName() : foreignTableAlias);
+        // verify aliasedFT coherence
+        if (aliasedFT.getTable() != foreignTable)
+            throw new IllegalArgumentException("wrong alias: " + aliasedFT + " is not an alias to the target of " + ff);
+
+        final TableRef aliased = this.declaredTables.add(ff);
+        return this.addJoin(new SQLSelectJoin(this, joinType, aliased, ff, aliasedFT));
     }
 
     private final SQLSelectJoin addJoin(SQLSelectJoin j) {
@@ -785,11 +779,11 @@ public final class SQLSelect {
      * @param p the path that must be added, eg LOCAL-BATIMENT-SITE.
      * @return the alias of the last table of the path, "sit".
      */
-    public String assurePath(String tableAlias, Path p) {
+    public TableRef assurePath(String tableAlias, Path p) {
         return this.followPath(tableAlias, p, true);
     }
 
-    public String followPath(String tableAlias, Path p) {
+    public TableRef followPath(String tableAlias, Path p) {
         return this.followPath(tableAlias, p, false);
     }
 
@@ -801,14 +795,15 @@ public final class SQLSelect {
      * @param create <code>true</code> if missing joins should be created.
      * @return the alias of the last table of the path or <code>null</code>, eg "sit".
      */
-    public String followPath(String tableAlias, Path p, final boolean create) {
-        final SQLTable firstTable = this.getTable(tableAlias);
+    public TableRef followPath(String tableAlias, Path p, final boolean create) {
+        final TableRef firstTableRef = this.getTableRef(tableAlias);
+        final SQLTable firstTable = firstTableRef.getTable();
         if (!p.getFirst().equals(firstTable) && !p.getLast().equals(firstTable))
             throw new IllegalArgumentException("neither ends of " + p + " is " + firstTable);
         else if (!p.getFirst().equals(firstTable))
             return followPath(tableAlias, p.reverse(), create);
 
-        String current = tableAlias;
+        TableRef current = firstTableRef;
         for (int i = 0; i < p.length(); i++) {
             final Set<SQLField> step = p.getStepFields(i);
             // TODO handle multi-link:
@@ -819,27 +814,28 @@ public final class SQLSelect {
             final SQLField ff = step.iterator().next();
             final SQLSelectJoin j;
             // are we currently at the start of the foreign field or at the destination
-            final boolean forward = this.getTable(current) == ff.getTable();
+            final boolean forward = current.getTable() == ff.getTable();
             if (forward) {
                 // bat.ID_SITE
-                j = this.getJoin(new AliasedField(ff, current));
+                j = this.getJoin(current.getField(ff.getName()));
             } else {
                 // sit.ID
                 // on cherche (1 alias de ff.getTable()).ff = current.ID
-                j = this.getJoin(ff, current);
+                j = this.getJoin(ff, current.getAlias());
             }
             if (j != null)
-                current = j.getAlias();
+                current = j.getJoinedTable();
             else if (create) {
                 // we must add a join
-                final String previous = current;
-                current = getUniqueAlias("assurePath_" + i);
+                final String uniqAlias = getUniqueAlias("assurePath_" + i);
+                final SQLSelectJoin createdJoin;
                 if (forward)
-                    // JOIN test.SITE current on bat.ID_SITE = current.ID
-                    this.addJoin("LEFT", new AliasedField(ff, previous), current);
+                    // JOIN test.SITE uniqAlias on current.ID_SITE = uniqAlias.ID
+                    createdJoin = this.addJoin("LEFT", current.getField(ff.getName()), uniqAlias);
                 else
-                    // JOIN test.BATIMENT current on current.ID_SITE = sit.ID
-                    this.addBackwardJoin("LEFT", current, ff, previous);
+                    // JOIN test.BATIMENT uniqAlias on uniqAlias.ID_SITE = current.ID
+                    createdJoin = this.addBackwardJoin("LEFT", uniqAlias, ff, current.getAlias());
+                current = createdJoin.getJoinedTable();
             } else
                 return null;
         }
@@ -925,12 +921,14 @@ public final class SQLSelect {
      * @throws IllegalArgumentException if <code>name</code> is unknown to this select.
      */
     public final SQLTable getTable(String name) {
-        if (this.declaredTables.contains(name))
-            return this.declaredTables.getTable(name);
-        else if (this.base.containsTable(name))
-            return this.base.getTable(name);
-        else
-            throw new IllegalArgumentException("unknown table/alias: " + name);
+        return this.getTableRef(name).getTable();
+    }
+
+    public final TableRef getTableRef(String alias) {
+        final TableRef res = this.declaredTables.getAliasedTable(alias);
+        if (res == null)
+            throw new IllegalArgumentException("alias not in this select : " + alias);
+        return res;
     }
 
     /**
@@ -940,15 +938,15 @@ public final class SQLSelect {
      * @return the alias for <code>t</code>, or <code>null</code> if <code>t</code> is not exactly
      *         once in this.
      */
-    public final AliasedTable getAlias(SQLTable t) {
+    public final TableRef getAlias(SQLTable t) {
         return this.declaredTables.getAlias(t);
     }
 
-    public final List<AliasedTable> getAliases(SQLTable t) {
+    public final List<TableRef> getAliases(SQLTable t) {
         return this.declaredTables.getAliases(t);
     }
 
-    public final AliasedField getAlias(SQLField f) {
+    public final FieldRef getAlias(SQLField f) {
         return this.getAlias(f.getTable()).getField(f.getName());
     }
 
@@ -987,32 +985,6 @@ public final class SQLSelect {
             // quit
             return null;
         }
-    }
-
-    /**
-     * Creates a FieldRef from the passed reference. The table alias is either an existing alias or
-     * it must be a table name.
-     * 
-     * @param f the field reference, eg "obs.ID_TENSION" or "TENSION.ID".
-     * @return the corresponding FieldRef.
-     */
-    public final FieldRef createRef(String f) {
-        return this.createRef(f, true);
-    }
-
-    /**
-     * Creates a FieldRef from the passed reference. Obviously if the alias is not already in this
-     * select, it must be a table name. You can also use {@link #createRef(String, SQLField)}.
-     * 
-     * @param f the field reference, eg "obs.ID_TENSION".
-     * @param mustExist if the table name/alias must already exist in this select.
-     * @return the corresponding FieldRef.
-     */
-    private final FieldRef createRef(String f, boolean mustExist) {
-        final String[] names = SQLField.parse(f);
-        if (names == null)
-            throw new IllegalArgumentException("You must specify a full qualified name (ex TABLE.FIELD_NAME): " + f);
-        return createRef(names[0], this.getTable(names[0]).getField(names[1]), mustExist);
     }
 
     private final FieldRef createRef(String alias, SQLField f) {

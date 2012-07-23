@@ -80,8 +80,9 @@ public class OOgenerationXML {
         this.row = row;
     }
 
-    public synchronized File createDocument(String templateId, File outputDirectory, final String expectedFileName, SQLRow rowLanguage) {
+    public synchronized File createDocument(String templateId, String typeTemplate, File outputDirectory, final String expectedFileName, SQLRow rowLanguage) {
         final String langage = rowLanguage != null ? rowLanguage.getString("CHEMIN") : null;
+
         cacheStyle.clear();
         rowRefCache.clearCache();
         rowsEltCache.clear();
@@ -119,10 +120,10 @@ public class OOgenerationXML {
         SAXBuilder builder = new SAXBuilder();
         try {
 
-            if (needAnnexe(templateId, row, rowLanguage)) {
+            if (needAnnexe(templateId, typeTemplate, row, rowLanguage)) {
                 // check if it exists
                 final String annexeTemplateId = templateId + "_annexe";
-                InputStream annexeStream = TemplateManager.getInstance().getTemplate(annexeTemplateId, langage, null);
+                InputStream annexeStream = TemplateManager.getInstance().getTemplate(annexeTemplateId, langage, typeTemplate);
                 if (annexeStream != null) {
                     templateId = annexeTemplateId;
                     System.err.println("modele With annexe " + templateId);
@@ -130,7 +131,7 @@ public class OOgenerationXML {
             }
 
             System.err.println("Using template id: " + templateId);
-            final InputStream xmlConfiguration = TemplateManager.getInstance().getTemplateConfiguration(templateId, langage, null);
+            final InputStream xmlConfiguration = TemplateManager.getInstance().getTemplateConfiguration(templateId, langage, typeTemplate);
 
             Document doc = builder.build(xmlConfiguration);
 
@@ -141,7 +142,7 @@ public class OOgenerationXML {
             List<Element> listElts = racine.getChildren("element");
 
             // Création et génération du fichier OO
-            final InputStream template = TemplateManager.getInstance().getTemplate(templateId, langage, null);
+            final InputStream template = TemplateManager.getInstance().getTemplate(templateId, langage, typeTemplate);
 
             final SpreadSheet spreadSheet = new ODPackage(template).getSpreadSheet();
             try {
@@ -574,11 +575,10 @@ public class OOgenerationXML {
      * @param id
      */
     private void parseElementsXML(List<Element> elts, SQLRow row, SpreadSheet spreadSheet) {
-        SQLElement sqlElt = Configuration.getInstance().getDirectory().getElement(row.getTable());
+        final SQLElement sqlElt = Configuration.getInstance().getDirectory().getElement(row.getTable());
         for (Element elt : elts) {
-
-            OOXMLElement OOElt = new OOXMLElement(elt, sqlElt, row.getID(), row, null, this.rowRefCache);
-            Object result = OOElt.getValue();
+            final OOXMLElement OOElt = new OOXMLElement(elt, sqlElt, row.getID(), row, null, this.rowRefCache);
+            final Object result = OOElt.getValue();
             if (result != null) {
                 Object o = elt.getAttributeValue("sheet");
                 int sheet = (o == null) ? 0 : Integer.valueOf(o.toString().trim());
@@ -823,13 +823,13 @@ public class OOgenerationXML {
         return mapStyleDef;
     }
 
-    public boolean needAnnexe(String templateId, SQLRow row, SQLRow rowLanguage) {
+    public boolean needAnnexe(String templateId, String typeTemplate, SQLRow row, SQLRow rowLanguage) {
         final String langage = rowLanguage != null ? rowLanguage.getString("CHEMIN") : null;
         final SAXBuilder builder = new SAXBuilder();
         try {
-            final InputStream xmlConfiguration = TemplateManager.getInstance().getTemplateConfiguration(templateId, langage, null);
+            final InputStream xmlConfiguration = TemplateManager.getInstance().getTemplateConfiguration(templateId, langage, typeTemplate);
             final Document doc = builder.build(xmlConfiguration);
-            final InputStream template = TemplateManager.getInstance().getTemplate(templateId, langage, null);
+            final InputStream template = TemplateManager.getInstance().getTemplate(templateId, langage, typeTemplate);
 
             final SpreadSheet spreadSheet = new ODPackage(template).getSpreadSheet();
 

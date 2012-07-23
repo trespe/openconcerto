@@ -56,7 +56,33 @@ public abstract class AbstractJOOReportsSheet {
      */
     abstract protected Map createMap();
 
-    abstract public String getFileName();
+    abstract protected String getName();
+
+    public String getFileName() {
+        return getValidFileName(getName());
+    }
+
+    /**
+     * Remplace tous les caracteres non alphanumeriques (seul le _ est autorisé) par un -. Cela
+     * permet d'avoir toujours un nom de fichier valide.
+     * 
+     * @param fileName nom du fichier à créer ex:FACTURE_2007/03/001
+     * @return un nom fichier valide ex:FACTURE_2007-03-001
+     */
+    static String getValidFileName(String fileName) {
+        final StringBuffer result = new StringBuffer(fileName.length());
+        for (int i = 0; i < fileName.length(); i++) {
+            char ch = fileName.charAt(i);
+
+            // Si c'est un caractere alphanumerique
+            if (Character.isLetterOrDigit(ch) || (ch == '_') || (ch == ' ')) {
+                result.append(ch);
+            } else {
+                result.append('-');
+            }
+        }
+        return result.toString();
+    }
 
     protected void init(String year, String templateId, String attributePrinter) {
         this.year = year;

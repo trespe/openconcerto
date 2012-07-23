@@ -70,24 +70,4 @@ public final class Module extends AbstractModule {
     protected void stop() {
         StorageEngines.getInstance().removeEngine(engine);
     }
-
-    public static void main(String[] args) throws Exception {
-        UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-
-        System.setProperty(ConnexionPanel.QUICK_LOGIN, "true");
-        final File propsFile = new File("gestionModule.properties");
-
-        final ModuleFactory factory = new RuntimeModuleFactory(propsFile);
-
-        // uncomment to create and use the jar
-        final File distDir = new File("dist");
-        FileUtils.mkdir_p(distDir);
-        new ModulePackager(propsFile, new File("bin/")).writeToDir(distDir);
-        new ModulePackager(propsFile, new File("bin/")).writeToDir(new File("../OpenConcerto/Modules"));
-
-        ModuleManager.getInstance().addFactoryAndStart(factory, false);
-        Gestion.main(args);
-
-    }
-
 }

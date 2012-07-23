@@ -51,6 +51,7 @@ import javax.swing.event.AncestorListener;
  * @author G. Maillard
  */
 public class ReloadPanel extends JComponent {
+    private static final BasicStroke ROUND_STROKE = new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
     protected int pos;
     private int mode;
     public static final int MODE_ROTATE = 0;
@@ -58,11 +59,12 @@ public class ReloadPanel extends JComponent {
     public static final int MODE_EMPTY = 2;
     private final Runnable r;
     private boolean stop = false;
-    private boolean sleep = false;
+    private boolean sleep;
     private Color[] cols = new Color[] { new Color(0, 0, 0, 10), new Color(120, 0, 0, 30), new Color(120, 0, 0, 50), new Color(120, 0, 0, 80), new Color(120, 0, 0, 150), new Color(120, 0, 0, 200) };
 
     public ReloadPanel() {
         this.mode = MODE_EMPTY;
+        this.sleep = true;
         setPreferredSize(new Dimension(16, 16));
         setMinimumSize(new Dimension(16, 16));
         setMaximumSize(new Dimension(16, 16));
@@ -73,7 +75,6 @@ public class ReloadPanel extends JComponent {
                     if (sleep) {
                         try {
                             synchronized (this) {
-                                setMode(MODE_EMPTY);
                                 repaint();
                                 this.wait();
                             }
@@ -130,7 +131,7 @@ public class ReloadPanel extends JComponent {
         }
 
         Graphics2D g2 = (Graphics2D) g;
-        g2.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setStroke(ROUND_STROKE);
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
         // Circles drawing
@@ -169,6 +170,7 @@ public class ReloadPanel extends JComponent {
      */
     public void setMode(int mode) {
         this.mode = mode;
+        setSleeping(mode == MODE_EMPTY);
         repaint();
     }
 
@@ -177,11 +179,15 @@ public class ReloadPanel extends JComponent {
      * 
      * @param bool
      */
-    public void setSleeping(boolean bool) {
-        this.sleep = bool;
-        repaint();
-        synchronized (this.r) {
-            this.r.notify();
+    private void setSleeping(boolean bool) {
+        if (sleep != bool) {
+            this.sleep = bool;
+            repaint();
+            if (!sleep) {
+                synchronized (this.r) {
+                    this.r.notify();
+                }
+            }
         }
     }
 

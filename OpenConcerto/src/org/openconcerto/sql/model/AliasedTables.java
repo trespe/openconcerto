@@ -29,50 +29,71 @@ import java.util.Map;
  */
 class AliasedTables {
 
-    final Map<String, AliasedTable> tables;
+    private final Map<String, TableRef> tables;
+    private DBSystemRoot sysRoot;
 
-    private AliasedTables(Map<String, AliasedTable> m) {
-        this.tables = new LinkedHashMap<String, AliasedTable>(m);
+    // not public or we would need to check coherence between parameters
+    private AliasedTables(Map<String, TableRef> m, DBSystemRoot sysRoot) {
+        this.tables = new LinkedHashMap<String, TableRef>(m);
+        this.sysRoot = sysRoot;
     }
 
     public AliasedTables() {
-        this(Collections.<String, AliasedTable> emptyMap());
+        this((DBSystemRoot) null);
+    }
+
+    public AliasedTables(final DBSystemRoot sysRoot) {
+        this(Collections.<String, TableRef> emptyMap(), sysRoot);
     }
 
     AliasedTables(AliasedTables at) {
-        this(at.tables);
+        this(at.tables, at.sysRoot);
     }
 
     /**
-     * Adds a new declaration.
+     * Adds a new declaration if not already present.
      * 
-     * @param alias the alias, can be <code>null</code>, eg "obs7".
-     * @param t the associated table, eg /OBSERVATION/.
-     * @return the added alias, usefull if alias is <code>null</code> since it returns the table
-     *         name.
+     * @param alias the alias, can be <code>null</code>, e.g. "obs7".
+     * @param t the associated table, e.g. /OBSERVATION/.
+     * @return the added table reference.
      */
-    public AliasedTable add(String alias, SQLTable t) {
-        if (alias == null)
-            alias = t.getName();
+    public TableRef add(String alias, SQLTable t) {
+        return this.add(new AliasedTable(t, alias));
+    }
 
-        final AliasedTable res;
+    /**
+     * Adds a new declaration if not already present.
+     * 
+     * @param table the table to add, e.g. /OBSERVATION/.
+     * @return the added table reference, can be different than the parameter if the alias was
+     *         already present.
+     */
+    public TableRef add(TableRef table) {
+        final boolean nullSysRoot = this.sysRoot == null;
+        if (!nullSysRoot && this.sysRoot != table.getTable().getDBSystemRoot())
+            throw new IllegalArgumentException(table + " not in " + this.sysRoot);
+        final String alias = table.getAlias();
+        final TableRef res;
         if (!this.contains(alias)) {
-            res = new AliasedTable(t, alias);
+            res = table;
             this.tables.put(alias, res);
-        } else if (this.getTable(alias) != t)
-            throw new IllegalArgumentException(t.getSQLName() + " can't be aliased to " + alias + " : " + this.getTable(alias).getSQLName() + " already is");
-        else
+            if (nullSysRoot)
+                this.sysRoot = table.getTable().getDBSystemRoot();
+        } else if (this.getTable(alias) != table.getTable()) {
+            throw new IllegalArgumentException(table.getTable().getSQLName() + " can't be aliased to " + alias + " : " + this.getTable(alias).getSQLName() + " already is");
+        } else {
             res = getAliasedTable(alias);
+        }
 
         return res;
     }
 
-    public AliasedTable add(SQLTable t) {
-        return this.add(t.getName(), t);
+    public TableRef add(FieldRef f) {
+        return this.add(f.getTableRef());
     }
 
-    public AliasedTable add(FieldRef f) {
-        return this.add(f.getAlias(), f.getField().getTable());
+    public final DBSystemRoot getSysRoot() {
+        return this.sysRoot;
     }
 
     public SQLTable getTable(String alias) {
@@ -86,24 +107,24 @@ class AliasedTables {
      * @return the alias for <code>t</code>, or <code>null</code> if <code>t</code> is not exactly
      *         once in this.
      */
-    public AliasedTable getAlias(SQLTable t) {
+    public TableRef getAlias(SQLTable t) {
         return CollectionUtils.getSole(getAliases(t));
     }
 
-    public List<AliasedTable> getAliases(SQLTable t) {
-        final List<AliasedTable> res = new ArrayList<AliasedTable>();
-        for (final AliasedTable at : this.tables.values())
+    public List<TableRef> getAliases(SQLTable t) {
+        final List<TableRef> res = new ArrayList<TableRef>();
+        for (final TableRef at : this.tables.values())
             if (at.getTable().equals(t))
                 res.add(at);
         return res;
     }
 
-    private AliasedTable getAliasedTable(String alias) {
+    public TableRef getAliasedTable(String alias) {
         return this.tables.get(alias);
     }
 
     public String getDeclaration(String alias) {
-        return getAliasedTable(alias).getDeclaration();
+        return getAliasedTable(alias).getSQL();
     }
 
     public boolean contains(String alias) {

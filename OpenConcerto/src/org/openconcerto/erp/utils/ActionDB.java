@@ -71,8 +71,8 @@ public class ActionDB {
 
         try {
             log(l, "Création du schéma");
-            if (!sysRoot.getRootsToMap().contains(baseDefault)) {
-                sysRoot.getRootsToMap().add(baseDefault);
+            if (!sysRoot.getChildrenNames().contains(baseDefault)) {
+                sysRoot.addRootToMap(baseDefault);
                 sysRoot.refetch(Collections.singleton(baseDefault));
             }
             final DBRoot baseSQLDefault = sysRoot.getRoot(baseDefault);
@@ -86,7 +86,7 @@ public class ActionDB {
             ds.execute(sql.get(0));
             // create tables (without constraints)
             ds.execute(sql.get(1));
-            sysRoot.getRootsToMap().add(newBase);
+            sysRoot.addRootToMap(newBase);
             // TODO find a more functional way
             final boolean origVal = Boolean.getBoolean(SQLSchema.NOAUTO_CREATE_METADATA);
             if (!origVal)
@@ -167,7 +167,7 @@ public class ActionDB {
             String baseName = tableSociete.getRow(base).getString("DATABASE_NAME");
             String baseDefaultName = tableSociete.getRow(baseDefault).getString("DATABASE_NAME");
 
-            instance.getBase().getDBSystemRoot().getRootsToMap().clear();
+            instance.getBase().getDBSystemRoot().mapAllRoots();
             try {
                 Set<String> s = new HashSet<String>();
                 s.add(baseName);
@@ -459,14 +459,15 @@ public class ActionDB {
     public static void correct(SQLBase base) {
         Set<String> tableNames = base.getTableNames();
         for (String tableName : tableNames) {
-
-            if (base.getTable(tableName).contains("ORDRE")) {
+            final SQLTable t = base.getTable(tableName);
+            final SQLField orderF = t.getOrderField();
+            if (orderF != null) {
                 SQLSelect select = new SQLSelect(base);
-                select.addSelect("ORDRE");
+                select.addSelect(orderF);
                 List l = base.getDataSource().execute(select.asString());
                 if (l == null || l.size() == 0) {
-                    SQLRowValues rowVals = new SQLRowValues(base.getTable(tableName));
-                    rowVals.put("ORDRE", 0);
+                    SQLRowValues rowVals = new SQLRowValues(t);
+                    rowVals.put(orderF.getName(), 0);
                     try {
                         rowVals.commit();
                     } catch (SQLException e) {
@@ -504,7 +505,7 @@ public class ActionDB {
 
         String baseName = tableSociete.getRow(base).getString("DATABASE_NAME");
 
-        instance.getBase().getDBSystemRoot().getRootsToMap().clear();
+        instance.getBase().getDBSystemRoot().mapAllRoots();
         try {
             Set<String> s = new HashSet<String>();
             s.add(baseName);

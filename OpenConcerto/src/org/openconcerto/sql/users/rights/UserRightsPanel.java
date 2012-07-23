@@ -49,7 +49,8 @@ public class UserRightsPanel extends JPanel {
         this.modifPanel = new ListeModifyPanel(new UserRightSQLElement());
         this.modifPanel.setSearchFullMode(false);
         final SQLTable table = this.getTable().getForeignTable("ID_USER_COMMON");
-        this.list = new JListSQLTablePanel(table, Arrays.asList("NOM", "PRENOM"), "Droits par défaut");
+
+        this.list = new JListSQLTablePanel(JListSQLTablePanel.createComboRequest(table, true), "Droits par défaut");
         // only superusers can see superusers (that's how we prevent the setting of superuser
         // rights)
         if (!UserRightsManager.getCurrentUserRights().isSuperUser())

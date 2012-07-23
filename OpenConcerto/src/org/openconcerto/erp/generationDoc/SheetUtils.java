@@ -117,62 +117,58 @@ public class SheetUtils {
     }
 
     public static void convert2PDF(final OpenDocument doc, final File pdfFileToCreate) throws Exception {
+        assert (!SwingUtilities.isEventDispatchThread());
+        // Open the PDF document
+        Document document = new Document(PageSize.A4, 50, 50, 50, 50);
 
-        SwingUtilities.invokeAndWait(new Runnable() {
-            @Override
-            public void run() {
-                // Open the PDF document
-                Document document = new Document(PageSize.A4, 50, 50, 50, 50);
+        try {
 
-                try {
+            FileOutputStream fileOutputStream = new FileOutputStream(pdfFileToCreate);
 
-                    FileOutputStream fileOutputStream = new FileOutputStream(pdfFileToCreate);
+            // Create the writer
+            PdfWriter writer = PdfWriter.getInstance(document, fileOutputStream);
+            writer.setPdfVersion(PdfWriter.VERSION_1_6);
+            writer.setFullCompression();
 
-                    // Create the writer
-                    PdfWriter writer = PdfWriter.getInstance(document, fileOutputStream);
-                    writer.setPdfVersion(PdfWriter.VERSION_1_6);
-                    writer.setFullCompression();
+            document.open();
 
-                    document.open();
+            PdfContentByte cb = writer.getDirectContent();
 
-                    PdfContentByte cb = writer.getDirectContent();
+            // Configure the renderer
+            ODTRenderer renderer = new ODTRenderer(doc);
+            renderer.setIgnoreMargins(false);
+            renderer.setPaintMaxResolution(true);
 
-                    // Configure the renderer
-                    ODTRenderer renderer = new ODTRenderer(doc);
-                    renderer.setIgnoreMargins(false);
-                    renderer.setPaintMaxResolution(true);
+            // Scale the renderer to fit width
+            renderer.setResizeFactor(renderer.getPrintWidth() / document.getPageSize().getWidth());
 
-                    // Scale the renderer to fit width
-                    renderer.setResizeFactor(renderer.getPrintWidth() / document.getPageSize().getWidth());
+            // Print pages
+            for (int i = 0; i < renderer.getPrintedPagesNumber(); i++) {
 
-                    // Print pages
-                    for (int i = 0; i < renderer.getPrintedPagesNumber(); i++) {
+                Graphics2D g2 = cb.createGraphics(PageSize.A4.getWidth(), PageSize.A4.getHeight());
 
-                        Graphics2D g2 = cb.createGraphics(PageSize.A4.getWidth(), PageSize.A4.getHeight());
+                // If you want to prevent copy/paste, you can use
+                // g2 = tp.createGraphicsShapes(w, h, true, 0.9f);
 
-                        // If you want to prevent copy/paste, you can use
-                        // g2 = tp.createGraphicsShapes(w, h, true, 0.9f);
+                // Render
+                renderer.setCurrentPage(i);
+                renderer.paintComponent(g2);
+                g2.dispose();
 
-                        // Render
-                        renderer.setCurrentPage(i);
-                        renderer.paintComponent(g2);
-                        g2.dispose();
+                // Add our spreadsheet in the middle of the page
+                if (i < renderer.getPrintedPagesNumber() - 1)
+                    document.newPage();
 
-                        // Add our spreadsheet in the middle of the page
-                        if (i < renderer.getPrintedPagesNumber() - 1)
-                            document.newPage();
-
-                    }
-                    // Close the PDF document
-                    document.close();
-                    // writer.close();
-                    fileOutputStream.close();
-
-                } catch (Exception originalExn) {
-                    ExceptionHandler.handle("Impossible de créer le PDF " + pdfFileToCreate.getAbsolutePath(), originalExn);
-                }
             }
-        });
+            // Close the PDF document
+            document.close();
+            // writer.close();
+            fileOutputStream.close();
+
+        } catch (Exception originalExn) {
+            ExceptionHandler.handle("Impossible de créer le PDF " + pdfFileToCreate.getAbsolutePath(), originalExn);
+        }
+
     }
 
     /**

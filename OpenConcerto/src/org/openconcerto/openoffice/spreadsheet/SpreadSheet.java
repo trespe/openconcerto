@@ -60,15 +60,26 @@ public class SpreadSheet extends ODDocument {
         return fd.hasODDocument() ? fd.getSpreadSheet() : new SpreadSheet(fd);
     }
 
-    public static SpreadSheet createEmpty(TableModel t) throws IOException {
+    public static SpreadSheet createEmpty(TableModel t) {
         return createEmpty(t, XMLFormatVersion.getDefault());
     }
 
-    public static SpreadSheet createEmpty(TableModel t, XMLFormatVersion ns) throws IOException {
+    public static SpreadSheet createEmpty(TableModel t, XMLFormatVersion ns) {
+        final SpreadSheet spreadSheet = create(ns, 1, 1, 1);
+        spreadSheet.getFirstSheet().merge(t, 0, 0, true);
+        return spreadSheet;
+    }
+
+    public static SpreadSheet create(final int sheetCount, final int colCount, final int rowCount) {
+        return create(XMLFormatVersion.getDefault(), sheetCount, colCount, rowCount);
+    }
+
+    public static SpreadSheet create(final XMLFormatVersion ns, final int sheetCount, final int colCount, final int rowCount) {
         final ContentTypeVersioned ct = ContentType.SPREADSHEET.getVersioned(ns.getXMLVersion());
         final SpreadSheet spreadSheet = ct.createPackage(ns).getSpreadSheet();
-        spreadSheet.getBody().addContent(Sheet.createEmpty(ns.getXMLVersion()));
-        spreadSheet.getSheet(0).merge(t, 0, 0, true);
+        for (int i = 0; i < sheetCount; i++) {
+            spreadSheet.getBody().addContent(Sheet.createEmpty(ns.getXMLVersion(), colCount, rowCount));
+        }
         return spreadSheet;
     }
 
@@ -200,6 +211,10 @@ public class SpreadSheet extends ODDocument {
 
     public int getSheetCount() {
         return this.getTables().size();
+    }
+
+    public final Sheet getFirstSheet() {
+        return this.getSheet(0);
     }
 
     public Sheet getSheet(int i) {

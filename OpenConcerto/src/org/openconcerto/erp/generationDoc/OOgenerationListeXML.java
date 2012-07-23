@@ -15,14 +15,12 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.StyleSQLElement;
-import org.openconcerto.erp.preferences.TemplateNXProps;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.spreadsheet.MutableCell;
 import org.openconcerto.openoffice.spreadsheet.Sheet;
 import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.task.config.ComptaBasePropsConfiguration;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.StreamUtils;
 
@@ -370,6 +368,13 @@ public class OOgenerationListeXML {
                 res = result;
             } else {
                 res = getValueOfComposant((Element) eltFields.get(0), mValues);
+            }
+        }
+        String attributeValueMaxChar = elt.getAttributeValue("maxChar");
+        if (attributeValueMaxChar != null ) {
+            int maxChar = Integer.valueOf(attributeValueMaxChar);
+            if (res != null && res.toString().length() > maxChar) {
+                res = res.toString().substring(0, maxChar);
             }
         }
         return res;

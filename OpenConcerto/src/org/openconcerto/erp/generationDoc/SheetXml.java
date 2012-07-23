@@ -113,13 +113,13 @@ public abstract class SheetXml {
     }
 
     public void showPrintAndExport(final boolean showDocument, final boolean printDocument, boolean exportToPDF) {
-        showPrintAndExport(showDocument, printDocument, exportToPDF, Boolean.getBoolean("org.openconcerto.oo.useODSViewer"));
+        showPrintAndExport(showDocument, printDocument, exportToPDF, Boolean.getBoolean("org.openconcerto.oo.useODSViewer"), false);
     }
 
     /**
      * Show, print and export the document to PDF. This method is synchronous
      * */
-    public void showPrintAndExport(final boolean showDocument, final boolean printDocument, boolean exportToPDF, boolean useODSViewer) {
+    public void showPrintAndExport(final boolean showDocument, final boolean printDocument, boolean exportToPDF, boolean useODSViewer, boolean exportPDFSynch) {
 
         final File generatedFile = getGeneratedFile();
         final File pdfFile = getGeneratedPDFFile();
@@ -158,17 +158,16 @@ public abstract class SheetXml {
                 // un grand livre KD
                 if (exportToPDF) {
 
-                    try {
-                        SheetUtils.convert2PDF(doc, pdfFile);
-
-                    } catch (Throwable e) {
-                        ExceptionHandler.handle("Impossible de créer le PDF.", e);
-                    }
-
                     Thread t = new Thread(new Runnable() {
 
                         @Override
                         public void run() {
+                            try {
+                                SheetUtils.convert2PDF(doc, pdfFile);
+
+                            } catch (Throwable e) {
+                                ExceptionHandler.handle("Impossible de créer le PDF.", e);
+                            }
                             List<StorageEngine> engines = StorageEngines.getInstance().getActiveEngines();
                             for (StorageEngine storageEngine : engines) {
                                 if (storageEngine.isConfigured() && storageEngine.allowAutoStorage()) {
@@ -198,9 +197,13 @@ public abstract class SheetXml {
                             }
 
                         }
-                    });
-                    t.start();
+                    }, "convert and upload to pdf");
 
+                    t.setDaemon(true);
+                    t.start();
+                    if (exportPDFSynch) {
+                        t.join();
+                    }
                 }
             }
 
@@ -328,12 +331,12 @@ public abstract class SheetXml {
         File f = getGeneratedPDFFile();
         if (!f.exists()) {
             getOrCreateDocumentFile();
-            showPrintAndExport(false, false, true, useODSViewer);
+            showPrintAndExport(false, false, true, useODSViewer, true);
             return f;
         } else {
             File fODS = getOrCreateDocumentFile();
             if (fODS.lastModified() > f.lastModified()) {
-                showPrintAndExport(false, false, true, useODSViewer);
+                showPrintAndExport(false, false, true, useODSViewer, true);
             }
             return f;
         }

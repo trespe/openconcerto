@@ -24,6 +24,7 @@ import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.payment.component.ModeDeReglementSQLComponent;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.ui.SaisieVenteFactureItemTable;
@@ -288,7 +289,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             c.fill = GridBagConstraints.NONE;
             final ElementComboBox echeancier = new ElementComboBox();
             final SQLElement contactElement = Configuration.getInstance().getDirectory().getElement("ECHEANCIER_CCI");
-            echeancier.init(contactElement, new ComboSQLRequest(contactElement.getComboRequest()));
+            echeancier.init(contactElement, contactElement.getComboRequest(true));
             DefaultGridBagConstraints.lockMinimumSize(echeancier);
             this.addView(echeancier, "ID_ECHEANCIER_CCI");
 
@@ -481,13 +482,34 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         // Frais de port
         cFrais.gridheight = 1;
         cFrais.gridx = 1;
+        SQLRequestComboBox boxTaxePort = new SQLRequestComboBox(false, 8);
+        if (getTable().contains("ID_TAXE_PORT")) {
 
-        JLabel labelPortHT = new JLabel(getLabelFor("PORT_HT"));
-        labelPortHT.setHorizontalAlignment(SwingConstants.RIGHT);
-        cFrais.gridy++;
-        panelFrais.add(labelPortHT, cFrais);
-        cFrais.gridx++;
-        panelFrais.add(this.textPortHT, cFrais);
+            JLabel labelPortHT = new JLabel(getLabelFor("PORT_HT"));
+            labelPortHT.setHorizontalAlignment(SwingConstants.RIGHT);
+            cFrais.gridy++;
+            panelFrais.add(labelPortHT, cFrais);
+            cFrais.gridx++;
+            panelFrais.add(this.textPortHT, cFrais);
+
+            JLabel labelTaxeHT = new JLabel(getLabelFor("ID_TAXE_PORT"));
+            labelTaxeHT.setHorizontalAlignment(SwingConstants.RIGHT);
+            cFrais.gridx = 1;
+            cFrais.gridy++;
+            panelFrais.add(labelTaxeHT, cFrais);
+            cFrais.gridx++;
+            panelFrais.add(boxTaxePort, cFrais);
+            this.addView(boxTaxePort, "ID_TAXE_PORT", REQ);
+
+            boxTaxePort.addValueListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    // TODO Raccord de méthode auto-généré
+                    totalTTC.updateTotal();
+                }
+            });
+        }
 
         // Remise
         JLabel labelRemiseHT = new JLabel(getLabelFor("REMISE_HT"));
@@ -526,7 +548,8 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         addRequiredSQLObject(fieldService, "T_SERVICE");
         JTextField poids = new JTextField();
         addSQLObject(poids, "T_POIDS");
-        totalTTC = new TotalPanel(this.tableFacture, fieldHT, fieldTVA, this.fieldTTC, this.textPortHT, this.textRemiseHT, fieldService, fieldTHA, fieldDevise, poids, null);
+        totalTTC = new TotalPanel(this.tableFacture, fieldHT, fieldTVA, this.fieldTTC, this.textPortHT, this.textRemiseHT, fieldService, fieldTHA, fieldDevise, poids, null, (getTable().contains(
+                "ID_TAXE_PORT") ? boxTaxePort : null));
         DefaultGridBagConstraints.lockMinimumSize(totalTTC);
         cBottom.gridx++;
         cBottom.weightx = 1;
@@ -1152,6 +1175,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             SQLRowValues rowVals = new SQLRowValues(fact.getTable());
             rowVals.put("ID_CLIENT", row.getInt("ID_CLIENT"));
             rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(SaisieVenteFactureSQLElement.class, new Date()));
+            rowVals.put("NOM", row.getObject("NOM"));
             this.select(rowVals);
         }
 
@@ -1369,7 +1393,12 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
                 e.printStackTrace();
             }
         }
-
+        if (getTable().contains("ID_TAXE_PORT")) {
+            Integer idFromTaux = TaxeCache.getCache().getIdFromTaux(19.6F);
+            if (idFromTaux != null) {
+                vals.put("ID_TAXE_PORT", idFromTaux);
+            }
+        }
         vals.put("ID_COMPTE_PCE_SERVICE", idCompteVenteService);
         System.err.println("Defaults " + vals);
         return vals;

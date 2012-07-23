@@ -153,7 +153,7 @@ public class GenerationMvtAvoirClient extends GenerationEcritures {
                     }
                 }
 
-                Map<Integer, Long> m = getMultiTVAFromRow(avoirRow, avoirClientTable.getTable("AVOIR_CLIENT_ELEMENT"), true);
+                Map<Integer, Long> m = getMultiTVAFromRow(avoirRow, avoirClientTable.getTable("AVOIR_CLIENT_ELEMENT"), true, prixHT, 0);
                 long allTaxe = 0;
                 for (Integer i : m.keySet()) {
                     Long l = m.get(i);

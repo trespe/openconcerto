@@ -14,6 +14,7 @@
  package org.openconcerto.sql.utils;
 
 import org.openconcerto.sql.model.AliasedField;
+import org.openconcerto.sql.model.Order;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSelect;
@@ -50,13 +51,13 @@ final class ReOrderH2 extends ReOrder {
         final Where updateNulls = this.isAll() ? new Where(tOrder, "is", (Object) null) : null;
         final Where w = new Where(tOrder, "<=", this.getFirstToReorder().negate()).or(updateNulls);
         idsToReorder.setWhere(w);
-        idsToReorder.addRawOrder(tOrder.getFieldRef() + " DESC NULLS LAST");
-        idsToReorder.addRawOrder(tID.getFieldRef() + " ASC");
+        idsToReorder.addFieldOrder(tOrder, Order.desc(), Order.nullsLast());
+        idsToReorder.addFieldOrder(tID, Order.asc());
         // REORDER: ID => ORDRE
         res.add("DROP TABLE IF EXISTS REORDER ;");
         final String idName = this.t.getKey().getName();
-        res.add("CREATE LOCAL TEMPORARY TABLE REORDER as select M.ID, " + this.getFirstOrderValue() + " +(M.ind - 1) * @inc as ORDRE from (\n" + "SELECT rownum() as ind, " + new SQLName(idName).quote()
-                + " as ID from (" + idsToReorder.asString() + ") ) M;");
+        res.add("CREATE LOCAL TEMPORARY TABLE REORDER as select M.ID, " + this.getFirstOrderValue() + " +(M.ind - 1) * @inc as ORDRE from (\n" + "SELECT rownum() as ind, "
+                + new SQLName(idName).quote() + " as ID from (" + idsToReorder.asString() + ") ) M;");
 
         res.add(this.t.getBase().quote("UPDATE %f %i SET ( %n ) = (\n" +
         // cast since Subquery.getValue() doesn't return an array if there's only 1 column

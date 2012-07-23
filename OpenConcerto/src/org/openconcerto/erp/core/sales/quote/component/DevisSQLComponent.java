@@ -32,6 +32,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
@@ -521,8 +522,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         if (getTable().getUndefinedID() == SQLRow.NONEXISTANT_ID) {
             rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.EN_ATTENTE);
         } else {
-            SQLRow rowUndef = getTable().getRow(getTable().getUndefinedID());
-            SQLRow foreign = rowUndef.getForeign("ID_ETAT_DEVIS");
+            SQLRowValues foreign = UndefinedRowValuesCache.getInstance().getDefaultRowValues(getTable());
             if (foreign != null && !foreign.isUndefined()) {
                 rowVals.put("ID_ETAT_DEVIS", foreign.getID());
             } else {

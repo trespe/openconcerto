@@ -184,7 +184,7 @@ public class UserRightPanelDetail extends JPanel {
         rowV.put("ID_USER_COMMON_TO", toUser.getId());
         rowV.put(field, Boolean.TRUE);
         SQLSelect sel = new SQLSelect(defaultBase);
-        sel.addSelectStar("TACHE_RIGHTS");
+        sel.addSelectStar(tableTacheRights);
         Where where = new Where(tableTacheRights.getField("ID_USER_COMMON"), "=", user.getId());
         where = where.and(new Where(tableTacheRights.getField("ID_USER_COMMON_TO"), "=", toUser.getId()));
         sel.setWhere(where);

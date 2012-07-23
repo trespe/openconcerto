@@ -27,8 +27,6 @@ import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQL_URL;
 import org.openconcerto.utils.CollectionUtils;
 
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -43,7 +41,6 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
-import net.jcip.annotations.GuardedBy;
 import net.jcip.annotations.ThreadSafe;
 
 /**
@@ -60,27 +57,8 @@ public final class DBRoot extends DBStructureItemDB {
         return (DBRoot) parent.getChild(n);
     }
 
-    @GuardedBy("this")
-    private DatabaseGraph graph;
-    private final PropertyChangeListener l;
-
     DBRoot(DBStructureItemJDBC delegate) {
         super(delegate);
-        this.graph = null;
-        this.l = new PropertyChangeListener() {
-            public void propertyChange(PropertyChangeEvent evt) {
-                if (evt.getPropertyName().equals("graph"))
-                    clearGraph();
-            }
-        };
-        this.getDBSystemRoot().addListener(this.l);
-    }
-
-    @Override
-    protected void onDrop() {
-        this.getDBSystemRoot().rmListener(this.l);
-        this.clearGraph();
-        super.onDrop();
     }
 
     public final SQLBase getBase() {
@@ -158,6 +136,15 @@ public final class DBRoot extends DBStructureItemDB {
     }
 
     private final void createTables(final Map<? extends SQLCreateTableBase<?>, ? extends Map<String, ?>> undefinedNonDefaultValues, final boolean atLeast1UndefRow) throws SQLException {
+        final int size = undefinedNonDefaultValues.size();
+        final String soleTableName;
+        if (size == 0)
+            return;
+        else if (size == 1)
+            soleTableName = undefinedNonDefaultValues.keySet().iterator().next().getName();
+        else
+            soleTableName = null;
+
         SQLUtils.executeAtomic(getDBSystemRoot().getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
             @Override
             public Object handle(SQLDataSource ds) throws SQLException {
@@ -170,7 +157,7 @@ public final class DBRoot extends DBStructureItemDB {
                 if (atLeast1UndefRow) {
                     newUndefIDs = new HashMap<SQLCreateTableBase<?>, Number>();
                     newTables = new HashMap<SQLTable, SQLCreateTableBase<?>>();
-                    refetch();
+                    refetch(soleTableName);
                 } else {
                     newUndefIDs = Collections.emptyMap();
                     newTables = null;
@@ -259,7 +246,7 @@ public final class DBRoot extends DBStructureItemDB {
                 return null;
             }
         });
-        this.refetch();
+        this.refetch(soleTableName);
     }
 
     public SQLField getField(String name) {
@@ -293,16 +280,8 @@ public final class DBRoot extends DBStructureItemDB {
         return getSchema().setFwkMetadata(name, value);
     }
 
-    private synchronized void clearGraph() {
-        this.graph = null;
-    }
-
-    public synchronized DatabaseGraph getGraph() {
-        if (this.graph == null) {
-            this.checkDropped();
-            this.graph = new DatabaseGraph(this.getDBSystemRoot().getGraph(), this);
-        }
-        return this.graph;
+    public final DatabaseGraph getGraph() {
+        return this.getDBSystemRoot().getGraph();
     }
 
     /**
@@ -311,16 +290,16 @@ public final class DBRoot extends DBStructureItemDB {
      * @throws SQLException if an error occurs.
      */
     public void refetch() throws SQLException {
-        if (this.getJDBC() instanceof SQLBase)
-            ((SQLBase) this.getJDBC()).fetchTables();
-        else if (this.getJDBC() instanceof SQLSchema)
-            this.getBase().fetchTables(Collections.singleton(this.getName()));
-        else
-            throw new IllegalStateException();
+        this.refetch(null);
     }
 
-    public void refetch(final String tableName) throws SQLException {
-        this.getSchema().fetchTable(tableName);
+    public SQLTable refetch(final String tableName) throws SQLException {
+        if (tableName == null) {
+            this.getSchema().refetch();
+            return null;
+        } else {
+            return this.getSchema().fetchTable(tableName);
+        }
     }
 
     public final SQLCreateRoot getDefinitionSQL(final SQLSystem sys) {

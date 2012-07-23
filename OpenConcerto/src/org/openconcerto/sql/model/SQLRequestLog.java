@@ -14,6 +14,7 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.model.SQLDataSource.QueryInfo;
+import org.openconcerto.utils.ExceptionUtils;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -23,8 +24,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.io.ByteArrayOutputStream;
-import java.io.PrintStream;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -43,6 +42,7 @@ import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeListener;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableColumn;
 import javax.swing.table.TableModel;
 import javax.swing.table.TableRowSorter;
 
@@ -55,8 +55,7 @@ public class SQLRequestLog {
     private String query;
     private String comment;
     private long startAsMs;
-    private long durationSQLNano;
-    private long durationTotalNano;
+    private final long startTime, afterCache, afterQueryInfo, afterExecute, afterHandle, endTime;
     private String stack;
     private boolean inSwing;
     private int connectionId;
@@ -67,17 +66,27 @@ public class SQLRequestLog {
     private static final SimpleDateFormat sdt = new SimpleDateFormat("HH:MM:ss.SS");
     private static final DecimalFormat dformat = new DecimalFormat("##0.00");
 
+    private static final String format(final Object nano) {
+        final long l = ((Number) nano).longValue();
+        return l == 0 ? "" : dformat.format(l / 1000000D) + " ms";
+    }
+
     public static void setEnabled(boolean enable) {
         enabled = enable;
     }
 
-    public SQLRequestLog(String query, String comment, int connectionId, long starAtMs, long durationSQLNano, long durationTotalNano, String ex, boolean inSwing) {
+    public SQLRequestLog(String query, String comment, int connectionId, long starAtMs, String ex, boolean inSwing, long startTime, long afterCache, long afterQueryInfo, long afterExecute,
+            long afterHandle, long endTime) {
         this.query = query;
         this.comment = comment;
         this.connectionId = connectionId;
         this.startAsMs = starAtMs;
-        this.durationSQLNano = durationSQLNano;
-        this.durationTotalNano = durationTotalNano;
+        this.startTime = startTime;
+        this.afterCache = afterCache;
+        this.afterQueryInfo = afterQueryInfo;
+        this.afterExecute = afterExecute;
+        this.afterHandle = afterHandle;
+        this.endTime = endTime;
         this.stack = ex;
         this.inSwing = inSwing;
         this.forShare = query.contains("FOR SHARE");
@@ -87,26 +96,23 @@ public class SQLRequestLog {
         this.threadId = "[" + Thread.currentThread().getId() + "] " + Thread.currentThread().getName();
     }
 
-    public static void log(String query, String comment, int hashCode, long starAtMs, long durationSQLNano, long durationTotalNano) {
+    public static void log(String query, String comment, int connectionId, long starAtMs, long startTime, long afterCache, long afterQueryInfo, long afterExecute, long afterHandle, long endTime) {
         if (enabled) {
-            ByteArrayOutputStream b = new ByteArrayOutputStream();
-            new Exception().printStackTrace(new PrintStream(b));
-            String ex = b.toString();
+            final String ex = ExceptionUtils.getStackTrace(new Exception());
 
-            list.add(new SQLRequestLog(query, comment, hashCode, starAtMs, durationSQLNano, durationTotalNano, ex, SwingUtilities.isEventDispatchThread()));
+            list.add(new SQLRequestLog(query, comment, connectionId, starAtMs, ex, SwingUtilities.isEventDispatchThread(), startTime, afterCache, afterQueryInfo, afterExecute, afterHandle, endTime));
             fireEvent();
 
         }
 
     }
 
-    public static void log(String query, String comment, long starAtMs, long durationNano) {
-        log(query, comment, 0, starAtMs, durationNano, durationNano);
+    public static void log(String query, String comment, long starAtMs, long startTime) {
+        log(query, comment, 0, starAtMs, startTime, startTime, startTime, startTime, startTime, startTime);
     }
 
-    public static void log(String query, String comment, QueryInfo info, long starAtMs, long durationSQLNano, long durationTotalNano) {
-        log(query, comment, System.identityHashCode(info.getConnection()), starAtMs, durationSQLNano, durationTotalNano);
-
+    public static void log(String query, String comment, QueryInfo info, long timeMs, long startTime, long afterCache, long afterQueryInfo, long afterExecute, long afterHandle, long endTime) {
+        log(query, comment, System.identityHashCode(info.getConnection()), timeMs, startTime, afterCache, afterQueryInfo, afterExecute, afterHandle, endTime);
     }
 
     private static void fireEvent() {
@@ -153,7 +159,7 @@ public class SQLRequestLog {
         final int stop = list.size();
         long t = 0;
         for (int i = 0; i < stop; i++) {
-            t += (list.get(i).durationTotalNano / 1000);
+            t += (list.get(i).getDurationTotalNano() / 1000);
         }
         return t / 1000;
     }
@@ -162,7 +168,7 @@ public class SQLRequestLog {
         final int stop = list.size();
         long t = 0;
         for (int i = 0; i < stop; i++) {
-            t += (list.get(i).durationSQLNano / 1000);
+            t += (list.get(i).getDurationSQLNano() / 1000);
         }
         return t / 1000;
     }
@@ -174,7 +180,7 @@ public class SQLRequestLog {
 
             final SQLRequestLog requestLog = list.get(i);
             if (requestLog.isInSwing()) {
-                t += (requestLog.durationTotalNano / 1000);
+                t += (requestLog.getDurationTotalNano() / 1000);
             }
         }
         return t / 1000;
@@ -206,54 +212,46 @@ public class SQLRequestLog {
 
             }
         });
+
         // Column Date
-        final DefaultTableCellRenderer cellRendererDate = new DefaultTableCellRenderer() {
+        final TableColumn timeCol = table.getColumnModel().getColumn(0);
+        timeCol.setCellRenderer(new DefaultTableCellRenderer() {
             @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                final JLabel tableCellRendererComponent = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                tableCellRendererComponent.setText(sdt.format(value));
-                return tableCellRendererComponent;
+            protected void setValue(Object value) {
+                super.setValue(sdt.format(value));
             }
-        };
-        table.getColumnModel().getColumn(0).setCellRenderer(cellRendererDate);
-        table.getColumnModel().getColumn(0).setMaxWidth(80);
-        table.getColumnModel().getColumn(0).setMinWidth(80);
-        // Column Time
-        final DefaultTableCellRenderer cellRendererDuration = new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                final JLabel tableCellRendererComponent = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                long l = ((Long) value).longValue();
-                if (l == 0)
-                    tableCellRendererComponent.setText("");
-                else {
-                    tableCellRendererComponent.setText(dformat.format(l / 1000000D) + " ms");
-                }
-                return tableCellRendererComponent;
-            }
-        };
-        cellRendererDuration.setHorizontalAlignment(SwingConstants.RIGHT);
-        table.getColumnModel().getColumn(1).setCellRenderer(cellRendererDuration);
-        table.getColumnModel().getColumn(1).setMaxWidth(160);
-        table.getColumnModel().getColumn(1).setMinWidth(100);
+        });
+        timeCol.setMaxWidth(80);
+        timeCol.setMinWidth(80);
+
         // Column Total SQL
+        final TableColumn totalCol = table.getColumnModel().getColumn(4);
+        final DefaultTableCellRenderer nanoRenderer = new DefaultTableCellRenderer() {
+
+            {
+                this.setHorizontalAlignment(SwingConstants.RIGHT);
+            }
+
+            @Override
+            protected void setValue(Object value) {
+                super.setValue(format(value));
+            }
+        };
+        totalCol.setCellRenderer(nanoRenderer);
+        totalCol.setMaxWidth(160);
+        totalCol.setMinWidth(100);
+
+        // SQL
         final DefaultTableCellRenderer cellRendererDurationSQL = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-                final JLabel tableCellRendererComponent = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                long l = ((Long) value).longValue();
-                if (l == 0)
-                    tableCellRendererComponent.setText("");
-                else {
-                    tableCellRendererComponent.setText(dformat.format(l / 1000000D) + " ms");
-                }
-
+                final Component tableCellRendererComponent = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 if (!isSelected) {
                     final SQLRequestLog rowAt = model.getRowAt(sorter.convertRowIndexToModel(row));
                     float ratio = 1;
                     // Ignore processing >2ms
-                    if (rowAt.durationTotalNano > 0 && (rowAt.durationTotalNano - rowAt.durationSQLNano) > 2000000) {
-                        ratio = rowAt.durationSQLNano / (float) rowAt.durationTotalNano;
+                    if (rowAt.getDurationTotalNano() > 0 && (rowAt.getDurationTotalNano() - rowAt.getDurationSQLNano()) > 2000000) {
+                        ratio = rowAt.getDurationSQLNano() / (float) rowAt.getDurationTotalNano();
                     }
                     int b = Math.round(255f * (ratio * ratio));
                     if (b < 0)
@@ -265,24 +263,25 @@ public class SQLRequestLog {
                 }
                 return tableCellRendererComponent;
             }
+
+            @Override
+            protected void setValue(Object value) {
+                super.setValue(format(value));
+            }
         };
         cellRendererDurationSQL.setHorizontalAlignment(SwingConstants.RIGHT);
-        table.getColumnModel().getColumn(2).setCellRenderer(cellRendererDurationSQL);
-        table.getColumnModel().getColumn(2).setMaxWidth(160);
-        table.getColumnModel().getColumn(2).setMinWidth(100);
+        final TableColumn execCol = table.getColumnModel().getColumn(1);
+        execCol.setCellRenderer(cellRendererDurationSQL);
+        execCol.setMaxWidth(160);
+        execCol.setMinWidth(100);
 
         // Traitement
         final DefaultTableCellRenderer cellRendererTraitement = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 final JLabel tableCellRendererComponent = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-                long l = ((Long) value).longValue();
-                if (l == 0)
-                    tableCellRendererComponent.setText("");
-                else {
-                    tableCellRendererComponent.setText(dformat.format(l / 1000000D) + " ms");
-                }
                 if (!isSelected) {
+                    final long l = ((Number) value).longValue();
                     if (l > 100 * 1000000) {
                         tableCellRendererComponent.setBackground(new Color(254, 254, 0));
                     } else {
@@ -292,11 +291,19 @@ public class SQLRequestLog {
                 }
                 return tableCellRendererComponent;
             }
+
+            @Override
+            protected void setValue(Object value) {
+                super.setValue(format(value));
+            }
         };
         cellRendererTraitement.setHorizontalAlignment(SwingConstants.RIGHT);
-        table.getColumnModel().getColumn(3).setCellRenderer(cellRendererTraitement);
-        table.getColumnModel().getColumn(3).setMaxWidth(160);
-        table.getColumnModel().getColumn(3).setMinWidth(100);
+        final TableColumn processingCol = table.getColumnModel().getColumn(2);
+        processingCol.setCellRenderer(cellRendererTraitement);
+        processingCol.setMaxWidth(160);
+        processingCol.setMinWidth(100);
+
+        table.getColumnModel().getColumn(3).setCellRenderer(nanoRenderer);
 
         // Column Info
         final DefaultTableCellRenderer cellRendererQuery = new DefaultTableCellRenderer() {
@@ -314,12 +321,12 @@ public class SQLRequestLog {
                 return tableCellRendererComponent;
             }
         };
-        table.getColumnModel().getColumn(5).setCellRenderer(cellRendererQuery);
+        table.getColumnModel().getColumn(6).setCellRenderer(cellRendererQuery);
 
         // Column Connexion
 
-        table.getColumnModel().getColumn(6).setMaxWidth(100);
-        table.getColumnModel().getColumn(6).setMinWidth(100);
+        table.getColumnModel().getColumn(7).setMaxWidth(100);
+        table.getColumnModel().getColumn(7).setMinWidth(100);
         // Column Thread
         final DefaultTableCellRenderer cellRendererThread = new DefaultTableCellRenderer() {
             @Override
@@ -337,9 +344,8 @@ public class SQLRequestLog {
             }
         };
 
-        table.getColumnModel().getColumn(7).setCellRenderer(cellRendererThread);
-
-        table.getColumnModel().getColumn(7).setMinWidth(100);
+        table.getColumnModel().getColumn(8).setCellRenderer(cellRendererThread);
+        table.getColumnModel().getColumn(8).setMinWidth(100);
         JPanel p = new JPanel(new BorderLayout());
 
         JPanel bar = new JPanel(new FlowLayout());
@@ -423,11 +429,44 @@ public class SQLRequestLog {
     }
 
     public long getDurationTotalNano() {
-        return this.durationTotalNano;
+        return this.getEndTime() - this.getStartTime();
     }
 
     public long getDurationSQLNano() {
-        return this.durationSQLNano;
+        return this.getAfterExecute() - this.getAfterQueryInfo();
+    }
+
+    public long getDurationHandleNano() {
+        return this.getAfterHandle() - this.getAfterExecute();
+    }
+
+    // close + cache
+    public long getDurationCleanupNano() {
+        return this.getEndTime() - this.getAfterHandle();
+    }
+
+    public final long getStartTime() {
+        return this.startTime;
+    }
+
+    public final long getAfterCache() {
+        return this.afterCache;
+    }
+
+    public final long getAfterQueryInfo() {
+        return this.afterQueryInfo;
+    }
+
+    public final long getAfterExecute() {
+        return this.afterExecute;
+    }
+
+    public final long getAfterHandle() {
+        return this.afterHandle;
+    }
+
+    public final long getEndTime() {
+        return this.endTime;
     }
 
     public String getStack() {

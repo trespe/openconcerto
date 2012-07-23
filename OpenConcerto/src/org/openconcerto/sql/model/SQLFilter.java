@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.graph.GraFFF;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.utils.CollectionUtils;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -29,11 +30,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
 /**
  * Un filtre SQL, un ensemble de tables avec les ID sélectionnés.
  * 
  * @author ILM Informatique 10 mai 2004
  */
+@ThreadSafe
 public final class SQLFilter {
 
     /**
@@ -66,14 +71,17 @@ public final class SQLFilter {
 
     private final SQLElementDirectory dir;
     private final GraFFF filterGraph;
+    @GuardedBy("filteredIDs")
     private final List<Set<SQLRow>> filteredIDs;
-    private final List<SQLFilterListener> listeners;
+    // CopyOnWriteArrayList is simpler but rmListener() cannot be implemented
+    @GuardedBy("listeners")
+    private List<SQLFilterListener> listeners;
 
     public SQLFilter(SQLElementDirectory dir, final GraFFF filterGraph) {
         this.dir = dir;
         this.filterGraph = filterGraph;
         this.filteredIDs = new ArrayList<Set<SQLRow>>();
-        this.listeners = new ArrayList<SQLFilterListener>();
+        this.listeners = Collections.emptyList();
     }
 
     /**
@@ -130,25 +138,32 @@ public final class SQLFilter {
     }
 
     public void setFiltered(List<Set<SQLRow>> r) {
-        // whether this is already filtered on r
-        if (r.equals(this.filteredIDs))
-            return;
+        final SQLTable broadestTable;
+        synchronized (this.filteredIDs) {
+            // whether this is already filtered on r
+            if (r.equals(this.filteredIDs))
+                return;
 
-        final int prevDepth = getDepth();
-        final SQLTable prevTable = this.getLeafTable();
-        this.filteredIDs.clear();
-        this.filteredIDs.addAll(r);
-        // find the table the closest to the root
-        final SQLTable broadestTable = prevDepth < getDepth() ? prevTable : this.getLeafTable();
+            final int prevDepth = getDepth();
+            final SQLTable prevTable = this.getLeafTable();
+            this.filteredIDs.clear();
+            this.filteredIDs.addAll(r);
+            // find the table the closest to the root
+            broadestTable = prevDepth < getDepth() ? prevTable : this.getLeafTable();
+        }
         this.fireConnected(broadestTable);
     }
 
     private int getDepth() {
-        return this.filteredIDs.size();
+        synchronized (this.filteredIDs) {
+            return this.filteredIDs.size();
+        }
     }
 
     public final Set<SQLRow> getLeaf() {
-        return CollectionUtils.getFirst(this.filteredIDs);
+        synchronized (this.filteredIDs) {
+            return CollectionUtils.getFirst(this.filteredIDs);
+        }
     }
 
     private final SQLTable getLeafTable() {
@@ -167,21 +182,78 @@ public final class SQLFilter {
             connectedSet = this.filterGraph.getDescTables(table, table.getFieldRaw(parentForeignField));
         }
 
-        for (final SQLFilterListener l : this.listeners) {
+        final List<SQLFilterListener> dispatchingListeners;
+        synchronized (this.listeners) {
+            dispatchingListeners = this.listeners;
+        }
+        for (final SQLFilterListener l : dispatchingListeners) {
             l.filterChanged(connectedSet);
         }
     }
 
+    @Override
     public String toString() {
-        return "SQLFilter on: " + this.filteredIDs;
+        synchronized (this.filteredIDs) {
+            return "SQLFilter on: " + this.filteredIDs;
+        }
     }
 
     public void addListener(SQLFilterListener l) {
-        this.listeners.add(l);
+        synchronized (this.listeners) {
+            final List<SQLFilterListener> newListeners = new ArrayList<SQLFilterListener>(this.listeners.size() + 1);
+            newListeners.addAll(this.listeners);
+            newListeners.add(l);
+            this.listeners = Collections.unmodifiableList(newListeners);
+        }
     }
 
-    public void rmListener(SQLFilterListener l) {
-        this.listeners.remove(l);
+    /**
+     * Add a weak reference to the listener. I.e. you must strong reference <code>l</code> or it
+     * will be collected.
+     * 
+     * @param l the listener to add.
+     */
+    public void addWeakListener(SQLFilterListener l) {
+        this.addListener(new WeakListener(l));
+    }
+
+    public void rmListener(SQLFilterListener lToRm) {
+        assert !(lToRm instanceof WeakListener) : "Only expose regular listeners";
+        this.rmListener_(lToRm);
+    }
+
+    private void rmListener_(SQLFilterListener lToRm) {
+        synchronized (this.listeners) {
+            final int stop = this.listeners.size();
+            int indexToRm = -1;
+            for (int i = 0; i < stop && indexToRm < 0; i++) {
+                final SQLFilterListener l = this.listeners.get(i);
+                if (l.equals(lToRm) || l instanceof WeakListener && lToRm.equals(((WeakListener) l).get()))
+                    indexToRm = i;
+            }
+            if (indexToRm >= 0) {
+                final List<SQLFilterListener> newListeners = new ArrayList<SQLFilterListener>(stop - 1);
+                newListeners.addAll(this.listeners.subList(0, indexToRm));
+                newListeners.addAll(this.listeners.subList(indexToRm + 1, stop));
+                this.listeners = Collections.unmodifiableList(newListeners);
+            }
+        }
+    }
+
+    private final class WeakListener extends WeakReference<SQLFilterListener> implements SQLFilterListener {
+        private WeakListener(SQLFilterListener referent) {
+            super(referent);
+        }
+
+        @Override
+        public void filterChanged(Collection<SQLTable> tables) {
+            final SQLFilterListener l = this.get();
+            if (l != null)
+                l.filterChanged(tables);
+            else
+                // can remove while iterating since listeners is immutable
+                SQLFilter.this.rmListener_(this);
+        }
     }
 
 }

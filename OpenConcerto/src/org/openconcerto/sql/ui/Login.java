@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.utils.Base64;
 import org.openconcerto.utils.CollectionUtils;
@@ -137,7 +138,7 @@ public class Login {
         final String req = selUser.toString() + " AND LOWER(" + name.quote() + ")=LOWER('" + login + "')";
 
         @SuppressWarnings("unchecked")
-        final List<SQLRow> users = (List) this.root.getDBSystemRoot().getDataSource().execute(req,  SQLRowListRSH.createFromSelect(selUser));
+        final List<SQLRow> users = (List<SQLRow>) this.root.getDBSystemRoot().getDataSource().execute(req, SQLRowListRSH.createFromSelect(selUser));
         return users;
     }
 
@@ -149,9 +150,11 @@ public class Login {
 
         final String dbPass = userRow.getString("PASSWORD");
         final String res;
-        if (dbPass == null || dbPass.equals(encPass)) {
+        if (dbPass == null || dbPass.equals(encPass) || dbPass.equals(encodePassword(""))) {
             // --->Connexion
             UserManager.getInstance().setCurrentUser(userRow.getID());
+            // Preload right to avoid request in AWT later
+            UserRightsManager.getInstance().preloadRightsForUserId(userRow.getID());
             // Authentification OK
             res = encPass;
             assert res != null;

@@ -22,7 +22,6 @@ import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.state.JTableStateManager;
@@ -64,9 +63,6 @@ public class EtatChargePanel extends JPanel {
     private JTextField textAnnee;
     private EtatChargeModel[] model;
     private static final NumberFormat numberFormat = new DecimalFormat("0.00");
-    // private final static SQLBase base = ((ComptaPropsConfiguration)
-    // Configuration.getInstance()).getSQLBaseSociete();
-    private final static SQLTable tableCaisse = Configuration.getInstance().getBase().getTable("CAISSE_COTISATION");
 
     public EtatChargePanel() {
         this.setLayout(new GridBagLayout());

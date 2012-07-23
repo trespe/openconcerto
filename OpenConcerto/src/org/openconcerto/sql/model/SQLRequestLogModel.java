@@ -30,14 +30,14 @@ public class SQLRequestLogModel extends DefaultTableModel {
 
     @Override
     public Class<?> getColumnClass(int columnIndex) {
-        if (columnIndex < 4)
+        if (columnIndex < 5)
             return Long.class;
         return String.class;
     }
 
     @Override
     public int getColumnCount() {
-        return 8;
+        return 9;
     }
 
     @Override
@@ -46,18 +46,20 @@ public class SQLRequestLogModel extends DefaultTableModel {
         case 0:
             return "Heure";
         case 1:
-            return "Durée totale";
-        case 2:
             return "Durée SQL";
+        case 2:
+            return "Durée traitement";
         case 3:
-            return "Traitement";
+            return "Durée cleanup";
         case 4:
-            return "Requête";
+            return "Durée totale";
         case 5:
-            return "Infos";
+            return "Requête";
         case 6:
-            return "Connexion";
+            return "Infos";
         case 7:
+            return "Connexion";
+        case 8:
             return "Thread";
         }
         return "??";
@@ -75,20 +77,22 @@ public class SQLRequestLogModel extends DefaultTableModel {
         case 0:
             return l.getStartAsMs();
         case 1:
-            return l.getDurationTotalNano();
-        case 2:
             return l.getDurationSQLNano();
+        case 2:
+            return l.getDurationHandleNano();
         case 3:
-            return l.getDurationTotalNano() - l.getDurationSQLNano();
+            return l.getDurationCleanupNano();
         case 4:
-            return l.getQuery();
+            return l.getDurationTotalNano();
         case 5:
-            return l.getConnection();
+            return l.getQuery();
         case 6:
+            return l.getConnection();
+        case 7:
             if (l.getConnectionId() == 0)
                 return "";
             return String.valueOf(l.getConnectionId());
-        case 7:
+        case 8:
             if (l.isInSwing())
                 return "Swing";
             return l.getThreadId();

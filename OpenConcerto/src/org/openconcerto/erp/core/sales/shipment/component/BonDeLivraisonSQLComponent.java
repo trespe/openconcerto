@@ -688,7 +688,7 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         BonDeLivraisonItemSQLElement bonElt = new BonDeLivraisonItemSQLElement();
         selBonItem.addSelect(bonElt.getTable().getField("ID_SAISIE_VENTE_FACTURE_ELEMENT"));
         selBonItem.addSelect(bonElt.getTable().getField("QTE_LIVREE"));
-        selBonItem.setWhere("BON_DE_LIVRAISON_ELEMENT.ID_BON_DE_LIVRAISON", "=", idBon);
+        selBonItem.setWhere(bonElt.getTable().getField("ID_BON_DE_LIVRAISON"), "=", idBon);
 
         String reqBonItem = selBonItem.asString();
         Object obBonItem = getTable().getBase().getDataSource().execute(reqBonItem, new ArrayListHandler());
@@ -721,7 +721,7 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         BonDeLivraisonItemSQLElement bonElt = new BonDeLivraisonItemSQLElement();
         selBonItem.addSelect(bonElt.getTable().getField("ID_SAISIE_VENTE_FACTURE_ELEMENT"));
         selBonItem.addSelect(bonElt.getTable().getField("QTE_LIVREE"));
-        selBonItem.setWhere("BON_DE_LIVRAISON_ELEMENT.ID_BON_DE_LIVRAISON", "=", idBon);
+        selBonItem.setWhere(bonElt.getTable().getField("ID_BON_DE_LIVRAISON"), "=", idBon);
 
         String reqBonItem = selBonItem.asString();
         Object obBonItem = getTable().getBase().getDataSource().execute(reqBonItem, new ArrayListHandler());

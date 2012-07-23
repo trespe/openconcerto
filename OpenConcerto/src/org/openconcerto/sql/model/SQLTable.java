@@ -69,7 +69,7 @@ import org.jdom.Element;
  * @see #checkValidity(String, int)
  * @see #getRow(int)
  */
-public final class SQLTable extends SQLIdentifier implements SQLData {
+public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
 
     /**
      * The {@link DBRoot#setMetadata(String, String) meta data} configuring the policy regarding
@@ -331,7 +331,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
                 if (!onlyUseSchema) {
                     // we might have added/dropped a foreign key even if the set of tables hasn't
                     // changed
-                    this.getDBSystemRoot().descendantsChanged(removed);
+                    this.getDBSystemRoot().descendantsChanged(this, null, false, removed);
                     this.save();
                 }
             }
@@ -486,7 +486,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
 
                 if (!fields.keySet().containsAll(this.getFieldsName())) {
                     for (String removed : CollectionUtils.substract(this.getFieldsName(), fields.keySet())) {
-                        ((SQLField) this.fields.remove(removed)).dropped();
+                        this.fields.remove(removed).dropped();
                     }
                 }
 
@@ -616,6 +616,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @return the field which is the key of this table, or <code>null</code> if it doesn't exist.
      * @throws IllegalStateException if there's more than one primary key.
      */
+    @Override
     public synchronized SQLField getKey() {
         if (!this.primaryKeyOK)
             throw new IllegalStateException(this + " has more than 1 primary key: " + this.getPrimaryKeys());
@@ -657,7 +658,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
     }
 
     public SQLTable getForeignTable(String foreignField) {
-        return this.getDBSystemRoot().getGraph().getForeignTable(this.getField(foreignField));
+        return this.getField(foreignField).getForeignTable();
     }
 
     public SQLTable findReferentTable(String tableName) {
@@ -691,6 +692,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
      * @throws IllegalArgumentException if the field is not in this table.
      * @see #getFieldRaw(String)
      */
+    @Override
     public SQLField getField(String fieldName) {
         SQLField res = this.getFieldRaw(fieldName);
         if (res == null) {
@@ -1215,7 +1217,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
             sb.append(JDOMUtils.OUTPUTTER.escapeElementEntities(this.getComment()));
             sb.append("</comment>\n");
         }
-        for (SQLField field : (Collection<SQLField>) this.fields.values()) {
+        for (SQLField field : this.fields.values()) {
             sb.append(field.toXML());
         }
         sb.append("<primary>\n");
@@ -1252,8 +1254,19 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         };
     }
 
+    @Override
     public SQLTable getTable() {
         return this;
+    }
+
+    @Override
+    public String getAlias() {
+        return getName();
+    }
+
+    @Override
+    public String getSQL() {
+        return getSQLName().quote();
     }
 
     public boolean equalsDesc(SQLTable o) {
@@ -1443,7 +1456,8 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
 
     /**
      * Return the indexes mapped by column names. Ie a key will have as value every index that
-     * mentions it, and a multi-column index will be in several entries.
+     * mentions it, and a multi-column index will be in several entries. Note: this is not robust
+     * since {@link Index#getCols()} isn't.
      * 
      * @return the indexes mapped by column names.
      * @throws SQLException if an error occurs.
@@ -1454,6 +1468,22 @@ public final class SQLTable extends SQLIdentifier implements SQLData {
         for (final Index i : indexes)
             for (final String col : i.getCols())
                 res.put(col, i);
+        return res;
+    }
+
+    /**
+     * Return the indexes on the passed columns names. Note: this is not robust since
+     * {@link Index#getCols()} isn't.
+     * 
+     * @param cols fields names.
+     * @return the matching indexes.
+     * @throws SQLException if an error occurs.
+     */
+    public final List<Index> getIndexes(final List<String> cols) throws SQLException {
+        final List<Index> res = new ArrayList<Index>();
+        for (final Index i : this.getIndexes())
+            if (i.getCols().equals(cols))
+                res.add(i);
         return res;
     }
 

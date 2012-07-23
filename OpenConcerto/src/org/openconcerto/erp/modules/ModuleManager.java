@@ -95,7 +95,7 @@ public class ModuleManager {
 
     private static final Logger L = Logger.getLogger(ModuleManager.class.getPackage().getName());
     private static final Executor exec = new ThreadPoolExecutor(0, 2, 60L, TimeUnit.SECONDS, new LinkedBlockingQueue<Runnable>(), new ThreadFactory(ModuleManager.class.getSimpleName()
-            + " executor thread "));
+            + " executor thread ", Boolean.TRUE));
 
     private static final int MIN_VERSION = 0;
     private static final String MODULE_COLNAME = "MODULE_NAME";
@@ -756,12 +756,11 @@ public class ModuleManager {
         }
     }
 
-    private void setupComponents(final AbstractModule module) throws SQLException {
+    private void setupComponents(final AbstractModule module, final Tuple2<Set<String>, Set<SQLName>> alreadyCreatedItems) throws SQLException {
         assert SwingUtilities.isEventDispatchThread();
         final String id = module.getFactory().getID();
         if (!this.modulesComponents.containsKey(id)) {
             final SQLElementDirectory dir = getDirectory();
-            final Tuple2<Set<String>, Set<SQLName>> alreadyCreatedItems = getCreatedItems(id);
             final ComponentsContext ctxt = new ComponentsContext(dir, getRoot(), alreadyCreatedItems.get0(), alreadyCreatedItems.get1());
             module.setupComponents(ctxt);
             this.modulesComponents.put(id, ctxt);
@@ -854,16 +853,19 @@ public class ModuleManager {
                 final ModuleFactory f = module.getFactory();
                 final String id = f.getID();
                 try {
+                    // do the request here instead of in the EDT in setupComponents()
+                    assert !this.runningModules.containsKey(id) : "Doing a request for nothing";
+                    final Tuple2<Set<String>, Set<SQLName>> createdItems = getCreatedItems(id);
                     // execute right away if possible, allowing the caller to handle any exceptions
                     if (SwingUtilities.isEventDispatchThread()) {
-                        startModule(module);
+                        startModule(module, createdItems);
                     } else {
                         // keep the for outside to avoid halting the EDT too long
                         SwingUtilities.invokeLater(new Runnable() {
                             @Override
                             public void run() {
                                 try {
-                                    startModule(module);
+                                    startModule(module, createdItems);
                                 } catch (Exception e) {
                                     ExceptionHandler.handle(MainFrame.getInstance(), "Unable to start " + f, e);
                                 }
@@ -921,9 +923,9 @@ public class ModuleManager {
         }
     }
 
-    private final void startModule(final AbstractModule module) throws Exception {
+    private final void startModule(final AbstractModule module, final Tuple2<Set<String>, Set<SQLName>> createdItems) throws Exception {
         assert SwingUtilities.isEventDispatchThread();
-        this.setupComponents(module);
+        this.setupComponents(module, createdItems);
         module.start();
     }
 

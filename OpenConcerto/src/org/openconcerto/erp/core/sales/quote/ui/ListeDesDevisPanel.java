@@ -71,7 +71,6 @@ public class ListeDesDevisPanel extends JPanel {
     private SQLElement eltDevis = Configuration.getInstance().getDirectory().getElement("DEVIS");
     private SQLElement eltEtatDevis = Configuration.getInstance().getDirectory().getElement("ETAT_DEVIS");
     private JButton buttonShow, buttonGen, buttonPrint, buttonFacture, buttonCmd, buttonClone;
-    protected EditFrame editFrame;
 
     public ListeDesDevisPanel() {
         this.setLayout(new GridBagLayout());
@@ -256,7 +255,6 @@ public class ListeDesDevisPanel extends JPanel {
         // checkButton(id);
         // }
         // });
-        addRowActions(pane.getListe(), idFilter);
 
         pane.getListe().setOpaque(false);
 
@@ -264,213 +262,10 @@ public class ListeDesDevisPanel extends JPanel {
         return pane;
     }
 
-    protected void addRowActions(IListe liste, int etat) {
-        // List<RowAction> list = new ArrayList<RowAction>();
-        // Transfert vers facture
-        RowAction factureAction = new RowAction(new AbstractAction("Transfert vers facture") {
-            public void actionPerformed(ActionEvent e) {
-                transfertFacture(IListe.get(e).getSelectedRow());
-            }
-        }, true) {
-            public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
-                if (selection != null && selection.size() == 1) {
-                    if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.ACCEPTE) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        };
+    
 
-        liste.addIListeAction(factureAction);
-
-        // Voir le document
-        RowAction actionTransfertCmd = new RowAction(new AbstractAction("Transférer en commande") {
-            public void actionPerformed(ActionEvent e) {
-                transfertCommande(IListe.get(e).getSelectedRow());
-            }
-        }, false) {
-            public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
-                if (selection != null && selection.size() == 1) {
-                    if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.ACCEPTE) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        };
-        liste.addIListeAction(actionTransfertCmd);
-
-        // Transfert vers commande
-        RowAction commandeAction = new RowAction(new AbstractAction("Transfert vers commande client") {
-            public void actionPerformed(ActionEvent e) {
-                transfertCommandeClient(IListe.get(e).getSelectedRow());
-            }
-        }, true) {
-            public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
-                if (selection != null && selection.size() == 1) {
-                    if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.ACCEPTE) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        };
-
-        liste.addIListeAction(commandeAction);
-
-        RowAction accepteEtCmdAction = new RowAction(new AbstractAction("Marquer comme accepté et Transfert en commande client") {
-            public void actionPerformed(ActionEvent e) {
-                SQLRow selectedRow = IListe.get(e).getSelectedRow();
-                SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
-                rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
-                try {
-                    rowVals.update();
-                } catch (SQLException e1) {
-                    // TODO Auto-generated catch block
-                    e1.printStackTrace();
-                }
-                selectedRow.getTable().fireTableModified(IListe.get(e).getSelectedId());
-                transfertCommandeClient(selectedRow);
-            }
-        }, false) {
-            public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
-                if (selection != null && selection.size() == 1) {
-                    if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.EN_ATTENTE) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        };
-        liste.addIListeAction(accepteEtCmdAction);
-
-        // Marqué accepté
-        RowAction accepteAction = new RowAction(new AbstractAction("Marquer comme accepté") {
-            public void actionPerformed(ActionEvent e) {
-                SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
-                rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
-                try {
-                    rowVals.update();
-                } catch (SQLException e1) {
-                    // TODO Auto-generated catch block
-                    e1.printStackTrace();
-                }
-                IListe.get(e).getSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
-            }
-        }, false) {
-            public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
-                if (selection != null && selection.size() == 1) {
-                    if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.EN_ATTENTE) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        };
-
-        liste.addIListeAction(accepteAction);
-
-        // Marqué accepté
-        RowAction refuseAction = new RowAction(new AbstractAction("Marquer comme refusé") {
-            public void actionPerformed(ActionEvent e) {
-                SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
-                rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.REFUSE);
-                try {
-                    rowVals.update();
-                } catch (SQLException e1) {
-                    // TODO Auto-generated catch block
-                    e1.printStackTrace();
-                }
-                IListe.get(e).getSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
-            }
-        }, false) {
-            public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
-                if (selection != null && selection.size() == 1) {
-                    if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.EN_ATTENTE) {
-                        return true;
-                    }
-                }
-                return false;
-            };
-        };
-
-        liste.addIListeAction(refuseAction);
-
-        // // Dupliquer
-        RowAction cloneAction = new RowAction(new AbstractAction("Créer à partir de") {
-            public void actionPerformed(ActionEvent e) {
-                SQLRow selectedRow = IListe.get(e).getSelectedRow();
-
-                if (ListeDesDevisPanel.this.editFrame == null) {
-                    SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("DEVIS");
-                    ListeDesDevisPanel.this.editFrame = new EditFrame(eltFact, EditPanel.CREATION);
-                }
-
-                ((DevisSQLComponent) ListeDesDevisPanel.this.editFrame.getSQLComponent()).loadDevisExistant(selectedRow.getID());
-                ListeDesDevisPanel.this.editFrame.setVisible(true);
-            }
-        }, true) {
-            public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
-                return (selection != null && selection.size() == 1);
-            };
-        };
-
-        liste.addIListeAction(cloneAction);
-    }
-
-    /**
-     * Transfert en facture
-     * 
-     * @param row
-     */
-    private void transfertFacture(SQLRow row) {
-        DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
-        elt.transfertFacture(row.getID());
-    }
-
-    /**
-     * Transfert en Commande
-     * 
-     * @param row
-     */
-    private void transfertCommandeClient(SQLRow row) {
-
-        DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
-        elt.transfertCommandeClient(row.getID());
-    }
-
-    private void transfertCommande(SQLRow row) {
-        DevisItemSQLElement elt = (DevisItemSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS_ELEMENT");
-        SQLTable tableCmdElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT").getTable();
-        SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
-        List<SQLRow> rows = row.getReferentRows(elt.getTable());
-        CollectionMap<SQLRow, List<SQLRowValues>> map = new CollectionMap<SQLRow, List<SQLRowValues>>();
-        for (SQLRow sqlRow : rows) {
-            // on récupére l'article qui lui correspond
-            SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
-            for (SQLField field : eltArticle.getTable().getFields()) {
-                if (sqlRow.getTable().getFieldsName().contains(field.getName())) {
-                    rowArticle.put(field.getName(), sqlRow.getObject(field.getName()));
-                }
-            }
-            // rowArticle.loadAllSafe(rowEltFact);
-            int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
-            SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
-            SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
-            SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticleFind));
-            rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
-            rowValsElt.put("QTE", sqlRow.getObject("QTE"));
-            rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
-            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
-            rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
-
-            map.put(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
-
-        }
-        MouvementStockSQLElement.createCommandeF(map, row.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"));
-    }
-
+   
+    
     public Map<Integer, ListeAddPanel> getListePanel() {
         return this.map;
     }

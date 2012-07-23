@@ -36,7 +36,7 @@ import org.jdom.Namespace;
 // from section 16.27.18 in v1.2-cs01-part1
 public class TimeStyle extends DataStyle {
 
-    public static final DataStyleDesc<TimeStyle> DESC = new DataStyleDesc<TimeStyle>(TimeStyle.class, XMLVersion.OD, "time-style", "N") {
+    static final DataStyleDesc<TimeStyle> DESC = new DataStyleDesc<TimeStyle>(TimeStyle.class, XMLVersion.OD, "time-style", "N") {
         @Override
         public TimeStyle create(ODPackage pkg, Element e) {
             return new TimeStyle(pkg, e);

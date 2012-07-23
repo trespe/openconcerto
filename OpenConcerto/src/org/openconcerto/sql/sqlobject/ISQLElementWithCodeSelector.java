@@ -146,7 +146,7 @@ public class ISQLElementWithCodeSelector extends JPanel implements ValueWrapper<
         this.mainField = this.mainCombo.getFields().iterator().next();
 
         if (expandWithShowAs) {
-            this.optCombo = new ComboSQLRequest(this.element.getComboRequest());
+            this.optCombo = this.element.getComboRequest(true);
         } else {
             List<String> optFields = new ArrayList<String>();
             optFields.add(this.optField.getName());

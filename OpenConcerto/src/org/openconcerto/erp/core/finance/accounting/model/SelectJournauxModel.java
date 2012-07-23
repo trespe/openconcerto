@@ -17,36 +17,23 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 
 import java.util.List;
-import java.util.Vector;
 
 import javax.swing.table.AbstractTableModel;
-
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
-
 
 public class SelectJournauxModel extends AbstractTableModel {
 
     private static final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
     private static final SQLTable tableJournal = base.getTable("JOURNAL");
-    private Vector journaux;
+    private List<SQLRow> journaux;
     private String[] titres;
 
     public SelectJournauxModel() {
-
-        this.journaux = new Vector();
-        SQLSelect selJrnl = new SQLSelect(base);
-        selJrnl.addSelect("JOURNAL.ID");
-        String req = selJrnl.asString();
-        List l = (List) base.getDataSource().execute(req, new ArrayListHandler());
-
-        for (int i = 0; i < l.size(); i++) {
-            Object[] tmp = (Object[]) l.get(i);
-            this.journaux.add(tableJournal.getRow(Integer.parseInt(tmp[0].toString())));
-        }
+        this.journaux = SQLRowListRSH.execute(new SQLSelect(base).addSelectStar(tableJournal));
 
         this.titres = new String[2];
         this.titres[0] = "Code";
@@ -70,10 +57,10 @@ public class SelectJournauxModel extends AbstractTableModel {
 
     public Object getValueAt(int rowIndex, int columnIndex) {
         if (columnIndex == 0) {
-            return ((SQLRow) this.journaux.get(rowIndex)).getObject("CODE");
+            return this.journaux.get(rowIndex).getObject("CODE");
         } else {
             if (columnIndex == 1) {
-                return ((SQLRow) this.journaux.get(rowIndex)).getObject("NOM");
+                return this.journaux.get(rowIndex).getObject("NOM");
             } else {
                 return null;
             }
@@ -91,7 +78,7 @@ public class SelectJournauxModel extends AbstractTableModel {
     }
 
     public int getIdForRow(int row) {
-        return ((SQLRow) this.journaux.get(row)).getID();
+        return this.journaux.get(row).getID();
     }
 
 }

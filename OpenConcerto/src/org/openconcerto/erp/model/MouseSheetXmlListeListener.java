@@ -31,15 +31,13 @@ import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.event.ActionEvent;
 import java.io.File;
-import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.SwingUtilities;
 
 public class MouseSheetXmlListeListener {
@@ -278,6 +276,7 @@ public class MouseSheetXmlListeListener {
 
                         return evt.getSelectedRow() != null && (evt.getTotalRowCount() >= 1) && (createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists());
                     }
+
                 };
                 l.add(action);
 
@@ -334,7 +333,9 @@ public class MouseSheetXmlListeListener {
                 public void actionPerformed(ActionEvent ev) {
                     createAbstractSheet(IListe.get(ev).getSelectedRow()).fastPrintDocument();
                 }
+
             }, this.printHeader) {
+
                 @Override
                 public boolean enabledFor(IListeEvent evt) {
                     return evt.getSelectedRow() != null && evt.getTotalRowCount() >= 1 && createAbstractSheet(evt.getSelectedRow().asRow()).getGeneratedFile().exists();
@@ -404,9 +405,39 @@ public class MouseSheetXmlListeListener {
                 public boolean enabledFor(List<SQLRowAccessor> selection) {
                     return selection != null && selection.size() == 1;
                 }
+
             });
         }
 
         return l;
+    }
+
+    /**
+     * Action sur le double clic
+     * 
+     * @return
+     */
+    public RowAction getDefaultRowAction() {
+        return new RowAction(new AbstractAction(this.generateString) {
+            public void actionPerformed(ActionEvent ev) {
+                final AbstractSheetXml sheet = createAbstractSheet(IListe.get(ev).getSelectedRow().asRow());
+                try {
+                    sheet.getOrCreateDocumentFile();
+                    sheet.showPrintAndExportAsynchronous(true, false, true);
+                } catch (Exception exn) {
+                    ExceptionHandler.handle("Une erreur est survenue lors de la création du document.", exn);
+                }
+            }
+        }, false, false) {
+            @Override
+            public boolean enabledFor(List<SQLRowAccessor> selection) {
+                return selection != null && selection.size() == 1;
+            }
+
+            @Override
+            public Action getDefaultAction(final IListeEvent evt) {
+                return this.getAction();
+            }
+        };
     }
 }

@@ -142,9 +142,9 @@ public class ExportRelationExpertPanel extends JPanel implements ActionListener 
                 SQLTable tableJrnl = base.getTable("JOURNAL");
 
                 sel.addSelect(tableEcriture.getField("NOM"));
-                sel.addJoin("LEFT", "ECRITURE.ID_COMPTE_PCE");
-                sel.addJoin("LEFT", "ECRITURE.ID_MOUVEMENT");
-                sel.addJoin("LEFT", "ECRITURE.ID_JOURNAL");
+                sel.addJoin("LEFT", tableEcriture.getField("ID_COMPTE_PCE"));
+                sel.addJoin("LEFT", tableEcriture.getField("ID_MOUVEMENT"));
+                sel.addJoin("LEFT", tableEcriture.getField("ID_JOURNAL"));
                 sel.addSelect(tableMouvement.getField("NUMERO"));
                 sel.addSelect(tableCompte.getField("NUMERO"));
                 sel.addSelect(tableEcriture.getField("DATE"));

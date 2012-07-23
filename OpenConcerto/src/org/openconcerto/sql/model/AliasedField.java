@@ -20,11 +20,16 @@
  */
 public class AliasedField implements FieldRef {
 
+    private final TableRef t;
     private final SQLField f;
-    private final String alias;
 
     public AliasedField(SQLField f) {
         this(f, null);
+    }
+
+    public AliasedField(TableRef t, String fieldName) {
+        this.t = t;
+        this.f = t.getTable().getField(fieldName);
     }
 
     /**
@@ -37,7 +42,7 @@ public class AliasedField implements FieldRef {
         if (f == null)
             throw new NullPointerException("f is null");
         this.f = f;
-        this.alias = alias == null ? f.getTable().getName() : alias;
+        this.t = alias == null ? f.getTable() : new AliasedTable(f.getTable(), alias);
     }
 
     public SQLField getField() {
@@ -45,11 +50,16 @@ public class AliasedField implements FieldRef {
     }
 
     public String getFieldRef() {
-        return SQLBase.quoteIdentifier(this.alias) + "." + SQLBase.quoteIdentifier(this.getField().getName());
+        return SQLBase.quoteIdentifier(this.getAlias()) + "." + SQLBase.quoteIdentifier(this.getField().getName());
     }
 
     public String getAlias() {
-        return this.alias;
+        return this.t.getAlias();
+    }
+
+    @Override
+    public TableRef getTableRef() {
+        return this.t;
     }
 
     @Override

@@ -22,7 +22,6 @@ import org.openconcerto.sql.model.LoadingListener.StructureLoadingEvent;
 import org.openconcerto.sql.model.StructureSource.PrechangeException;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.utils.CollectionUtils;
-import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cc.CopyOnWriteMap;
@@ -42,6 +41,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -72,8 +73,11 @@ public class SQLBase extends SQLIdentifier {
     public static final String ALLOW_OBJECT_REMOVAL = "org.openconcerto.sql.identifier.allowRemoval";
 
     static public final void logCacheError(final DBItemFileCache dir, Exception e) {
-        Log.get().info("invalid files in " + dir + "\n" + e.getMessage());
-        Log.get().config("invalid files in " + dir + "\n" + ExceptionUtils.getStackTrace(e));
+        final Logger logger = Log.get();
+        if (logger.isLoggable(Level.CONFIG))
+            logger.log(Level.CONFIG, "invalid files in " + dir, e);
+        else
+            logger.info("invalid files in " + dir + "\n" + e.getMessage());
     }
 
     // null is a valid name (MySQL doesn't support schemas)
@@ -122,11 +126,11 @@ public class SQLBase extends SQLIdentifier {
             sysRoot.setDS(login, pass, dsInit);
     }
 
-    final void init() {
+    final void init(final boolean readCache) {
         try {
-            loadTables(null, true);
+            refresh(null, readCache, true);
         } catch (SQLException e) {
-            throw new IllegalStateException("could not load " + this, e);
+            throw new IllegalStateException("could not init " + this, e);
         }
     }
 
@@ -135,6 +139,17 @@ public class SQLBase extends SQLIdentifier {
         // allow schemas (and their descendants) to be gc'd even we aren't
         this.schemas.clear();
         super.onDrop();
+    }
+
+    void refresh(final Set<String> namesToRefresh, final boolean readCache) throws SQLException {
+        this.refresh(namesToRefresh, readCache, false);
+    }
+
+    private void refresh(final Set<String> namesToRefresh, final boolean readCache, final boolean inCtor) throws SQLException {
+        if (readCache)
+            loadTables(namesToRefresh, inCtor);
+        else
+            fetchTables(namesToRefresh);
     }
 
     private final Set<String> loadTables(final Set<String> childrenNames, boolean inCtor) throws SQLException {
@@ -285,7 +300,9 @@ public class SQLBase extends SQLIdentifier {
                 final SQLSchema s = this.getSchema(sn);
                 if (s.getVersion() == null)
                     try {
-                        s.updateVersion();
+                        // don't create a table in a refresh, before descendantsChanged() is even
+                        // fired. The table is created by JDBCStructureSource.getNames()
+                        s.updateVersion(false);
                     } catch (SQLException e) {
                         // tant pis, les metadata ne sont pas nécessaires
                         e.printStackTrace();
@@ -295,7 +312,7 @@ public class SQLBase extends SQLIdentifier {
             // don't signal our systemRoot if our server doesn't yet reference us,
             // otherwise the server will create another instance and enter an infinite loop
             assert this.getServer().getBase(this.getName()) == this;
-            this.getDBSystemRoot().descendantsChanged();
+            this.getDBSystemRoot().descendantsChanged(this, src.getToRefresh(), src.hasExternalStruct());
         }
         src.save();
         return src;
@@ -319,6 +336,8 @@ public class SQLBase extends SQLIdentifier {
      * 
      * @param fieldName the fully qualified name of the field.
      * @return the matching field or null if none exists.
+     * @deprecated use {@link SQLTable#getField(String)} and {@link DBRoot#getTable(String)} or at
+     *             worst {@link #getTable(SQLName)}
      */
     public SQLField getField(String fieldName) {
         String[] parts = fieldName.split("\\.");
@@ -507,21 +526,6 @@ public class SQLBase extends SQLIdentifier {
         return this.getDBSystemRoot().getDataSource();
     }
 
-    /**
-     * Retourne le champ nommé field, en s'assurant qu'il existe.
-     * 
-     * @param field le nom du champ voulu.
-     * @return le champ correspondant, jamais <code>null</code>.
-     * @throws IllegalArgumentException si field n'existe pas.
-     */
-    public SQLField getFieldChecked(String field) {
-        SQLField f = this.getField(field);
-        if (f == null) {
-            throw new IllegalArgumentException(field + " n'existe pas dans la base " + this);
-        }
-        return f;
-    }
-
     public String toString() {
         return this.getName();
     }
@@ -562,7 +566,7 @@ public class SQLBase extends SQLIdentifier {
     }
 
     /**
-     * Where xml dumps are saved, always <code>null</code> if "org.openconcerto.sql.structure.useXML" is
+     * Where xml dumps are saved, always <code>null</code> if {@link #STRUCTURE_USE_XML} is
      * <code>false</code>.
      * 
      * @return the directory of xmls dumps, <code>null</code> if it can't be found.
@@ -628,7 +632,7 @@ public class SQLBase extends SQLIdentifier {
 
                 return true;
             } catch (Exception e) {
-                Log.get().warning("unable to save files in " + schemaFile + "\n" + ExceptionUtils.getStackTrace(e));
+                Log.get().log(Level.WARNING, "unable to save files in " + schemaFile, e);
                 return false;
             }
     }

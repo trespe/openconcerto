@@ -439,7 +439,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         return this.cache;
     }
 
-    public void initCache(final IListModel<T> acache) {
+    public final void initCache(final IListModel<T> acache) {
         if (acache == null)
             throw new NullPointerException("null cache");
         if (this.getCache() != null)
@@ -674,7 +674,9 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     private final void setValue(final T val, final ValidState valid) {
         log("entering " + this.getClass().getSimpleName() + ".setValue '" + val + "' valid: " + valid);
         final ISearchableComboItem<T> comboItem;
-        if (val == null)
+        // as in docChanged(), "" means empty (otherwise an ISearchableComboItem will be created and
+        // it won't be contained in the list)
+        if (val == null || "".equals(val))
             comboItem = null;
         else if (this.itemsByOriginalItem.containsKey(val)) {
             comboItem = this.itemsByOriginalItem.get(val);

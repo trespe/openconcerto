@@ -111,7 +111,7 @@ public class SuppressionEcrituresPanel extends JPanel {
 
         SQLSelect sel = new SQLSelect(b);
         sel.addSelect(tableMvt.getField("NUMERO"));
-        sel.setWhere("MOUVEMENT.ID_PIECE", "=", idPiece);
+        sel.setWhere(tableMvt.getField("ID_PIECE"), "=", idPiece);
 
         List l = (List) b.getDataSource().execute(sel.asString(), new ArrayListHandler());
 

@@ -59,15 +59,30 @@ public interface LoadingListener {
             super(source, starting);
         }
 
+        public final DBSystemRoot getSystemRoot() {
+            return (DBSystemRoot) this.getSource();
+        }
+
+        // this method allows to keep fireLoading() package-private 
+        public final GraphLoadingEvent fireEvent() {
+            getSystemRoot().fireLoading(this);
+            return this;
+        }
+
         @Override
         public GraphLoadingEvent createFinishingEvent() {
-            return new GraphLoadingEvent((DBSystemRoot) getSource(), false);
+            return new GraphLoadingEvent(getSystemRoot(), false);
+        }
+
+        public final void fireFinishingEvent() {
+            getSystemRoot().fireLoading(this.createFinishingEvent());
         }
 
         @Override
         public String toString() {
             return this.getClass().getSimpleName() + (this.isStarting() ? " starting" : " finishing") + " loading of " + this.getSource();
         }
+
     }
 
     static public class StructureLoadingEvent extends LoadingEvent {

@@ -371,7 +371,7 @@ public class Map2033B extends Thread {
          * PRODUITS EXCEPTIONNELS
          ******************************************************************************************/
         // 290 -SommeSolde( 77, 77* )-SommeSolde( 787, 789* )-SommeSolde( 797, 799* )
-        long v290 = -this.sommeCompte.soldeCompte(771, 771, true, this.dateDeb, this.dateFin) - this.sommeCompte.soldeCompte(775, 778, true, this.dateDeb, this.dateFin)
+        long v290 = -this.sommeCompte.soldeCompte(771, 772, true, this.dateDeb, this.dateFin) - this.sommeCompte.soldeCompte(775, 778, true, this.dateDeb, this.dateFin)
                 - this.sommeCompte.soldeCompte(787, 787, true, this.dateDeb, this.dateFin) - this.sommeCompte.soldeCompte(797, 797, true, this.dateDeb, this.dateFin);
         this.m.put("PCHARGES3.22", GestionDevise.currencyToString(v290, false));
 

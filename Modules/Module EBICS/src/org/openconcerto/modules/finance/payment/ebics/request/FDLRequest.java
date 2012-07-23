@@ -2,11 +2,8 @@ package org.openconcerto.modules.finance.payment.ebics.request;
 
 import java.util.Date;
 
-
 import org.openconcerto.modules.finance.payment.ebics.EbicsConfiguration;
-import org.openconcerto.modules.finance.payment.ebics.EbicsUtil;
 import org.openconcerto.modules.finance.payment.ebics.OrderType;
-import org.w3c.dom.DOMException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -58,6 +55,5 @@ public class FDLRequest extends EbicsRequest {
 
         return d;
     }
-
 
 }

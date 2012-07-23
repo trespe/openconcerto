@@ -14,7 +14,6 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.Log;
-import org.openconcerto.sql.model.LoadingListener.GraphLoadingEvent;
 import org.openconcerto.sql.model.LoadingListener.LoadingChangeSupport;
 import org.openconcerto.sql.model.LoadingListener.LoadingEvent;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
@@ -51,8 +50,8 @@ public final class DBSystemRoot extends DBStructureItemDB {
     @GuardedBy("graphMutex")
     private DatabaseGraph graph;
     private final Object graphMutex = new String("Graph mutex");
-    @GuardedBy("rootsToMap")
-    private final Set<String> rootsToMap;
+    @GuardedBy("this")
+    private Set<String> rootsToMap;
 
     @GuardedBy("supp")
     private final PropertyChangeSupport supp;
@@ -73,7 +72,8 @@ public final class DBSystemRoot extends DBStructureItemDB {
     DBSystemRoot(DBStructureItemJDBC delegate) {
         super(delegate);
         this.graph = null;
-        this.rootsToMap = Collections.synchronizedSet(new HashSet<String>());
+        // initial state since mapAllRoots() can cause exceptions to happen later on
+        mapNoRoots();
         this.ds = null;
         this.schemaPath = Collections.emptyList();
         this.incoherentPath = false;
@@ -132,8 +132,84 @@ public final class DBSystemRoot extends DBStructureItemDB {
         return (Map<String, DBRoot>) super.getChildrenMap();
     }
 
-    public Set<String> getRootsToMap() {
-        return this.rootsToMap;
+    /**
+     * Map all available roots. NOTE: once this method is called you cannot use
+     * {@link #removeExplicitRootToMap(String)}.
+     */
+    public final void mapAllRoots() {
+        this.setRootsToMap(null);
+    }
+
+    public final void mapNoRoots() {
+        this.setRootsToMap(Collections.<String> emptySet(), false, true);
+    }
+
+    public final void setRootToMap(final String rootName) {
+        this.setRootsToMap(Collections.singleton(rootName), false, true);
+    }
+
+    public final void setRootsToMap(final Collection<String> rootsNames) {
+        this.setRootsToMap(rootsNames, true, false);
+    }
+
+    /**
+     * The roots that will be mapped.
+     * 
+     * @return the immutable set of names of the roots, <code>null</code> meaning map all.
+     */
+    private final Set<String> getRootsToMap() {
+        // OK since immutable
+        synchronized (this) {
+            return this.rootsToMap;
+        }
+    }
+
+    private final void setRootsToMap(final Collection<String> rootsNames, final boolean copy, final boolean immutable) {
+        Set<String> s;
+        if (rootsNames == null) {
+            s = null;
+        } else {
+            final boolean needsCopy = copy || !(rootsNames instanceof Set);
+            s = needsCopy ? new HashSet<String>(rootsNames) : (Set<String>) rootsNames;
+            if (needsCopy || !immutable)
+                s = Collections.unmodifiableSet(s);
+        }
+        synchronized (this) {
+            this.rootsToMap = s;
+        }
+    }
+
+    public final void addRootToMap(final String rootName) {
+        this.addRootsToMap(Collections.singleton(rootName));
+    }
+
+    public final void addRootsToMap(final Collection<String> rootsNames) {
+        synchronized (this) {
+            // otherwise already included
+            if (this.rootsToMap != null) {
+                final Set<String> newSet = new HashSet<String>(this.rootsToMap);
+                if (newSet.addAll(rootsNames))
+                    this.rootsToMap = Collections.unmodifiableSet(newSet);
+            }
+        }
+    }
+
+    /**
+     * Remove a root to map.
+     * 
+     * @param rootName the root to remove.
+     * @throws IllegalStateException if {@link #mapAllRoots()} was called.
+     */
+    public final void removeExplicitRootToMap(final String rootName) throws IllegalStateException {
+        synchronized (this) {
+            // MAYBE rootsNotToMap
+            if (this.rootsToMap == null)
+                throw new IllegalStateException("Mapping all roots");
+
+            final Set<String> newSet = new HashSet<String>(this.rootsToMap);
+            if (newSet.remove(rootName))
+                this.rootsToMap = Collections.unmodifiableSet(newSet);
+        }
     }
 
     public final SQLTable findTable(String name) {
@@ -163,23 +239,6 @@ public final class DBSystemRoot extends DBStructureItemDB {
             return null;
     }
 
-    /**
-     * The children to create for the passed parent.
-     * 
-     * @param parent the parent.
-     * @return the children it can create or <code>null</code> for no restriction.
-     */
-    final Set<String> getNodesToCreate(DBStructureItemJDBC parent) {
-        if (isSystemRoot(parent)) {
-            final Set<String> rootsToMap = this.getRootsToMap();
-            synchronized (rootsToMap) {
-                return rootsToMap.size() == 0 ? null : rootsToMap;
-            }
-        } else {
-            return null;
-        }
-    }
-
     final boolean createNode(DBStructureItemJDBC parent, String childName) {
         if (!isSystemRoot(parent))
             return true;
@@ -189,11 +248,9 @@ public final class DBSystemRoot extends DBStructureItemDB {
         return !s.isEmpty();
     }
 
-    private boolean shouldMap(String childName) {
+    public final boolean shouldMap(String childName) {
         final Set<String> rootsToMap = this.getRootsToMap();
-        synchronized (rootsToMap) {
-            return rootsToMap.size() == 0 || rootsToMap.contains(childName);
-        }
+        return rootsToMap == null || rootsToMap.contains(childName);
     }
 
     private boolean isSystemRoot(DBStructureItemJDBC parent) {
@@ -212,54 +269,26 @@ public final class DBSystemRoot extends DBStructureItemDB {
         }
     }
 
-    private final void setGraph(DatabaseGraph graph) {
-        if (graph != null)
-            this.checkDropped();
-        final DatabaseGraph oldValue;
-        synchronized (this.graphMutex) {
-            oldValue = this.graph;
-            this.graph = graph;
-        }
-        synchronized (this.supp) {
-            this.supp.firePropertyChange("graph", oldValue, graph);
-        }
+    void descendantsChanged(DBStructureItemJDBC parent, Set<String> childrenRefreshed, final boolean readCache) {
+        this.descendantsChanged(parent, childrenRefreshed, readCache, true);
     }
 
-    void descendantsChanged() {
-        this.descendantsChanged(true);
-    }
-
-    void descendantsChanged(final boolean tableListChange) {
+    void descendantsChanged(DBStructureItemJDBC parent, Set<String> childrenRefreshed, final boolean readCache, final boolean tableListChange) {
         assert Thread.holdsLock(getTreeMutex()) : "By definition descendants must be changed with the tree lock";
-        this.clearGraph();
+        try {
+            // don't fire GraphLoadingEvent here since we might be in an atomicRefresh
+            this.getGraph().refresh(parent, childrenRefreshed, readCache);
+        } catch (SQLException e) {
+            throw new IllegalStateException("Couldn't refresh the graph");
+        }
         // the dataSource must always have all tables, to listen to them for its cache
         if (tableListChange)
             this.getDataSource().setTables(getDescs(SQLTable.class));
     }
 
-    private void clearGraph() {
-        this.setGraph(null);
-    }
-
     public DatabaseGraph getGraph() {
-        assert Thread.holdsLock(this.getTreeMutex()) || !Thread.holdsLock(this.graphMutex) : "Global public lock, then private lock";
-        synchronized (this.getTreeMutex()) {
-            synchronized (this.graphMutex) {
-                if (this.graph == null) {
-                    final LoadingEvent evt = new GraphLoadingEvent(this);
-                    try {
-                        fireLoading(evt);
-                        // keep new DatabaseGraph() inside the synchronized to prevent two
-                        // concurrent expensive creations
-                        this.setGraph(new DatabaseGraph(this));
-                    } catch (SQLException e) {
-                        throw new IllegalStateException("could not graph " + this, e);
-                    } finally {
-                        fireLoading(evt.createFinishingEvent());
-                    }
-                }
-                return this.graph;
-            }
+        synchronized (this.graphMutex) {
+            return this.graph;
         }
     }
 
@@ -285,7 +314,6 @@ public final class DBSystemRoot extends DBStructureItemDB {
                 e.printStackTrace();
             }
         }
-        this.clearGraph();
         super.onDrop();
     }
 
@@ -300,20 +328,25 @@ public final class DBSystemRoot extends DBStructureItemDB {
      * @throws SQLException if an error occurs.
      */
     public void refetch(Set<String> childrenNames) throws SQLException {
-        if (this.getJDBC() instanceof SQLBase)
-            ((SQLBase) this.getJDBC()).fetchTables(childrenNames);
-        else if (this.getJDBC() instanceof SQLServer) {
-            ((SQLServer) this.getJDBC()).refetch(childrenNames);
-        } else
-            throw new IllegalStateException();
+        this.refresh(childrenNames, false);
     }
 
-    public final void reload(Set<String> childrenNames) throws SQLException {
-        // only SQLBase has reload()
-        if (this.getJDBC() instanceof SQLBase)
-            ((SQLBase) this.getJDBC()).loadTables(childrenNames);
-        else
-            refetch(childrenNames);
+    public void reload() throws SQLException {
+        this.reload(null);
+    }
+
+    public void reload(Set<String> childrenNames) throws SQLException {
+        this.refresh(childrenNames, true);
+    }
+
+    public final void refresh(Set<String> childrenNames, final boolean readCache) throws SQLException {
+        if (this.getJDBC() instanceof SQLBase) {
+            ((SQLBase) this.getJDBC()).refresh(childrenNames, readCache);
+        } else if (this.getJDBC() instanceof SQLServer) {
+            ((SQLServer) this.getJDBC()).refresh(childrenNames, readCache);
+        } else {
+            throw new IllegalStateException();
+        }
     }
 
     /**
@@ -334,19 +367,29 @@ public final class DBSystemRoot extends DBStructureItemDB {
     }
 
     /**
-     * Add the passed roots to {@link #getRootsToMap()} and to root path and {@link #reload(Set)}.
+     * Add the passed roots to the roots to map and to root path then {@link #reload(Set)}.
      * 
      * @param roots the roots names to add.
      * @throws SQLException if problem while reloading.
      */
     public final void addRoots(final List<String> roots) throws SQLException {
-        this.getRootsToMap().addAll(roots);
-        this.reload(new HashSet<String>(roots));
-        synchronized (this) {
-            final List<String> newPath = new ArrayList<String>(this.getRootPath());
-            newPath.addAll(roots);
-            this.setRootPathWithPrivate(newPath);
-        }
+        this.addRoots(roots, true, true);
+    }
+
+    public final DBRoot addRoot(final String root, final boolean readCache) throws SQLException {
+        this.addRoots(Collections.singletonList(root), readCache);
+        return this.getRoot(root);
+    }
+
+    public final void addRoots(final List<String> roots, final boolean readCache) throws SQLException {
+        this.addRoots(roots, readCache, false);
+    }
+
+    public final void addRoots(final List<String> roots, final boolean readCache, final boolean addToPath) throws SQLException {
+        this.addRootsToMap(roots);
+        this.refresh(new HashSet<String>(roots), readCache);
+        if (addToPath)
+            this.appendToRootPath(roots);
     }
 
     /**
@@ -400,6 +443,10 @@ public final class DBSystemRoot extends DBStructureItemDB {
         if (dsInit != null)
             dsInit.executeChecked(this.ds);
 
+        synchronized (this.graphMutex) {
+            this.graph = new DatabaseGraph(this);
+        }
+
         this.addChildrenListener(this.coherenceListener);
 
         setRootPathFromDS();
@@ -451,9 +498,13 @@ public final class DBSystemRoot extends DBStructureItemDB {
         this.setRootPathWithImmutable(Collections.singletonList(schemaName));
     }
 
-    public synchronized final void appendToRootPath(String schemaName) {
+    public final void appendToRootPath(String schemaName) {
+        this.appendToRootPath(Collections.singletonList(schemaName));
+    }
+
+    public synchronized final void appendToRootPath(List<String> schemasNames) {
         final List<String> newPath = new ArrayList<String>(this.getRootPath());
-        newPath.add(schemaName);
+        newPath.addAll(schemasNames);
         this.setRootPathWithPrivate(newPath);
     }
 

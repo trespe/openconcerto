@@ -787,7 +787,7 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         SQLSelect selAllElt = new SQLSelect(tableFiche.getBase());
         selAllElt.addSelect(tableFicheElt.getField("ID"));
         selAllElt.addSelect(tableFicheElt.getField("POSITION"));
-        selAllElt.setWhere("FICHE_PAYE_ELEMENT.ID_FICHE_PAYE", "=", oldID);
+        selAllElt.setWhere(tableFicheElt.getField("ID_FICHE_PAYE"), "=", oldID);
         // selAllElt.setArchivedPolicy(SQLSelect.BOTH);
         selAllElt.setDistinct(true);
         selAllElt.addRawOrder("\"FICHE_PAYE_ELEMENT\".\"POSITION\"");

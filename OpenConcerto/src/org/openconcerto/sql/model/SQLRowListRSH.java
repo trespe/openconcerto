@@ -72,7 +72,7 @@ public final class SQLRowListRSH implements ResultSetHandler {
         }
         // cannot pass an alias to this method since getSelectFields() returns SQLField and not
         // FieldRef
-        final List<AliasedTable> aliases = sel.getAliases(t);
+        final List<TableRef> aliases = sel.getAliases(t);
         if (aliases.size() != 1)
             throw new IllegalArgumentException(t + " isn't exactly once : " + aliases);
         final List<String> l = new ArrayList<String>(size);

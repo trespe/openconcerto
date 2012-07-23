@@ -23,7 +23,9 @@ import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
 import org.openconcerto.sql.model.DBFileCache;
 import org.openconcerto.sql.model.DBItemFileCache;
 import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.DBStructureItemJDBC;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.LoadingListener.GraphLoadingEvent;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
@@ -31,11 +33,16 @@ import org.openconcerto.sql.model.SQLSchema;
 import org.openconcerto.sql.model.SQLServer;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.TableRef;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Link.Rule;
+import org.openconcerto.sql.model.graph.ToRefreshSpec.TablesByRoot;
+import org.openconcerto.sql.model.graph.ToRefreshSpec.ToRefreshActual;
+import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CompareUtils;
-import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.cc.IPredicate;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -52,8 +59,12 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.logging.Level;
 
+import net.jcip.annotations.GuardedBy;
 import net.jcip.annotations.ThreadSafe;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -85,41 +96,108 @@ public class DatabaseGraph extends BaseGraph {
     private static final String FILENAME = "graph.xml";
 
     private final DBSystemRoot base;
-    private final DBRoot context;
-    private final List<String> mappedFromFile;
+    @GuardedBy("this")
+    private Map<String, Set<String>> mappedFromFile;
     // cache
+    @GuardedBy("this")
     private final Map<SQLTable, Set<Link>> foreignLinks = new HashMap<SQLTable, Set<Link>>();
+    @GuardedBy("this")
     private final Map<List<SQLField>, Link> foreignLink = new HashMap<List<SQLField>, Link>();
+
+    private final ThreadLocal<Integer> atomicRefreshDepth = new ThreadLocal<Integer>() {
+        protected Integer initialValue() {
+            return 0;
+        };
+    };
+    private final ThreadLocal<ToRefreshSpec> atomicRefreshItems = new ThreadLocal<ToRefreshSpec>() {
+        @Override
+        protected ToRefreshSpec initialValue() {
+            return new ToRefreshSpec();
+        }
+    };
 
     /**
      * Crée le graphe de la base passée.
      * 
      * @param root la base dont on veut le graphe.
-     * @throws SQLException if an error occurs.
      */
-    public DatabaseGraph(DBSystemRoot root) throws SQLException {
+    public DatabaseGraph(final DBSystemRoot root) {
         super(new DirectedMultigraph<SQLTable, Link>(Link.class));
         this.base = root;
-        this.context = null;
-        synchronized (root.getTreeMutex()) {
-            this.mappedFromFile = Collections.unmodifiableList(this.mapTables());
+        this.mappedFromFile = null;
+    }
+
+    public final void refresh(final DBStructureItemJDBC parent, final Set<String> childrenRefreshed, final boolean readCache) throws SQLException {
+        if (inAtomicRefresh()) {
+            this.atomicRefreshItems.get().add(parent, childrenRefreshed, readCache);
+        } else {
+            refresh(new ToRefreshSpec().add(parent, childrenRefreshed, readCache));
         }
     }
 
-    public DatabaseGraph(DatabaseGraph g, DBRoot root) {
-        super(g.getGraphP());
-        assert g.base == root.getDBSystemRoot();
-        this.base = g.base;
-        this.context = root;
-        this.mappedFromFile = g.mappedFromFile;
+    private final void refresh(final ToRefreshSpec toRefresh) throws SQLException {
+        synchronized (this.base.getTreeMutex()) {
+            synchronized (this) {
+                final GraphLoadingEvent evt = new GraphLoadingEvent(this.base).fireEvent();
+                try {
+                    this.mappedFromFile = Collections.unmodifiableMap(this.mapTables(toRefresh));
+                } finally {
+                    evt.fireFinishingEvent();
+                }
+            }
+        }
+    }
+
+    /**
+     * Whether this thread is in an atomic refresh. NOTE: if <code>true</code> then the graph won't
+     * be up to date.
+     * 
+     * @return <code>true</code> if this thread is in an atomic refresh.
+     */
+    public final boolean inAtomicRefresh() {
+        return this.atomicRefreshDepth.get().intValue() > 0;
+    }
+
+    /**
+     * Execute the passed Callable with only one refresh at the end. This method is reentrant.
+     * 
+     * @param callable what to do.
+     * @return the result of <code>callable</code>.
+     * @throws SQLException if an error occurs.
+     */
+    public final <V> V atomicRefresh(final Callable<V> callable) throws SQLException {
+        final V res;
+        this.atomicRefreshDepth.set(this.atomicRefreshDepth.get().intValue() + 1);
+        // this method is useful for grouping multiple changes to the structure, so be sure to
+        // prevent other threads from modifying and thus changing the graph
+        synchronized (this.base.getTreeMutex()) {
+            final int newVal;
+            try {
+                res = callable.call();
+            } catch (Exception e) {
+                throw new SQLException("Call failed", e);
+            } finally {
+                newVal = this.atomicRefreshDepth.get().intValue() - 1;
+                this.atomicRefreshDepth.set(newVal);
+                assert newVal >= 0;
+            }
+            if (newVal == 0) {
+                final ToRefreshSpec itemsToRefresh = this.atomicRefreshItems.get();
+                this.atomicRefreshItems.remove();
+                this.atomicRefreshDepth.remove();
+                // we need to call refresh() only once to avoid order and cycle issues
+                refresh(itemsToRefresh);
+            }
+        }
+        return res;
     }
 
     /**
      * The list of roots mapped from file.
      * 
-     * @return list of roots mapped from file.
+     * @return list of roots and tables mapped from file.
      */
-    final List<String> getMappedFromFile() {
+    synchronized final Map<String, Set<String>> getMappedFromFile() {
         return this.mappedFromFile;
     }
 
@@ -127,47 +205,105 @@ public class DatabaseGraph extends BaseGraph {
         return this.base.getAnc(SQLServer.class);
     }
 
-    private DBRoot getContext() {
-        return this.context;
-    }
-
     /**
      * Construit la carte des tables
      * 
-     * @return roots loaded from file.
+     * @param toRefreshSpec the roots and tables to refresh.
+     * @return roots and tables loaded from file.
      * @throws SQLException if an error occurs.
      */
-    private List<String> mapTables() throws SQLException {
+    private synchronized Map<String, Set<String>> mapTables(final ToRefreshSpec toRefreshSpec) throws SQLException {
         assert Thread.holdsLock(this.base.getTreeMutex()) : "Cannot graph a changing object";
-        List<String> res = Collections.emptyList();
-        final Set<SQLTable> tables = this.base.getDescs(SQLTable.class);
-        Graphs.addAllVertices(this.getGraphP(), tables);
-        final DBItemFileCache dir = this.getFileCache();
-        List<String> childrenToFetch = new ArrayList<String>(this.base.getChildrenNames());
-        try {
-            if (dir != null) {
-                Log.get().config("for mapping " + this + " trying xmls in " + dir);
-                final long t1 = System.currentTimeMillis();
-                res = this.mapFromXML();
-                childrenToFetch.removeAll(res);
-                final long t2 = System.currentTimeMillis();
-                Log.get().config("XML took " + (t2 - t1) + "ms for mapping the graph of " + this.base.getName() + "." + res);
+        Map<String, Set<String>> res = new TablesByRoot();
+
+        final Set<SQLTable> currentTables = this.getAllTables();
+        final ToRefreshActual toRefresh = toRefreshSpec.getActual(this.base, currentTables);
+        // clear graph and add tables (vertices)
+        {
+            final Set<SQLTable> newTablesInScope = toRefresh.getNewTablesInScope();
+            final Set<SQLTable> oldTablesInScope = toRefresh.getOldTablesInScope();
+            // refresh all ?
+            final boolean clearGraph = oldTablesInScope.equals(currentTables);
+
+            // clear cache
+            synchronized (this) {
+                if (clearGraph) {
+                    this.foreignLink.clear();
+                    this.foreignLinks.clear();
+                } else {
+                    for (final Iterator<Entry<List<SQLField>, Link>> iter = this.foreignLink.entrySet().iterator(); iter.hasNext();) {
+                        final Entry<List<SQLField>, Link> e = iter.next();
+                        // don't use e.getValue() since it can be null
+                        final SQLTable linkTable = e.getKey().get(0).getTable();
+                        if (oldTablesInScope.contains(linkTable))
+                            iter.remove();
+                    }
+                    for (final Iterator<Entry<SQLTable, Set<Link>>> iter = this.foreignLinks.entrySet().iterator(); iter.hasNext();) {
+                        final Entry<SQLTable, Set<Link>> e = iter.next();
+                        final SQLTable linkTable = e.getKey().getTable();
+                        if (oldTablesInScope.contains(linkTable))
+                            iter.remove();
+                    }
+                }
             }
-        } catch (Exception e) {
-            SQLBase.logCacheError(dir, e);
-            this.deleteGraphFiles();
+
+            if (clearGraph) {
+                this.getGraphP().removeAllVertices(oldTablesInScope);
+                assert this.getGraphP().vertexSet().size() == 0 && this.getGraphP().edgeSet().size() == 0;
+            } else {
+                // removing a vertex also removes edges, so only remove tables that don't exist
+                // anymore to avoid removing links pointing to tables.
+                this.getGraphP().removeAllVertices(org.openconcerto.utils.CollectionUtils.subtract(oldTablesInScope, newTablesInScope));
+
+                // remove links that will be refreshed.
+                final Set<Link> linksToRemove = new HashSet<Link>();
+                for (final SQLTable t : org.openconcerto.utils.CollectionUtils.intersection(oldTablesInScope, newTablesInScope)) {
+                    linksToRemove.addAll(this.getGraphP().outgoingEdgesOf(t));
+                }
+                this.getGraphP().removeAllEdges(linksToRemove);
+            }
+
+            // add new tables (and existing but it's OK graph vertices is a set)
+            Graphs.addAllVertices(this.getGraphP(), newTablesInScope);
         }
-        if (!childrenToFetch.isEmpty()) {
+        final TablesByRoot fromXML = toRefresh.getFromXML();
+        final TablesByRoot fromJDBC = toRefresh.getFromJDBC();
+        if (fromXML.size() > 0) {
+            final DBItemFileCache dir = this.getFileCache();
+            try {
+                if (dir != null) {
+                    Log.get().config("for mapping " + this + " trying xmls in " + dir);
+                    final long t1 = System.currentTimeMillis();
+                    res = this.mapFromXML(fromXML);
+                    // remove what was loaded
+                    fromXML.removeAll(res);
+                    final long t2 = System.currentTimeMillis();
+                    Log.get().config("XML took " + (t2 - t1) + "ms for mapping the graph of " + this.base.getName() + "." + res);
+                }
+            } catch (Exception e) {
+                SQLBase.logCacheError(dir, e);
+                this.deleteGraphFiles();
+            }
+            // add to JDBC what wasn't loaded
+            fromJDBC.addAll(fromXML);
+        }
+        if (!fromJDBC.isEmpty()) {
             final long t1 = System.currentTimeMillis();
-            for (final String rootName : childrenToFetch) {
+            for (final Entry<String, Set<String>> e : fromJDBC.entrySet()) {
+                final String rootName = e.getKey();
+                final Set<String> tableNames = e.getValue();
                 final DBRoot r = this.base.getRoot(rootName);
-                for (final SQLTable table : r.getDescs(SQLTable.class)) {
-                    this.map(table);
+                // first try to map the whole root at once
+                if (!this.map(r, tableNames)) {
+                    // if this isn't supported use standard JDBC
+                    for (final String table : tableNames) {
+                        this.map(r, table, null);
+                    }
                 }
                 this.save(r);
             }
             final long t2 = System.currentTimeMillis();
-            Log.get().config("JDBC took " + (t2 - t1) + "ms for mapping the graph of " + this.base + "." + childrenToFetch);
+            Log.get().config("JDBC took " + (t2 - t1) + "ms for mapping the graph of " + this.base + "." + fromJDBC);
         }
         return res;
     }
@@ -180,13 +316,26 @@ public class DatabaseGraph extends BaseGraph {
         DirectedEdge.addEdge(this.getGraphP(), l);
     }
 
-    private void map(final SQLTable table) throws SQLException {
-        final Set<String> metadataFKs = new HashSet<String>();
+    private boolean map(final DBRoot r, final Set<String> tableNames) throws SQLException {
+        if (r.getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
+            this.map(r, null, tableNames);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    private void map(final DBRoot r, final String tableName, final Set<String> tableNames) throws SQLException {
+        // either we refresh the whole root and we must know which tables to use
+        // or we refresh only one table and tableNames is useless
+        assert tableName == null ^ tableNames == null;
+        final SQLServer server = r.getServer();
+        final CollectionMap<String, String> metadataFKs = new CollectionMap<String, String>(new HashSet<String>());
         final List importedKeys = this.base.getDataSource().useConnection(new ConnectionHandlerNoSetup<List, SQLException>() {
             @Override
             public List handle(final SQLDataSource ds) throws SQLException {
                 final DatabaseMetaData metaData = ds.getConnection().getMetaData();
-                return (List) SQLDataSource.ARRAY_LIST_HANDLER.handle(metaData.getImportedKeys(table.getBase().getMDName(), table.getSchema().getName(), table.getName()));
+                return (List) SQLDataSource.ARRAY_LIST_HANDLER.handle(metaData.getImportedKeys(r.getBase().getMDName(), r.getSchema().getName(), tableName));
             }
         });
         // accumulators for multi-field foreign key
@@ -199,6 +348,13 @@ public class DatabaseGraph extends BaseGraph {
         while (ikIter.hasNext()) {
             final Object[] m = (Object[]) ikIter.next();
 
+            // FKTABLE_SCHEM
+            assert CompareUtils.equals(m[5], r.getSchema().getName());
+            // FKTABLE_NAME
+            final String fkTableName = (String) m[6];
+            assert tableName == null || tableName.equals(fkTableName);
+            if (tableNames != null && !tableNames.contains(fkTableName))
+                continue;
             // not by name, postgresql returns lowercase
             // "FKCOLUMN_NAME"
             final String keyName = (String) m[7];
@@ -211,7 +367,7 @@ public class DatabaseGraph extends BaseGraph {
             if (this.base.getServer().getSQLSystem().isInterBaseSupported() && m[0] != null) {
                 foreignCat = (String) m[0];
             } else
-                foreignCat = table.getBase().getName();
+                foreignCat = r.getBase().getName();
             // "PKTABLE_SCHEM"
             final String foreignSchema = (String) m[1];
             // "PKTABLE_NAME"
@@ -221,8 +377,9 @@ public class DatabaseGraph extends BaseGraph {
             // "FK_NAME"
             final String foreignKeyName = (String) m[11];
 
-            final SQLField key = table.getField(keyName);
-            final SQLSchema schema = table.getBase().getServer().getBase(foreignCat).getSchema(foreignSchema);
+            final SQLField key = r.getTable(fkTableName).getField(keyName);
+            final SQLBase base = server.getBase(foreignCat);
+            final SQLSchema schema = base == null ? null : base.getSchema(foreignSchema);
             if (schema == null)
                 throw new IllegalStateException(key.getSQLName() + " references " + foreignCat + "." + foreignSchema + " which does not exist (probably filtered by DBSystemRoot.getRootsToMap())");
             final SQLTable foreignTable;
@@ -233,7 +390,7 @@ public class DatabaseGraph extends BaseGraph {
             else
                 foreignTable = (SQLTable) schema.getCheckedChild(foreignTableName);
 
-            metadataFKs.add(keyName);
+            metadataFKs.put(fkTableName, keyName);
             if (seq == 1) {
                 // if we start a new link add the current one
                 if (from.size() > 0)
@@ -242,11 +399,23 @@ public class DatabaseGraph extends BaseGraph {
                 to.clear();
             }
             from.add(key);
+            assert seq == 1 || from.get(from.size() - 2).getTable() == from.get(from.size() - 1).getTable();
             to.add(foreignTable.getField(foreignTableColName));
+            assert seq == 1 || to.get(to.size() - 2).getTable() == to.get(to.size() - 1).getTable();
+
+            final Rule prevUpdateRule = updateRule;
+            final Rule prevDeleteRule = deleteRule;
             // "UPDATE_RULE"
             updateRule = Rule.fromShort(((Number) m[9]).shortValue());
             // "DELETE_RULE"
             deleteRule = Rule.fromShort(((Number) m[10]).shortValue());
+            if (seq > 1) {
+                if (prevUpdateRule != updateRule)
+                    throw new IllegalStateException("Incoherent update rules " + prevUpdateRule + " != " + updateRule);
+                if (prevDeleteRule != deleteRule)
+                    throw new IllegalStateException("Incoherent delete rules " + prevDeleteRule + " != " + deleteRule);
+            }
+
             name = foreignKeyName;
             // MAYBE DEFERRABILITY
         }
@@ -254,13 +423,17 @@ public class DatabaseGraph extends BaseGraph {
             addLink(from, to, name, updateRule, deleteRule);
 
         if (Boolean.getBoolean(INFER_FK)) {
-            final Set<String> lexicalFKs = SQLKey.foreignKeys(table);
-            // already done
-            lexicalFKs.removeAll(metadataFKs);
-            // MAYBE option to print out foreign keys w/o constraint
-            for (final String keyName : lexicalFKs) {
-                final SQLField key = table.getField(keyName);
-                addLink(singletonList(key), singletonList(SQLKey.keyToTable(key).getKey()), null, null, null);
+            final Set<String> tables = tableName != null ? Collections.singleton(tableName) : tableNames;
+            for (final String tableToInfer : tables) {
+                final SQLTable table = r.getTable(tableToInfer);
+                final Set<String> lexicalFKs = SQLKey.foreignKeys(table);
+                // already done
+                lexicalFKs.removeAll(metadataFKs.getNonNull(table.getName()));
+                // MAYBE option to print out foreign keys w/o constraint
+                for (final String keyName : lexicalFKs) {
+                    final SQLField key = table.getField(keyName);
+                    addLink(singletonList(key), singletonList(SQLKey.keyToTable(key).getKey()), null, null, null);
+                }
             }
         }
     }
@@ -275,13 +448,13 @@ public class DatabaseGraph extends BaseGraph {
     // ** cache
 
     /**
-     * Where xml dumps are saved, always <code>null</code> if "org.openconcerto.sql.structure.useXML" is
+     * Where xml dumps are saved, always <code>null</code> if {@link SQLBase#STRUCTURE_USE_XML} is
      * <code>false</code>.
      * 
      * @return the directory of xmls dumps, <code>null</code> if it can't be found.
      */
     private DBItemFileCache getFileCache() {
-        final boolean useXML = Boolean.getBoolean("org.openconcerto.sql.structure.useXML");
+        final boolean useXML = Boolean.getBoolean(SQLBase.STRUCTURE_USE_XML);
         final DBFileCache d = this.getServer().getFileCache();
         if (!useXML || d == null)
             return null;
@@ -351,26 +524,29 @@ public class DatabaseGraph extends BaseGraph {
 
                 return true;
             } catch (Exception e) {
-                Log.get().warning("unable to save files in " + rootFile + "\n" + ExceptionUtils.getStackTrace(e));
+                Log.get().log(Level.WARNING, "unable to save files in " + rootFile, e);
                 return false;
             }
     }
 
     /**
-     * Loads all necessary saved roots (ie ignore filtered).
+     * Loads all passed saved roots.
      * 
-     * @return the root names that were loaded.
+     * @param fromXML the roots and tables to refresh.
+     * @return the root and tables names that were loaded.
      * @throws JDOMException if a file is not valid XML.
      * @throws IOException if a file content is not correct.
      */
-    private List<String> mapFromXML() throws JDOMException, IOException {
-        final List<String> res = new ArrayList<String>();
+    private TablesByRoot mapFromXML(final TablesByRoot fromXML) throws JDOMException, IOException {
+        final TablesByRoot res = new TablesByRoot();
         for (final DBItemFileCache cache : getSavedCaches(true)) {
+            final String rootName = cache.getName();
+            if (!fromXML.containsKey(rootName))
+                continue;
             final Document doc = new SAXBuilder().build(getGraphFile(cache));
             final String fileVersion = doc.getRootElement().getAttributeValue("codecVersion");
             if (!XML_VERSION.equals(fileVersion))
                 throw new IOException("wrong version expected " + XML_VERSION + " got: " + fileVersion);
-            final String rootName = cache.getName();
             // if the systemRoot doesn't contain the saved root, it means it is filtered (otherwise
             // it would have been erased) so we don't need to load it
             if (this.base.contains(rootName)) {
@@ -382,15 +558,21 @@ public class DatabaseGraph extends BaseGraph {
                 final String actualVersion = r.getSchema().getVersion();
                 if (!CompareUtils.equals(xmlVersion, actualVersion))
                     throw new IOException("wrong version expected " + actualVersion + " got: " + xmlVersion);
+                final Set<String> fromXMLTableNames = fromXML.get(rootName);
                 for (final Object o : doc.getRootElement().getChildren()) {
                     final Element tableElem = (Element) o;
                     final SQLTable t = r.getTable(tableElem.getAttributeValue("name"));
-                    for (final Object lo : tableElem.getChildren()) {
-                        final Element linkElem = (Element) lo;
-                        addLink(Link.fromXML(t, linkElem));
+                    if (fromXMLTableNames.contains(t.getName())) {
+                        for (final Object lo : tableElem.getChildren()) {
+                            final Element linkElem = (Element) lo;
+                            addLink(Link.fromXML(t, linkElem));
+                        }
+                        res.add(rootName, t.getName());
                     }
                 }
-                res.add(rootName);
+                // add the root even if no tables have links
+                if (!res.containsKey(rootName))
+                    res.put(rootName, Collections.<String> emptySet());
             }
         }
         return res;
@@ -408,6 +590,84 @@ public class DatabaseGraph extends BaseGraph {
         if (table == null)
             throw new NullPointerException();
         return this.getGraphP().edgesOf(table);
+    }
+
+    public Set<Link> getLinks(SQLTable table, Direction dir) {
+        if (table == null || dir == null)
+            throw new NullPointerException();
+        if (dir == Direction.ANY)
+            return this.getAllLinks(table);
+        else if (dir == Direction.REFERENT)
+            return this.getReferentLinks(table);
+        else
+            return this.getForeignLinks(table);
+    }
+
+    public Set<Link> getLinks(SQLTable table, Direction dir, final IPredicate<? super Link> pred) {
+        final Set<Link> allLinks = this.getLinks(table, dir);
+        // don't create instance for nothing
+        return pred == null || pred == IPredicate.truePredicate() ? allLinks : org.openconcerto.utils.CollectionUtils.filter(allLinks, pred, new HashSet<Link>());
+    }
+
+    public Set<Link> getLinksWithOpposite(final SQLTable table, final Direction dir, final String oppositeTableName) {
+        return this.getLinks(table, dir, oppositeTableName == null ? null : new Link.NamePredicate(table, oppositeTableName));
+    }
+
+    /**
+     * Get a single link from/to <code>table</code>.
+     * 
+     * @param table an end of the link.
+     * @param dir should the link start from or end at <code>table</code>.
+     * @return the single link.
+     * @throws IllegalStateException if not one and only one link matching.
+     */
+    public Link getLink(final SQLTable table, final Direction dir) {
+        return this.getLink(table, dir, null);
+    }
+
+    public Link getLink(final SQLTable table, final Direction dir, final IPredicate<? super Link> pred) {
+        return this.getLink(table, dir, pred, false);
+    }
+
+    public Link getLinkWithOpposite(final SQLTable table, final Direction dir, final String oppositeTableName, final boolean nullIfNone) {
+        return this.getLink(table, dir, oppositeTableName == null ? null : new Link.NamePredicate(table, oppositeTableName), nullIfNone);
+    }
+
+    /**
+     * Get a single link from/to <code>table</code>.
+     * 
+     * @param table an end of the link.
+     * @param dir should the link start from or end at <code>table</code>.
+     * @param pred to filter the links from/to <code>table</code>.
+     * @param nullIfNone if <code>false</code> this method never returns <code>null</code>, if
+     *        <code>true</code> it will return <code>null</code> if no link matches.
+     * @throws IllegalStateException if not one and only one link matching.
+     * @return the single link, or <code>null</code> if none matched and <code>nullIfNone</code> is
+     *         true.
+     */
+    public Link getLink(final SQLTable table, final Direction dir, final IPredicate<? super Link> pred, final boolean nullIfNone) {
+        final Set<Link> res = this.getLinks(table, dir, pred);
+        if (res.size() > 1) {
+            throw new IllegalStateException("More than one link : " + res);
+        } else if (res.size() == 0) {
+            if (nullIfNone)
+                return null;
+            else
+                throw new IllegalStateException("No link");
+        }
+        return res.iterator().next();
+    }
+
+    Set<Link> getLinks(SQLTable table, Direction dir, final boolean onlyOne) {
+        return this.getLinks(table, dir, onlyOne, null);
+    }
+
+    Set<Link> getLinks(SQLTable table, Direction dir, final boolean onlyOne, final IPredicate<? super Link> pred) {
+        if (onlyOne)
+            // don't want nullIfNone
+            return Collections.singleton(this.getLink(table, dir, pred, false));
+        else
+            return this.getLinks(table, dir, pred);
     }
 
     // Foreign
@@ -593,7 +853,7 @@ public class DatabaseGraph extends BaseGraph {
      * @param t2 la deuxieme table.
      * @return le OR de tous les liens entres les 2 tables.
      */
-    public Where getWhereClause(SQLTable t1, SQLTable t2) {
+    public Where getWhereClause(TableRef t1, TableRef t2) {
         return this.getWhereClause(t1, t2, null);
     }
 
@@ -605,15 +865,9 @@ public class DatabaseGraph extends BaseGraph {
      * @param fields les champs à utiliser, <code>null</code> pour tous.
      * @return le OR des champs passés.
      */
-    public Where getWhereClause(SQLTable t1, SQLTable t2, Set<SQLField> fields) {
-        Where res = null;
-        final Iterator<Where> i = this.getStraightWhereClause(t1, t2, fields).iterator();
-        while (i.hasNext()) {
-            final Where w = i.next();
-            // OR car OBSERVATION.ID_ARTICLE_1,2,3
-            res = w.or(res);
-        }
-        return res;
+    public Where getWhereClause(TableRef t1, TableRef t2, Set<SQLField> fields) {
+        // OR car OBSsERVATION.ID_ARTICLE_1,2,3
+        return Where.or(this.getStraightWhereClause(t1, t2, fields));
     }
 
     /**
@@ -624,14 +878,21 @@ public class DatabaseGraph extends BaseGraph {
      * @param fields les champs à utiliser, <code>null</code> pour tous.
      * @return les WHERE demandés.
      */
-    public Set<Where> getStraightWhereClause(SQLTable t1, SQLTable t2, Set<SQLField> fields) {
+    public Set<Where> getStraightWhereClause(TableRef t1, TableRef t2, Set<SQLField> fields) {
         final Set<Where> res = new HashSet<Where>();
 
-        for (final Link l : this.getLinks(t1, t2)) {
+        for (final Link l : this.getLinks(t1.getTable(), t2.getTable())) {
             final SQLField f = l.getLabel();
             if (fields == null || fields != null && fields.contains(f)) {
                 final SQLTable target = l.getTarget();
-                res.add(new Where(f, "=", target.getKey()));
+                assert target == t1.getTable() || target == t2.getTable();
+                final Where w;
+                if (target == t1.getTable()) {
+                    w = new Where(t2.getField(f.getName()), "=", t1.getKey());
+                } else {
+                    w = new Where(t1.getField(f.getName()), "=", t2.getKey());
+                }
+                res.add(w);
             }
         }
 
@@ -649,18 +910,6 @@ public class DatabaseGraph extends BaseGraph {
     }
 
     // *** Jointures
-
-    /**
-     * La jointure du chemin passé. Le chemin est une liste de String, chaque chaine doit être soit
-     * le nom d'une table, soit le nom complet d'un champ (TABLE.FIELD_NAME). <br/>
-     * TODO passer des SQLTable.
-     * 
-     * @param path le chemin (en String) de la jointure.
-     * @return en 0 la clause WHERE, en 1 les tables.
-     */
-    public Where getJointure(List<String> path) {
-        return this.getJointure(Path.create(this.getContext(), path));
-    }
 
     public Where getJointure(Path p) {
         Where res = null;

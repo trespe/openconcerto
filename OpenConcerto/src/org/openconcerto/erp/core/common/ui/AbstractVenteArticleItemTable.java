@@ -37,6 +37,7 @@ import org.openconcerto.sql.view.list.CellDynamicModifier;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
+import org.openconcerto.sql.view.list.ValidStateChecker;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.math.BigDecimal;
@@ -403,6 +404,8 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         this.totalHT.setRenderer(new DeviseNiceTableCellRenderer());
         list.add(this.totalHT);
         // Total TTC
+        // FIXME add a modifier -> T_TTC modify P_VT_METRIQUE_1 + fix CellDynamicModifier not fire
+        // if value not changed
         this.tableElementTotalTTC = new SQLTableElement(e.getTable().getField("T_PV_TTC"), Long.class, new DeviseCellEditor());
         this.tableElementTotalTTC.setRenderer(new DeviseNiceTableCellRenderer());
         list.add(this.tableElementTotalTTC);
@@ -492,7 +495,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         m2.setWhere(new Where(sqlTableArticle.getField("OBSOLETE"), "=", Boolean.FALSE));
 
         final AutoCompletionManager m3 = new AutoCompletionManager(tableElementArticle, sqlTableArticle.getField("NOM"), this.table, this.table.getRowValuesTableModel(),
-                ITextWithCompletion.MODE_CONTAINS, true, true) {
+                ITextWithCompletion.MODE_CONTAINS, true, true, new ValidStateChecker()) {
             @Override
             protected Object getValueFrom(SQLRow row, String field) {
                 Object res = tarifCompletion(row, field);

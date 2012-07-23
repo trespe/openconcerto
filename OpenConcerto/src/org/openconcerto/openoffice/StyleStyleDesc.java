@@ -74,7 +74,17 @@ public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> 
     }
 
     public final S findDefaultStyle(final ODPackage pkg) {
-        final Element styleElem = pkg.getDefaultStyle(this);
+        return this.getDefaultStyle(pkg, false);
+    }
+    
+    public final S getDefaultStyle(final ODPackage pkg, final boolean create) {
+        final Element styleElem = pkg.getDefaultStyle(this, create);
         return styleElem == null ? null : this.create(pkg, styleElem);
+    }
+
+    public final Element createDefaultElement() {
+        final Element res = new Element(StyleStyleDesc.ELEMENT_DEFAULT_NAME, getElementNS());
+        this.initStyle(res);
+        return res;
     }
 }

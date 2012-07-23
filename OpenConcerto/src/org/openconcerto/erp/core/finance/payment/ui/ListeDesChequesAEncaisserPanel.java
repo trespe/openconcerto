@@ -353,7 +353,7 @@ public class ListeDesChequesAEncaisserPanel extends JPanel {
             }
         });
 
-        if (UserManager.getInstance().getCurrentUser().getRights().haveRight(ComptaTotalUserRight.TOTAL)) {
+        if (UserManager.getInstance().getCurrentUser().getRights().haveRight(ComptaTotalUserRight.MENU)) {
 
             menuDroit.add(new AbstractAction("Régularisation en comptabilité") {
 

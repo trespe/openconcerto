@@ -79,7 +79,7 @@ public class HistoriqueFournBilanPanel extends JPanel {
         SQLSelect selNb = new SQLSelect(base);
         selNb.addSelectStar(tableC);
         if (idFournisseur > 1) {
-            selNb.setWhere(tableC.getName() + ".ID_FOURNISSEUR", "=", idFournisseur);
+            selNb.setWhere(tableC.getField("ID_FOURNISSEUR"), "=", idFournisseur);
         }
         List lnb = (List) base.getDataSource().execute(selNb.asString(), new ArrayListHandler());
         final int nombreCheque = (lnb == null) ? 0 : lnb.size();
@@ -127,7 +127,7 @@ public class HistoriqueFournBilanPanel extends JPanel {
         SQLSelect selNb = new SQLSelect(base);
         selNb.addSelectStar(tableC);
         if (idFournisseur > 1) {
-            selNb.setWhere(tableC.getName() + ".ID_FOURNISSEUR", "=", idFournisseur);
+            selNb.setWhere(tableC.getField("ID_FOURNISSEUR"), "=", idFournisseur);
         }
         List lnb = (List) base.getDataSource().execute(selNb.asString(), new ArrayListHandler());
         final int nombreAchat = (lnb == null) ? 0 : lnb.size();
@@ -161,7 +161,7 @@ public class HistoriqueFournBilanPanel extends JPanel {
         sel.addSelect(f, "SUM");
 
         if (idFourn > 1) {
-            sel.setWhere(f.getTable().getName() + ".ID_FOURNISSEUR", "=", idFourn);
+            sel.setWhere(f.getTable().getField("ID_FOURNISSEUR"), "=", idFourn);
         }
         List l = (List) f.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
 

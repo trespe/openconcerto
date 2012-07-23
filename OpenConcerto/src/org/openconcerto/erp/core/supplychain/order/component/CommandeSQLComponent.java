@@ -20,6 +20,7 @@ import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
 import org.openconcerto.erp.core.supplychain.order.ui.CommandeItemTable;
 import org.openconcerto.erp.generationDoc.gestcomm.CommandeXmlSheet;
@@ -34,12 +35,12 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.ui.AutoHideListener;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
@@ -161,7 +162,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             c.fill = GridBagConstraints.HORIZONTAL;
             final ElementComboBox boxContactFournisseur = new ElementComboBox();
             final SQLElement contactElement = Configuration.getInstance().getDirectory().getElement("CONTACT_FOURNISSEUR");
-            boxContactFournisseur.init(contactElement, new ComboSQLRequest(contactElement.getComboRequest()));
+            boxContactFournisseur.init(contactElement, contactElement.getComboRequest(true));
             this.add(boxContactFournisseur, c);
             this.addView(boxContactFournisseur, "ID_CONTACT_FOURNISSEUR", REQ);
 
@@ -504,18 +505,28 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         }
 
         DeviseField textPortHT = new DeviseField();
+        ElementComboBox comboTaxePort = new ElementComboBox();
 
         if (getTable().contains("PORT_HT")) {
             addRequiredSQLObject(textPortHT, "PORT_HT");
-            final JPanel panelPoids = new JPanel();
-
-            panelPoids.add(new JLabel(getLabelFor("PORT_HT")), c);
-
-            // textPortHT.setEnabled(false);
+            final JPanel panelPoids = new JPanel(new GridBagLayout());
+            GridBagConstraints cPort = new DefaultGridBagConstraints();
+            cPort.gridx = 0;
+            cPort.weightx = 0;
+            panelPoids.add(new JLabel(getLabelFor("PORT_HT")), cPort);
             textPortHT.setHorizontalAlignment(JTextField.RIGHT);
-            // textPortHT.setDisabledTextColor(Color.BLACK);
+            cPort.gridx++;
+            cPort.weightx = 1;
+            panelPoids.add(textPortHT, cPort);
 
-            panelPoids.add(textPortHT, c);
+            cPort.gridy++;
+            cPort.gridx = 0;
+            cPort.weightx = 0;
+            addRequiredSQLObject(comboTaxePort, "ID_TAXE_PORT");
+            panelPoids.add(new JLabel(getLabelFor("ID_TAXE_PORT")), cPort);
+            cPort.gridx++;
+            cPort.weightx = 0;
+            panelPoids.add(comboTaxePort, cPort);
 
             c.gridx++;
             c.gridy = 0;
@@ -546,7 +557,8 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
         addRequiredSQLObject(fieldTTC, "T_TTC");
         addRequiredSQLObject(fieldService, "T_SERVICE");
-        final TotalPanel totalTTC = new TotalPanel(this.table, fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, null, fieldDevise, null, null);
+        final TotalPanel totalTTC = new TotalPanel(this.table, fieldHT, fieldTVA, fieldTTC, textPortHT, textRemiseHT, fieldService, null, fieldDevise, null, null,
+                (getTable().contains("ID_TAXE_PORT") ? comboTaxePort : null));
 
         c.gridx++;
         c.gridy--;
@@ -558,6 +570,12 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         DefaultGridBagConstraints.lockMinimumSize(totalTTC);
 
         panel.add(totalTTC, c);
+
+        c.gridy += 3;
+        c.gridheight = 2;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.EAST;
+        panel.add(getModuleTotalPanel(), c);
 
         table.getModel().addTableModelListener(new TableModelListener() {
 
@@ -580,6 +598,15 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             }
         });
 
+        comboTaxePort.addValueListener(new PropertyChangeListener() {
+
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                // TODO Raccord de méthode auto-généré
+                totalTTC.updateTotal();
+            }
+        });
+
         textRemiseHT.getDocument().addDocumentListener(new DocumentListener() {
             public void changedUpdate(DocumentEvent e) {
                 totalTTC.updateTotal();
@@ -594,6 +621,11 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             }
         });
         return panel;
+    }
+
+    protected JPanel getModuleTotalPanel() {
+
+        return AutoHideListener.listen(new JPanel());
     }
 
     public int insert(SQLRow order) {
@@ -716,6 +748,10 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         rowVals.put("T_TVA", Long.valueOf(0));
         rowVals.put("T_TTC", Long.valueOf(0));
         rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class));
+
+        if (getTable().contains("ID_TAXE_PORT")) {
+            rowVals.put("ID_TAXE_PORT", TaxeCache.getCache().getIdFromTaux(19.6F));
+        }
 
         return rowVals;
     }

@@ -16,6 +16,8 @@
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.cc.IdentityHashSet;
+import org.openconcerto.utils.cc.IdentitySet;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -500,6 +502,17 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
         return lastI;
     }
 
+    public static <T> Collection<T> filter(final Collection<T> a, final IPredicate<? super T> pred) {
+        return filter(a, pred, new ArrayList<T>());
+    }
+
+    public static <T, C extends Collection<? super T>> C filter(final Collection<T> a, final IPredicate<? super T> pred, final C b) {
+        for (final T item : a)
+            if (pred.evaluateChecked(item))
+                b.add(item);
+        return b;
+    }
+
     // avoid name collision causing eclipse bug https://bugs.eclipse.org/bugs/show_bug.cgi?id=319603
     @SuppressWarnings("unchecked")
     public static <T> Collection<T> intersection(final Collection<T> a, final Collection<T> b) {
@@ -663,6 +676,13 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
 
     public static <T> Set<T> createSet(T... items) {
         return new HashSet<T>(Arrays.asList(items));
+    }
+
+    public static <T> Set<T> createIdentitySet(Collection<T> items) {
+        if (items instanceof IdentitySet)
+            return (Set<T>) items;
+        else
+            return new IdentityHashSet<T>(items);
     }
 
     public static <K, V> Map<K, V> createMap(K key, V val, K key2, V val2) {

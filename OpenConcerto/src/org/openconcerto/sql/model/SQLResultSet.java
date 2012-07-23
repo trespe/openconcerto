@@ -114,10 +114,11 @@ public class SQLResultSet implements ResultSet {
         try {
             return getDelegate().findColumn(columnName);
         } catch (SQLException e) {
-            if (SQLField.isFullname(columnName))
+            try {
                 return this.helper.getIndex(columnName);
-            else
+            } catch (Exception exn) {
                 throw e;
+            }
         }
     }
 

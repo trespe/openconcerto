@@ -15,6 +15,7 @@
 
 import static java.util.Arrays.asList;
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyleStyleDesc;
@@ -24,7 +25,7 @@ import org.jdom.Element;
 
 public class ParagraphStyle extends TextStyle {
 
-    public static final StyleStyleDesc<ParagraphStyle> DESC = new StyleStyleDesc<ParagraphStyle>(ParagraphStyle.class, XMLVersion.OD, "paragraph", "P") {
+    private static final StyleStyleDesc<ParagraphStyle> DESC = new StyleStyleDesc<ParagraphStyle>(ParagraphStyle.class, XMLVersion.OD, "paragraph", "P") {
 
         {
             // from section 18.876 in v1.2-part1
@@ -41,8 +42,7 @@ public class ParagraphStyle extends TextStyle {
             this.getRefElementsMap().putAll("form:text-style-name", asList("form:column"));
             // 19.690 (apparently not implemented by OpenOffice 3.2 - or any older version)
             this.getRefElementsMap()
-                    .putAll(
-                            "table:paragraph-style-name",
+                    .putAll("table:paragraph-style-name",
                             asList("table:body", "table:even-columns", "table:even-rows", "table:first-column", "table:first-row", "table:last-column", "table:last-row", "table:odd-columns",
                                     "table:odd-rows"));
         }
@@ -52,6 +52,10 @@ public class ParagraphStyle extends TextStyle {
             return new ParagraphStyle(pkg, e);
         }
     };
+
+    static public void registerDesc() {
+        Style.registerAllVersions(DESC);
+    }
 
     private StyleParagraphProperties pProps;
 

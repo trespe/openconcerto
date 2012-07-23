@@ -49,9 +49,17 @@ import org.jdom.Element;
 public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
 
     static Element createEmpty(XMLVersion ns) {
-        // from the relaxNG : a table must have at least one cell
+        return createEmpty(ns, 1, 1);
+    }
+
+    static Element createEmpty(final XMLVersion ns, final int colCount, final int rowCount) {
+        // from the relaxNG
+        if (colCount < 1 || rowCount < 1)
+            throw new IllegalArgumentException("a table must have at least one cell");
         final Element col = Column.createEmpty(ns, null);
-        final Element row = Row.createEmpty(ns).addContent(Cell.createEmpty(ns));
+        Axis.COLUMN.setRepeated(col, colCount);
+        final Element row = Row.createEmpty(ns).addContent(Cell.createEmpty(ns, colCount));
+        Axis.ROW.setRepeated(row, rowCount);
         return new Element("table", ns.getTABLE()).addContent(col).addContent(row);
     }
 
@@ -816,7 +824,7 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
     }
 
     private final ColumnStyle createDefaultColStyle() {
-        final ColumnStyle colStyle = ColumnStyle.DESC.createAutoStyle(this.getODDocument().getPackage(), "defaultCol");
+        final ColumnStyle colStyle = this.getStyleDesc(ColumnStyle.class).createAutoStyle(this.getODDocument().getPackage(), "defaultCol");
         colStyle.setWidth(20.0f);
         return colStyle;
     }

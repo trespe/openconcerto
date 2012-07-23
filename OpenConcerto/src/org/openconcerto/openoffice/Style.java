@@ -70,24 +70,21 @@ public class Style extends ODNode {
     // loads StyleStyle which needs PStyle.DESC)
     private static void loadDescs() {
         if (!descsLoaded) {
-            registerAllVersions(CellStyle.DESC);
-            registerAllVersions(RowStyle.DESC);
-            registerAllVersions(ColumnStyle.DESC);
-            registerAllVersions(TableStyle.DESC);
-            registerAllVersions(TextStyle.DESC);
-            registerAllVersions(ParagraphStyle.DESC);
-            for (final StyleDesc<?> d : DataStyle.DATA_STYLES_DESCS)
-                registerAllVersions(d);
-            register(GraphicStyle.DESC);
-            register(GraphicStyle.DESC_OO);
-            register(PageLayoutStyle.DESC);
-            register(PageLayoutStyle.DESC_OO);
+            CellStyle.registerDesc();
+            RowStyle.registerDesc();
+            ColumnStyle.registerDesc();
+            TableStyle.registerDesc();
+            TextStyle.registerDesc();
+            ParagraphStyle.registerDesc();
+            DataStyle.registerDesc();
+            GraphicStyle.registerDesc();
+            PageLayoutStyle.registerDesc();
             descsLoaded = true;
         }
     }
 
-    // until now styles have remained constant through versions
-    private static void registerAllVersions(StyleDesc<? extends Style> desc) {
+    // until now a majority of styles have remained constant through versions
+    public static void registerAllVersions(StyleDesc<? extends Style> desc) {
         for (final XMLVersion v : XMLVersion.values()) {
             if (v == desc.getVersion())
                 register(desc);
@@ -126,9 +123,9 @@ public class Style extends ODNode {
      * 
      * <pre>
      * [ element qualified name, attribute qualified name ] -> StyleDesc ; e.g. :
-     * [ "text:p", "text:style-name" ] -> {@link ParagraphStyle#DESC}
-     * [ "text:h", "text:style-name" ] -> {@link ParagraphStyle#DESC}
-     * [ "text:span", "text:style-name" ] -> {@link TextStyle#DESC}
+     * [ "text:p", "text:style-name" ] -> <code>StyleStyleDesc&lt;ParagraphStyle&gt;</code>
+     * [ "text:h", "text:style-name" ] -> <code>StyleStyleDesc&lt;ParagraphStyle&gt;</code>
+     * [ "text:span", "text:style-name" ] -> <code>StyleStyleDesc&lt;TextStyle&gt;</code>
      * </pre>
      * 
      * @param version the version.

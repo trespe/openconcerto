@@ -14,9 +14,11 @@
  package org.openconcerto.erp.generationEcritures;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
@@ -30,6 +32,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.SwingUtilities;
 
@@ -322,7 +325,7 @@ public class GenerationEcritures {
         return 1;
     }
 
-    protected Map<Integer, Long> getMultiTVAFromRow(SQLRow row, SQLTable foreign, boolean vente) {
+    protected Map<Integer, Long> getMultiTVAFromRow(SQLRow row, SQLTable foreign, boolean vente, PrixHT totalHt, long remiseHT) {
         List<SQLRow> rows = row.getReferentRows(foreign);
 
         // Total HT par TVA
@@ -335,6 +338,42 @@ public class GenerationEcritures {
                 mapTaxeHT.put(taxe, Long.valueOf(val));
             } else {
                 mapTaxeHT.put(taxe, Long.valueOf(val + l));
+            }
+        }
+
+        if (row.getTable().contains("ID_TAXE_PORT")) {
+            long port = row.getLong("PORT_HT");
+            if (port > 0) {
+                SQLRow taxePort = row.getForeignRow("ID_TAXE_PORT");
+                if (taxePort != null && !taxePort.isUndefined()) {
+
+                    // Total TVA
+                    if (mapTaxeHT.get(taxePort) == null) {
+                        mapTaxeHT.put(taxePort, port);
+                    } else {
+                        Long l = mapTaxeHT.get(taxePort);
+                        mapTaxeHT.put(taxePort, l + port);
+                    }
+                }
+            }
+        }
+        // Déduction de la remise pour la TVA
+        long totalHTAvantRemise = totalHt.getLongValue() + remiseHT;
+        long remiseToApply = remiseHT;
+        if (remiseToApply > 0) {
+            Set<SQLRow> setHtTVA = mapTaxeHT.keySet();
+            int i = 0;
+            for (SQLRow rowA : mapTaxeHT.keySet()) {
+                Long ht = mapTaxeHT.get(rowA);
+                i++;
+                if (i == setHtTVA.size()) {
+                    mapTaxeHT.put(rowA, ht - remiseToApply);
+                } else {
+                    // Prorata
+                    long r = new BigDecimal(ht).divide(new BigDecimal(totalHTAvantRemise), MathContext.DECIMAL128).multiply(new BigDecimal(remiseHT)).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
+                    mapTaxeHT.put(rowA, ht - r);
+                    remiseToApply -= r;
+                }
             }
         }
 

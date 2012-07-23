@@ -85,30 +85,11 @@ public class JListSQLTableModel extends DefaultListModel {
         }
     };
 
-    public JListSQLTableModel(final SQLTable table, List<String> listField, String undefined) {
-        this.table = table;
-        this.undefined = undefined;
+    public JListSQLTableModel(final ComboSQLRequest req) {
+        this.table = req.getPrimaryTable();
+        // this.undefined = undefined;
+        this.request = req;
         this.list = new ArrayList<IComboSelectionItem>();
-
-        List<SQLField> listSQLField = new ArrayList<SQLField>();
-        for (String string : listField) {
-            listSQLField.add(table.getField(string));
-        }
-        this.request = new ComboSQLRequest(Configuration.getInstance().getDirectory().getElement(table).getComboRequest(), listSQLField);
-        this.request.setFieldSeparator(" ");
-        if (undefined != null) {
-            // add undefined
-            final ITransformer<SQLSelect, SQLSelect> trans = this.request.getSelectTransf();
-            this.request.setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
-                @Override
-                public SQLSelect transformChecked(SQLSelect input) {
-                    if (trans != null)
-                        input = trans.transformChecked(input);
-                    input.setExcludeUndefined(false, table);
-                    return input;
-                }
-            });
-        }
 
         this.comp = new Comparator<IComboSelectionItem>() {
             public int compare(IComboSelectionItem row1, IComboSelectionItem row2) {

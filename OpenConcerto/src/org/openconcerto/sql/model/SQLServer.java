@@ -33,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
 import net.jcip.annotations.GuardedBy;
 
@@ -61,8 +62,8 @@ public final class SQLServer extends DBStructureItemJDBC {
      * Create a system root from the passed URL.
      * 
      * @param url an SQL URL.
-     * @param rootsToMap the collection of {@link DBSystemRoot#getRootsToMap() roots to map}, in
-     *        addition to <code>url.{@link SQL_URL#getRootName() getRootName()}</code>.
+     * @param rootsToMap the collection of {@link DBSystemRoot#setRootsToMap(Collection) roots to
+     *        map}, in addition to <code>url.{@link SQL_URL#getRootName() getRootName()}</code>.
      * @param dsInit to initialize the datasource before any request (e.g. setting JDBC properties),
      *        can be <code>null</code>.
      * @return the new system root.
@@ -76,8 +77,8 @@ public final class SQLServer extends DBStructureItemJDBC {
             @Override
             public void executeChecked(DBSystemRoot input) {
                 assert url.getRootName() != null;
-                input.getRootsToMap().add(url.getRootName());
-                input.getRootsToMap().addAll(roots);
+                input.setRootToMap(url.getRootName());
+                input.addRootsToMap(roots);
             }
         }, dsInit);
         if (setPath) {
@@ -91,7 +92,7 @@ public final class SQLServer extends DBStructureItemJDBC {
     }
 
     public static final DBSystemRoot create(final SQL_URL url, final IClosure<DBSystemRoot> systemRootInit, final IClosure<SQLDataSource> dsInit) {
-        return new SQLServer(url.getSystem().getJDBCName(), url.getServerName(), null, url.getLogin(), url.getPass(), systemRootInit, dsInit).getSystemRoot(url.getSystemRootName());
+        return new SQLServer(url.getSystem(), url.getServerName(), null, url.getLogin(), url.getPass(), systemRootInit, dsInit).getSystemRoot(url.getSystemRootName());
     }
 
     // *** Instance members
@@ -115,22 +116,22 @@ public final class SQLServer extends DBStructureItemJDBC {
     private final IClosure<SQLDataSource> dsInit;
     private final ITransformer<String, String> urlTransf;
 
-    public SQLServer(String system, String host) {
+    public SQLServer(SQLSystem system, String host) {
         this(system, host, null);
     }
 
-    public SQLServer(String system, String host, String port) {
+    public SQLServer(SQLSystem system, String host, String port) {
         this(system, host, port, null, null);
     }
 
-    public SQLServer(String system, String host, String port, String login, String pass) {
+    public SQLServer(SQLSystem system, String host, String port, String login, String pass) {
         this(system, host, port, login, pass, null, null);
     }
 
     /**
      * Creates a new server.
      * 
-     * @param system the database system, see {@link SQLDataSource#DRIVERS}
+     * @param system the database system.
      * @param host an IP address or DNS name.
      * @param port the port to connect to can be <code>null</code> to pick the system default.
      * @param login the default login to access database of this server, can be <code>null</code>.
@@ -140,12 +141,12 @@ public final class SQLServer extends DBStructureItemJDBC {
      * @param dsInit to initialize the datasource before any request (e.g. setting JDBC properties),
      *        must be thread-safe, can be <code>null</code>.
      */
-    public SQLServer(String system, String host, String port, String login, String pass, IClosure<DBSystemRoot> systemRootInit, IClosure<SQLDataSource> dsInit) {
+    public SQLServer(SQLSystem system, String host, String port, String login, String pass, IClosure<DBSystemRoot> systemRootInit, IClosure<SQLDataSource> dsInit) {
         super(null, host);
         this.ds = null;
         this.dsSet = false;
         this.dsInit = dsInit;
-        this.system = SQLSystem.get(system);
+        this.system = system;
         this.login = login;
         this.pass = pass;
         this.bases = null;
@@ -161,7 +162,7 @@ public final class SQLServer extends DBStructureItemJDBC {
                 if (this.bases == null) {
                     this.checkDropped();
                     this.bases = new CopyOnWriteMap<String, SQLBase>();
-                    this.refetch(null, true);
+                    this.refresh(null, true, true);
                 }
                 return this.bases;
             }
@@ -200,11 +201,11 @@ public final class SQLServer extends DBStructureItemJDBC {
         return res;
     }
 
-    void refetch(Set<String> namesToRefresh) {
-        this.refetch(namesToRefresh, false);
+    void refresh(Set<String> namesToRefresh, final boolean readCache) {
+        this.refresh(namesToRefresh, readCache, false);
     }
 
-    private void refetch(Set<String> namesToRefresh, boolean init) {
+    private void refresh(final Set<String> namesToRefresh, final boolean readCache, final boolean init) {
         if (this.getDS() != null) {
             // for mysql we must know our children, since they can reference each other and thus the
             // graph needs them
@@ -248,20 +249,22 @@ public final class SQLServer extends DBStructureItemJDBC {
                         }
                     }
 
-                    // add or refresh
-                    for (final String cat : cats) {
-                        final SQLBase existing = this.getBase(cat);
-                        if (existing != null)
-                            existing.fetchTables();
-                        else
-                            // we already have the datasource, so login/pass aren't used
-                            this.getBase(cat, "", "", DSINIT_ERROR);
-                    }
-                    // if we create a new root and call refetch(newRoot)
-                    // cats will be [newRoot] and nothing will change except a new entry in our map
-                    // thus we need to call clearGraph() to clear the existing graph that doesn't
-                    // know about newRoot
-                    this.getDBSystemRoot().descendantsChanged();
+                    // fire once all the bases are loaded so that the graph is coherent
+                    this.getDBSystemRoot().getGraph().atomicRefresh(new Callable<Object>() {
+                        @Override
+                        public Object call() throws Exception {
+                            // add or refresh
+                            for (final String cat : cats) {
+                                final SQLBase existing = getBase(cat);
+                                if (existing != null)
+                                    existing.refresh(null, readCache);
+                                else
+                                    // we already have the datasource, so login/pass aren't used
+                                    getBase(cat, "", "", DSINIT_ERROR, readCache);
+                            }
+                            return null;
+                        }
+                    });
                 }
             } catch (SQLException e) {
                 throw new IllegalStateException("could not get children names", e);
@@ -280,7 +283,7 @@ public final class SQLServer extends DBStructureItemJDBC {
      * @param s the server to copy from.
      */
     public SQLServer(SQLServer s) {
-        this(s.system.name(), s.getName(), null, s.login, s.pass);
+        this(s.system, s.getName(), null, s.login, s.pass);
     }
 
     // tries to get a ds without any db
@@ -352,6 +355,12 @@ public final class SQLServer extends DBStructureItemJDBC {
      * @return the corresponding base.
      */
     public SQLBase getBase(String baseName, String login, String pass, IClosure<SQLDataSource> dsInit) {
+        return this.getBase(baseName, login, pass, dsInit, true);
+    }
+
+    public SQLBase getBase(String baseName, String login, String pass, IClosure<SQLDataSource> dsInit, boolean readCache) {
+        if (this.getDBSystemRoot() != null && dsInit != DSINIT_ERROR)
+            throw new IllegalStateException("getBase(name, login, pass) should only be used for systems where SQLBase is DBSystemRoot");
         synchronized (this.getTreeMutex()) {
             SQLBase base = this.getBase(baseName);
             if (base == null) {
@@ -359,8 +368,7 @@ public final class SQLServer extends DBStructureItemJDBC {
                 if (sysRoot != null && !sysRoot.createNode(this, baseName))
                     throw new IllegalStateException(baseName + " is filtered, you must add it to rootsToMap");
                 base = this.getSQLSystem().getSyntax().createBase(this, baseName, login == null ? this.login : login, pass == null ? this.pass : pass, dsInit != null ? dsInit : this.dsInit);
-                this.putBase(baseName, base);
-                base.init();
+                this.putBase(baseName, base, readCache);
             }
             return base;
         }
@@ -430,16 +438,17 @@ public final class SQLServer extends DBStructureItemJDBC {
         }
     }
 
-    private void putBase(String baseName, SQLBase base) {
+    private void putBase(String baseName, SQLBase base, boolean readCache) {
         assert Thread.holdsLock(getTreeMutex());
         final CollectionChangeEventCreator c = this.createChildrenCreator();
         this.getBases().put(baseName, base);
+        base.init(readCache);
         this.fireChildrenChanged(c);
         // if base is null, no new tables (furthermore descendantsChanged() would create our
         // children)
         if (base != null)
             if (this.getDBSystemRoot() != null)
-                this.getDBSystemRoot().descendantsChanged();
+                this.getDBSystemRoot().descendantsChanged(this, Collections.singleton(baseName), readCache);
         // defaultBase must be null, otherwise the user has already expressed his choice
         synchronized (this) {
             final boolean setDef = this.defaultBase == null && base != null;

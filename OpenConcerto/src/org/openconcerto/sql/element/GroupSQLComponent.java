@@ -64,10 +64,17 @@ public class GroupSQLComponent extends BaseSQLComponent {
         this.setLayout(new GridBagLayout());
         this.group.sort();
         final GridBagConstraints c = new DefaultGridBagConstraints();
+        c.fill = GridBagConstraints.NONE;
         layout(this.group, 0, LayoutHints.DEFAULT_GROUP_HINTS, 0, 0, c);
     }
 
-    public int layout(final Group currentGroup, final Integer order, final LayoutHints size, int x, final int level, final GridBagConstraints c) {
+    public void layout(final Group currentGroup, final Integer order, final LayoutHints size, int x, final int level, final GridBagConstraints c) {
+        if (size.isSeparated()) {
+            x = 0;
+            c.gridx = 0;
+            c.gridy++;
+        }
+
         if (currentGroup.isEmpty()) {
             System.out.print(" (" + x + ")");
             final String id = currentGroup.getId();
@@ -75,9 +82,9 @@ public class GroupSQLComponent extends BaseSQLComponent {
             c.gridwidth = 1;
             if (size.showLabel()) {
                 c.weightx = 0;
+                c.weighty = 0;
                 // Label
                 if (size.isSeparated()) {
-                    c.gridx = 0;
                     c.gridwidth = 4;
                     c.fill = GridBagConstraints.NONE;
                 } else {
@@ -86,6 +93,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
                 this.add(getLabel(id), c);
                 if (size.isSeparated()) {
                     c.gridy++;
+                    c.gridx = 0;
                 } else {
                     c.gridx++;
                 }
@@ -93,19 +101,29 @@ public class GroupSQLComponent extends BaseSQLComponent {
             // Editor
             final JComponent editor = getEditor(id);
 
-            if (size.maximizeWidth() && size.maximizeHeight()) {
+            if (size.fillWidth() && size.fillHeight()) {
                 c.fill = GridBagConstraints.BOTH;
-            } else if (size.maximizeWidth()) {
+            } else if (size.fillWidth()) {
                 c.fill = GridBagConstraints.HORIZONTAL;
-            } else if (size.maximizeHeight()) {
+            } else if (size.fillHeight()) {
                 c.fill = GridBagConstraints.VERTICAL;
             } else {
                 c.fill = GridBagConstraints.NONE;
                 DefaultGridBagConstraints.lockMinimumSize(editor);
             }
-            if (size.fill()) {
+            if (size.fillHeight()) {
                 c.weighty = 1;
-                c.gridwidth = this.columns * 2;
+            } else {
+                c.weighty = 0;
+            }
+            if (size.largeWidth()) {
+                if (size.isSeparated()) {
+                    c.gridwidth = this.columns * 2;
+                } else {
+                    c.gridwidth = this.columns * 2 - 1;
+                }
+            } else {
+                c.gridwidth = 1;
             }
             if (c.gridx % 2 == 1) {
                 c.weightx = 1;
@@ -116,37 +134,35 @@ public class GroupSQLComponent extends BaseSQLComponent {
             } catch (final Exception e) {
                 System.err.println(e.getMessage());
             }
-            c.weighty = 0;
-            c.gridx++;
-            if ((x % this.columns) != 0) {
+
+            if (size.largeWidth()) {
+                if (size.isSeparated()) {
+                    c.gridx += 4;
+                } else {
+                    c.gridx += 3;
+                }
+            } else {
+                c.gridx++;
+            }
+
+            if (c.gridx >= this.columns * 2) {
                 c.gridx = 0;
                 c.gridy++;
+                x = 0;
             }
-        }
-        if (size.isSeparated()) {
-            x = 0;
-            c.gridx = 0;
-            c.gridy++;
-        }
-        final int stop = currentGroup.getSize();
-        for (int i = 0; i < stop; i++) {
-            final Group subGroup = currentGroup.getGroup(i);
-            final Integer subGroupOrder = currentGroup.getOrder(i);
-            final LayoutHints subGroupSize = currentGroup.getLayoutHints(i);
-            x = layout(subGroup, subGroupOrder, subGroupSize, x, level + 1, c);
 
-        }
-
-        if (currentGroup.isEmpty()) {
-            x++;
         } else {
-            if (size.maximizeWidth()) {
-                c.gridx = 0;
-                c.gridy++;
+            final int stop = currentGroup.getSize();
+            for (int i = 0; i < stop; i++) {
+                final Group subGroup = currentGroup.getGroup(i);
+                final Integer subGroupOrder = currentGroup.getOrder(i);
+                final LayoutHints subGroupSize = currentGroup.getLayoutHints(i);
+                layout(subGroup, subGroupOrder, subGroupSize, x, level + 1, c);
+
             }
+
         }
 
-        return x;
     }
 
     public JComponent createEditor(final String id) {

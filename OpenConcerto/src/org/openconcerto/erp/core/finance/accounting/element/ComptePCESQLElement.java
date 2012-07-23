@@ -38,6 +38,7 @@ import java.awt.GridBagLayout;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -70,7 +71,8 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
     public SQLComponent createComponent() {
         return new BaseSQLComponent(this) {
 
-            private boolean isCompteValid = false;
+            // private boolean isCompteValid = false;
+            private ValidState compteNumeroValidState = ValidState.getTrueInstance();
             private JUniqueTextField textNumero = new JUniqueTextField(7);
 
             @Override
@@ -106,41 +108,10 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
                     @Override
                     public void update(DocumentEvent e) {
 
-                        // On verifie que le numero est correct compris qu'il commence par 1-8
-                        if (textNumero.getText().trim().length() > 0) {
-                            if ((textNumero.getText().trim().charAt(0) < '1') || (textNumero.getText().trim().charAt(0) > '8')) {
-                                System.err.println("Numero de compte incorrect");
-                                isCompteValid = false;
-                            } else {
-                                isCompteValid = true;
-                            }
+                        // On verifie que le numero est correct
+                        compteNumeroValidState = getCompteNumeroValidState(textNumero.getText());
 
-                            // else {
-                            //
-                            // // on verifie que le numero n'existe pas deja
-                            // SQLSelect selCompte = new SQLSelect(getTable().getBase());
-                            // selCompte.addSelect(getTable().getField("NUMERO"));
-                            //
-                            // selCompte.setWhere("COMPTE_PCE.NUMERO", "=",
-                            // textNumero.getText().trim());
-                            //
-                            // String reqCompte = selCompte.asString();
-                            // Object obRep =
-                            // getTable().getBase().getDataSource().execute(reqCompte, new
-                            // ArrayListHandler());
-                            //
-                            // List tmpCpt = (List) obRep;
-                            //
-                            // System.err.println("REQUEST :: " + reqCompte);
-                            // System.err.println("nb Same :: " + tmpCpt.size());
-                            //
-                            // isCompteValid = tmpCpt.size() == 0;
-                            // }
-                        } else {
-                            isCompteValid = false;
-                        }
                         fireValidChange();
-                        System.err.println("Compte Valid " + isCompteValid);
                     }
                 });
 
@@ -199,9 +170,28 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
 
             @Override
             public synchronized ValidState getValidState() {
-                return super.getValidState().and(ValidState.createCached(this.isCompteValid, "Le numéro de compte ne commence pas par un chiffre entre 1 et 8"));
+                return super.getValidState().and(this.compteNumeroValidState);
             }
         };
+    }
+
+    public ValidState getCompteNumeroValidState(String text) {
+
+        if (text.trim().length() > 0) {
+            if ((text.trim().charAt(0) < '1') || (text.trim().charAt(0) > '8')) {
+                // System.err.println("Numero de compte incorrect");
+
+                return ValidState.create(false, "Le numéro de compte ne commence pas par un chiffre entre 1 et 8");
+            } else if (text.endsWith(" ")) {
+                return ValidState.create(false, "Le numéro de compte ne doit pas se terminer par un espace");
+            } else {
+                Pattern p = Pattern.compile("^\\d(\\w)+$");
+                return ValidState.create(p.matcher(text).matches(), "Le numéro de compte n'est pas correct.");
+            }
+
+        }
+        return ValidState.getTrueInstance();
+
     }
 
     @Override

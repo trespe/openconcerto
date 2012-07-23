@@ -16,6 +16,7 @@
 import org.openconcerto.sql.changer.Changer;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.Order;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
@@ -91,7 +92,7 @@ public class ToPrivate extends Changer<SQLTable> {
         checkCount.addGroupBy(parentField);
         final String countExpr = "count(" + SQLBase.quoteIdentifier(parentField.getName()) + ")";
         checkCount.setHaving(Where.createRaw(countExpr + " > " + this.privateCount, parentField));
-        checkCount.addRawOrder(countExpr + " DESC");
+        checkCount.addRawOrder(countExpr + Order.desc().getSQL());
         checkCount.setLimit(1);
         final Number n = (Number) getDS().executeScalar(checkCount.asString());
         if (n != null) {
@@ -139,7 +140,7 @@ public class ToPrivate extends Changer<SQLTable> {
         final String quotedIDs = SQLBase.quoteIdentifier("IDs");
 
         final UpdateBuilder update = new UpdateBuilder(tableToUpdate);
-        update.addTable("\n( " + groupIDs.asString() + " )", SQLBase.quoteIdentifier("aggregatedIDs"));
+        update.addTable(groupIDs, "aggregatedIDs");
         final String join = tableToUpdate.getBase().quote("%i = %f", new SQLName("aggregatedIDs", parentField.getName()), tableToUpdate.getField(this.parentFieldName));
         Where dontOverwrite = null;
         final StringBuilder splitIDs = new StringBuilder(256);

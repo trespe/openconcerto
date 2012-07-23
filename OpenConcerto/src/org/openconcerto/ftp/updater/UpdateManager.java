@@ -24,6 +24,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.util.Properties;
@@ -120,7 +121,13 @@ public class UpdateManager implements Runnable {
                     if (!logged) {
                         throw new IllegalStateException("Identifiants refusés");
                     }
-                    bReaderRemote = new BufferedReader(new InputStreamReader(ftp.retrieveFileStream(this.file)));
+                    if (this.file == null) {
+                        throw new IllegalStateException("Fichier de version non spécifié");
+                    } else {
+                        System.err.println("UpdateManager downloading '" + this.file + "'");
+                    }
+                    final InputStream retrieveFileStream = ftp.retrieveFileStream(this.file);
+                    bReaderRemote = new BufferedReader(new InputStreamReader(retrieveFileStream));
 
                     int newVersion = Integer.parseInt(bReaderRemote.readLine());
 
@@ -140,7 +147,7 @@ public class UpdateManager implements Runnable {
                     }
 
                     // / marche pas: ftp.quit();
-
+                    System.err.println("UpdateManager current version: " + currentVersion + " new version: " + newVersion);
                     if (newVersion > currentVersion) {
                         Object[] options = { "Maintenant", "Plus tard" };
                         int res = JOptionPane.showOptionDialog(null, "Une mise à jour est disponible. Installer la mise à jour:", "Mises à jour automatiques", JOptionPane.DEFAULT_OPTION,
@@ -200,6 +207,10 @@ public class UpdateManager implements Runnable {
 
         }
         tempDir.mkdir();
+        if (!tempDir.exists()) {
+            JOptionPane.showMessageDialog(null, "Impossible de créer le dossier Update\nVérifiez les permissions des fichiers ou lancez le logiciel en tant qu'administrateur");
+            return;
+        }
         File f = new File("Update/.version");
         FileOutputStream fOp;
         try {
@@ -209,7 +220,8 @@ public class UpdateManager implements Runnable {
             out.println(toVersion);
             out.close();
         } catch (FileNotFoundException e1) {
-            JOptionPane.showMessageDialog(null, "Impossible de créer le .version");
+            JOptionPane.showMessageDialog(null, "Impossible de créer le .version\nVérifiez les permissions des fichiers ou lancez le logiciel en tant qu'administrateur");
+            return;
         }
         final IFtp ftp = new IFtp();
         try {
@@ -239,7 +251,7 @@ public class UpdateManager implements Runnable {
                 ftp.disconnect();
                 return;
             }
-            
+
             final String updaterFilename = "Update" + File.separator + "update.jar";
             if (!new File(updaterFilename).exists()) {
                 JOptionPane.showMessageDialog(null, "Le fichier 'Update/update.jar' est manquant.");

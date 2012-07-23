@@ -52,7 +52,7 @@ public class CellStyle extends StyleStyle {
     private static final Pattern cellContentBetweenPatrn = Pattern.compile("cell-content-is(?:-not)?-between\\(" + valuePatrn + ", *" + valuePatrn + "\\)");
 
     // from section 18.728 in v1.2-part1
-    public static final StyleStyleDesc<CellStyle> DESC = new StyleStyleDesc<CellStyle>(CellStyle.class, XMLVersion.OD, "table-cell", "ce", "table", Arrays.asList("table:body",
+    private static final StyleStyleDesc<CellStyle> DESC = new StyleStyleDesc<CellStyle>(CellStyle.class, XMLVersion.OD, "table-cell", "ce", "table", Arrays.asList("table:body",
             "table:covered-table-cell", "table:even-rows", "table:first-column", "table:first-row", "table:last-column", "table:last-row", "table:odd-columns", "table:odd-rows", "table:table-cell")) {
 
         {
@@ -101,6 +101,10 @@ public class CellStyle extends StyleStyle {
             return null;
         }
     };
+
+    static public void registerDesc() {
+        Style.registerAllVersions(DESC);
+    }
 
     private static final Pattern conditionPatrn = Pattern.compile("value\\(\\) *(" + RelationalOperator.OR_PATTERN + ") *(true|false|" + numberPatrn.pattern() + ")");
 
@@ -257,6 +261,20 @@ public class CellStyle extends StyleStyle {
 
         public final Integer getDecimalPlaces() {
             return parseInteger(this.getAttributeValue("decimal-places", this.getElement().getNamespace("style")));
+        }
+
+        public final boolean isWrapping() {
+            final String val = this.getAttributeValue("wrap-option", this.getElement().getNamespace("fo"));
+            if (val == null || val.equals("no-wrap"))
+                return false;
+            else if (val.equals("wrap"))
+                return true;
+            else
+                throw new IllegalStateException("Unknown value : " + val);
+        }
+
+        public final void setWrapping(final boolean b) {
+            this.getElement().setAttribute("wrap-option", b ? "wrap" : "no-wrap", this.getElement().getNamespace("fo"));
         }
     }
 

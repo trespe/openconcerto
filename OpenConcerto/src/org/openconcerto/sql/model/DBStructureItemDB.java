@@ -91,13 +91,13 @@ public class DBStructureItemDB extends DBStructureItem<DBStructureItemDB> {
                 }
             }
             if (res == null) {
-                res = new HashMap<String, DBStructureItemDB>();
+                res = new HashMap<String, DBStructureItemDB>(jdbcChildren.size());
                 for (final Entry<String, ? extends DBStructureItemJDBC> e : jdbcChildren.entrySet()) {
                     res.put(e.getKey(), getDB(e.getValue()));
                 }
                 synchronized (this) {
                     this.childrenJDBC = jdbcChildren;
-                    this.children = res;
+                    this.children = Collections.unmodifiableMap(res);
                 }
             }
             return res;

@@ -55,8 +55,6 @@ public class ArticleModel implements ListModel {
         this.items.clear();
         if (c != null) {
             this.items.addAll(c.getArticles());
-        } else {
-            this.items.clear();
         }
         fire();
     }
@@ -68,7 +66,6 @@ public class ArticleModel implements ListModel {
     }
 
     public Categorie getRoot() {
-
         return this.categorie;
     }
 }

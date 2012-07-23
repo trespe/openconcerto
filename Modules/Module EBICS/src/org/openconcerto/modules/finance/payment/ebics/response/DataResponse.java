@@ -3,20 +3,14 @@ package org.openconcerto.modules.finance.payment.ebics.response;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.math.BigInteger;
-import java.security.KeyFactory;
-import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.interfaces.RSAPublicKey;
-import java.security.spec.InvalidKeySpecException;
-import java.security.spec.RSAPublicKeySpec;
 import java.util.zip.InflaterInputStream;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 
 import org.apache.poi.util.HexDump;
 import org.openconcerto.modules.finance.payment.ebics.EbicsConfiguration;
@@ -26,7 +20,6 @@ import org.openconcerto.utils.StringInputStream;
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 
 public abstract class DataResponse {
     EbicsConfiguration config;
@@ -93,19 +86,19 @@ public abstract class DataResponse {
         System.out.println(rawTransactionKey);
 
         byte[] encryptedTransactionKey = Base64.decode(rawTransactionKey);
-        System.out.println("EncryptedTransactionKey hash:" + EbicsUtil.getSAH256HashBase64(encryptedTransactionKey));
+        System.out.println("EncryptedTransactionKey hash:" + EbicsUtil.getSHA256HashBase64(encryptedTransactionKey));
 
         PrivateKey pKey = config.getEncryptionPrivateKey();
-        System.out.println("Private Encryption key: " + EbicsUtil.getSAH256HashBase64(pKey.getEncoded()));
-        System.out.println("Public Encryption key : " + EbicsUtil.getSAH256HashBase64(config.getEncryptionCertificate().getPublicKey().getEncoded()));
+        System.out.println("Private Encryption key: " + EbicsUtil.getSHA256HashBase64(pKey.getEncoded()));
+        System.out.println("Public Encryption key : " + EbicsUtil.getSHA256HashBase64(config.getEncryptionCertificate().getPublicKey().getEncoded()));
         RSAPublicKey rs = (RSAPublicKey) config.getEncryptionCertificate().getPublicKey();
         System.out.println(HexDump.toHex(rs.getModulus().toByteArray()));
-        System.out.println("Private Authentication key: " + EbicsUtil.getSAH256HashBase64(config.getAuthenticationPrivateKey().getEncoded()));
-        System.out.println("Public Authentication key : " + EbicsUtil.getSAH256HashBase64(config.getAuthenticationCertificate().getPublicKey().getEncoded()));
+        System.out.println("Private Authentication key: " + EbicsUtil.getSHA256HashBase64(config.getAuthenticationPrivateKey().getEncoded()));
+        System.out.println("Public Authentication key : " + EbicsUtil.getSHA256HashBase64(config.getAuthenticationCertificate().getPublicKey().getEncoded()));
         rs = (RSAPublicKey) config.getAuthenticationCertificate().getPublicKey();
         System.out.println(HexDump.toHex(rs.getModulus().toByteArray()));
-        System.out.println("Private Signature key: " + EbicsUtil.getSAH256HashBase64(config.getSignaturePrivateKey().getEncoded()));
-        System.out.println("Public Signature key : " + EbicsUtil.getSAH256HashBase64(config.getSignatureCertificate().getPublicKey().getEncoded()));
+        System.out.println("Private Signature key: " + EbicsUtil.getSHA256HashBase64(config.getSignaturePrivateKey().getEncoded()));
+        System.out.println("Public Signature key : " + EbicsUtil.getSHA256HashBase64(config.getSignatureCertificate().getPublicKey().getEncoded()));
         rs = (RSAPublicKey) config.getSignatureCertificate().getPublicKey();
         System.out.println(HexDump.toHex(rs.getModulus().toByteArray()));
         // Ok DE mais resultat avec le padding Cipher cipher =
@@ -114,7 +107,7 @@ public abstract class DataResponse {
         Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
         cipher.init(Cipher.DECRYPT_MODE, pKey);
         byte[] transactionKey = cipher.doFinal(encryptedTransactionKey);
-        System.out.println("Decoded transaction key:" + EbicsUtil.getSAH256HashBase64(transactionKey));
+        System.out.println("Decoded transaction key:" + EbicsUtil.getSHA256HashBase64(transactionKey));
         System.out.println(HexDump.toHex(transactionKey));
 
         byte[] orderData = Base64.decode(rawOrderData);
@@ -142,7 +135,7 @@ public abstract class DataResponse {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        System.out.println("Output hash:" + EbicsUtil.getSAH256HashBase64(out.toByteArray()));
+        System.out.println("Output hash:" + EbicsUtil.getSHA256HashBase64(out.toByteArray()));
 
         String xml = new String(out.toByteArray());
         System.out.println(xml);

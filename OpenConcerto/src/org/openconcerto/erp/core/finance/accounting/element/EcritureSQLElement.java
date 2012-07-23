@@ -325,7 +325,7 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
 
         SQLSelect selectFils = new SQLSelect(base);
         selectFils.addSelect(tableMvt.getField("ID"));
-        selectFils.setWhere("MOUVEMENT.ID_MOUVEMENT_PERE", "=", idMvtPere);
+        selectFils.setWhere(tableMvt.getField("ID_MOUVEMENT_PERE"), "=", idMvtPere);
 
         List l = (List) base.getDataSource().execute(selectFils.asString(), new ArrayListHandler());
 
@@ -456,7 +456,7 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
 
             SQLSelect selectFils = new SQLSelect(base);
             selectFils.addSelect(tableMvt.getField("ID"));
-            selectFils.setWhere("MOUVEMENT.ID_MOUVEMENT_PERE", "=", idMvtPere);
+            selectFils.setWhere(tableMvt.getField("ID_MOUVEMENT_PERE"), "=", idMvtPere);
 
             List l = (List) base.getDataSource().execute(selectFils.asString(), new ArrayListHandler());
 
@@ -502,7 +502,7 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
                         // on recupere l'ensemble des ecritures associées au mouvement
                         SQLSelect selEcritures = new SQLSelect(base);
                         selEcritures.addSelect(tableEcriture.getField("ID"));
-                        selEcritures.setWhere("ECRITURE.ID_MOUVEMENT", "=", idMvt);
+                        selEcritures.setWhere(tableEcriture.getField("ID_MOUVEMENT"), "=", idMvt);
 
                         List l = (List) base.getDataSource().execute(selEcritures.asString(), new ArrayListHandler());
                         for (int i = 0; i < l.size(); i++) {

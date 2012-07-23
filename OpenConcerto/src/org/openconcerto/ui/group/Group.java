@@ -117,37 +117,46 @@ public class Group {
 
     public void dumpTwoColumn() {
         final StringBuilder b = new StringBuilder();
+        System.out.println("==== Group "+this.getId()+" ====");
         dumpTwoColumn(b, 0, LayoutHints.DEFAULT_GROUP_HINTS, 0, 1);
         System.out.println(b.toString());
     }
 
-    public int dumpTwoColumn(StringBuilder builder, int x, LayoutHints localHint, int localOrder, int level) {
+    public void dumpTwoColumn(StringBuilder builder, int x, LayoutHints localHint, int localOrder, int level) {
         if (localHint.isSeparated()) {
             x = 0;
-            builder.append("\n");
+            builder.append(" -------\n");
         }
         if (isEmpty()) {
+            if (localHint.largeWidth() && x>0) {
+                builder.append("\n");
+                x = 0;
+            }
+            // print a leaf
             builder.append(" (" + x + ")");
             builder.append(localOrder + " " + this.id + "[" + localHint + "]");
 
-            if ((x % 2) == 1) {
+            if (localHint.largeWidth()) {
+                x += 2;
+            } else {
+                x++;
+            }
+
+            if (x > 1) {
                 builder.append("\n");
+                x = 0;
+            }
+        } else {
+            // Subgroup
+            sortSubGroup();
+            for (Tuple3<Group, LayoutHints, Integer> tuple : list) {
+                final Group subGroup = tuple.get0();
+                final Integer subGroupOrder = (Integer) tuple.get2();
+                subGroup.dumpTwoColumn(builder, x, tuple.get1(), subGroupOrder, level + 1);
             }
         }
-        sortSubGroup();
-        for (Tuple3<Group, LayoutHints, Integer> tuple : list) {
-            final Group subGroup = tuple.get0();
-            final Integer subGroupOrder = (Integer) tuple.get2();
-            x = subGroup.dumpTwoColumn(builder, x, tuple.get1(), subGroupOrder, level + 1);
-        }
-        if (isEmpty()) {
-            x++;
-        }
-        if (!localHint.isSeparated() && list.size() != 0 && localHint.maximizeWidth()) {
-            x = 0;
-            builder.append("\n");
-        }
-        return x;
+
+
     }
 
     public int getSize() {

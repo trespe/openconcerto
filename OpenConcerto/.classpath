@@ -18,7 +18,6 @@
 	<classpathentry exported="true" kind="lib" path="lib/jcommon-1.0.16.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/jdom-1.1.1.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/jgrapht-0.7.3.jar"/>
-	<classpathentry exported="true" kind="lib" path="lib/jOpenDocument-1.3b1.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/jpos111.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/mysql-connector-java-5.1.5-bin.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/ognl-2.6.5.jar"/>
@@ -29,5 +28,7 @@
 	<classpathentry exported="true" kind="lib" path="lib/poi-3.8-beta3-20110606.jar"/>
 	<classpathentry exported="true" kind="lib" path="lib/jsch-0.1.44.jar"/>
 	<classpathentry kind="lib" path="lib/jcip-annotations.jar"/>
+	<classpathentry kind="lib" path="lib/fb-annotations-2.0.0.jar"/>
+	<classpathentry kind="lib" path="lib/jOpenDocument-1.3b2.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

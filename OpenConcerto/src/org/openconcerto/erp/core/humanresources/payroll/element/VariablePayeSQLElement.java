@@ -624,7 +624,7 @@ public class VariablePayeSQLElement extends ConfSQLElement {
             SQLSelect sel = new SQLSelect(getTable().getBase());
             sel.addSelect(getTable().getField("ID"));
             System.err.println("Check variable");
-            sel.setWhere("VARIABLE_PAYE.FORMULE", "LIKE", "%" + row.getString("NOM") + "%");
+            sel.setWhere(new Where(getTable().getField("FORMULE"), "LIKE", "%" + row.getString("NOM") + "%"));
             sel.andWhere(new Where(getTable().getField("ID"), "!=", id));
 
             String req = sel.asString();

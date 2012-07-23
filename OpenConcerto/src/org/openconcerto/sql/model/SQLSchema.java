@@ -13,7 +13,7 @@
  
  package org.openconcerto.sql.model;
 
-import org.openconcerto.sql.utils.SQLCreateTable;
+import org.openconcerto.sql.utils.SQLCreateMoveableTable;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 import org.openconcerto.utils.cc.CopyOnWriteMap;
@@ -73,6 +73,15 @@ public final class SQLSchema extends SQLIdentifier {
         return base.getFwkMetadata(schemaName, VERSION_MDKEY);
     }
 
+    static SQLCreateMoveableTable getCreateMetadata(SQLSyntax syntax) throws SQLException {
+        if (Boolean.getBoolean(NOAUTO_CREATE_METADATA))
+            return null;
+        final SQLCreateMoveableTable create = new SQLCreateMoveableTable(syntax, METADATA_TABLENAME);
+        create.addVarCharColumn("NAME", 100).addVarCharColumn("VALUE", 250);
+        create.setPrimaryKey("NAME");
+        return create;
+    }
+
     private final CopyOnWriteMap<String, SQLTable> tables;
     // name -> src
     private final Map<String, String> procedures;
@@ -126,6 +135,10 @@ public final class SQLSchema extends SQLIdentifier {
         this.putProcedures(procMap);
     }
 
+    final void refetch() throws SQLException {
+        this.getBase().fetchTables(Collections.singleton(this.getName()));
+    }
+
     /**
      * Fetch table from the DB.
      * 
@@ -133,7 +146,7 @@ public final class SQLSchema extends SQLIdentifier {
      * @return the up to date table, <code>null</code> if not found
      * @throws SQLException if an error occurs.
      */
-    public final SQLTable fetchTable(final String tableName) throws SQLException {
+    final SQLTable fetchTable(final String tableName) throws SQLException {
         synchronized (getTreeMutex()) {
             synchronized (this) {
                 final SQLTable existing = getTable(tableName);
@@ -149,7 +162,7 @@ public final class SQLSchema extends SQLIdentifier {
                     if (newTable != null) {
                         final SQLTable res = this.addTable(tableName);
                         res.mutateTo(newTable);
-                        this.getDBSystemRoot().descendantsChanged(true);
+                        this.getDBSystemRoot().descendantsChanged(this, Collections.singleton(tableName), false, true);
                         res.save();
                     }
                 }
@@ -331,11 +344,8 @@ public final class SQLSchema extends SQLIdentifier {
             // the metadata name will already be set to value.
             final boolean shouldRefresh;
             if (createTable && !this.contains(METADATA_TABLENAME)) {
-                final SQLCreateTable create = new SQLCreateTable(this.getDBRoot(), METADATA_TABLENAME);
-                create.setPlain(true);
-                create.addVarCharColumn("NAME", 100).addVarCharColumn("VALUE", 250);
-                create.setPrimaryKey("NAME");
-                this.getBase().getDataSource().execute(create.asString());
+                final SQLCreateMoveableTable create = getCreateMetadata(getServer().getSQLSystem().getSyntax());
+                this.getBase().getDataSource().execute(create.asString(getDBRoot().getName()));
                 shouldRefresh = true;
             } else
                 shouldRefresh = false;
@@ -359,7 +369,7 @@ public final class SQLSchema extends SQLIdentifier {
             } else
                 res = false;
             if (shouldRefresh)
-                this.getBase().fetchTables(Collections.singleton(this.getName()));
+                this.fetchTable(METADATA_TABLENAME);
             return res;
         }
     }
@@ -377,11 +387,15 @@ public final class SQLSchema extends SQLIdentifier {
     // Perhaps something like VERSION = date seconds || '_' || (select cast( substring(indexof '_')
     // as int ) + 1 from VERSION) ; e.g. 20110701-1021_01352
     public final String updateVersion() throws SQLException {
+        return this.updateVersion(true);
+    }
+
+    final String updateVersion(boolean createTable) throws SQLException {
         final String res;
         synchronized (XMLStructureSource.XMLDATE_FMT) {
             res = XMLStructureSource.XMLDATE_FMT.format(new Date());
         }
-        this.setFwkMetadata(SQLSchema.VERSION_MDKEY, res);
+        this.setFwkMetadata(SQLSchema.VERSION_MDKEY, res, createTable);
         return res;
     }
 

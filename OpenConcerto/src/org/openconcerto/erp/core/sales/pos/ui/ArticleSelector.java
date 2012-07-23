@@ -60,7 +60,6 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
         list = new ScrollableList(model) {
             @Override
             public void paint(Graphics g) {
-
                 super.paint(g);
                 g.setColor(Color.GRAY);
                 g.drawLine(0, 0, 0, this.getHeight());
@@ -89,14 +88,33 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
                 ((Graphics2D) g).setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 Article article = (Article) object;
                 String label = article.getName();
-                if (label.length() > 14) {
-                    label = label.substring(0, 14) + "...";
+                final int MAX_WIDTH = 18;
+                if (label.length() > MAX_WIDTH * 2) {
+                    label = label.substring(0, MAX_WIDTH * 2) + "...";
+                }
+                String label2 = null;
+                if (label.length() > MAX_WIDTH) {
+                    String t = label.substring(0, MAX_WIDTH).trim();
+                    int lastSpace = t.lastIndexOf(' ');
+                    if (lastSpace <= 0) {
+                        lastSpace = MAX_WIDTH;
+                    }
+                    label2 = label.substring(lastSpace).trim();
+                    label = label.substring(0, lastSpace).trim();
+                    if (label2.length() > MAX_WIDTH) {
+                        label2 = label2.substring(0, MAX_WIDTH) + "...";
+                    }
                 }
 
                 String euro = TicketCellRenderer.centsToString(article.getPriceInCents()) + "€";
 
                 int wEuro = (int) g.getFontMetrics().getStringBounds(euro, g).getWidth();
-                g.drawString(label, 10, posY + 39);
+                if (label2 == null) {
+                    g.drawString(label, 10, posY + 39);
+                } else {
+                    g.drawString(label, 10, posY + 26);
+                    g.drawString(label2, 10, posY + 52);
+                }
                 g.drawString(euro, getWidth() - 5 - wEuro, posY + 39);
 
             }
@@ -110,17 +128,13 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
         list.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
-
                 int nb = e.getClickCount();
-                System.out.println(nb);
                 if (nb > 1) {
                     Object sel = list.getSelectedValue();
                     if (sel != null) {
                         Article article = (Article) sel;
                         controller.incrementArticle(article);
-
                         controller.setArticleSelected(article);
-
                     }
                 }
             }
@@ -133,9 +147,7 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
         if (sel != null && !e.getValueIsAdjusting()) {
             Article article = (Article) sel;
             controller.addArticle(article);
-
             controller.setArticleSelected(article);
-
         }
     }
 
@@ -147,18 +159,14 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
     public void caisseStateChanged() {
 
         final Article articleSelected = controller.getArticleSelected();
-        System.out.println("ArticleSelector.caisseStateChanged():" + articleSelected);
         if (articleSelected == null) {
-            list.clearSelection();
             return;
-
         }
 
         Object selectedValue = null;
         try {
             selectedValue = list.getSelectedValue();
         } catch (Exception e) {
-            // TODO: handle exception
             e.printStackTrace();
         }
         if (articleSelected != null && !articleSelected.equals(selectedValue)) {

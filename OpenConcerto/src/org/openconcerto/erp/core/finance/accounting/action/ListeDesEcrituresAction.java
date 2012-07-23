@@ -14,6 +14,9 @@
  package org.openconcerto.erp.core.finance.accounting.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
+import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
@@ -21,23 +24,29 @@ import org.openconcerto.erp.core.finance.accounting.ui.SuppressionEcrituresPanel
 import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowListRSH;
+import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
-import org.openconcerto.utils.Tuple2;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -69,13 +78,13 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
 
         final IListFrame frame = new IListFrame(new ListeAddPanel(element, new IListe(src)) {
 
-            @Override
-            protected GridBagConstraints createConstraints() {
-                final GridBagConstraints res = super.createConstraints();
-                res.gridwidth = GridBagConstraints.REMAINDER;
-                res.gridy = 1;
-                return res;
-            }
+            // @Override
+            // protected GridBagConstraints createConstraints() {
+            // final GridBagConstraints res = super.createConstraints();
+            // res.gridwidth = GridBagConstraints.REMAINDER;
+            // res.gridy = 1;
+            // return res;
+            // }
 
             @Override
             protected void handleAction(JButton source, ActionEvent evt) {
@@ -97,35 +106,27 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.getPanel().setSearchFullMode(true);
 
-        GridBagConstraints c = new GridBagConstraints();
-        c.gridy = 0;
+        GridBagConstraints c = new DefaultGridBagConstraints();
+        c.gridy = 4;
         c.gridx = 0;
         c.gridwidth = 1;
         c.weightx = 1;
 
-        Map<String, Tuple2<Date, Date>> m = new HashMap<String, Tuple2<Date, Date>>();
-        Calendar cal = Calendar.getInstance();
-        cal.set(Calendar.DAY_OF_MONTH, 1);
-        Date d = cal.getTime();
+        // TODO mettre dans la map du filtre les dates des exercices
+        SQLRow rowExercice = Configuration.getInstance().getBase().getTable("EXERCICE_COMMON").getRow(ComptaPropsConfiguration.getInstanceCompta().getRowSociete().getInt("ID_EXERCICE_COMMON"));
 
-        cal.set(Calendar.DAY_OF_MONTH, cal.getActualMaximum(Calendar.DAY_OF_MONTH));
-        Date d2 = cal.getTime();
-        m.put("Mois courant", new Tuple2<Date, Date>(d, cal.getTime()));
+        final IListFilterDatePanel comp = new IListFilterDatePanel(frame.getPanel().getListe(), element.getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
+        comp.setDateDu((Date) rowExercice.getObject("DATE_DEB"));
+        c.weightx = 1;
+        frame.getPanel().add(comp, c);
 
-        cal.set(Calendar.DAY_OF_MONTH, 1);
-        cal.add(Calendar.MONTH, -6);
-        m.put("Les 6 derniers mois", new Tuple2<Date, Date>(cal.getTime(), d2));
-
-        // final IListFilterDatePanel comp = new IListFilterDatePanel(frame.getPanel().getListe(),
-        // element.getTable().getField("DATE"), m);
-        //
         // List<SQLField> l = new ArrayList<SQLField>();
         // l.add(element.getTable().getField("DEBIT"));
         // l.add(element.getTable().getField("CREDIT"));
-
+        //
         // IListTotalPanel comp2 = new IListTotalPanel(frame.getPanel().getListe(), l);
-        // frame.getPanel().add(comp, c);
         // c.gridx++;
+        // c.weightx = 0;
         // frame.getPanel().add(comp2, c);
 
         // Renderer
@@ -138,7 +139,7 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
         frame.getPanel().getListe().setSQLEditable(false);
 
         table.addMouseListener(new MouseAdapter() {
-            public void mousePressed(MouseEvent e) {
+            public void mouseReleased(MouseEvent e) {
                 if (e.getButton() == MouseEvent.BUTTON3) {
                     JPopupMenu menuDroit = new JPopupMenu();
                     menuDroit.add(new AbstractAction("Contrepassation") {
@@ -154,6 +155,15 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
                             MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
                         }
                     });
+
+                    if (e.getModifiersEx() == 128) {
+                        menuDroit.add(new AbstractAction("Mettre à jour les noms de piéces") {
+                            public void actionPerformed(ActionEvent event) {
+
+                                correctNomPiece();
+                            }
+                        });
+                    }
 
                     menuDroit.show(e.getComponent(), e.getPoint().x, e.getPoint().y);
                 }
@@ -171,5 +181,44 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
         });
 
         return frame;
+    }
+
+    public void correctNomPiece() {
+        SQLTable tableMvt = Configuration.getInstance().getRoot().findTable("MOUVEMENT");
+        SQLTable tablePiece = Configuration.getInstance().getRoot().findTable("PIECE");
+        SQLSelect sel = new SQLSelect(tableMvt.getBase());
+        sel.addSelect(tableMvt.getKey());
+        sel.addSelect(tableMvt.getField("SOURCE"));
+        sel.addSelect(tableMvt.getField("IDSOURCE"));
+        sel.addSelect(tableMvt.getField("ID_MOUVEMENT_PERE"));
+        sel.addSelect(tableMvt.getField("ID_PIECE"));
+        sel.addJoin("LEFT", tableMvt.getField("ID_PIECE"));
+        sel.addSelect(sel.getAlias(tablePiece.getField("NOM")));
+
+        Where w = new Where(tableMvt.getField("ID_MOUVEMENT_PERE"), "=", tableMvt.getUndefinedID());
+        w = w.and(new Where(tableMvt.getField("SOURCE"), "=", "SAISIE_VENTE_FACTURE"));
+        w = w.and(new Where(sel.getAlias(tablePiece.getField("NOM")), "LIKE", "%Saisie vente facture%"));
+        sel.setWhere(w);
+
+        System.err.println(sel.asString());
+
+        List<SQLRow> rows = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel, tableMvt));
+
+        for (SQLRow sqlRow : rows) {
+            SQLRow rowPiece = sqlRow.getForeignRow("ID_PIECE");
+            String nom = rowPiece.getString("NOM");
+            if (nom.startsWith("Saisie vente facture")) {
+                SQLRowValues rowVals = rowPiece.asRowValues();
+                String nomNew = nom.replaceAll("Saisie vente facture", "Fact. vente");
+                rowVals.put("NOM", nomNew);
+                try {
+                    rowVals.update();
+                } catch (SQLException exn) {
+                    // TODO Bloc catch auto-généré
+                    exn.printStackTrace();
+                }
+            }
+        }
+
     }
 }

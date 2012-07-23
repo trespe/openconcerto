@@ -37,6 +37,7 @@ import org.openconcerto.sql.view.list.CellDynamicModifier;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
+import org.openconcerto.sql.view.list.ValidStateChecker;
 import org.openconcerto.ui.table.XTableColumnModel;
 
 import java.math.BigDecimal;
@@ -317,7 +318,7 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         m2.setWhere(new Where(sqlTableArticle.getField("OBSOLETE"), "=", Boolean.FALSE));
 
         final AutoCompletionManager m3 = new AutoCompletionManager(tableElementArticle, sqlTableArticle.getField("NOM"), this.table, this.table.getRowValuesTableModel(),
-                ITextWithCompletion.MODE_CONTAINS, true, true);
+                ITextWithCompletion.MODE_CONTAINS, true, true, new ValidStateChecker());
         m3.fill("CODE", "CODE");
         m3.fill("NOM", "NOM");
         for (String string : completionField) {

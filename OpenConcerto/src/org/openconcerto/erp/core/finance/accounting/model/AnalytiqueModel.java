@@ -68,7 +68,7 @@ public class AnalytiqueModel extends AbstractTableModel {
         SQLSelect sel = new SQLSelect(base);
         sel.addSelect(posteTable.getField("ID"));
         sel.addSelect(posteTable.getField("NOM"));
-        sel.setWhere("POSTE_ANALYTIQUE.ID_AXE_ANALYTIQUE", "=", IDAxe);
+        sel.setWhere(posteTable.getField("ID_AXE_ANALYTIQUE"), "=", IDAxe);
 
         String req = sel.asString();
 
@@ -105,14 +105,15 @@ public class AnalytiqueModel extends AbstractTableModel {
 
             // SELECT Rep.NOM, ID_POSTE, taux FROM REP, REP_ELEME
             // WHERE REP_ELEME.ID_POSTE = id, REP_ELEM.IDREP = REp.ID)
+            final SQLTable repartAnalytiqueT = base.getTable("REPARTITION_ANALYTIQUE");
             SQLSelect sel2 = new SQLSelect(base);
-            sel2.addSelect("REPARTITION_ANALYTIQUE.NOM");
-            sel2.addSelect("REPARTITION_ANALYTIQUE_ELEMENT.TAUX");
-            sel2.addSelect("REPARTITION_ANALYTIQUE_ELEMENT.ID_POSTE_ANALYTIQUE");
-            sel2.addSelect("REPARTITION_ANALYTIQUE_ELEMENT.ID_REPARTITION_ANALYTIQUE");
-            sel2.addSelect("REPARTITION_ANALYTIQUE_ELEMENT.ID");
+            sel2.addSelect(repartAnalytiqueT.getField("NOM"));
+            sel2.addSelect(repartAnalytiqueT.getField("TAUX"));
+            sel2.addSelect(repartAnalytiqueT.getField("ID_POSTE_ANALYTIQUE"));
+            sel2.addSelect(repartAnalytiqueT.getField("ID_REPARTITION_ANALYTIQUE"));
+            sel2.addSelect(repartAnalytiqueT.getKey());
 
-            Where w = new Where(base.getTable("REPARTITION_ANALYTIQUE_ELEMENT").getField("ID_REPARTITION_ANALYTIQUE"), "=", base.getTable("REPARTITION_ANALYTIQUE").getField("ID"));
+            Where w = new Where(base.getTable("REPARTITION_ANALYTIQUE_ELEMENT").getField("ID_REPARTITION_ANALYTIQUE"), "=", repartAnalytiqueT.getKey());
             Where w2 = new Where(posteTable.getField("ID_AXE_ANALYTIQUE"), "=", this.idAxe);
             Where w3 = new Where(posteTable.getField("ID"), "=", base.getTable("REPARTITION_ANALYTIQUE_ELEMENT").getField("ID_POSTE_ANALYTIQUE"));
 
@@ -347,7 +348,7 @@ public class AnalytiqueModel extends AbstractTableModel {
         SQLSelect selAssoc = new SQLSelect(base);
         selAssoc.addSelect(assocTable.getField("ID"));
         selAssoc.addSelect(assocTable.getField("ID_COMPTE_PCE"));
-        selAssoc.setWhere("ASSOCIATION_COMPTE_ANALYTIQUE.ID_REPARTITION_ANALYTIQUE", "=", rep.getId());
+        selAssoc.setWhere(assocTable.getField("ID_REPARTITION_ANALYTIQUE"), "=", rep.getId());
 
         String reqAssoc = selAssoc.asString();
         Object obAssoc = base.getDataSource().execute(reqAssoc, new ArrayListHandler());

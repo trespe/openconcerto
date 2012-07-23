@@ -78,7 +78,7 @@ public class OOXMLTableField extends OOXMLField {
         } else if (this.type.equalsIgnoreCase("DescriptifArticle")) {
             value = getDescriptifArticle(this.row);
         } else if (this.type.equalsIgnoreCase("DateEcheance")) {
-            value = getDateEcheance(this.row.getInt("ID_MODE_REGLEMENT"), (Date) this.row.getObject("DATE"), this.elt.getAttributeValue("DatePattern"));
+            value = getDateEcheance(this.row.getInt("ID_MODE_REGLEMENT"), (Date) this.row.getObject("DATE"), this.elt.getAttributeValue("datePattern"));
         } else if (this.type.equalsIgnoreCase("MontantRevise")) {
             value = getMontantRevise(this.row);
         } else if (this.type.equalsIgnoreCase("Localisation")) {
@@ -86,6 +86,10 @@ public class OOXMLTableField extends OOXMLField {
         } else {
             OOXMLElement eltXml = new OOXMLElement(this.elt, this.sqlElt, this.id, this.row, this.rowLanguage, cache);
             value = eltXml.getValue();
+            String cellSize = this.elt.getAttributeValue("cellSize");
+            if (cellSize != null && cellSize.trim().length() != 0 && value != null) {
+                value = splitStringCell(cellSize, value.toString());
+            }
         }
 
         return value;

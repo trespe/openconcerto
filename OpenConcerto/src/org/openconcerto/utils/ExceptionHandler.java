@@ -36,6 +36,9 @@ import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.net.URI;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.swing.AbstractAction;
@@ -79,7 +82,7 @@ public class ExceptionHandler extends RuntimeException {
      * @param originalExn the cause, can be <code>null</code>.
      * @return an exception.
      */
-    static public RuntimeException handle(Component comp, String msg, Throwable originalExn) {
+    static public ExceptionHandler handle(Component comp, String msg, Throwable originalExn) {
         return new ExceptionHandler(comp, msg, originalExn, false);
     }
 
@@ -113,30 +116,31 @@ public class ExceptionHandler extends RuntimeException {
 
     // the comp on which to display the popup, may be null
     private final Component comp;
+    private final Future<?> future;
     private static boolean forceUI;
 
     public static void setForceUI(boolean forceUI) {
         ExceptionHandler.forceUI = forceUI;
     }
 
-    private void display(final boolean error) {
+    private Future<?> display(final boolean error) {
         final String msg = this.getMessage();
         if (error) {
-            getLogger().severe(this.getTrace());
+            getLogger().log(Level.SEVERE, null, this);
         } else {
             if (this.getCause() != null) {
-                getLogger().info(this.getTrace());
+                getLogger().log(Level.INFO, null, this);
             }
         }
         if (!GraphicsEnvironment.isHeadless() || forceUI) {
             if (SwingUtilities.isEventDispatchThread()) {
                 showMsg(msg, error);
             } else {
-                final Runnable run = new Runnable() {
+                final FutureTask<?> run = new FutureTask<Object>(new Runnable() {
                     public void run() {
                         showMsg(msg, error);
                     }
-                };
+                }, null);
                 if (error) {
                     try {
                         SwingUtilities.invokeAndWait(run);
@@ -147,8 +151,14 @@ public class ExceptionHandler extends RuntimeException {
                 } else {
                     SwingUtilities.invokeLater(run);
                 }
+                return run;
             }
         }
+        return null;
+    }
+
+    public final Future<?> getDialogFuture() {
+        return this.future;
     }
 
     protected final void showMsg(final String msg, final boolean quit) {
@@ -344,7 +354,7 @@ public class ExceptionHandler extends RuntimeException {
     private ExceptionHandler(Component comp, String msg, Throwable cause, boolean quit) {
         super(msg, cause);
         this.comp = comp;
-        this.display(quit);
+        this.future = this.display(quit);
     }
 
     public static void main(String[] args) throws Exception {

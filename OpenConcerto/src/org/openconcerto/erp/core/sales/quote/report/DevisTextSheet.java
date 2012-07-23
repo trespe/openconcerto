@@ -124,7 +124,7 @@ public class DevisTextSheet extends AbstractJOOReportsSheet {
     }
 
     @Override
-    public String getFileName() {
+    protected String getName() {
         String fileName = "Devis_" + this.row.getString("NUMERO");
         return fileName;
     }

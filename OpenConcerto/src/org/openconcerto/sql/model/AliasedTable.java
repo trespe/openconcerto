@@ -18,7 +18,7 @@
  * 
  * @author Sylvain CUAZ
  */
-public class AliasedTable implements SQLItem {
+public class AliasedTable implements SQLItem, TableRef {
 
     private final SQLTable t;
     private final String alias;
@@ -40,10 +40,12 @@ public class AliasedTable implements SQLItem {
         this.alias = alias == null ? t.getName() : alias;
     }
 
+    @Override
     public final SQLTable getTable() {
         return this.t;
     }
 
+    @Override
     public final String getAlias() {
         return this.alias;
     }
@@ -54,15 +56,18 @@ public class AliasedTable implements SQLItem {
      * @param fieldName the name of a field of {@link #getTable()}, e.g. "DESIGNATION".
      * @return the aliased field, e.g. "obs"."DESIGNATION".
      */
+    @Override
     public final AliasedField getField(String fieldName) {
-        return new AliasedField(this.getTable().getField(fieldName), this.getAlias());
+        return new AliasedField(this, fieldName);
     }
 
+    @Override
     public AliasedField getKey() {
         return getField(this.getTable().getKey().getName());
     }
 
-    public String getDeclaration() {
+    @Override
+    public String getSQL() {
         // always use fullname, otherwise must check the datasource's
         // default schema
         final String tableName = this.getTable().getSQLName().quote();
@@ -71,13 +76,8 @@ public class AliasedTable implements SQLItem {
     }
 
     @Override
-    public final String getSQL() {
-        return this.getDeclaration();
-    }
-
-    @Override
     public String toString() {
-        return this.getClass().getSimpleName() + " <" + this.getDeclaration() + ">";
+        return this.getClass().getSimpleName() + " <" + this.getSQL() + ">";
     }
 
     @Override

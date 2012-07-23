@@ -139,7 +139,7 @@ public class ChargementCreationSocietePanel extends JPanel implements StatusList
 
         try {
             String insert = "INSERT INTO \"" + baseNewSociete.getName() + "\".\"COMPTE_PCE\" (\"NUMERO\", \"NOM\", \"INFOS\") VALUES (?, ?, ?)";
-            PreparedStatement stmt = baseNewSociete.getBase().getDataSource().getConnection().prepareStatement(insert);
+            PreparedStatement stmt = baseNewSociete.getBase().getDataSource().getNewConnection().prepareStatement(insert);
 
             for (int i = 0; i < tmpCpt.size(); i++) {
                 Map tmp = (HashMap) tmpCpt.get(i);

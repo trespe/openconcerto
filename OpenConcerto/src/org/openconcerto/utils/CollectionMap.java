@@ -180,6 +180,24 @@ public class CollectionMap<K, V> extends MultiHashMap {
         return this.collectionClass;
     }
 
+    public void removeAll(CollectionMap<? extends K, ? extends V> mm) {
+        for (final Map.Entry<? extends K, ?> e : mm.entrySet()) {
+            final Collection<V> coll = this.getNull(e.getKey());
+            if (coll != null) {
+                coll.removeAll((Collection<?>) e.getValue());
+                // see #remove(Object, Object)
+                if (coll.isEmpty())
+                    this.remove(e.getKey());
+            }
+        }
+    }
+
+    public void removeAll(Map<? extends K, ? extends V> m) {
+        for (final Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
+            this.remove(e.getKey(), e.getValue());
+        }
+    }
+
     /**
      * Fusionne la MultiMap avec celle-ci. C'est à dire rajoute les valeurs de mm à la suite des
      * valeurs de cette map (contrairement à putAll(Map) qui ajoute les valeurs de mm en tant que

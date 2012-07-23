@@ -339,7 +339,13 @@ public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Do
 
     @Override
     public ValidState getValidState() {
+
+        boolean endWithSpace = getText().endsWith(" ");
+        if (endWithSpace) {
+            return ValidState.createCached(!endWithSpace, "la valeur ne peut pas se terminer par un espace!");
+        }
         return ValidState.createCached(this.isValidated, "Le numéro existe déjà");
+
     }
 
     private synchronized void runValidationThread() {

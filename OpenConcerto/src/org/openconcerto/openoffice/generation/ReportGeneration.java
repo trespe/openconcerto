@@ -16,6 +16,7 @@
 import org.openconcerto.openoffice.ODSingleXMLDocument;
 import org.openconcerto.openoffice.generation.desc.ReportPart;
 import org.openconcerto.openoffice.generation.desc.ReportType;
+import org.openconcerto.openoffice.generation.desc.part.CaseReportPart;
 import org.openconcerto.openoffice.generation.desc.part.ConditionalPart;
 import org.openconcerto.openoffice.generation.desc.part.ForkReportPart;
 import org.openconcerto.openoffice.generation.desc.part.GeneratorReportPart;
@@ -283,6 +284,8 @@ public class ReportGeneration<C extends GenerationCommon> {
                             add(currentDoc, doc);
                         }
                     }
+                } else if (part instanceof CaseReportPart) {
+                    s.push(Tuple2.create(((CaseReportPart) part).evaluate(this).iterator(), currentDoc));
                 } else {
                     add(currentDoc, this.createTaskAndGenerate(((GeneratorReportPart) part)));
                 }
@@ -345,9 +348,13 @@ public class ReportGeneration<C extends GenerationCommon> {
     private final boolean mustGenerate(ReportPart part) throws OgnlException {
         if (part instanceof ConditionalPart) {
             final ConditionalPart p = (ConditionalPart) part;
-            return p.getCondition() == null || ((Boolean) Ognl.getValue(p.getCondition(), getCommonData())).booleanValue();
+            return p.getCondition() == null || evaluatePredicate(p.getCondition());
         } else
             return true;
+    }
+
+    public final boolean evaluatePredicate(String p) throws OgnlException {
+        return ((Boolean) Ognl.getValue(p, getCommonData())).booleanValue();
     }
 
     /**

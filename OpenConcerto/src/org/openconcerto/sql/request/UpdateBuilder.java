@@ -15,7 +15,10 @@
 
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
+import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.TableRef;
 import org.openconcerto.sql.model.Where;
 
 import java.util.ArrayList;
@@ -67,14 +70,28 @@ public class UpdateBuilder {
         this.where = where;
     }
 
+    public final void addTable(final TableRef t) {
+        this.tables.add(t.getSQL());
+    }
+
+    /**
+     * Add table to this UPDATE.
+     * 
+     * @param sel the select to add.
+     * @param alias the alias, cannot be <code>null</code>, e.g. <code>t</code>.
+     */
+    public final void addTable(final SQLSelect sel, final String alias) {
+        this.addRawTable("( " + sel.asString() + " )", SQLBase.quoteIdentifier(alias));
+    }
+
     /**
      * Add table to this UPDATE.
      * 
      * @param definition the table to add, ie either a table name or a sub-select.
-     * @param alias the alias, can be <code>null</code>.
+     * @param rawAlias the SQL alias, can be <code>null</code>, e.g. <code>"t"</code>.
      */
-    public final void addTable(final String definition, final String alias) {
-        this.tables.add(definition + (alias == null ? "" : " " + alias));
+    public final void addRawTable(final String definition, final String rawAlias) {
+        this.tables.add(definition + (rawAlias == null ? "" : " " + rawAlias));
     }
 
     public final String asString() {

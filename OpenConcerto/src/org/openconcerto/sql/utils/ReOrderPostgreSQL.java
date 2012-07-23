@@ -14,6 +14,7 @@
  package org.openconcerto.sql.utils;
 
 import org.openconcerto.sql.model.AliasedField;
+import org.openconcerto.sql.model.Order;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
@@ -50,9 +51,8 @@ final class ReOrderPostgreSQL extends ReOrder {
         idsToReorder.addSelect(tID, null, "ID");
         idsToReorder.setWhere(this.getWhere(tOrder));
         // NULLS LAST needs at least 8.3, but 8.2 is sorting nulls high so no need to specify it
-        final String orderDir = conn.getMetaData().nullsAreSortedHigh() ? " ASC" : " ASC NULLS LAST";
-        idsToReorder.addRawOrder(tOrder.getFieldRef() + orderDir);
-        idsToReorder.addRawOrder(tID.getFieldRef() + " ASC");
+        idsToReorder.addFieldOrder(tOrder, Order.asc(), conn.getMetaData().nullsAreSortedHigh() ? null : Order.nullsLast());
+        idsToReorder.addFieldOrder(tID, Order.asc());
 
         res.add("CREATE TEMP SEQUENCE \"reorderSeq\" MINVALUE 0;");
         // REORDER: ID => INDEX
@@ -64,8 +64,8 @@ final class ReOrderPostgreSQL extends ReOrder {
         res.add(this.t.getBase().quote("UPDATE %f SET %n =  -%n " + this.getWhere(), this.t, oF, oF) + ";");
 
         final UpdateBuilder update = new UpdateBuilder(this.t);
-        update.addTable("REORDER", "M");
-        update.addTable("inc", null);
+        update.addRawTable("REORDER", "M");
+        update.addRawTable("inc", null);
         update.set(oF.getName(), "M.index * inc.val + " + getFirstOrderValue());
         res.add(update.asString() + " where M.\"ID\" = " + this.t.getKey().getFieldRef() + ";");
 

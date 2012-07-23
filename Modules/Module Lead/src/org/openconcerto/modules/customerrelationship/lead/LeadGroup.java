@@ -31,7 +31,7 @@ public class LeadGroup extends Group {
         this.add(gAddress, LayoutHints.DEFAULT_SEPARATED_GROUP_HINTS);
 
         final Group gInfos = new Group("customerrelationship.lead.info");
-        gInfos.add("INFORMATION", new LayoutHints(true, true, true, true, true));
+        gInfos.add("INFORMATION", new LayoutHints(true, true, true, true, true, true));
         gInfos.add("INDUSTRY");
         gInfos.add("REVENUE");
         gInfos.add("EMPLOYEES");

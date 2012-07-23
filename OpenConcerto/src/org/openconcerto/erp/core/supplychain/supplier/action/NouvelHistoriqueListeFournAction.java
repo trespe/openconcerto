@@ -21,6 +21,7 @@ import org.openconcerto.erp.core.supplychain.supplier.ui.HistoriqueFournBilanPan
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.users.rights.JListSQLTablePanel;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -48,7 +49,7 @@ public class NouvelHistoriqueListeFournAction extends CreateFrameAbstractAction 
         mapList.put("Chèques émis", Arrays.asList("CHEQUE_FOURNISSEUR"));
 
         final HistoriqueFournBilanPanel panelBilan = new HistoriqueFournBilanPanel();
-        final ListeHistoriquePanel listHistoriquePanel = new ListeHistoriquePanel("Fournisseurs", b.getTable("FOURNISSEUR"), mapList, panelBilan, null);
+        final ListeHistoriquePanel listHistoriquePanel = new ListeHistoriquePanel("Fournisseurs", JListSQLTablePanel.createComboRequest(b.getTable("FOURNISSEUR"), true), mapList, panelBilan, null);
 
         listHistoriquePanel.addListSelectionListener(new ListSelectionListener() {
             public void valueChanged(ListSelectionEvent e) {

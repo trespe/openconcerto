@@ -107,6 +107,8 @@ public class XMLStructureSource extends StructureSource<IOException> {
             } catch (Exception e) {
                 thisVersionBad += ExceptionUtils.getStackTrace(e);
             }
+            // remove spaces added by isVersionBad()
+            thisVersionBad = thisVersionBad.trim();
             if (thisVersionBad.length() > 0) {
                 schemaFile.delete();
                 // don't throw right away, continue deleting invalid files

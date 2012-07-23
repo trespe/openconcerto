@@ -42,6 +42,7 @@ public abstract class StructureSource<E extends Exception> {
     private boolean preVerify;
     private Map<String, SQLSchema> newStructure;
     // schemas loaded by another StructureSource
+    private final boolean hasExternalStruct;
     private final Map<String, SQLSchema> externalStruct;
 
     public StructureSource(SQLBase b, Set<String> toRefresh) {
@@ -54,7 +55,16 @@ public abstract class StructureSource<E extends Exception> {
         this.toRefresh = toRefresh;
         this.preVerify = false;
         this.newStructure = null;
+        this.hasExternalStruct = externalStruct != null;
         this.externalStruct = externalStruct == null ? Collections.<String, SQLSchema> emptyMap() : externalStruct;
+    }
+
+    final Set<String> getToRefresh() {
+        return this.toRefresh;
+    }
+
+    final boolean hasExternalStruct() {
+        return this.hasExternalStruct;
     }
 
     /**

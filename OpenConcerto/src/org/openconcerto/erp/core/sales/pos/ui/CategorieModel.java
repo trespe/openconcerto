@@ -13,11 +13,11 @@
  
  package org.openconcerto.erp.core.sales.pos.ui;
 
-
-
 import org.openconcerto.erp.core.sales.pos.model.Categorie;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.swing.ListModel;
@@ -34,18 +34,15 @@ public class CategorieModel implements ListModel {
     @Override
     public void addListDataListener(ListDataListener l) {
         listeners.add(l);
-
     }
 
     @Override
     public Object getElementAt(int index) {
-
         return items.get(index);
     }
 
     @Override
     public int getSize() {
-        // TODO Auto-generated method stub
         return items.size();
     }
 
@@ -63,6 +60,12 @@ public class CategorieModel implements ListModel {
         } else {
             this.items.addAll(c.getSubCategories());
         }
+        Collections.sort(items, new Comparator<Categorie>() {
+            @Override
+            public int compare(Categorie o1, Categorie o2) {
+                return o1.getName().compareTo(o2.getName());
+            }
+        });
         fire();
     }
 
@@ -73,7 +76,6 @@ public class CategorieModel implements ListModel {
     }
 
     public Categorie getRoot() {
-
         return this.categorie;
     }
 }

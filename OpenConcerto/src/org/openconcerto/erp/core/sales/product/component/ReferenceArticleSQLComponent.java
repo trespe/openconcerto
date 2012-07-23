@@ -66,7 +66,6 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.JTabbedPane;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.event.DocumentEvent;
@@ -87,8 +86,8 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     private PropertyChangeListener taxeListener;
     final ElementComboBox comboSelTaxe = new ElementComboBox(false, 25);
     final ElementComboBox comboSelModeVente = new ElementComboBox(false, 25);
-    private JLabel labelMetriqueHA1 = new JLabel(getLabelFor("PRIX_METRIQUE_HA_1"));
-    private JLabel labelMetriqueVT1 = new JLabel(getLabelFor("PRIX_METRIQUE_VT_1"));
+    private JLabel labelMetriqueHA1 = new JLabel(getLabelFor("PRIX_METRIQUE_HA_1"), SwingConstants.RIGHT);
+    private JLabel labelMetriqueVT1 = new JLabel(getLabelFor("PRIX_METRIQUE_VT_1"), SwingConstants.RIGHT);
 
     ArticleDesignationTable tableDes = new ArticleDesignationTable();
     ArticleTarifTable tableTarifVente = new ArticleTarifTable(this);
@@ -299,8 +298,10 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         if (gestionUV) {
             c.gridy++;
             c.gridx = 0;
-            this.add(new JLabel(getLabelFor("ID_UNITE_VENTE")), c);
+            c.weightx = 0;
+            this.add(new JLabel(getLabelFor("ID_UNITE_VENTE"), SwingConstants.RIGHT), c);
             c.gridx++;
+            c.weightx = 1;
             ElementComboBox boxUnite = new ElementComboBox();
             this.add(boxUnite, c);
             this.addView(boxUnite, "ID_UNITE_VENTE");
@@ -348,7 +349,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
         c.gridy++;
         c.weighty = 0.3;
-        JTextArea infos = new JTextArea();
+        ITextArea infos = new ITextArea();
         c.fill = GridBagConstraints.BOTH;
         this.add(infos, c);
 
@@ -905,7 +906,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     private void addModeVenteAvance(GridBagConstraints c) {
         DefaultProps props = DefaultNXProps.getInstance();
         JSeparator sep = new JSeparator();
-        JLabel labelDetails = new JLabel("Article détaillé");
+        JLabel labelDetails = new JLabel("Article détaillé", SwingConstants.RIGHT);
         c.gridx = 0;
         c.gridy++;
         c.weightx = 0;
@@ -921,13 +922,14 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         c.weightx = 0;
         c.gridx = 0;
         c.gridy++;
-        this.add(new JLabel(getLabelFor("ID_MODE_VENTE_ARTICLE")), c);
-
+        this.add(new JLabel(getLabelFor("ID_MODE_VENTE_ARTICLE"), SwingConstants.RIGHT), c);
+        c.weightx = 1;
         c.gridx++;
         this.add(this.comboSelModeVente, c);
 
         // Prix metrique
         c.gridx = 0;
+        c.weightx = 0;
         c.gridy++;
         this.add(this.labelMetriqueHA1, c);
         c.gridx++;
@@ -943,7 +945,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
         // Metrique 1
         c.weightx = 0;
-        JLabel labelMetrique1 = new JLabel(getLabelFor("VALEUR_METRIQUE_1"));
+        JLabel labelMetrique1 = new JLabel(getLabelFor("VALEUR_METRIQUE_1"), SwingConstants.RIGHT);
         c.gridx = 0;
         c.gridy++;
         this.add(labelMetrique1, c);
@@ -958,7 +960,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.textValMetrique1.setVisible(bMetrique1 == null || bMetrique1.booleanValue());
 
         // Metrique 2
-        JLabel labelMetrique2 = new JLabel(getLabelFor("VALEUR_METRIQUE_2"));
+        JLabel labelMetrique2 = new JLabel(getLabelFor("VALEUR_METRIQUE_2"), SwingConstants.RIGHT);
         c.gridx = 0;
         c.gridy++;
         c.weightx = 0;
@@ -974,7 +976,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.textValMetrique2.setVisible(bMetrique2 == null || bMetrique2.booleanValue());
 
         // Metrique 3
-        JLabel labelMetrique3 = new JLabel(getLabelFor("VALEUR_METRIQUE_3"));
+        JLabel labelMetrique3 = new JLabel(getLabelFor("VALEUR_METRIQUE_3"), SwingConstants.RIGHT);
         c.gridx = 0;
         c.gridy++;
         c.weightx = 0;
@@ -990,7 +992,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
         // Article détaillé
         JSeparator sep2 = new JSeparator();
-        JLabel labelPiece = new JLabel("Article pièce");
+        JLabel labelPiece = new JLabel("Article pièce", SwingConstants.RIGHT);
         c.gridx = 0;
         c.gridy++;
         c.weightx = 0;

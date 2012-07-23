@@ -61,14 +61,14 @@ public class CaisseControler implements BarcodeListener {
     }
 
     void setArticleSelected(Article a) {
-        System.out.println("CaisseControler.setArticleSelected() :  " + a);
-        this.articleSelected = a;
-        this.paiementSelected = null;
-        fire();
+        if (a != articleSelected) {
+            this.articleSelected = a;
+            this.paiementSelected = null;
+            fire();
+        }
     }
 
     void setPaiementSelected(Paiement p) {
-        System.out.println("CaisseControler.setPaiementSelected() :  " + p);
         this.paiementSelected = p;
         this.articleSelected = null;
         fire();
@@ -114,7 +114,6 @@ public class CaisseControler implements BarcodeListener {
 
     public void clearPaiement(Paiement paiement) {
         if (this.p1.equals(paiement) || this.p2.equals(paiement) || this.p3.equals(paiement)) {
-
             paiement.setMontantInCents(0);
         }
         fire();
@@ -123,13 +122,11 @@ public class CaisseControler implements BarcodeListener {
     public void setPaiementValue(Paiement paiement, int v) {
         paiement.setMontantInCents(v);
         fire();
-
     }
 
     // Totaux
     public int getTotal() {
         return this.t.getTotal();
-
     }
 
     public int getPaidTotal() {
@@ -144,7 +141,6 @@ public class CaisseControler implements BarcodeListener {
 
     public int getItemCount(Article article) {
         return this.t.getItemCount(article);
-
     }
 
     public void clearArticle(Article article) {
@@ -227,7 +223,6 @@ public class CaisseControler implements BarcodeListener {
 
     @Override
     public void keyReceived(KeyEvent ee) {
-        // TODO Auto-generated method stub
 
     }
 
@@ -270,7 +265,7 @@ public class CaisseControler implements BarcodeListener {
     public void printTicket() {
         if (this.t.getTotal() > 0) {
             if (this.getPaidTotal() >= this.getTotal()) {
-                TicketPrinter prt = Caisse.getTicketPrinter();
+                final TicketPrinter prt = Caisse.getTicketPrinter();
                 t.print(prt);
             } else {
                 System.err.println("Ticket not printed because not paid");
@@ -282,9 +277,8 @@ public class CaisseControler implements BarcodeListener {
 
     public void openDrawer() {
         try {
-            TicketPrinter prt = Caisse.getTicketPrinter();
+            final TicketPrinter prt = Caisse.getTicketPrinter();
             prt.openDrawer();
-
         } catch (Exception e) {
             e.printStackTrace();
         }

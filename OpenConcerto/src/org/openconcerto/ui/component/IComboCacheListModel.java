@@ -74,6 +74,11 @@ public class IComboCacheListModel extends DefaultIMutableListModel<String> imple
         };
     }
 
+    public final IComboCacheListModel load() {
+        this.load(null, true);
+        return this;
+    }
+
     public final void load(final Runnable r, final boolean readCache) {
         if (this.cache.isValid()) {
             new SwingWorker2<List<String>, Object>() {

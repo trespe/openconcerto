@@ -300,7 +300,7 @@ public class FichePayeSheet extends SheetInterface {
         // Element Devis
         SQLSelect selElt = new SQLSelect(base);
         selElt.addSelect(tableFicheElt.getField("ID"));
-        selElt.setWhere("FICHE_PAYE_ELEMENT.ID_FICHE_PAYE", "=", this.row.getID());
+        selElt.setWhere(tableFicheElt.getField("ID_FICHE_PAYE"), "=", this.row.getID());
 
         String req = selElt.asString() + " ORDER BY \"FICHE_PAYE_ELEMENT\".\"POSITION\"";
         List l = (List) base.getDataSource().execute(req, new ArrayListHandler());

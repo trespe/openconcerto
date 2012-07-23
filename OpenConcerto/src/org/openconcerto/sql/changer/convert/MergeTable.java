@@ -37,6 +37,7 @@ import org.openconcerto.utils.cc.ITransformer;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -113,6 +114,7 @@ public class MergeTable extends Changer<SQLTable> {
         selOldIDs.addSelect(t.getKey());
 
         final SQLSyntax syntax = t.getServer().getSQLSystem().getSyntax();
+        final Set<SQLTable> toRefresh = new HashSet<SQLTable>();
         SQLUtils.executeAtomic(t.getDBSystemRoot().getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
             @Override
             public Object handle(SQLDataSource ds) throws SQLException {
@@ -177,15 +179,22 @@ public class MergeTable extends Changer<SQLTable> {
                     // don't alter the table silently (use AddFK if you want that)
                     addFK.addForeignConstraint(singletonList(refKey.getName()), MergeTable.this.destTable.getContextualSQLName(refTable), false, MergeTable.this.destTable.getPKsNames());
                     ds.execute(addFK.asString());
+
+                    toRefresh.add(refTable);
                 }
 
                 // all data has been copied, and every link removed
                 // we can now safely drop t
                 ds.execute(t.getBase().quote("DROP TABLE %f", t));
 
+                toRefresh.add(t);
+
                 return null;
             }
         });
+        for (final SQLTable table : toRefresh) {
+            table.fetchFields();
+        }
     }
 
     private final SQLSelect createSelect(final SQLTable t) {

@@ -194,9 +194,9 @@ public class GrandLivreSheet extends SheetInterface {
                 }
 
                 sel.setWhere(w);
-                sel.addRawOrder("\"ECRITURE\".\"COMPTE_NUMERO\"");
-                sel.addRawOrder("\"ECRITURE\".\"DATE\"");
-                sel.addRawOrder("\"MOUVEMENT\".\"NUMERO\"");
+                sel.addFieldOrder(tableEcriture.getField("COMPTE_NUMERO"));
+                sel.addFieldOrder(tableEcriture.getField("DATE"));
+                sel.addFieldOrder(tableMvt.getField("NUMERO"));
                 System.err.println(sel.asString());
                 return sel;
             }

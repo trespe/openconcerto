@@ -31,7 +31,7 @@ import org.jdom.Element;
 public class GraphicStyle extends StyleStyle {
 
     // from section 18.222 in v1.2-part1
-    public static final StyleStyleDesc<GraphicStyle> DESC = new StyleStyleDesc<GraphicStyle>(GraphicStyle.class, XMLVersion.OD, "graphic", "fr", "draw", Arrays.asList("dr3d:cube", "dr3d:extrude",
+    private static final StyleStyleDesc<GraphicStyle> DESC = new StyleStyleDesc<GraphicStyle>(GraphicStyle.class, XMLVersion.OD, "graphic", "fr", "draw", Arrays.asList("dr3d:cube", "dr3d:extrude",
             "dr3d:rotate", "dr3d:scene", "dr3d:sphere", "draw:caption", "draw:circle", "draw:connector", "draw:control", "draw:custom-shape", "draw:ellipse", "draw:frame", "draw:g", "draw:line",
             "draw:measure", "draw:page-thumbnail", "draw:path", "draw:polygon", "draw:polyline", "draw:rect", "draw:regular-polygon", "office:annotation")) {
 
@@ -42,7 +42,7 @@ public class GraphicStyle extends StyleStyle {
     };
 
     // from §2.6 Frames and §5.3 Drawing shapes in OpenOffice.org XML File Format 1.0
-    public static final StyleStyleDesc<GraphicStyle> DESC_OO = new StyleStyleDesc<GraphicStyle>(GraphicStyle.class, XMLVersion.OOo, "graphics", "fr", "draw", Arrays.asList("draw:text-box",
+    private static final StyleStyleDesc<GraphicStyle> DESC_OO = new StyleStyleDesc<GraphicStyle>(GraphicStyle.class, XMLVersion.OOo, "graphics", "fr", "draw", Arrays.asList("draw:text-box",
             "draw:image", "draw:caption", "draw:circle", "draw:connector", "draw:control", "draw:ellipse", "draw:line", "draw:measure", "draw:page-thumbnail", "draw:path", "draw:polygon",
             "draw:polyline", "draw:rect")) {
 
@@ -51,6 +51,11 @@ public class GraphicStyle extends StyleStyle {
             return new GraphicStyle(pkg, e);
         }
     };
+
+    static public void registerDesc() {
+        Style.register(DESC);
+        Style.register(DESC_OO);
+    }
 
     private StyleTextProperties textProps;
     private StyleParagraphProperties pProps;

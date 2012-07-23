@@ -44,7 +44,7 @@
 	<element location="C13" type="fill">
 		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="DATE"/>
 	</element>
-
+<element type="invoice_paid_amount" location="L65"/>
 	<element location="B16" type="fill">
 		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_COMMERCIAL">
 			<field base="Societe" table="COMMERCIAL" name="PRENOM" type="Initiale" suffix="."/>

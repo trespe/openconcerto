@@ -13,8 +13,10 @@
  
  package org.openconcerto.erp.core.sales.pos.model;
 
-
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 public class Categorie {
@@ -32,13 +34,13 @@ public class Categorie {
 
     public Categorie(String string, boolean top) {
         this.name = string;
-        if (top)
+        if (top) {
             topLevelCategories.add(this);
+        }
     }
 
     @Override
     public String toString() {
-
         return name;
     }
 
@@ -49,7 +51,6 @@ public class Categorie {
 
     private void setParentCategorie(Categorie categorie) {
         this.parent = categorie;
-
     }
 
     public Categorie getParent() {
@@ -61,12 +62,10 @@ public class Categorie {
     }
 
     public static List<Categorie> getTopLevelCategories() {
-
         return topLevelCategories;
     }
 
     public List<Categorie> getSubCategories() {
-
         return l;
     }
 
@@ -75,15 +74,17 @@ public class Categorie {
     }
 
     public List<Article> getArticles() {
-        System.out.println("\nArticles de " + this.getName());
-        List<Article> result = new ArrayList<Article>();
+        final List<Article> result = new ArrayList<Article>();
         result.addAll(articles);
         for (Categorie c : l) {
-            System.out.println("\nArticles de sous cat:" + c.getName());
             result.addAll(c.getArticles());
         }
-
-        System.out.println(result);
+        Collections.sort(result, new Comparator<Article>() {
+            @Override
+            public int compare(Article o1, Article o2) {
+                return o1.getName().compareTo(o2.getName());
+            }
+        });
         return result;
     }
 }

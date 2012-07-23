@@ -51,12 +51,17 @@ import org.apache.commons.dbutils.ResultSetHandler;
 public class SQLRowValuesListFetcher {
 
     /**
-     * Create a fetcher with the necessary grafts to fetch the passed graph.
+     * Create an ordered fetcher with the necessary grafts to fetch the passed graph.
      * 
      * @param graph what to fetch, can be any tree.
      * @return the fetcher.
      */
     public static SQLRowValuesListFetcher create(final SQLRowValues graph) {
+        // ORDER shouldn't slow down the query and it makes the result predictable and repeatable
+        return create(graph, true);
+    }
+
+    public static SQLRowValuesListFetcher create(final SQLRowValues graph, final boolean ordered) {
         // path -> longest referent only path
         // i.e. map each path to the main fetcher or a referent graft
         final Map<Path, Path> handledPaths = new HashMap<Path, Path>();
@@ -78,7 +83,7 @@ public class SQLRowValuesListFetcher {
         }, RecursionType.DEPTH_FIRST, false);
 
         // find out needed grafts
-        final Map<Path, SQLRowValuesListFetcher> grafts = new HashMap<Path, SQLRowValuesListFetcher>();
+        final CollectionMap<Path, SQLRowValuesListFetcher> grafts = new CollectionMap<Path, SQLRowValuesListFetcher>();
         graph.getGraph().walk(graph, null, new ITransformer<State<Object>, Object>() {
             @Override
             public Path transformChecked(State<Object> input) {
@@ -102,8 +107,18 @@ public class SQLRowValuesListFetcher {
                             // don't recurse forever
                             if (previous.getGraph() == graftNode.getGraph())
                                 throw new IllegalArgumentException("Graph is not a tree");
-                            // ATTN pMinusLast might not be on the main fetcher
-                            grafts.put(pMinusLast, create(graftNode));
+                            // ATTN pMinusLast might not be on the main fetcher so don't graft now
+                            // also we can only graft non empty descendant path fetchers (plus
+                            // removing a fetcher saves one request)
+                            final SQLRowValuesListFetcher rec = create(graftNode, ordered);
+                            final Collection<SQLRowValuesListFetcher> ungrafted = rec.ungraft();
+                            if (ungrafted == null || ungrafted.size() == 0) {
+                                // i.e. only one referent and thus graft not necessary
+                                assert rec.descendantPath.length() > 0;
+                                grafts.put(pMinusLast, rec);
+                            } else {
+                                grafts.putAll(pMinusLast, ungrafted);
+                            }
                         }
                         throw new SQLRowValuesCluster.StopRecurseException().setCompletely(false);
                     }
@@ -115,6 +130,7 @@ public class SQLRowValuesListFetcher {
         final Set<Path> refPaths = new HashSet<Path>(handledPaths.values());
         // remove the main fetcher
         refPaths.remove(emptyPath);
+        // fetchers for the referent paths (yellow part)
         final Map<Path, SQLRowValuesListFetcher> graftedFetchers;
         // create the main fetcher and grafts
         final SQLRowValuesListFetcher res;
@@ -129,18 +145,22 @@ public class SQLRowValuesListFetcher {
                 final SQLRowValues copy = graph.deepCopy();
                 copy.clear();
                 for (final Path refPath : refPaths) {
-                    final SQLRowValuesListFetcher f = new SQLRowValuesListFetcher(copy, refPath, true);
+                    final SQLRowValuesListFetcher f = new SQLRowValuesListFetcher(copy, refPath, true).setOrdered(ordered);
                     res.graft(f, graftPath);
                     graftedFetchers.put(refPath, f);
                 }
             }
         }
+        res.setOrdered(ordered);
+
         // now graft recursively created grafts
-        for (final Entry<Path, SQLRowValuesListFetcher> e : grafts.entrySet()) {
+        for (final Entry<Path, Collection<SQLRowValuesListFetcher>> e : grafts.entrySet()) {
             final Path graftPath = e.getKey();
             final Path refPath = handledPaths.get(graftPath);
+            // can be grafted on the main fetcher or on the referent fetchers
             final SQLRowValuesListFetcher f = graftedFetchers.containsKey(refPath) ? graftedFetchers.get(refPath) : res;
-            f.graft(e.getValue(), graftPath);
+            for (final SQLRowValuesListFetcher recFetcher : e.getValue())
+                f.graft(recFetcher, graftPath);
         }
         return res;
     }
@@ -268,7 +288,7 @@ public class SQLRowValuesListFetcher {
                     if (input.getFrom() == null) {
                         input.getCurrent().clearReferents();
                     } else {
-                        input.getCurrent().retainReferents(input.getFrom());
+                        input.getCurrent().retainReferent(input.getPrevious());
                     }
                     return null;
                 }
@@ -396,10 +416,12 @@ public class SQLRowValuesListFetcher {
      * Whether to add ORDER BY in {@link #getReq()}.
      * 
      * @param b <code>true</code> if the query should be ordered.
+     * @return this.
      */
-    public final void setOrdered(final boolean b) {
+    public final SQLRowValuesListFetcher setOrdered(final boolean b) {
         this.checkFrozen();
         this.ordered = b;
+        return this;
     }
 
     public final boolean isOrdered() {
@@ -441,9 +463,11 @@ public class SQLRowValuesListFetcher {
             throw new IllegalArgumentException("empty path");
         // checked by computePath
         assert descendantPath.isSingleLink();
-        // eg this is LOCAL* -> BATIMENT -> SITE and CPI -> LOCAL -> BATIMENT* is being grafted
-        if (graftPath.length() > 0 && descendantPath.getStep(0).reverse().equals(graftPath.getStep(graftPath.length() - 1)))
-            throw new IllegalArgumentException(descendantPath.getStep(0) + " already fetched");
+        // we used to disallow that :
+        // this is LOCAL* -> BATIMENT -> SITE and CPI -> LOCAL -> BATIMENT* is being grafted
+        // but this is sometimes desirable, e.g. for each LOCAL find all of its siblings with the
+        // same capacity (or any other predicate)
+
         if (!this.grafts.containsKey(graftPath)) {
             this.grafts.put(graftPath, new HashMap<Path, SQLRowValuesListFetcher>(4));
         } else {
@@ -503,7 +527,7 @@ public class SQLRowValuesListFetcher {
                 final String alias;
                 if (input.getFrom() != null) {
                     alias = getAlias(input.getAcc(), input.getPath());
-                    final String aliasPrev = input.getPath().length() == 1 ? null : input.getAcc().followPath(t.getName(), input.getPath().subPath(0, -1));
+                    final String aliasPrev = input.getPath().length() == 1 ? null : input.getAcc().followPath(t.getName(), input.getPath().subPath(0, -1)).getAlias();
                     final String joinType = isPathRequired(input.getPath()) ? "INNER" : "LEFT";
                     if (input.isBackwards()) {
                         // eg LEFT JOIN loc on loc.ID_BATIMENT = BATIMENT.ID

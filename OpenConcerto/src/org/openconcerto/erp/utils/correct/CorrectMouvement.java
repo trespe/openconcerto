@@ -61,7 +61,7 @@ public class CorrectMouvement extends Changer<DBRoot> {
             final String selFixableUnbalanced = "( " + selUnbalanced.asString() + "\nEXCEPT\n" + selUnfixable.asString() + " )";
 
             final UpdateBuilder updateUnbalanced = new UpdateBuilder(ecritureT);
-            updateUnbalanced.addTable(selFixableUnbalanced, SQLBase.quoteIdentifier("semiArchivedMvt"));
+            updateUnbalanced.addRawTable(selFixableUnbalanced, SQLBase.quoteIdentifier("semiArchivedMvt"));
             updateUnbalanced.setWhere(Where.quote("%i = %f", new SQLName("semiArchivedMvt", "ID_MOUVEMENT"), ecritureMvtFF));
             updateUnbalanced.set(ecritureT.getArchiveField().getName(), "0");
 
@@ -94,8 +94,8 @@ public class CorrectMouvement extends Changer<DBRoot> {
             selIdentifiableNonUsed.setHaving(Where.createRaw("count(*) = 1"));
 
             final UpdateBuilder update = new UpdateBuilder(saisieKmElemT);
-            update.addTable(saisieKmT.getSQLName().quote(), null);
-            update.addTable("( " + selIdentifiableNonUsed.asString() + " )", "e");
+            update.addTable(saisieKmT);
+            update.addRawTable("( " + selIdentifiableNonUsed.asString() + " )", "e");
 
             final Where joinSaisieKmW = new Where(saisieKmElemT.getField("ID_SAISIE_KM"), "=", saisieKmT.getKey());
             Where joinEcritureW = null;

@@ -62,7 +62,7 @@ public abstract class DataStyle extends Style {
         formatSB.append('\'');
     }
 
-    public static final DataStyleDesc<?>[] DATA_STYLES_DESCS = new DataStyleDesc<?>[] { NumberStyle.DESC, PercentStyle.DESC, TextStyle.DESC, CurrencyStyle.DESC, DateStyle.DESC, TimeStyle.DESC,
+    private static final DataStyleDesc<?>[] DATA_STYLES_DESCS = new DataStyleDesc<?>[] { NumberStyle.DESC, PercentStyle.DESC, TextStyle.DESC, CurrencyStyle.DESC, DateStyle.DESC, TimeStyle.DESC,
             BooleanStyle.DESC };
 
     public static abstract class DataStyleDesc<S extends DataStyle> extends StyleDesc<S> {
@@ -78,6 +78,15 @@ public abstract class DataStyle extends Style {
                             "text:user-defined", "text:user-field-get", "text:user-field-input", "text:variable-get", "text:variable-input", "text:variable-set"));
             this.getRefElementsMap().put("style:apply-style-name", "style:map");
         }
+    }
+
+    static public void registerDesc() {
+        for (final StyleDesc<?> d : DATA_STYLES_DESCS)
+            Style.registerAllVersions(d);
+    }
+
+    static public <S extends DataStyle> DataStyleDesc<S> getDesc(final Class<S> clazz, final XMLVersion version) {
+        return (DataStyleDesc<S>) Style.getStyleDesc(clazz, version);
     }
 
     private final ODValueType type;
