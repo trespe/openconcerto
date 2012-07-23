@@ -61,8 +61,8 @@ public final class ResultSetFullnameHelper {
     }
 
     public final int getIndex(String fieldFullName) throws SQLException {
-        final String[] names = SQLField.parse(fieldFullName);
-        return this.getIndex(names[0], names[1]);
+        final SQLName names = SQLName.parse(fieldFullName);
+        return this.getIndex(names.getItem(-2), names.getName());
     }
 
     /**

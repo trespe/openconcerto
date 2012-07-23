@@ -13,12 +13,21 @@
  
  package org.openconcerto.erp.core.supplychain.order.element;
 
+import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
+import org.openconcerto.erp.core.supplychain.credit.component.AvoirFournisseurSQLComponent;
 import org.openconcerto.erp.core.supplychain.order.component.SaisieAchatSQLComponent;
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLInjector;
+import org.openconcerto.sql.view.EditFrame;
 
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
 
 public class SaisieAchatSQLElement extends ComptaSQLConfElement {
 
@@ -64,5 +73,20 @@ public class SaisieAchatSQLElement extends ComptaSQLConfElement {
     @Override
     protected String createCode() {
         return createCodeFromPackage() + ".purchase";
+    }
+
+    public void transfertAvoir(int idFacture) {
+        final SQLElement elt = Configuration.getInstance().getDirectory().getElement("AVOIR_FOURNISSEUR");
+        final EditFrame editAvoirFrame = new EditFrame(elt);
+        editAvoirFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
+
+        final AvoirFournisseurSQLComponent comp = (AvoirFournisseurSQLComponent) editAvoirFrame.getSQLComponent();
+        final SQLInjector inject = SQLInjector.getInjector(this.getTable(), elt.getTable());
+        comp.select(inject.createRowValuesFrom(idFacture));
+
+        editAvoirFrame.pack();
+        editAvoirFrame.setState(JFrame.NORMAL);
+        editAvoirFrame.setVisible(true);
+
     }
 }

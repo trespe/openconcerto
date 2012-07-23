@@ -11,7 +11,9 @@ public class INIRequest extends EbicsRequest {
     public INIRequest(EbicsConfiguration config) throws GeneralSecurityException, IOException {
         super(config, OrderType.INI);
         final SignaturePubKeyOrderData data = new SignaturePubKeyOrderData(config);
-        setData(data.getXML().getBytes());
+        final byte[] bytes = data.getXML().getBytes();
+        setData(bytes);
+        System.err.println(bytes.length);
     }
 
 }

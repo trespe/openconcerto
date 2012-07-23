@@ -263,20 +263,21 @@ public class BadgeListener implements Runnable {
                 if (sqlRow.getBoolean("ADMIN")) {
                     allow = true;
                     motif = "Administrateur toujours autorisé";
-                    continue;
+                    break;
                 }
 
                 if (!sqlRow.getBoolean("ACTIF")) {
                     motif = "La carte de l'adhérent n'est pas active dans sa fiche";
-                    continue;
+                    break;
                 }
 
                 Calendar cal = Calendar.getInstance();
-                Date d = cal.getTime();
+                final Date d = cal.getTime();
+                final Calendar dateValidite = sqlRow.getDate("DATE_VALIDITE_INSCRIPTION");
 
-                if (sqlRow.getDate("DATE_VALIDITE_INSCRIPTION") != null && sqlRow.getDate("DATE_VALIDITE_INSCRIPTION").before(d)) {
+                if (dateValidite != null && dateValidite.before(cal)) {
                     motif = "La date d'autorisation est expirée";
-                    continue;
+                    break;
                 }
 
                 SQLRow rowPlage = sqlRow.getForeignRow("ID_PLAGE_HORAIRE");

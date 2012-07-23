@@ -25,9 +25,6 @@ public class Column<D extends ODDocument> extends TableCalcNode<ColumnStyle, D> 
         final Element res = new Element("table-column", ns.getTABLE());
         if (style != null)
             res.setAttribute("style-name", style.getName(), ns.getTABLE());
-        // need default-cell-style-name otherwise some cells types are ignored
-        // (eg date treated as a float)
-        res.setAttribute("default-cell-style-name", "Default", ns.getTABLE());
         return res;
     }
 

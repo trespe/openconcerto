@@ -28,7 +28,7 @@ import org.jdom.Element;
 
 public class TextStyle extends StyleStyle {
 
-    public static final StyleStyleDesc<TextStyle> DESC = new StyleStyleDesc<TextStyle>(TextStyle.class, XMLVersion.OD, "text", "T") {
+    private static final StyleStyleDesc<TextStyle> DESC = new StyleStyleDesc<TextStyle>(TextStyle.class, XMLVersion.OD, "text", "T") {
 
         {
             // from section 19.876 in v1.2-part1-cd04
@@ -40,6 +40,10 @@ public class TextStyle extends StyleStyle {
             return new TextStyle(pkg, e);
         }
     };
+
+    static public void registerDesc() {
+        Style.registerAllVersions(DESC);
+    }
 
     private StyleTextProperties textProps;
 

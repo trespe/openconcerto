@@ -17,7 +17,6 @@
 package org.openconcerto.openoffice;
 
 import org.openconcerto.openoffice.ODPackage.RootElement;
-import org.openconcerto.openoffice.spreadsheet.ColumnStyle;
 import org.openconcerto.utils.cc.IFactory;
 import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.Validator;
@@ -247,10 +246,17 @@ public class ODXMLDocument {
         return null;
     }
 
-    public final Element getDefaultStyle(final StyleStyleDesc<?> styleDesc) {
-        final Element root = this.getDocument().getRootElement();
-        final Namespace office = getVersion().getOFFICE();
-        return this.findStyleChild(root.getChild("styles", office), styleDesc.getElementNS(), StyleStyleDesc.ELEMENT_DEFAULT_NAME, styleDesc.getFamily(), null);
+    public final Element getDefaultStyle(final StyleStyleDesc<?> styleDesc, final boolean create) {
+        final Element stylesElem = this.getChild("styles", create);
+        final Element res = this.findStyleChild(stylesElem, styleDesc.getElementNS(), StyleStyleDesc.ELEMENT_DEFAULT_NAME, styleDesc.getFamily(), null);
+        if (res != null || !create) {
+            return res;
+        } else {
+            final Element created = styleDesc.createDefaultElement();
+            // OK to add at the end, the relaxNG for office:styles is 'interleave'
+            stylesElem.addContent(created);
+            return created;
+        }
     }
 
     private final Element findStyleChild(final Element styles, final Namespace elemNS, final String elemName, final String family, final String name) {
@@ -272,9 +278,10 @@ public class ODXMLDocument {
     /**
      * Find an unused style name in this document.
      * 
-     * @param desc the description of the style, eg {@link ColumnStyle#DESC}.
-     * @param baseName the base name, eg "myColStyle".
-     * @return an unused name, eg "myColStyle12".
+     * @param desc the description of the style.
+     * @param baseName the base name, e.g. "myColStyle".
+     * @return an unused name, e.g. "myColStyle12".
+     * @see Style#getStyleDesc(Class, XMLVersion)
      */
     public final String findUnusedName(final StyleDesc<?> desc, final String baseName) {
         for (int i = 0; i < 1000; i++) {

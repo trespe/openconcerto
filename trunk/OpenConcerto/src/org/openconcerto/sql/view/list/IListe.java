@@ -136,6 +136,12 @@ import javax.swing.table.TableModel;
  */
 public final class IListe extends JPanel {
 
+    /**
+     * When this system property is set, table {@link JTableStateManager state} is never read nor
+     * written. I.e. the user can change the table state but it will be reset at each launch.
+     */
+    public static final String STATELESS_TABLE_PROP = "org.openconcerto.sql.list.statelessTable";
+
     static private final class FormatRenderer extends DefaultTableCellRenderer {
         private final Format fmt;
 
@@ -165,6 +171,7 @@ public final class IListe extends JPanel {
         FORMATS.put(Time.class, new FormatGroup(DateFormat.getTimeInstance(DateFormat.MEDIUM), DateFormat.getTimeInstance(DateFormat.SHORT)));
         FORMATS.put(Timestamp.class, new FormatGroup(DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.MEDIUM), DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT),
                 DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.MEDIUM), DateFormat.getDateTimeInstance(DateFormat.LONG, DateFormat.SHORT)));
+
     }
 
     public static final void remove(InputMap m, KeyStroke key) {
@@ -373,7 +380,8 @@ public final class IListe extends JPanel {
                 updateCols(e.getToIndex());
             }
         });
-        this.tableStateManager = new JTableStateManager(this.jTable, configFile);
+        this.tableStateManager = new JTableStateManager(this.jTable);
+        this.setConfigFile(configFile);
 
         // MAYBE only set this.src and let the model be null so that the mere creation of an IListe
         // does not spawn several threads and access the db. But a lot of code assumes there's
@@ -647,7 +655,7 @@ public final class IListe extends JPanel {
         this.addAncestorListener(new AncestorListener() {
 
             // these callbacks are called later than the change, and by that time the visibility
-            // might have changed several times thus use isVisible() to avoid flip-flopping for
+            // might have changed several times thus use isShowing() to avoid flip-flopping for
             // nothing
 
             @Override
@@ -715,6 +723,7 @@ public final class IListe extends JPanel {
             }
         });
 
+        this.setOpaque(false);
         this.setTransferHandler(new FileTransfertHandler(getSource().getPrimaryTable()));
     }
 
@@ -1028,7 +1037,11 @@ public final class IListe extends JPanel {
         // then firePropertyChange("ancestor", null).
         // thus we can still be visible while not displayable anymore
         if (!this.isDead())
-            this.getModel().setSleeping(!this.isVisible());
+            // we used to call isVisible() but that was incorrect : a component can be visible and
+            // not on screen. E.g. the frame would be made invisible, so this method was called but
+            // isVisible() hadn't changed (so still true) thus the model never slept (hence never
+            // hibernated, hence never was emptied).
+            this.getModel().setSleeping(!this.isShowing());
     }
 
     public void setSQLEditable(boolean b) {
@@ -1133,7 +1146,9 @@ public final class IListe extends JPanel {
         return this.tableStateManager == null ? null : this.tableStateManager.getConfigFile();
     }
 
-    public final void setConfigFile(final File configFile) {
+    public final void setConfigFile(File configFile) {
+        if (Boolean.getBoolean(STATELESS_TABLE_PROP))
+            configFile = null;
         final File oldFile = this.getConfigFile();
         if (!CompareUtils.equals(oldFile, configFile)) {
             if (configFile == null)

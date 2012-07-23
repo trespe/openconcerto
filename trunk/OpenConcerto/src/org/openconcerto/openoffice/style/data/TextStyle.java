@@ -26,7 +26,7 @@ import org.jdom.Namespace;
 // from section 16.27.25 in v1.2-cs01-part1
 public class TextStyle extends DataStyle {
 
-    public static final DataStyleDesc<TextStyle> DESC = new DataStyleDesc<TextStyle>(TextStyle.class, XMLVersion.OD, "text-style", "N") {
+    static final DataStyleDesc<TextStyle> DESC = new DataStyleDesc<TextStyle>(TextStyle.class, XMLVersion.OD, "text-style", "N") {
         @Override
         public TextStyle create(ODPackage pkg, Element e) {
             return new TextStyle(pkg, e);

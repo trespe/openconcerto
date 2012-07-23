@@ -16,6 +16,7 @@
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.State;
 import org.openconcerto.sql.request.SQLCache;
+import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.RTInterruptedException;
@@ -162,6 +163,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     @GuardedBy("this")
     private ExecutorService exec = null;
 
+    private final Object setInitialShemaLock = new String("initialShemaWriteLock");
     // linked to initialSchema and uptodate
     @GuardedBy("this")
     private boolean initialShemaSet;
@@ -411,7 +413,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         final long time = System.nanoTime();
         // some systems refuse to execute nothing
         if (query.length() == 0) {
-            SQLRequestLog.log(query, "Pas de requête.", timeMs, 0);
+            SQLRequestLog.log(query, "Pas de requête.", timeMs, time);
             return null;
         }
 
@@ -429,18 +431,19 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 // cache actif
                 if (State.DEBUG)
                     State.INSTANCE.addCacheHit();
-                SQLRequestLog.log(query, "En cache.", timeMs, 0);
+                SQLRequestLog.log(query, "En cache.", timeMs, time);
                 return l.getRes();
             }
         }
 
         Object result = null;
         QueryInfo info = null;
-        long durationSQL = 0;
+        final long afterCache = System.nanoTime();
+        final long afterQueryInfo, afterExecute, afterHandle;
         try {
             info = new QueryInfo(query, changeState, passedConn);
             try {
-                long tStartSQL = System.nanoTime();
+                afterQueryInfo = System.nanoTime();
                 final Object[] res = this.executeTwice(info);
                 final Statement stmt = (Statement) res[0];
                 ResultSet rs = (ResultSet) res[1];
@@ -453,7 +456,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 // }
                 // });
                 // and OK won't be returned if "req" returns a null rs.
-                durationSQL = System.nanoTime() - tStartSQL;
+                afterExecute = System.nanoTime();
                 if (rsh != null && rs != null) {
                     if (this.getSystem() == SQLSystem.DERBY || this.getSystem() == SQLSystem.POSTGRESQL) {
                         rs = new SQLResultSet(rs);
@@ -461,6 +464,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
 
                     result = rsh.handle(rs);
                 }
+                afterHandle = System.nanoTime();
 
                 stmt.close();
                 // if key was added to the cache
@@ -486,7 +490,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             throw e;
         }
 
-        SQLRequestLog.log(query, "", info, timeMs, durationSQL, System.nanoTime() - time);
+        SQLRequestLog.log(query, "", info, timeMs, time, afterCache, afterQueryInfo, afterExecute, afterHandle, System.nanoTime());
 
         return result;
     }
@@ -640,6 +644,11 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 return this.getConnection();
             }
         }
+
+        @Override
+        public String toString() {
+            return this.getClass().getSimpleName() + " private connection: " + this.privateConnection + " query: " + this.getQuery();
+        }
     }
 
     private final boolean handlingConnection() {
@@ -734,6 +743,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         try {
             res = executeOnce(query, queryInfo.getConnection());
         } catch (SQLException exn) {
+            Log.get().log(Level.INFO, "executeOnce() failed for " + queryInfo, exn);
             if (State.DEBUG)
                 State.INSTANCE.addFailedRequest(query);
             // maybe this was a network problem, so wait a little
@@ -995,7 +1005,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      * @see #returnConnection(Connection)
      * @see #closeConnection(Connection)
      */
-    protected final Connection getNewConnection() {
+    public final Connection getNewConnection() {
         try {
             return this.borrowConnection(false);
         } catch (RTInterruptedException e) {
@@ -1167,10 +1177,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                     con.close();
                 } catch (Exception e) {
                     /* tant pis */
-                    if (Log.get().getLevel().intValue() <= Level.FINE.intValue()) {
-                        System.err.println("Could not return " + con);
-                        e.printStackTrace();
-                    }
+                    Log.get().log(Level.FINE, "Could not return " + con, e);
                 }
                 if (State.DEBUG)
                     State.INSTANCE.connectionRemoved();
@@ -1196,10 +1203,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 this.connectionPool.invalidateObject(con);
             } catch (Exception e) {
                 /* tant pis */
-                if (Log.get().getLevel().intValue() <= Level.FINE.intValue()) {
-                    System.err.println("Could not close " + con);
-                    e.printStackTrace();
-                }
+                Log.get().log(Level.FINE, "Could not close " + con, e);
             }
             // the last connection is being returned
             if (this.isClosed() && this.getBorrowedConnectionCount() == 0) {
@@ -1216,36 +1220,56 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      */
     public void setInitialSchema(String schemaName) {
         if (schemaName != null || this.server.getSQLSystem().isClearingPathSupported()) {
-            // test if schemaName is valid
-            final Connection newConn = this.getNewConnection();
-            try {
-                this.setSchema(schemaName, newConn);
-            } catch (RuntimeException e) {
-                this.closeConnection(newConn);
-                throw e;
-            }
             this.setInitialSchema(true, schemaName);
-            this.returnConnection(newConn);
         } else if (this.server.getSQLSystem().isDBPathEmpty()) {
             this.unsetInitialSchema();
         } else
             throw new IllegalArgumentException(this + " cannot have no default schema");
     }
 
+    /**
+     * From now on, connections won't have their default schema set by this. Of course the SQL
+     * server might have set one.
+     */
     public void unsetInitialSchema() {
         this.setInitialSchema(false, null);
     }
 
     private final void setInitialSchema(final boolean set, final String schemaName) {
-        synchronized (this) {
-            this.initialShemaSet = set;
-            this.initialShema = set ? schemaName : null;
-            this.uptodate.clear();
-            if (!set)
-                // by definition we don't want to modify the connection,
-                // so empty the pool, that way new connections will be created
-                // the borrowed ones will be closed when returned
-                this.connectionPool.clear();
+        synchronized (this.setInitialShemaLock) {
+            synchronized (this) {
+                // even if schemaName no longer exists, and thus the following test would fail, the
+                // next initConnection() will correctly fail
+                if (this.initialShemaSet == set && CompareUtils.equals(this.initialShema, schemaName))
+                    return;
+            }
+            final Connection newConn;
+            if (set) {
+                // test if schemaName is valid
+                newConn = this.getNewConnection();
+                try {
+                    this.setSchema(schemaName, newConn);
+                } catch (RuntimeException e) {
+                    this.closeConnection(newConn);
+                    throw e;
+                }
+                // don't return connection right now otherwise it might be deemed unrecoverable
+            } else {
+                newConn = null;
+            }
+            synchronized (this) {
+                this.initialShemaSet = set;
+                this.initialShema = schemaName;
+                this.uptodate.clear();
+                if (!set)
+                    // by definition we don't want to modify the connection,
+                    // so empty the pool, that way new connections will be created
+                    // the borrowed ones will be closed when returned
+                    this.connectionPool.clear();
+                else
+                    this.uptodate.put(newConn, null);
+            }
+            this.returnConnection(newConn);
         }
     }
 

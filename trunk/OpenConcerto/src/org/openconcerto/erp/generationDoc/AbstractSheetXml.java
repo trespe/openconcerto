@@ -58,7 +58,7 @@ public abstract class AbstractSheetXml extends SheetXml {
                         templateId = getDefaultTemplateId();
                     }
                     final OOgenerationXML oXML = new OOgenerationXML(AbstractSheetXml.this.row);
-                    AbstractSheetXml.this.generatedOpenDocumentFile = oXML.createDocument(templateId, getDocumentOutputDirectory(), getValidFileName(getName()), getRowLanguage());
+                    AbstractSheetXml.this.generatedOpenDocumentFile = oXML.createDocument(templateId, getType(), getDocumentOutputDirectory(), getValidFileName(getName()), getRowLanguage());
 
                 } catch (Exception e) {
                     DEFAULT_HANDLER.uncaughtException(null, e);

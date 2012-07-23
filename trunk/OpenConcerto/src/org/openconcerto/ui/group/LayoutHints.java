@@ -15,40 +15,35 @@
 
 public class LayoutHints {
 
-    private boolean maximizeWidth;
-    private boolean maximizeHeight;
+    private boolean largeWidth;
+    private boolean largeHeight;
+
     private boolean showLabel;
     private boolean separated;
-    private boolean fill;
-    public static final LayoutHints DEFAULT_FIELD_HINTS = new LayoutHints(false, false, true, false);
-    public static final LayoutHints DEFAULT_LARGE_FIELD_HINTS = new LayoutHints(true, false, true, false);
-    public static final LayoutHints DEFAULT_LIST_HINTS = new LayoutHints(true, true, false, false, true);
-    public static final LayoutHints DEFAULT_GROUP_HINTS = new LayoutHints(false, false, false, false);
-    public static final LayoutHints DEFAULT_LARGE_GROUP_HINTS = new LayoutHints(true, false, false, false);
-    public static final LayoutHints DEFAULT_SEPARATED_GROUP_HINTS = new LayoutHints(true, false, false, true);
+    private boolean fillWidth;
+    private boolean fillHeight;
+    public static final LayoutHints DEFAULT_FIELD_HINTS = new LayoutHints(false, false, true, false, false, false);
+    public static final LayoutHints DEFAULT_LARGE_FIELD_HINTS = new LayoutHints(false, false, true, false, true, false);
+    public static final LayoutHints DEFAULT_VERY_LARGE_FIELD_HINTS = new LayoutHints(true, false, true, false, false, false);
+    public static final LayoutHints DEFAULT_LIST_HINTS = new LayoutHints(true, true, false, true, true, true);
+    public static final LayoutHints DEFAULT_GROUP_HINTS = new LayoutHints(true, false, false, false, true, true);
+    public static final LayoutHints DEFAULT_SEPARATED_GROUP_HINTS = new LayoutHints(true, false, true, true, true, true);
 
-    public LayoutHints(boolean maximizeWidth, boolean maximizeHeight, boolean showLabel, boolean separated) {
-        this.maximizeWidth = maximizeWidth;
-        this.maximizeHeight = maximizeHeight;
+    public LayoutHints(boolean largeWidth, boolean largeHeight, boolean showLabel, boolean separated, boolean fillWidth, boolean fillHeight) {
+        this.largeWidth = largeWidth;
+        this.largeHeight = largeHeight;
         this.showLabel = showLabel;
         this.separated = separated;
-        this.fill = false;
+        this.fillWidth = fillWidth;
+        this.fillHeight = fillHeight;
     }
 
-    public LayoutHints(boolean maximizeWidth, boolean maximizeHeight, boolean showLabel, boolean separated, boolean fill) {
-        this.maximizeWidth = maximizeWidth;
-        this.maximizeHeight = maximizeHeight;
-        this.showLabel = showLabel;
-        this.separated = separated;
-        this.fill = fill;
+    public boolean largeWidth() {
+        return largeWidth;
     }
 
-    public boolean maximizeWidth() {
-        return maximizeWidth;
-    }
-
-    public boolean maximizeHeight() {
-        return maximizeHeight;
+    public boolean largeHeight() {
+        return largeHeight;
     }
 
     public boolean showLabel() {
@@ -59,21 +54,25 @@ public class LayoutHints {
         return separated;
     }
 
-    public boolean fill() {
-        return fill;
+    public boolean fillWidth() {
+        return fillWidth;
+    }
+
+    public boolean fillHeight() {
+        return fillHeight;
     }
 
     @Override
     public String toString() {
         String r = "";
-        if (maximizeHeight && maximizeWidth) {
-            r += "MaxW&H";
+        if (largeHeight && largeWidth) {
+            r += "LargeW&H";
         } else {
-            if (maximizeHeight) {
-                r += "MaxH";
+            if (largeHeight) {
+                r += "LargeH";
             }
-            if (maximizeWidth) {
-                r += "MaxW";
+            if (largeWidth) {
+                r += "LargeW";
             }
         }
         if (showLabel && separated) {
@@ -86,8 +85,15 @@ public class LayoutHints {
             }
 
         }
-        if (fill) {
-            r += " Fill";
+        if (fillHeight && fillWidth) {
+            r += " FillW&H";
+        } else {
+            if (fillHeight) {
+                r += " FillH";
+            }
+            if (fillWidth) {
+                r += " FillW";
+            }
         }
         return r;
     }

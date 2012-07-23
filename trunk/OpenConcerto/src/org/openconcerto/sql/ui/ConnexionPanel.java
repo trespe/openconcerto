@@ -308,7 +308,9 @@ public class ConnexionPanel extends JPanel implements ActionListener {
     private boolean areFieldsValidated() {
         if (this.societeSelector) {
             final SQLRow selectedRow = this.comboSociete.getSelectedRow();
-            if (selectedRow == null || !selectedRow.isData()) {
+            // don't use isData() since it calls isArchived() and since ComboRequest doesn't include
+            // ARCHIVE field this triggers a request
+            if (selectedRow == null || selectedRow.isUndefined()) {
                 return false;
             }
         }

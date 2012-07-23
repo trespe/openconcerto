@@ -148,11 +148,18 @@ public abstract class Configuration {
      */
     public abstract void destroy();
 
+    /**
+     * An executor that should be used for background SQL requests. It can be used to limit the
+     * concurrent number of database connections (as establishing a connection is expensive and the
+     * server might have restrictions).
+     * 
+     * @return a SQL executor.
+     */
     public Executor getNonInteractiveSQLExecutor() {
-        if (nonInteractiveSQLExecutor == null) {
-            nonInteractiveSQLExecutor = createNonInteractiveSQLExecutor();
+        if (this.nonInteractiveSQLExecutor == null) {
+            this.nonInteractiveSQLExecutor = createNonInteractiveSQLExecutor();
         }
-        return nonInteractiveSQLExecutor;
+        return this.nonInteractiveSQLExecutor;
     }
 
     protected Executor createNonInteractiveSQLExecutor() {

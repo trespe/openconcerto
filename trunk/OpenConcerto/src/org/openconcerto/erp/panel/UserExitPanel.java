@@ -21,6 +21,7 @@ import org.openconcerto.sql.utils.BackupPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.UserExit;
 
+import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -34,6 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.Arrays;
+import java.util.Set;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -233,6 +235,18 @@ public class UserExitPanel extends JPanel {
                     // 5 s d'attente
                     Thread.sleep(5 * 1000);
                     System.err.println("Warning: Forcing exit");
+                    Frame[] l = Frame.getFrames();
+                    for (int i = 0; i < l.length; i++) {
+                        Frame f = l[i];
+                        System.err.println(f.getName() + " " + f + " Displayable: " + f.isDisplayable() + " Valid: " + f.isValid() + " Active: " + f.isActive());
+                    }
+                    Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
+                    for (Thread thread : threadSet) {
+                        if (!thread.isDaemon()) {
+                            System.err.println(thread.getName() + " " + thread.getId() + " not daemon");
+                        }
+                    }
+
                     Thread t = new Thread(new Runnable() {
                         @Override
                         public void run() {

@@ -43,12 +43,12 @@ class FromClause implements SQLItem {
     };
 
     // which tables have already been added to this clause
-    private final Set<AliasedTable> tables;
+    private final Set<TableRef> tables;
     private final List<SQLItem> sql;
 
     public FromClause() {
         this.sql = new ArrayList<SQLItem>();
-        this.tables = new HashSet<AliasedTable>();
+        this.tables = new HashSet<TableRef>();
     }
 
     public FromClause(FromClause f) {
@@ -57,7 +57,7 @@ class FromClause implements SQLItem {
         this.tables.addAll(f.tables);
     }
 
-    void add(AliasedTable res) {
+    void add(TableRef res) {
         if (this.tables.add(res)) {
             if (!this.sql.isEmpty())
                 this.sql.add(COMMA);

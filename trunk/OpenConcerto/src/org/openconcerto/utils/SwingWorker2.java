@@ -29,177 +29,22 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RunnableFuture;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.ThreadFactory;
+
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.Timer;
 
 import sun.awt.AppContext;
 import sun.swing.AccumulativeRunnable;
 
 /**
- * An abstract class to perform lengthy GUI-interacting tasks in a dedicated thread.
+ * Like standard SwingWorker with the addition of {@link #setMaxWorkerThreads(int)}.
  * 
- * <p>
- * When writing a multi-threaded application using Swing, there are two constraints to keep in mind:
- * (refer to <a href="http://java.sun.com/docs/books/tutorial/uiswing/misc/threads.html"> How to Use
- * Threads </a> for more details):
- * <ul>
- * <li>Time-consuming tasks should not be run on the <i>Event Dispatch Thread</i>. Otherwise the
- * application becomes unresponsive.</li>
- * <li>Swing components should be accessed on the <i>Event Dispatch Thread</i> only.</li>
- * </ul>
- * 
- * <p>
- * 
- * <p>
- * These constraints mean that a GUI application with time intensive computing needs at least two
- * threads: 1) a thread to perform the lengthy task and 2) the <i>Event Dispatch Thread</i> (EDT)
- * for all GUI-related activities. This involves inter-thread communication which can be tricky to
- * implement.
- * 
- * <p>
- * {@code SwingWorker2} is designed for situations where you need to have a long running task run in
- * a background thread and provide updates to the UI either when done, or while processing.
- * Subclasses of {@code SwingWorker2} must implement the {@link #doInBackground} method to perform
- * the background computation.
- * 
- * 
- * <p>
- * <b>Workflow</b>
- * <p>
- * There are three threads involved in the life cycle of a {@code SwingWorker2} :
- * <ul>
- * <li>
- * <p>
- * <i>Current</i> thread: The {@link #execute} method is called on this thread. It schedules
- * {@code SwingWorker2} for the execution on a <i>worker</i> thread and returns immediately. One can
- * wait for the {@code SwingWorker2} to complete using the {@link #get get} methods.
- * <li>
- * <p>
- * <i>Worker</i> thread: The {@link #doInBackground} method is called on this thread. This is where
- * all background activities should happen. To notify {@code PropertyChangeListeners} about bound
- * properties changes use the {@link #firePropertyChange firePropertyChange} and
- * {@link #getPropertyChangeSupport} methods. By default there are two bound properties available:
- * {@code state} and {@code progress}.
- * <li>
- * <p>
- * <i>Event Dispatch Thread</i>: All Swing related activities occur on this thread.
- * {@code SwingWorker2} invokes the {@link #process process} and {@link #done} methods and notifies
- * any {@code PropertyChangeListeners} on this thread.
- * </ul>
- * 
- * <p>
- * Often, the <i>Current</i> thread is the <i>Event Dispatch Thread</i>.
- * 
- * 
- * <p>
- * Before the {@code doInBackground} method is invoked on a <i>worker</i> thread,
- * {@code SwingWorker2} notifies any {@code PropertyChangeListeners} about the {@code state}
- * property change to {@code StateValue.STARTED}. After the {@code doInBackground} method is
- * finished the {@code done} method is executed. Then {@code SwingWorker2} notifies any
- * {@code PropertyChangeListeners} about the {@code state} property change to
- * {@code StateValue.DONE}.
- * 
- * <p>
- * {@code SwingWorker2} is only designed to be executed once. Executing a {@code SwingWorker2} more
- * than once will not result in invoking the {@code doInBackground} method twice.
- * 
- * <p>
- * <b>Sample Usage</b>
- * <p>
- * The following example illustrates the simplest use case. Some processing is done in the
- * background and when done you update a Swing component.
- * 
- * <p>
- * Say we want to find the "Meaning of Life" and display the result in a {@code JLabel}.
- * 
- * <pre>
- *   final JLabel label;
- *   class MeaningOfLifeFinder extends SwingWorker2&lt;String, Object&gt; {
- *       {@code @Override}
- *       public String doInBackground() {
- *           return findTheMeaningOfLife();
- *       }
- * 
- *       {@code @Override}
- *       protected void done() {
- *           try { 
- *               label.setText(get());
- *           } catch (Exception ignore) {
- *           }
- *       }
- *   }
- * 
- *   (new MeaningOfLifeFinder()).execute();
- * </pre>
- * 
- * <p>
- * The next example is useful in situations where you wish to process data as it is ready on the
- * <i>Event Dispatch Thread</i>.
- * 
- * <p>
- * Now we want to find the first N prime numbers and display the results in a {@code JTextArea}.
- * While this is computing, we want to update our progress in a {@code JProgressBar}. Finally, we
- * also want to print the prime numbers to {@code System.out}.
- * 
- * <pre>
- * class PrimeNumbersTask extends 
- *         SwingWorker2&lt;List&lt;Integer&gt;, Integer&gt; {
- *     PrimeNumbersTask(JTextArea textArea, int numbersToFind) { 
- *         //initialize 
- *     }
- * 
- *     {@code @Override}
- *     public List&lt;Integer&gt; doInBackground() {
- *         while (! enough &amp;&amp; ! isCancelled()) {
- *                 number = nextPrimeNumber();
- *                 publish(number);
- *                 setProgress(100 * numbers.size() / numbersToFind);
- *             }
- *         }
- *         return numbers;
- *     }
- * 
- *     {@code @Override}
- *     protected void process(List&lt;Integer&gt; chunks) {
- *         for (int number : chunks) {
- *             textArea.append(number + &quot;\n&quot;);
- *         }
- *     }
- * }
- * 
- * JTextArea textArea = new JTextArea();
- * final JProgressBar progressBar = new JProgressBar(0, 100);
- * PrimeNumbersTask task = new PrimeNumbersTask(textArea, N);
- * task.addPropertyChangeListener(
- *     new PropertyChangeListener() {
- *         public  void propertyChange(PropertyChangeEvent evt) {
- *             if (&quot;progress&quot;.equals(evt.getPropertyName())) {
- *                 progressBar.setValue((Integer)evt.getNewValue());
- *             }
- *         }
- *     });
- * 
- * task.execute();
- * System.out.println(task.get()); //prints all prime numbers we have got
- * </pre>
- * 
- * <p>
- * Because {@code SwingWorker2} implements {@code Runnable}, a {@code SwingWorker2} can be submitted
- * to an {@link java.util.concurrent.Executor} for execution.
- * 
- * @author Igor Kushnirskiy
- * @version %I% %G%
- * 
- * @param <T> the result type returned by this {@code SwingWorker2's} {@code doInBackground} and
- *        {@code get} methods
- * @param <V> the type used for carrying out intermediate results by this {@code SwingWorker2's}
- *        {@code publish} and {@code process} methods
- * 
- * @since 1.6
+ * @see SwingWorker
  */
 public abstract class SwingWorker2<T, V> implements RunnableFuture<T> {
     /**

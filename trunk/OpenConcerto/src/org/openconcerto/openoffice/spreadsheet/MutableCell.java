@@ -24,7 +24,6 @@ import org.openconcerto.openoffice.spreadsheet.BytesProducer.ImageProducer;
 import org.openconcerto.openoffice.style.data.BooleanStyle;
 import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.openoffice.style.data.DateStyle;
-import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.Tuple3;
 
@@ -40,6 +39,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import java.util.logging.Level;
 
 import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.Duration;
@@ -256,7 +256,7 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
             }
         } catch (UnsupportedOperationException e) {
             if (lenient)
-                Log.get().warning(ExceptionUtils.getStackTrace(e));
+                Log.get().log(Level.WARNING, "Couldn't format", e);
             else
                 throw e;
         }

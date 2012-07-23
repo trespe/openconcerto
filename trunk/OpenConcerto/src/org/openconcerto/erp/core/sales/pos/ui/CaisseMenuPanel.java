@@ -19,6 +19,7 @@ import org.openconcerto.utils.ExceptionHandler;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
+import java.awt.Frame;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
@@ -26,6 +27,7 @@ import java.awt.GridBagLayout;
 import java.awt.Image;
 import java.awt.RenderingHints;
 import java.awt.geom.Rectangle2D;
+import java.util.Set;
 
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -107,6 +109,17 @@ public class CaisseMenuPanel extends JPanel implements ListSelectionListener {
             case 5:
                 // Fermeture
                 frame.dispose();
+                Frame[] l = Frame.getFrames();
+                for (int i = 0; i < l.length; i++) {
+                    Frame f = l[i];
+                    System.err.println(f.getName() + " " + f + " Displayable: " + f.isDisplayable() + " Valid: " + f.isValid() + " Active: " + f.isActive());
+                }
+                Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
+                for (Thread thread : threadSet) {
+                    if (!thread.isDaemon()) {
+                        System.err.println(thread.getName() + " " + thread.getId() + " not daemon");
+                    }
+                }
                 break;
             default:
                 break;

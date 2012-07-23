@@ -34,6 +34,7 @@ import org.openconcerto.sql.view.list.CellDynamicModifier;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
+import org.openconcerto.sql.view.list.ValidStateChecker;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -182,6 +183,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         // Total HT
         this.totalHT = new SQLTableElement(e.getTable().getField("T_PA_HT"), Long.class, new DeviseCellEditor());
         this.totalHT.setRenderer(new DeviseNiceTableCellRenderer());
+        this.totalHT.setEditable(false);
         list.add(this.totalHT);
         // Total TTC
         this.tableElementTotalTTC = new SQLTableElement(e.getTable().getField("T_PA_TTC"), Long.class, new DeviseCellEditor());
@@ -257,7 +259,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         }
 
         this.m3 = new AutoCompletionManager(tableElementArticle, ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getField("ARTICLE.NOM"), this.table,
-                this.table.getRowValuesTableModel(), ITextWithCompletion.MODE_CONTAINS, true, true) {
+                this.table.getRowValuesTableModel(), ITextWithCompletion.MODE_CONTAINS, true, true, new ValidStateChecker()) {
             @Override
             protected Object getValueFrom(SQLRow row, String field) {
                 Object res = tarifCompletion(row, field);
@@ -396,7 +398,8 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         this.tableElementPoidsTotal.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(SQLRowValues row) {
                 System.err.println("Calcul du poids total ");
-                Number f = (Number) row.getObject("POIDS");
+                // Number f = (Number) row.getObject("POIDS");
+                Number f = (row.getObject("POIDS") == null) ? 0 : (Number) row.getObject("POIDS");
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
 
                 // return new Float(f.floatValue() * qte);

@@ -31,18 +31,24 @@ import org.apache.commons.dbutils.ResultSetHandler;
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public final class TaxeCache {
-    private transient final Map<Integer, Float> mapTaux = new HashMap<Integer, Float>();
-    private static TaxeCache instance;
-    private transient Integer firstIdTaxe = null;
 
-    private TaxeCache() {
+    static private final SQLSelect getSel() {
         final DBRoot root = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete();
         final SQLTable table = root.getTable("TAXE");
         final SQLSelect sel = new SQLSelect(table.getBase());
         sel.addSelect(table.getField("ID_TAXE"));
         sel.addSelect(table.getField("TAUX"));
+        return sel;
+    }
+
+    private transient final Map<Integer, Float> mapTaux = new HashMap<Integer, Float>();
+    private static TaxeCache instance;
+    private transient Integer firstIdTaxe = null;
+
+    private TaxeCache() {
+        final SQLSelect sel = getSel();
         final String req = sel.asString();
-        root.getDBSystemRoot().getDataSource().execute(req, new ResultSetHandler() {
+        sel.getSelectFields().get(0).getDBSystemRoot().getDataSource().execute(req, new ResultSetHandler() {
 
             public Object handle(final ResultSet resultSet) throws SQLException {
                 while (resultSet.next()) {
@@ -70,9 +76,7 @@ public final class TaxeCache {
     public Integer getFirstTaxe() {
         if (this.firstIdTaxe == null) {
             final SQLBase table = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-            final SQLSelect sel = new SQLSelect(table);
-            sel.addSelect("TAXE.ID_TAXE");
-            sel.addSelect("TAXE.TAUX");
+            final SQLSelect sel = getSel();
             final String req = sel.asString();
             final List<Object[]> list = (List<Object[]>) table.getDataSource().execute(req, new ArrayListHandler());
             if (list != null && !list.isEmpty()) {

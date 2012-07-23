@@ -385,6 +385,22 @@ public final class SQLRowValues extends SQLRowAccessor {
         return this;
     }
 
+    public SQLRowValues retainReferent(SQLRowValues toRetain) {
+        return this.retainReferents(Collections.singleton(toRetain));
+    }
+
+    public SQLRowValues retainReferents(Collection<SQLRowValues> toRetain) {
+        toRetain = CollectionUtils.createIdentitySet(toRetain);
+        // copy otherwise ConcurrentModificationException
+        for (final Entry<SQLField, Collection<SQLRowValues>> e : CopyUtils.copy(this.getReferents()).entrySet()) {
+            for (final SQLRowValues ref : e.getValue()) {
+                if (!toRetain.contains(ref))
+                    ref.put(e.getKey().getName(), null);
+            }
+        }
+        return this;
+    }
+
     // *** get
 
     public int size() {

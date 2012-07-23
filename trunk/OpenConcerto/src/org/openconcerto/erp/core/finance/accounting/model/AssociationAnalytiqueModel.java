@@ -202,7 +202,7 @@ public class AssociationAnalytiqueModel extends AbstractTableModel {
                 selAssoc.addSelect(associationTable.getField("ID_COMPTE_PCE"));
                 selAssoc.addSelect(associationTable.getField("ID_REPARTITION_ANALYTIQUE"));
 
-                selAssoc.setWhere("ASSOCIATION_COMPTE_ANALYTIQUE.ID_AXE_ANALYTIQUE", "=", ((Axe) this.axes.get(j)).getId());
+                selAssoc.setWhere(associationTable.getField("ID_AXE_ANALYTIQUE"), "=", ((Axe) this.axes.get(j)).getId());
 
                 String reqAssoc = selAssoc.asString();
                 Object obAssoc = base.getDataSource().execute(reqAssoc, new ArrayListHandler());

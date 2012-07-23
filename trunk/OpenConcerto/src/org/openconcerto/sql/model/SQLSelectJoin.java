@@ -19,10 +19,10 @@ import java.util.List;
 
 public class SQLSelectJoin implements SQLItem {
 
-    private static final Tuple2<FieldRef, AliasedTable> NULL_TUPLE = new Tuple2<FieldRef, AliasedTable>(null, null);
+    private static final Tuple2<FieldRef, TableRef> NULL_TUPLE = new Tuple2<FieldRef, TableRef>(null, null);
 
     // tries to parse t.ID_LOCAL = l.ID
-    static private Tuple2<FieldRef, AliasedTable> parse(final Where w) {
+    static private Tuple2<FieldRef, TableRef> parse(final Where w) {
         final List<FieldRef> fields = w.getFields();
         if (fields.size() != 2)
             return NULL_TUPLE;
@@ -40,34 +40,34 @@ public class SQLSelectJoin implements SQLItem {
         if (!ff.getField().getTable().getForeignKeys().contains(ff.getField()))
             return NULL_TUPLE;
 
-        return Tuple2.create(ff, new AliasedTable(pk.getField().getTable(), pk.getAlias()));
+        return Tuple2.create(ff, pk.getTableRef());
     }
 
     private final SQLSelect parent;
     private final String joinType;
     /** the joined table, e.g. OBSERVATION obs */
-    private final AliasedTable t;
+    private final TableRef t;
     /** the where, e.g. rec.ID_LOCAL = circuit.ID_LOCAL */
     private final Where joinW;
     /** the foreign field, e.g. obs.ID_ARTICLE or recept.ID_OBSERVATION */
     private final FieldRef f;
     /** the foreign table, e.g. ARTICLE art or OBSERVATION obs */
-    private final AliasedTable foreignTable;
+    private final TableRef foreignTable;
     private Where where;
 
-    SQLSelectJoin(final SQLSelect parent, String joinType, AliasedTable t, FieldRef ff, AliasedTable foreignTable) {
+    SQLSelectJoin(final SQLSelect parent, String joinType, TableRef t, FieldRef ff, TableRef foreignTable) {
         this(parent, joinType, t, new Where(ff, "=", foreignTable.getKey()), ff, foreignTable);
     }
 
-    SQLSelectJoin(final SQLSelect parent, String joinType, AliasedTable t, Where w) {
+    SQLSelectJoin(final SQLSelect parent, String joinType, TableRef t, Where w) {
         this(parent, joinType, t, w, parse(w));
     }
 
-    private SQLSelectJoin(final SQLSelect parent, String joinType, AliasedTable t, Where w, final Tuple2<FieldRef, AliasedTable> info) {
+    private SQLSelectJoin(final SQLSelect parent, String joinType, TableRef t, Where w, final Tuple2<FieldRef, TableRef> info) {
         this(parent, joinType, t, w, info.get0(), info.get1());
     }
 
-    private SQLSelectJoin(final SQLSelect parent, String joinType, AliasedTable t, Where w, final FieldRef ff, final AliasedTable foreignTable) {
+    private SQLSelectJoin(final SQLSelect parent, String joinType, TableRef t, Where w, final FieldRef ff, final TableRef foreignTable) {
         super();
         this.parent = parent;
         this.joinType = joinType;
@@ -99,7 +99,7 @@ public class SQLSelectJoin implements SQLItem {
     public String getSQL() {
         final Where archiveW = this.parent.getArchiveWhere(getJoinedTable().getTable(), getAlias());
         final Where undefW = this.parent.getUndefWhere(getJoinedTable().getTable(), getAlias());
-        return " " + this.joinType + " JOIN " + this.t.getDeclaration() + " on " + this.joinW.and(archiveW).and(undefW).and(getWhere());
+        return " " + this.joinType + " JOIN " + this.t.getSQL() + " on " + this.joinW.and(archiveW).and(undefW).and(getWhere());
     }
 
     public final String getJoinType() {
@@ -123,7 +123,7 @@ public class SQLSelectJoin implements SQLItem {
         return this.getJoinedTable().getAlias();
     }
 
-    public final AliasedTable getJoinedTable() {
+    public final TableRef getJoinedTable() {
         return this.t;
     }
 
@@ -133,7 +133,7 @@ public class SQLSelectJoin implements SQLItem {
      * @return <code>null</code> if {@link #getForeignField()} is <code>null</code>, otherwise its
      *         target, e.g. t2.
      */
-    public final AliasedTable getForeignTable() {
+    public final TableRef getForeignTable() {
         return this.foreignTable;
     }
 

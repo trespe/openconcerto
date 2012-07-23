@@ -268,7 +268,7 @@ public abstract class StyleDesc<S extends Style> {
     public final S createAutoStyle(final ODPackage pkg, final String baseName) {
         final ODXMLDocument xml = pkg.getContent();
         final Namespace style = xml.getVersion().getSTYLE();
-        final Element elem = new Element(getElementName(), style);
+        final Element elem = new Element(getElementName(), getElementNS());
         this.initStyle(elem);
         elem.setAttribute("name", xml.findUnusedName(this, baseName), style);
         xml.addAutoStyle(elem);

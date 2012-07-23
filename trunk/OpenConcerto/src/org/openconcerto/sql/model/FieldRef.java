@@ -41,4 +41,5 @@ public interface FieldRef {
      */
     public String getFieldRef();
 
+    public TableRef getTableRef();
 }

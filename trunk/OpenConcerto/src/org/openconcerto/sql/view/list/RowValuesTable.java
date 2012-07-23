@@ -69,7 +69,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     @Override
     public Component prepareEditor(TableCellEditor editor, int row, int column) {
-        // TODO Raccord de méthode auto-généré
         Component c = super.prepareEditor(editor, row, column);
         if (c instanceof JTextComponent) {
             ((JTextComponent) c).selectAll();
@@ -97,7 +96,6 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
         if (f == null) {
             f = IListPanel.getConfigFile(model.getSQLElement(), this.getClass());
         }
-        System.err.println(f.getAbsolutePath());
         this.stateManager = new JTableStateManager(this, f, true);
         this.columnModel = colModel;
         this.model = model;
@@ -159,14 +157,14 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
     // when the viewport shrinks below the preferred size, return the minimum size
     // so that scrollbars will be shown
     public Dimension getPreferredSize() {
+        final Dimension preferredSize = super.getPreferredSize();
         if (getParent() instanceof JViewport) {
-            if (((JViewport) getParent()).getWidth() < super.getPreferredSize().width) {
-                Dimension d = new Dimension(getMinimumSize().width, super.getPreferredSize().height);
-                return d;
+            if (((JViewport) getParent()).getWidth() < preferredSize.width) {
+                return new Dimension(getMinimumSize().width, preferredSize.height);
             }
         }
 
-        return super.getPreferredSize();
+        return preferredSize;
     }
 
     /**

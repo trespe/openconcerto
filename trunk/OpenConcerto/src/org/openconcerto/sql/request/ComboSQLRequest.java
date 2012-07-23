@@ -37,6 +37,8 @@ import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 // final: use setSelectTransf()
@@ -67,8 +69,8 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         setDefaultFieldSeparator(" | ");
     }
 
-    // pour la combo
-    private final List<SQLField> comboFields;
+    // immutable
+    private List<SQLField> comboFields;
     private final TransfFieldExpander exp;
 
     private String fieldSeparator = SEP_FIELD;
@@ -96,30 +98,40 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
                 return Configuration.getInstance().getDirectory().getElement(foreignTable).getComboRequest().getFields();
             }
         });
-        this.comboFields = new ArrayList<SQLField>();
-
-        for (final String fName : l) {
-            this.addItemToCombo(fName);
-        }
+        this.setFields(l);
     }
 
+    // public since this class is final (otherwise should be protected)
     public ComboSQLRequest(ComboSQLRequest c) {
-        this(c, new ArrayList<SQLField>(c.comboFields));
-    }
-
-    public ComboSQLRequest(ComboSQLRequest c, List<SQLField> fields) {
         super(c);
         this.exp = new TransfFieldExpander(c.exp);
-        this.comboFields = fields;
+        this.comboFields = c.comboFields;
         this.order = c.order == null ? null : new ArrayList<Path>(c.order);
+
         this.fieldSeparator = c.fieldSeparator;
         this.undefLabel = c.undefLabel;
         this.keepRows = c.keepRows;
         this.customizeItem = c.customizeItem;
     }
 
-    private void addItemToCombo(String field) {
-        this.comboFields.add(this.getPrimaryTable().getField(field));
+    public final void setFields(Collection<String> fields) {
+        final List<SQLField> l = new ArrayList<SQLField>();
+        for (final String fName : fields) {
+            l.add(this.getPrimaryTable().getField(fName));
+        }
+        setSQLFieldsUnsafe(l);
+    }
+
+    public final void setSQLFields(Collection<SQLField> fields) {
+        for (final SQLField f : fields)
+            if (f.getTable() != getPrimaryTable())
+                throw new IllegalArgumentException("Not in " + getPrimaryTable() + " : " + f);
+        setSQLFieldsUnsafe(new ArrayList<SQLField>(fields));
+    }
+
+    private void setSQLFieldsUnsafe(List<SQLField> fields) {
+        this.comboFields = Collections.unmodifiableList(fields);
+        this.clearGraph();
     }
 
     /**
@@ -157,8 +169,8 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
     }
 
     public final List<IComboSelectionItem> getComboItems(final boolean readCache) {
-        if (this.comboFields.isEmpty())
-            throw new IllegalStateException("La liste des items listitems est vide!! Ils faut utiliser addComboItem...");
+        if (this.getFields().isEmpty())
+            throw new IllegalStateException("Empty fields");
 
         // freeze the fetcher otherwise it will change with the filter
         // and that will cause the cache to fail
@@ -217,6 +229,7 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
      */
     public final void setOrder(List<Path> l) {
         this.order = l;
+        this.clearGraph();
     }
 
     private final IComboSelectionItem createItem(final SQLRowValues rs) {

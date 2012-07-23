@@ -28,7 +28,7 @@ import org.jdom.Element;
 // from section 16.5 in v1.2-part1-cd04
 public class PageLayoutStyle extends Style {
 
-    public static final StyleDesc<PageLayoutStyle> DESC = new StyleDesc<PageLayoutStyle>(PageLayoutStyle.class, XMLVersion.OD, "page-layout", "pm") {
+    private static final StyleDesc<PageLayoutStyle> DESC = new StyleDesc<PageLayoutStyle>(PageLayoutStyle.class, XMLVersion.OD, "page-layout", "pm") {
         {
             // from section 19.506 in v1.2-part1-cd04
             this.getRefElementsMap().putAll("style:page-layout-name", asList("presentation:notes", "style:handout-master", "style:master-page"));
@@ -39,7 +39,7 @@ public class PageLayoutStyle extends Style {
             return new PageLayoutStyle(pkg, e);
         }
     };
-    public static final StyleDesc<PageLayoutStyle> DESC_OO = new StyleDesc<PageLayoutStyle>(PageLayoutStyle.class, XMLVersion.OOo, "page-master", "pm") {
+    private static final StyleDesc<PageLayoutStyle> DESC_OO = new StyleDesc<PageLayoutStyle>(PageLayoutStyle.class, XMLVersion.OOo, "page-master", "pm") {
         {
             // from DTD
             this.getRefElementsMap().putAll("style:page-master-name", asList("presentation:notes", "style:handout-master", "style:master-page"));
@@ -50,6 +50,11 @@ public class PageLayoutStyle extends Style {
             return new PageLayoutStyle(pkg, e);
         }
     };
+
+    static public void registerDesc() {
+        Style.register(DESC);
+        Style.register(DESC_OO);
+    }
 
     private PageLayoutProperties props;
 

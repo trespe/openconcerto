@@ -42,7 +42,7 @@ public class DateStyle extends DataStyle {
     private static final Calendar JAPANESE_CAL = Calendar.getInstance(new Locale("ja", "JP", "JP"));
     private static final Calendar GREGORIAN_CAL = new GregorianCalendar();
 
-    public static final DataStyleDesc<DateStyle> DESC = new DataStyleDesc<DateStyle>(DateStyle.class, XMLVersion.OD, "date-style", "N") {
+    static final DataStyleDesc<DateStyle> DESC = new DataStyleDesc<DateStyle>(DateStyle.class, XMLVersion.OD, "date-style", "N") {
         @Override
         public DateStyle create(ODPackage pkg, Element e) {
             return new DateStyle(pkg, e);

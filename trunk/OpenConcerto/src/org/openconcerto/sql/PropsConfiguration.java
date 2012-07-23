@@ -242,8 +242,8 @@ public class PropsConfiguration extends Configuration {
         this.setFilter(null);
     }
 
-    protected final String getSystem() {
-        return this.getProperty("server.driver");
+    public final SQLSystem getSystem() {
+        return SQLSystem.get(this.getProperty("server.driver"));
     }
 
     protected String getLogin() {
@@ -255,7 +255,7 @@ public class PropsConfiguration extends Configuration {
     }
 
     public String getDefaultBase() {
-        final boolean rootIsBase = SQLSystem.get(this.getSystem()).getDBRootLevel().equals(HierarchyLevel.SQLBASE);
+        final boolean rootIsBase = this.getSystem().getDBRootLevel().equals(HierarchyLevel.SQLBASE);
         return rootIsBase ? this.getRootName() : this.getSystemRootName();
     }
 
@@ -380,7 +380,7 @@ public class PropsConfiguration extends Configuration {
         return new SQLServer(getSystem(), this.getProperty("server.ip"), null, getLogin(), getPassword(), new IClosure<DBSystemRoot>() {
             @Override
             public void executeChecked(final DBSystemRoot input) {
-                input.getRootsToMap().addAll(getRootsToMap());
+                input.setRootsToMap(getRootsToMap());
                 initSystemRoot(input);
             }
         }, new IClosure<SQLDataSource>() {
@@ -665,10 +665,14 @@ public class PropsConfiguration extends Configuration {
                 final CollectionMap<String, String> sa = elem.getShowAs();
                 if (sa != null) {
                     for (final Entry<String, Collection<String>> e : sa.entrySet()) {
-                        if (e.getKey() == null) {
-                            res.show(elem.getTable(), (List<String>) e.getValue());
-                        } else
-                            res.show(elem.getTable().getField(e.getKey()), (List<String>) e.getValue());
+                        try {
+                            if (e.getKey() == null)
+                                res.show(elem.getTable(), (List<String>) e.getValue());
+                            else
+                                res.show(elem.getTable().getField(e.getKey()), (List<String>) e.getValue());
+                        } catch (RuntimeException exn) {
+                            throw new IllegalStateException("Couldn't add showAs for " + elem + " : " + e, exn);
+                        }
                     }
                 }
             }

@@ -51,6 +51,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.JImage;
+import org.openconcerto.utils.cc.IClosure;
 
 import java.awt.Color;
 import java.awt.GridBagConstraints;
@@ -62,6 +63,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.FutureTask;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -147,25 +149,44 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                             f.setTitle(comptaPropsConfiguration.getAppName() + " " + version + socTitle);
                             f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
+                        }
+                    });
+                    final FutureTask<?> showMainFrame = new FutureTask<Object>(new Runnable() {
+                        @Override
+                        public void run() {
+                            FrameUtil.show(MainFrame.getInstance());
+                        }
+                    }, null);
+                    ModuleManager.getInstance().invoke(new IClosure<ModuleManager>() {
+                        @Override
+                        public void executeChecked(ModuleManager input) {
                             // start modules before displaying the frame (e.g. avoid modifying a
                             // visible menu bar)
                             try {
-                                ModuleManager.getInstance().startRequiredModules();
+                                input.startRequiredModules();
                             } catch (Exception exn) {
                                 // by definition we cannot continue without required modules
                                 ExceptionHandler.die("Impossible de démarrer les modules requis", exn);
                             }
                             try {
-                                ModuleManager.getInstance().startPreviouslyRunningModules();
+                                input.startPreviouslyRunningModules();
                             } catch (Exception exn) {
-                                // OK to continue without all modules started
-                                ExceptionHandler.handle(f, "Impossible de démarrer les modules", exn);
+                                // OK to start the application without all modules started
+                                // but don't continue right away otherwise connexion panel will be
+                                // closed and the popup with it
+                                try {
+                                    ExceptionHandler.handle(NouvelleConnexionAction.this.connexionPanel, "Impossible de démarrer les modules", exn).getDialogFuture().get();
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
                             }
 
-                            FrameUtil.show(f);
+                            SwingUtilities.invokeLater(showMainFrame);
                         }
                     });
                     initCache();
+                    // don't close ConnexionPanel until the main frame is shown
+                    showMainFrame.get();
                 } catch (Throwable e) {
                     ExceptionHandler.handle("Erreur de connexion", e);
                 }
@@ -231,6 +252,9 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
     }
 
     private void initCache() {
+        final SQLBase baseSociete = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
+        // ensure consistent state before cache loading
+        baseSociete.getGraph();
         Thread t = new Thread() {
             @Override
             public void run() {
@@ -244,7 +268,6 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                 CaisseCotisationSQLElement.getCaisseCotisation();
 
                 Ville.init(new NXDatabaseAccessor());
-                final SQLBase baseSociete = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("TAXE"), 600);
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("PREFS_COMPTE"), 600);
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("JOURNAL"), 600);
@@ -255,7 +278,9 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                 TaxeCache.getCache();
 
                 final UndefinedRowValuesCache UndefCache = UndefinedRowValuesCache.getInstance();
-
+                // TODO: 1 request to rules them all?
+                UndefCache.getDefaultRowValues(baseSociete.getTable("DEVIS"));
+                UndefCache.getDefaultRowValues(baseSociete.getTable("ETAT_DEVIS"));
                 UndefCache.getDefaultRowValues(baseSociete.getTable("ADRESSE"));
                 UndefCache.getDefaultRowValues(baseSociete.getTable("DEVIS_ELEMENT"));
                 UndefCache.getDefaultRowValues(baseSociete.getTable("CONTACT"));

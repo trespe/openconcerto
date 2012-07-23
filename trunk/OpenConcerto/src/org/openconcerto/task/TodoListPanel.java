@@ -641,16 +641,13 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
 
     public void stateChanged(int state) {
         if (state == ModelStateListener.STATE_OK) {
-            this.reloadPanel.setSleeping(true);
-
+            this.reloadPanel.setMode(ReloadPanel.MODE_EMPTY);
         }
         if (state == ModelStateListener.STATE_DEAD) {
             this.reloadPanel.setMode(ReloadPanel.MODE_BLINK);
-            this.reloadPanel.setSleeping(false);
         }
         if (state == ModelStateListener.STATE_RELOADING) {
             this.reloadPanel.setMode(ReloadPanel.MODE_ROTATE);
-            this.reloadPanel.setSleeping(false);
         }
     }
 

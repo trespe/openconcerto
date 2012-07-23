@@ -105,6 +105,12 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         return this.graph;
     }
 
+    // should be called if getFields(), getOrder() or getShowAs() change
+    protected final void clearGraph() {
+        this.graph = null;
+        this.graphToFetch = null;
+    }
+
     /**
      * The graph to fetch, should be a superset of {@link #getGraph()}.
      * 
@@ -124,7 +130,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
     protected final SQLRowValuesListFetcher getFetcher(final Where w) {
         final String tableName = getPrimaryTable().getName();
         // graphToFetch can be modified freely so don't the use the simple constructor
-        final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(getGraphToFetch());
+        final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(getGraphToFetch(), false);
         setupForeign(fetcher);
         fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
             @Override
@@ -133,7 +139,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
                 if (lockSelect)
                     sel.addWaitPreviousWriteTXTable(tableName);
                 for (final Path orderP : getOrder()) {
-                    sel.addOrderSilent(sel.assurePath(getPrimaryTable().getName(), orderP));
+                    sel.addOrder(sel.assurePath(getPrimaryTable().getName(), orderP), false);
                 }
                 return sel.andWhere(getWhere()).andWhere(w);
             }

@@ -74,7 +74,7 @@ public class OOXMLElement {
         if (type.equalsIgnoreCase("DateEcheance")) {
             int idModeReglement = row.getInt("ID_MODE_REGLEMENT");
             Date d = (Date) row.getObject("DATE");
-            return getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("DatePattern"));
+            return getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("datePattern"));
         }
 
         final List<Element> eltFields = this.elt.getChildren("field");

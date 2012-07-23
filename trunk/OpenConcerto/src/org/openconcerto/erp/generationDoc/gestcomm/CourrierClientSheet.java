@@ -78,7 +78,7 @@ public class CourrierClientSheet extends AbstractJOOReportsSheet {
         return m;
     }
 
-    public String getFileName() {
+    protected String getName() {
         return "Courrier_" + this.rowCourrier.getString("NUMERO");
     }
 

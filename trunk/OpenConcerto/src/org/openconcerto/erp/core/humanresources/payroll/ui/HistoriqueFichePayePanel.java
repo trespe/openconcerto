@@ -99,10 +99,8 @@ public class HistoriqueFichePayePanel extends JPanel {
         SQLElement eltFiche = Configuration.getInstance().getDirectory().getElement("FICHE_PAYE");
 
         // Liste à selectionner
-        List<String> l = new ArrayList<String>();
-        l.add("NOM");
-        l.add("PRENOM");
-        this.jListPanel = new JListSQLTablePanel(e.getTable(), l, "Tous");
+
+        this.jListPanel = new JListSQLTablePanel(JListSQLTablePanel.createComboRequest(e.getTable(), true), "Tous");
 
         // IListe
         final SQLTableModelSourceOnline src = eltFiche.getTableSource(true);

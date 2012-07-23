@@ -215,7 +215,7 @@ public class SocieteCommonSQLElement extends ConfSQLElement {
 
                 c.gridx++;
                 c.weightx = 1;
-                DeviseField fieldCapital = new DeviseField();
+                JTextField fieldCapital = new JTextField();
                 this.add(fieldCapital, c);
                 this.addView(fieldCapital, "CAPITAL");
 

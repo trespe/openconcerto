@@ -15,6 +15,7 @@
 
 import org.openconcerto.openoffice.generation.desc.part.ForkReportPart;
 import org.openconcerto.openoffice.generation.desc.part.GeneratorReportPart;
+import org.openconcerto.openoffice.generation.desc.part.CaseReportPart;
 import org.openconcerto.openoffice.generation.desc.part.InsertReportPart;
 import org.openconcerto.openoffice.generation.desc.part.SubReportPart;
 
@@ -39,6 +40,7 @@ abstract public class ReportPart extends XMLItem {
         tagsName.add("fork");
         tagsName.add("insert");
         tagsName.add("sub");
+        tagsName.add("case");
     }
 
     static public final boolean isPart(Element elem) {
@@ -57,6 +59,8 @@ abstract public class ReportPart extends XMLItem {
             res.add(new InsertReportPart(parent, child));
         } else if (tagName.equals("sub")) {
             res.add(new SubReportPart(parent, child, parent.createParts(child)));
+        } else if (tagName.equals("case")) {
+            res.add(new CaseReportPart(parent, child));
         } else {
             throw new IllegalArgumentException(child + " is not a part");
         }

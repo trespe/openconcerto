@@ -202,7 +202,7 @@ public class InstallationPanel extends JPanel {
 
                             // we need to upgrade all roots
                             // ///////////////////////////
-                            conf.getSystemRoot().getRootsToMap().clear();
+                            conf.getSystemRoot().mapAllRoots();
                             conf.getSystemRoot().refetch();
 
                             final Set<String> childrenNames = conf.getSystemRoot().getChildrenNames();
@@ -1160,6 +1160,28 @@ public class InstallationPanel extends JPanel {
                 }
             }
         }
+
+        // Change VF
+        {
+            SQLTable tableVenteFacture = root.getTable("SAISIE_VENTE_FACTURE");
+
+            AlterTable tVF = new AlterTable(tableVenteFacture);
+            boolean alterVF = false;
+
+            if (!tableVenteFacture.getFieldsName().contains("ID_TAXE_PORT")) {
+                tVF.addForeignColumn("ID_TAXE_PORT", root.findTable("TAXE"));
+                alterVF = true;
+            }
+            if (alterVF) {
+                try {
+                    ds.execute(tVF.asString());
+                    tableVenteFacture.getSchema().updateVersion();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table SAISIE_VENTE_FACTURE", ex);
+                }
+            }
+        }
+
         // Change Fournisseur
         {
             SQLTable tableFournisseur = root.getTable("FOURNISSEUR");
@@ -1541,7 +1563,7 @@ public class InstallationPanel extends JPanel {
         CorrectOrder orderCorrect = new CorrectOrder(sysRoot);
         orderCorrect.change(tableCommercial);
 
-        new AddFK(sysRoot).change(root);
+        new AddFK(sysRoot).changeAll(root);
         root.getSchema().updateVersion();
         root.refetch();
         // load graph now so that it's coherent with the structure
@@ -1839,7 +1861,7 @@ public class InstallationPanel extends JPanel {
         }
 
         // FK
-        new AddFK(root.getDBSystemRoot()).change(root);
+        new AddFK(root.getDBSystemRoot()).changeAll(root);
     }
 
     private void updateSocieteTable(DBRoot root) throws SQLException {

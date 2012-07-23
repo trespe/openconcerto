@@ -14,13 +14,13 @@
  package org.openconcerto.sql.request;
 
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.model.AliasedField;
 import org.openconcerto.sql.model.SQLFilter;
 import org.openconcerto.sql.model.SQLFilterListener;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.TableRef;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.utils.CollectionUtils;
@@ -70,7 +70,7 @@ public abstract class FilteredFillSQLRequest extends BaseFillSQLRequest {
     public final void setFilterEnabled(boolean b) {
         this.filterEnabled = b;
         if (this.filterEnabled)
-            this.getFilter().addListener(this.filterListener);
+            this.getFilter().addWeakListener(this.filterListener);
         else
             this.getFilter().rmListener(this.filterListener);
         updateFilterWhere();
@@ -128,11 +128,11 @@ public abstract class FilteredFillSQLRequest extends BaseFillSQLRequest {
                 throw new IllegalStateException("not 1 table: " + filterRow);
 
             final Path path = filterInfo.get1();
-            final String lastAlias = sel.assurePath(getPrimaryTable().getName(), path);
-            if (filterTable != sel.getTable(lastAlias))
-                throw new IllegalStateException("table mismatch: " + filterRow + " is not from " + lastAlias + ": " + sel.getTable(lastAlias));
+            final TableRef lastAlias = sel.assurePath(getPrimaryTable().getName(), path);
+            if (filterTable != lastAlias.getTable())
+                throw new IllegalStateException("table mismatch: " + filterRow + " is not from " + lastAlias + ": " + lastAlias.getTable());
 
-            sel.andWhere(new Where(new AliasedField(filterTable.getKey(), lastAlias), ids));
+            sel.andWhere(new Where(lastAlias.getKey(), ids));
         }
         return super.transformSelect(sel);
     }

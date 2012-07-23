@@ -15,6 +15,7 @@
 
 import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyleStyleDesc;
@@ -27,12 +28,16 @@ import org.jdom.Element;
 public class ColumnStyle extends StyleStyle {
 
     // from section 18.728 in v1.2-part1
-    public static final StyleStyleDesc<ColumnStyle> DESC = new StyleStyleDesc<ColumnStyle>(ColumnStyle.class, XMLVersion.OD, "table-column", "co", "table") {
+    private static final StyleStyleDesc<ColumnStyle> DESC = new StyleStyleDesc<ColumnStyle>(ColumnStyle.class, XMLVersion.OD, "table-column", "co", "table") {
         @Override
         public ColumnStyle create(ODPackage pkg, Element e) {
             return new ColumnStyle(pkg, e);
         }
     };
+
+    static public void registerDesc() {
+        Style.registerAllVersions(DESC);
+    }
 
     private StyleTableColumnProperties colProps;
 

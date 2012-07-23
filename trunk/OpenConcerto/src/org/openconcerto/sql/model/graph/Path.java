@@ -16,9 +16,11 @@
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -39,9 +41,10 @@ public class Path {
      * @param base la base du chemin.
      * @param path le chemin sous forme de String
      * @return le chemin correspondant.
-     * @see #add(String)
+     * @deprecated use {@link #createFromTables(DBRoot, List)} instead or the other methods with
+     *             String parameters (see {@link #add(String)}
      */
-    static public Path create(DBRoot base, List<String> path) {
+    static Path create(DBRoot base, List<String> path) {
         if (path.size() == 0)
             throw new IllegalArgumentException("path is empty");
 
@@ -55,6 +58,19 @@ public class Path {
         }
 
         return res;
+    }
+
+    /**
+     * Create a path from tables.
+     * 
+     * @param root the root of the first table.
+     * @param path a list tables names.
+     * @return the created path.
+     * @see #addTable(String)
+     */
+    static public Path createFromTables(DBRoot root, List<String> path) {
+        final SQLTable first = root.getTable(path.get(0));
+        return new Path(first).addTables(path.subList(1, path.size()));
     }
 
     /**
@@ -206,8 +222,9 @@ public class Path {
      * 
      * @param item le nouveau maillon.
      * @return this.
+     * @deprecated use {@link #addForeignField(String)}, {@link #addForeignTable(String)} or similar
      */
-    public Path add(String item) {
+    private Path add(String item) {
         int dot = item.indexOf('.');
         if (dot < 0) {
             return add(this.base.getTable(item));
@@ -227,6 +244,47 @@ public class Path {
      */
     public final Path add(final SQLTable destTable) {
         return this.add(Step.create(getLast(), destTable));
+    }
+
+    /**
+     * Add a table at the end of the path. NOTE: the step will be composed of all the foreign fields
+     * between {@link #getLast()} and <code>tableName</code>.
+     * 
+     * @param tableName the table name.
+     * @return this.
+     */
+    public final Path addTable(final String tableName) {
+        return this.addTable(tableName, Direction.ANY, false);
+    }
+
+    public final Path addTable(final String tableName, final Direction dir, final boolean onlyOne) {
+        return this.add(dir, null, tableName, null, onlyOne);
+    }
+
+    public Path addTables(String... names) {
+        return this.addTables(Arrays.asList(names));
+    }
+
+    public Path addTables(List<String> names) {
+        for (final String name : names)
+            this.addTable(name);
+        return this;
+    }
+
+    public final Path addForeignTable(final String tableName) {
+        return this.addForeignTable(tableName, null);
+    }
+
+    /**
+     * Add a table at the end of the path if there's only one <b>foreign<b> link between the end and
+     * it.
+     * 
+     * @param tableName the table name.
+     * @param rootName the name of the table root, <code>null</code> to not use.
+     * @return this.
+     */
+    public final Path addForeignTable(final String tableName, final String rootName) {
+        return this.add(Direction.FOREIGN, null, tableName, rootName, true);
     }
 
     /**
@@ -262,6 +320,46 @@ public class Path {
             links.add(graph.getForeignLink(f));
         }
         return this.add(links);
+    }
+
+    public final Path addForeignField(final String fieldName) {
+        return this.add(this.getLast().getField(fieldName));
+    }
+
+    public final Path addReferentField(final String fieldName) {
+        return this.addReferent(fieldName, null, null);
+    }
+
+    public final Path addReferentTable(final String tableName) {
+        return this.addReferent(null, tableName, null);
+    }
+
+    /**
+     * Add a table at the end of this path if there's only one link matching the parameters.
+     * 
+     * @param fieldName the field name, <code>null</code> to not use.
+     * @param tableName the name of the added table, <code>null</code> to not use.
+     * @param rootName the name of the root of the added table, <code>null</code> to not use.
+     * @return this.
+     */
+    public final Path addReferent(final String fieldName, final String tableName, final String rootName) {
+        return this.add(Direction.REFERENT, fieldName, tableName, rootName, true);
+    }
+
+    /**
+     * Add a step to the path.
+     * 
+     * @param dir the direction of the new step.
+     * @param fieldName the field name, <code>null</code> to not use.
+     * @param tableName the name of the added table, <code>null</code> to not use.
+     * @param rootName the name of the root of the added table, <code>null</code> to not use.
+     * @param onlyOne <code>true</code> if one and only one link should match.
+     * @return this.
+     * @throws IllegalStateException if <code>onlyOne</code> is <code>true</code> and not one and
+     *         only one link matching.
+     */
+    public final Path add(final Direction dir, final String fieldName, final String tableName, final String rootName, final boolean onlyOne) {
+        return this.add(this.getLast().getDBSystemRoot().getGraph().getLinks(getLast(), dir, onlyOne, new Link.NamePredicate(getLast(), rootName, tableName, fieldName)));
     }
 
     /**

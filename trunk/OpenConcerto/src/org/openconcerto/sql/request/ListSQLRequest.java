@@ -23,23 +23,11 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 
 public class ListSQLRequest extends FilteredFillSQLRequest {
-
-    /**
-     * Copy the passed request and replace its where.
-     * 
-     * @param src the object to copy.
-     * @param newWhere the where of the copy.
-     * @return a copy of <code>src</code>.
-     */
-    public static final ListSQLRequest copy(ListSQLRequest src, final Where newWhere) {
-        final ListSQLRequest res = new ListSQLRequest(src);
-        res.setWhere(newWhere);
-        return res;
-    }
 
     // les champs à afficher (avant expansion)
     private final List<SQLField> listFields;
@@ -108,7 +96,7 @@ public class ListSQLRequest extends FilteredFillSQLRequest {
      * @see org.openconcerto.devis.request.BaseSQLRequest#getFields()
      */
     public final List<SQLField> getFields() {
-        return this.listFields;
+        return Collections.unmodifiableList(this.listFields);
     }
 
     @Override

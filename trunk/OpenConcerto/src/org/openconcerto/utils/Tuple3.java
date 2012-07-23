@@ -27,6 +27,17 @@ import java.util.List;
  */
 public class Tuple3<A, B, C> extends Tuple2<A, B> {
 
+    public static final class List3<A> extends Tuple3<A, A, A> {
+        public List3(A a1, A a2, A a3) {
+            super(a1, a2, a3);
+        }
+
+        @SuppressWarnings("unchecked")
+        public List<A> asList() {
+            return Arrays.asList(get0(), get1(), get2());
+        }
+    }
+
     // just to make the code shorter
     public static final <A, B, C> Tuple3<A, B, C> create(A a, B b, C c) {
         return new Tuple3<A, B, C>(a, b, c);
@@ -44,7 +55,7 @@ public class Tuple3<A, B, C> extends Tuple2<A, B> {
     }
 
     @Override
-    public List<Object> asList() {
+    public List<? extends Object> asList() {
         return Arrays.asList(get0(), get1(), get2());
     }
 }

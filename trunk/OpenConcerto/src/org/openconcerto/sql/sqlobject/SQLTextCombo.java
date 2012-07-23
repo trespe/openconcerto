@@ -52,10 +52,13 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
         super(mode);
     }
 
+    @Override
     public void init(SQLRowItemView v) {
-        final ITextComboCacheSQL cache = new ITextComboCacheSQL(v.getField());
-        if (cache.isValid())
-            this.initCache(cache);
+        if (!this.hasCache()) {
+            final ITextComboCacheSQL cache = new ITextComboCacheSQL(v.getField());
+            if (cache.isValid())
+                this.initCache(cache);
+        }
     }
 
     static public class ITextComboCacheSQL implements ITextComboCache {

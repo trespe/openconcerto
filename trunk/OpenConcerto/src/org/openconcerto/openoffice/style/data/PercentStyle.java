@@ -26,7 +26,7 @@ import org.jdom.Namespace;
 // from section 16.27.9 in v1.2-cs01-part1
 public class PercentStyle extends DataStyle {
 
-    public static final DataStyleDesc<PercentStyle> DESC = new DataStyleDesc<PercentStyle>(PercentStyle.class, XMLVersion.OD, "percentage-style", "N") {
+    static final DataStyleDesc<PercentStyle> DESC = new DataStyleDesc<PercentStyle>(PercentStyle.class, XMLVersion.OD, "percentage-style", "N") {
         @Override
         public PercentStyle create(ODPackage pkg, Element e) {
             return new PercentStyle(pkg, e);

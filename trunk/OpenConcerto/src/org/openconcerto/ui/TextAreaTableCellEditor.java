@@ -64,17 +64,16 @@ public class TextAreaTableCellEditor extends AbstractCellEditor implements Table
                     }
 
                     SwingUtilities.invokeLater(new Runnable() {
-                       
+
                         public void run() {
+                            if (t.getCellEditor().stopCellEditing()) {
+                                if (column >= 0 && column < t.getColumnCount()) {
+                                    t.setColumnSelectionInterval(column, column);
+                                    t.setRowSelectionInterval(row, row);
 
-                            fireEditingStopped();
-
-                            if (column >= 0 && column < t.getColumnCount()) {
-                                t.setColumnSelectionInterval(column, column);
-                                t.setRowSelectionInterval(row, row);
-
-                                if (t.editCellAt(row, column)) {
-                                    t.getEditorComponent().requestFocusInWindow();
+                                    if (t.editCellAt(row, column)) {
+                                        t.getEditorComponent().requestFocusInWindow();
+                                    }
                                 }
                             }
                         }

@@ -368,7 +368,7 @@
 
 	<TABLE name="BON_RECEPTION_ELEMENT">
 		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
-		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />	
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
 		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
@@ -428,7 +428,7 @@
 		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
 	</TABLE>
 	<TABLE name="BON_DE_LIVRAISON_ELEMENT">
-	<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
 		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
 		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
@@ -757,14 +757,14 @@
 		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
 		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
 		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
-	<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
-	<FIELD name="ID_ADRESSE" label="Adresse de livraison spécifique"
-		titlelabel="Adresse de livraison spécifique" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="ID_ADRESSE" label="Adresse de livraison spécifique"
+			titlelabel="Adresse de livraison spécifique" />
 	</TABLE>
 
 	<TABLE name="COMMANDE_ELEMENT">
 		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
-		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />	
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
 		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
 		<FIELD name="PA_DEVISE" label="PA Devise" titlelabel="PA Devise" />
@@ -823,7 +823,7 @@
 	</TABLE>
 
 	<TABLE name="COMMANDE_CLIENT_ELEMENT">
-		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />	
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
 		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
 		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
 		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
@@ -1780,6 +1780,7 @@
 		<FIELD name="T_TVA" label="Total TVA" titlelabel="Total TVA" />
 		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
 		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="ID_TAXE_PORT" label="TVA sur port" titlelabel="TVA sur port" />
 		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
 		<FIELD name="INFOS" label="Informations complémentaires"
 			titlelabel="Informations" />
@@ -2017,7 +2018,7 @@
 		<FIELD name="HEURE_TRAV" label="Heures travaillées" titlelabel="Heures travaillées" />
 		<FIELD name="HEURE_ABS" label="Heures d'abscence" titlelabel="Heures d'abscence" />
 	</TABLE>
-	
+
 	<TABLE name="UNITE_VENTE">
 		<FIELD name="CODE" label="Code" titlelabel="Code" />
 		<FIELD name="NOM" label="Libellè" titlelabel="Libellé" />

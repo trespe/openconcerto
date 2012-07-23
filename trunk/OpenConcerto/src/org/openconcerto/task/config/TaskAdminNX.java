@@ -14,6 +14,7 @@
  package org.openconcerto.task.config;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.utils.Exiter;
 import org.openconcerto.task.ui.UserRightsPrefPanel;
 
@@ -32,7 +33,7 @@ import javax.swing.UIManager;
 public class TaskAdminNX {
 
     public static void main(String[] args) {
-        System.setProperty("org.openconcerto.sql.structure.useXML", "true");
+        System.setProperty(SQLBase.STRUCTURE_USE_XML, "true");
         Configuration.setInstance(TaskPropsConfiguration.create());
         SwingUtilities.invokeLater(new Runnable() {
 

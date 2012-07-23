@@ -32,7 +32,7 @@ import org.jdom.Namespace;
 // from section 16.27.2 in v1.2-cs01-part1
 public class NumberStyle extends DataStyle {
 
-    public static final DataStyleDesc<NumberStyle> DESC = new DataStyleDesc<NumberStyle>(NumberStyle.class, XMLVersion.OD, "number-style", "N") {
+    static final DataStyleDesc<NumberStyle> DESC = new DataStyleDesc<NumberStyle>(NumberStyle.class, XMLVersion.OD, "number-style", "N") {
         @Override
         public NumberStyle create(ODPackage pkg, Element e) {
             return new NumberStyle(pkg, e);

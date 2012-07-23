@@ -85,7 +85,7 @@ public abstract class AbstractLocalTemplateProvider implements TemplateProvider 
     public static String insertBeforeExtenstion(String fileName, String text) {
         final int index = fileName.lastIndexOf('.');
         if (index < 0) {
-            throw new IllegalArgumentException("No extension found in fileName '" + fileName + "'");
+            return null;
         }
         if (index == 0) {
             return fileName + text;

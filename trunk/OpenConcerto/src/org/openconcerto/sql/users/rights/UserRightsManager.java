@@ -184,7 +184,7 @@ public class UserRightsManager {
         final Boolean userRight = haveRightP(userID, code, requestedObject, objectMatcher, unicity);
         if (userRight != null)
             return userRight;
-        final Boolean defaultRight = haveRightP(this.getTable().getForeignTable("ID_USER_COMMON").getUndefinedID(), code, requestedObject, objectMatcher, unicity);
+        final Boolean defaultRight = haveRightP(getDefaultUserId(), code, requestedObject, objectMatcher, unicity);
         if (defaultRight != null)
             return defaultRight;
 
@@ -364,7 +364,7 @@ public class UserRightsManager {
         final Set<String> unicity = new HashSet<String>();
         final Set<String> userRight = getObjectsP(userID, code, unicity);
         if (userRight != null) {
-            final Set<String> defaultRight = getObjectsP(this.getTable().getForeignTable("ID_USER_COMMON").getUndefinedID(), code, unicity);
+            final Set<String> defaultRight = getObjectsP(getDefaultUserId(), code, unicity);
             if (defaultRight != null) {
                 userRight.addAll(defaultRight);
                 return userRight;
@@ -377,6 +377,15 @@ public class UserRightsManager {
                 res.add(object);
         }
         return res;
+    }
+
+    private int getDefaultUserId() {
+        return this.getTable().getForeignTable("ID_USER_COMMON").getUndefinedID();
+    }
+
+    public void preloadRightsForUserId(int userID) {
+        getRightsForUser(getDefaultUserId());
+        getRightsForUser(userID);
     }
 
     private final Set<String> getObjectsP(final int userID, final String code, Set<String> unicity) {

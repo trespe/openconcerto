@@ -23,6 +23,7 @@ import org.openconcerto.sql.model.SQLIdentifier;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.cc.IPredicate;
 
 import java.io.PrintWriter;
 import java.sql.DatabaseMetaData;
@@ -43,6 +44,41 @@ import org.jdom.Element;
  */
 @ThreadSafe
 public class Link extends DirectedEdge<SQLTable> {
+
+    public static enum Direction {
+        FOREIGN, REFERENT, ANY
+    }
+
+    public static class NamePredicate extends IPredicate<Link> {
+
+        private final SQLTable table;
+        private final String oppositeRootName, oppositeTableName;
+        private final List<String> fieldsNames;
+
+        public NamePredicate(SQLTable table, String oppositeTableName) {
+            this(table, null, oppositeTableName);
+        }
+
+        public NamePredicate(SQLTable table, String oppositeRootName, String oppositeTableName) {
+            this(table, oppositeRootName, oppositeTableName, null);
+        }
+
+        public NamePredicate(SQLTable table, String oppositeRootName, String oppositeTableName, String fieldName) {
+            super();
+            this.table = table;
+            this.oppositeRootName = oppositeRootName;
+            this.oppositeTableName = oppositeTableName;
+            this.fieldsNames = fieldName == null ? null : Collections.singletonList(fieldName);
+        }
+
+        @Override
+        public boolean evaluateChecked(Link l) {
+            // leave at the start to check that this.table is an end of l
+            final SQLTable oppositeTable = l.oppositeVertex(this.table);
+            return (this.fieldsNames == null || this.fieldsNames.equals(l.getCols())) && (this.oppositeTableName == null || this.oppositeTableName.equals(oppositeTable.getName()))
+                    && (this.oppositeRootName == null || this.oppositeRootName.equals(oppositeTable.getDBRoot().getName()));
+        }
+    }
 
     public static enum Rule {
 

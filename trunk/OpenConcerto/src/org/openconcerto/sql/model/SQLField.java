@@ -17,6 +17,7 @@
 package org.openconcerto.sql.model;
 
 import static org.openconcerto.sql.model.SQLBase.quoteIdentifier;
+import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
@@ -46,30 +47,6 @@ import org.jdom.Element;
  */
 @ThreadSafe
 public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
-
-    /**
-     * Parse the fullname of a field.
-     * 
-     * @param f the dotted name, eg "table.fieldName".
-     * @return an array, index 0 being the table name, index 1 the field name, eg ["table",
-     *         "fieldName"], or <code>null</code> if f is not dotted.
-     */
-    public static final String[] parse(String f) {
-        final int dot = f.indexOf('.');
-        if (!isFullname(dot))
-            return null;
-        else
-            return new String[] { f.substring(0, dot), f.substring(dot + 1) };
-    }
-
-    public static final boolean isFullname(String f) {
-        return isFullname(f.indexOf('.'));
-    }
-
-    private static final boolean isFullname(int dotIndex) {
-        // .field is not valid
-        return dotIndex > 0;
-    }
 
     static final SQLField create(SQLTable t, ResultSet rs) throws SQLException {
         final String fieldName = rs.getString("COLUMN_NAME");
@@ -277,6 +254,14 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         return this.getTable().getKey() == this;
     }
 
+    public final SQLTable getForeignTable() {
+        return this.getDBSystemRoot().getGraph().getForeignTable(this);
+    }
+
+    public final Link getLink() {
+        return this.getDBSystemRoot().getGraph().getForeignLink(this);
+    }
+
     // *** FieldRef
 
     public SQLField getField() {
@@ -289,6 +274,11 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
 
     public String getAlias() {
         return this.getTable().getName();
+    }
+
+    @Override
+    public TableRef getTableRef() {
+        return this.getTable();
     }
 
     public synchronized String toXML() {

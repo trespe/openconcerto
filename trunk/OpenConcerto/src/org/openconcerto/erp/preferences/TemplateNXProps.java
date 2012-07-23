@@ -17,7 +17,7 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.customerrelationship.customer.report.FicheClientXmlSheet;
 import org.openconcerto.erp.core.finance.accounting.report.BalanceSheet;
 import org.openconcerto.erp.core.finance.accounting.report.GrandLivreSheet;
-import org.openconcerto.erp.core.finance.accounting.report.JournauxSheet;
+import org.openconcerto.erp.core.finance.accounting.report.JournauxSheetXML;
 import org.openconcerto.erp.core.humanresources.payroll.report.EtatChargesPayeSheet;
 import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheet;
 import org.openconcerto.erp.core.humanresources.payroll.report.LivrePayeSheet;
@@ -136,7 +136,7 @@ public class TemplateNXProps extends TemplateProps {
         register(ListeVenteXmlSheet.TEMPLATE_ID, ListeVenteXmlSheet.TEMPLATE_PROPERTY_NAME, null);
         register(BalanceSheet.TEMPLATE_ID, BalanceSheet.TEMPLATE_PROPERTY_NAME, BalanceSheet.TEMPLATE_ID);
         register(GrandLivreSheet.TEMPLATE_ID, GrandLivreSheet.TEMPLATE_PROPERTY_NAME, GrandLivreSheet.TEMPLATE_ID);
-        register(JournauxSheet.TEMPLATE_ID, JournauxSheet.TEMPLATE_PROPERTY_NAME, JournauxSheet.TEMPLATE_ID);
+        register(JournauxSheetXML.TEMPLATE_ID, JournauxSheetXML.TEMPLATE_PROPERTY_NAME, JournauxSheetXML.TEMPLATE_ID);
         register(EtatChargesPayeSheet.TEMPLATE_ID, EtatChargesPayeSheet.TEMPLATE_PROPERTY_NAME, "Etat des charges");
         register(FichePayeSheet.TEMPLATE_ID, FichePayeSheet.TEMPLATE_PROPERTY_NAME, "Fiche paye");
         register(LivrePayeSheet.TEMPLATE_ID, LivrePayeSheet.TEMPLATE_PROPERTY_NAME, "Livre paye");

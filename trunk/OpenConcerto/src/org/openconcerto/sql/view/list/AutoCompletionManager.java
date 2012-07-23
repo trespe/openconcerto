@@ -54,8 +54,9 @@ public class AutoCompletionManager implements SelectionListener {
         this(fromTableElement, fillFrom, table, tableModel, ITextWithCompletion.MODE_CONTAINS, false);
     }
 
+    // FIXME Le validstatechecker est à passer au SQLTableElement
     public AutoCompletionManager(SQLTableElement fromTableElement, SQLField fillFrom, RowValuesTable table, RowValuesTableModel tableModel, int modeCompletion, boolean expandWithShowAs,
-            boolean foreign) {
+            boolean foreign, ValidStateChecker checker) {
 
         this.foreign = foreign;
         List<String> l = new Vector<String>();
@@ -69,12 +70,12 @@ public class AutoCompletionManager implements SelectionListener {
             l.add(fillFrom.getName());
         }
         ComboSQLRequest req = new ComboSQLRequest(fillFrom.getTable(), l);
-        init(fromTableElement, fillFrom, table, tableModel, modeCompletion, req, foreign);
+        init(fromTableElement, fillFrom, table, tableModel, modeCompletion, req, foreign, checker);
 
     }
 
     public AutoCompletionManager(SQLTableElement fromTableElement, SQLField fillFrom, RowValuesTable table, RowValuesTableModel tableModel, int modeCompletion, boolean expandWithShowAs) {
-        this(fromTableElement, fillFrom, table, tableModel, modeCompletion, expandWithShowAs, false);
+        this(fromTableElement, fillFrom, table, tableModel, modeCompletion, expandWithShowAs, false, new ValidStateChecker());
     }
 
     public AutoCompletionManager(SQLTableElement fromTableElement, SQLField fillFrom, RowValuesTable table, RowValuesTableModel tableModel, int modeCompletion, ComboSQLRequest req) {
@@ -82,6 +83,11 @@ public class AutoCompletionManager implements SelectionListener {
     }
 
     public void init(SQLTableElement fromTableElement, SQLField fillFrom, RowValuesTable table, RowValuesTableModel tableModel, int modeCompletion, ComboSQLRequest req, boolean foreign) {
+        init(fromTableElement, fillFrom, table, tableModel, modeCompletion, req, foreign, new ValidStateChecker());
+    }
+
+    public void init(SQLTableElement fromTableElement, SQLField fillFrom, RowValuesTable table, RowValuesTableModel tableModel, int modeCompletion, ComboSQLRequest req, boolean foreign,
+            ValidStateChecker validStateChecker) {
 
         this.tableModel = tableModel;
         this.fromTableElement = fromTableElement;
@@ -125,7 +131,7 @@ public class AutoCompletionManager implements SelectionListener {
 
             this.t = new ITextWithCompletion(req, true);
             this.t.setModeCompletion(modeCompletion);
-            this.editor = new TextTableCellEditorWithCompletion(table, this.t);
+            this.editor = new TextTableCellEditorWithCompletion(table, this.t, validStateChecker);
 
             if (this.fillFrom.getType().getType() == Types.VARCHAR) {
                 this.t.setLimitedSize(this.fillFrom.getType().getSize());

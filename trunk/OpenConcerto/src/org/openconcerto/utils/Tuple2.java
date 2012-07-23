@@ -25,6 +25,18 @@ import java.util.List;
  * @param <B> type of second value.
  */
 public class Tuple2<A, B> {
+
+    public static final class List2<A> extends Tuple2<A, A> {
+        public List2(A a1, A a2) {
+            super(a1, a2);
+        }
+
+        @SuppressWarnings("unchecked")
+        public List<A> asList() {
+            return Arrays.asList(get0(), get1());
+        }
+    }
+
     private static final Tuple2<Object, Object> NULL = new Tuple2<Object, Object>(null, null);
 
     @SuppressWarnings("unchecked")
@@ -54,7 +66,7 @@ public class Tuple2<A, B> {
         return this.b;
     }
 
-    public List<Object> asList() {
+    public List<? extends Object> asList() {
         return Arrays.asList(get0(), get1());
     }
 

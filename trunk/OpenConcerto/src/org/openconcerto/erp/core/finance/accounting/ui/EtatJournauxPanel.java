@@ -27,6 +27,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.GestionDevise;
 
 import java.awt.Dimension;
@@ -75,12 +76,9 @@ public class EtatJournauxPanel extends JPanel {
 
         this.setLayout(new GridBagLayout());
 
-        GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(2, 2, 1, 2);
+        final GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.BOTH;
         c.anchor = GridBagConstraints.NORTHWEST;
-        c.gridx = 0;
-        c.gridy = 0;
         c.gridwidth = 2;
         c.gridheight = 1;
         c.weightx = 1;
@@ -114,20 +112,6 @@ public class EtatJournauxPanel extends JPanel {
 
         // On recupere les differents journaux
         SQLTable journalTable = base.getTable("JOURNAL");
-        // SQLSelect selJournal = new SQLSelect(base);
-        //
-        // selJournal.addSelect(journalTable.getField("ID"));
-        // selJournal.addSelect(journalTable.getField("NOM"));
-        // selJournal.addSelect(journalTable.getField("CODE"));
-        //
-        // selJournal.addRawOrder("\"JOURNAL\".\"NOM\"");
-        //
-        // String reqJournal = selJournal.asString();
-        // Object obJournal = base.getDataSource().execute(reqJournal, new ArrayListHandler());
-        //
-        // List myListJournal = (List) obJournal;
-        //
-        // if (myListJournal.size() != 0) {
 
         List<SQLRow> liste = SQLBackgroundTableCache.getInstance().getCacheForTable(journalTable).getRows();
         for (int k = 0; k < liste.size(); k++) {
@@ -190,24 +174,6 @@ public class EtatJournauxPanel extends JPanel {
         c.gridheight = 1;
         c.weightx = 1;
         c.weighty = 0;
-
-        // Récupération des ecritures du journal avec le total par mois
-        // SQLTable ecritureTable = base.getTable("ECRITURE");
-        // SQLSelect sel = new SQLSelect(base);
-        //
-        // sel.addSelect(ecritureTable.getField("DATE"), "YEAR");
-        // sel.addSelect(ecritureTable.getField("DATE"), "MONTH");
-        // sel.addSelect(ecritureTable.getField("DEBIT"), "SUM");
-        // sel.addSelect(ecritureTable.getField("CREDIT"), "SUM");
-        //
-        // Where w = new Where(ecritureTable.getField("ID_JOURNAL"), "=", jrnl.getId());
-        //
-        // sel.setWhere(w);
-        //
-        // sel.setDistinct(true);
-        //
-        // String req = sel.asString() + " GROUP BY YEAR(ECRITURE.DATE), MONTH(ECRITURE.DATE) ORDER
-        // BY ECRITURE.DATE";
 
         String req = "SELECT DISTINCT EXTRACT(YEAR FROM \"" + baseName + "\".\"ECRITURE\".\"DATE\"), " + "EXTRACT(MONTH FROM \"" + baseName + "\".\"ECRITURE\".\"DATE\")," + " SUM(\"" + baseName
                 + "\".\"ECRITURE\".\"DEBIT\"), " + "SUM(\"" + baseName + "\".\"ECRITURE\".\"CREDIT\")" + " FROM \"" + baseName + "\".\"ECRITURE\" " + "WHERE (\"" + baseName

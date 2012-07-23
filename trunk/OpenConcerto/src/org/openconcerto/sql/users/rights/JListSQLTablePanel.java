@@ -13,15 +13,21 @@
  
  package org.openconcerto.sql.users.rights;
 
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JLabel;
@@ -70,17 +76,30 @@ public class JListSQLTablePanel extends JPanel {
         }
     };
 
-    /**
-     * 
-     * @param table SQLTable à afficher.
-     * @param listField Liste des fields pour le label.
-     * @param undefined String représentant l'indéfini, si null l'indéfini n'est pas ajouté à la
-     *        liste.
-     */
-    public JListSQLTablePanel(final SQLTable table, List<String> listField, final String undefined) {
+    public static ComboSQLRequest createComboRequest(final SQLTable table, boolean withUndef) {
+
+        ComboSQLRequest request = Configuration.getInstance().getDirectory().getElement(table).getComboRequest(true);
+        request.setFieldSeparator(" ");
+        if (withUndef) {
+            // add undefined
+            final ITransformer<SQLSelect, SQLSelect> trans = request.getSelectTransf();
+            request.setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
+                @Override
+                public SQLSelect transformChecked(SQLSelect input) {
+                    if (trans != null)
+                        input = trans.transformChecked(input);
+                    input.setExcludeUndefined(false, table);
+                    return input;
+                }
+            });
+        }
+        return request;
+    }
+
+    public JListSQLTablePanel(final ComboSQLRequest req, final String undefined) {
         super(new GridBagLayout());
-        this.table = table;
-        this.listModel = new JListSQLTableModel(this.table, listField, undefined);
+        this.table = req.getPrimaryTable();
+        this.listModel = new JListSQLTableModel(req);
         this.list = new JList(this.listModel);
         this.list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 

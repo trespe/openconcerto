@@ -65,6 +65,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.swing.AbstractAction;
@@ -228,7 +229,7 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
         };
         // this.frame.getPanel().getListe().addRowActions(mouseListener.getRowActions());
         this.frame.getPanel().getListe().addIListeActions(mouseListener.getRowActions());
-
+        this.frame.getPanel().getListe().setDefaultRowAction(mouseListener.getDefaultRowAction());
 
         return this.frame;
     }

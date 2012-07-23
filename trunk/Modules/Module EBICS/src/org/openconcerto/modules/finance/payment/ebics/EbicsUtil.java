@@ -177,9 +177,29 @@ public class EbicsUtil {
     public static void dumpCertificate(Certificate cert, PrintStream out) throws IOException, CertificateException {
         final Base64Encoder encoder = new Base64Encoder();
         out.println(BEGIN_CERT);
+
         final byte[] encoded = cert.getEncoded();
-        encoder.encode(encoded, 0, encoded.length, out);
+        out.println(org.openconcerto.utils.Base64.encodeBytes(encoded));
+
         out.println(END_CERT);
+        byte[] h = getSHA256(encoded);
+
+        out.print("SHA-256 hash:");
+
+        byte[] b = Hex.encode(h);
+        String bS = new String(b);
+        for (int i = 0; i < bS.length(); i++) {
+            char c = bS.charAt(i);
+
+            if (i % 16 == 0) {
+                out.println();
+            } else if (i % 2 == 0) {
+                out.print(' ');
+            }
+            out.print(Character.toUpperCase(c));
+        }
+        System.out.println(new String(b));
+
     }
 
     public static boolean compare(byte[] b1, byte[] b2) {
@@ -196,7 +216,7 @@ public class EbicsUtil {
         return true;
     }
 
-    public static String getSAH256HashBase64(byte[] toHash) throws NoSuchAlgorithmException {
+    public static String getSHA256HashBase64(byte[] toHash) throws NoSuchAlgorithmException {
         final MessageDigest sha256 = MessageDigest.getInstance("SHA256", new BouncyCastleProvider());
         byte[] result = sha256.digest(toHash);
 

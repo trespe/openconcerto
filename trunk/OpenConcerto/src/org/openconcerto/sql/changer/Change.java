@@ -76,7 +76,7 @@ public abstract class Change {
             }
             if (this.root instanceof DBSystemRoot) {
                 final DBSystemRoot sysRoot = (DBSystemRoot) this.root;
-                if (!sysRoot.getRootsToMap().containsAll(children))
+                if (!sysRoot.getChildrenNames().containsAll(children))
                     sysRoot.addRoots(new ArrayList<String>(children));
             }
             for (final SQLName name : names)

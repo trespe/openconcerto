@@ -36,8 +36,8 @@ public class SpreadSheetCellValueContext {
     }
 
     public void dump(PrintStream prt) {
-        prt.println("Row id: " + row.getID() + " table:" + row.getTable());
-        List<String> fields = new ArrayList<String>();
+        prt.println("Row id: " + row.getID() + " table: " + row.getTable().getName());
+        final List<String> fields = new ArrayList<String>();
         fields.addAll(row.getFields());
         Collections.sort(fields);
         for (String field : fields) {
@@ -46,7 +46,7 @@ public class SpreadSheetCellValueContext {
             prt.println(row.getObject(field));
         }
         prt.println("Parameters:");
-        List<String> params = new ArrayList<String>();
+        final List<String> params = new ArrayList<String>();
         params.addAll(map.keySet());
         Collections.sort(params);
         for (String param : params) {

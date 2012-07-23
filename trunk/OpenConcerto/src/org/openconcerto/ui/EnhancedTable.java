@@ -166,71 +166,18 @@ public class EnhancedTable extends JTable {
     }
 
     public void tableChanged(TableModelEvent e) {
-        // System.out.println("EnhancedTable.tableChanged()");
-
         if (e == null || e.getFirstRow() == TableModelEvent.HEADER_ROW) {
             // The whole thing changed
             clearSelection();
-
-            if (getAutoCreateColumnsFromModel())
+            if (getAutoCreateColumnsFromModel()) {
                 createDefaultColumnsFromModel();
-
-            resizeAndRepaint();
-
-            return;
-        }
-
-        if (e.getType() == TableModelEvent.INSERT) {
+            }
+        } else if (e.getType() == TableModelEvent.INSERT) {
             tableRowsInserted(e);
-            repaint();// En plus
-            return;
-        }
-
-        if (e.getType() == TableModelEvent.DELETE) {
+        } else if (e.getType() == TableModelEvent.DELETE) {
             tableRowsDeleted(e);
-            repaint();// En plus
-            return;
         }
-
-        int modelColumn = e.getColumn();
-        int start = e.getFirstRow();
-        int end = e.getLastRow();
-
-        if (start == TableModelEvent.HEADER_ROW) {
-            start = 0;
-            end = Integer.MAX_VALUE;
-        }
-
-        // int rowHeight = getRowHeight() + rowMargin;
-        Rectangle dirtyRegion;
-        if (modelColumn == TableModelEvent.ALL_COLUMNS) {
-            // 1 or more rows changed
-            // dirtyRegion = new Rectangle(0, start * rowHeight,
-            dirtyRegion = new Rectangle(0, getCellRect(start, 0, false).y,
-
-            getColumnModel().getTotalColumnWidth(), 0);
-        } else {
-            // A cell or column of cells has changed.
-            // Unlike the rest of the methods in the JTable, the TableModelEvent
-            // uses the co-ordinate system of the model instead of the view.
-            // This is the only place in the JTable where this "reverse mapping"
-            // is used.
-            int column = convertColumnIndexToView(modelColumn);
-            dirtyRegion = getCellRect(start, column, false);
-        }
-
-        // Now adjust the height of the dirty region according to the value of "end".
-        // Check for Integer.MAX_VALUE as this will cause an overflow.
-        if (end != Integer.MAX_VALUE) {
-            // dirtyRegion.height = (end-start+1)*rowHeight;
-            dirtyRegion.height = getCellRect(end + 1, 0, false).y - dirtyRegion.y;
-            repaint(dirtyRegion.x, dirtyRegion.y, dirtyRegion.width, dirtyRegion.height);
-        }
-        // In fact, if the end is Integer.MAX_VALUE we need to revalidate anyway
-        // because the scrollbar may need repainting.
-        else {
-            resizeAndRepaint();
-        }
+        resizeAndRepaint();
     }
 
     private void tableRowsInserted(TableModelEvent e) {

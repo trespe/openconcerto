@@ -33,11 +33,13 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.users.rights.JListSQLTablePanel;
 import org.openconcerto.sql.view.IListPanel;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.ITableModel;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.utils.cc.ITransformer;
@@ -173,14 +175,19 @@ public class ListeHistoriquePanel extends JPanel {
         }
     };
 
-    public ListeHistoriquePanel(final String title, final SQLTable tableList, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
-        this(title, tableList, listTableOnglet, panelBottom, listFieldMap, "Tous");
+    public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
+        this(title, req, listTableOnglet, panelBottom, listFieldMap, "Tous");
+    }
+
+    public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap,
+            String undefinedLabel) {
+        this(title, req, listTableOnglet, panelBottom, listFieldMap, undefinedLabel, false);
     }
 
     // TODO verifier que les tables contiennent bien la clef etrangere
     /**
      * @param title titre de la JList
-     * @param tableList table à afficher la JList
+     * @param req table à afficher la JListSQLTablePanel
      * @param listTableOnglet liste des tables à afficher
      * @param panelBottom panel à afficher en bas de la frame
      * @param listFieldMap jointure d'une table pour utiliser le filtre si la table ne contient pas
@@ -188,7 +195,8 @@ public class ListeHistoriquePanel extends JPanel {
      * @param undefinedLabel label pour l'indéfini permettant de tout sélectionner, null si
      *        l'undefined n'est pas à inclure.
      */
-    public ListeHistoriquePanel(final String title, final SQLTable tableList, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap, String undefinedLabel) {
+    public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap,
+            String undefinedLabel, final boolean sourceWithOutTransformer) {
         super();
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -249,7 +257,11 @@ public class ListeHistoriquePanel extends JPanel {
                     };
 
                 } else {
-                    liste = new ListeAddPanel(elt, new IListe(elt.createTableSource(Where.FALSE)), "historique-" + title) {
+                    SQLTableModelSourceOnline createTableSource = elt.createTableSource(Where.FALSE);
+                    if (sourceWithOutTransformer) {
+                        createTableSource.getReq().setSelectTransf(null);
+                    }
+                    liste = new ListeAddPanel(elt, new IListe(createTableSource), "historique-" + title) {
                         @Override
                         protected void handleAction(JButton source, ActionEvent evt) {
                             if (source == this.buttonAjouter) {
@@ -306,10 +318,8 @@ public class ListeHistoriquePanel extends JPanel {
         }
 
         // Left Panel
-        SQLElement e = Configuration.getInstance().getDirectory().getElement(tableList);
-
-        List<String> fields = getListSQLField(e.getComboRequest().getFields());
-        this.jListePanel = new JListSQLTablePanel(tableList, fields, undefinedLabel);
+        this.undefinedLabel = undefinedLabel;
+        this.jListePanel = new JListSQLTablePanel(req, undefinedLabel);
 
         // Right panel
         JPanel rightPanel = new JPanel();

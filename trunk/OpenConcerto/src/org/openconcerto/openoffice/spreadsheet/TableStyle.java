@@ -15,6 +15,7 @@
 
 import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
@@ -29,12 +30,16 @@ public class TableStyle extends StyleStyle {
 
     static public final LengthUnit DEFAULT_UNIT = LengthUnit.MM;
     // from section 18.728 in v1.2-part1
-    public static final StyleStyleDesc<TableStyle> DESC = new StyleStyleDesc<TableStyle>(TableStyle.class, XMLVersion.OD, "table", "ta", "table", Arrays.asList("table:background", "table:table")) {
+    private static final StyleStyleDesc<TableStyle> DESC = new StyleStyleDesc<TableStyle>(TableStyle.class, XMLVersion.OD, "table", "ta", "table", Arrays.asList("table:background", "table:table")) {
         @Override
         public TableStyle create(ODPackage pkg, Element e) {
             return new TableStyle(pkg, e);
         }
     };
+
+    static public void registerDesc() {
+        Style.registerAllVersions(DESC);
+    }
 
     private StyleTableProperties tableProps;
 

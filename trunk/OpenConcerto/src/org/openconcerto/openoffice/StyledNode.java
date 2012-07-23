@@ -58,6 +58,18 @@ public abstract class StyledNode<S extends Style, D extends ODDocument> extends 
     // can be null if this node wasn't created from a document (eg new Paragraph())
     public abstract D getODDocument();
 
+    public final StyleDesc<S> getStyleDesc() {
+        return this.styleClass;
+    }
+
+    public final <S2 extends Style> StyleDesc<S2> getStyleDesc(Class<S2> clazz) {
+        return Style.getStyleDesc(clazz, getODDocument().getVersion());
+    }
+
+    public final <S2 extends StyleStyle> StyleStyleDesc<S2> getStyleStyleDesc(Class<S2> clazz) {
+        return Style.getStyleStyleDesc(clazz, getODDocument().getVersion());
+    }
+
     public final S getStyle() {
         // null avoid getting styleName if we haven't any Document
         return this.getStyle(null);

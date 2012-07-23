@@ -371,7 +371,7 @@ public class SQLRow extends SQLRowAccessor {
         sel.addSelect(t.getKey());
         sel.addSelect(t.getOrderField());
         sel.setWhere(new Where(t.getOrderField(), diff < 0 ? "<" : ">", destOrder));
-        sel.addRawOrder(t.getOrderField().getFieldRef() + (diff < 0 ? "DESC" : "ASC"));
+        sel.addFieldOrder(t.getOrderField(), diff < 0 ? Order.desc() : Order.asc());
         sel.setLimit(1);
 
         final BigDecimal otherOrder;
@@ -539,10 +539,14 @@ public class SQLRow extends SQLRowAccessor {
      * @see #getDistantRows(List)
      */
     public SQLRow getDistantRow(List<String> path) {
+        return this.getDistantRow(new Path(this.getTable()).addTables(path));
+    }
+
+    public SQLRow getDistantRow(final Path path) {
         final Set<SQLRow> rows = this.getDistantRows(path);
         if (rows.size() != 1)
             throw new IllegalStateException("the path " + path + " does not lead to a unique row (" + rows.size() + ")");
-        return (SQLRow) rows.iterator().next();
+        return rows.iterator().next();
     }
 
     /**
@@ -553,8 +557,12 @@ public class SQLRow extends SQLRowAccessor {
      * @throws IllegalArgumentException si le path est mauvais.
      */
     public Set<SQLRow> getDistantRows(List<String> path) {
+        return this.getDistantRows(new Path(this.getTable()).addTables(path));
+    }
+
+    public Set<SQLRow> getDistantRows(final Path path) {
         // on veut tous les champs de la derniere table et rien d'autre
-        final List<List<String>> fields = new ArrayList<List<String>>(Collections.nCopies(path.size() - 1, Collections.<String> emptyList()));
+        final List<List<String>> fields = new ArrayList<List<String>>(Collections.nCopies(path.length() - 1, Collections.<String> emptyList()));
         fields.add(null);
         final Set<List<SQLRow>> s = this.getRowsOnPath(path, fields);
         final Set<SQLRow> res = new LinkedHashSet<SQLRow>(s.size());
@@ -569,7 +577,7 @@ public class SQLRow extends SQLRowAccessor {
      * SITE[128].getRowsOnPath("BATIMENT,LOCAL", [null, "DESIGNATION"]) retourne tous les locaux du
      * site (seul DESIGNATION est chargé) avec tous les champs de leurs bâtiments.
      * 
-     * @param path le chemin dans le graphe de la base.
+     * @param path le chemin dans le graphe de la base, see {@link Path#addTables(List)}.
      * @param fields un liste de des champs, chaque élément est :
      *        <ul>
      *        <li><code>null</code> pour tous les champs</li>
@@ -578,19 +586,21 @@ public class SQLRow extends SQLRowAccessor {
      * @return un ensemble de List de SQLRow.
      */
     public Set<List<SQLRow>> getRowsOnPath(final List<String> path, final List<? extends Collection<String>> fields) {
-        final int pathSize = path.size();
+        return this.getRowsOnPath(new Path(this.getTable()).addTables(path), fields);
+    }
+
+    public Set<List<SQLRow>> getRowsOnPath(final Path p, final List<? extends Collection<String>> fields) {
+        final int pathSize = p.length();
         if (pathSize == 0)
             throw new IllegalArgumentException("path is empty");
         if (pathSize != fields.size())
             throw new IllegalArgumentException("path and fields size mismatch : " + pathSize + " != " + fields.size());
+        if (p.getFirst() != this.getTable())
+            throw new IllegalArgumentException("path doesn't start with us : " + p.getFirst() + " != " + this.getTable());
         final Set<List<SQLRow>> res = new LinkedHashSet<List<SQLRow>>();
 
-        List<String> pathWMe = new ArrayList<String>(pathSize + 1);
-        pathWMe.add(this.getTable().getName());
-        pathWMe.addAll(path);
-        final Path p = Path.create(this.getTable().getDBRoot(), pathWMe);
-
-        Where where = this.getTable().getBase().getGraph().getJointure(p);
+        final DBSystemRoot sysRoot = this.getTable().getDBSystemRoot();
+        Where where = sysRoot.getGraph().getJointure(p);
         // ne pas oublier de sélectionner notre ligne
         where = where.and(this.getWhere());
 
@@ -623,7 +633,7 @@ public class SQLRow extends SQLRowAccessor {
 
         // on ajoute une SQLRow pour chaque ID trouvé
         select.setWhere(where).addOrderSilent(lastTable.getName());
-        this.getTable().getBase().getDataSource().execute(select.asString(), new ResultSetHandler() {
+        sysRoot.getDataSource().execute(select.asString(), new ResultSetHandler() {
 
             public Object handle(ResultSet rs) throws SQLException {
                 final ResultSetMetaData rsmd = rs.getMetaData();

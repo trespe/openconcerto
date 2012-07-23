@@ -66,11 +66,6 @@ public class GrandLivreSheetXML extends AbstractListeSheetXml {
     public static String TEMPLATE_ID = "GrandLivre";
     public static String TEMPLATE_PROPERTY_NAME = "LocationGrandLivre";
 
-    public static void setSize(int debut, int fin) {
-        debutFill = debut;
-        endFill = fin;
-    }
-
     @Override
     public String getDefaultTemplateId() {
         return TEMPLATE_ID;
@@ -196,9 +191,9 @@ public class GrandLivreSheetXML extends AbstractListeSheetXml {
                 }
 
                 sel.setWhere(w);
-                sel.addRawOrder("\"ECRITURE\".\"COMPTE_NUMERO\"");
-                sel.addRawOrder("\"ECRITURE\".\"DATE\"");
-                sel.addRawOrder("\"MOUVEMENT\".\"NUMERO\"");
+                sel.addFieldOrder(tableEcriture.getField("COMPTE_NUMERO"));
+                sel.addFieldOrder(tableEcriture.getField("DATE"));
+                sel.addFieldOrder(tableMvt.getField("NUMERO"));
                 System.err.println(sel.asString());
                 return sel;
             }

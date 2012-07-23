@@ -82,6 +82,12 @@ import javax.swing.JPanel;
  */
 abstract public class IListPanel extends JPanel implements ActionListener {
 
+    /**
+     * System property to control the clone button. The value can be either <code>true</code>, in
+     * which case the button will always appear, or it can be a list of table names.
+     */
+    public static final String CAN_CLONE = "org.openconcerto.sql.canCloneInList";
+
     static private final String EXPORT_DIR_KEY = "exportDir";
 
     static public final File getConfigFile(final SQLElement elem, final Class<? extends Container> c) {
@@ -344,7 +350,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
     }
 
     private boolean canClone() {
-        final String prop = System.getProperty("org.openconcerto.sql.canCloneInList", "");
+        final String prop = System.getProperty(CAN_CLONE, "");
         return Boolean.parseBoolean(prop) || SQLRow.toList(prop).contains(getElement().getTable().getName());
     }
 

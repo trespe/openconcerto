@@ -23,12 +23,15 @@ import org.openconcerto.sql.users.User;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Vector;
 
 import org.apache.commons.dbutils.ResultSetHandler;
 
 public class UserTaskRight {
+    private static Map<User, List<UserTaskRight>> cache = new HashMap<User, List<UserTaskRight>>();
     private int idUser;
     private int idToUser;
     private boolean canRead;
@@ -37,15 +40,10 @@ public class UserTaskRight {
     private boolean canValidate;
 
     /**
-     * @param idUser
-     * @param idToUser
-     * @param canRead
-     * @param canModify
-     * @param canWrite
-     * @param canValidate
+     * Rights for tasks associated to a user. UserTaskRight is immutable
+     * 
      */
     public UserTaskRight(int idUser, int idToUser, boolean canRead, boolean canModify, boolean canAdd, boolean canValidate) {
-        super();
         this.idUser = idUser;
         this.idToUser = idToUser;
         this.canRead = canRead;
@@ -78,40 +76,50 @@ public class UserTaskRight {
         return idUser;
     }
 
+    public static void clearCache() {
+        cache.clear();
+    }
+
     public static List<UserTaskRight> getUserTaskRight(final User selectedUser) {
-        final SQLTable rightsT = Configuration.getInstance().getSystemRoot().findTable("TACHE_RIGHTS", true);
-        final SQLField userF = rightsT.getField("ID_USER_COMMON");
-        final SQLTable userT = rightsT.getForeignTable(userF.getName());
-        final SQLSelect sel = new SQLSelect(rightsT.getBase());
-        sel.addSelectStar(rightsT);
-        sel.setWhere(new Where(userF, "=", selectedUser.getId()));
-        String req = sel.toString();
+        List<UserTaskRight> result = cache.get(selectedUser);
+        if (result == null) {
 
-        SQLDataSource dataSource = Configuration.getInstance().getBase().getDataSource();
-        @SuppressWarnings("unchecked")
-        List<UserTaskRight> l = (List<UserTaskRight>) dataSource.execute(req, new ResultSetHandler() {
+            final SQLTable rightsT = Configuration.getInstance().getSystemRoot().findTable("TACHE_RIGHTS", true);
+            final SQLField userF = rightsT.getField("ID_USER_COMMON");
+            final SQLTable userT = rightsT.getForeignTable(userF.getName());
+            final SQLSelect sel = new SQLSelect(rightsT.getBase());
+            sel.addSelectStar(rightsT);
+            sel.setWhere(new Where(userF, "=", selectedUser.getId()));
+            String req = sel.toString();
 
-            public Object handle(ResultSet rs) throws SQLException {
-                List<UserTaskRight> list = new Vector<UserTaskRight>();
-                // always add all rights for self
-                list.add(new UserTaskRight(selectedUser.getId(), selectedUser.getId(), true, true, true, true));
-                while (rs.next()) {
-                    int idUser = rs.getInt(userF.getName());
-                    assert idUser == selectedUser.getId();
-                    int idToUser = rs.getInt("ID_USER_COMMON_TO");
-                    boolean canRead = rs.getBoolean("READ");
-                    boolean canModify = rs.getBoolean("MODIFY");
-                    boolean canWrite = rs.getBoolean("ADD");
-                    boolean canValidate = rs.getBoolean("VALIDATE");
+            final SQLDataSource dataSource = Configuration.getInstance().getBase().getDataSource();
+            @SuppressWarnings("unchecked")
+            final List<UserTaskRight> l = (List<UserTaskRight>) dataSource.execute(req, new ResultSetHandler() {
 
-                    // could happen when deleting users ; self already handled above
-                    if (idToUser != userT.getUndefinedID() && idToUser != idUser)
-                        list.add(new UserTaskRight(idUser, idToUser, canRead, canModify, canWrite, canValidate));
+                public Object handle(ResultSet rs) throws SQLException {
+                    List<UserTaskRight> list = new Vector<UserTaskRight>();
+                    // always add all rights for self
+                    list.add(new UserTaskRight(selectedUser.getId(), selectedUser.getId(), true, true, true, true));
+                    while (rs.next()) {
+                        int idUser = rs.getInt(userF.getName());
+                        assert idUser == selectedUser.getId();
+                        int idToUser = rs.getInt("ID_USER_COMMON_TO");
+                        boolean canRead = rs.getBoolean("READ");
+                        boolean canModify = rs.getBoolean("MODIFY");
+                        boolean canWrite = rs.getBoolean("ADD");
+                        boolean canValidate = rs.getBoolean("VALIDATE");
+
+                        // could happen when deleting users ; self already handled above
+                        if (idToUser != userT.getUndefinedID() && idToUser != idUser)
+                            list.add(new UserTaskRight(idUser, idToUser, canRead, canModify, canWrite, canValidate));
+                    }
+                    return list;
                 }
-                return list;
-            }
-        });
-        return l;
+            });
+            cache.put(selectedUser, l);
+            result = l;
+        }
+        return result;
     }
 
     @Override

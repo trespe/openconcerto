@@ -146,7 +146,8 @@ public class EbicsRequest {
             if (this.type.equals(OrderType.INI) || this.type.equals(OrderType.HIA)) {
                 final Element eOrderID = doc.createElement("OrderID");
                 // TODO investiguer OrderID
-                eOrderID.setTextContent("A101");
+                // [A-Z]{1}[A-Z0-9]{3}
+                eOrderID.setTextContent("A102");
                 eOrderDetails.appendChild(eOrderID);
             }
             final Element eOrderAttribute = doc.createElement("OrderAttribute");

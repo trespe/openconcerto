@@ -19,17 +19,15 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.ExceptionHandler;
 
-import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -81,15 +79,21 @@ public class ListeFastPrintFrame extends JFrame {
         c.gridx++;
         this.panel.add(new JLabel(" exemplaire(s) sur " + bSheet.getPrinter()));
 
-        c.gridy++;
-        c.gridx = 0;
-        final JPanel panelOp = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panelOp.setBorder(BorderFactory.createEmptyBorder());
+        final JPanel panelOp = new JPanel(new GridBagLayout());
+
+        GridBagConstraints cOp = new DefaultGridBagConstraints();
+        cOp.weightx = 0;
+        cOp.gridx = GridBagConstraints.RELATIVE;
+        cOp.insets = new Insets(2, 0, 3, 2);
+        panelOp.add(new JLabel("Opération en cours : "), cOp);
+        cOp.weightx = 1;
+        cOp.insets = DefaultGridBagConstraints.getDefaultInsets();
+        panelOp.add(this.operation, cOp);
+
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.weightx = 0;
-
-        panelOp.add(new JLabel("Opération en cours : "));
-        panelOp.add(this.operation);
+        c.gridx = 0;
+        c.gridy++;
         this.panel.add(panelOp, c);
 
         c.gridy++;

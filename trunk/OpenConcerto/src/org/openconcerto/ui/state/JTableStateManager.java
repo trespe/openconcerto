@@ -44,6 +44,11 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 
+/**
+ * Save the width and order of columns in a JTable.
+ * 
+ * @author Sylvain
+ */
 public class JTableStateManager extends ListenerXMLStateManager<JTable, AncestorListener> {
 
     private static final String VERSION = "20100810";

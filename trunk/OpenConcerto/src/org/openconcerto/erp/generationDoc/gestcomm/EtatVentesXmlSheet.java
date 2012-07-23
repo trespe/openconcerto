@@ -179,9 +179,10 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
             String nom = (String) obj[1];
             ArticleVendu a = map.get(code + "##" + nom);
 
+            mValues.put("CODE", code);
             mValues.put("NOM", nom);
             mValues.put("QTE", a.qte);
-            mValues.put("T_PA", (a.ha / 100.0D));            
+            mValues.put("T_PA", (a.ha / 100.0D));
             mValues.put("T_PV_HT", (a.ht / 100.0D));
             mValues.put("T_PV_TTC", (a.ttc / 100.0D));
             mValues.put("NB_CHEQUE", obj[2]);

@@ -41,7 +41,6 @@ import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.protocol.Helper;
 
 import java.awt.AWTEvent;
-import java.awt.Color;
 import java.awt.Component;
 import java.awt.GridLayout;
 import java.awt.Image;
@@ -66,9 +65,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
-import javax.swing.ToolTipManager;
-import javax.swing.UIManager;
-import javax.swing.UIManager.LookAndFeelInfo;
 
 public class Gestion {
 
@@ -141,7 +137,7 @@ public class Gestion {
         System.setProperty("org.openconcerto.sql.editpanel.endAdd", "true");
         System.setProperty("org.openconcerto.sql.listPanel.deafEditPanel", "true");
         System.setProperty("org.openconcerto.ui.addComboButton", "true");
-        System.setProperty("org.openconcerto.sql.structure.useXML", "true");
+        System.setProperty(SQLBase.STRUCTURE_USE_XML, "true");
         // don't put any suffix, rely on Animator
         System.setProperty(UISQLComponent.REQUIRED_SUFFIX_PROP, "");
         System.setProperty(ElementComboBox.CAN_MODIFY, "true");
@@ -190,6 +186,10 @@ public class Gestion {
         if (Boolean.valueOf(conf.getProperty("minimal", "false"))) {
             System.setProperty(MINIMAL_PROP, Boolean.TRUE.toString());
         }
+        if (Boolean.valueOf(conf.getProperty("statelessTable", "false"))) {
+            System.setProperty(IListe.STATELESS_TABLE_PROP, Boolean.TRUE.toString());
+        }
+
         if (conf.getProperty("odsViewer") != null) {
             System.setProperty("org.openconcerto.oo.useODSViewer", Boolean.valueOf(conf.getProperty("odsViewer")).toString());
         }
@@ -212,7 +212,8 @@ public class Gestion {
             }
         }
         try {
-            conf.getBase();
+            // ensure consistent state
+            conf.getSystemRoot().getGraph();
         } catch (Exception e) {
             System.out.println("Init phase 1 error:" + (System.currentTimeMillis() - t4) + "ms");
             ExceptionHandler.die("Erreur de connexion à la base de données", e);

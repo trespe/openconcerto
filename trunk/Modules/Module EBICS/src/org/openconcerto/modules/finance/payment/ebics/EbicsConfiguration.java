@@ -33,6 +33,11 @@ public class EbicsConfiguration {
     private User user;
     private KeyStore keyStore;
     private String keyStorePassword;
+    private String countryCode;
+    private String organization;
+    private String locality;
+    private String state;
+    private String email;
     public static final String AUTHENTICATION_X002 = "x002";
     public static final String ENCRYPTION_E002 = "e002";
     public static final String SIGNATURE_A005 = "a005";
@@ -45,6 +50,12 @@ public class EbicsConfiguration {
         this.host = new Host(p.getProperty("hostId"), p.getProperty("url"));
         this.partner = new Partner(p.getProperty("partnerId"));
         this.user = new User(p.getProperty("userId"));
+        this.countryCode = p.getProperty("countryCode", "");
+        this.organization = p.getProperty("organization", "");
+        this.locality = p.getProperty("locality", "");
+        this.state = p.getProperty("state", "");
+        this.email = p.getProperty("email", "");
+
     }
 
     public EbicsConfiguration(Host host, Partner partner, User user) {
@@ -69,35 +80,40 @@ public class EbicsConfiguration {
     public void setKeyStore(KeyStore ks, String pass) throws Exception {
         this.keyStore = ks;
         this.keyStorePassword = pass;
-        System.out.println("Private Encryption key: Hash " + EbicsUtil.getSAH256HashBase64(getEncryptionPrivateKey().getEncoded()) + " "
-                + EbicsUtil.getSAH256HashBase64(((RSAPrivateKey) getEncryptionPrivateKey()).getEncoded()));
-        System.out.println("Public Encryption key : Hash " + EbicsUtil.getSAH256HashBase64(getEncryptionCertificate().getPublicKey().getEncoded()));
+        System.out.println("Private Encryption key: Hash " + EbicsUtil.getSHA256HashBase64(getEncryptionPrivateKey().getEncoded()) + " "
+                + EbicsUtil.getSHA256HashBase64(((RSAPrivateKey) getEncryptionPrivateKey()).getEncoded()));
+        System.out.println("Public Encryption key : Hash " + EbicsUtil.getSHA256HashBase64(getEncryptionCertificate().getPublicKey().getEncoded()));
 
         RSAPublicKey rs = (RSAPublicKey) getEncryptionCertificate().getPublicKey();
         System.out.println(HexDump.toHex(rs.getModulus().toByteArray()));
-        System.out.println("Private Authentication key: Hash " + EbicsUtil.getSAH256HashBase64(getAuthenticationPrivateKey().getEncoded()));
-        System.out.println("Public Authentication key : Hash " + EbicsUtil.getSAH256HashBase64(getAuthenticationCertificate().getPublicKey().getEncoded()));
+        System.out.println("Private Authentication key: Hash " + EbicsUtil.getSHA256HashBase64(getAuthenticationPrivateKey().getEncoded()));
+        System.out.println("Public Authentication key : Hash " + EbicsUtil.getSHA256HashBase64(getAuthenticationCertificate().getPublicKey().getEncoded()));
         rs = (RSAPublicKey) getAuthenticationCertificate().getPublicKey();
         System.out.println(HexDump.toHex(rs.getModulus().toByteArray()));
-        System.out.println("Private Signature key: Hash " + EbicsUtil.getSAH256HashBase64(getSignaturePrivateKey().getEncoded()));
-        System.out.println("Public Signature key : Hash " + EbicsUtil.getSAH256HashBase64(getSignatureCertificate().getPublicKey().getEncoded()));
+        System.out.println("Private Signature key: Hash " + EbicsUtil.getSHA256HashBase64(getSignaturePrivateKey().getEncoded()));
+        System.out.println("Public Signature key : Hash " + EbicsUtil.getSHA256HashBase64(getSignatureCertificate().getPublicKey().getEncoded()));
         rs = (RSAPublicKey) getSignatureCertificate().getPublicKey();
-        System.out.println(HexDump.toHex(EbicsUtil.getPublicKeyHash256((RSAPublicKey) loadBankPublicEncryptionKey())));
+        final RSAPublicKey loadBankPublicEncryptionKey = loadBankPublicEncryptionKey();
+        if (loadBankPublicEncryptionKey != null) {
+            System.out.println(HexDump.toHex(EbicsUtil.getPublicKeyHash256((RSAPublicKey) loadBankPublicEncryptionKey)));
+        } else {
+            System.out.println("No bank public key");
+        }
         System.out.println();
 
         try {
-            System.out.println("Bank Public Authentication key : Hash " + EbicsUtil.getSAH256HashBase64(loadBankPublicAuthenticationKey().getEncoded()));
+            System.out.println("Bank Public Authentication key : Hash " + EbicsUtil.getSHA256HashBase64(loadBankPublicAuthenticationKey().getEncoded()));
             byte[] byteArray = loadBankPublicAuthenticationKey().getModulus().toByteArray();
             System.out.println(byteArray.length);
             byte[] b = new byte[byteArray.length - 1];
             System.arraycopy(byteArray, 1, b, 0, b.length);
             // byteArray = b;
             System.out.println(Base64.encode(byteArray, Integer.MAX_VALUE));
-            System.out.println(EbicsUtil.getSAH256HashBase64(byteArray));
-            System.out.println(EbicsUtil.getSAH256HashBase64(loadBankPublicAuthenticationKey().getEncoded()));
+            System.out.println(EbicsUtil.getSHA256HashBase64(byteArray));
+            System.out.println(EbicsUtil.getSHA256HashBase64(loadBankPublicAuthenticationKey().getEncoded()));
             System.out.println(HexDump.toHex(byteArray));
             System.out.println(HexDump.toHex(byteArray));
-            System.out.println("Bank Public Encryption key : Hash " + EbicsUtil.getSAH256HashBase64(loadBankPublicEncryptionKey().getEncoded()));
+            System.out.println("Bank Public Encryption key : Hash " + EbicsUtil.getSHA256HashBase64(loadBankPublicEncryptionKey.getEncoded()));
         } catch (Exception e) {
             System.err.println("Error reading bank key");
         }
@@ -160,6 +176,9 @@ public class EbicsConfiguration {
     public RSAPublicKey loadBankPublicEncryptionKey() throws Exception {
         final String name = "keys/" + "BANK-" + host.getHostId() + "-" + ENCRYPTION_E002 + ".key";
         File filePublicKey = new File(name);
+        if (!filePublicKey.exists()) {
+            return null;
+        }
         RSAPublicKey publicKey = loadPublicKey(name, filePublicKey);
         return publicKey;
 
@@ -176,5 +195,29 @@ public class EbicsConfiguration {
         RSAPublicKey k = (RSAPublicKey) publicKey;
         return k;
 
+    }
+
+    public String getCountryCode() {
+        return countryCode;
+    }
+
+    public String getOrganization() {
+        return organization;
+    }
+
+    public String getLocality() {
+        return locality;
+    }
+
+    public String getState() {
+        return state;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String getPassword() {
+        return this.getUser().getUserId() + "-" + getHost().getHostId() + "-" + getPartner().getPartnerId();
     }
 }

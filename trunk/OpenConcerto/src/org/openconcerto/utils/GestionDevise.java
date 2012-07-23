@@ -100,7 +100,8 @@ public class GestionDevise {
             if (decpl == 2) {
                 /* it is fine as is */
             } else {
-                throw new NumberFormatException("wrong number of decimal places.");
+                ExceptionHandler.handle(numStr + " wrong number of decimal places.");
+                return 0;
             }
         }
         if (negative) {

@@ -17,7 +17,6 @@ import static org.openconcerto.openoffice.ODPackage.RootElement.CONTENT;
 import static org.openconcerto.openoffice.ODPackage.RootElement.META;
 import static org.openconcerto.openoffice.ODPackage.RootElement.STYLES;
 import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
-import org.openconcerto.openoffice.text.ParagraphStyle;
 import org.openconcerto.openoffice.text.TextDocument;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CopyUtils;
@@ -701,7 +700,7 @@ public class ODPackage {
     /**
      * Find the passed automatic or common style referenced from the content.
      * 
-     * @param desc the family, eg {@link ParagraphStyle#DESC}.
+     * @param desc the family, eg <code>StyleStyleDesc&lt;ParagraphStyle&gt;</code>.
      * @param name the name, eg "P1".
      * @return the corresponding XML element.
      */
@@ -714,7 +713,7 @@ public class ODPackage {
      * there can exist automatic styles with the same name in both "content.xml" and "styles.xml".
      * 
      * @param referent the document referencing the style.
-     * @param desc the family, eg {@link ParagraphStyle#DESC}.
+     * @param desc the family, eg <code>StyleStyleDesc&lt;ParagraphStyle&gt;</code>.
      * @param name the name, eg "P1".
      * @return the corresponding XML element.
      * @see ODXMLDocument#getStyle(StyleDesc, String)
@@ -739,9 +738,9 @@ public class ODPackage {
         return res;
     }
 
-    public final Element getDefaultStyle(final StyleStyleDesc<?> desc) {
+    public final Element getDefaultStyle(final StyleStyleDesc<?> desc, final boolean create) {
         // from 16.4 of OpenDocument-v1.2-cs01-part1, default-style only usable in office:styles
-        return getStyles().getDefaultStyle(desc);
+        return getStyles().getDefaultStyle(desc, create);
     }
 
     /**

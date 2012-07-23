@@ -34,7 +34,7 @@ public class DefaultLocalTemplateProvider extends AbstractLocalTemplateProvider 
     @Override
     public File getTemplateFromLocalFile(String templateIdWithExtension, String language, String type) {
         File file = getLocalFile(templateIdWithExtension, language, type);
-        if (!file.exists()) {
+        if (file != null && !file.exists()) {
             file = getFile(templateIdWithExtension, language, type);
         }
         return file;
@@ -46,6 +46,9 @@ public class DefaultLocalTemplateProvider extends AbstractLocalTemplateProvider 
 
         if (type != null) {
             localPath = insertBeforeExtenstion(localPath, type);
+            if (localPath == null) {
+                return null;
+            }
         }
 
         if (language != null && language.trim().length() > 0) {
@@ -63,6 +66,9 @@ public class DefaultLocalTemplateProvider extends AbstractLocalTemplateProvider 
 
         if (type != null) {
             path = insertBeforeExtenstion(path, type);
+            if (path == null) {
+                return null;
+            }
         }
 
         if (language != null && language.trim().length() > 0) {
@@ -81,6 +87,9 @@ public class DefaultLocalTemplateProvider extends AbstractLocalTemplateProvider 
         String path = "Configuration/Template/Default";
         if (type != null) {
             path = insertBeforeExtenstion(path, type);
+            if (path == null) {
+                return null;
+            }
         }
         if (language != null) {
             path = language + '/' + path;

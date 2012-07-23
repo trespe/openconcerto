@@ -15,6 +15,7 @@
 
 import static java.util.Arrays.asList;
 import org.openconcerto.sql.model.SystemQueryExecutor.QueryExn;
+import org.openconcerto.sql.utils.SQLCreateMoveableTable;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
@@ -23,6 +24,7 @@ import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -83,6 +85,25 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
             final SQLName tableName = iter.next();
             if (!schemas.contains(tableName.getItemLenient(-2)))
                 iter.remove();
+        }
+
+        // create metadata table here to avoid a second refresh
+        // null if we shouldn't alter the base
+        final SQLCreateMoveableTable createMetadata = SQLSchema.getCreateMetadata(getBase().getServer().getSQLSystem().getSyntax());
+        if (createMetadata != null) {
+            final Statement stmt = conn.createStatement();
+            try {
+                for (final String schema : schemas) {
+                    final SQLName md = new SQLName(schema, SQLSchema.METADATA_TABLENAME);
+                    if (!tableNames.containsKey(md)) {
+                        // handle systems where schema are not DBRoot (e.g. MySQL)
+                        stmt.execute(createMetadata.asString(schema == null ? getBase().getName() : schema));
+                        tableNames.putAll(md, asList("TABLE", ""));
+                    }
+                }
+            } finally {
+                stmt.close();
+            }
         }
 
         this.schemas.clear();

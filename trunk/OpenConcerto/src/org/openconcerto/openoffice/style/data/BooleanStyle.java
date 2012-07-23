@@ -30,7 +30,7 @@ import org.jdom.Namespace;
 // from section 16.27.23 in v1.2-cs01-part1
 public class BooleanStyle extends DataStyle {
 
-    public static final DataStyleDesc<BooleanStyle> DESC = new DataStyleDesc<BooleanStyle>(BooleanStyle.class, XMLVersion.OD, "boolean-style", "N") {
+    static final DataStyleDesc<BooleanStyle> DESC = new DataStyleDesc<BooleanStyle>(BooleanStyle.class, XMLVersion.OD, "boolean-style", "N") {
         @Override
         public BooleanStyle create(ODPackage pkg, Element e) {
             return new BooleanStyle(pkg, e);

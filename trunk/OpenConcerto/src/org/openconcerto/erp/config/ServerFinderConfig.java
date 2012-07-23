@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLServer;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.cc.IClosure;
 
@@ -51,6 +52,10 @@ public class ServerFinderConfig {
 
     public String getType() {
         return type;
+    }
+
+    public SQLSystem getSystem() {
+        return SQLSystem.get(this.getType());
     }
 
     public void setType(String type) {
@@ -202,11 +207,11 @@ public class ServerFinderConfig {
         } else {
             host = this.getIp();
         }
-        final SQLServer server = new SQLServer(this.getType(), host, String.valueOf(this.getPort()), getOpenconcertoLogin(), getOpenconcertoPassword(), new IClosure<DBSystemRoot>() {
+        final SQLServer server = new SQLServer(this.getSystem(), host, String.valueOf(this.getPort()), getOpenconcertoLogin(), getOpenconcertoPassword(), new IClosure<DBSystemRoot>() {
             @Override
             public void executeChecked(DBSystemRoot input) {
                 // don't map all the database
-                input.getRootsToMap().add(root);
+                input.setRootToMap(root);
             }
         }, null);
 
@@ -229,12 +234,12 @@ public class ServerFinderConfig {
             host = this.getIp();
         }
         if (this.getType().equals(ServerFinderConfig.POSTGRESQL)) {
-            final SQLServer server = new SQLServer(this.getType(), host, String.valueOf(this.getPort()), user, password, new IClosure<DBSystemRoot>() {
+            final SQLServer server = new SQLServer(this.getSystem(), host, String.valueOf(this.getPort()), user, password, new IClosure<DBSystemRoot>() {
 
                 @Override
                 public void executeChecked(DBSystemRoot input) {
                     // don't map all the database
-                    input.getRootsToMap().add("postgres");
+                    input.setRootToMap("postgres");
                 }
             }, null);
             Number n = (Number) server.getOrCreateBase("postgres").getDataSource().executeScalar("SELECT COUNT(*) FROM pg_user WHERE usename='openconcerto'");

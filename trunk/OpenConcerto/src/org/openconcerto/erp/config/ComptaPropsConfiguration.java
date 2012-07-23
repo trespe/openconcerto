@@ -139,6 +139,7 @@ import org.openconcerto.erp.generationDoc.provider.PrixUnitaireRemiseProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCreateInitialsValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCurrentInitialsValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserModifyInitialsValueProvider;
+import org.openconcerto.erp.injector.AchatAvoirSQLInjector;
 import org.openconcerto.erp.injector.ArticleCommandeEltSQLInjector;
 import org.openconcerto.erp.injector.BonFactureSQLInjector;
 import org.openconcerto.erp.injector.BrFactureAchatSQLInjector;
@@ -359,7 +360,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
                         setProperty("systemRoot", cProperty.getProperty("db.name"));
                         // Storage
                         props.put("storage.server", cProperty.getProperty("storage.server"));
-                        progress.dispose();
+
                     } catch (Exception e) {
                         e.printStackTrace();
                         JOptionPane.showMessageDialog(new JFrame(), "Impossible récupérer les informations de connexion");
@@ -373,6 +374,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
                     JOptionPane.showMessageDialog(new JFrame(), "Connexion impossible au Cloud");
                     System.exit(1);
                 }
+                progress.dispose();
             }
             StorageEngines.getInstance().addEngine(new CloudStorageEngine());
         } else {
@@ -410,7 +412,9 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             private final ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
                 @Override
                 public Thread newThread(Runnable r) {
-                    return new Thread(r, "Loading listener thread");
+                    final Thread thread = new Thread(r, "Loading listener thread");
+                    thread.setDaemon(true);
+                    return thread;
                 }
             });
             private ScheduledFuture<?> future = null;
@@ -427,6 +431,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
                         @Override
                         public void run() {
                             f.setVisible(false);
+                            f.dispose();
                         }
                     });
                 } else if (this.future == null) {
@@ -760,6 +765,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     private void setSocieteSQLInjector() {
         final DBRoot rootSociete = getRootSociete();
+        new AchatAvoirSQLInjector(rootSociete);
         new ArticleCommandeEltSQLInjector(rootSociete);
         new CommandeCliCommandeSQLInjector(rootSociete);
         new FactureAvoirSQLInjector(rootSociete);
@@ -794,7 +800,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
                 if (getRootSociete().getTable("CLIENT").getFieldsName().contains("LOCALISATION")) {
                     showAs.show("CLIENT", "NOM", "LOCALISATION");
                 } else {
-                    showAs.show("CLIENT", "FORME_JURIDIQUE", "NOM");
+                    showAs.show("CLIENT", "NOM");
                 }
 
         showAs.show("CLASSEMENT_CONVENTIONNEL", "NIVEAU", "COEFF");
@@ -911,12 +917,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             }
         }
         TemplateNXProps.getInstance();
-        // Chargement du graphe
-        new Thread() {
-            public void run() {
-                Configuration.getInstance().getSystemRoot().getGraph();
-            }
-        }.start();
     }
 
     private void setMapper() {

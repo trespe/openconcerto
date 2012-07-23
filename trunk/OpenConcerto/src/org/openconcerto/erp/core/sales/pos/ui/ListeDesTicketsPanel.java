@@ -179,14 +179,11 @@ public class ListeDesTicketsPanel extends JPanel implements ListSelectionListene
         }
         Object selectedValue = ticketList.getSelectedValue();
         int selectedIndex = l.getSelectedIndex();
-        System.out.println("ListeDesTicketsPanel.valueChanged():" + selectedIndex);
         if (selectedIndex == 0) {
             // Imprimer
-
             if (selectedValue != null) {
                 TicketPrinter prt = Caisse.getTicketPrinter();
                 ((Ticket) selectedValue).print(prt);
-
             }
         } else if (selectedIndex == 1) {
             // Effacer
@@ -194,12 +191,12 @@ public class ListeDesTicketsPanel extends JPanel implements ListSelectionListene
                 ticketLlistModel.removeElement(selectedValue);
                 ticketList.clearSelection();
                 ((Ticket) selectedValue).deleteTicket();
-
             }
         } else if (selectedIndex == 3) {
             // Retour
             frame.showMenu();
         }
+        l.clearSelection();
     }
 
     @Override
@@ -223,8 +220,6 @@ public class ListeDesTicketsPanel extends JPanel implements ListSelectionListene
     public void setSelectedTicket(Object selectedValue) {
         ticketP.clear();
         if (selectedValue != null) {
-            System.err.println("ListeDesTeicketsPanel.valueChanged():" + selectedValue);
-
             ((Ticket) selectedValue).print(ticketP);
             try {
                 ticketP.printBuffer();

@@ -15,16 +15,25 @@
 
 import org.openconcerto.sql.sqlobject.ITextWithCompletion;
 import org.openconcerto.ui.TextAreaTableCellEditor;
+import org.openconcerto.utils.checks.ValidState;
 
+import javax.swing.JOptionPane;
 import javax.swing.JTable;
+import javax.swing.SwingUtilities;
 
 public class TextTableCellEditorWithCompletion extends TextAreaTableCellEditor {
 
     private ITextWithCompletion textWithCompl;
+    private ValidStateChecker validStateChecker;
 
     public TextTableCellEditorWithCompletion(JTable table, ITextWithCompletion t) {
+        this(table, t, new ValidStateChecker());
+    }
+
+    public TextTableCellEditorWithCompletion(JTable table, ITextWithCompletion t, ValidStateChecker validStateChecker) {
         super(table);
         this.textWithCompl = t;
+        this.validStateChecker = validStateChecker;
 
         // FIXME replace by requestcombobox
         t.setPopupInvoker(getTextArea());
@@ -44,11 +53,25 @@ public class TextTableCellEditorWithCompletion extends TextAreaTableCellEditor {
 
     @Override
     public boolean stopCellEditing() {
+
         this.textWithCompl.hidePopup();
-        return super.stopCellEditing();
+        if (!getValidState().isValid()) {
+            JOptionPane.showMessageDialog(SwingUtilities.getRoot(this.getTextArea()), getValidState().getValidationText());
+            return false;
+        } else {
+            return super.stopCellEditing();
+        }
     }
+    
 
     public void setLimitedSize(int nbChar) {
         this.textWithCompl.setLimitedSize(nbChar);
     }
+
+    public ValidState getValidState() {
+        return validStateChecker.getValidState(this.textWithCompl.getText());
+    }
+
 }
+
+

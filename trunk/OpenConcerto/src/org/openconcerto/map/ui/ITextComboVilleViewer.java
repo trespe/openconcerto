@@ -112,7 +112,7 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<String
         });
 
         final IComboCacheListModel comboCacheListModel = new IComboCacheListModel(this.cache);
-        comboCacheListModel.initCacheLater(this.text);
+        this.text.initCache(comboCacheListModel.load());
         // Listen on data
         final PropertyChangeListener listener = new PropertyChangeListener() {
             @Override

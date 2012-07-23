@@ -92,7 +92,7 @@ public final class ReportType extends XMLItem {
         return this.rg;
     }
 
-    synchronized List<ReportPart> createParts(Element elem) {
+    public synchronized List<ReportPart> createParts(Element elem) {
         // approximation
         final List<ReportPart> res = new ArrayList<ReportPart>(elem.getContentSize());
 

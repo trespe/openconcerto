@@ -334,9 +334,16 @@ public class Caisse {
         final String[] names = t.getCompatibleFileNames();
 
         for (int i = 0; i < names.length; i++) {
-            final String code = names[i].substring(0, 17);
+            String code = names[i];
+            int indexExtension = code.indexOf(".xml");
+            if (indexExtension > 0) {
+                code = code.substring(0, indexExtension);
+            }
             final Ticket ticket = Ticket.getTicketFromCode(code);
-            l.add(ticket);
+
+            if (ticket != null) {
+                l.add(ticket);
+            }
         }
         return l;
     }

@@ -122,7 +122,7 @@ public class GenerationMvtTicketCaisse extends GenerationEcritures {
                     }
 
                     Map<Integer, Long> m = getMultiTVAFromRow(GenerationMvtTicketCaisse.this.rowTicket, GenerationMvtTicketCaisse.this.rowTicket.getTable().getTable("SAISIE_VENTE_FACTURE_ELEMENT"),
-                            true);
+                            true, prixHT, 0);
                     long allTaxe = 0;
                     for (Integer i : m.keySet()) {
                         Long l = m.get(i);

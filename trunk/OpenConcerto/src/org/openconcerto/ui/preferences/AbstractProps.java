@@ -23,7 +23,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.Properties;
 
-import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 public abstract class AbstractProps {
@@ -139,7 +138,7 @@ public abstract class AbstractProps {
             bufferedInputStream = new BufferedInputStream(fileInputStream);
             this.props.load(bufferedInputStream);
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(new JFrame(), "Impossible de lire le fichier de configuration:\n" + file.getAbsolutePath());
+            JOptionPane.showMessageDialog(null, "Impossible de lire le fichier de configuration:\n" + file.getAbsolutePath());
             e.printStackTrace();
         } finally {
             if (bufferedInputStream != null) {
@@ -161,7 +160,7 @@ public abstract class AbstractProps {
             bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
             this.props.store(bufferedOutputStream, "");
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(new JFrame(), "Impossible d'enregistrer le fichier de configuration:\n" + file.getAbsolutePath());
+            JOptionPane.showMessageDialog(null, "Impossible d'enregistrer le fichier de configuration:\n" + file.getAbsolutePath());
             e.printStackTrace();
         } finally {
             if (bufferedOutputStream != null) {

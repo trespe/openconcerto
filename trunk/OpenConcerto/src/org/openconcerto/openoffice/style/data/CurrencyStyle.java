@@ -27,7 +27,7 @@ import org.jdom.Namespace;
 // from section 16.27.7 in v1.2-cs01-part1
 public class CurrencyStyle extends DataStyle {
 
-    public static final DataStyleDesc<CurrencyStyle> DESC = new DataStyleDesc<CurrencyStyle>(CurrencyStyle.class, XMLVersion.OD, "currency-style", "N") {
+    static final DataStyleDesc<CurrencyStyle> DESC = new DataStyleDesc<CurrencyStyle>(CurrencyStyle.class, XMLVersion.OD, "currency-style", "N") {
         @Override
         public CurrencyStyle create(ODPackage pkg, Element e) {
             return new CurrencyStyle(pkg, e);

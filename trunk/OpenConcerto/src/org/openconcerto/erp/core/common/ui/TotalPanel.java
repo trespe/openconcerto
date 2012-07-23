@@ -15,11 +15,12 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
-import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
@@ -37,6 +38,7 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -67,11 +69,18 @@ public class TotalPanel extends JPanel implements TableModelListener {
     private int columnIndexEchHT = -1;
     private int columnIndexEchTTC = -1;
     SQLTableElement ha;
+    private SQLRequestComboBox selPortTVA;
 
     public TotalPanel(AbstractArticleItemTable articleItemTable, DeviseField textTotalHT, DeviseField textTotalTVA, DeviseField textTotalTTC, DeviseField textPortHT, DeviseField textRemiseHT,
             DeviseField textService, DeviseField textTotalHA, DeviseField textTotalDevise, JTextField textTotalPoids, JPanel tableEchantillon) {
+        this(articleItemTable, textTotalHT, textTotalTVA, textTotalTTC, textPortHT, textRemiseHT, textService, textTotalHA, textTotalDevise, textTotalPoids, tableEchantillon, null);
+    }
+
+    public TotalPanel(AbstractArticleItemTable articleItemTable, DeviseField textTotalHT, DeviseField textTotalTVA, DeviseField textTotalTTC, DeviseField textPortHT, DeviseField textRemiseHT,
+            DeviseField textService, DeviseField textTotalHA, DeviseField textTotalDevise, JTextField textTotalPoids, JPanel tableEchantillon, SQLRequestComboBox selPortTva) {
 
         super();
+        this.selPortTVA = selPortTva;
         this.ha = (articleItemTable.getPrebilanElement() == null) ? articleItemTable.getHaElement() : articleItemTable.getPrebilanElement();
         this.supp = new PropertyChangeSupport(this);
         this.table = articleItemTable.getRowValuesTable();
@@ -513,17 +522,51 @@ public class TotalPanel extends JPanel implements TableModelListener {
             }
 
             realTotalHT = totalHT + valPortHT - valRemiseHT;
-            long portTTC = new PrixHT(valPortHT).calculLongTTC(0.196F);
-            long remiseTTC = new PrixHT(valRemiseHT).calculLongTTC(0.196F);
+            // long portTTC = new PrixHT(valPortHT).calculLongTTC(0.196F);
+
+            // TVA Port inclus
+            if (this.selPortTVA != null) {
+
+                SQLRow tvaPort = this.selPortTVA.getSelectedRow();
+                if (tvaPort != null) {
+                    // Total TVA
+                    if (mapHtTVA.get(tvaPort) == null) {
+                        mapHtTVA.put(tvaPort, valPortHT);
+                    } else {
+                        Long l = mapHtTVA.get(tvaPort);
+                        mapHtTVA.put(tvaPort, l + valPortHT);
+                    }
+                }
+            }
 
             long realTotalTVA = 0;
+            // Déduction de la remise pour la TVA
+            long totalHTAvantRemise = totalHT + valPortHT;
+            long remiseToApply = valRemiseHT;
+            if (remiseToApply > 0) {
+                Set<SQLRowAccessor> setHtTVA = mapHtTVA.keySet();
+                int i = 0;
+                for (SQLRowAccessor row : mapHtTVA.keySet()) {
+                    Long ht = mapHtTVA.get(row);
+                    i++;
+                    if (i == setHtTVA.size()) {
+                        mapHtTVA.put(row, ht - remiseToApply);
+                    } else {
+                        // Prorata
+                        long r = new BigDecimal(ht).divide(new BigDecimal(totalHTAvantRemise), MathContext.DECIMAL128).multiply(new BigDecimal(valRemiseHT)).setScale(0, BigDecimal.ROUND_HALF_UP)
+                                .longValue();
+                        mapHtTVA.put(row, ht - r);
+                        remiseToApply -= r;
+                    }
+                }
+            }
             for (SQLRowAccessor row : mapHtTVA.keySet()) {
                 BigDecimal d = new BigDecimal(TaxeCache.getCache().getTauxFromId(row.getID()));
                 BigDecimal result = d.multiply(new BigDecimal(mapHtTVA.get(row)), MathContext.DECIMAL128).movePointLeft(2);
                 realTotalTVA += result.setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
             }
 
-            long realTotalTTC = totalHT + realTotalTVA + portTTC - remiseTTC;
+            long realTotalTTC = realTotalHT + realTotalTVA;
 
             if (this.textTotalDevise != null) {
                 this.textTotalDevise.setText(GestionDevise.currencyToString(totalDevise));

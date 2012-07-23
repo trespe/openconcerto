@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLServer;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
 
@@ -293,19 +294,16 @@ public class ConfigCaissePanel extends JPanel {
             DBSystemRoot r = server.getSystemRoot(config.getSystemRoot());
             DBRoot root = r.getRoot("Common");
             // Sociétés
-            SQLSelect sel = new SQLSelect(root.getBase());
-            sel.addSelectStar(root.getTable("SOCIETE_COMMON"));
-            sel.setWhere("SOCIETE_COMMON.ID", "=", id);
-
-            final List<SQLRow> societes = SQLRowListRSH.execute(sel);
+            final SQLTable societeT = root.getTable("SOCIETE_COMMON");
+            final SQLRow societe = societeT.getValidRow(id);
             server.destroy();
-            if (societes.size() > 0) {
-                final String name = societes.get(0).getString("DATABASE_NAME");
+            if (societe != null) {
+                final String name = societe.getString("DATABASE_NAME");
                 server = config.createServer(name);
                 r = server.getSystemRoot(config.getSystemRoot());
                 root = r.getRoot(name);
                 // Caisses
-                sel = new SQLSelect(root.getBase());
+                SQLSelect sel = new SQLSelect(root.getBase());
                 sel.addSelectStar(root.getTable("CAISSE"));
                 final List<SQLRow> caisses = SQLRowListRSH.execute(sel);
                 server.destroy();

@@ -14,6 +14,7 @@
  package org.openconcerto.openoffice.text;
 
 import org.openconcerto.openoffice.ODDocument;
+import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.XMLVersion;
 
 import java.util.HashSet;
@@ -123,7 +124,7 @@ public class Paragraph extends TextNode<ParagraphStyle> {
         if (this.getStyleName() != null && getStyle(doc.getPackage(), doc.getContentDocument()) == null)
             throw new IllegalArgumentException("unknown style " + getStyleName() + " in " + doc);
         for (final String styleName : this.getUsedTextStyles()) {
-            if (doc.getPackage().getStyle(TextStyle.DESC, styleName) == null) {
+            if (doc.getPackage().getStyle(Style.getStyleDesc(TextStyle.class, doc.getVersion()), styleName) == null) {
                 throw new IllegalArgumentException(this + " is using a text:span with an undefined style : " + styleName);
             }
         }

@@ -166,7 +166,7 @@ public abstract class ComptaBasePropsConfiguration extends PropsConfiguration {
         final DBSystemRoot b = this.getSystemRoot();
         // now map the societe
         final String societeBaseName = this.getSocieteBaseName();
-        b.getRootsToMap().add(societeBaseName);
+        b.addRootToMap(societeBaseName);
         try {
             b.reload(Collections.singleton(societeBaseName));
         } catch (SQLException e) {

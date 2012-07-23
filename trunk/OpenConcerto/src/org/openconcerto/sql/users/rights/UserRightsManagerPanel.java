@@ -67,7 +67,7 @@ public class UserRightsManagerPanel extends JPanel implements ActionListener, Li
         c.weighty = 1;
         c.gridy++;
         c.fill = GridBagConstraints.BOTH;
-        this.list = new JListSQLTablePanel(this.table, Arrays.asList("NOM", "PRENOM"), "Droits par défaut");
+        this.list = new JListSQLTablePanel(JListSQLTablePanel.createComboRequest(this.table, true), "Droits par défaut");
         listePanel.add(this.list, c);
 
         // Droits

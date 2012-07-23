@@ -133,8 +133,8 @@ public class AnalytiqueSQLElement extends ComptaSQLConfElement {
                 // SELECT ID, NOM FROM AXE
                 SQLBase base = getTable().getBase();
                 SQLSelect sel = new SQLSelect(base);
-                sel.addSelect("AXE_ANALYTIQUE.ID");
-                sel.addSelect("AXE_ANALYTIQUE.NOM");
+                sel.addSelect(getTable().getKey());
+                sel.addSelect(getTable().getField("NOM"));
                 sel.addRawOrder("AXE_ANALYTIQUE.NOM");
                 String req = sel.asString();
 
@@ -429,7 +429,7 @@ public class AnalytiqueSQLElement extends ComptaSQLConfElement {
         SQLSelect selAssoc = new SQLSelect(base);
         selAssoc.addSelect(assocTable.getField("ID"));
         selAssoc.addSelect(assocTable.getField("ID_COMPTE_PCE"));
-        selAssoc.setWhere("ASSOCIATION_COMPTE_ANALYTIQUE.ID_AXE_ANALYTIQUE", "=", ((Axe) this.axes.get(axeSelect)).getId());
+        selAssoc.setWhere(assocTable.getField("ID_AXE_ANALYTIQUE"), "=", ((Axe) this.axes.get(axeSelect)).getId());
 
         String reqAssoc = selAssoc.asString();
         Object obAssoc = getTable().getBase().getDataSource().execute(reqAssoc, new ArrayListHandler());
@@ -558,7 +558,7 @@ public class AnalytiqueSQLElement extends ComptaSQLConfElement {
         SQLSelect selAssoc = new SQLSelect(base);
         selAssoc.addSelect(assocTable.getField("ID"));
         selAssoc.addSelect(assocTable.getField("ID_COMPTE_PCE"));
-        selAssoc.setWhere("ASSOCIATION_COMPTE_ANALYTIQUE.ID_REPARTITION_ANALYTIQUE", "=", rep.getId());
+        selAssoc.setWhere(assocTable.getField("ID_REPARTITION_ANALYTIQUE"), "=", rep.getId());
 
         String reqAssoc = selAssoc.asString();
         Object obAssoc = getTable().getBase().getDataSource().execute(reqAssoc, new ArrayListHandler());

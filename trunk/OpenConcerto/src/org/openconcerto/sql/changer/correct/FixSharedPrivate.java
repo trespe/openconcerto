@@ -46,12 +46,16 @@ public class FixSharedPrivate extends Changer<SQLTable> {
 
     @Override
     protected void changeImpl(final SQLTable t) throws SQLException {
-        getStream().println(t + "... ");
+        getStream().print(t);
         if (Configuration.getInstance() == null || Configuration.getInstance().getDirectory() == null)
             throw new IllegalStateException("no directory");
         final SQLElement elem = Configuration.getInstance().getDirectory().getElement(t);
-        if (elem == null)
-            throw new IllegalArgumentException("no element for " + t);
+        if (elem == null) {
+            getStream().println(" : no element");
+            return;
+        } else {
+            getStream().println("... ");
+        }
 
         for (final String pff : elem.getPrivateForeignFields()) {
             // eg Q18

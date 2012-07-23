@@ -29,18 +29,18 @@ public class InvoiceEditGroup extends Group {
 
         final Group gCustomer = new Group("sales.invoice.customer");
         gCustomer.add("ID_CLIENT", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
-        add(gCustomer, LayoutHints.DEFAULT_LARGE_GROUP_HINTS);
+        add(gCustomer, LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
 
         final Group gAddress = new Group("sales.invoice.address");
         gAddress.add("ID_ADRESSE");
-        add(gAddress, LayoutHints.DEFAULT_LARGE_GROUP_HINTS);
+        add(gAddress, LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
 
         final Group gElements = new Group("sales.invoice.elements");
         gElements.add("(SAISIE_VENTE_FACTURE_ELEMENT)*", LayoutHints.DEFAULT_LIST_HINTS);
         add(gElements, LayoutHints.DEFAULT_LIST_HINTS);
 
         final Group gInfos = new Group("sales.invoice.info");
-        gInfos.add("INFOS", new LayoutHints(true, true, true, true));
+        gInfos.add("INFOS", new LayoutHints(true, false, true, true, true, false));
         add(gInfos);
 
     }

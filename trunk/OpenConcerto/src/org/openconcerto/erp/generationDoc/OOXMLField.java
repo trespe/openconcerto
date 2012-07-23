@@ -243,7 +243,11 @@ public class OOXMLField extends OOXMLElement {
                             return result;
                         } else {
                             if (display == null || !display.equalsIgnoreCase("false")) {
-                                return (o == null) ? "" : o;
+                                if (cellSize != null && cellSize.trim().length() != 0 && o != null) {
+                                    return splitStringCell(cellSize, o.toString());
+                                } else {
+                                    return (o == null) ? "" : o;
+                                }
                             } else {
                                 return "";
                             }
@@ -257,7 +261,7 @@ public class OOXMLField extends OOXMLElement {
 
     }
 
-    private String splitStringCell(String cellSize, String result) {
+    protected String splitStringCell(String cellSize, String result) {
         try {
             int nbCar = Integer.parseInt(cellSize);
             result = StringUtils.splitString(result, nbCar);
@@ -345,7 +349,7 @@ public class OOXMLField extends OOXMLElement {
                 // Retourne la date d'échéance
                 int idModeReglement = this.row.getInt("ID_MODE_REGLEMENT");
                 Date d = (Date) this.row.getObject("DATE");
-                return getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("DatePattern"));
+                return getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("datePattern"));
             } else if (typeComp.equalsIgnoreCase("Jour")) {
                 int day = this.row.getInt(field);
                 stringValue = "le " + String.valueOf(day);
@@ -358,7 +362,7 @@ public class OOXMLField extends OOXMLElement {
                 }
             } else if (typeComp.equalsIgnoreCase("Date")) {
 
-                String datePattern = this.elt.getAttributeValue("DatePattern");
+                String datePattern = this.elt.getAttributeValue("datePattern");
                 if (datePattern == null || datePattern.trim().length() == 0) {
                     datePattern = "dd/MM/yyyy";
                 }

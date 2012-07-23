@@ -78,6 +78,7 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
 
     private static final long serialVersionUID = 3340938099896864844L;
 
+    private static final Color DARK_BLUE = new Color(100, 100, 120);
     private static final Icon iconUp = new ImageIcon(LAFUtils.class.getResource("up.png"));
     private static final Icon iconDown = new ImageIcon(LAFUtils.class.getResource("down.png"));
     private static final Font fontText = new Font("Tahoma", Font.PLAIN, 11);
@@ -599,12 +600,12 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
 
     protected final void focusChanged(boolean gained) {
         if (gained) {
-            this.normalPanel.setBackground(new Color(100, 100, 120));
+            this.normalPanel.setBackground(DARK_BLUE);
             this.title.setForeground(Color.WHITE);
-            this.list.setSelectionBackground(new Color(100, 100, 120));
+            this.list.setSelectionBackground(DARK_BLUE);
         } else {
-            this.normalPanel.setBackground(new JPanel().getBackground());
-            this.title.setForeground(Color.BLACK);
+            this.normalPanel.setBackground(null);
+            this.title.setForeground(null);
             this.list.setSelectionBackground(Color.LIGHT_GRAY);
         }
         if (this.getParentBrowser() != null)
