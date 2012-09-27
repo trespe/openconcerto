@@ -1,4 +1,4 @@
-#summary Liste des modules et domaines d'OpenConcerto
+#summary Liste des modules  d'OpenConcerto organisés en domaines
 #labels Phase-Implementation
 
 = finance =
