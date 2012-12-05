@@ -13,6 +13,9 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.Link.Direction;
+
 import java.util.Collection;
 import java.util.Map;
 import java.util.Set;
@@ -44,6 +47,11 @@ public class SQLImmutableRowValues extends SQLRowAccessor {
     @Override
     public Collection<SQLRowValues> getReferentRows(SQLTable refTable) {
         return this.delegate.getReferentRows(refTable);
+    }
+
+    @Override
+    public Collection<SQLRowValues> followLink(Link l, Direction direction) {
+        return this.delegate.followLink(l, direction);
     }
 
     public int size() {

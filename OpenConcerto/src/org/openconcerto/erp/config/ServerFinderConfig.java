@@ -20,6 +20,9 @@ import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.cc.IClosure;
 
 import java.io.File;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -211,7 +214,13 @@ public class ServerFinderConfig {
             @Override
             public void executeChecked(DBSystemRoot input) {
                 // don't map all the database
-                input.setRootToMap(root);
+                final List<String> asList = new ArrayList<String>(2);
+                if (!root.equals("Common")) {
+                    asList.add("Common");
+                }
+                asList.add(root);
+                input.setRootsToMap(asList);
+
             }
         }, null);
 
@@ -264,7 +273,7 @@ public class ServerFinderConfig {
     @Override
     public String toString() {
         return this.getType() + ":" + this.getIp() + ":" + this.getPort() + " file:" + this.getFile() + " " + this.getOpenconcertoLogin() + "/" + this.getOpenconcertoPassword() + " ["
-                + this.getDbLogin() + "/" + this.getDbPassword() + "]";
+                + this.getDbLogin() + "/" + this.getDbPassword() + "] systemRoot:" + systemRoot;
     }
 
 }

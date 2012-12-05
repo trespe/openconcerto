@@ -43,12 +43,12 @@ public abstract class StyleProperties {
         this.propPrefix = propPrefix;
     }
 
-    public final Style getParentStyle() {
+    public final Style getEnclosingStyle() {
         return this.parentStyle;
     }
 
     public final Element getElement() {
-        return getElement(this.getParentStyle(), true);
+        return getElement(this.getEnclosingStyle(), true);
     }
 
     protected final Element getElement(final Style s, final boolean create) {
@@ -67,11 +67,11 @@ public abstract class StyleProperties {
 
     // if a formatting property is not defined locally, the default style should be searched
     protected final String getAttributeValue(final String attrName, final Namespace attrNS) {
-        final String localRes = getAttributeValue(this.getParentStyle(), attrName, attrNS);
+        final String localRes = getAttributeValue(this.getEnclosingStyle(), attrName, attrNS);
         if (localRes != null)
             return localRes;
-        if (this.getParentStyle() instanceof StyleStyle) {
-            final StyleStyle defaultStyle = ((StyleStyle) this.getParentStyle()).getDefaultStyle();
+        if (this.getEnclosingStyle() instanceof StyleStyle) {
+            final StyleStyle defaultStyle = ((StyleStyle) this.getEnclosingStyle()).getDefaultStyle();
             return getAttributeValue(defaultStyle, attrName, attrNS);
         } else {
             return null;
@@ -79,7 +79,7 @@ public abstract class StyleProperties {
     }
 
     protected final Namespace getNS(final String prefix) {
-        return this.getParentStyle().getNS().getNS(prefix);
+        return this.getEnclosingStyle().getNS().getNS(prefix);
     }
 
     // * 20.173 fo:background-color of OpenDocument-v1.2-part1, usable with all our subclasses :

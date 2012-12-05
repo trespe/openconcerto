@@ -13,8 +13,9 @@
  
  package org.openconcerto.erp.config;
 
+import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
 import org.openconcerto.erp.modules.ModuleManager;
-import org.openconcerto.sql.PropsConfiguration;
+import org.openconcerto.erp.modules.ModuleReference;
 import org.openconcerto.sql.changer.convert.AddFK;
 import org.openconcerto.sql.changer.correct.CorrectOrder;
 import org.openconcerto.sql.changer.correct.FixSerial;
@@ -54,6 +55,7 @@ import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
@@ -118,7 +120,8 @@ public class InstallationPanel extends JPanel {
                             // FixUnbounded varchar
                             fixUnboundedVarchar(conf.getRoot());
 
-                            // FIXME DROP CONSTRAINT UNIQUE ORDRE ON CONTACT_FOURNISSEUR
+                            // FIXME DROP CONSTRAINT UNIQUE ORDRE ON
+                            // CONTACT_FOURNISSEUR
 
                             // Mise à jour des taux
                             final SQLTable table = conf.getRoot().getTable("VARIABLE_PAYE");
@@ -179,7 +182,8 @@ public class InstallationPanel extends JPanel {
                                     });
                                     final String[] type = new String[] { "Avoir client", "AVOIR_CLIENT", "Avoir", "Bon de livraison", "BON_DE_LIVRAISON", "BonLivraison", "Commande Client",
                                             "COMMANDE_CLIENT", "CommandeClient", "Devis", "DEVIS", "Devis", "Facture", "SAISIE_VENTE_FACTURE", "VenteFacture" };
-                                    // ('FR', 'Français', 1.000), ('EN', 'Anglais', 2.000)
+                                    // ('FR', 'Français', 1.000), ('EN',
+                                    // 'Anglais', 2.000)
                                     final List<String> values = new ArrayList<String>();
                                     final SQLBase base = table.getDBRoot().getBase();
 
@@ -198,7 +202,8 @@ public class InstallationPanel extends JPanel {
                                 }
                             }
 
-                            // ///////////// updateSocieteTable(conf.getRoot());
+                            SQLTable.setUndefID(conf.getRoot().getSchema(), "DEVISE", 1);
+                            SQLTable.setUndefID(conf.getRoot().getSchema(), "TYPE_MODELE", 1);
 
                             // we need to upgrade all roots
                             // ///////////////////////////
@@ -219,6 +224,7 @@ public class InstallationPanel extends JPanel {
                             for (final String childName : childrenNames) {
                                 System.out.println("InstallationPanel.InstallationPanel() UPDATE SCHEMA " + childName);
                                 final int barValue = i;
+
                                 SwingUtilities.invokeLater(new Runnable() {
 
                                     @Override
@@ -263,6 +269,7 @@ public class InstallationPanel extends JPanel {
                                                 throw new SQLException(e);
                                             }
                                             updateToV1Dot2(root);
+                                            updateToV1Dot3(root);
                                             return null;
                                         }
                                     });
@@ -374,7 +381,8 @@ public class InstallationPanel extends JPanel {
             // @Override
             // public void actionPerformed(ActionEvent e) {
             // JFileChooser choose = new JFileChooser();
-            // if (choose.showOpenDialog(InstallationPanel.this) == JFileChooser.APPROVE_OPTION) {
+            // if (choose.showOpenDialog(InstallationPanel.this) ==
+            // JFileChooser.APPROVE_OPTION) {
             // chemin.setText(choose.getSelectedFile().getAbsolutePath());
             // }
             // }
@@ -408,7 +416,8 @@ public class InstallationPanel extends JPanel {
             // input.close();
             //
             // try {
-            // final SQLServer sqlServer = finderPanel.getServerConfig().createSQLServer();
+            // final SQLServer sqlServer =
+            // finderPanel.getServerConfig().createSQLServer();
             // Number n = (Number)
             // sqlServer.getBase("postgres").getDataSource().executeScalar("select COUNT(*) from pg_database WHERE datname='OpenConcerto'");
             // if (n.intValue() > 0) {
@@ -422,7 +431,8 @@ public class InstallationPanel extends JPanel {
             //
             // sqlServer.getBase("postgres").getDataSource().execute("ALTER DATABASE \"OpenConcerto\" OWNER TO openconcerto;");
             //
-            // SQLUtils.executeScript(sql.toString(), sqlServer.getSystemRoot("OpenConcerto"));
+            // SQLUtils.executeScript(sql.toString(),
+            // sqlServer.getSystemRoot("OpenConcerto"));
             // sqlServer.destroy();
             // JOptionPane.showMessageDialog(InstallationPanel.this,
             // "Création de la base OpenConerto terminée.");
@@ -630,6 +640,162 @@ public class InstallationPanel extends JPanel {
             }
             root.refetch();
         }
+
+    }
+
+    private void updateToV1Dot3(final DBRoot root) throws SQLException {
+        final SQLDataSource ds = root.getDBSystemRoot().getDataSource();
+        // Article
+        {
+            SQLTable tableProduct = root.getTable("ARTICLE");
+            boolean alterTableProduct = false;
+            AlterTable t = new AlterTable(tableProduct);
+            if (!tableProduct.getFieldsName().contains("ID_COMPTE_PCE")) {
+                t.addForeignColumn("ID_COMPTE_PCE", root.getTable("COMPTE_PCE"));
+                alterTableProduct = true;
+            }
+            if (!tableProduct.getFieldsName().contains("ID_COMPTE_PCE_ACHAT")) {
+                t.addForeignColumn("ID_COMPTE_PCE_ACHAT", root.getTable("COMPTE_PCE"));
+                alterTableProduct = true;
+            }
+            if (alterTableProduct) {
+                try {
+                    ds.execute(t.asString());
+                    tableProduct.getSchema().updateVersion();
+                    tableProduct.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table ARTICLE", ex);
+                }
+            }
+        }
+
+        // Famille Article
+        {
+            SQLTable tableArticleFamily = root.getTable("FAMILLE_ARTICLE");
+            boolean alterArticleFamily = false;
+            AlterTable t = new AlterTable(tableArticleFamily);
+            if (!tableArticleFamily.getFieldsName().contains("ID_COMPTE_PCE")) {
+                t.addForeignColumn("ID_COMPTE_PCE", root.getTable("COMPTE_PCE"));
+                alterArticleFamily = true;
+            }
+            if (!tableArticleFamily.getFieldsName().contains("ID_COMPTE_PCE_ACHAT")) {
+                t.addForeignColumn("ID_COMPTE_PCE_ACHAT", root.getTable("COMPTE_PCE"));
+                alterArticleFamily = true;
+            }
+            if (alterArticleFamily) {
+                try {
+                    ds.execute(t.asString());
+                    tableArticleFamily.getSchema().updateVersion();
+                    tableArticleFamily.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table FAMILLE_ARTICLE", ex);
+                }
+            }
+        }
+
+        // ECRITURE
+        {
+            SQLTable tableRecords = root.getTable("ECRITURE");
+            boolean alterRecords = false;
+            AlterTable t = new AlterTable(tableRecords);
+            if (!tableRecords.getFieldsName().contains("DATE_EXPORT")) {
+                t.addColumn("DATE_EXPORT", "date");
+                alterRecords = true;
+            }
+
+            if (!tableRecords.getFieldsName().contains("CODE_CLIENT")) {
+                t.addVarCharColumn("CODE_CLIENT", 256);
+                alterRecords = true;
+            }
+            if (alterRecords) {
+                try {
+                    ds.execute(t.asString());
+                    tableRecords.getSchema().updateVersion();
+                    tableRecords.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table ECRITURE", ex);
+                }
+            }
+        }
+        addInfoField(root, ds, "AVOIR_FOURNISSEUR");
+        addInfoField(root, ds, "AVOIR_CLIENT");
+
+        boolean refetchRoot = false;
+        if (!root.contains("CODE_FOURNISSEUR")) {
+
+            SQLCreateTable createCode = new SQLCreateTable(root, "CODE_FOURNISSEUR");
+            createCode.addVarCharColumn("CODE", 256);
+            createCode.addForeignColumn("FOURNISSEUR");
+            createCode.addForeignColumn("ARTICLE");
+            try {
+                ds.execute(createCode.asString());
+                insertUndef(createCode);
+                root.getSchema().updateVersion();
+                refetchRoot = true;
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table CODE_FOURNISSEUR", ex);
+            }
+
+        }
+
+        // Chargement des tables fraichement créées
+        if (refetchRoot)
+            root.refetch();
+
+        addSupplierCode(root, ds, "BON_RECEPTION_ELEMENT");
+        addSupplierCode(root, ds, "COMMANDE_ELEMENT");
+
+        // Undefined
+        SQLTable.setUndefID(root.getSchema(), "ARTICLE_DESIGNATION", 1);
+        SQLTable.setUndefID(root.getSchema(), "ARTICLE_TARIF", 1);
+        SQLTable.setUndefID(root.getSchema(), "CODE_STATUT_CAT_CONV", 1);
+        SQLTable.setUndefID(root.getSchema(), "CONTACT_ADMINISTRATIF", 1);
+        SQLTable.setUndefID(root.getSchema(), "CONTACT_FOURNISSEUR", 1);
+
+        SQLTable.setUndefID(root.getSchema(), "LANGUE", 1);
+        SQLTable.setUndefID(root.getSchema(), "MODELE", 1);
+        SQLTable.setUndefID(root.getSchema(), "OBJECTIF_COMMERCIAL", 1);
+        SQLTable.setUndefID(root.getSchema(), "TARIF", 1);
+
+        SQLTable.setUndefID(root.getSchema(), "UNITE_VENTE", 1);
+    }
+
+    private void addInfoField(final DBRoot root, final SQLDataSource ds, String tableName) {
+        SQLTable tableBL = root.getTable(tableName);
+        boolean alterBL = false;
+        AlterTable t = new AlterTable(tableBL);
+        if (!tableBL.getFieldsName().contains("INFOS")) {
+            t.addVarCharColumn("INFOS", 1024);
+            alterBL = true;
+        }
+        if (alterBL) {
+            try {
+                ds.execute(t.asString());
+                tableBL.getSchema().updateVersion();
+                tableBL.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table AVOIR FOURNISSEUR", ex);
+            }
+        }
+    }
+
+    private void addSupplierCode(final DBRoot root, final SQLDataSource ds, String tableName) {
+        SQLTable tableBL = root.getTable(tableName);
+        boolean alterBL = false;
+        AlterTable t = new AlterTable(tableBL);
+        if (!tableBL.contains("ID_CODE_FOURNISSEUR")) {
+            t.addForeignColumn("ID_CODE_FOURNISSEUR", root.getTable("CODE_FOURNISSEUR"));
+            alterBL = true;
+        }
+        if (alterBL) {
+            try {
+                ds.execute(t.asString());
+                tableBL.getSchema().updateVersion();
+                tableBL.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table " + tableName, ex);
+            }
+        }
     }
 
     private void updateToV1Dot2(final DBRoot root) throws SQLException {
@@ -667,10 +833,24 @@ public class InstallationPanel extends JPanel {
             SQLRowValues rowVals = new SQLRowValues(tableEtatDevis);
             rowVals.put("NOM", "En cours de rédaction");
             rowVals.commit();
+
         }
 
+        SQLRowValues rowValsOrdre = new SQLRowValues(tableEtatDevis);
+        rowValsOrdre.put("ORDRE", new BigDecimal(1.505));
+        rowValsOrdre.update(EtatDevisSQLElement.EN_ATTENTE);
+
+        rowValsOrdre.put("ORDRE", new BigDecimal(2.505));
+        rowValsOrdre.update(EtatDevisSQLElement.ACCEPTE);
+
+        rowValsOrdre.put("ORDRE", new BigDecimal(3.505));
+        rowValsOrdre.update(EtatDevisSQLElement.REFUSE);
+
+        rowValsOrdre.put("ORDRE", new BigDecimal(3.505));
+        rowValsOrdre.update(EtatDevisSQLElement.EN_COURS);
+
         // Ajout de la TVA à 0
-        SQLSelect selTVA = new SQLSelect(root.getBase());
+        SQLSelect selTVA = new SQLSelect();
         SQLTable tableTaxe = root.getTable("TAXE");
         selTVA.addSelect(tableTaxe.getKey(), "COUNT");
         selTVA.setWhere(new Where(tableTaxe.getField("TAUX"), "=", 0));
@@ -850,7 +1030,7 @@ public class InstallationPanel extends JPanel {
                 ds.execute(createLangue.asString());
                 insertUndef(createLangue);
                 tableDevis.getSchema().updateVersion();
-                root.refetch(createLangue.getName());
+                root.refetchTable(createLangue.getName());
             } catch (SQLException ex) {
                 throw new IllegalStateException("Erreur lors de la création de la table LANGUE", ex);
             }
@@ -923,7 +1103,7 @@ public class InstallationPanel extends JPanel {
                 ds.execute(createTarif.asString());
                 insertUndef(createTarif);
                 tableDevis.getSchema().updateVersion();
-                root.refetch(createTarif.getName());
+                root.refetchTable(createTarif.getName());
             } catch (SQLException ex) {
                 throw new IllegalStateException("Erreur lors de la création de la table TARIF", ex);
             }
@@ -1035,6 +1215,9 @@ public class InstallationPanel extends JPanel {
 
         SQLTable tableCommande = root.getTable("COMMANDE");
         addDeviseHAField(tableCommande, root);
+
+        patchFieldElt1Dot3(root.getTable("ARTICLE"), root);
+        patchFieldElt1Dot3(root.getTable("ARTICLE_TARIF"), root);
 
         if (!tableCommande.getFieldsName().contains("ID_ADRESSE")) {
             AlterTable alterCmd = new AlterTable(tableCommande);
@@ -1391,7 +1574,41 @@ public class InstallationPanel extends JPanel {
 
     }
 
+    private void patchFieldElt1Dot3(SQLTable table, DBRoot root) {
+
+        List<String> cols = Arrays.asList("PV_HT", "PA_DEVISE_T", "T_PV_HT", "T_PA_TTC", "T_PA_HT", "PA_HT", "T_PV_TTC", "PRIX_METRIQUE_HA_2", "PRIX_METRIQUE_HA_1", "PRIX_METRIQUE_HA_3",
+                "PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_1", "PRIX_METRIQUE_VT_3", "MARGE_HT", "PA_DEVISE", "PV_U_DEVISE", "PV_T_DEVISE", "PV_TTC");
+
+        if (table.getField("PV_HT").getType().getDecimalDigits() == 0) {
+            AlterTable t = new AlterTable(table);
+            UpdateBuilder builder = new UpdateBuilder(table);
+            for (String field : cols) {
+                if (table.contains(field)) {
+                    builder.set(field, table.getField(field).getSQLName().getRest().quote() + "/100");
+                    if (field.contains("TTC")) {
+                        t.alterColumn(field, EnumSet.allOf(Properties.class), "numeric(16,2)", "0", false);
+                    } else {
+                        t.alterColumn(field, EnumSet.allOf(Properties.class), "numeric(16,6)", "0", false);
+                    }
+                }
+            }
+
+            try {
+                table.getBase().getDataSource().execute(t.asString());
+                table.getSchema().updateVersion();
+                table.fetchFields();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
+            }
+
+            String req2 = builder.asString();
+            root.getDBSystemRoot().getDataSource().execute(req2);
+        }
+
+    }
+
     private void addHAElementField(SQLTable table, DBRoot root) throws SQLException {
+
         boolean alter = false;
         AlterTable t = new AlterTable(table);
         if (!table.getFieldsName().contains("QTE_ACHAT")) {
@@ -1424,6 +1641,11 @@ public class InstallationPanel extends JPanel {
             alter = true;
         }
 
+        // if (!table.getFieldsName().contains("POURCENT_REMISE")) {
+        // t.addColumn("POURCENT_REMISE", "numeric(16,2) DEFAULT 0");
+        // alter = true;
+        // }
+
         if (alter) {
             try {
                 table.getBase().getDataSource().execute(t.asString());
@@ -1433,7 +1655,7 @@ public class InstallationPanel extends JPanel {
                 throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
             }
         }
-
+        patchFieldElt1Dot3(table, root);
     }
 
     private void addModeleField(SQLTable table, DBRoot root) throws SQLException {
@@ -1551,6 +1773,7 @@ public class InstallationPanel extends JPanel {
                 throw new IllegalStateException("Erreur lors de l'ajout des champs à la table " + table.getName(), ex);
             }
         }
+        patchFieldElt1Dot3(table, root);
     }
 
     private void updateSocieteSchema(final DBRoot root) throws IOException, Exception {
@@ -1571,7 +1794,8 @@ public class InstallationPanel extends JPanel {
         // 1. root.refetch() clears the graph
         // 2. we add some foreign field (the graph is still null)
         // 3. we use a method that needs the graph
-        // 4. the graph is created and throws an exception when it wants to use the new field not in
+        // 4. the graph is created and throws an exception when it wants to use
+        // the new field not in
         // the structure
         sysRoot.getGraph();
 
@@ -1632,9 +1856,10 @@ public class InstallationPanel extends JPanel {
                 }
             }
 
-            SQLSelect sel2 = new SQLSelect(tableReglmt.getBase());
+            SQLSelect sel2 = new SQLSelect();
             sel2.addSelect(tableReglmt.getKey());
             sel2.setWhere(new Where(tableReglmt.getField("NOM"), "=", "CESU"));
+            @SuppressWarnings("unchecked")
             List<Number> l2 = (List<Number>) ds.executeCol(sel2.asString());
             if (l2.size() == 0) {
                 SQLRowValues rowVals = new SQLRowValues(tableReglmt);
@@ -1686,10 +1911,10 @@ public class InstallationPanel extends JPanel {
             //
             final ModuleManager instance = new ModuleManager();
             instance.setRoot(root);
-            final Set<String> modulesIds = instance.getDBInstalledModules().keySet();
+            final List<ModuleReference> refs = instance.getRemoteInstalledModules();
             final Set<String> allUsedTable = new HashSet<String>();
-            for (String id : modulesIds) {
-                Set<String> tableNames = instance.getCreatedItems(id).get0();
+            for (ModuleReference ref : refs) {
+                Set<String> tableNames = instance.getCreatedTables(ref);
                 allUsedTable.addAll(tableNames);
             }
             System.out.println("Tables used by modules:" + allUsedTable);
@@ -1777,7 +2002,7 @@ public class InstallationPanel extends JPanel {
         Map<SQLTable, Set<Number>> ids = getIdsForTables(extTables);
 
         //
-        SQLSelect s = new SQLSelect(root.getBase(), true);
+        SQLSelect s = new SQLSelect(true);
         if (table.getPrimaryKeys().size() != 1) {
             return;
         }
@@ -1825,7 +2050,7 @@ public class InstallationPanel extends JPanel {
 
     private Set<Number> getIdsForTable(SQLTable table) {
         final DBRoot dbRoot = table.getDBRoot();
-        SQLSelect s = new SQLSelect(dbRoot.getBase(), true);
+        SQLSelect s = new SQLSelect(true);
         s.addSelect(table.getKey());
         List<Number> result = dbRoot.getDBSystemRoot().getDataSource().executeCol(s.asString());
         return new HashSet<Number>(result);
@@ -1894,7 +2119,7 @@ public class InstallationPanel extends JPanel {
         if (table == null) {
             throw new IllegalArgumentException("null table");
         }
-        SQLSelect sel = new SQLSelect(table.getBase());
+        SQLSelect sel = new SQLSelect();
         sel.addSelectStar(table);
         sel.setWhere(new Where(table.getField("NOM"), "=", var));
         List<SQLRow> l = (List<SQLRow>) table.getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));

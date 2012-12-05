@@ -55,6 +55,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -147,7 +148,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                         if (rowArticle != null) {
                             comboTaxe.setValue(rowArticle.getInt("ID_TAXE"));
 
-                            textMontantTTC.setText(GestionDevise.currencyToString(((Long) rowArticle.getObject("PV_TTC")).longValue()));
+                            textMontantTTC.setText(((BigDecimal) rowArticle.getObject("PV_TTC")).toString());
                         }
                         System.out.println("value article Changed");
 
@@ -791,8 +792,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 String tNomArticle = this.nomArticle.getTextMain();
                 String codeArticle = this.nomArticle.getTextOpt();
                 int idTaxe = this.comboTaxe.getSelectedId();
-                Long prix = new Long(GestionDevise.parseLongCurrency(this.textMontantHT.getText()));
-                Long prixTTC = new Long(GestionDevise.parseLongCurrency(this.textMontantTTC.getText()));
+                BigDecimal prix = new BigDecimal(this.textMontantHT.getText());
+                BigDecimal prixTTC = new BigDecimal(this.textMontantTTC.getText());
 
                 if (tNomArticle.trim().length() == 0) {
                     tNomArticle = "Nom Indefini";

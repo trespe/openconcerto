@@ -14,11 +14,14 @@
  package org.openconcerto.utils;
 
 import java.io.BufferedOutputStream;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.nio.charset.Charset;
 
 public class StreamUtils {
@@ -35,7 +38,6 @@ public class StreamUtils {
             // ignore
         }
     };
-    private static final Charset UTF8 = Charset.forName("UTF-8");
 
     /**
      * Verbatim copy an entry from input to output stream.
@@ -49,13 +51,26 @@ public class StreamUtils {
     }
 
     public static void copy(InputStream in, OutputStream out, final int bufferSize) throws IOException {
+        copy(in, out, bufferSize, -1);
+    }
+
+    public static long copy(InputStream in, OutputStream out, final int bufferSize, final long length) throws IOException {
         final byte[] buffer = new byte[bufferSize];
-        while (true) {
-            int count = in.read(buffer);
+        long totalCount = 0;
+        final boolean copyAll = length < 0;
+        while (copyAll || totalCount < length) {
+            final long toRead = copyAll ? buffer.length : Math.min(length - totalCount, buffer.length);
+            // since buffer.length is an int
+            assert 0 <= toRead && toRead <= Integer.MAX_VALUE;
+            final int count = in.read(buffer, 0, (int) toRead);
             if (count == -1)
                 break;
+            totalCount += count;
             out.write(buffer, 0, count);
         }
+        // < if end of stream
+        assert copyAll || totalCount <= length;
+        return totalCount;
     }
 
     public static void copy(InputStream ins, File out) throws IOException {
@@ -73,11 +88,30 @@ public class StreamUtils {
     }
 
     public static void write(final String s, final OutputStream out) throws IOException {
-        write(s, out, UTF8);
+        write(s, out, StringUtils.UTF8);
     }
 
     public static void write(final String s, final OutputStream out, Charset charset) throws IOException {
         out.write(s.getBytes(charset));
     }
 
+    /**
+     * Wrap the output stream into a writer, and write the XML declaration.
+     * 
+     * @param outs an output stream.
+     * @return a writer with the same encoding as the XML.
+     * @throws IOException if an error occurs.
+     */
+    public static BufferedWriter createXMLWriter(OutputStream outs) throws IOException {
+        return new BufferedWriter(createXMLUnbufferedWriter(outs));
+    }
+
+    public static Writer createXMLUnbufferedWriter(OutputStream outs) throws IOException {
+        // see http://www.w3.org/TR/REC-xml/#sec-guessing
+        // don't use UTF-8 BOM as Java does not support it :
+        // http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=4508058
+        final Writer res = new OutputStreamWriter(outs, StringUtils.UTF8);
+        res.write("<?xml version='1.0' encoding='UTF-8' ?>\n");
+        return res;
+    }
 }

@@ -520,7 +520,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
     protected final void detachDuplicate(Element elem) throws JDOMException {
         final String singularName = elem.getName().substring(0, elem.getName().length() - 1);
         final List thisNames = getXPath("./text:" + singularName + "s/text:" + singularName + "/@text:name").selectNodes(getChild("body"));
-        CollectionUtils.transform(thisNames, new Transformer() {
+        org.apache.commons.collections.CollectionUtils.transform(thisNames, new Transformer() {
             public Object transform(Object obj) {
                 return ((Attribute) obj).getValue();
             }
@@ -687,7 +687,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         // les styles de ce document
         List thisElemNames = xp.selectNodes(thisParent);
         // on transforme la liste d'attributs en liste de String
-        CollectionUtils.transform(thisElemNames, new Transformer() {
+        org.apache.commons.collections.CollectionUtils.transform(thisElemNames, new Transformer() {
             public Object transform(Object obj) {
                 return ((Attribute) obj).getValue();
             }

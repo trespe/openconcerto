@@ -33,6 +33,7 @@ import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.geom.Rectangle2D;
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -153,8 +154,8 @@ public class CaissePanel extends JPanel implements CaisseListener {
                 a.setBarCode(row.getString("CODE_BARRE"));
                 a.setCode(row.getString("CODE"));
                 a.setIdTaxe(row.getInt("ID_TAXE"));
-                a.setPriceHTInCents((int) row.getLong("PV_HT"));
-                a.setPriceInCents((int) row.getLong("PV_TTC"));
+                a.setPriceHTInCents((BigDecimal) row.getObject("PV_HT"));
+                a.setPriceInCents((BigDecimal) row.getObject("PV_TTC"));
 
             }
         }
@@ -178,22 +179,22 @@ public class CaissePanel extends JPanel implements CaisseListener {
 
         for (int i = 0; i < 100; i++) {
             final Article al = new Article(s2_2, "ILM" + i, 1);
-            al.setPriceInCents(5000);
+            al.setPriceInCents(new BigDecimal(5000));
             al.setBarCode("INFORMATIQUE " + i);
         }
         final Article a = new Article(s1, "012345678901234567890123456789", 1);
-        a.setPriceInCents(106);
+        a.setPriceInCents(new BigDecimal(106));
         final Article b = new Article(s1, "St Valery", 1);
         b.setBarCode("ST VALERY");
-        b.setPriceInCents(300);
+        b.setPriceInCents(new BigDecimal(300));
         final Article cc = new Article(s1, "Cayeux", 1);
-        cc.setPriceInCents(300);
+        cc.setPriceInCents(new BigDecimal(300));
         final Article v1 = new Article(s2, "Abbeville", 1);
-        v1.setPriceInCents(106);
+        v1.setPriceInCents(new BigDecimal(106));
         final Article v2 = new Article(s2, "Amiens", 1);
-        v2.setPriceInCents(300);
+        v2.setPriceInCents(new BigDecimal(300));
         final Article v3 = new Article(s2, "Rue", 1);
-        v3.setPriceInCents(300);
+        v3.setPriceInCents(new BigDecimal(300));
         this.controler.addArticle(a);
         this.controler.addArticle(a);
         this.controler.addArticle(b);
@@ -201,17 +202,8 @@ public class CaissePanel extends JPanel implements CaisseListener {
     }
 
     @Override
-    public Dimension getMinimumSize() {
-        return new Dimension(1440, 900);
-    }
-
-    @Override
-    public Dimension getPreferredSize() {
-        return new Dimension(1440, 900);
-    }
-
-    @Override
     public void paint(Graphics g) {
+        System.err.println("CaissePanel.paint()" + this.getWidth() + " x " + this.getHeight());
         super.paint(g);
         Graphics2D g2 = (Graphics2D) g;
         g.setFont(new Font("Arial", Font.PLAIN, 32));
@@ -254,15 +246,24 @@ public class CaissePanel extends JPanel implements CaisseListener {
         g.setColor(Color.GRAY);
         g.drawString("Payé", x - (int) r2.getWidth() - (int) r.getWidth() - 10, y);
         // A rendre
-        y += 40;
-        x = 300;
+        final boolean minimalHeight = this.getHeight() < 750;
+        if (!minimalHeight) {
+            y += 40;
+            x = 300;
+        } else {
+            x = 140;
+        }
         int aRendre = paye - total;
         if (aRendre != 0) {
             String label;
             if (aRendre > 0) {
                 label = "Rendu";
             } else {
-                label = "Reste à payer";
+                if (!minimalHeight) {
+                    label = "Reste à payer";
+                } else {
+                    label = "Doit";
+                }
                 aRendre = -aRendre;
             }
 

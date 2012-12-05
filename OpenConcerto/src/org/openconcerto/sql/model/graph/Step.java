@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.util.AbstractMap;
@@ -41,15 +42,14 @@ public class Step {
      * 
      * @param start the start of the step.
      * @param fField a foreign field.
-     * @param direction <code>true</code> to cross from the source of <code>fField</code> to its
-     *        destination, <code>null</code> to infer it.
+     * @param direction how to cross <code>fField</code>, <code>ANY</code> to infer it.
      * @return a new step.
      * @throws IllegalArgumentException if <code>fField</code> is not a foreign field, if neither of
-     *         its ends are <code>start</code>, if <code>direction</code> is null and
+     *         its ends are <code>start</code>, if <code>direction</code> is ANY and
      *         <code>fField</code> points to its source, or if <code>direction</code> is not
-     *         <code>null</code> and wrong.
+     *         <code>ANY</code> and wrong.
      */
-    public static final Step create(final SQLTable start, final SQLField fField, final Boolean direction) throws IllegalArgumentException {
+    public static final Step create(final SQLTable start, final SQLField fField, final Direction direction) throws IllegalArgumentException {
         final Link l = fField.getDBSystemRoot().getGraph().getForeignLink(fField);
         if (l == null)
             throw new IllegalArgumentException(fField + " is not a foreign field.");
@@ -57,18 +57,18 @@ public class Step {
         final SQLTable end = l.oppositeVertex(start);
         final SQLTable fieldStart = fField.getTable();
 
-        final Boolean computedDirection;
+        final Direction computedDirection;
         if (start == end)
-            computedDirection = null;
+            computedDirection = Direction.ANY;
         else
-            computedDirection = fieldStart == start;
+            computedDirection = Direction.fromForeign(fieldStart == start);
 
-        if (computedDirection == null && direction == null)
+        if (computedDirection == Direction.ANY && direction == Direction.ANY)
             throw new IllegalArgumentException("the field references its table: " + fField + ", you must specify the direction");
-        if (direction != null && computedDirection != null && direction != computedDirection)
+        if (direction != Direction.ANY && computedDirection != Direction.ANY && direction != computedDirection)
             throw new IllegalArgumentException("wrong direction: " + direction + ", real is : " + computedDirection);
-        final Boolean nonNullDir = direction == null ? computedDirection : direction;
-        assert nonNullDir != null;
+        final Direction nonNullDir = direction == Direction.ANY ? computedDirection : direction;
+        assert nonNullDir != Direction.ANY;
 
         return new Step(start, fField, nonNullDir, end);
     }
@@ -84,9 +84,9 @@ public class Step {
     private static final Step create(final SQLTable start, final Set<SQLField> jFields, final SQLTable end) {
         if (start == end)
             throw new IllegalArgumentException("start and end are the same: " + start + " the direction can't be inferred");
-        final Map<SQLField, Boolean> fields = new HashMap<SQLField, Boolean>(jFields.size());
+        final Map<SQLField, Direction> fields = new HashMap<SQLField, Direction>(jFields.size());
         for (final SQLField f : jFields)
-            fields.put(f, start == f.getTable());
+            fields.put(f, Direction.fromForeign(start == f.getTable()));
         return new Step(start, fields, CollectionUtils.getSole(fields.keySet()), end);
     }
 
@@ -106,16 +106,16 @@ public class Step {
 
     private final SQLTable from;
     private final SQLTable to;
-    private final Map<SQLField, Boolean> fields;
+    private final Map<SQLField, Direction> fields;
     // after profiling: doing getStep().iterator().next() costs a lot
     private final SQLField singleField;
 
     // all constructors are private since they don't fully check the coherence of their parameters
-    private Step(final SQLTable start, final Map<SQLField, Boolean> fields, final SQLField singleField, final SQLTable end) {
+    private Step(final SQLTable start, final Map<SQLField, Direction> fields, final SQLField singleField, final SQLTable end) {
         assert start != null && end != null;
         assert fields.size() > 0;
         assert CollectionUtils.getSole(fields.keySet()) == singleField;
-        assert !new HashSet<Boolean>(fields.values()).contains(null) : "some directions are unknown : " + fields;
+        assert !new HashSet<Direction>(fields.values()).contains(Direction.ANY) : "some directions are unknown : " + fields;
         // thread-safe since only mutable attributes are volatile
         assert fields instanceof AbstractMap : "Fields might not be thread-safe";
         this.from = start;
@@ -124,11 +124,11 @@ public class Step {
         this.singleField = singleField;
     }
 
-    private Step(final SQLTable start, final Map<SQLField, Boolean> fields, final SQLTable end) {
-        this(start, new HashMap<SQLField, Boolean>(fields), CollectionUtils.getSole(fields.keySet()), end);
+    private Step(final SQLTable start, final Map<SQLField, Direction> fields, final SQLTable end) {
+        this(start, new HashMap<SQLField, Direction>(fields), CollectionUtils.getSole(fields.keySet()), end);
     }
 
-    private Step(final SQLTable start, SQLField field, final boolean foreign, final SQLTable end) {
+    private Step(final SQLTable start, SQLField field, final Direction foreign, final SQLTable end) {
         this(start, Collections.singletonMap(field, foreign), field, end);
     }
 
@@ -137,9 +137,9 @@ public class Step {
     }
 
     public final Step reverse() {
-        final Map<SQLField, Boolean> reverseFields = new HashMap<SQLField, Boolean>(this.fields.size());
-        for (final Entry<SQLField, Boolean> e : this.fields.entrySet()) {
-            reverseFields.put(e.getKey(), !e.getValue());
+        final Map<SQLField, Direction> reverseFields = new HashMap<SQLField, Direction>(this.fields.size());
+        for (final Entry<SQLField, Direction> e : this.fields.entrySet()) {
+            reverseFields.put(e.getKey(), e.getValue().reverse());
         }
         return new Step(this.to, reverseFields, this.from);
     }
@@ -160,6 +160,16 @@ public class Step {
         return this.singleField;
     }
 
+    public final Set<Step> getSingleSteps() {
+        if (this.singleField != null)
+            return Collections.singleton(this);
+        final Set<Step> res = new HashSet<Step>(this.fields.size());
+        for (final Entry<SQLField, Direction> e : this.fields.entrySet()) {
+            res.add(new Step(this.getFrom(), e.getKey(), e.getValue(), this.getTo()));
+        }
+        return res;
+    }
+
     /**
      * Whether this step goes through the field <code>f</code> forwards or backwards.
      * 
@@ -168,6 +178,17 @@ public class Step {
      *         ID_CONTACT_CHEF and ID_CONTACT_BUREAU).
      */
     public final boolean isForeign(final SQLField f) {
+        return this.getDirection(f) == Direction.FOREIGN;
+    }
+
+    /**
+     * Whether this step goes through the field <code>f</code> forwards or backwards.
+     * 
+     * @param f the field.
+     * @return <code>FOREIGN</code> if f is crossed forwards (e.g. going from SITE to CONTACT with
+     *         ID_CONTACT_CHEF and ID_CONTACT_BUREAU), <code>REFERENT</code> otherwise.
+     */
+    public final Direction getDirection(final SQLField f) {
         return this.fields.get(f);
     }
 
@@ -178,7 +199,20 @@ public class Step {
      * @see #isForeign(SQLField)
      */
     public final Boolean isForeign() {
-        return CollectionUtils.getSole(new HashSet<Boolean>(this.fields.values()));
+        final Direction soleDir = getDirection();
+        return soleDir == Direction.ANY ? null : soleDir == Direction.FOREIGN;
+    }
+
+    /**
+     * Whether this step goes through all of its fields forwards or backwards.
+     * 
+     * @return <code>FOREIGN</code> or <code>REFERENT</code> if all fields go the same way,
+     *         <code>ANY</code> if mixed.
+     * @see #isForeign(SQLField)
+     */
+    public final Direction getDirection() {
+        final Direction soleDir = CollectionUtils.getSole(new HashSet<Direction>(this.fields.values()));
+        return soleDir == null ? Direction.ANY : soleDir;
     }
 
     public String toString() {

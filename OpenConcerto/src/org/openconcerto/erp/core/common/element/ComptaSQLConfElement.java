@@ -44,7 +44,7 @@ import javax.swing.table.TableCellRenderer;
 public abstract class ComptaSQLConfElement extends SQLElement {
 
     private static DBRoot baseSociete;
-    protected static final TableCellRenderer CURRENCY_RENDERER = new DefaultTableCellRenderer() {
+    public static final TableCellRenderer CURRENCY_RENDERER = new DefaultTableCellRenderer() {
         @Override
         public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
             final Component res = super.getTableCellRendererComponent(table, GestionDevise.currencyToString((BigDecimal) value), isSelected, hasFocus, row, column);
@@ -100,11 +100,20 @@ public abstract class ComptaSQLConfElement extends SQLElement {
                 col.setConverter(new ValueConvertor<Number, BigDecimal>() {
                     @Override
                     public BigDecimal convert(Number o) {
+                        if (o == null) {
+                            System.err.println("ComptaSQLConfElement._initTableSource: Warning null Number conversion (" + this + ")");
+                            return BigDecimal.ZERO;
+                        }
                         return new BigDecimal(o.longValue()).movePointLeft(2);
                     }
 
                     @Override
                     public Number unconvert(BigDecimal o) {
+
+                        if (o == null) {
+                            System.err.println("ComptaSQLConfElement._initTableSource: Warning null BigDecimal conversion (" + this + ")");
+                            return 0;
+                        }
                         return o.movePointRight(2);
                     }
                 }, BigDecimal.class);

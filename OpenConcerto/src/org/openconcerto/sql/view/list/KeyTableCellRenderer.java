@@ -53,8 +53,10 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
         }
 
         String newValue = "id non trouvé pour:" + value;
-        if (value == null)
+        if (value == null) {
+            setText("");
             return;
+        }
         try {
 
             if (value instanceof SQLRowValues) {
@@ -107,9 +109,9 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
                 });
 
                 KeyTableCellRenderer.this.isLoading = false;
-                if (KeyTableCellRenderer.this.toSelect != null) {
-                    setValue(KeyTableCellRenderer.this.toSelect);
-                }
+
+                setValue(KeyTableCellRenderer.this.toSelect);
+
             }
         });
 

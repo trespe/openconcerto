@@ -16,46 +16,152 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
+import org.openconcerto.erp.core.common.ui.DeviseField;
+import org.openconcerto.erp.core.common.ui.PanelFrame;
+import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.sales.credit.component.AvoirClientSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
+import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.sales.shipment.component.BonDeLivraisonSQLComponent;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.generationEcritures.GenerationMvtRetourNatexis;
+import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
+import org.openconcerto.erp.rights.NXRights;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.request.ListSQLRequest;
+import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.EditPanel;
+import org.openconcerto.sql.view.EditPanelListener;
+import org.openconcerto.sql.view.EditPanel.EditMode;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.i18n.TranslationManager;
 
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
+import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
 
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
+// Depuis le 1er juillet 2003, la règlementation fiscale impose la délivrance d'une facture pour
+// tous les versements d'acomptes, même lorsqu'ils ne donnent pas lieu à exigibilité de la TVA
+// (article 289 I -1-c du CGI).
+// Avant la loi de finances rectificative pour 2002, il n'y avait obligation de délivrer une facture
+// pour les acomptes que lorsque la TVA était exigible sur ces versements. Depuis l'entrée en
+// vigueur de cette loi, initialement fixée au 1er juillet 2003, et reportée par tolérance
+// administrative au 1er janvier 2004, il faut désormais délivrer une facture pour tous les acomptes
+// perçus.
+// L'obligation nouvelle de facturer tous les versements d'acomptes ne modifie pas les règles
+// d'exigibilité de la TVA.
+// La date du versement de l'acompte doit être indiquée sur la facture d'acompte si elle est
+// différente de la date de délivrance de cette facture, et si elle est connue à cette date.
+
+// La facture d'acompte peut ne pas mentionner l'ensemble des mentions obligatoires lorsque les
+// informations nécessaires à son établissement ne sont pas connues au moment de son émission (par
+// exemple, quantité ou prix exact du produit).
 public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
     public static final String TABLENAME = "SAISIE_VENTE_FACTURE";
 
     public SaisieVenteFactureSQLElement() {
         super(TABLENAME, "une facture", "factures");
+        final boolean affact = UserManager.getInstance().getCurrentUser().getRights().haveRight(NXRights.ACCES_RETOUR_AFFACTURAGE.getCode());
+        List<RowAction> l = new ArrayList<RowAction>(5);
+            PredicateRowAction actionBL = new PredicateRowAction(new AbstractAction() {
+                public void actionPerformed(ActionEvent e) {
+                    SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                    elt.transfertBL(IListe.get(e).getSelectedId());
+                }
+            }, false, "sales.invoice.create.delivery");
+            actionBL.setPredicate(IListeEvent.getSingleSelectionPredicate());
+            l.add(actionBL);
+        PredicateRowAction actionAvoir = new PredicateRowAction(new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                elt.transfertAvoir(IListe.get(e).getSelectedId());
+            }
+        }, false, "sales.invoice.create.credit");
+        actionAvoir.setPredicate(IListeEvent.getSingleSelectionPredicate());
+        l.add(actionAvoir);
+        PredicateRowAction actionClone = new PredicateRowAction(new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+
+                SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                EditFrame editFrame = new EditFrame(eltFact, EditPanel.CREATION);
+
+                ((SaisieVenteFactureSQLComponent) editFrame.getSQLComponent()).loadFactureExistante(IListe.get(e).getSelectedId());
+                editFrame.setVisible(true);
+            }
+        }, false, "sales.invoice.clone");
+        actionClone.setPredicate(IListeEvent.getSingleSelectionPredicate());
+        l.add(actionClone);
+        getRowActions().addAll(l);
+
+
+        PredicateRowAction actionClient = new PredicateRowAction(new AbstractAction("Détails client") {
+            EditFrame edit;
+            private SQLElement eltClient = Configuration.getInstance().getDirectory().getElement(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("CLIENT"));
+
+            public void actionPerformed(ActionEvent e) {
+                if (edit == null) {
+                    edit = new EditFrame(eltClient, EditMode.READONLY);
+                }
+                edit.selectionId(IListe.get(e).getSelectedRow().getInt("ID_CLIENT"));
+                edit.setVisible(true);
+            }
+        }, false, "sales.invoice.info.show");
+        actionClient.setPredicate(IListeEvent.getSingleSelectionPredicate());
+        getRowActions().add(actionClient);
+
+        PredicateRowAction actionCommande = new PredicateRowAction(new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                elt.transfertCommande(IListe.get(e).getSelectedId());
+            }
+        }, false, "sales.invoice.create.supplier.order");
+        actionCommande.setPredicate(IListeEvent.getSingleSelectionPredicate());
+        getRowActions().add(actionCommande);
+
+        MouseSheetXmlListeListener mouseSheetXmlListeListener = new MouseSheetXmlListeListener(VenteFactureXmlSheet.class);
+        getRowActions().addAll(mouseSheetXmlListeListener.getRowActions());
+        // this.frame.getPanel().getListe().addRowActions(mouseListener.getRowActions());
+
     }
 
     protected List<String> getListFields() {
@@ -88,6 +194,10 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
                 graphToFetch.put("PREVISIONNELLE", null);
                     graphToFetch.grow("ID_MODE_REGLEMENT").put("AJOURS", null).put("LENJOUR", null);
+                SQLRowValues value = new SQLRowValues(graphToFetch.getTable().getTable("MOUVEMENT"));
+                value.put("ID_PIECE", null);
+                graphToFetch.put("ID_MOUVEMENT", value);
+                graphToFetch.put("T_AVOIR_TTC", null);
             }
         };
     }
@@ -115,6 +225,13 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
     public Set<String> getReadOnlyFields() {
         Set<String> s = new HashSet<String>(1);
         s.add("CONTROLE_TECHNIQUE");
+        return s;
+    }
+
+    @Override
+    public Set<String> getInsertOnlyFields() {
+        Set<String> s = new HashSet<String>(1);
+        s.add("ACOMPTE");
         return s;
     }
 
@@ -165,12 +282,13 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
             // Mise à jour des stocks
             SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-            SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
+            SQLSelect sel = new SQLSelect();
             sel.addSelect(eltMvtStock.getTable().getField("ID"));
             Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
             Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
             sel.setWhere(w.and(w2));
 
+            @SuppressWarnings("rawtypes")
             List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
             if (l != null) {
                 for (int i = 0; i < l.size(); i++) {
@@ -259,23 +377,26 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
             // gestion de la devise
             rowDeviseF = sqlRow.getForeignRow("ID_DEVISE");
             SQLRow rowDeviseHA = rowArticleFind.getForeignRow("ID_DEVISE_HA");
+            BigDecimal qte = new BigDecimal(rowValsElt.getInt("QTE"));
             if (rowDeviseF != null && !rowDeviseF.isUndefined()) {
                 if (rowDeviseF.getID() == rowDeviseHA.getID()) {
-                    rowValsElt.put("PA_DEVISE", rowArticleFind.getLong("PA_DEVISE"));
-                    rowValsElt.put("PA_DEVISE_T", rowArticleFind.getLong("PA_DEVISE") * rowValsElt.getInt("QTE"));
+                    rowValsElt.put("PA_DEVISE", rowArticleFind.getObject("PA_DEVISE"));
+                    rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowArticleFind.getObject("PA_DEVISE")).multiply(qte, MathContext.DECIMAL128));
                     rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
                 } else {
                     BigDecimal taux = (BigDecimal) rowDeviseF.getObject("TAUX");
-                    rowValsElt.put("PA_DEVISE", taux.multiply(new BigDecimal(rowValsElt.getLong("PA_HT"))).longValue());
-                    rowValsElt.put("PA_DEVISE_T", rowValsElt.getLong("PA_DEVISE") * rowValsElt.getInt("QTE"));
+                    rowValsElt.put("PA_DEVISE", taux.multiply((BigDecimal) rowValsElt.getObject("PA_HT")));
+                    rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowValsElt.getObject("PA_DEVISE")).multiply(qte, MathContext.DECIMAL128));
                     rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
                 }
             }
 
-            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
+            BigDecimal prixHA = (BigDecimal) rowValsElt.getObject("PA_HT");
+            rowValsElt.put("T_PA_HT", prixHA.multiply(qte, MathContext.DECIMAL128));
 
-            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
-            rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
+            rowValsElt.put("T_PA_HT", prixHA.multiply(qte, MathContext.DECIMAL128));
+            rowValsElt
+                    .put("T_PA_TTC", ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal(rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0), MathContext.DECIMAL128));
 
             map.put(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
 

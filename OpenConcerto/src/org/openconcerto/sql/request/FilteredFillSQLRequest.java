@@ -18,6 +18,7 @@ import org.openconcerto.sql.model.SQLFilter;
 import org.openconcerto.sql.model.SQLFilterListener;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.TableRef;
@@ -28,7 +29,6 @@ import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.CopyUtils;
 import org.openconcerto.utils.Tuple2;
 
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.List;
@@ -36,6 +36,20 @@ import java.util.Set;
 
 // une fill request qui utilise le filtre
 public abstract class FilteredFillSQLRequest extends BaseFillSQLRequest {
+
+    // make sure that all rows are from the same table
+    static protected final Tuple2<SQLTable, Set<Number>> rows2ids(final Collection<SQLRow> rows) {
+        final Set<SQLTable> tables = new HashSet<SQLTable>();
+        final Set<Number> ids = new HashSet<Number>(rows.size());
+        for (final SQLRow r : rows) {
+            tables.add(r.getTable());
+            ids.add(r.getIDNumber());
+        }
+        final SQLTable filterTable = CollectionUtils.getSole(tables);
+        if (filterTable == null)
+            throw new IllegalStateException("not 1 table: " + rows);
+        return Tuple2.create(filterTable, ids);
+    }
 
     // never null (but can be <null, null>)
     private Tuple2<Set<SQLRow>, Path> filterInfo;
@@ -110,29 +124,24 @@ public abstract class FilteredFillSQLRequest extends BaseFillSQLRequest {
         return getFetcher(w).fetch();
     }
 
+    protected final List<SQLRowValues> fetchValues(final SQLRowValuesListFetcher f, final Where w) {
+        return this.setupFetcher(f, w).fetch();
+    }
+
     @Override
     protected SQLSelect transformSelect(SQLSelect sel) {
         final Tuple2<Set<SQLRow>, Path> filterInfo = getFilterInfo();
         // the filter is not empty and it concerns us
         if (filterInfo.get1() != null) {
-            final Set<SQLRow> filterRow = filterInfo.get0();
-
-            final Set<SQLTable> tables = new HashSet<SQLTable>();
-            final List<Integer> ids = new ArrayList<Integer>(filterRow.size());
-            for (final SQLRow r : filterRow) {
-                tables.add(r.getTable());
-                ids.add(r.getID());
-            }
-            final SQLTable filterTable = CollectionUtils.getSole(tables);
-            if (filterTable == null)
-                throw new IllegalStateException("not 1 table: " + filterRow);
+            final Tuple2<SQLTable, Set<Number>> tableNids = rows2ids(filterInfo.get0());
+            final SQLTable filterTable = tableNids.get0();
 
             final Path path = filterInfo.get1();
             final TableRef lastAlias = sel.assurePath(getPrimaryTable().getName(), path);
             if (filterTable != lastAlias.getTable())
-                throw new IllegalStateException("table mismatch: " + filterRow + " is not from " + lastAlias + ": " + lastAlias.getTable());
+                throw new IllegalStateException("table mismatch: " + filterTable + " is not from " + lastAlias + ": " + lastAlias.getTable());
 
-            sel.andWhere(new Where(lastAlias.getKey(), ids));
+            sel.andWhere(new Where(lastAlias.getKey(), tableNids.get1()));
         }
         return super.transformSelect(sel);
     }

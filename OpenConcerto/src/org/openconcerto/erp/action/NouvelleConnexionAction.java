@@ -15,6 +15,7 @@
 
 import static org.openconcerto.task.config.ComptaBasePropsConfiguration.getStreamStatic;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.DefaultMenuConfiguration;
 import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.config.MainFrame;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
@@ -22,6 +23,7 @@ import org.openconcerto.erp.core.common.ui.StatusPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.humanresources.payroll.element.CaisseCotisationSQLElement;
 import org.openconcerto.erp.element.objet.ClasseCompte;
+import org.openconcerto.erp.modules.ModuleFrame;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.panel.ComptaTipsFrame;
 import org.openconcerto.erp.utils.NXDatabaseAccessor;
@@ -52,8 +54,10 @@ import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.JImage;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.i18n.TranslationManager;
 
 import java.awt.Color;
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Image;
@@ -61,7 +65,9 @@ import java.awt.Insets;
 import java.io.InputStream;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 
@@ -75,12 +81,14 @@ import javax.swing.SwingWorker;
 import javax.swing.UIManager;
 
 public class NouvelleConnexionAction extends CreateFrameAbstractAction {
+    private ConnexionPanel connexionPanel;
+    // Module configuration frame used when something goes wrong
+    private ModuleFrame fMod;
+
     public NouvelleConnexionAction() {
         super();
         this.putValue(Action.NAME, "Changer d'utilisateur");
     }
-
-    private ConnexionPanel connexionPanel;
 
     public JFrame createFrame() {
         // needed as done() must come after us
@@ -93,6 +101,9 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
 
             public void run() {
                 try {
+                    TranslationManager.getInstance().addTranslationStreamFromClass(MainFrame.class);
+                    TranslationManager.getInstance().setLocale(UserProps.getInstance().getLocale());
+
                     final Boolean booleanValue = UserProps.getInstance().getBooleanValue("HideTips");
                     if (!booleanValue) {
                         SwingUtilities.invokeLater(new Runnable() {
@@ -117,22 +128,21 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                         }
                     }
                     comptaPropsConfiguration.setUpSocieteDataBaseConnexion(selectedSociete);
-
+                    try {
+                        // create table if necessary
+                        SQLPreferences.getPrefTable(comptaPropsConfiguration.getRootSociete());
+                        SQLPreferences.startMemCached(comptaPropsConfiguration.getRootSociete());
+                    } catch (Exception e) {
+                        // don't die now, we might not need them
+                        ExceptionHandler.handle("Impossible d'accéder aux préférences", e);
+                    }
                     // finish filling the configuration before going any further, otherwise the
                     // SQLElementDirectory is not coherent
                     try {
                         ModuleManager.getInstance().setup(comptaPropsConfiguration.getRootSociete(), comptaPropsConfiguration);
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
                         // not OK to continue without required elements
-                        ExceptionHandler.die("Impossible de démarrer les modules requis", e);
-                    }
-
-                    try {
-                        // create table if necessary
-                        SQLPreferences.getPrefTable(comptaPropsConfiguration.getRootSociete());
-                    } catch (Exception e) {
-                        // don't die now, we might not need them
-                        ExceptionHandler.handle("Impossible d'accéder aux préférences", e);
+                        openEmergencyModuleManager("Impossible de configurer les modules requis", e);
                     }
 
 
@@ -143,18 +153,26 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                             // frame
 
                             StatusPanel.getInstance().fireStatusChanged();
-                            final JFrame f = new MainFrame();
+                            final MainFrame f = new MainFrame();
                             String version = comptaPropsConfiguration.getVersion();
                             final String socTitle = comptaPropsConfiguration.getRowSociete() == null ? "" : ", [Société " + comptaPropsConfiguration.getRowSociete().getString("NOM") + "]";
                             f.setTitle(comptaPropsConfiguration.getAppName() + " " + version + socTitle);
                             f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+                            // Init menus
+                            DefaultMenuConfiguration mConfiguration = new DefaultMenuConfiguration();
+                            mConfiguration.createMenuGroup();
+                            mConfiguration.registerMenuActions();
+                            f.setJMenuBar(Gestion.isMinimalMode() ? f.createMinimalMenu() : f.createMenu());
 
                         }
                     });
                     final FutureTask<?> showMainFrame = new FutureTask<Object>(new Runnable() {
                         @Override
                         public void run() {
-                            FrameUtil.show(MainFrame.getInstance());
+                            if (ModuleManager.getInstance().isSetup()) {
+                                final MainFrame mainFrame = MainFrame.getInstance();
+                                FrameUtil.show(mainFrame);
+                            }
                         }
                     }, null);
                     ModuleManager.getInstance().invoke(new IClosure<ModuleManager>() {
@@ -164,24 +182,12 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                             // visible menu bar)
                             try {
                                 input.startRequiredModules();
-                            } catch (Exception exn) {
-                                // by definition we cannot continue without required modules
-                                ExceptionHandler.die("Impossible de démarrer les modules requis", exn);
-                            }
-                            try {
                                 input.startPreviouslyRunningModules();
+                                SwingUtilities.invokeLater(showMainFrame);
                             } catch (Exception exn) {
-                                // OK to start the application without all modules started
-                                // but don't continue right away otherwise connexion panel will be
-                                // closed and the popup with it
-                                try {
-                                    ExceptionHandler.handle(NouvelleConnexionAction.this.connexionPanel, "Impossible de démarrer les modules", exn).getDialogFuture().get();
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
+                                openEmergencyModuleManager("Impossible de démarrer les modules requis", exn);
                             }
 
-                            SwingUtilities.invokeLater(showMainFrame);
                         }
                     });
                     initCache();
@@ -195,7 +201,7 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
             private void fixEcriture() {
                 // FIXME Bug archive ecriture (ecriture non archivé ayant un id_mouvement=1)
                 SQLElement elt = Configuration.getInstance().getDirectory().getElement("ECRITURE");
-                SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
+                SQLSelect sel = new SQLSelect();
                 sel.addSelect(elt.getTable().getKey());
 
                 Where w = new Where(elt.getTable().getField("ID_MOUVEMENT"), "=", 1);
@@ -242,6 +248,8 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
         this.connexionPanel = ConnexionPanel.create(r, image, !Gestion.isMinimalMode());
         if (this.connexionPanel == null)
             return null;
+        this.connexionPanel.initLocalization(getClass().getName(),
+                Arrays.asList(Locale.FRANCE, Locale.CANADA_FRENCH, new Locale("fr", "CH"), new Locale("fr", "BE"), Locale.UK, Locale.CANADA, Locale.US, Locale.GERMANY, new Locale("de", "CH")));
 
         p.add(this.connexionPanel, c);
         final PanelFrame panelFrame = new PanelFrame(p, "Connexion");
@@ -275,22 +283,25 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("COMMERCIAL"), 600);
 
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("TYPE_REGLEMENT"), 1000);
+                SQLBackgroundTableCache.getInstance().startCacheWatcher();
+
                 TaxeCache.getCache();
 
-                final UndefinedRowValuesCache UndefCache = UndefinedRowValuesCache.getInstance();
-                // TODO: 1 request to rules them all?
-                UndefCache.getDefaultRowValues(baseSociete.getTable("DEVIS"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("ETAT_DEVIS"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("ADRESSE"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("DEVIS_ELEMENT"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("CONTACT"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("SAISIE_VENTE_FACTURE_ELEMENT"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("SAISIE_KM_ELEMENT"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("BON_DE_LIVRAISON_ELEMENT"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("COMMANDE_CLIENT_ELEMENT"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("AVOIR_CLIENT_ELEMENT"));
-                UndefCache.getDefaultRowValues(baseSociete.getTable("BON_RECEPTION_ELEMENT"));
-
+                final UndefinedRowValuesCache undefCache = UndefinedRowValuesCache.getInstance();
+                final List<SQLTable> tablesToCache = new ArrayList<SQLTable>();
+                tablesToCache.add(baseSociete.getTable("DEVIS"));
+                tablesToCache.add(baseSociete.getTable("ETAT_DEVIS"));
+                tablesToCache.add(baseSociete.getTable("FAMILLE_ARTICLE"));
+                tablesToCache.add(baseSociete.getTable("ADRESSE"));
+                tablesToCache.add(baseSociete.getTable("DEVIS_ELEMENT"));
+                tablesToCache.add(baseSociete.getTable("CONTACT"));
+                tablesToCache.add(baseSociete.getTable("SAISIE_VENTE_FACTURE_ELEMENT"));
+                tablesToCache.add(baseSociete.getTable("SAISIE_KM_ELEMENT"));
+                tablesToCache.add(baseSociete.getTable("BON_DE_LIVRAISON_ELEMENT"));
+                tablesToCache.add(baseSociete.getTable("COMMANDE_CLIENT_ELEMENT"));
+                tablesToCache.add(baseSociete.getTable("AVOIR_CLIENT_ELEMENT"));
+                tablesToCache.add(baseSociete.getTable("BON_RECEPTION_ELEMENT"));
+                undefCache.preload(tablesToCache);
             }
 
         };
@@ -308,4 +319,24 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
         }
     }
 
+    private void openEmergencyModuleManager(final String str, Throwable e) {
+        System.err.println("The following exception is preventing a normal startup:");
+        e.printStackTrace();
+        System.err.println("Opening the module manager in order to resolve the issue.");
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                if (fMod == null) {
+                    fMod = new ModuleFrame();
+                    fMod.pack();
+                    fMod.setMinimumSize(new Dimension(480, 640));
+                    fMod.setLocationRelativeTo(null);
+                    fMod.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                    fMod.setTitle(str);
+                    fMod.setVisible(true);
+                }
+            }
+        });
+
+    }
 }

@@ -296,7 +296,7 @@ public class Path {
      *         of its ends are the current end of this path.
      */
     public final Path add(final SQLField fField) {
-        return this.add(fField, null);
+        return this.add(fField, Direction.ANY);
     }
 
     /**
@@ -308,18 +308,42 @@ public class Path {
      * @return this.
      * @throws IllegalArgumentException if <code>fField</code> is not a foreign field or if neither
      *         of its ends are the current end of this path.
+     * @deprecated use {@link #add(SQLField, Direction)}
      */
     public final Path add(final SQLField fField, final Boolean direction) {
+        return this.add(fField, Direction.fromForeign(direction));
+    }
+
+    public final Path add(final SQLField fField, final Direction direction) {
         return this.add(Step.create(getLast(), fField, direction));
     }
 
-    public final Path addFields(final Collection<SQLField> fields) {
+    /**
+     * Add a step to the path.
+     * 
+     * @param fields fields between the last table and another.
+     * @return this.
+     */
+    public final Path addStepWithFields(final Collection<SQLField> fields) {
         final Set<Link> links = new HashSet<Link>(fields.size());
         final DatabaseGraph graph = getFirst().getDBSystemRoot().getGraph();
         for (final SQLField f : fields) {
             links.add(graph.getForeignLink(f));
         }
         return this.add(links);
+    }
+
+    /**
+     * Add multiple steps to the path.
+     * 
+     * @param fieldsNames foreign fields.
+     * @return this.
+     * @see #addForeignField(String)
+     */
+    public final Path addForeignFields(final String... fieldsNames) {
+        for (final String name : fieldsNames)
+            this.addForeignField(name);
+        return this;
     }
 
     public final Path addForeignField(final String fieldName) {
@@ -383,7 +407,11 @@ public class Path {
      *         chemin.
      */
     public Path add(Link item) {
-        return this.add(item.getLabel());
+        return this.add(item, Direction.ANY);
+    }
+
+    public Path add(Link l, Direction direction) {
+        return this.add(l.getLabel(), direction);
     }
 
     public final List<Step> getSteps() {
@@ -446,6 +474,19 @@ public class Path {
         return true;
     }
 
+    public final Set<Path> getSingleLinkPaths() {
+        if (this.length() == 0)
+            return Collections.singleton(new Path(this));
+
+        final Set<Path> res = new HashSet<Path>();
+        for (final Path p : this.subPath(1).getSingleLinkPaths()) {
+            for (final Step s : this.getStep(0).getSingleSteps()) {
+                res.add(new Path(this.getFirst()).add(s).append(p));
+            }
+        }
+        return res;
+    }
+
     /**
      * Whether the step <code>i</code> is backwards.
      * 
@@ -461,12 +502,42 @@ public class Path {
     }
 
     /**
+     * The direction of all the steps.
+     * 
+     * @return <code>null</code> if this is empty or not all steps' directions are equal, otherwise
+     *         the direction of all the steps (i.e. {@link Direction#ANY} if they're all mixed).
+     * @see Step#getDirection()
+     */
+    public final Direction getDirection() {
+        final Set<Direction> directions = new HashSet<Link.Direction>(this.fields.size());
+        for (final Step s : this.fields) {
+            directions.add(s.getDirection());
+        }
+        return CollectionUtils.getSole(directions);
+    }
+
+    /**
+     * Whether the direction of this path is <code>dir</code>.
+     * 
+     * @param dir a direction, not <code>null</code>.
+     * @return <code>true</code> if this is empty or if the direction of all steps is
+     *         <code>dir</code>.
+     * @see #getDirection()
+     */
+    public final boolean isDirection(Direction dir) {
+        if (dir == null)
+            throw new NullPointerException("Null direction");
+        return this.length() == 0 || this.getDirection() == dir;
+    }
+
+    /**
      * Whether all steps are in the same (non-mixed) direction.
      * 
      * @return <code>null</code> if at least one step is mixed, <code>true</code> if all steps are
-     *         in the same direction (be it backwards or forwards).
+     *         in the same direction (be it backwards or forwards), <code>false</code> if some steps
+     *         are forwards and some are backwards.
      */
-    public final Boolean isSingleDirection() {
+    final Boolean isSingleDirection() {
         return this.isSingleDirection(null);
     }
 
@@ -477,7 +548,7 @@ public class Path {
      * @return <code>null</code> if at least one step is mixed, <code>true</code> if all steps are
      *         in the same direction as <code>foreign</code>.
      */
-    public final Boolean isSingleDirection(final boolean foreign) {
+    final Boolean isSingleDirection(final boolean foreign) {
         return this.isSingleDirection(Boolean.valueOf(foreign));
     }
 

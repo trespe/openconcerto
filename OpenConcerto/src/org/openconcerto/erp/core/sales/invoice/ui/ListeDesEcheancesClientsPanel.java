@@ -47,6 +47,8 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -446,6 +448,23 @@ public class ListeDesEcheancesClientsPanel extends JPanel {
             // Infos facture
             Long lTotal = (Long) rowFacture.getObject("T_TTC");
             Long lRestant = (Long) row.getObject("MONTANT");
+            long lRestantDevise = lRestant.longValue();
+            final String devise;
+            SQLRow rowTarif = rowFacture.getForeign("ID_TARIF");
+            if (rowTarif != null && !rowTarif.isUndefined()) {
+                SQLRow rowDevise = rowTarif.getForeign("ID_DEVISE");
+                BigDecimal t = (BigDecimal) rowDevise.getObject("TAUX");
+                BigDecimal bigDecimal = new BigDecimal(lRestantDevise);
+                lRestantDevise = (t.equals(BigDecimal.ZERO) ? lRestantDevise : bigDecimal.multiply(t, MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue());
+                if (rowDevise.getString("CODE").trim().length() > 0) {
+                    devise = rowDevise.getString("CODE");
+                } else {
+                    devise = "€";
+                }
+            } else {
+                devise = "€";
+            }
+
             Long lVerse = new Long(lTotal.longValue() - lRestant.longValue());
             // m.put("FactureNumero", rowFacture.getString("NUMERO"));
             // m.put("FactureTotal", GestionDevise.currencyToString(lTotal.longValue(), true));
@@ -456,6 +475,7 @@ public class ListeDesEcheancesClientsPanel extends JPanel {
             SQLRow modeRegRow = rowFacture.getForeignRow("ID_MODE_REGLEMENT");
             Date dateEch = ModeDeReglementSQLElement.calculDate(modeRegRow.getInt("AJOURS"), modeRegRow.getInt("LENJOUR"), dFacture);
 
+            final String references = rowFacture.getString("NOM");
             final String text = "Date: "
                     + dateFormat.format(new Date())
                     + "\n"
@@ -473,9 +493,12 @@ public class ListeDesEcheancesClientsPanel extends JPanel {
                     + " from "
                     + dateFormat.format(rowFacture.getDate("DATE").getTime())
                     + " of "
-                    + GestionDevise.currencyToString(lRestant.longValue(), true)
+                    + devise
+                    + " "
+                    + GestionDevise.currencyToString(lRestantDevise, true)
                     + " duedate "
                     + dateFormat.format(dateEch)
+                    + (references.trim().length() == 0 ? "" : (". Your references : " + references))
                     + ".\nWe assume that this is a mere oversight and we would appreciate it if you would settle this invoice as soon as possible. In the event that this has already been accomplished in the meantime, please ignore this notice."
                     +
 
@@ -501,7 +524,7 @@ public class ListeDesEcheancesClientsPanel extends JPanel {
                 public void run() {
 
                     try {
-                        EmailComposer.getInstance().compose(adresseMail, "Late Payment reminder", text);
+                        EmailComposer.getInstance().compose(adresseMail, "Late Payment reminder - " + references, text);
                     } catch (IOException exn) {
                         // TODO Bloc catch auto-généré
                         exn.printStackTrace();

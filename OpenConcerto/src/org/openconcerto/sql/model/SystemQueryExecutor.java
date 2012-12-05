@@ -14,6 +14,7 @@
  package org.openconcerto.sql.model;
 
 import static java.util.Collections.singleton;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
 
@@ -39,12 +40,11 @@ abstract class SystemQueryExecutor {
      * Return how to get the list of objects to apply.
      * 
      * @param b the base.
-     * @param schemas the schemas.
-     * @param tables the tables.
+     * @param tables the tables by schema name.
      * @return a Throwable if there was an exception, a list to be returned, or a String to be
      *         executed.
      */
-    protected abstract Object getQuery(final SQLBase b, Set<String> schemas, Set<String> tables);
+    protected abstract Object getQuery(final SQLBase b, TablesMap tables);
 
     protected abstract void apply(SQLTable t, Map o);
 
@@ -53,10 +53,14 @@ abstract class SystemQueryExecutor {
      * 
      * @param b the database.
      * @param newSchemas which schemas to use.
-     * @throws QueryExn if {@link #getQuery(SQLBase, Set, Set)} returns a {@link Throwable}.
+     * @throws QueryExn if {@link #getQuery(SQLBase, TablesMap)} returns a {@link Throwable}.
      */
     public final void apply(final SQLBase b, final Set<String> newSchemas) throws QueryExn {
-        final Object sel = getQuery(b, newSchemas, null);
+        this.apply(b, TablesMap.createFromKeys(newSchemas));
+    }
+
+    public final void apply(final SQLBase b, final TablesMap tables) throws QueryExn {
+        final Object sel = getQuery(b, tables);
         for (final Map m : exec(b, sel)) {
             final SQLTable newTable = getTable(m);
             // null means don't refresh
@@ -68,7 +72,7 @@ abstract class SystemQueryExecutor {
     public final void apply(final SQLTable t) throws QueryExn {
         final String schemaName = t.getSchema().getName();
         final String tableName = t.getName();
-        final Object sel = getQuery(t.getBase(), singleton(schemaName), singleton(tableName));
+        final Object sel = getQuery(t.getBase(), TablesMap.createFromTables(schemaName, singleton(tableName)));
         for (final Map m : exec(t.getBase(), sel)) {
             final Tuple2<String, String> newTable = createTuple(m);
             // only refresh t

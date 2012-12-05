@@ -13,13 +13,17 @@
  
  package org.openconcerto.erp.generationEcritures;
 
+import org.openconcerto.erp.core.common.ui.TotalCalculator;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Map;
 import java.util.concurrent.Callable;
 
@@ -64,6 +68,8 @@ public class GenerationMvtTicketCaisse extends GenerationEcritures {
             public Integer call() throws Exception {
                 SQLRow clientRow = GenerationMvtTicketCaisse.this.rowTicket.getForeignRow("ID_CLIENT");
 
+                int idCompteClient = clientRow.getInt("ID_COMPTE_PCE");
+
                 // Calcul des montants
                 PrixTTC prixTTC = new PrixTTC(((Long) GenerationMvtTicketCaisse.this.rowTicket.getObject("TOTAL_TTC")).longValue());
                 PrixHT prixTVA = new PrixHT(((Long) GenerationMvtTicketCaisse.this.rowTicket.getObject("TOTAL_TVA")).longValue());
@@ -84,71 +90,35 @@ public class GenerationMvtTicketCaisse extends GenerationEcritures {
                     GenerationMvtTicketCaisse.this.mEcritures.put("ID_MOUVEMENT", Integer.valueOf(GenerationMvtTicketCaisse.this.idMvt));
                 }
 
+                TotalCalculator calc = getValuesFromElement(rowTicket, rowTicket.getTable().getTable("SAISIE_VENTE_FACTURE_ELEMENT"), BigDecimal.ZERO, null, null);
+                long ttcLongValue = calc.getTotalTTC().movePointRight(2).longValue();
+
                 // compte Vente Produits
-                final long produitHT = prixHT.getLongValue();
-                if (produitHT >= 0) {
 
-                    if (produitHT > 0) {
-
-                        int idCompteVenteProduit = 1;
-                        if (idCompteVenteProduit <= 1) {
-                            idCompteVenteProduit = rowPrefsCompte.getInt("ID_COMPTE_PCE_VENTE_PRODUIT");
-                            if (idCompteVenteProduit <= 1) {
-                                try {
-                                    idCompteVenteProduit = ComptePCESQLElement.getIdComptePceDefault("VentesProduits");
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        }
-
-                        GenerationMvtTicketCaisse.this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteVenteProduit));
+                for (SQLRowAccessor row : calc.getMapHt().keySet()) {
+                    long b = calc.getMapHt().get(row).setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValue();
+                    if (b != 0) {
+                        GenerationMvtTicketCaisse.this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(row.getID()));
                         GenerationMvtTicketCaisse.this.mEcritures.put("DEBIT", Long.valueOf(0));
-                        GenerationMvtTicketCaisse.this.mEcritures.put("CREDIT", Long.valueOf(produitHT));
+                        GenerationMvtTicketCaisse.this.mEcritures.put("CREDIT", Long.valueOf(b));
                         ajoutEcriture();
                     }
-
                 }
 
                 // compte TVA
-                if (prixTVA.getLongValue() > 0) {
-                    int idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_VENTE");
-                    if (idCompteTVA <= 1) {
-                        try {
-                            idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVACollectee");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-
-                    Map<Integer, Long> m = getMultiTVAFromRow(GenerationMvtTicketCaisse.this.rowTicket, GenerationMvtTicketCaisse.this.rowTicket.getTable().getTable("SAISIE_VENTE_FACTURE_ELEMENT"),
-                            true, prixHT, 0);
-                    long allTaxe = 0;
-                    for (Integer i : m.keySet()) {
-                        Long l = m.get(i);
-                        if (l != null && l > 0) {
-                            // FIXME
-                            int idCpt = i;
-                            if (idCpt <= 1) {
-                                idCpt = idCompteTVA;
-                            }
-                            GenerationMvtTicketCaisse.this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCpt));
-                            GenerationMvtTicketCaisse.this.mEcritures.put("DEBIT", Long.valueOf(0));
-                            GenerationMvtTicketCaisse.this.mEcritures.put("CREDIT", Long.valueOf(l));
-                            ajoutEcriture();
-                            allTaxe += l;
-                        }
-                    }
-                    if (allTaxe < prixTVA.getLongValue()) {
-                        GenerationMvtTicketCaisse.this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTVA));
+                Map<SQLRowAccessor, BigDecimal> tvaMap = calc.getMapHtTVA();
+                for (SQLRowAccessor rowAc : tvaMap.keySet()) {
+                    long longValue = tvaMap.get(rowAc).setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValue();
+                    if (longValue != 0) {
+                        GenerationMvtTicketCaisse.this.mEcritures.put("ID_COMPTE_PCE", rowAc.getID());
                         GenerationMvtTicketCaisse.this.mEcritures.put("DEBIT", Long.valueOf(0));
-                        GenerationMvtTicketCaisse.this.mEcritures.put("CREDIT", Long.valueOf(prixTVA.getLongValue() - allTaxe));
+                        GenerationMvtTicketCaisse.this.mEcritures.put("CREDIT", longValue);
                         ajoutEcriture();
                     }
-
                 }
+
                 // compte Clients
-                int idCompteClient = clientRow.getInt("ID_COMPTE_PCE");
+
                 if (idCompteClient <= 1) {
                     idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
                     if (idCompteClient <= 1) {
@@ -160,9 +130,10 @@ public class GenerationMvtTicketCaisse extends GenerationEcritures {
                     }
                 }
                 GenerationMvtTicketCaisse.this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteClient));
-                GenerationMvtTicketCaisse.this.mEcritures.put("DEBIT", Long.valueOf(prixTTC.getLongValue()));
+                GenerationMvtTicketCaisse.this.mEcritures.put("DEBIT", ttcLongValue);
                 GenerationMvtTicketCaisse.this.mEcritures.put("CREDIT", Long.valueOf(0));
                 ajoutEcriture();
+
                 return GenerationMvtTicketCaisse.this.idMvt;
             }
         };

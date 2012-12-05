@@ -14,9 +14,12 @@
  package org.openconcerto.erp.core.sales.pos;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.MainFrame;
+import org.openconcerto.erp.core.common.ui.TotalCalculator;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.pos.io.ESCSerialPrinter;
 import org.openconcerto.erp.core.sales.pos.io.JPOSTicketPrinter;
 import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
@@ -44,13 +47,18 @@ import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.utils.DesktopEnvironment;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
+import org.openconcerto.utils.i18n.TranslationManager;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -113,6 +121,9 @@ public class Caisse {
     public static void createConnexion() {
         final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create();
         conf.setupLogging("logs");
+        TranslationManager.getInstance().addTranslationStreamFromClass(MainFrame.class);
+        TranslationManager.getInstance().setLocale(Locale.getDefault());
+
         Configuration.setInstance(conf);
         try {
             conf.getBase();
@@ -122,9 +133,9 @@ public class Caisse {
 
         try {
             Document d = getDocument();
+            UserManager.getInstance().setCurrentUser(getUserID());
             final ComptaPropsConfiguration comptaPropsConfiguration = ((ComptaPropsConfiguration) Configuration.getInstance());
             comptaPropsConfiguration.setUpSocieteDataBaseConnexion(getSocieteID());
-            UserManager.getInstance().setCurrentUser(getUserID());
         } catch (Exception e) {
             JOptionPane.showMessageDialog(new JFrame(), "Impossible de configurer la connexion à la base de donnée.\n ID société: " + getSocieteID() + " \n ID utilisateur: " + getUserID());
             e.printStackTrace();
@@ -142,6 +153,8 @@ public class Caisse {
                     SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
                     SQLElement eltEnc = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
                     SQLElement eltMode = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
+                    SQLElement eltTaxe = Configuration.getInstance().getDirectory().getElement("TAXE");
+                    SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
                     for (Ticket ticket : tickets) {
                         SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
                         sel.addSelect(elt.getTable().getField("NUMERO"));
@@ -153,8 +166,8 @@ public class Caisse {
                             rowVals.put("NUMERO", ticket.getCode());
                             rowVals.put("DATE", ticket.getCreationDate());
                             rowVals.put("ID_CAISSE", getID());
-                            long total = 0;
-                            long totalHT = 0;
+
+                            TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
 
                             // Articles
                             for (Pair<Article, Integer> item : ticket.getArticles()) {
@@ -162,23 +175,30 @@ public class Caisse {
                                 final Article article = item.getFirst();
                                 final Integer nb = item.getSecond();
                                 rowValsElt.put("QTE", nb);
-                                rowValsElt.put("PV_HT", Long.valueOf(article.getPriceHTInCents()));
-                                final long value = Long.valueOf(article.getPriceInCents()) * nb;
-                                final long valueHT = Long.valueOf(article.getPriceHTInCents()) * nb;
-                                total += value;
-                                totalHT += valueHT;
+                                rowValsElt.put("PV_HT", article.getPriceHTInCents());
+                                Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
+                                BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
+
+                                final BigDecimal valueHT = article.getPriceHTInCents().multiply(new BigDecimal(nb), MathContext.DECIMAL128);
+                                // total = total.add(value);
+                                // totalHT = totalHT.add(valueHT);
                                 rowValsElt.put("T_PV_HT", valueHT);
-                                rowValsElt.put("T_PV_TTC", value);
+                                rowValsElt.put("T_PV_TTC", valueHT.multiply(tauxTVA, MathContext.DECIMAL128));
                                 rowValsElt.put("ID_TAXE", article.getIdTaxe());
                                 rowValsElt.put("CODE", article.getCode());
                                 rowValsElt.put("NOM", article.getName());
                                 rowValsElt.put("ID_TICKET_CAISSE", rowVals);
                                 rowValsElt.put("ID_ARTICLE", article.getId());
+                                calc.addLine(rowValsElt, eltArticle.getTable().getRow(article.getId()), 0, false);
                             }
-                            rowVals.put("TOTAL_HT", totalHT);
+                            calc.checkResult();
+                            long longValueTotalHT = calc.getTotalHT().movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValue();
+                            rowVals.put("TOTAL_HT", longValueTotalHT);
 
-                            rowVals.put("TOTAL_TTC", total);
-                            rowVals.put("TOTAL_TVA", total - totalHT);
+                            long longValueTotal = calc.getTotalTTC().movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValue();
+                            rowVals.put("TOTAL_TTC", longValueTotal);
+                            long longValueTotalTVA = calc.getTotalTVA().movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValue();
+                            rowVals.put("TOTAL_TVA", longValueTotalTVA);
 
                             // Paiements
                             for (Paiement paiement : ticket.getPaiements()) {
@@ -201,7 +221,7 @@ public class Caisse {
                                     }
                                     long montant = Long.valueOf(paiement.getMontantInCents());
                                     if (ticket.getPaiements().size() == 1 && paiement.getType() == Paiement.ESPECES) {
-                                        montant = total;
+                                        montant = longValueTotal;
                                     }
                                     rowValsElt.put("MONTANT", montant);
                                     rowValsElt.put("NOM", "Ticket " + ticket.getCode());
@@ -235,13 +255,13 @@ public class Caisse {
                                         + rowFinal.getString("NUMERO"), getClientCaisse(), ttc, sqlRow.getDate("DATE").getTime(), sqlRow.getForeignRow("ID_MODE_REGLEMENT"), rowFinal, rowFinal
                                         .getForeignRow("ID_MOUVEMENT"), false);
                             }
-                            if (totalEnc > total) {
+                            if (totalEnc > longValueTotal) {
                                 final SQLTable table = Configuration.getInstance().getDirectory().getElement("TYPE_REGLEMENT").getTable();
                                 int idComptePceCaisse = table.getRow(TypeReglementSQLElement.ESPECE).getInt("ID_COMPTE_PCE_CLIENT");
                                 if (idComptePceCaisse == table.getUndefinedID()) {
                                     idComptePceCaisse = ComptePCESQLElement.getId(ComptePCESQLElement.getComptePceDefault("VenteEspece"));
                                 }
-                                new GenerationMvtVirement(idComptePceCaisse, getClientCaisse().getInt("ID_COMPTE_PCE"), 0, totalEnc - total, "Rendu sur règlement " + " Ticket "
+                                new GenerationMvtVirement(idComptePceCaisse, getClientCaisse().getInt("ID_COMPTE_PCE"), 0, totalEnc - longValueTotal, "Rendu sur règlement " + " Ticket "
                                         + rowFinal.getString("NUMERO"), new Date(), JournalSQLElement.CAISSES, " Ticket " + rowFinal.getString("NUMERO")).genereMouvement();
                             }
 

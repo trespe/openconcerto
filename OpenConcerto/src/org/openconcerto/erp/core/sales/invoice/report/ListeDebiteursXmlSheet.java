@@ -36,7 +36,13 @@ public class ListeDebiteursXmlSheet extends AbstractListeSheetXml {
     private static final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yy");
 
     public ListeDebiteursXmlSheet() {
+        super();
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
+    }
+
+    @Override
+    protected String getStoragePathP() {
+        return "Autres";
     }
 
     public String getDefaultTemplateId() {

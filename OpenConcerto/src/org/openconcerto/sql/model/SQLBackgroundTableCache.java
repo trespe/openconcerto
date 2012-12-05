@@ -31,7 +31,25 @@ public class SQLBackgroundTableCache {
 
     }
 
-    public SQLBackgroundTableCache() {
+    private SQLBackgroundTableCache() {
+
+    }
+
+    public static synchronized SQLBackgroundTableCache getInstance() {
+        if (instance == null) {
+            instance = new SQLBackgroundTableCache();
+        }
+        return instance;
+    }
+
+    public synchronized void add(SQLTable t, int second) {
+        if (!isCached(t)) {
+            final SQLBackgroundTableCacheItem item = new SQLBackgroundTableCacheItem(t, second);
+            this.list.put(t, item);
+        }
+    }
+
+    public void startCacheWatcher() {
         Thread t = new Thread(new Runnable() {
 
             @Override
@@ -60,21 +78,6 @@ public class SQLBackgroundTableCache {
         t.setPriority(Thread.MIN_PRIORITY);
         t.setDaemon(true);
         t.start();
-
-    }
-
-    public static synchronized SQLBackgroundTableCache getInstance() {
-        if (instance == null) {
-            instance = new SQLBackgroundTableCache();
-        }
-        return instance;
-    }
-
-    public synchronized void add(SQLTable t, int second) {
-        if (!isCached(t)) {
-            final SQLBackgroundTableCacheItem item = new SQLBackgroundTableCacheItem(t, second);
-            this.list.put(t, item);
-        }
     }
 
     public synchronized boolean isCached(SQLTable t) {

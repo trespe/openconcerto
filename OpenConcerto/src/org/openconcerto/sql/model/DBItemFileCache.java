@@ -127,9 +127,26 @@ public final class DBItemFileCache {
      * @return <code>true</code> if all deletions were successful.
      */
     public final boolean delete() {
-        if (!this.root.getServer().getSQLSystem().getLevels().contains(this.getLevel()))
-            return this.getParent().delete();
-        else {
+        return this.delete(false);
+    }
+
+    public final boolean delete(final boolean backup) {
+        if (!this.root.getServer().getSQLSystem().getLevels().contains(this.getLevel())) {
+            return this.getParent().delete(backup);
+        } else if (backup) {
+            final File rootDir = this.root.getSystemDir().getParentFile();
+            assert getDir().getPath().startsWith(rootDir.getPath());
+            // keep the whole path under DELETED
+            final File destDir = new File(rootDir, "DELETED/" + getDir().getPath().substring(rootDir.getPath().length()));
+            try {
+                FileUtils.mkdir_p(destDir.getParentFile());
+            } catch (IOException e) {
+                throw new IllegalStateException(e);
+            }
+            // keep previous backup
+            FileUtils.mvOut(destDir.getParentFile(), destDir.getName(), "");
+            return FileUtils.mv(getDir(), destDir) == null;
+        } else {
             return FileUtils.rmR(getDir());
         }
     }

@@ -25,5 +25,6 @@ public class CommandeCliCommandeSQLInjector extends SQLInjector {
         final SQLTable tableCommande = getDestination();
         mapDefaultValues(tableCommande.getField("SOURCE"), tableCommandeCli.getName());
         map(tableCommandeCli.getKey(), tableCommande.getField("IDSOURCE"));
+        map(tableCommandeCli.getField("NOM"), tableCommande.getField("NOM"));
     }
 }

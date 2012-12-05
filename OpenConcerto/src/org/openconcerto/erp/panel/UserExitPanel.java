@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
+import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.preferences.BackupNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.utils.BackupPanel;
@@ -130,6 +131,7 @@ public class UserExitPanel extends JPanel {
 
     private void closeGNx() {
         UserExit.closeAllWindows(null);
+        ModuleManager.tearDown();
         ComptaPropsConfiguration.closeOOConnexion();
         // ((JFrame) SwingUtilities.getRoot(UserExitingPanel.this)).dispose();
         if (Gestion.pgFrameStart != null) {
@@ -233,6 +235,7 @@ public class UserExitPanel extends JPanel {
             public void run() {
                 try {
                     // 5 s d'attente
+                    // TODO make ModuleManager.install() atomic
                     Thread.sleep(5 * 1000);
                     System.err.println("Warning: Forcing exit");
                     Frame[] l = Frame.getFrames();

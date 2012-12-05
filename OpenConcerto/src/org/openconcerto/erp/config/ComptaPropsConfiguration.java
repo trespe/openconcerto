@@ -129,16 +129,24 @@ import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.SaisieAchatSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionElementSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionSQLElement;
+import org.openconcerto.erp.core.supplychain.receipt.element.CodeFournisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.StockSQLElement;
 import org.openconcerto.erp.core.supplychain.supplier.element.EcheanceFournisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.supplier.element.FournisseurSQLElement;
 import org.openconcerto.erp.generationDoc.element.ModeleSQLElement;
 import org.openconcerto.erp.generationDoc.element.TypeModeleSQLElement;
+import org.openconcerto.erp.generationDoc.provider.AdresseFullClientValueProvider;
+import org.openconcerto.erp.generationDoc.provider.AdresseRueClientValueProvider;
+import org.openconcerto.erp.generationDoc.provider.AdresseVilleCPClientValueProvider;
+import org.openconcerto.erp.generationDoc.provider.AdresseVilleClientValueProvider;
+import org.openconcerto.erp.generationDoc.provider.AdresseVilleNomClientValueProvider;
 import org.openconcerto.erp.generationDoc.provider.PrixUnitaireRemiseProvider;
+import org.openconcerto.erp.generationDoc.provider.QteTotalProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCreateInitialsValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCurrentInitialsValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserModifyInitialsValueProvider;
+import org.openconcerto.erp.generationEcritures.provider.SalesInvoiceAccountingRecordsProvider;
 import org.openconcerto.erp.injector.AchatAvoirSQLInjector;
 import org.openconcerto.erp.injector.ArticleCommandeEltSQLInjector;
 import org.openconcerto.erp.injector.BonFactureSQLInjector;
@@ -271,7 +279,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         }
     }
 
-    static File getConfFile() {
+    public static File getConfFile() {
         return getConfFile(APP_NAME);
     }
 
@@ -390,8 +398,13 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         // ATTN this works because this is executed last (i.e. if you put this in a superclass
         // this won't work since e.g. app.name won't have its correct value)
         this.setupLogging("logs");
+        registerAccountingProvider();
         registerCellValueProvider();
         UserRightsManager.getInstance().register(new ComptaTotalUserRight());
+    }
+
+    private void registerAccountingProvider() {
+        SalesInvoiceAccountingRecordsProvider.register();
     }
 
     private void registerCellValueProvider() {
@@ -399,6 +412,12 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         UserModifyInitialsValueProvider.register();
         UserCurrentInitialsValueProvider.register();
         PrixUnitaireRemiseProvider.register();
+        AdresseRueClientValueProvider.register();
+        AdresseVilleClientValueProvider.register();
+        AdresseVilleCPClientValueProvider.register();
+        AdresseVilleNomClientValueProvider.register();
+        AdresseFullClientValueProvider.register();
+        QteTotalProvider.register();
     }
 
     @Override
@@ -642,7 +661,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new CourrierClientSQLElement());
 
         dir.addSQLElement(new ClassementConventionnelSQLElement());
-
+        dir.addSQLElement(CodeFournisseurSQLElement.class);
         dir.addSQLElement(new CommandeSQLElement());
         dir.addSQLElement(new CommandeElementSQLElement());
         dir.addSQLElement(new CommandeClientSQLElement());
@@ -790,7 +809,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     private void setSocieteShowAs() {
         final ShowAs showAs = this.getShowAs();
         showAs.setRoot(getRootSociete());
-        showAs.show("ARTICLE", "NOM");
+        showAs.show("ARTICLE", "NOM", "ID_FAMILLE_ARTICLE");
         showAs.show("ACTIVITE", "CODE_ACTIVITE");
         showAs.show("ADRESSE", SQLRow.toList("RUE,VILLE"));
         final DBRoot root = this.getRootSociete();
@@ -917,6 +936,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             }
         }
         TemplateNXProps.getInstance();
+        // Prefetch undefined
+        rootSociete.getTables().iterator().next().getUndefinedID();
     }
 
     private void setMapper() {

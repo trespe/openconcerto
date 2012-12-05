@@ -19,6 +19,7 @@ package org.openconcerto.sql.model;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLSelect.ArchiveMode;
 import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.utils.ReOrder;
 import org.openconcerto.utils.CollectionMap;
@@ -770,6 +771,17 @@ public class SQLRow extends SQLRowAccessor {
         res.addAll(this.getReferentRows((Set<SQLTable>) null, SQLSelect.BOTH));
         res.addAll(this.getForeignRows(SQLRowMode.EXIST));
         return res;
+    }
+
+    @Override
+    public Collection<SQLRow> followLink(Link l, Direction direction) {
+        // Path checks that one end of l is this table and that direction is valid (e.g. not ANY for
+        // self-reference links)
+        final boolean backwards = new Path(getTable()).add(l, direction).isBackwards(0);
+        if (backwards)
+            return getReferentRows(l.getSingleField());
+        else
+            return Collections.singletonList(getForeign(l.getSingleField().getName()));
     }
 
     /**

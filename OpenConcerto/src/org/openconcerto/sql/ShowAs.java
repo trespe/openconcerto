@@ -129,6 +129,10 @@ public class ShowAs extends FieldExpander {
         }
     }
 
+    public void show(SQLTable table, String... fields) {
+        this.show(table, Arrays.asList(fields));
+    }
+
     public void show(SQLTable table, List<String> fields) {
         this.byTables.put(table, namesToFields(fields, table));
         this.clearCache();

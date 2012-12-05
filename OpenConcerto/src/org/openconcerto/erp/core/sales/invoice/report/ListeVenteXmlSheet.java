@@ -16,7 +16,6 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
 import org.openconcerto.erp.generationDoc.AbstractListeSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -24,9 +23,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -54,11 +51,17 @@ public class ListeVenteXmlSheet extends AbstractListeSheetXml {
     private SQLElement eltEncElt = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT_ELEMENT");
 
     public ListeVenteXmlSheet(List<SQLRow> listeIds, Date du, Date au, JProgressBar bar) {
+        super();
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.listeIds = listeIds;
         this.du = du;
         this.au = au;
         this.bar = bar;
+    }
+
+    @Override
+    public String getStoragePathP() {
+        return "Autres";
     }
 
     @Override

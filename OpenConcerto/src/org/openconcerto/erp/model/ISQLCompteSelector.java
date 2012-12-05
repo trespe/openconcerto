@@ -52,6 +52,12 @@ public class ISQLCompteSelector extends ElementComboBox {
         this.addButtonVisible = addButtonVisible;
     }
 
+    JButton selectCompte = new JButton("Sélection Compte");
+
+    public void setSelectButtonEnabled(boolean b) {
+        this.selectCompte.setEnabled(b);
+    }
+
     @Override
     protected void uiLayout() {
         super.uiLayout();
@@ -63,7 +69,6 @@ public class ISQLCompteSelector extends ElementComboBox {
         c.gridx = GridBagConstraints.EAST;
 
         // TODO use the standard list button or at least disable when we're disabled
-        JButton selectCompte = new JButton("Sélection Compte");
         this.add(selectCompte, c);
 
         // if only digits assume we're looking for a hierarchical account number, otherwise perform

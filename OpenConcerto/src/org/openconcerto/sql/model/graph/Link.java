@@ -25,7 +25,8 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.IPredicate;
 
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,7 +47,32 @@ import org.jdom.Element;
 public class Link extends DirectedEdge<SQLTable> {
 
     public static enum Direction {
-        FOREIGN, REFERENT, ANY
+        FOREIGN {
+            @Override
+            public Direction reverse() {
+                return REFERENT;
+            }
+        },
+        REFERENT {
+            @Override
+            public Direction reverse() {
+                return FOREIGN;
+            }
+        },
+        ANY {
+            @Override
+            public Direction reverse() {
+                return this;
+            }
+        };
+
+        public abstract Direction reverse();
+
+        public static Direction fromForeign(Boolean foreign) {
+            if (foreign == null)
+                return ANY;
+            return foreign ? FOREIGN : REFERENT;
+        }
     }
 
     public static class NamePredicate extends IPredicate<Link> {
@@ -133,7 +159,7 @@ public class Link extends DirectedEdge<SQLTable> {
      * @param updateRule what happens to a foreign key when the primary key is updated.
      * @param deleteRule what happens to the foreign key when primary is deleted.
      */
-    public Link(List<SQLField> keys, List<SQLField> referredCols, String foreignKeyName, Rule updateRule, Rule deleteRule) {
+    Link(List<SQLField> keys, List<SQLField> referredCols, String foreignKeyName, Rule updateRule, Rule deleteRule) {
         super(keys.get(0).getTable(), referredCols.get(0).getTable());
         if (keys.size() != referredCols.size())
             throw new IllegalArgumentException("size mismatch: " + keys + " != " + referredCols);
@@ -223,34 +249,34 @@ public class Link extends DirectedEdge<SQLTable> {
         return this.getFields().hashCode() + this.getRefFields().hashCode();
     }
 
-    void toXML(final PrintWriter pWriter) {
-        pWriter.print("  <link to=\"" + OUTPUTTER.escapeAttributeEntities(this.getTarget().getSQLName().toString()) + "\" ");
+    void toXML(final Writer pWriter) throws IOException {
+        pWriter.write("  <link to=\"" + OUTPUTTER.escapeAttributeEntities(this.getTarget().getSQLName().toString()) + "\" ");
         if (this.getName() != null)
-            pWriter.print("name=\"" + OUTPUTTER.escapeAttributeEntities(this.getName()) + "\" ");
+            pWriter.write("name=\"" + OUTPUTTER.escapeAttributeEntities(this.getName()) + "\" ");
         if (this.getUpdateRule() != null)
-            pWriter.print("updateRule=\"" + OUTPUTTER.escapeAttributeEntities(this.getUpdateRule().name()) + "\" ");
+            pWriter.write("updateRule=\"" + OUTPUTTER.escapeAttributeEntities(this.getUpdateRule().name()) + "\" ");
         if (this.getDeleteRule() != null)
-            pWriter.print("deleteRule=\"" + OUTPUTTER.escapeAttributeEntities(this.getDeleteRule().name()) + "\" ");
+            pWriter.write("deleteRule=\"" + OUTPUTTER.escapeAttributeEntities(this.getDeleteRule().name()) + "\" ");
         if (this.getFields().size() == 1) {
             toXML(pWriter, 0);
-            pWriter.println("/>");
+            pWriter.write("/>\n");
         } else {
-            pWriter.println(">");
+            pWriter.write(">\n");
             for (int i = 0; i < this.getFields().size(); i++) {
-                pWriter.print("    <l ");
+                pWriter.write("    <l ");
                 toXML(pWriter, i);
-                pWriter.println("/>");
+                pWriter.write("/>\n");
             }
-            pWriter.println("  </link>");
+            pWriter.write("  </link>\n");
         }
     }
 
-    private void toXML(final PrintWriter pWriter, final int i) {
-        pWriter.print("col=\"");
-        pWriter.print(OUTPUTTER.escapeAttributeEntities(this.getFields().get(i).getName()));
-        pWriter.print("\" refCol=\"");
-        pWriter.print(OUTPUTTER.escapeAttributeEntities(this.getRefFields().get(i).getName()));
-        pWriter.print("\"");
+    private void toXML(final Writer pWriter, final int i) throws IOException {
+        pWriter.write("col=\"");
+        pWriter.write(OUTPUTTER.escapeAttributeEntities(this.getFields().get(i).getName()));
+        pWriter.write("\" refCol=\"");
+        pWriter.write(OUTPUTTER.escapeAttributeEntities(this.getRefFields().get(i).getName()));
+        pWriter.write("\"");
     }
 
     static Link fromXML(final SQLTable t, final Element linkElem) {

@@ -15,17 +15,16 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable;
-import org.openconcerto.erp.core.common.ui.DeviseCellEditor;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
+import org.openconcerto.erp.core.common.ui.DeviseNumericCellEditor;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.ui.ArticleRowValuesRenderer;
 import org.openconcerto.erp.core.sales.product.ui.QteUnitRowValuesRenderer;
-import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
@@ -42,6 +41,7 @@ import org.openconcerto.ui.table.XTableColumnModel;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Vector;
@@ -146,18 +146,22 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
 
         list.add(tableElement_ValeurMetrique1);
         // Prix de vente HT de la métrique 1
-        final SQLTableElement tableElement_PrixMetrique1_VenteHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_VT_1"), Long.class, new DeviseCellEditor()) {
-            @Override
-            public TableCellRenderer getTableCellRenderer() {
-
-                List<Integer> l = new ArrayList<Integer>();
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_CARRE));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_LARGEUR));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_LONGUEUR));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_POID_METRECARRE));
-                return new ArticleRowValuesRenderer(l);
-            }
-        };
+        SQLField field = e.getTable().getField("PRIX_METRIQUE_VT_1");
+        final DeviseNumericCellEditor editorPVHT = new DeviseNumericCellEditor(field);
+        editorPVHT.setConvertToTTCEnable(true);
+        final SQLTableElement tableElement_PrixMetrique1_VenteHT = new SQLTableElement(field, BigDecimal.class, editorPVHT);
+        // {
+        // @Override
+        // public TableCellRenderer getTableCellRenderer() {
+        //
+        // List<Integer> l = new ArrayList<Integer>();
+        // l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_CARRE));
+        // l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_LARGEUR));
+        // l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_LONGUEUR));
+        // l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_POID_METRECARRE));
+        // return new ArticleRowValuesRenderer(l);
+        // }
+        // };
         list.add(tableElement_PrixMetrique1_VenteHT);
         // Prix d'achat HT de la métrique 1
         // final SQLTableElement tableElement_PrixMetrique1_AchatHT = new
@@ -188,6 +192,10 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
                 }
             }
 
+            protected Object getDefaultNullValue() {
+                return BigDecimal.ZERO;
+            }
+
             @Override
             public TableCellRenderer getTableCellRenderer() {
                 return new QteUnitRowValuesRenderer();
@@ -211,14 +219,15 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         // SQLTableElement(e.getTable().getField("PA_HT"), Long.class, new DeviseCellEditor());
         // list.add(tableElement_PrixAchat_HT);
         // Prix de vente unitaire HT
-        final SQLTableElement tableElement_PrixVente_HT = new SQLTableElement(e.getTable().getField("PV_HT"), Long.class, new DeviseCellEditor()) {
-            @Override
-            public TableCellRenderer getTableCellRenderer() {
-                List<Integer> l = new ArrayList<Integer>();
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.A_LA_PIECE));
-                return new ArticleRowValuesRenderer(l);
-            }
-        };
+        final SQLTableElement tableElement_PrixVente_HT = new SQLTableElement(e.getTable().getField("PV_HT"), BigDecimal.class);
+        // , new DeviseCellEditor()) {
+        // @Override
+        // public TableCellRenderer getTableCellRenderer() {
+        // List<Integer> l = new ArrayList<Integer>();
+        // l.add(Integer.valueOf(ReferenceArticleSQLElement.A_LA_PIECE));
+        // return new ArticleRowValuesRenderer(l);
+        // }
+        // };
         list.add(tableElement_PrixVente_HT);
 
         // TVA
@@ -245,12 +254,10 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         // this.service = new SQLTableElement(e.getTable().getField("SERVICE"), Boolean.class);
         // list.add(this.service);
         // Total HT
-        this.totalHT = new SQLTableElement(e.getTable().getField("T_PV_HT"), Long.class, new DeviseCellEditor());
-        this.totalHT.setRenderer(new DeviseNiceTableCellRenderer());
+        this.totalHT = new SQLTableElement(e.getTable().getField("T_PV_HT"), BigDecimal.class);
         list.add(this.totalHT);
         // Total TTC
-        this.tableElementTotalTTC = new SQLTableElement(e.getTable().getField("T_PV_TTC"), Long.class, new DeviseCellEditor());
-        this.tableElementTotalTTC.setRenderer(new DeviseNiceTableCellRenderer());
+        this.tableElementTotalTTC = new SQLTableElement(e.getTable().getField("T_PV_TTC"), BigDecimal.class);
         list.add(this.tableElementTotalTTC);
 
         model = new RowValuesTableModel(e, list, e.getTable().getField("NOM"));
@@ -335,11 +342,11 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
             public Object computeValueFrom(final SQLRowValues row) {
                 System.out.println("Compute totalHT");
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
-                Number f = (Number) row.getObject("PV_HT");
+                BigDecimal f = (BigDecimal) row.getObject("PV_HT");
                 System.out.println("Qte:" + qte + " et PV_HT:" + f);
                 BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
-                long r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
-                return new Long(r);
+                BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), MathContext.DECIMAL128).setScale(6, BigDecimal.ROUND_HALF_UP);
+                return r;
             }
 
         });
@@ -352,14 +359,16 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
             @Override
             public Object computeValueFrom(SQLRowValues row) {
 
-                Number f = (Number) row.getObject("T_PV_HT");
+                BigDecimal f = (BigDecimal) row.getObject("T_PV_HT");
                 int idTaux = Integer.parseInt(row.getObject("ID_TAXE").toString());
 
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(idTaux);
 
-                PrixHT pHT = new PrixHT(f.longValue());
+                // PrixHT pHT = new PrixHT(f.longValue());
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
-                Long r = new Long(pHT.calculLongTTC(taux / 100f));
+                // Long r = new Long(pHT.calculLongTTC(taux / 100f));
+
+                BigDecimal r = f.multiply(BigDecimal.ONE.add(BigDecimal.valueOf(taux).movePointLeft(2)), MathContext.DECIMAL128).setScale(6, BigDecimal.ROUND_HALF_UP);
                 return r;
             }
 
@@ -418,12 +427,12 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
             public Object computeValueFrom(SQLRowValues row) {
                 if (row.getInt("ID_MODE_VENTE_ARTICLE") == ReferenceArticleSQLElement.A_LA_PIECE) {
                     System.err.println("Don't computeValue PV_HT --> " + row.getObject("PV_HT") + row);
-                    return new Long(((Number) row.getObject("PRIX_METRIQUE_VT_1")).longValue());
+                    return row.getObject("PRIX_METRIQUE_VT_1");
                 } else {
 
-                    final long prixVTFromDetails = ReferenceArticleSQLElement.getPrixVTFromDetails(row);
+                    final BigDecimal prixVTFromDetails = ReferenceArticleSQLElement.getPrixVTFromDetails(row);
                     System.out.println("Prix de vente calculé au détail:" + prixVTFromDetails);
-                    return new Long(prixVTFromDetails);
+                    return prixVTFromDetails.setScale(tableElement_PrixVente_HT.getDecimalDigits(), RoundingMode.HALF_UP);
                 }
             }
         });

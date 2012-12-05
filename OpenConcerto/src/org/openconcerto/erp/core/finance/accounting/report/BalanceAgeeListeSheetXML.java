@@ -36,6 +36,7 @@ public class BalanceAgeeListeSheetXML extends AbstractListeSheetXml {
     public static String TEMPLATE_ID = "Balance agée";
 
     public BalanceAgeeListeSheetXML(Date deb, Date fin) {
+        super();
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.deb = deb;
         this.fin = fin;
@@ -46,9 +47,19 @@ public class BalanceAgeeListeSheetXML extends AbstractListeSheetXml {
         return "BalanceAgee";
     }
 
+    Date d;
+
     @Override
     public String getName() {
-        return "BalanceAgee" + new Date().getTime();
+        if (d == null) {
+            d = new Date();
+        }
+        return "BalanceAgee" + d.getTime();
+    }
+
+    @Override
+    protected String getStoragePathP() {
+        return "Balance";
     }
 
     protected void createListeValues() {

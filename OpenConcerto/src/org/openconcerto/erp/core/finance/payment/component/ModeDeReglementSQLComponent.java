@@ -388,7 +388,7 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
 
             setEcheanceEnabled(!vals.getBoolean("COMPTANT"), vals.getInt("ID_TYPE_REGLEMENT"));
             super.select(rVals);
-            if (rVals.getInt("LENJOUR") != 0 && rVals.getInt("LENJOUR") != 31) {
+            if (rVals.getObject("LENJOUR") != null && rVals.getInt("LENJOUR") != 0 && rVals.getInt("LENJOUR") != 31) {
                 this.buttonLe.setSelected(true);
             }
             this.checkboxComptant.addItemListener(this.listenerComptant);

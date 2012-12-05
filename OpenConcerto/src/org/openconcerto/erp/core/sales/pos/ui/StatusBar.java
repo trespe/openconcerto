@@ -40,7 +40,6 @@ public class StatusBar extends JPanel {
         bg = new ImageIcon(TicketPanel.class.getResource(fileBg)).getImage();
         bg_retour = new ImageIcon(TicketPanel.class.getResource(fileFg)).getImage();
         setFont(new Font("Arial", Font.BOLD, 24));
-
     }
 
     public void setPrevious(boolean b) {
@@ -48,7 +47,6 @@ public class StatusBar extends JPanel {
             this.previous = b;
             repaint();
         }
-
     }
 
     public void setTitle(String t) {
@@ -66,7 +64,7 @@ public class StatusBar extends JPanel {
     protected void paintComponent(Graphics g) {
         final int w = this.getWidth();
         int imWidth = bg.getWidth(null);
-        for (int x = imWidth; x <= w; x += imWidth) {
+        for (int x = imWidth - 1; x <= w; x += imWidth) {
             g.drawImage(bg, x, 0, null);
         }
         if (previous)
@@ -81,7 +79,6 @@ public class StatusBar extends JPanel {
     @Override
     public Dimension getMinimumSize() {
         return new Dimension(320, 44);
-
     }
 
     @Override

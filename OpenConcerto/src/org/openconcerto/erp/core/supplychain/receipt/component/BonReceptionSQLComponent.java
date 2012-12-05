@@ -51,6 +51,10 @@ import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -186,6 +190,14 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.BOTH;
         this.add(this.tableBonItem, c);
+        this.fournisseur.addValueListener(new PropertyChangeListener() {
+
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                tableBonItem.setFournisseur(fournisseur.getSelectedRow());
+            }
+        });
+
         c.anchor = GridBagConstraints.EAST;
         // Totaux
         reconfigure(this.textTotalHT);
@@ -508,19 +520,22 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
             if (idArticle > 1) {
                 // Prix d'achat de l'article à l'origine
                 SQLRow rowArticle = eltArticle.getTable().getRow(idArticle);
-                Long prixHA = (Long) rowArticle.getObject("PRIX_METRIQUE_HA_1");
+                BigDecimal prixHA = (BigDecimal) rowArticle.getObject("PRIX_METRIQUE_HA_1");
 
                 // Quantité en stock
                 int idStock = rowArticle.getInt("ID_STOCK");
                 SQLRow rowStock = eltStock.getTable().getRow(idStock);
-                int qteStock = rowStock.getInt("QTE_REEL");
-                if (prixHA != null && qteStock > 0) {
-                    int qteRecue = rowEltBon.getInt("QTE");
-                    Long prixHACmd = (Long) rowEltBon.getObject("PRIX_METRIQUE_HA_1");
-                    if (qteRecue > 0 && prixHACmd != null) {
-                        long prixHaPond = (qteRecue * prixHACmd + qteStock * prixHA) / (qteRecue + qteStock);
+                BigDecimal qteStock = new BigDecimal(rowStock.getInt("QTE_REEL"));
+                if (prixHA != null && qteStock.compareTo(BigDecimal.ZERO) > 0) {
+                    BigDecimal qteRecue = new BigDecimal(rowEltBon.getInt("QTE"));
+                    BigDecimal prixHACmd = (BigDecimal) rowEltBon.getObject("PRIX_METRIQUE_HA_1");
+                    if (qteRecue.compareTo(BigDecimal.ZERO) > 0 && prixHACmd != null) {
+                        BigDecimal totalHARecue = qteRecue.multiply(prixHACmd, MathContext.DECIMAL128);
+                        BigDecimal totalHAStock = qteStock.multiply(prixHA, MathContext.DECIMAL128);
+                        BigDecimal totalQte = qteRecue.add(qteStock);
+                        BigDecimal prixHaPond = totalHARecue.add(totalHAStock).divide(totalQte);
                         SQLRowValues rowValsArticle = rowArticle.createEmptyUpdateRow();
-                        rowValsArticle.put("PRIX_METRIQUE_HA_1", Long.valueOf(prixHaPond));
+                        rowValsArticle.put("PRIX_METRIQUE_HA_1", prixHaPond);
                         try {
                             rowValsArticle.commit();
                         } catch (SQLException e) {

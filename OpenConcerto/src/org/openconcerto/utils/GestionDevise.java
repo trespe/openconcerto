@@ -50,7 +50,7 @@ public class GestionDevise {
                 if (decpl == -1) {
                     decpl = 0;
                 } else {
-                    throw new NumberFormatException("more than one decimal point");
+                    throw new NumberFormatException(numStr + " More than one decimal point");
                 }
                 break;
             case '0':
@@ -90,24 +90,29 @@ public class GestionDevise {
         if (numStr.trim().length() == 0) {
             return 0;
         }
-        long num = Long.parseLong(numStr);
+        try {
+            long num = Long.parseLong(numStr);
 
-        // Si il n'y a pas de virgule, ou aucun chiffre apres la virgule
-        if (decpl == -1 || decpl == 0) {
-            num *= 100;
-        } else {
-            // FIXME
-            if (decpl == 2) {
-                /* it is fine as is */
+            // Si il n'y a pas de virgule, ou aucun chiffre apres la virgule
+            if (decpl == -1 || decpl == 0) {
+                num *= 100;
             } else {
-                ExceptionHandler.handle(numStr + " wrong number of decimal places.");
-                return 0;
+                // FIXME
+                if (decpl == 2) {
+                    /* it is fine as is */
+                } else {
+                    ExceptionHandler.handle(numStr + " wrong number of decimal places.");
+                    return 0;
+                }
             }
+            if (negative) {
+                num = -num;
+            }
+            return num;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
         }
-        if (negative) {
-            num = -num;
-        }
-        return num;
     }
 
     /**

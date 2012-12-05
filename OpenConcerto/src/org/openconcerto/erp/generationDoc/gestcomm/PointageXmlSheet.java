@@ -37,14 +37,12 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
 
     public static final String TEMPLATE_ID = "Pointage";
     public static final String TEMPLATE_PROPERTY_NAME = DEFAULT_PROPERTY_NAME;
-    private Map<Integer, List<Map<String, Object>>> listAllSheetValues;
-    private Map<Integer, Map<Integer, String>> styleAllSheetValues;
-    private Map<Integer, Map<String, Object>> mapAllSheetValues;
     private Calendar c = Calendar.getInstance();
     private Date date = new Date();
     private final long MILLIS_IN_HOUR = 3600000;
 
     public PointageXmlSheet(int mois, int year) {
+        super();
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.mapAllSheetValues = new HashMap<Integer, Map<String, Object>>();
         this.c.set(Calendar.DAY_OF_MONTH, 1);
@@ -58,7 +56,15 @@ public class PointageXmlSheet extends AbstractListeSheetXml {
     }
 
     @Override
+    protected String getStoragePathP() {
+        return "Pointage";
+    }
+
+    @Override
     public String getName() {
+        if (this.date == null) {
+            this.date = new Date();
+        }
         return "Pointage" + this.date;
     }
 

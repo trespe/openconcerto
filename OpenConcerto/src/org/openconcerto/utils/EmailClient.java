@@ -344,6 +344,8 @@ public abstract class EmailClient {
             }
             w.println("end tell");
             w.close();
+            if (w.checkError())
+                throw new IOException();
 
             final int returnCode = process.waitFor();
             if (returnCode != 0)

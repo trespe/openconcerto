@@ -45,7 +45,7 @@ final class ReOrderH2 extends ReOrder {
         // FROM "test"."test"."OBSERVATION" "T"
         // WHERE "T"."ORDRE" <= -2
         // ORDER BY "T"."ORDRE" DESC NULLS LAST, "T"."ID" ASC
-        final SQLSelect idsToReorder = new SQLSelect(this.t.getBase(), true);
+        final SQLSelect idsToReorder = new SQLSelect(true);
         idsToReorder.addFrom(this.t, alias);
         idsToReorder.addSelect(tID);
         final Where updateNulls = this.isAll() ? new Where(tOrder, "is", (Object) null) : null;
@@ -59,11 +59,9 @@ final class ReOrderH2 extends ReOrder {
         res.add("CREATE LOCAL TEMPORARY TABLE REORDER as select M.ID, " + this.getFirstOrderValue() + " +(M.ind - 1) * @inc as ORDRE from (\n" + "SELECT rownum() as ind, "
                 + new SQLName(idName).quote() + " as ID from (" + idsToReorder.asString() + ") ) M;");
 
-        res.add(this.t.getBase().quote("UPDATE %f %i SET ( %n ) = (\n" +
-        // cast since Subquery.getValue() doesn't return an array if there's only 1 column
-                "        cast ( select M.ORDRE from REORDER M where M.ID = " + tID.getFieldRef() + " as ARRAY ) \n" + "    ) where " + w.getClause() + ";",
+        res.add(this.t.getBase().quote("UPDATE %f %i SET %n = (\n" +
         //
-                this.t, alias, oF));
+                "        select M.ORDRE from REORDER M where M.ID = " + tID.getFieldRef() + ")\nwhere " + w.getClause() + ";", this.t, alias, oF));
 
         return res;
     }

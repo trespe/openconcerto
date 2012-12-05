@@ -19,8 +19,9 @@ package org.openconcerto.sql.model;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.LoadingListener.LoadingEvent;
 import org.openconcerto.sql.model.LoadingListener.StructureLoadingEvent;
-import org.openconcerto.sql.model.StructureSource.PrechangeException;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
+import org.openconcerto.sql.model.graph.TablesMap;
+import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.Tuple3;
@@ -29,18 +30,19 @@ import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.PrintWriter;
+import java.io.IOException;
+import java.io.Writer;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
+import java.sql.Statement;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Map.Entry;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -63,12 +65,19 @@ public class SQLBase extends SQLIdentifier {
 
     /**
      * Boolean system property, if <code>true</code> then the structure and the graph of SQL base
-     * will be loaded from XML instead of JDBC.
+     * will default to be loaded from XML instead of JDBC.
+     * 
+     * @see DBSystemRoot#useCache()
      */
     public static final String STRUCTURE_USE_XML = "org.openconcerto.sql.structure.useXML";
     /**
+     * Boolean system property, if <code>true</code> then when the structure of SQL base cannot be
+     * loaded from XML, the files are not deleted.
+     */
+    public static final String STRUCTURE_KEEP_INVALID_XML = "org.openconcerto.sql.structure.keepInvalidXML";
+    /**
      * Boolean system property, if <code>true</code> then schemas and tables can be dropped,
-     * otherwise {@link #fetchTables()} will throw an exception.
+     * otherwise the refresh will throw an exception.
      */
     public static final String ALLOW_OBJECT_REMOVAL = "org.openconcerto.sql.identifier.allowRemoval";
 
@@ -126,9 +135,9 @@ public class SQLBase extends SQLIdentifier {
             sysRoot.setDS(login, pass, dsInit);
     }
 
-    final void init(final boolean readCache) {
+    final TablesMap init(final boolean readCache) {
         try {
-            refresh(null, readCache, true);
+            return refresh(null, readCache, true);
         } catch (SQLException e) {
             throw new IllegalStateException("could not init " + this, e);
         }
@@ -141,22 +150,26 @@ public class SQLBase extends SQLIdentifier {
         super.onDrop();
     }
 
-    void refresh(final Set<String> namesToRefresh, final boolean readCache) throws SQLException {
-        this.refresh(namesToRefresh, readCache, false);
+    TablesMap refresh(final TablesMap namesToRefresh, final boolean readCache) throws SQLException {
+        return this.refresh(namesToRefresh, readCache, false);
     }
 
-    private void refresh(final Set<String> namesToRefresh, final boolean readCache, final boolean inCtor) throws SQLException {
+    // what tables were loaded by JDBC
+    private TablesMap refresh(final TablesMap namesToRefresh, final boolean readCache, final boolean inCtor) throws SQLException {
         if (readCache)
-            loadTables(namesToRefresh, inCtor);
+            return loadTables(namesToRefresh, inCtor);
         else
-            fetchTables(namesToRefresh);
+            return fetchTables(namesToRefresh);
     }
 
-    private final Set<String> loadTables(final Set<String> childrenNames, boolean inCtor) throws SQLException {
+    private final TablesMap loadTables(TablesMap childrenNames, boolean inCtor) throws SQLException {
         this.checkDropped();
+        if (childrenNames != null && childrenNames.size() == 0)
+            return childrenNames;
+        childrenNames = assureAllTables(childrenNames);
         final DBItemFileCache dir = getFileCache();
         synchronized (getTreeMutex()) {
-            Map<String, SQLSchema> newStruct = null;
+            XMLStructureSource xmlStructSrc = null;
             if (dir != null) {
                 try {
                     Log.get().config("for mapping " + this + " trying xmls in " + dir);
@@ -167,66 +180,74 @@ public class SQLBase extends SQLIdentifier {
                     // then we will call refreshTables(JDBC) and it will be re-added
                     // => so we removed our child for nothing (firing unneeded events, rendering
                     // java objects useless and possibly destroying the systemRoot path)
-                    final XMLStructureSource xmlStructSrc = new XMLStructureSource(this, childrenNames);
+                    xmlStructSrc = new XMLStructureSource(this, childrenNames, dir);
+                    assert xmlStructSrc.isPreVerify();
                     xmlStructSrc.init();
-                    newStruct = xmlStructSrc.getNewStructure();
                     final long t2 = System.currentTimeMillis();
                     Log.get().config("XML took " + (t2 - t1) + "ms for mapping " + this.getName() + "." + xmlStructSrc.getSchemas());
                 } catch (Exception e) {
                     logCacheError(dir, e);
-                    // delete all files not just structure, since every information about obsolete
-                    // schemas is obsolete delete all schemas, otherwise if afterwards we load one
-                    // file it might be valid alone but we know that along with its siblings it's
-                    // not
-                    dir.delete();
-                    if (!(e instanceof PrechangeException) && !inCtor) {
-                        throw new IllegalStateException("could not load XMLs", e);
-                    }
-                    if (inCtor) {
-                        // remove successfully created schemas and descendants
-                        // no need to drop them since nobody holds a reference
-                        this.schemas.clear();
-                    }
-                    // if it was a PrechangeException, schemas weren't changed
+                    // since isPreVerify() is true, schemas weren't changed.
+                    // if an error reached us, we cannot trust the loaded structure (e.g.
+                    // IOExceptions are handled by XMLStructureSource)
+                    xmlStructSrc = null;
                 }
             }
 
             final long t1 = System.currentTimeMillis();
             // always do the fetchTables() since XML do nothing anymore
-            final JDBCStructureSource jdbcStructSrc = this.fetchTablesP(childrenNames, newStruct);
+            final JDBCStructureSource jdbcStructSrc = this.fetchTablesP(childrenNames, xmlStructSrc);
             final long t2 = System.currentTimeMillis();
             Log.get().config("JDBC took " + (t2 - t1) + "ms for mapping " + this.getName() + "." + jdbcStructSrc.getSchemas());
-            return jdbcStructSrc.getSchemas();
+            return jdbcStructSrc.getTablesMap();
         }
     }
 
-    public final void fetchTables() throws SQLException {
-        this.fetchTables(null);
+    private final TablesMap assureAllTables(final TablesMap childrenNames) {
+        // don't allow partial schemas (we do the same in SQLServer.refresh()) since
+        // JDBCStructureSource needs to check for SQLSchema.METADATA_TABLENAME
+        final TablesMap res;
+        if (childrenNames == null) {
+            res = childrenNames;
+        } else {
+            res = TablesMap.create(childrenNames);
+            for (final Entry<String, Set<String>> e : childrenNames.entrySet()) {
+                final String schemaName = e.getKey();
+                if (e.getValue() != null && !this.contains(schemaName)) {
+                    res.put(schemaName, null);
+                }
+            }
+        }
+        return res;
     }
 
     /**
      * Load the structure from JDBC.
      * 
-     * @param childrenNames which children to refresh.
+     * @param childrenNames which children to refresh, <code>null</code> meaning all.
+     * @return tables actually loaded, never <code>null</code>.
      * @throws SQLException if an error occurs.
      * @see DBSystemRoot#refetch(Set)
      */
-    public void fetchTables(Set<String> childrenNames) throws SQLException {
-        this.fetchTablesP(childrenNames, null);
+    TablesMap fetchTables(TablesMap childrenNames) throws SQLException {
+        if (childrenNames != null && childrenNames.size() == 0)
+            return childrenNames;
+        return this.fetchTablesP(assureAllTables(childrenNames), null).getTablesMap();
     }
 
-    private JDBCStructureSource fetchTablesP(Set<String> childrenNames, Map<String, SQLSchema> newStruct) throws SQLException {
-        final LoadingEvent evt = new StructureLoadingEvent(this, childrenNames);
+    private JDBCStructureSource fetchTablesP(TablesMap childrenNames, StructureSource<?> external) throws SQLException {
+        // TODO pass TablesByRoot to event
+        final LoadingEvent evt = new StructureLoadingEvent(this, childrenNames == null ? null : childrenNames.keySet());
         final DBSystemRoot sysRoot = this.getDBSystemRoot();
         try {
             sysRoot.fireLoading(evt);
-            return this.refreshTables(new JDBCStructureSource(this, childrenNames, newStruct));
+            return this.refreshTables(new JDBCStructureSource(this, childrenNames, external == null ? null : external.getNewStructure(), external == null ? null : external.getOutOfDateSchemas()));
         } finally {
             sysRoot.fireLoading(evt.createFinishingEvent());
         }
     }
 
-    public final Set<String> loadTables() throws SQLException {
+    final TablesMap loadTables() throws SQLException {
         return this.loadTables(null);
     }
 
@@ -234,10 +255,10 @@ public class SQLBase extends SQLIdentifier {
      * Tries to load the structure from XMLs, if that fails fallback to JDBC.
      * 
      * @param childrenNames which children to refresh.
-     * @return schemas loaded with JDBC.
+     * @return tables loaded with JDBC.
      * @throws SQLException if an error occurs in JDBC.
      */
-    public Set<String> loadTables(Set<String> childrenNames) throws SQLException {
+    final TablesMap loadTables(TablesMap childrenNames) throws SQLException {
         return this.loadTables(childrenNames, false);
     }
 
@@ -248,7 +269,7 @@ public class SQLBase extends SQLIdentifier {
 
             // refresh schemas
             final Set<String> newSchemas = src.getTotalSchemas();
-            final Set<String> currentSchemas = src.getSchemasToRefresh();
+            final Set<String> currentSchemas = src.getExistingSchemasToRefresh();
             mustContain(this, newSchemas, currentSchemas, "schemas");
             // remove all schemas that are not there anymore
             for (final String schema : CollectionUtils.substract(currentSchemas, newSchemas)) {
@@ -274,7 +295,7 @@ public class SQLBase extends SQLIdentifier {
 
             // refresh tables
             final Set<SQLName> newTableNames = src.getTotalTablesNames();
-            final Set<SQLName> currentTables = src.getTablesToRefresh();
+            final Set<SQLName> currentTables = src.getExistingTablesToRefresh();
             // we can only add, cause instances of SQLTable are everywhere
             mustContain(this, newTableNames, currentTables, "tables");
             // remove dropped tables
@@ -295,24 +316,23 @@ public class SQLBase extends SQLIdentifier {
 
             // fill with columns
             src.fillTables();
-            // if necessary create the metadata table and insert the version
-            for (final String sn : src.getSchemas()) {
-                final SQLSchema s = this.getSchema(sn);
-                if (s.getVersion() == null)
-                    try {
-                        // don't create a table in a refresh, before descendantsChanged() is even
-                        // fired. The table is created by JDBCStructureSource.getNames()
-                        s.updateVersion(false);
-                    } catch (SQLException e) {
-                        // tant pis, les metadata ne sont pas nécessaires
-                        e.printStackTrace();
-                    }
-            }
 
             // don't signal our systemRoot if our server doesn't yet reference us,
             // otherwise the server will create another instance and enter an infinite loop
             assert this.getServer().getBase(this.getName()) == this;
-            this.getDBSystemRoot().descendantsChanged(this, src.getToRefresh(), src.hasExternalStruct());
+            final TablesMap byRoot;
+            final TablesMap toRefresh = src.getToRefresh();
+            if (toRefresh == null) {
+                byRoot = TablesMap.createByRootFromChildren(this, null);
+            } else {
+                final DBRoot root = this.getDBRoot();
+                if (root != null) {
+                    byRoot = TablesMap.createFromTables(root.getName(), toRefresh.get(null));
+                } else {
+                    byRoot = toRefresh;
+                }
+            }
+            this.getDBSystemRoot().descendantsChanged(byRoot, src.hasExternalStruct(), true);
         }
         src.save();
         return src;
@@ -532,12 +552,77 @@ public class SQLBase extends SQLIdentifier {
 
     // ** metadata
 
-    // will throw an exn if SQLSchema.METADATA_TABLENAME does not exist
-    String getFwkMetadata(String schema, String name) {
+    /**
+     * Get a metadata.
+     * 
+     * @param schema the name of the schema.
+     * @param name the name of the meta data.
+     * @param shouldTestForTable <code>true</code> if the method should try to test if the table
+     *        exists, <code>false</code> to just execute a SELECT. Important for postgreSQL since an
+     *        error aborts the whole transaction.
+     * @return the requested meta data, can be <code>null</code> (including if
+     *         {@value SQLSchema#METADATA_TABLENAME} does not exist).
+     */
+    String getFwkMetadata(String schema, String name, final boolean shouldTestForTable) {
         final SQLName tableName = new SQLName(this.getName(), schema, SQLSchema.METADATA_TABLENAME);
-        final String sel = SQLSelect.quote("SELECT \"VALUE\" FROM %i WHERE \"NAME\"= %s", tableName, name);
-        // don't use cache since setFwkMetadata() might not have a SQLTable to fire
-        return (String) this.getDataSource().execute(sel, new IResultSetHandler(SQLDataSource.SCALAR_HANDLER, false));
+        final String sel = SQLSelect.quote("SELECT \"VALUE\" FROM " + tableName.quote() + " WHERE \"NAME\"= " + this.quoteString(name));
+        // In postgreSQL once there's an error the transaction is aborted and further queries throw
+        // an exception. In H2 and MySQL, the transaction is *not* aborted.
+        final SQLSystem system = getServer().getSQLSystem();
+        if (shouldTestForTable && system == SQLSystem.POSTGRESQL) {
+            final String stringDel = "$sel$";
+            if (sel.contains(stringDel))
+                throw new IllegalStateException(sel + " contains string delimiter : " + stringDel);
+            final String funcName = SQLBase.quoteIdentifier(schema) + ".ifExistText";
+            final String query = "create or replace function " + funcName + "(schemaName text, tableName text, doesExist text, doesNotExist text) returns text as $BODY$\n"
+            // body
+                    + "declare res text;\nbegin\n"
+                    //
+                    + "    drop function " + funcName + "(text,text,text,text);\n"
+                    //
+                    + "    if EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = schemaName and table_name = tableName) then\n"
+                    //
+                    + "        execute doesExist into res; else execute doesNotExist into res;\n"
+                    //
+                    + "    end if;\n"
+                    //
+                    + "    return res;\nend;\n$BODY$ LANGUAGE plpgsql;\n"
+                    //
+                    + "select " + funcName + "(" + this.quoteString(schema) + ", " + this.quoteString(SQLSchema.METADATA_TABLENAME) + ", " + stringDel + sel + stringDel + ", 'SELECT NULL')";
+            try {
+                return this.getDataSource().useConnection(new ConnectionHandlerNoSetup<String, SQLException>() {
+                    @Override
+                    public String handle(SQLDataSource ds) throws SQLException, SQLException {
+                        final Statement stmt = ds.getConnection().createStatement();
+                        stmt.execute(query);
+                        if (!stmt.getMoreResults())
+                            throw new IllegalStateException("No result");
+                        return (String) SQLDataSource.SCALAR_HANDLER.handle(stmt.getResultSet());
+                    }
+                });
+            } catch (SQLException e) {
+                throw new IllegalStateException(e);
+            }
+        } else {
+            try {
+                return (String) this.getDataSource().execute(sel, new IResultSetHandler(SQLDataSource.SCALAR_HANDLER, false));
+            } catch (RuntimeException rtExn) {
+                // pg transactions are aborted, so let the caller know right away (better than to
+                // continue and fail later)
+                try {
+                    if (system == SQLSystem.POSTGRESQL && this.getDataSource().handlingConnection() && !this.getDataSource().getConnection().getAutoCommit())
+                        throw rtExn;
+                } catch (SQLException e) {
+                    throw new IllegalStateException("Couldn't get auto commit : " + e.getMessage() + " " + e.getSQLState(), rtExn);
+                }
+                final SQLException sqlExn = SQLUtils.findWithSQLState(rtExn);
+                // table or view not found
+                if (sqlExn != null && (sqlExn.getSQLState().equals("42S02") || sqlExn.getSQLState().equals("42P01")))
+                    return null;
+                else
+                    throw rtExn;
+            }
+        }
     }
 
     public final String getMDName() {
@@ -559,20 +644,20 @@ public class SQLBase extends SQLIdentifier {
 
     // ** files
 
-    private static final String FILENAME = "structure.xml";
+    static final String FILENAME = "structure.xml";
 
     static final boolean isSaved(final SQLServer s, final String base, final String schema) {
         return s.getFileCache().getChild(base, schema).getFile(SQLBase.FILENAME).exists();
     }
 
     /**
-     * Where xml dumps are saved, always <code>null</code> if {@link #STRUCTURE_USE_XML} is
+     * Where xml dumps are saved, always <code>null</code> if {@link DBSystemRoot#useCache()} is
      * <code>false</code>.
      * 
      * @return the directory of xmls dumps, <code>null</code> if it can't be found.
      */
     private final DBItemFileCache getFileCache() {
-        final boolean useXML = Boolean.getBoolean(STRUCTURE_USE_XML);
+        final boolean useXML = this.getDBSystemRoot().useCache();
         final DBFileCache fileCache = this.getServer().getFileCache();
         if (!useXML || fileCache == null)
             return null;
@@ -581,11 +666,15 @@ public class SQLBase extends SQLIdentifier {
         }
     }
 
-    final File getSchemaFile(String schema) {
+    private final DBItemFileCache getSchemaFileCache(String schema) {
         final DBItemFileCache item = this.getFileCache();
         if (item == null)
             return null;
-        return item.getChild(schema).getFile(FILENAME);
+        return item.getChild(schema);
+    }
+
+    final List<DBItemFileCache> getSavedShemaCaches() {
+        return this.getSavedCaches(true);
     }
 
     private final List<DBItemFileCache> getSavedCaches(boolean withStruct) {
@@ -595,14 +684,6 @@ public class SQLBase extends SQLIdentifier {
         else {
             return item.getSavedDesc(SQLSchema.class, withStruct ? FILENAME : null);
         }
-    }
-
-    final List<String> getSavedSchemas() {
-        final List<String> res = new ArrayList<String>();
-        for (final DBItemFileCache schemaF : this.getSavedCaches(true)) {
-            res.add(schemaF.getName());
-        }
-        return res;
     }
 
     final boolean isSaved(String schema) {
@@ -619,22 +700,37 @@ public class SQLBase extends SQLIdentifier {
     }
 
     boolean save(String schemaName) {
-        final File schemaFile = this.getSchemaFile(schemaName);
-        if (schemaFile == null)
+        final DBItemFileCache schemaFileCache = this.getSchemaFileCache(schemaName);
+        if (schemaFileCache == null) {
             return false;
-        else
+        } else {
+            final File schemaFile = schemaFileCache.getFile(FILENAME);
+            Writer pWriter = null;
             try {
+                final String schema = this.getSchema(schemaName).toXML();
+                if (schema == null)
+                    return false;
                 FileUtils.mkdir_p(schemaFile.getParentFile());
-                final SQLSchema schema = this.getSchema(schemaName);
-                PrintWriter pWriter = new PrintWriter(new FileOutputStream(schemaFile));
-                pWriter.println("<root codecVersion=\"" + XMLStructureSource.version + "\" >\n" + schema.toXML() + "\n</root>");
-                pWriter.close();
+                // Might save garbage if two threads open the same file
+                synchronized (this) {
+                    pWriter = FileUtils.createXMLWriter(schemaFile);
+                    pWriter.write("<root codecVersion=\"" + XMLStructureSource.version + "\" >\n" + schema + "\n</root>\n");
+                }
 
                 return true;
             } catch (Exception e) {
                 Log.get().log(Level.WARNING, "unable to save files in " + schemaFile, e);
                 return false;
+            } finally {
+                if (pWriter != null) {
+                    try {
+                        pWriter.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
+        }
     }
 
     // *** quoting
@@ -714,7 +810,9 @@ public class SQLBase extends SQLIdentifier {
         return quoteStringStd(s);
     }
 
-    static private final Pattern singleQuote = Pattern.compile("'");
+    static private final Pattern singleQuote = Pattern.compile("'", Pattern.LITERAL);
+    static private final Pattern quotedPatrn = Pattern.compile("^'(('')|[^'])*'$");
+    static private final Pattern twoSingleQuote = Pattern.compile("''", Pattern.LITERAL);
 
     /**
      * Quote an sql string the standard way. See section 4.1.2.1. String Constants of postgresql
@@ -725,6 +823,25 @@ public class SQLBase extends SQLIdentifier {
      */
     public final static String quoteStringStd(String s) {
         return "'" + singleQuote.matcher(s).replaceAll("''") + "'";
+    }
+
+    /**
+     * Unquote an SQL string the standard way.
+     * <p>
+     * NOTE : There's no unquoteString() instance method since it can be affected by session
+     * parameters. So to be correct the method should execute a request each time to find out these
+     * values. But if it did that, it might as well execute <code>"SELECT ?"</code> with the string
+     * (and <b>not</b> <code>executeScalar("SELECT " + s)</code> to avoid SQL injection).
+     * </p>
+     * 
+     * @param s an arbitrary SQL string, e.g. 'salu\t l''ami'.
+     * @return the java string, e.g. "salu\\t l'ami".
+     * @see #quoteStringStd(String)
+     */
+    public final static String unquoteStringStd(String s) {
+        if (!quotedPatrn.matcher(s).find())
+            throw new IllegalArgumentException("Invalid quoted string " + s);
+        return twoSingleQuote.matcher(s.substring(1, s.length() - 1)).replaceAll("'");
     }
 
     public final static String quoteString(SQLBase b, String s) {

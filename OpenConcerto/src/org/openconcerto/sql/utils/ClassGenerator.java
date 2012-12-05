@@ -18,12 +18,13 @@ package org.openconcerto.sql.utils;
 
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StringUtils;
+import org.openconcerto.utils.io.NewLineWriter;
 
-import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
-import java.io.PrintStream;
-import java.util.Iterator;
+import java.io.File;
+import java.io.IOException;
+import java.io.StringWriter;
 import java.util.List;
 
 public class ClassGenerator {
@@ -37,9 +38,8 @@ public class ClassGenerator {
      */
     public static void generate(SQLTable t, String classname) {
         try {
-            FileOutputStream fop = new FileOutputStream("out.java");
-            PrintStream out = new PrintStream(fop);
-            List f = t.getOrderedFields();
+            final NewLineWriter out = new NewLineWriter(FileUtils.createWriter(new File("out.java")));
+            final List<SQLField> f = t.getOrderedFields();
             f.remove(t.getArchiveField());
             f.remove(t.getOrderField());
             f.remove(t.getKey());
@@ -49,23 +49,15 @@ public class ClassGenerator {
             generateMappingXML(t, f, out);
 
             out.close();
-            fop.close();
-
         } catch (Exception e) {
             e.printStackTrace();
         }
 
     }
 
-    /**
-     * @param t
-     * @param out
-     * @param f
-     */
-    public static void generateMappingXML(SQLTable t, List f, PrintStream out) {
+    public static void generateMappingXML(SQLTable t, List<SQLField> f, NewLineWriter out) throws IOException {
         out.println("<TABLE name=\"" + t.getName() + "\">");
-        for (Iterator iter = f.iterator(); iter.hasNext();) {
-            SQLField element = (SQLField) iter.next();
+        for (final SQLField element : f) {
             final String fieldName = StringUtils.firstUpThenLow(element.getName()).replace('_', ' ');
             out.println("   <FIELD name=\"" + element.getName() + "\" label=\"" + fieldName + "\" titleLabel=\"" + fieldName + "\" />");
 
@@ -73,7 +65,7 @@ public class ClassGenerator {
         out.println("</TABLE>");
     }
 
-    public static List generateAutoLayoutedJComponent(SQLTable t, List f, String classname, PrintStream out, String packageName) {
+    public static List<SQLField> generateAutoLayoutedJComponent(SQLTable t, List<SQLField> f, String classname, NewLineWriter out, String packageName) throws IOException {
 
         if (packageName != null && packageName.length() > 0) {
             out.print("package ");
@@ -104,8 +96,7 @@ public class ClassGenerator {
         // List
         out.println("    protected List<String> getListFields() {");
         out.println("        final List<String> l = new ArrayList<String>();");
-        for (Iterator iter = f.iterator(); iter.hasNext();) {
-            SQLField element = (SQLField) iter.next();
+        for (final SQLField element : f) {
             if (!element.isPrimaryKey() && !element.getName().equals("ORDRE")) {
                 out.println("        l.add(\"" + element.getName() + "\");");
             }
@@ -117,8 +108,7 @@ public class ClassGenerator {
         // Combo
         out.println("    protected List<String> getComboFields() {");
         out.println("        final List<String> l = new ArrayList<String>();");
-        for (Iterator iter = f.iterator(); iter.hasNext();) {
-            SQLField element = (SQLField) iter.next();
+        for (final SQLField element : f) {
             if (!element.isPrimaryKey() && !element.getName().equals("ORDRE")) {
                 out.println("        l.add(\"" + element.getName() + "\");");
             }
@@ -134,8 +124,7 @@ public class ClassGenerator {
         out.println("            @Override");
         out.println("            protected Set<String> createRequiredNames() {");
         out.println("                final Set<String> s = new HashSet<String>();");
-        for (Iterator iter = f.iterator(); iter.hasNext();) {
-            SQLField element = (SQLField) iter.next();
+        for (final SQLField element : f) {
             if (!element.isPrimaryKey() && !element.getName().equals("ORDRE")) {
                 out.println("                // s.add(\"" + element.getName() + "\");");
             }
@@ -145,8 +134,7 @@ public class ClassGenerator {
         out.println();
         out.println("            public void addViews() {");
         SQLField first = null;
-        for (Iterator iter = f.iterator(); iter.hasNext();) {
-            SQLField element = (SQLField) iter.next();
+        for (final SQLField element : f) {
             if (first == null) {
                 first = element;
             }
@@ -168,20 +156,26 @@ public class ClassGenerator {
     }
 
     public static String generateAutoLayoutedJComponent(SQLTable table, String c, String packageName) {
-        ByteArrayOutputStream b = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(b);
+        StringWriter b = new StringWriter();
         final List<SQLField> f = getOrderedContentFields(table);
-        generateAutoLayoutedJComponent(table, f, c, ps, packageName);
-        ps.close();
+        try {
+            generateAutoLayoutedJComponent(table, f, c, new NewLineWriter(b), packageName);
+        } catch (IOException e) {
+            // shouldn't happen with StringWriter
+            throw new IllegalStateException(e);
+        }
         return b.toString();
     }
 
     public static String generateMappingXML(SQLTable table, String c) {
-        ByteArrayOutputStream b = new ByteArrayOutputStream();
-        PrintStream ps = new PrintStream(b);
+        StringWriter b = new StringWriter();
         final List<SQLField> f = getOrderedContentFields(table);
-        generateMappingXML(table, f, ps);
-        ps.close();
+        try {
+            generateMappingXML(table, f, new NewLineWriter(b));
+        } catch (IOException e) {
+            // shouldn't happen with StringWriter
+            throw new IllegalStateException(e);
+        }
         return b.toString();
     }
 

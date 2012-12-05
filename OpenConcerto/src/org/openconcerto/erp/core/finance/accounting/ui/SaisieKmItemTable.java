@@ -52,6 +52,8 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.ToolTipManager;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 
 public class SaisieKmItemTable extends JPanel implements MouseListener {
 
@@ -148,16 +150,18 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
         this.credit.setRenderer(this.deviseRenderer);
 
         this.table.addMouseListener(this);
+        this.table.getModel().addTableModelListener(new TableModelListener() {
 
-        // numeroCompteRenderer.setMapValue(0, 3);
-        // numeroCompteRenderer.setMapValue(1, 3);
-        // numeroCompteRenderer.setMapValue(2, 3);
-        // deviseRenderer.setMapValue(3, 4);
-        // deviseRenderer.setMapValue(4, 0);
-        // deviseRenderer.addcolumnNextRow(3);
-        // deviseRenderer.addcolumnNextRow(4);
+            @Override
+            public void tableChanged(TableModelEvent e) {
+                // Sélectionne automatiquement la ligne ajoutée
+                if (e.getType() == TableModelEvent.INSERT) {
+                    editCellAt(e.getFirstRow(), 0);
+                }
 
-        // this.deviseCellEditor.addKeyListener(this);
+            }
+        });
+
     }
 
     /**
@@ -201,7 +205,7 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
         final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
         final SQLTable ecrTable = base.getTable("ECRITURE");
 
-        final SQLSelect selEcriture = new SQLSelect(base);
+        final SQLSelect selEcriture = new SQLSelect();
         selEcriture.addSelectStar(ecrTable);
 
         final Where w = new Where(ecrTable.getField("ID_MOUVEMENT"), "=", idMvt);
@@ -216,8 +220,6 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
         for (SQLRow sqlRow : myListEcriture) {
             loadEcriture(sqlRow, contrePasser);
         }
-        // System.err.println("SaisieKmItemTable.loadMouvement() " + this.table.getRowCount());
-        // this.table.repaint();
         this.table.getRowValuesTableModel().fireTableDataChanged();
     }
 
@@ -260,21 +262,6 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
         this.table.setColumnSelectionInterval(column, column);
         this.table.setRowSelectionInterval(row, row);
         this.table.editCellAt(row, column);
-    }
-
-    public void mouseClicked(final MouseEvent e) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void mouseEntered(final MouseEvent e) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void mouseExited(final MouseEvent e) {
-        // TODO Auto-generated method stub
-
     }
 
     private long getContrepartie() {
@@ -324,7 +311,6 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
     public void mousePressed(final MouseEvent e) {
         final int rowSel = this.table.getSelectedRow();
         if (e.getButton() == MouseEvent.BUTTON3 && rowSel >= 0 && rowSel < this.table.getRowCount()) {
-            System.err.println("Display Menu");
             final JPopupMenu menuDroit = new JPopupMenu();
 
             menuDroit.add(new AbstractAction("Contrepartie") {
@@ -351,8 +337,14 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
     }
 
     public void mouseReleased(final MouseEvent e) {
-        // TODO Auto-generated method stub
-
     }
 
+    public void mouseClicked(final MouseEvent e) {
+    }
+
+    public void mouseEntered(final MouseEvent e) {
+    }
+
+    public void mouseExited(final MouseEvent e) {
+    }
 }

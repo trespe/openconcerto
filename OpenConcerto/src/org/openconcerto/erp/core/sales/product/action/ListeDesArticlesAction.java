@@ -137,14 +137,19 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
 
         if (id > 1) {
             SQLRow row = this.sqlTableFamilleArticle.getRow(id);
-            String code = row.getString("CODE") + "%";
+
             Where w2 = new Where(this.sqlTableArticle.getField("ID_FAMILLE_ARTICLE"), "=", this.sqlTableFamilleArticle.getKey());
+
+            String code = row.getString("CODE") + ".%";
+            final Where w3 = new Where(this.sqlTableFamilleArticle.getField("CODE"), "LIKE", code);
+            w2 = w2.and(w3.or(new Where(this.sqlTableFamilleArticle.getKey(), "=", id)));
+
             if (w != null) {
                 w = w.and(w2);
             } else {
                 w = w2;
             }
-            w = w.and(new Where(this.sqlTableFamilleArticle.getField("CODE"), "LIKE", code));
+
         }
         return w;
     }

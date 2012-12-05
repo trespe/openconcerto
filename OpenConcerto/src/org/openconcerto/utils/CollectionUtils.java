@@ -46,7 +46,7 @@ import org.apache.commons.collections.TransformerUtils;
  * 
  * @author ILM Informatique 30 sept. 2004
  */
-public class CollectionUtils extends org.apache.commons.collections.CollectionUtils {
+public class CollectionUtils {
 
     /**
      * Concatene une collection. Cette méthode va appliquer un transformation sur chaque élément
@@ -96,12 +96,25 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
         return join(c, sep, org.openconcerto.utils.cc.Transformer.<T> nopTransformer());
     }
 
-    static public <T, U, C extends Collection<? super U>> C transformAndFilter(final Collection<T> c, final ITransformer<? super T, U> transf, final IPredicate<? super U> filter, final C res) {
-        iterate(c, new IClosure<T>() {
+    static public <T, U, C extends Collection<? super U>> C transform(final Collection<T> c, final ITransformer<? super T, U> transf, final C res) {
+        return transformAndFilter(c, transf, IPredicate.truePredicate(), res);
+    }
+
+    static public <T, U, C extends Collection<? super U>> C transformAndFilter(final Collection<T> c, final ITransformer<? super T, U> transf, final IPredicate<? super U> filterAfter, final C res) {
+        return filterTransformAndFilter(c, IPredicate.truePredicate(), transf, filterAfter, res);
+    }
+
+    static public <T, U, C extends Collection<? super U>> C filterAndTransform(final Collection<T> c, final IPredicate<? super T> filterBefore, final ITransformer<? super T, U> transf, final C res) {
+        return filterTransformAndFilter(c, filterBefore, transf, IPredicate.truePredicate(), res);
+    }
+
+    static public <T, U, C extends Collection<? super U>> C filterTransformAndFilter(final Collection<T> c, final IPredicate<? super T> filterBefore, final ITransformer<? super T, U> transf,
+            final IPredicate<? super U> filterAfter, final C res) {
+        iterate(c, filterBefore, new IClosure<T>() {
             @Override
             public void executeChecked(T input) {
                 final U item = transf.transformChecked(input);
-                if (filter.evaluateChecked(item))
+                if (filterAfter.evaluateChecked(item))
                     res.add(item);
             }
         });
@@ -109,16 +122,24 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
     }
 
     static public <T> void iterate(final Collection<T> c, final IClosure<T> cl) {
+        iterate(c, IPredicate.truePredicate(), cl);
+    }
+
+    static public <T> void iterate(final Collection<T> c, final IPredicate<? super T> filterBefore, final IClosure<T> cl) {
         if (c instanceof RandomAccess && c instanceof List) {
             final List<T> list = (List<T>) c;
             final int size = c.size();
             for (int i = 0; i < size; i++) {
-                cl.executeChecked(list.get(i));
+                final T item = list.get(i);
+                if (filterBefore.evaluateChecked(item))
+                    cl.executeChecked(item);
             }
         } else {
             final Iterator<T> iter = c.iterator();
             while (iter.hasNext()) {
-                cl.executeChecked(iter.next());
+                final T item = iter.next();
+                if (filterBefore.evaluateChecked(item))
+                    cl.executeChecked(item);
             }
         }
     }
@@ -203,9 +224,12 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
         delete(l, from, -1);
     }
 
-    public static <T, C extends Collection<? super T>> C select(Collection<T> inputCollection, IPredicate<? super T> predicate, C outputCollection) {
-        org.apache.commons.collections.CollectionUtils.select(inputCollection, predicate, outputCollection);
-        return outputCollection;
+    public static <T> void filter(Collection<T> collection, IPredicate<? super T> predicate) {
+        org.apache.commons.collections.CollectionUtils.filter(collection, predicate);
+    }
+
+    public static <T> boolean exists(Collection<T> collection, IPredicate<? super T> predicate) {
+        return org.apache.commons.collections.CollectionUtils.exists(collection, predicate);
     }
 
     /**
@@ -443,6 +467,10 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
         }
     }
 
+    static public <C extends Collection<?>> boolean containsAny(final C coll1, final C coll2) {
+        return org.apache.commons.collections.CollectionUtils.containsAny(coll1, coll2);
+    }
+
     /**
      * Convert an array to a list of a different type.
      * 
@@ -502,11 +530,11 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
         return lastI;
     }
 
-    public static <T> Collection<T> filter(final Collection<T> a, final IPredicate<? super T> pred) {
-        return filter(a, pred, new ArrayList<T>());
+    public static <T> Collection<T> select(final Collection<T> a, final IPredicate<? super T> pred) {
+        return select(a, pred, new ArrayList<T>());
     }
 
-    public static <T, C extends Collection<? super T>> C filter(final Collection<T> a, final IPredicate<? super T> pred, final C b) {
+    public static <T, C extends Collection<? super T>> C select(final Collection<T> a, final IPredicate<? super T> pred, final C b) {
         for (final T item : a)
             if (pred.evaluateChecked(item))
                 b.add(item);
@@ -678,7 +706,17 @@ public class CollectionUtils extends org.apache.commons.collections.CollectionUt
         return new HashSet<T>(Arrays.asList(items));
     }
 
-    public static <T> Set<T> createIdentitySet(Collection<T> items) {
+    public static <T> Set<T> createIdentitySet(T... items) {
+        return new IdentityHashSet<T>(Arrays.asList(items));
+    }
+
+    /**
+     * Return an {@link IdentitySet} consisting of <code>items</code>.
+     * 
+     * @param items the collection whose elements are to be in the result.
+     * @return a set, possibly <code>items</code> if it's already an identity set.
+     */
+    public static <T> Set<T> toIdentitySet(Collection<T> items) {
         if (items instanceof IdentitySet)
             return (Set<T>) items;
         else

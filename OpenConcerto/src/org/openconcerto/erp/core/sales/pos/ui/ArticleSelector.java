@@ -26,6 +26,7 @@ import java.awt.GridBagLayout;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.math.RoundingMode;
 
 import javax.swing.JPanel;
 import javax.swing.event.ListSelectionEvent;
@@ -106,7 +107,7 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
                     }
                 }
 
-                String euro = TicketCellRenderer.centsToString(article.getPriceInCents()) + "€";
+                String euro = TicketCellRenderer.centsToString(article.getPriceInCents().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue()) + "€";
 
                 int wEuro = (int) g.getFontMetrics().getStringBounds(euro, g).getWidth();
                 if (label2 == null) {

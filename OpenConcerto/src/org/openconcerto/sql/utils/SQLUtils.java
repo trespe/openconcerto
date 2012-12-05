@@ -16,16 +16,43 @@
 import org.openconcerto.sql.model.ConnectionHandler;
 import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.IResultSetHandler;
 import org.openconcerto.sql.model.SQLDataSource;
+import org.openconcerto.sql.model.SQLRequestLog;
 import org.openconcerto.sql.model.SQLSystem;
+import org.openconcerto.utils.RTInterruptedException;
 
 import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import org.apache.commons.dbutils.ResultSetHandler;
+
 public class SQLUtils {
+
+    /**
+     * Return the first chained exception with a non null SQL state.
+     * 
+     * @param exn an exception.
+     * @return the first SQLException with a non-<code>null</code>
+     *         {@link SQLException#getSQLState()}, <code>null</code> if not found.
+     */
+    static public final SQLException findWithSQLState(final Exception exn) {
+        Throwable e = exn;
+        while (e != null) {
+            if (e instanceof SQLException) {
+                final SQLException sqlExn = (SQLException) e;
+                if (sqlExn.getSQLState() != null) {
+                    return sqlExn;
+                }
+            }
+            e = e.getCause();
+        }
+        return null;
+    }
 
     public interface SQLFactory<T> {
 
@@ -239,5 +266,79 @@ public class SQLUtils {
         } catch (final Exception e) {
             throw new SQLException("unable to execute " + sql, e);
         }
+    }
+
+    /**
+     * Execute all queries at once if possible.
+     * 
+     * @param sysRoot where to execute.
+     * @param queries what to execute.
+     * @param handlers how to process the result sets, items can be <code>null</code>.
+     * @return the results of the handlers.
+     * @throws SQLException if an error occur
+     * @throws RTInterruptedException if the current thread is interrupted.
+     * @see {@link SQLSystem#isMultipleResultSetsSupported()}
+     */
+    static public List<?> executeMultiple(final DBSystemRoot sysRoot, final List<String> queries, final List<? extends ResultSetHandler> handlers) throws SQLException, RTInterruptedException {
+        final int size = handlers.size();
+        if (queries.size() != size)
+            throw new IllegalArgumentException("Size mismatch " + queries + " / " + handlers);
+        final List<Object> results = new ArrayList<Object>(size);
+
+        if (sysRoot.getServer().getSQLSystem().isMultipleResultSetsSupported()) {
+            final long timeMs = System.currentTimeMillis();
+            final long time = System.nanoTime();
+            final long afterCache = time;
+
+            final StringBuilder sb = new StringBuilder(256 * size);
+            for (final String q : queries) {
+                sb.append(q);
+                if (!q.trim().endsWith(";"))
+                    sb.append(';');
+                sb.append('\n');
+            }
+            final String query = sb.toString();
+            sysRoot.getDataSource().useConnection(new ConnectionHandlerNoSetup<Object, SQLException>() {
+                @Override
+                public Object handle(SQLDataSource ds) throws SQLException {
+                    final Connection conn = ds.getConnection();
+                    final long afterQueryInfo = System.nanoTime();
+                    final long afterExecute, afterHandle;
+                    final Statement stmt = conn.createStatement();
+                    try {
+                        if (Thread.currentThread().isInterrupted())
+                            throw new RTInterruptedException("Interrupted before executing : " + query);
+                        stmt.execute(query);
+                        afterExecute = System.nanoTime();
+                        for (final ResultSetHandler h : handlers) {
+                            if (Thread.currentThread().isInterrupted())
+                                throw new RTInterruptedException("Interrupted while handling results : " + query);
+                            results.add(h == null ? null : h.handle(stmt.getResultSet()));
+                            stmt.getMoreResults();
+                        }
+                        afterHandle = System.nanoTime();
+                    } finally {
+                        stmt.close();
+                    }
+                    SQLRequestLog.log(query, "executeMultiple", conn, timeMs, time, afterCache, afterQueryInfo, afterExecute, afterHandle, System.nanoTime());
+                    return null;
+                }
+            });
+        } else {
+            // use the same connection to allow some insert/update followed by a select
+            sysRoot.getDataSource().useConnection(new ConnectionHandlerNoSetup<Object, SQLException>() {
+                @Override
+                public Object handle(SQLDataSource ds) throws SQLException {
+                    for (int i = 0; i < size; i++) {
+                        final ResultSetHandler rsh = handlers.get(i);
+                        // since the other if clause cannot support cache and this clause doesn't
+                        // have any table to fire, don't use cache
+                        results.add(sysRoot.getDataSource().execute(queries.get(i), rsh == null ? null : new IResultSetHandler(rsh, false)));
+                    }
+                    return null;
+                }
+            });
+        }
+        return results;
     }
 }

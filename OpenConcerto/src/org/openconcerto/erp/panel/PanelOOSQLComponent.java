@@ -46,7 +46,7 @@ public class PanelOOSQLComponent extends JPanel {
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridx = GridBagConstraints.RELATIVE;
         this.setOpaque(false);
-        SQLPreferences prefs = new SQLPreferences(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete());
+        SQLPreferences prefs = SQLPreferences.getMemCached(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete());
         if (prefs.getBoolean(GenerationDocGlobalPreferencePanel.MULTIMOD, false)) {
 
             if (comp.getElement().getTable().getFieldsName().contains("ID_MODELE")) {

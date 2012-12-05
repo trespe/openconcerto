@@ -24,7 +24,6 @@ import org.openconcerto.sql.utils.SQLCreateTableBase;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.cc.IClosure;
 
-import java.io.File;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,7 +40,7 @@ import java.util.Set;
  */
 public final class DBContext {
 
-    private final File dir;
+
     private final ModuleVersion localVersion;
     private final ModuleVersion lastInstalledVersion;
     private final DBRoot root;
@@ -53,9 +52,8 @@ public final class DBContext {
     private final Set<String> tables;
     private final CollectionMap<String, SQLField> fields;
 
-    DBContext(final File dir, final ModuleVersion localVersion, final DBRoot root, final ModuleVersion dbVersion, final Set<String> tables, final Set<SQLName> fields) {
-        super();
-        this.dir = dir;
+    DBContext(final ModuleVersion localVersion, final DBRoot root, final ModuleVersion dbVersion, final Set<String> tables, final Set<SQLName> fields) {
+
         this.localVersion = localVersion;
         this.lastInstalledVersion = dbVersion;
         this.root = root;
@@ -70,9 +68,6 @@ public final class DBContext {
         this.dm = new ArrayList<IClosure<? super DBRoot>>();
     }
 
-    public final File getLocalDirectory() {
-        return this.dir;
-    }
 
     public final ModuleVersion getLocalVersion() {
         return this.localVersion;

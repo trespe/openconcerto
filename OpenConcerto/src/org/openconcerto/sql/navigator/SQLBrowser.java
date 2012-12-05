@@ -312,7 +312,7 @@ public class SQLBrowser extends JPanel {
         SQLRow currentRow = r;
         while (currentRow != null && !first.getElement().equals(getElement(currentRow.getTable()))) {
             path.add(0, currentRow);
-            currentRow = getElement(currentRow.getTable()).getParent(currentRow);
+            currentRow = getElement(currentRow.getTable()).getForeignParent(currentRow);
         }
         if (currentRow == null)
             throw new IllegalArgumentException(r + " is not a children of " + first);

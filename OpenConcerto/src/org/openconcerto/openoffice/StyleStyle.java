@@ -13,6 +13,9 @@
  
  package org.openconcerto.openoffice;
 
+import org.openconcerto.openoffice.spreadsheet.CellStyle;
+import org.openconcerto.openoffice.spreadsheet.Row;
+
 import org.jdom.Element;
 
 /**
@@ -49,6 +52,43 @@ public class StyleStyle extends Style {
 
     public final Element getFormattingProperties() {
         return this.getFormattingProperties(this.getFamily());
+    }
+
+    /**
+     * Get the parent style. Note: if this style {@link StyleDesc#supportConditions() supports
+     * conditions} they will be ignored.
+     * 
+     * @return the parent style or <code>null</code> if none exists.
+     * @see StyleDesc#findStyleWithName(ODPackage, org.jdom.Document, String)
+     */
+    public final StyleStyle getParentStyle() {
+        final String parentName = getParentStyleName();
+        if (parentName == null)
+            return null;
+        return this.getDesc().findStyleWithName(this.getPackage(), this.getElement().getDocument(), parentName);
+    }
+
+    private final String getParentStyleName() {
+        return this.getElement().getAttributeValue("parent-style-name", getSTYLE());
+    }
+
+    /**
+     * Get the parent style, evaluating conditions.
+     * 
+     * @param <S> style of the node, must be equal to this class.
+     * @param styledNode the node to use for evaluations, not <code>null</code>.
+     * @return the parent style or <code>null</code> if none exists.
+     * @see StyleDesc#findStyleForNode(StyledNode, String)
+     * @throws IllegalArgumentException if <code>styledNode</code> cannot have this as its style,
+     *         e.g. {@link CellStyle cellStyle}.getParentStyle({@link Row row}).
+     */
+    public final <S extends StyleStyle> S getParentStyle(StyledNode<S, ?> styledNode) {
+        if (!this.getDesc().equals(styledNode.getStyleDesc()))
+            throw new IllegalArgumentException("Different style desc");
+        final String parentName = getParentStyleName();
+        if (parentName == null)
+            return null;
+        return styledNode.getStyleDesc().findStyleForNode(this.getPackage(), this.getElement().getDocument(), styledNode, parentName);
     }
 
     public final StyleStyle getDefaultStyle() {

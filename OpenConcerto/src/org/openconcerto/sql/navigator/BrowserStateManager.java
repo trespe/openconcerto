@@ -22,9 +22,9 @@ import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.event.HierarchyEvent;
 import java.awt.event.HierarchyListener;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.List;
 
 import org.w3c.dom.Document;
@@ -67,22 +67,21 @@ public class BrowserStateManager extends ListenerXMLStateManager<SQLBrowser, Hie
     }
 
     @Override
-    protected void writeState(PrintStream out) throws IOException {
-        out.println("<browser>");
+    protected void writeState(BufferedWriter out) throws IOException {
+        out.write("<browser>\n");
 
         // for now save only the first, since we can't restore a multi-selection
         final List<SQLRow> selection = this.getSrc().getSelectedRows();
         final SQLRow sel = selection.isEmpty() ? null : selection.get(0);
 
         if (sel != null) {
-            out.print("<selection");
-            out.print(" id=\"" + sel.getID() + "\" >");
-            out.print(sel.getTable().getSQLNameUntilDBRoot(true).quote());
-            out.println("</selection>");
+            out.write("<selection");
+            out.write(" id=\"" + sel.getID() + "\" >");
+            out.write(sel.getTable().getSQLNameUntilDBRoot(true).quote());
+            out.write("</selection>\n");
         }
 
-        out.println("</browser>");
-
+        out.write("</browser>\n");
     }
 
     @Override

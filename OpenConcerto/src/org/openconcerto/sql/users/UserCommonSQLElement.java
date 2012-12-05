@@ -25,6 +25,7 @@ import org.openconcerto.sql.ui.Login;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.ISpinner;
 import org.openconcerto.ui.ISpinnerIntegerModel;
+import org.openconcerto.ui.valuewrapper.TextValueWrapper;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.checks.ValidState;
@@ -98,7 +99,16 @@ public class UserCommonSQLElement extends ConfSQLElement {
             private JPasswordField passField, passFieldConfirm;
             private JPanel panelWarning;
             private AccesSocieteTable table;
+            // TODO transform into real SQLRowItemView
             private final JTextField encryptedPass = new JTextField();
+
+            protected final JPasswordField getPassField() {
+                return this.passField;
+            }
+
+            protected final JPasswordField getPassFieldConfirm() {
+                return this.passFieldConfirm;
+            }
 
             @Override
             public void addViews() {
@@ -156,8 +166,8 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 this.passField = new JPasswordField(15);
                 c.gridx++;
                 c.weightx = 1;
-                DefaultGridBagConstraints.lockMinimumSize(this.passField);
-                this.add(this.passField, c);
+                DefaultGridBagConstraints.lockMinimumSize(this.getPassField());
+                this.add(this.getPassField(), c);
 
                 // Confirmation password
                 c.gridx++;
@@ -168,8 +178,8 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 this.passFieldConfirm = new JPasswordField(15);
                 c.gridx++;
                 c.weightx = 1;
-                DefaultGridBagConstraints.lockMinimumSize(this.passFieldConfirm);
-                this.add(this.passFieldConfirm, c);
+                DefaultGridBagConstraints.lockMinimumSize(this.getPassFieldConfirm());
+                this.add(this.getPassFieldConfirm(), c);
 
                 // Nom
                 c.gridx = 0;
@@ -260,19 +270,25 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 }
 
                 this.addRequiredSQLObject(textLogin, "LOGIN");
-                this.addView(this.encryptedPass, "PASSWORD", REQ);
+                this.addView(new SimpleRowItemView<String>(new TextValueWrapper(this.encryptedPass)) {
+                    @Override
+                    public void setEditable(boolean b) {
+                        getPassField().setEnabled(b);
+                        getPassFieldConfirm().setEnabled(b);
+                    };
+                }, "PASSWORD", REQ);
                 this.addSQLObject(textNom, "NOM");
                 this.addSQLObject(textPrenom, "PRENOM");
                 this.addSQLObject(textSurnom, "SURNOM");
 
-                this.passField.getDocument().addDocumentListener(new SimpleDocumentListener() {
+                this.getPassField().getDocument().addDocumentListener(new SimpleDocumentListener() {
                     @Override
                     public void update(DocumentEvent e) {
                         updateEncrypted();
                         fireValidChange();
                     }
                 });
-                this.passFieldConfirm.getDocument().addDocumentListener(new SimpleDocumentListener() {
+                this.getPassFieldConfirm().getDocument().addDocumentListener(new SimpleDocumentListener() {
                     @Override
                     public void update(DocumentEvent e) {
                         fireValidChange();
@@ -317,13 +333,13 @@ public class UserCommonSQLElement extends ConfSQLElement {
             }
 
             private void updateEncrypted() {
-                final String pass = String.valueOf(this.passField.getPassword());
+                final String pass = String.valueOf(this.getPassField().getPassword());
                 final String dbPass = Boolean.getBoolean(LEGACY_PASSWORDS) ? '"' + pass + '"' : pass;
                 this.encryptedPass.setText(Login.encodePassword(dbPass));
             }
 
             private boolean checkValidityPassword() {
-                final boolean b = String.valueOf(this.passField.getPassword()).equalsIgnoreCase(String.valueOf(this.passFieldConfirm.getPassword()));
+                final boolean b = String.valueOf(this.getPassField().getPassword()).equalsIgnoreCase(String.valueOf(this.getPassFieldConfirm().getPassword()));
                 this.panelWarning.setVisible(!b);
                 return b;
             }
@@ -341,8 +357,8 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 // update any field without changing the password.
                 if (row != null) {
                     final String bogusPass = "bogusPass!";
-                    this.passField.setText(bogusPass);
-                    this.passFieldConfirm.setText(bogusPass);
+                    this.getPassField().setText(bogusPass);
+                    this.getPassFieldConfirm().setText(bogusPass);
                     if (this.table != null) {
                         this.table.insertFrom("ID_USER_COMMON", row.getID());
                     }

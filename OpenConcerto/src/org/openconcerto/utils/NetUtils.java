@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.ServerSocket;
 import java.net.SocketException;
 import java.net.URL;
 import java.util.Enumeration;
@@ -28,6 +29,64 @@ import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSession;
 
 public class NetUtils {
+
+    public static int findFreePort(final int preferred) {
+        return findFreePort(null, preferred);
+    }
+
+    /**
+     * Returns a free port number on localhost.
+     * 
+     * @param addr the bind address, <code>null</code> meaning an address of the loopback interface.
+     * @param preferred if this port is free, then it's returned.
+     * @return preferred if free otherwise any free port.
+     */
+    public static int findFreePort(final String addr, final int preferred) {
+        if (isPortFree(addr, preferred))
+            return preferred;
+        else
+            return findFreePort(addr);
+    }
+
+    /**
+     * Returns a free port number on localhost.
+     * 
+     * @return a free port number on localhost, or -1 if unable to find a free port
+     */
+    public static int findFreePort() {
+        return findFreePort(null);
+    }
+
+    public static int findFreePort(final String addr) {
+        return checkPort(addr, 0);
+    }
+
+    public static boolean isPortFree(final String addr, final int port) {
+        if (port <= 0)
+            throw new IllegalArgumentException(port + " is negative");
+        return checkPort(addr, port) == port;
+    }
+
+    // with code from from org/eclipse/jdt/launching/SocketUtil.java
+    private static int checkPort(final String addr, final int port) {
+        ServerSocket socket = null;
+        try {
+            // ATTN InetAddress.getByName(null) means an address of the loopback interface, while
+            // passing null means any/all local addresses. The problem is that the constructor will
+            // succeed for a given port even if it is already bound with the other address.
+            socket = new ServerSocket(port, 0, InetAddress.getByName(addr));
+            return socket.getLocalPort();
+        } catch (IOException e) {
+        } finally {
+            if (socket != null) {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                }
+            }
+        }
+        return -1;
+    }
 
     /**
      * Whether the passed address refers to this computer.

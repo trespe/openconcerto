@@ -32,6 +32,7 @@ import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
+import org.openconcerto.utils.i18n.TranslationManager;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
@@ -41,15 +42,20 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
+import java.util.ResourceBundle;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JPopupMenu;
 import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
@@ -101,19 +107,26 @@ public class ConnexionPanel extends JPanel implements ActionListener {
     }
 
     private final Login login;
-    private final JButton buttonConnect = new JButton("Connexion");
+
     private final JPasswordField textPassWord;
     private final EmptyValueWrapper<String> textLogin;
     private SQLRequestComboBox comboSociete;
     private String encryptedPassword;
     protected String clearPassword;
-    private final JCheckBox saveCheckBox = new JCheckBox("Mémoriser le mot de passe");
     private final Runnable r;
     private final boolean societeSelector;
     private final ReloadPanel reloadPanel;
     private boolean isConnecting = false;
     private String connectionAllowed;
-    private static final String LOGIN_ADMIN = "Administrateur";
+    private final JCheckBox saveCheckBox = new JCheckBox("Mémoriser le mot de passe");
+    private final JButton buttonConnect = new JButton("Connexion");
+    private String adminLogin = "Administrateur";
+    private final JLabel loginLabel = new JLabel("Identifiant");
+    private final JLabel passwordLabel = new JLabel("Mot de passe");
+    private final JLabel companyLabel = new JLabel("Société");
+    private String localeBaseName = null;
+    private final List<Locale> localesToDisplay = new ArrayList<Locale>();
+    private final JButton langButton = new JButton(Locale.ROOT.getLanguage());
 
     /**
      * Create a panel to log with a user/pass.
@@ -137,7 +150,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         this.r = r;
         String lastLoginName = UserProps.getInstance().getLastLoginName();
         if (lastLoginName == null || lastLoginName.trim().length() == 0) {
-            lastLoginName = ConnexionPanel.LOGIN_ADMIN;
+            lastLoginName = this.adminLogin;
         }
         final String storedPassword = allowStoredPass ? UserProps.getInstance().getStoredPassword() : null;
         this.encryptedPassword = storedPassword;
@@ -167,9 +180,8 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         c.gridy++;
         c.gridwidth = 1;
         c.weightx = 0;
-        final JLabel login = new JLabel("Identifiant");
-        login.setHorizontalAlignment(SwingConstants.RIGHT);
-        this.add(login, c);
+        this.loginLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        this.add(this.loginLabel, c);
 
         this.textLogin = new EmptyValueWrapper<String>(ValueWrapperFactory.create(new JTextField(), String.class));
         this.textLogin.setValue(lastLoginName);
@@ -178,6 +190,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         this.add(this.textLogin.getComp(), c);
         ((JTextField) this.textLogin.getComp()).addActionListener(this);
         this.textLogin.addEmptyListener(new EmptyListener() {
+            @Override
             public void emptyChange(final EmptyObj src, final boolean newValue) {
                 checkValidity();
             }
@@ -187,9 +200,9 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         c.gridy++;
         c.gridx = 0;
         c.weightx = 0;
-        final JLabel passWord = new JLabel("Mot de passe");
-        passWord.setHorizontalAlignment(SwingConstants.RIGHT);
-        this.add(passWord, c);
+
+        this.passwordLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+        this.add(this.passwordLabel, c);
 
         this.textPassWord = new JPasswordField();
         // to show the user its password has been retrieved
@@ -204,6 +217,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         c.weightx = 1;
         this.add(this.textPassWord, c);
         this.textPassWord.getDocument().addDocumentListener(new SimpleDocumentListener() {
+            @Override
             public void update(final DocumentEvent e) {
                 ConnexionPanel.this.clearPassword = String.valueOf(ConnexionPanel.this.textPassWord.getPassword());
                 checkValidity();
@@ -217,14 +231,14 @@ public class ConnexionPanel extends JPanel implements ActionListener {
             c.gridy++;
             c.gridx = 0;
             c.weightx = 0;
-            final JLabel societe = new JLabel("Société");
-            societe.setHorizontalAlignment(SwingConstants.RIGHT);
-            this.add(societe, c);
+
+            this.companyLabel.setHorizontalAlignment(SwingConstants.RIGHT);
+            this.add(this.companyLabel, c);
 
             final SQLTable tableSociete = this.login.getUserTable().getDBRoot().findTable("SOCIETE_COMMON");
 
             if (tableSociete == null) {
-                throw ExceptionUtils.createExn(IllegalStateException.class, "Table manquante: SOCIETE_COMMON", null);
+                throw ExceptionUtils.createExn(IllegalStateException.class, "Missing table : SOCIETE_COMMON", null);
             }
 
             this.comboSociete = new SQLRequestComboBox(false, 25);
@@ -247,11 +261,13 @@ public class ConnexionPanel extends JPanel implements ActionListener {
             this.comboSociete.uiInit(model);
 
             this.comboSociete.addEmptyListener(new EmptyListener() {
+                @Override
                 public void emptyChange(final EmptyObj src, final boolean newValue) {
                     checkValidity();
                 }
             });
             this.comboSociete.addValueListener(new PropertyChangeListener() {
+                @Override
                 public void propertyChange(final PropertyChangeEvent evt) {
                     checkValidity();
                 }
@@ -285,6 +301,39 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         panelButton.add(this.reloadPanel, c2);
         c2.gridx++;
         c2.weightx = 0;
+
+        this.langButton.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                final JPopupMenu menu = new JPopupMenu();
+                final Locale locale = UserProps.getInstance().getLocale();
+                for (final Locale l : ConnexionPanel.this.localesToDisplay) {
+                    final JCheckBoxMenuItem menuItem = new JCheckBoxMenuItem(l.getDisplayName(l));
+                    if (l.equals(locale)) {
+                        menuItem.setSelected(true);
+                    }
+                    menu.add(menuItem);
+                    menuItem.addActionListener(new ActionListener() {
+                        @Override
+                        public void actionPerformed(ActionEvent e) {
+                            setUILanguage(l);
+                        }
+                    });
+                }
+
+                menu.show(ConnexionPanel.this.langButton, 0, 0);
+
+            }
+        });
+        this.langButton.setOpaque(false);
+        this.langButton.setBorderPainted(false);
+        this.langButton.setContentAreaFilled(false);
+        this.langButton.setBorder(null);
+        this.langButton.setFocusable(false);
+        this.langButton.setVisible(false);
+        panelButton.add(this.langButton, c2);
+        c2.gridx++;
         this.buttonConnect.setOpaque(false);
         panelButton.add(this.buttonConnect, c2);
 
@@ -298,6 +347,16 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         this.buttonConnect.addActionListener(this);
 
         checkValidity();
+    }
+
+    public final void initLocalization(final String baseName, final List<Locale> toDisplay) {
+        if (baseName == null)
+            throw new NullPointerException("Null baseName");
+        if (this.localeBaseName != null)
+            throw new IllegalStateException("Already inited to " + this.localeBaseName);
+        this.localeBaseName = baseName;
+        this.localesToDisplay.addAll(toDisplay);
+        this.setUILanguage(UserProps.getInstance().getLocale());
     }
 
     private void checkValidity() {
@@ -322,6 +381,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         }
     }
 
+    @Override
     public void actionPerformed(final ActionEvent e) {
         if (isConnecting())
             return;
@@ -333,6 +393,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         setConnecting(true);
 
         execute(new Runnable() {
+            @Override
             public void run() {
                 connect();
             }
@@ -358,7 +419,6 @@ public class ConnexionPanel extends JPanel implements ActionListener {
 
         if (b) {
             this.reloadPanel.setMode(ReloadPanel.MODE_ROTATE);
-            this.buttonConnect.setText("Connexion...");
             this.buttonConnect.setEnabled(false);
             this.saveCheckBox.setEnabled(false);
             if (this.comboSociete != null) {
@@ -367,7 +427,6 @@ public class ConnexionPanel extends JPanel implements ActionListener {
             ((JTextField) this.textLogin.getComp()).setEditable(false);
             this.textPassWord.setEditable(false);
         } else {
-            this.buttonConnect.setText("Connexion");
             this.buttonConnect.setEnabled(true);
             this.saveCheckBox.setEnabled(true);
             if (this.comboSociete != null) {
@@ -420,7 +479,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
                 JOptionPane.showMessageDialog(ConnexionPanel.this, error);
                 // Guillaume wants this for the Nego
                 if (Login.UNKNOWN_USER.equals(error))
-                    ConnexionPanel.this.textLogin.setValue(ConnexionPanel.LOGIN_ADMIN);
+                    ConnexionPanel.this.textLogin.setValue(ConnexionPanel.this.adminLogin);
                 setConnecting(false);
             }
         });
@@ -428,5 +487,18 @@ public class ConnexionPanel extends JPanel implements ActionListener {
 
     public int getSelectedSociete() {
         return this.comboSociete.getSelectedId();
+    }
+
+    protected void setUILanguage(Locale locale) {
+        final ResourceBundle bundle = ResourceBundle.getBundle(this.localeBaseName, locale, TranslationManager.CONTROL);
+        this.adminLogin = bundle.getString("adminLogin");
+        this.loginLabel.setText(bundle.getString("loginLabel"));
+        this.passwordLabel.setText(bundle.getString("passwordLabel"));
+        this.companyLabel.setText(bundle.getString("companyLabel"));
+        this.saveCheckBox.setText(bundle.getString("saveCheckBox"));
+        this.buttonConnect.setText(bundle.getString("buttonConnect"));
+        this.langButton.setText(locale.getLanguage());
+        this.langButton.setVisible(true);
+        UserProps.getInstance().setLocale(locale);
     }
 }

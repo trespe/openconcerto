@@ -15,6 +15,7 @@
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.prefs.Preferences;
@@ -28,6 +29,41 @@ import java.util.prefs.Preferences;
  */
 public abstract class PrefType<T> {
     // don't use enum since they don't support type parameters
+
+    static final long NO_DATE = Long.MIN_VALUE;
+
+    private static final long dateToLong(final Date d) {
+        if (d == null) {
+            return NO_DATE;
+        } else {
+            final long res = ((Date) d).getTime();
+            if (res == NO_DATE)
+                throw new IllegalArgumentException("Time not supported");
+            return res;
+        }
+    }
+
+    private static final Date longToDate(final long l) {
+        return l == NO_DATE ? null : new Date(l);
+    }
+
+    public static final PrefType<Date> DATE_TYPE = new PrefType<Date>(Date.class, null, null) {
+
+        @Override
+        boolean isNative() {
+            return false;
+        };
+
+        @Override
+        public void put(Preferences prefs, String prefKey, Object val) {
+            prefs.putLong(prefKey, dateToLong((Date) val));
+        }
+
+        public Date get(Preferences prefs, String prefKey, Date def) {
+            final long l = prefs.getLong(prefKey, dateToLong(def));
+            return longToDate(l);
+        }
+    };
 
     public static final PrefType<String> STRING_TYPE = new PrefType<String>(String.class, null, null) {
         @Override
@@ -101,7 +137,7 @@ public abstract class PrefType<T> {
         }
     };
 
-    public static final PrefType<?>[] VALUES = { STRING_TYPE, BOOLEAN_TYPE, FLOAT_TYPE, DOUBLE_TYPE, INT_TYPE, LONG_TYPE, BYTE_ARRAY_TYPE };
+    public static final PrefType<?>[] VALUES = { STRING_TYPE, BOOLEAN_TYPE, FLOAT_TYPE, DOUBLE_TYPE, INT_TYPE, LONG_TYPE, BYTE_ARRAY_TYPE, DATE_TYPE };
     public static final Set<PrefType<?>> VALUES_COLLECTION = Collections.unmodifiableSet(new HashSet<PrefType<?>>(Arrays.asList(VALUES)));
 
     private final Class<T> clazz, primitiveClass;
@@ -131,6 +167,11 @@ public abstract class PrefType<T> {
      */
     public final Class<T> getPrimitiveTypeClass() {
         return this.primitiveClass;
+    }
+
+    // true if the type is natively supported by Preferences
+    boolean isNative() {
+        return true;
     }
 
     /**

@@ -26,8 +26,9 @@ import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 
 public class ModuleFrame extends JFrame {
-    private final InstalledModulesPanel tab1;
-    private final AvailableModulesPanel tab2;
+    private final LocalInstalledModulesPanel tab1;
+    private final ServerInstalledModulesPanel tab2;
+    private final AvailableModulesPanel tab3;
 
     public ModuleFrame() {
         this.setTitle("Modules");
@@ -36,10 +37,12 @@ public class ModuleFrame extends JFrame {
         p.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
         final JTabbedPane tabbedPane = new JTabbedPane();
-        this.tab1 = new InstalledModulesPanel(this);
-        tabbedPane.addTab("Modules installés", this.tab1);
-        this.tab2 = new AvailableModulesPanel(this);
-        tabbedPane.addTab("Modules disponibles", this.tab2);
+        this.tab1 = new LocalInstalledModulesPanel(this);
+        tabbedPane.addTab("Modules installés sur le poste", this.tab1);
+        this.tab2 = new ServerInstalledModulesPanel(this);
+        tabbedPane.addTab("Modules installés sur le serveur", this.tab2);
+        this.tab3 = new AvailableModulesPanel(this);
+        tabbedPane.addTab("Modules disponibles", this.tab3);
         c.weightx = 1;
         c.weighty = 1;
         c.fill = GridBagConstraints.BOTH;
@@ -62,5 +65,6 @@ public class ModuleFrame extends JFrame {
     public void reload() {
         this.tab1.reload();
         this.tab2.reload();
+        this.tab3.reload();
     }
 }

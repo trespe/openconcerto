@@ -1,0 +1,153 @@
+<translation lang="fr">
+	<!-- File -->
+	<menu id="menu.file" label="File" />
+	<menu id="backup" label="Backup" />
+	<menu id="export.accounting" label="Export accounting" />
+	<menu id="modules" label="Modules" />
+	<menu id="preferences" label="Preferences" />
+	<menu id="quit" label="Exit" />
+	<!-- Creation -->
+	<menu id="menu.create" label="Create" />
+	<menu id="accounting" label="Accounting" />
+	<menu id="accounting.entry.create" label="Accounting entries" />
+	<menu id="customer" label="Customers" />
+	<menu id="customer.quote.create" label="Quote" />
+	<menu id="customer.letter.create" label="Letter" />
+	<menu id="customer.proposal.create" label="Proposal" />
+	<menu id="project.create" label="Project" />
+	<menu id="appointment.create" label="Appointment" />
+	<menu id="mission.create" label="Mission" />
+	<menu id="mission.notice.create" label="Mission notice" />
+	<menu id="customer.delivery.create" label="Delivery" />
+	<menu id="customer.order.create" label="Order" />
+	<menu id="pos.sale.create" label="Sale (POS)" />
+	<menu id="customer.invoice.create" label="Invoice" />
+	<menu id="kd.invoice.create" label="Invoice" />
+	<menu id="customer.credit.create" label="Credit note" />
+	<menu id="supplier" label="Supplier" />
+	<menu id="supplier.order.create" label="Supplier order" />
+	<menu id="supplier.receipt.create" label="Supplier receipt" />
+	<menu id="supplier.purchase.create" label="Supplier purchase" />
+	<menu id="supplier.credit.create" label="Supplier credit" />
+	<menu id="stock.io.create" label="Stock" />
+
+	<!-- List -->
+	<menu id="menu.list" label="Mamagement" />
+	<menu id="menu.list.customer" label="CRM" />
+	<menu id="customer.list" label="Customer" />
+	<menu id="contact.list" label="Contacts" />
+	<menu id="customer.history" label="Customer history" />
+	<menu id="customer.quote.list" label="Quotes" />
+	<menu id="customer.proposal.list" label="Proposals" />
+	<menu id="customer.proposal.item.list" label="Proposal items" />
+	<menu id="menu.list.mission" label="Missions" />
+	<menu id="project.list" label="Projects" />
+	<menu id="mission.list" label="Missions" />
+	<menu id="appointment.list" label="Appointments" />
+	<menu id="appointment.unplanned.list" label="" />
+	<menu id="appointment.notvalidated.list" label="" />
+	<menu id="mission.order.list" label="" />
+	<menu id="mission.notice.list" label="" />
+	<menu id="customer.order.list" label="Orders" />
+	<menu id="customer.delivery.list" label="Deliveries" />
+	<menu id="sales.list" label="Sales" />
+	<menu id="customer.invoice.list" label="Invoices" />
+	<menu id="payment.factoring.create" label="" />
+	<menu id="payment.factoring.list" label="" />
+	<menu id="customer.credit.list" label="Credits" />
+	<menu id="menu.list.supplier" label="Supplier" />
+	<menu id="supplier.list" label="Suppliers" />
+	<menu id="supplier.contact.list" label="Supplier contacta" />
+	<menu id="supplier.history" label="Supplier history" />
+	<menu id="supplier.order.list" label="Supplier orders" />
+	<menu id="supplier.receipt.list" label="Supplier receipts" />
+	<menu id="supplier.purchase.list" label="Purchases" />
+	<menu id="supplier.credit.list" label="Supplier credits" />
+	<menu id="product.list" label="Product list" />
+	<menu id="product.reference.list" label="Reference list" />
+	<menu id="stock.io.list" label="Stock movements" />
+	<menu id="menu.list.pos" label="Point of sales" />
+	<menu id="pos.receipt.list" label="Receipts (POS)" />
+	<menu id="pos.sales.report" label="Sales (POS)" />
+	<menu id="sales.report" label="" />
+	<!-- Accounting -->
+	<menu id="menu.accounting" label="Accounting" />
+	<menu id="accounting.balance" label="Balance" />
+	<menu id="accounting.client.balance" label="Customer balance" />
+	<menu id="accounting.analytical.result" label="Anatycal result" />
+	<menu id="accounting.ledger" label="Ledger" />
+	<menu id="accounting.general.ledger" label="General ledger" />
+	<menu id="accounting.entries.ledger" label="Ledger entries" />
+	<menu id="accounting.entries.list" label="List of ledger entries" />
+	<menu id="menu.accounting.closing" label="Closing" />
+	<menu id="accounting.validating" label="Validating" />
+	<menu id="accounting.closing" label="Closing" />
+	<!-- Documents -->
+	<menu id="menu.report" label="Reporting" />
+	<menu id="accounting.vat.report" label="VAT report" />
+	<menu id="accounting.costs.report" label="Costs report" />
+	<menu id="accounting.balance.report" label="Balance report" />
+	<menu id="employe.social.report" label="Social report" />
+	<!-- Stats -->
+	<menu id="menu.stats" label="Statistics" />
+	<menu id="sales.graph" label="Sales" />
+	<menu id="sales.margin.graph" label="Margins" />
+	<menu id="sales.list.report" label="Sales report" />
+	<menu id="sales.product.graph" label="Products" />
+	<menu id="sales.product.margin.graph" label="Product pargin" />
+	<menu id="sales.list.graph" label="Sales lists" />
+	<!-- Payment -->
+	<menu id="menu.payment" label="Payment" />
+	<menu id="payment.checking.create" label="Payment checking" />
+	<menu id="payment.reconciliation.create" label="Reconciliation" />
+	<menu id="menu.payment.customer" label="Customer" />
+	<menu id="customer.invoice.unpaid.list" label="Unpaid invoices" />
+	<menu id="customer.dept.list" label="Customer depts" />
+	<menu id="customer.payment.list" label="Payments" />
+	<menu id="customer.payment.followup.list" label="Followup" />
+	<menu id="customer.payment.check.pending.list" label="Customer checks" />
+	<menu id="customer.payment.check.pending.create" label="Pending checks" />
+	<menu id="customer.credit.check.list" label="Credit checks" />
+	<menu id="customer.credit.check.create" label="Pending credit checks" />
+	<menu id="menu.payment.supplier" label="Supplier" />
+	<menu id="supplier.invoice.unpaid.list" label="Unpaid supplier invoices" />
+	<menu id="supplier.bill.list" label="Supplier bills" />
+	<menu id="supplier.payment.check.list" label="Supplier checks" />
+	<menu id="supplier.payment.check.pending.list" label="Pending checks to suppliers" />
+	<!-- Payroll -->
+	<menu id="menu.payroll" label="Paye" />
+	<menu id="payroll.list.report.print" label="Apyroll report" />
+	<menu id="payroll.profile.list" label="Profiles" />
+	<menu id="payroll.history" label="History" />
+	<menu id="payroll.create" label="Payroll" />
+	<menu id="payroll.deposit.create" label="Deposit" />
+	<menu id="employee.list" label="Employees" />
+	<menu id="payroll.section" label="Sections" />
+	<menu id="payroll.variable" label="Variables" />
+	<menu id="payroll.closing" label="Monthly closing" />
+	<!-- Organization -->
+	<menu id="menu.organization" label="Structure" />
+	<menu id="accounting.chart" label="Accounting chart" />
+	<menu id="accounting.journal" label="Acounting journals" />
+	<menu id="user.list" label="Users" />
+	<menu id="user.right.list" label="User rights" />
+	<menu id="user.task.right" label="Task rigths" />
+	<menu id="salesman.list" label="Salemen" />
+	<menu id="pos.list" label="Points of sales" />
+	<menu id="secretary.list" label="Secretaries" />
+	<menu id="auditor.list" label="Auditors" />
+	<menu id="index.list" label="Indexes" />
+	<menu id="enterprise.list" label="Enterprises" />
+	<menu id="divison.list" label="" />
+	<menu id="divison.bank.list" label="" />
+	<menu id="enterprise.create" label="New enterprise" />
+	<menu id="mission.sample.list" label="" />
+	<menu id="mission.code.list" label="" />
+	<menu id="department.list" label="" />
+	<!-- Help -->
+	<menu id="menu.test" label="Tests" />
+	<!-- Help -->
+	<menu id="menu.help" label="Help" />
+	<menu id="information" label="About" />
+	<menu id="tips" label="Tips" />
+</translation>

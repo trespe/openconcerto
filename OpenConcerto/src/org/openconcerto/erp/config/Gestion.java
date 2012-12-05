@@ -15,8 +15,6 @@
 
 import org.openconcerto.erp.action.NouvelleConnexionAction;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
-import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
-import org.openconcerto.erp.core.sales.quote.ui.DevisItemTable;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.panel.PostgreSQLFrame;
 import org.openconcerto.erp.panel.UserExitPanel;
@@ -30,7 +28,6 @@ import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRequestLog;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
-import org.openconcerto.sql.view.ListeModifyPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.FrameUtil;
@@ -42,7 +39,6 @@ import org.openconcerto.utils.protocol.Helper;
 
 import java.awt.AWTEvent;
 import java.awt.Component;
-import java.awt.GridLayout;
 import java.awt.Image;
 import java.awt.SplashScreen;
 import java.awt.Toolkit;
@@ -133,7 +129,6 @@ public class Gestion {
         System.setProperty("sun.java2d.pmoffscreen", "false");
 
         System.setProperty("org.openconcerto.editpanel.noborder", "true");
-        System.setProperty("org.openconcerto.editpanel.noborder", "true");
         System.setProperty("org.openconcerto.sql.editpanel.endAdd", "true");
         System.setProperty("org.openconcerto.sql.listPanel.deafEditPanel", "true");
         System.setProperty("org.openconcerto.ui.addComboButton", "true");
@@ -145,7 +140,6 @@ public class Gestion {
         System.setProperty("org.openconcerto.ui.removeSwapSearchCheckBox", "true");
 
         if (System.getProperty("org.openconcerto.oo.useODSViewer") == null) {
-
             System.setProperty("org.openconcerto.oo.useODSViewer", "true");
         }
 
@@ -214,6 +208,8 @@ public class Gestion {
         try {
             // ensure consistent state
             conf.getSystemRoot().getGraph();
+            // Prefetch undefined
+            conf.getRoot().getTables().iterator().next().getUndefinedID();
         } catch (Exception e) {
             System.out.println("Init phase 1 error:" + (System.currentTimeMillis() - t4) + "ms");
             ExceptionHandler.die("Erreur de connexion à la base de données", e);
@@ -401,10 +397,10 @@ public class Gestion {
             e.printStackTrace();
         }
         try {
-            Enumeration e = NetworkInterface.getNetworkInterfaces();
+            Enumeration<NetworkInterface> e = NetworkInterface.getNetworkInterfaces();
             while (e.hasMoreElements()) {
                 NetworkInterface ni = (NetworkInterface) e.nextElement();
-                Enumeration e2 = ni.getInetAddresses();
+                Enumeration<InetAddress> e2 = ni.getInetAddresses();
                 while (e2.hasMoreElements()) {
                     InetAddress ip = (InetAddress) e2.nextElement();
                     final String iip = ip.toString().replace('/', ' ').trim();
@@ -420,36 +416,6 @@ public class Gestion {
     }
 
     public static PostgreSQLFrame pgFrameStart = null;
-
-    private static void testModifyRowValuesTable() {
-
-        JFrame f = new JFrame();
-        f.getContentPane().setLayout(new GridLayout(1, 1));
-
-        f.getContentPane().add(new ListeModifyPanel(new DevisSQLElement()));
-        f.pack();
-        f.setSize(800, 600);
-
-        // f.setResizable(false);
-        f.setVisible(true);
-        f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-
-    }
-
-    private static void testRowValuesTable() {
-
-        JFrame f = new JFrame();
-        f.getContentPane().setLayout(new GridLayout(1, 1));
-
-        f.getContentPane().add(new DevisItemTable());
-        f.pack();
-        f.setSize(800, 600);
-
-        // f.setResizable(false);
-        f.setVisible(true);
-        f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-
-    }
 
     private static JDialog frameExit = null;
 

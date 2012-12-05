@@ -14,7 +14,6 @@
  package org.openconcerto.erp.core.sales.product.element;
 
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
-import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -25,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import javax.swing.JLabel;
+import javax.swing.JTextField;
 
 public class ArticleTarifSQLElement extends ComptaSQLConfElement {
 
@@ -53,7 +53,7 @@ public class ArticleTarifSQLElement extends ComptaSQLConfElement {
 
                 // Nom
                 JLabel labelNom = new JLabel("PRIX_FINAL_TTC");
-                DeviseField textNom = new DeviseField();
+                JTextField textNom = new JTextField();
 
                 this.add(labelNom, c);
                 c.gridx++;

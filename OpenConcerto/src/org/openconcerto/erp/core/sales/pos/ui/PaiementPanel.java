@@ -68,13 +68,17 @@ public class PaiementPanel extends JPanel implements CaisseListener, MouseListen
 
     @Override
     public void paint(Graphics g) {
+        g.setColor(Color.BLACK);
+        g.fillRect(0, 0, this.getWidth(), this.getHeight());
+        int y = this.getHeight() - this.bg.getHeight(null);
         if (controller.getArticleSelected() != null || controller.getPaiementSelected() != null) {
-            g.drawImage(bg2, 0, 0, null);
+            g.drawImage(bg2, 0, y, null);
         } else {
-            g.drawImage(bg, 0, 0, null);
+            g.drawImage(bg, 0, y, null);
         }
+
         g.drawLine(0, 0, 0, this.getHeight());
-        int y = OFFSETY;
+        y = OFFSETY;
         for (Paiement p : controller.getPaiements()) {
             if (p.getType() == Paiement.CB) {
                 g.drawImage(bgCB, 0, y, null);
@@ -107,30 +111,27 @@ public class PaiementPanel extends JPanel implements CaisseListener, MouseListen
 
     private void drawCalculator(Graphics g) {
         Graphics2D g2 = (Graphics2D) g;
+        int y = this.getHeight() - this.bg.getHeight(null);
+
         g.setFont(new Font("Arial", Font.PLAIN, 32));
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         final Article article = controller.getArticleSelected();
         g.setColor(Color.DARK_GRAY);
         if (article != null) {
-
             String string = calculatorValue;
-            System.out.println("PaiementPanel.drawCalculator()" + string);
             g.setFont(g.getFont().deriveFont(52f));
             Rectangle2D r1 = g.getFontMetrics().getStringBounds(string, g2);
-            g.drawString(string, (int) (260 - r1.getWidth()), 500);
-
+            g.drawString(string, (int) (260 - r1.getWidth()), 500 + y);
             g.setFont(g.getFont().deriveFont(14f));
-            g.drawString("Quantité", 10, 460);
+            g.drawString("Quantité", 10, 460 + y);
 
         } else {
             final Paiement paiement = controller.getPaiementSelected();
             if (paiement != null) {
                 String string = calculatorValue;
-                System.out.println("PaiementPanel.drawCalculator() Price" + string);
                 g.setFont(g.getFont().deriveFont(52f));
                 Rectangle2D r1 = g.getFontMetrics().getStringBounds(string, g2);
-                g.drawString(string, (int) (300 - r1.getWidth()), 500);
-
+                g.drawString(string, (int) (300 - r1.getWidth()), 500 + y);
                 g.setFont(g.getFont().deriveFont(14f));
                 String str = "Paiement ";
                 if (paiement.getType() == Paiement.CB) {
@@ -140,17 +141,16 @@ public class PaiementPanel extends JPanel implements CaisseListener, MouseListen
                 } else if (paiement.getType() == Paiement.CHEQUE) {
                     str += " par chèque";
                 }
-                g.drawString(str, 10, 460);
+                g.drawString(str, 10, 460 + y);
             }
         }
         g.setFont(g.getFont().deriveFont(14f));
-        g.drawString("" + mode, 10, 480);
+        g.drawString("" + mode, 10, 480 + y);
     }
 
     private char getToucheFrom(int x, int y) {
         int yy = (this.getHeight() - y) / 72;
         int xx = x / 80;
-        // / System.out.println(xx + "," + yy);
         switch (yy) {
         case 0:
             if (xx == 0) {

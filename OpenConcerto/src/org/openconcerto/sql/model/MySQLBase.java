@@ -17,7 +17,6 @@ import org.openconcerto.utils.cc.IClosure;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.regex.Pattern;
 
 public class MySQLBase extends SQLBase {
 
@@ -42,12 +41,16 @@ public class MySQLBase extends SQLBase {
 
     // *** quoting
 
-    static private final Pattern backslashQuote = Pattern.compile("\\\\");
-
     @Override
     public final String quoteString(String s) {
         final String res = super.quoteString(s);
+        // ATTN if shouldEscape() return false (from global mode) but session mode is the opposite,
+        // then SQL can be injected :
+        // toto \'; drop table ;
+        // is quoted to :
+        // 'toto \''; drop table ;'
+        // and since DDL is not transactional in MySQL the table is forever dropped.
         // escape \ by replacing them with \\
-        return this.shouldEscape() ? backslashQuote.matcher(res).replaceAll("\\\\\\\\") : res;
+        return this.shouldEscape() ? PGSQLBase.BACKSLASH_PATTERN.matcher(res).replaceAll(PGSQLBase.TWO_BACKSLASH_REPLACEMENT) : res;
     }
 }

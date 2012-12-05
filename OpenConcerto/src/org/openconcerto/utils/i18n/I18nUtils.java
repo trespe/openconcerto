@@ -18,9 +18,13 @@ import java.util.Locale;
 import java.util.ResourceBundle;
 import java.util.ResourceBundle.Control;
 
+import net.jcip.annotations.ThreadSafe;
+
 public final class I18nUtils {
 
-    static private final class SameLanguageControl extends Control {
+    // superclass is thread-safe and so is this
+    @ThreadSafe
+    static public class SameLanguageControl extends Control {
         @Override
         public List<Locale> getCandidateLocales(String baseName, Locale locale) {
             List<Locale> res = super.getCandidateLocales(baseName, locale);
@@ -64,5 +68,38 @@ public final class I18nUtils {
 
     static public final String getYesNoKey(final boolean b) {
         return b ? YES_KEY : NO_KEY;
+    }
+
+    /**
+     * Convert a string into a Locale Object. Waiting for <code>Locale.forLanguageTag()</code> in
+     * java 7.
+     * 
+     * @param localeString a String returned from {@link Locale#toString()}.
+     * @return the Locale.
+     */
+    public static Locale createLocaleFromString(final String localeString) {
+        if (localeString == null)
+            return null;
+
+        final String language, country, variant;
+        final int languageIndex = localeString.indexOf('_');
+        if (languageIndex == -1) {
+            language = localeString;
+            country = "";
+            variant = "";
+        } else {
+            language = localeString.substring(0, languageIndex);
+            final int countryIndex = localeString.indexOf('_', languageIndex + 1);
+            if (countryIndex == -1) {
+                country = localeString.substring(languageIndex + 1);
+                variant = "";
+            } else {
+                // all remaining is the variant
+                country = localeString.substring(languageIndex + 1, countryIndex);
+                variant = localeString.substring(countryIndex + 1);
+            }
+        }
+
+        return new Locale(language, country, variant);
     }
 }

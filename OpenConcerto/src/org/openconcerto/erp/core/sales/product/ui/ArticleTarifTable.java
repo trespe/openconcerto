@@ -13,12 +13,9 @@
  
  package org.openconcerto.erp.core.sales.product.ui;
 
-import org.openconcerto.erp.core.common.ui.DeviseCellEditor;
-import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.component.ReferenceArticleSQLComponent;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
-import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -31,11 +28,10 @@ import org.openconcerto.sql.view.list.RowValuesTablePanel;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.utils.ExceptionHandler;
 
-import java.util.ArrayList;
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.List;
 import java.util.Vector;
-
-import javax.swing.table.TableCellRenderer;
 
 public class ArticleTarifTable extends RowValuesTablePanel {
 
@@ -90,22 +86,11 @@ public class ArticleTarifTable extends RowValuesTablePanel {
         this.tarif.setEditable(false);
         list.add(this.tarif);
 
+        // FIXME Create an editor with convert to ttc
         // Prix de vente HT de la métrique 1
-        final DeviseCellEditor editorPVHT = new DeviseCellEditor();
-        editorPVHT.setConvertToTTCEnable(true);
-        this.tableElement_PrixMetrique1_VenteHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_VT_1"), Long.class, editorPVHT) {
-            @Override
-            public TableCellRenderer getTableCellRenderer() {
-
-                List<Integer> l = new ArrayList<Integer>();
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_CARRE));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_LARGEUR));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_LONGUEUR));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_POID_METRECARRE));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.A_LA_PIECE));
-                return new ArticleRowValuesRenderer(l);
-            }
-        };
+        // final DeviseCellEditor editorPVHT = new DeviseCellEditor();
+        // editorPVHT.setConvertToTTCEnable(true);
+        this.tableElement_PrixMetrique1_VenteHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_VT_1"), BigDecimal.class);
         list.add(tableElement_PrixMetrique1_VenteHT);
 
         // Devise
@@ -118,21 +103,21 @@ public class ArticleTarifTable extends RowValuesTablePanel {
         list.add(tableElement_TVA);
 
         // Prix de vente unitaire HT
-        final SQLTableElement tableElement_PrixVente_HT = new SQLTableElement(e.getTable().getField("PV_HT"), Long.class, new DeviseCellEditor());
-        tableElement_PrixVente_HT.setRenderer(new DeviseNiceTableCellRenderer());
+        final SQLTableElement tableElement_PrixVente_HT = new SQLTableElement(e.getTable().getField("PV_HT"), BigDecimal.class);
+
         tableElement_PrixVente_HT.setEditable(false);
         list.add(tableElement_PrixVente_HT);
 
         // Prix de vente unitaire TTC
-        final SQLTableElement tableElement_PrixVente_TTC = new SQLTableElement(e.getTable().getField("PV_TTC"), Long.class, new DeviseCellEditor());
-        tableElement_PrixVente_TTC.setRenderer(new DeviseNiceTableCellRenderer());
+        final SQLTableElement tableElement_PrixVente_TTC = new SQLTableElement(e.getTable().getField("PV_TTC"), BigDecimal.class);
+
         tableElement_PrixVente_TTC.setEditable(false);
         list.add(tableElement_PrixVente_TTC);
 
         this.defaultRowVals = new SQLRowValues(getSQLElement().getTable());
-        this.defaultRowVals.put("PRIX_METRIQUE_VT_1", 0);
-        this.defaultRowVals.put("PV_HT", 0);
-        this.defaultRowVals.put("PV_TTC", 0);
+        this.defaultRowVals.put("PRIX_METRIQUE_VT_1", BigDecimal.ZERO);
+        this.defaultRowVals.put("PV_HT", BigDecimal.ZERO);
+        this.defaultRowVals.put("PV_TTC", BigDecimal.ZERO);
         this.model = new RowValuesTableModel(e, list, e.getTable().getField("ID_TARIF"), false, this.defaultRowVals);
 
         this.table = new RowValuesTable(this.model, null);
@@ -146,10 +131,10 @@ public class ArticleTarifTable extends RowValuesTablePanel {
                 rowValuesArticleCompile.put("PRIX_METRIQUE_VT_1", row.getObject("PRIX_METRIQUE_VT_1"));
                 Number n = (Number) rowValuesArticleCompile.getObject("ID_MODE_VENTE_ARTICLE");
                 if (n.intValue() == ReferenceArticleSQLElement.A_LA_PIECE || n.intValue() <= 1) {
-                    return Long.valueOf(((Number) row.getObject("PRIX_METRIQUE_VT_1")).longValue());
+                    return row.getObject("PRIX_METRIQUE_VT_1");
                 } else {
-                    final long prixVTFromDetails = ReferenceArticleSQLElement.getPrixVTFromDetails(rowValuesArticleCompile);
-                    return Long.valueOf(prixVTFromDetails);
+                    final BigDecimal prixVTFromDetails = ReferenceArticleSQLElement.getPrixVTFromDetails(rowValuesArticleCompile);
+                    return prixVTFromDetails;
                 }
             }
         });
@@ -163,7 +148,7 @@ public class ArticleTarifTable extends RowValuesTablePanel {
                 rowValuesArticleCompile.putAll(comp.getDetailsRowValues().getAbsolutelyAll());
                 rowValuesArticleCompile.put("PRIX_METRIQUE_VT_1", row.getObject("PRIX_METRIQUE_VT_1"));
 
-                Number f = (Number) row.getObject("PV_HT");
+                BigDecimal pHT = (BigDecimal) row.getObject("PV_HT");
                 Object object = row.getObject("ID_TAXE");
 
                 int idTaux = 1;
@@ -184,11 +169,11 @@ public class ArticleTarifTable extends RowValuesTablePanel {
                     }
                 }
 
-                PrixHT pHT = new PrixHT(f.longValue());
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
-                editorPVHT.setTaxe(resultTaux);
-                Long r = Long.valueOf(pHT.calculLongTTC(taux / 100f));
-                return r;
+                // editorPVHT.setTaxe(resultTaux);
+                return pHT.multiply(BigDecimal.valueOf(taux).divide(BigDecimal.valueOf(100)).add(BigDecimal.ONE), MathContext.DECIMAL128);
+                // Long r = Long.valueOf(pHT.calculLongTTC(taux / 100f));
+                // return r;
             }
 
         });
@@ -198,6 +183,5 @@ public class ArticleTarifTable extends RowValuesTablePanel {
     public SQLElement getSQLElement() {
         return Configuration.getInstance().getDirectory().getElement("ARTICLE_TARIF");
     }
-
 
 }

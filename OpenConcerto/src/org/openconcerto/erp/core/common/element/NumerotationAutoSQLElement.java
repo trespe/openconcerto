@@ -368,32 +368,39 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
 
     private static String getNextForMonth(Class<? extends SQLElement> clazz, Date d) {
 
-        SQLTable table = Configuration.getInstance().getDirectory().getElement(clazz).getTable();
-        SQLRow rowNum = TABLE_NUM.getRow(2);
-        String s = map.get(clazz);
-        String pattern = rowNum.getString(s + FORMAT);
-        Tuple2<String, String> t = getPrefixAndSuffix(pattern, d);
-        SQLSelect sel = new SQLSelect(table.getBase());
+        final SQLTable table = Configuration.getInstance().getDirectory().getElement(clazz).getTable();
+        final SQLRow rowNum = TABLE_NUM.getRow(2);
+        final String s = map.get(clazz);
+        final String pattern = rowNum.getString(s + FORMAT);
+        final Tuple2<String, String> prefixSuffix = getPrefixAndSuffix(pattern, d);
+        final String prefix = prefixSuffix.get0();
+        final String suffix = prefixSuffix.get1();
+
+        final SQLSelect sel = new SQLSelect();
         sel.addSelect(table.getField("NUMERO"));
         sel.addSelect(table.getKey());
-        sel.setWhere(new Where(table.getField("NUMERO"), "LIKE", "%" + t.get0() + "%"));
-        List<SQLRow> l = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
 
-        DecimalFormat format = new DecimalFormat("'" + t.get0() + "'" + t.get1());
+        sel.setWhere(new Where(table.getField("NUMERO"), "LIKE", "%" + prefix + "%"));
+        final List<SQLRow> l = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
+
+        final String decimalPattern = "'" + prefix + "'" + suffix;
+        final DecimalFormat format = new DecimalFormat(decimalPattern);
         int value = 0;
         for (SQLRow sqlRow : l) {
-            Number n;
+
+            final String numero = sqlRow.getString("NUMERO");
             try {
-                n = format.parse(sqlRow.getString("NUMERO"));
+
+                final Number n = format.parse(numero);
                 value = Math.max(value, n.intValue());
             } catch (ParseException exn) {
-                // TODO Bloc catch auto-généré
+                System.err.println("NumerotationAutoSQLElement.getNextForMonth(): warning: unable to parse " + numero + " with pattern " + decimalPattern + " row:" + sqlRow);
                 exn.printStackTrace();
             }
         }
-        final String format2 = format.format(value + 1);
-        System.err.println(format2);
-        return format2;
+        final String result = format.format(value + 1);
+        System.err.println("NumerotationAutoSQLElement.getNextForMonth(): " + result);
+        return result;
     }
 
     private static String getPattern(SQLElement elt, int num) {

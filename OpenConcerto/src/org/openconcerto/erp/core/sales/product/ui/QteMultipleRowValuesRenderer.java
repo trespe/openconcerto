@@ -54,7 +54,8 @@ public class QteMultipleRowValuesRenderer extends DefaultTableCellRenderer {
 
             Number qteM = (Number) rowVals.getObject("QTE_ACHAT");
             Number qte = (Number) rowVals.getObject("QTE");
-            if (qte.intValue() % qteM.intValue() != 0) {
+            final int qteAchat = qteM.intValue();
+            if (qteAchat != 0 && (qte.intValue() % qteAchat != 0)) {
                 if (!isSelected) {
                     comp.setBackground(red);
                 } else {
@@ -69,14 +70,6 @@ public class QteMultipleRowValuesRenderer extends DefaultTableCellRenderer {
                 }
             }
 
-            // if (!model.isCellEditable(row, column)) {
-            // if (!isSelected) {
-            // comp.setBackground(lightBlack);
-            // } else {
-            // comp.setBackground(lightBlackDarker);
-            // }
-            // return comp;
-            // }
         }
 
         return comp;

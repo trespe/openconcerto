@@ -70,6 +70,10 @@ public class UpdateBuilder {
         this.where = where;
     }
 
+    public final Where getWhere() {
+        return this.where;
+    }
+
     public final void addTable(final TableRef t) {
         this.tables.add(t.getSQL());
     }

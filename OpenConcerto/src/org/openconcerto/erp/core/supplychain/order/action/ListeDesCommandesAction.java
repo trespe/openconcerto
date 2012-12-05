@@ -47,11 +47,11 @@ public class ListeDesCommandesAction extends CreateFrameAbstractAction {
             @Override
             public List<RowAction> addToMenu() {
                 // Transfert vers BR
-                PredicateRowAction bonAction = new PredicateRowAction(new AbstractAction("Transfert vers BR") {
+                PredicateRowAction bonAction = new PredicateRowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent e) {
                         transfertBonReceptionClient(IListe.get(e).getSelectedRow());
                     }
-                }, false);
+                }, false, "supplychain.order.create.receipt");
 
                 bonAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
 

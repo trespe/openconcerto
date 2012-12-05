@@ -47,6 +47,11 @@ public class ReleveChequeSheet extends AbstractListeSheetXml {
     public static final String TEMPLATE_ID = "ReleveCheque";
     public static final String TEMPLATE_PROPERTY_NAME = "LocationReleveChequeCli";
 
+    @Override
+    protected String getStoragePathP() {
+        return "Releve Cheque";
+    }
+
     public ReleveChequeSheet(List<Integer> listeIds, Date date, boolean apercu) {
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.date = date;

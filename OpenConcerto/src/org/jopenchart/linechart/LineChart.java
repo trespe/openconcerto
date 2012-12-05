@@ -39,18 +39,24 @@ public class LineChart extends Chart {
 
     private List<ShapeMarker> markers = new ArrayList<ShapeMarker>();
 
+    private Stroke defaultStroke = new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+
     public LineChart() {
 
         left = new LeftAxis();
-        bottom = new BottomAxis();
+        bottom = new BottomAxis(true);
         gridStroke = new BasicStroke(1, BasicStroke.CAP_BUTT, BasicStroke.JOIN_ROUND, 0, new float[] { 5, 3 }, 0);
 
     }
 
     public Stroke getStroke(int index) {
         if (index >= lineStrokes.size())
-            return new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND);
+            return defaultStroke;
         return lineStrokes.get(index);
+    }
+
+    public void setDefaultLineStroke(Stroke s) {
+        this.defaultStroke = s;
     }
 
     public DataModelMultiple getDataModel() {
@@ -106,7 +112,7 @@ public class LineChart extends Chart {
     }
 
     public void setBottomAxis(Axis axis) {
-        bottom = new BottomAxis(axis);
+        bottom = new BottomAxis(axis, true);
 
     }
 

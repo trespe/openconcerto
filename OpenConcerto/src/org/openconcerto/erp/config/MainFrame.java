@@ -14,106 +14,10 @@
  package org.openconcerto.erp.config;
 
 import org.openconcerto.erp.action.AboutAction;
-import org.openconcerto.erp.action.AstuceAction;
-import org.openconcerto.erp.action.GestionDroitsAction;
-import org.openconcerto.erp.action.NouvelleSocieteAction;
 import org.openconcerto.erp.action.PreferencesAction;
 import org.openconcerto.erp.action.SauvegardeBaseAction;
-import org.openconcerto.erp.action.TaskAdminAction;
-import org.openconcerto.erp.action.list.ListeDesSocietesCommonsAction;
 import org.openconcerto.erp.action.list.ListeDesUsersCommonAction;
 import org.openconcerto.erp.core.common.ui.StatusPanel;
-import org.openconcerto.erp.core.customerrelationship.customer.action.ListeDesClientsAction;
-import org.openconcerto.erp.core.customerrelationship.customer.action.ListeDesContactsAction;
-import org.openconcerto.erp.core.customerrelationship.customer.action.NouvelHistoriqueListeClientAction;
-import org.openconcerto.erp.core.customerrelationship.mail.action.ListeDesCourriersClientsAction;
-import org.openconcerto.erp.core.customerrelationship.mail.action.NouveauCourrierClientAction;
-import org.openconcerto.erp.core.finance.accounting.action.CompteResultatBilanAction;
-import org.openconcerto.erp.core.finance.accounting.action.EtatBalanceAction;
-import org.openconcerto.erp.core.finance.accounting.action.EtatChargeAction;
-import org.openconcerto.erp.core.finance.accounting.action.EtatGrandLivreAction;
-import org.openconcerto.erp.core.finance.accounting.action.EtatJournauxAction;
-import org.openconcerto.erp.core.finance.accounting.action.ExportRelationExpertAction;
-import org.openconcerto.erp.core.finance.accounting.action.GenerePointageAction;
-import org.openconcerto.erp.core.finance.accounting.action.GestionPlanComptableEAction;
-import org.openconcerto.erp.core.finance.accounting.action.ImpressionLivrePayeAction;
-import org.openconcerto.erp.core.finance.accounting.action.ListeDesEcrituresAction;
-import org.openconcerto.erp.core.finance.accounting.action.ListeEcritureParClasseAction;
-import org.openconcerto.erp.core.finance.accounting.action.NouveauClotureAction;
-import org.openconcerto.erp.core.finance.accounting.action.NouveauJournalAction;
-import org.openconcerto.erp.core.finance.accounting.action.NouveauLettrageAction;
-import org.openconcerto.erp.core.finance.accounting.action.NouveauPointageAction;
-import org.openconcerto.erp.core.finance.accounting.action.NouvelleValidationAction;
-import org.openconcerto.erp.core.finance.accounting.action.ResultatAnalytiqueAction;
-import org.openconcerto.erp.core.finance.payment.action.ListeDesChequesAEncaisserAction;
-import org.openconcerto.erp.core.finance.payment.action.ListeDesChequesAvoirAction;
-import org.openconcerto.erp.core.finance.payment.action.ListeDesChequesFournisseursAction;
-import org.openconcerto.erp.core.finance.payment.action.ListeDesEncaissementsAction;
-import org.openconcerto.erp.core.finance.payment.action.ListeDesReferencesAction;
-import org.openconcerto.erp.core.finance.payment.action.ListeDesRelancesAction;
-import org.openconcerto.erp.core.finance.payment.action.ListeDesTraitesFournisseursAction;
-import org.openconcerto.erp.core.finance.payment.action.NouveauDecaissementChequeAvoirAction;
-import org.openconcerto.erp.core.finance.payment.action.NouveauListeDesChequesADecaisserAction;
-import org.openconcerto.erp.core.finance.payment.action.NouveauListeDesChequesAEncaisserAction;
-import org.openconcerto.erp.core.finance.tax.action.DeclarationTVAAction;
-import org.openconcerto.erp.core.humanresources.ListeDesContactsAdministratif;
-import org.openconcerto.erp.core.humanresources.employe.action.ListeDesCommerciauxAction;
-import org.openconcerto.erp.core.humanresources.employe.action.ListeDesSalariesAction;
-import org.openconcerto.erp.core.humanresources.employe.action.ListeDesSecretairesAction;
-import org.openconcerto.erp.core.humanresources.employe.action.N4DSAction;
-import org.openconcerto.erp.core.humanresources.payroll.action.ClotureMensuellePayeAction;
-import org.openconcerto.erp.core.humanresources.payroll.action.EditionFichePayeAction;
-import org.openconcerto.erp.core.humanresources.payroll.action.ListeDesProfilsPayeAction;
-import org.openconcerto.erp.core.humanresources.payroll.action.ListeDesRubriquesDePayeAction;
-import org.openconcerto.erp.core.humanresources.payroll.action.ListeDesVariablesPayes;
-import org.openconcerto.erp.core.humanresources.payroll.action.NouvelAcompteAction;
-import org.openconcerto.erp.core.humanresources.payroll.action.NouvelHistoriqueFichePayeAction;
-import org.openconcerto.erp.core.humanresources.payroll.action.NouvelleSaisieKmAction;
-import org.openconcerto.erp.core.reports.stat.action.EvolutionCAAction;
-import org.openconcerto.erp.core.reports.stat.action.EvolutionMargeAction;
-import org.openconcerto.erp.core.reports.stat.action.VenteArticleGraphAction;
-import org.openconcerto.erp.core.reports.stat.action.VenteArticleMargeGraphAction;
-import org.openconcerto.erp.core.sales.credit.action.ListeDesAvoirsClientsAction;
-import org.openconcerto.erp.core.sales.credit.action.NouveauAvoirClientAction;
-import org.openconcerto.erp.core.sales.invoice.action.EtatVenteAction;
-import org.openconcerto.erp.core.sales.invoice.action.GenListeVenteAction;
-import org.openconcerto.erp.core.sales.invoice.action.ListeDebiteursAction;
-import org.openconcerto.erp.core.sales.invoice.action.ListeDesElementsFactureAction;
-import org.openconcerto.erp.core.sales.invoice.action.ListeDesVentesAction;
-import org.openconcerto.erp.core.sales.invoice.action.ListeSaisieVenteFactureAction;
-import org.openconcerto.erp.core.sales.invoice.action.ListesFacturesClientsImpayeesAction;
-import org.openconcerto.erp.core.sales.invoice.action.NouveauSaisieVenteComptoirAction;
-import org.openconcerto.erp.core.sales.invoice.action.NouveauSaisieVenteFactureAction;
-import org.openconcerto.erp.core.sales.order.action.NouvelleCommandeClientAction;
-import org.openconcerto.erp.core.sales.pos.action.ListeDesCaissesTicketAction;
-import org.openconcerto.erp.core.sales.pos.action.ListeDesTicketsAction;
-import org.openconcerto.erp.core.sales.product.action.FamilleArticleAction;
-import org.openconcerto.erp.core.sales.product.action.ListeDesArticlesAction;
-import org.openconcerto.erp.core.sales.quote.action.ListeDesDevisAction;
-import org.openconcerto.erp.core.sales.quote.action.ListeDesElementsPropositionsAction;
-import org.openconcerto.erp.core.sales.quote.action.NouveauDevisAction;
-import org.openconcerto.erp.core.sales.quote.action.NouvellePropositionAction;
-import org.openconcerto.erp.core.sales.shipment.action.ListeDesBonsDeLivraisonAction;
-import org.openconcerto.erp.core.sales.shipment.action.NouveauBonLivraisonAction;
-import org.openconcerto.erp.core.supplychain.credit.action.ListeDesAvoirsFournisseurAction;
-import org.openconcerto.erp.core.supplychain.credit.action.NouvelAvoirFournisseurAction;
-import org.openconcerto.erp.core.supplychain.order.action.ListeDesCommandesAction;
-import org.openconcerto.erp.core.supplychain.order.action.ListeDesCommandesClientAction;
-import org.openconcerto.erp.core.supplychain.order.action.ListeSaisieAchatAction;
-import org.openconcerto.erp.core.supplychain.order.action.NouveauSaisieAchatAction;
-import org.openconcerto.erp.core.supplychain.order.action.NouvelleCommandeAction;
-import org.openconcerto.erp.core.supplychain.receipt.action.ListeDesBonsReceptionsAction;
-import org.openconcerto.erp.core.supplychain.receipt.action.NouveauBonReceptionAction;
-import org.openconcerto.erp.core.supplychain.stock.action.ListeDesMouvementsStockAction;
-import org.openconcerto.erp.core.supplychain.stock.action.NouvelleSaisieMouvementStockAction;
-import org.openconcerto.erp.core.supplychain.supplier.action.ListeDesContactsFournisseursAction;
-import org.openconcerto.erp.core.supplychain.supplier.action.ListeDesFournisseursAction;
-import org.openconcerto.erp.core.supplychain.supplier.action.ListesFacturesFournImpayeesAction;
-import org.openconcerto.erp.core.supplychain.supplier.action.NouvelHistoriqueListeFournAction;
-import org.openconcerto.erp.modules.ModuleFrame;
-import org.openconcerto.erp.preferences.DefaultNXProps;
-import org.openconcerto.erp.rights.ComptaUserRight;
-import org.openconcerto.erp.rights.NXRights;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.users.rights.LockAdminUserRight;
@@ -123,6 +27,8 @@ import org.openconcerto.task.config.ComptaBasePropsConfiguration;
 import org.openconcerto.ui.AutoHideTabbedPane;
 import org.openconcerto.ui.MenuUtils;
 import org.openconcerto.ui.SwingThreadUtils;
+import org.openconcerto.ui.group.Group;
+import org.openconcerto.ui.group.Item;
 import org.openconcerto.ui.state.WindowStateManager;
 import org.openconcerto.utils.JImage;
 import org.openconcerto.utils.OSXAdapter;
@@ -148,6 +54,7 @@ import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JSeparator;
 
 public class MainFrame extends JFrame {
@@ -214,7 +121,7 @@ public class MainFrame extends JFrame {
         super();
 
         this.setIconImage(new ImageIcon(this.getClass().getResource("frameicon.png")).getImage());
-        this.setJMenuBar(Gestion.isMinimalMode() ? createMinimalMenu() : createMenu());
+
         Container co = this.getContentPane();
         co.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -279,7 +186,7 @@ public class MainFrame extends JFrame {
         new NewsUpdater(this.image);
     }
 
-    private final JMenuBar createMinimalMenu() {
+    public final JMenuBar createMinimalMenu() {
         final JMenuBar res = new JMenuBar();
         final JMenu fileMenu = new JMenu(FILE_MENU);
         fileMenu.add(new SauvegardeBaseAction());
@@ -307,319 +214,114 @@ public class MainFrame extends JFrame {
         return res;
     }
 
-    private final JMenuBar createMenu() {
-        JMenuBar result = new JMenuBar();
-
-        JMenu menu;
-
-        Boolean bModeVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
-
-        // Fichier
-        menu = new JMenu(FILE_MENU);
-
-        // FIXME Probleme AliasedTable --> flush showAs, ...
-        // item = new JMenuItem(new NouvelleConnexionAction());
-        // menu.add(item);
-
-        // Boolean bSauvegarde =
-        // UserManager.getInstance().getCurrentUser().getRights().haveRight("BACKUP");
-        // if (bSauvegarde) {
-
-        // item = new JMenuItem("Sauvegarde"); // eSauvegarde
-        final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
-        final ComptaPropsConfiguration configuration = (ComptaPropsConfiguration) Configuration.getInstance();
-
-            menu.add(new SauvegardeBaseAction());
-            menu.add(new ExportRelationExpertAction());
-
-        // if (rights.haveRight(NXRights.LOCK_MENU_TEST.getCode())) {
-        // menu.add(new GenerateEcrFactAction());
-        // menu.add(new ImportCielDataAction());
-        // }
-
-        menu.add(new JMenuItem(new AbstractAction("Modules") {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                final ModuleFrame frame = new ModuleFrame();
-                frame.setMinimumSize(new Dimension(480, 640));
-                frame.setLocationRelativeTo(null);
-                frame.setVisible(true);
-            }
-        }));
-
-        if (!Gestion.MAC_OS_X) {
-            menu.add(new JMenuItem(new PreferencesAction()));
-            menu.add(new JMenuItem(new AbstractAction("Quitter") {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    quit();
-                }
-            }));
+    public final JMenuBar createMenu() {
+        final JMenuBar result = new JMenuBar();
+        final Group g = MenuManager.getInstance().getGroup();
+        for (int i = 0; i < g.getSize(); i++) {
+            final Item item = g.getItem(i);
+            result.add(createJMenuFrom(item));
         }
-        result.add(menu);
-
-        // Saisie
-        result.add(getCreateMenu(bModeVenteComptoir, rights, configuration));
-
-        // Gestion
-        result.add(getListeMenu(bModeVenteComptoir, rights, configuration));
-
-        // Etats
-        menu = getStateMenu();
-
-        if (rights.haveRight(ComptaUserRight.MENU)) {
-            result.add(menu);
-        }
-
-        menu = getDeclarationMenu();
-        if (rights.haveRight(ComptaUserRight.MENU)) {
-            result.add(menu);
-        }
-
-        // Stat
-        menu = getStatMenu(configuration);
-
-        if (rights.haveRight(NXRights.ACCES_MENU_STAT.getCode())) {
-            result.add(menu);
-        }
-
-        // Paiement
-        menu = getPaiementMenu(rights);
-            result.add(menu);
-
-        // Paye
-        menu = getPayrollMenu();
-
-        if (rights.haveRight(NXRights.LOCK_MENU_PAYE.getCode())) {
-            result.add(menu);
-        }
-
-        // Structure
-        menu = getStructureMenu(rights, configuration);
-
-        if (rights.haveRight(NXRights.ACCES_MENU_STRUCTURE.getCode())) {
-            result.add(menu);
-        }
-        // Aide
-        menu = new JMenu(HELP_MENU);
-        menu.add(new JMenuItem(AboutAction.getInstance()));
-        menu.add(new JMenuItem(new AstuceAction()));
-
-        result.add(menu);
         return result;
     }
 
-    public JMenu getPayrollMenu() {
-        JMenu menu;
-        menu = new JMenu(PAYROLL_MENU);
-
-        menu.add(new ImpressionLivrePayeAction());
-        menu.add(new ListeDesProfilsPayeAction());
-        menu.add(new NouvelHistoriqueFichePayeAction());
-        menu.add(new EditionFichePayeAction());
-        menu.add(new NouvelAcompteAction());
-        menu.add(new ListeDesSalariesAction());
-        menu.add(new JSeparator());
-        menu.add(new ListeDesRubriquesDePayeAction());
-        menu.add(new ListeDesVariablesPayes());
-        menu.add(new JSeparator());
-        menu.add(new ClotureMensuellePayeAction());
-        return menu;
-    }
-
-    public JMenu getStructureMenu(final UserRights rights, final ComptaPropsConfiguration configuration) {
-        JMenu menu;
-        menu = new JMenu(STRUCTURE_MENU);
-
-        if (rights.haveRight(ComptaUserRight.MENU)) {
-
-            menu.add(new GestionPlanComptableEAction());
-            menu.add(new NouveauJournalAction());
-            menu.add(new JSeparator());
-
+    private JMenu createJMenuFrom(final Item item) {
+        final String id = item.getId();
+        String name = MenuManager.getInstance().getLabelForId(id);
+        String menuLabel = name;
+        if (name == null || name.trim().isEmpty()) {
+            menuLabel = id;
         }
-
-        if (rights.haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {
-            menu.add(new JMenuItem(new ListeDesUsersCommonAction()));
-            menu.add(new JMenuItem(new GestionDroitsAction()));
-            menu.add(new JMenuItem(new TaskAdminAction()));
-            menu.add(new JSeparator());
+        final JMenu m = new JMenu(menuLabel);
+        if (name == null || name.trim().isEmpty()) {
+            m.setForeground(new Color(200, 65, 20));
         }
-
-        menu.add(new ListeDesContactsAdministratif());
-        menu.add(new ListeDesCommerciauxAction());
-        menu.add(new JSeparator());
-        menu.add(new ListeDesCaissesTicketAction());
-
-        menu.add(new JSeparator());
-
-            menu.add(new ListeDesSocietesCommonsAction());
-
-            menu.add(new NouvelleSocieteAction());
-
-        return menu;
-    }
-
-    public JMenu getPaiementMenu(final UserRights rights) {
-        JMenu menu;
-        menu = new JMenu(PAYMENT_MENU);
-
-        if (rights.haveRight(ComptaUserRight.MENU) || rights.haveRight(ComptaUserRight.POINTAGE_LETTRAGE)) {
-            menu.add(new NouveauPointageAction());
-            menu.add(new NouveauLettrageAction());
-            menu.add(new JSeparator());
-        }
-
-        if (rights.haveRight(NXRights.GESTION_ENCAISSEMENT.getCode())) {
-            menu.add(new ListesFacturesClientsImpayeesAction());
-            menu.add(new ListeDebiteursAction());
-            menu.add(new ListeDesEncaissementsAction());
-            menu.add(new ListeDesRelancesAction());
-            menu.add(new JSeparator());
-            menu.add(new ListeDesChequesAEncaisserAction());
-            menu.add(new NouveauListeDesChequesAEncaisserAction());
-            menu.add(new JSeparator());
-            menu.add(new ListeDesChequesAvoirAction());
-            menu.add(new NouveauDecaissementChequeAvoirAction());
-            menu.add(new JSeparator());
-        }
-        if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
-            menu.add(new ListesFacturesFournImpayeesAction());
-            menu.add(new ListeDesTraitesFournisseursAction());
-            menu.add(new ListeDesChequesFournisseursAction());
-            menu.add(new NouveauListeDesChequesADecaisserAction());
-        }
-        return menu;
-    }
-
-    public JMenu getStatMenu(final ComptaPropsConfiguration configuration) {
-        JMenu menu;
-        menu = new JMenu(STATS_MENU);
-
-
-        menu.add(new EvolutionCAAction());
-
-            menu.add(new EvolutionMargeAction());
-        menu.addSeparator();
-        menu.add(new GenListeVenteAction());
-            menu.add(new VenteArticleGraphAction());
-            menu.add(new VenteArticleMargeGraphAction());
-        menu.add(new EtatVenteAction());
-        return menu;
-    }
-
-    public JMenu getDeclarationMenu() {
-        JMenu menu;
-        menu = new JMenu(DECLARATION_MENU);
-
-        menu.add(new DeclarationTVAAction());
-        menu.add(new JSeparator());
-        menu.add(new EtatChargeAction());
-        menu.add(new CompteResultatBilanAction());
-        menu.add(new N4DSAction());
-        return menu;
-    }
-
-    public JMenu getStateMenu() {
-        JMenu menu;
-        menu = new JMenu(STATE_MENU);
-
-        menu.add(new EtatBalanceAction());
-        menu.add(new org.openconcerto.erp.core.finance.accounting.action.BalanceAgeeAction());
-        menu.add(new EtatJournauxAction());
-        menu.add(new EtatGrandLivreAction());
-        menu.add(new ListeDesEcrituresAction());
-        menu.add(new ListeEcritureParClasseAction());
-        menu.add(new JSeparator());
-        menu.add(new NouvelleValidationAction());
-        menu.add(new JMenuItem(new NouveauClotureAction()));
-        return menu;
-    }
-
-    public JMenu getListeMenu(Boolean bModeVenteComptoir, final UserRights rights, final ComptaPropsConfiguration configuration) {
-        JMenu menu;
-        menu = new JMenu(LIST_MENU);
-
-        menu.add(new ListeDesClientsAction());
-        menu.add(new ListeDesContactsAction());
-
-        if (rights.haveRight(NXRights.ACCES_HISTORIQUE.getCode())) {
-            menu.add(new NouvelHistoriqueListeClientAction());
-        }
-
-
-        menu.add(new JSeparator());
-
-            menu.add(new ListeDesDevisAction());
-
-
-            menu.add(new ListeDesCommandesClientAction());
-            menu.add(new ListeDesBonsDeLivraisonAction());
-
-        boolean useListDesVentesAction = bModeVenteComptoir;
-        if (useListDesVentesAction) {
-            menu.add(new ListeDesVentesAction());
-
+        if (item instanceof Group) {
+            final Group g = (Group) item;
+            for (int i = 0; i < g.getSize(); i++) {
+                final Item child = g.getItem(i);
+                final List<JMenuItem> menuItems = createJMenuItemsFrom(child);
+                if (child.getLocalHint().isSeparated() && m.getMenuComponentCount() > 0) {
+                    m.addSeparator();
+                }
+                for (JMenuItem jMenuItem : menuItems) {
+                    m.add(jMenuItem);
+                }
+            }
         } else {
 
-            menu.add(new ListeSaisieVenteFactureAction());
+            m.add(createJMenuItemForId(id));
         }
-
-        menu.add(new ListeDesAvoirsClientsAction());
-
-            menu.add(new JSeparator());
-            menu.add(new ListeDesFournisseursAction());
-            menu.add(new ListeDesContactsFournisseursAction());
-                menu.add(new NouvelHistoriqueListeFournAction());
-            if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
-                    menu.add(new ListeDesCommandesAction());
-                menu.add(new ListeDesBonsReceptionsAction());
-                menu.add(new ListeSaisieAchatAction());
-                    menu.add(new ListeDesAvoirsFournisseurAction());
-            }
-
-            menu.add(new JSeparator());
-            menu.add(new ListeDesArticlesAction());
-            menu.add(new ListeDesMouvementsStockAction());
-
-            menu.add(new JSeparator());
-            menu.add(new ListeDesTicketsAction());
-        return menu;
+        return m;
     }
 
-    public JMenu getCreateMenu(Boolean bModeVenteComptoir, final UserRights rights, final ComptaPropsConfiguration configuration) {
-
-        JMenu menu = new JMenu(CREATE_MENU);
-
-        if (rights.haveRight(ComptaUserRight.MENU)) {
-            menu.add(new NouvelleSaisieKmAction());
-            menu.add(new JSeparator());
+    private List<JMenuItem> createJMenuItemsFrom(Item item) {
+        List<JMenuItem> result = new ArrayList<JMenuItem>();
+        final String id = item.getId();
+        String name = MenuManager.getInstance().getLabelForId(id);
+        String menuLabel = name;
+        if (name == null || name.trim().isEmpty()) {
+            menuLabel = id;
         }
-
-            menu.add(new NouveauDevisAction());
-
-
-        menu.add(new JSeparator());
-
-            menu.add(new NouveauBonLivraisonAction());
-            menu.add(new NouvelleCommandeClientAction());
-        if (bModeVenteComptoir && rights.haveRight("VENTE_COMPTOIR")) {
-            menu.add(new NouveauSaisieVenteComptoirAction());
-        }
-        menu.add(new NouveauSaisieVenteFactureAction());
-
-        menu.add(new NouveauAvoirClientAction());
-
-            if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
-
-                menu.add(new JSeparator());
-                    menu.add(new NouvelleCommandeAction());
-                menu.add(new NouveauBonReceptionAction());
-                menu.add(new NouveauSaisieAchatAction());
-                    menu.add(new NouvelAvoirFournisseurAction());
-                menu.add(new NouvelleSaisieMouvementStockAction());
+        if (item instanceof Group) {
+            Group g = (Group) item;
+            JMenu m = null;
+            if (g.getLocalHint().showLabel()) {
+                m = new JMenu(menuLabel);
+                if (name == null || name.trim().isEmpty()) {
+                    m.setForeground(new Color(20, 65, 200));
+                }
+                result.add(m);
             }
-        return menu;
+            if (g.getLocalHint().isSeparated() && !g.getLocalHint().showLabel()) {
+                // result.add(null);
+            }
+            for (int i = 0; i < g.getSize(); i++) {
+                final Item child = g.getItem(i);
+                final List<JMenuItem> menuItems = createJMenuItemsFrom(child);
+                for (JMenuItem jMenuItem : menuItems) {
+                    if (m == null) {
+                        result.add(jMenuItem);
+                    } else {
+                        if (child.getLocalHint().isSeparated()) {
+                            m.addSeparator();
+                        }
+                        m.add(jMenuItem);
+                    }
+                }
+            }
+
+        } else {
+            result.add(createJMenuItemForId(id));
+        }
+
+        return result;
+    }
+
+    public JMenuItem createJMenuItemForId(final String id) {
+        final String name = MenuManager.getInstance().getLabelForId(id);
+        String menuLabel = name;
+        if (name == null || name.trim().isEmpty()) {
+            menuLabel = id;
+        }
+        final JMenuItem menuItem = new JMenuItem(menuLabel);
+        Action actionForId = MenuManager.getInstance().getActionForId(id);
+        if (actionForId == null) {
+            actionForId = new AbstractAction(name) {
+
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    JOptionPane.showMessageDialog(MainFrame.this, "No action for " + id);
+                }
+            };
+            menuItem.setForeground(new Color(200, 65, 95));
+        }
+        if (name == null || name.trim().isEmpty()) {
+            menuItem.setForeground(new Color(20, 65, 200));
+        }
+
+        actionForId.putValue(Action.NAME, menuLabel);
+        menuItem.setAction(actionForId);
+        return menuItem;
     }
 
     public JMenuItem addMenuItem(final Action action, final String... path) {

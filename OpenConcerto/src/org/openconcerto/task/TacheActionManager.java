@@ -13,11 +13,9 @@
  
  package org.openconcerto.task;
 
-import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,9 +25,9 @@ import javax.swing.AbstractAction;
 
 public class TacheActionManager {
 
-    Map<String, List<Class<? extends AbstractAction>>> m = new HashMap<String, List<Class<? extends AbstractAction>>>();
+    private final Map<String, List<Class<? extends AbstractAction>>> m = new HashMap<String, List<Class<? extends AbstractAction>>>();
 
-    private static TacheActionManager instance = new TacheActionManager();
+    private static final TacheActionManager instance = new TacheActionManager();
 
     public void addTacheAction(String name, Class<? extends AbstractAction> c) {
         List<Class<? extends AbstractAction>> l = this.m.get(name);
@@ -45,32 +43,20 @@ public class TacheActionManager {
     }
 
     public List<AbstractAction> getActionsForTaskRow(SQLRowAccessor row) {
-        List<AbstractAction> l = new ArrayList<AbstractAction>();
+        final List<AbstractAction> l = new ArrayList<AbstractAction>();
 
-        String type = row.getString("TYPE");
+        final String type = row.getString("TYPE");
         if (type.trim().length() > 0) {
             final List<Class<? extends AbstractAction>> listClass = this.m.get(type);
 
             if (listClass != null) {
                 for (Class<? extends AbstractAction> class1 : listClass) {
-
                     try {
-
                         if (class1 != null) {
                             Constructor<? extends AbstractAction> ctor = class1.getConstructor(SQLRowAccessor.class);
                             l.add(ctor.newInstance(row));
                         }
-                    } catch (IllegalArgumentException e) {
-                        e.printStackTrace();
-                    } catch (InstantiationException e) {
-                        e.printStackTrace();
-                    } catch (IllegalAccessException e) {
-                        e.printStackTrace();
-                    } catch (InvocationTargetException e) {
-                        e.printStackTrace();
-                    } catch (SecurityException e) {
-                        e.printStackTrace();
-                    } catch (NoSuchMethodException e) {
+                    } catch (Exception e) {
                         e.printStackTrace();
                     }
                 }

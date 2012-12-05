@@ -124,7 +124,7 @@ public class Where {
      */
     @SuppressWarnings("unchecked")
     static public Where quote(String pattern, Object... params) {
-        return new Where(SQLSelect.quote(pattern, params), CollectionUtils.select(Arrays.asList(params), new InstanceofPredicate(FieldRef.class)));
+        return new Where(SQLSelect.quote(pattern, params), org.apache.commons.collections.CollectionUtils.select(Arrays.asList(params), new InstanceofPredicate(FieldRef.class)));
     }
 
     static private final String comparison(FieldRef ref, String op, String y) {
@@ -133,6 +133,11 @@ public class Where {
         } else {
             return ref.getFieldRef() + " " + op + " " + y;
         }
+    }
+
+    static private final String getInClause(FieldRef field1, final boolean in, final String inParens) {
+        final String op = in ? " in (" : " not in (";
+        return field1.getFieldRef() + op + inParens + ")";
     }
 
     private final List<FieldRef> fields;
@@ -198,14 +203,18 @@ public class Where {
             this.clause = in ? FALSE.getClause() : TRUE.getClause();
         } else {
             this.fields.add(field1);
-            final String op = in ? " in (" : " not in (";
-            this.clause = field1.getFieldRef() + op + CollectionUtils.join(values, ",", new ITransformer<Object, String>() {
+            this.clause = getInClause(field1, in, CollectionUtils.join(values, ",", new ITransformer<Object, String>() {
                 @Override
                 public String transformChecked(Object input) {
                     return field1.getField().getType().toString(input);
                 }
-            }) + ")";
+            }));
         }
+    }
+
+    public Where(final FieldRef field1, final boolean in, SQLSelect subQuery) {
+        this.fields.add(field1);
+        this.clause = getInClause(field1, in, subQuery.asString());
     }
 
     /**

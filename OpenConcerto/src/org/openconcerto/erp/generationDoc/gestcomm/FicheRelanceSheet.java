@@ -33,8 +33,13 @@ public class FicheRelanceSheet extends AbstractListeSheetXml {
     public static final String TEMPLATE_PROPERTY_NAME = DEFAULT_PROPERTY_NAME;
 
     public FicheRelanceSheet(SQLRow row) {
+        super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
-        this.row = row;
+    }
+
+    @Override
+    protected String getStoragePathP() {
+        return "Relance";
     }
 
     @Override
@@ -62,9 +67,14 @@ public class FicheRelanceSheet extends AbstractListeSheetXml {
 
     }
 
+    Date d;
+
     @Override
     public String getName() {
-        return "FicheRelance" + new Date().getTime();
+        if (d == null) {
+            d = new Date();
+        }
+        return "FicheRelance" + d.getTime();
     }
 
 }

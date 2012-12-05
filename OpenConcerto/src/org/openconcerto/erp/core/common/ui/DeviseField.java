@@ -391,11 +391,7 @@ public class DeviseField extends JTextField implements EmptyObject, MutableRowIt
     public void show(SQLRowAccessor r) {
         if (r.getFields().contains(this.getField().getName())) {
             Object o = r.getObject(this.getField().getName());
-            // if (o.getClass() == Long.class) {
-            this.setValue(GestionDevise.currencyToString(((Long) o).longValue()));
-            // } else {
-            // this.setValue(GestionDevise.currencyToString(((BigInteger) o).longValue()));
-            // }
+            this.setValue(GestionDevise.currencyToString(((Number) o).longValue()));
         }
     }
 

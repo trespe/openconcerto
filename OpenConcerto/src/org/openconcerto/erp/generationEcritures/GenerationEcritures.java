@@ -14,7 +14,10 @@
  package org.openconcerto.erp.generationEcritures;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.ui.TotalCalculator;
+import org.openconcerto.erp.core.common.ui.TotalCalculator;
 import org.openconcerto.erp.model.PrixHT;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
@@ -22,6 +25,7 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.ExceptionHandler;
 
@@ -47,10 +51,10 @@ import org.apache.commons.dbutils.handlers.ArrayListHandler;
 public class GenerationEcritures {
 
     protected static final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-    private static final SQLTable compteTable = base.getTable("COMPTE_PCE");
-    private static final SQLTable journalTable = base.getTable("JOURNAL");
-    private static final SQLTable ecritureTable = base.getTable("ECRITURE");
-    private static final SQLTable pieceTable = base.getTable("PIECE");
+    protected static final SQLTable compteTable = base.getTable("COMPTE_PCE");
+    protected static final SQLTable journalTable = base.getTable("JOURNAL");
+    protected static final SQLTable ecritureTable = base.getTable("ECRITURE");
+    protected static final SQLTable pieceTable = base.getTable("PIECE");
 
     protected int idMvt;
     protected int idPiece;
@@ -310,10 +314,8 @@ public class GenerationEcritures {
      * @param nomPiece
      * @return id d'un nouveau mouvement
      */
-    synchronized public int getNewMouvement(String source, int idSource, int idPere, String nomPiece) {
+    synchronized public int getNewMouvement(String source, int idSource, int idPere, SQLRowValues rowValsPiece) {
 
-        SQLRowValues rowValsPiece = new SQLRowValues(pieceTable);
-        rowValsPiece.put("NOM", nomPiece);
         SQLRow rowPiece;
         try {
             rowPiece = rowValsPiece.insert();
@@ -325,8 +327,85 @@ public class GenerationEcritures {
         return 1;
     }
 
-    protected Map<Integer, Long> getMultiTVAFromRow(SQLRow row, SQLTable foreign, boolean vente, PrixHT totalHt, long remiseHT) {
+    synchronized public int getNewMouvement(String source, int idSource, int idPere, String nomPiece) {
+
+        SQLRowValues rowValsPiece = new SQLRowValues(pieceTable);
+        rowValsPiece.put("NOM", nomPiece);
+        return getNewMouvement(source, idSource, idPere, rowValsPiece);
+    }
+
+    protected TotalCalculator getValuesFromElement(SQLRow row, SQLTable foreign, BigDecimal portHT, SQLRowAccessor rowTVAPort, SQLTable tableEchantillon) {
+
+        TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
+        long remise = 0;
+        BigDecimal totalAvtRemise = BigDecimal.ZERO;
+        if (row.getTable().contains("REMISE_HT")) {
+            remise = row.getLong("REMISE_HT");
+            if (remise != 0) {
+                List<SQLRow> rows = row.getReferentRows(foreign);
+                for (SQLRow sqlRow : rows) {
+                    calc.addLine(sqlRow, sqlRow.getForeign("ID_ARTICLE"), 1, false);
+                }
+
+                if (tableEchantillon != null) {
+                    List<SQLRow> rowsEch = row.getReferentRows(tableEchantillon);
+                    for (SQLRow sqlRow : rowsEch) {
+                        calc.addEchantillon((BigDecimal) sqlRow.getObject("T_PV_HT"), sqlRow.getForeign("ID_TAXE"));
+                    }
+                }
+                calc.checkResult();
+                totalAvtRemise = calc.getTotalHT();
+            }
+        }
+
+        calc.initValues();
+        calc.setRemise(remise, totalAvtRemise);
+
         List<SQLRow> rows = row.getReferentRows(foreign);
+        for (int i = 0; i < rows.size(); i++) {
+            SQLRow sqlRow = rows.get(i);
+            calc.addLine(sqlRow, sqlRow.getForeign("ID_ARTICLE"), i, i == rows.size() - 1);
+        }
+
+        if (tableEchantillon != null) {
+            List<SQLRow> rowsEch = row.getReferentRows(tableEchantillon);
+            for (SQLRow sqlRow : rowsEch) {
+                calc.addEchantillon((BigDecimal) sqlRow.getObject("T_PV_HT"), sqlRow.getForeign("ID_TAXE"));
+            }
+        }
+        if (rowTVAPort != null && !rowTVAPort.isUndefined()) {
+            SQLRowValues rowValsPort = new SQLRowValues(foreign);
+            rowValsPort.put("T_PV_HT", portHT);
+            rowValsPort.put("QTE", 1);
+            rowValsPort.put("ID_TAXE", rowTVAPort);
+            calc.addLine(rowValsPort, null, 1, false);
+        }
+        calc.checkResult();
+        return calc;
+    }
+
+    // FIXME à supprimer et remplacer la methode utiliser pour tickets caisse
+    protected Map<Integer, Long> getMultiTVAFromRow(SQLRow row, SQLTable foreign, boolean vente, PrixHT totalHt, long remiseHT) {
+
+        List<SQLRow> rows = row.getReferentRows(foreign);
+
+        SQLPreferences prefs = new SQLPreferences(row.getTable().getDBRoot());
+        final boolean tvaLine = prefs.getBoolean(GestionArticleGlobalPreferencePanel.TVA_LINE, false);
+
+        if (tvaLine) {
+            Map<Integer, Long> map = new HashMap<Integer, Long>();
+            for (SQLRow sqlRow : rows) {
+                SQLRow taxe = sqlRow.getForeignRow("ID_TAXE");
+                long val = sqlRow.getLong("T_PV_TTC") - sqlRow.getLong("T_PV_HT");
+                Long l = map.get(taxe.getInt("ID_COMPTE_PCE_COLLECTE"));
+                if (l == null) {
+                    map.put(taxe.getInt("ID_COMPTE_PCE_COLLECTE"), Long.valueOf(val));
+                } else {
+                    map.put(taxe.getInt("ID_COMPTE_PCE_COLLECTE"), Long.valueOf(val + l));
+                }
+            }
+            return map;
+        }
 
         // Total HT par TVA
         Map<SQLRow, Long> mapTaxeHT = new HashMap<SQLRow, Long>();

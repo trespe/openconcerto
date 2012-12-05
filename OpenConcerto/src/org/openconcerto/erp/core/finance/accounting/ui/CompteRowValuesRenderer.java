@@ -15,10 +15,10 @@
 
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLTableEvent;
-import org.openconcerto.sql.model.SQLTableModifiedListener;
+import org.openconcerto.sql.model.SQLBackgroundTableCache;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.table.AlternateTableCellRenderer;
+import org.openconcerto.ui.table.TableCellRendererUtils;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.awt.Color;
@@ -38,69 +38,60 @@ public class CompteRowValuesRenderer extends DefaultTableCellRenderer {
     private static final Color orangeGrey = new Color(255, 160, 110);
     private static final Color orangeLight = new Color(255, 201, 168);
     private boolean createAutoActive = false;
-
-    private static Map<String, Boolean> cache = new HashMap<String, Boolean>();
+    private Map<String, Boolean> cache = new HashMap<String, Boolean>();
 
     static {
-        Configuration.getInstance().getDirectory().getElement("COMPTE_PCE").getTable().addTableModifiedListener(new SQLTableModifiedListener() {
+        final Thread th = new Thread(new Runnable() {
+
             @Override
-            public void tableModified(SQLTableEvent evt) {
-                if (evt != null && evt.getMode() == SQLTableEvent.Mode.ROW_ADDED) {
-                    final SQLRow row = evt.getRow();
-                    if (row != null) {
-                        cache.put(row.getString("NUMERO"), Boolean.TRUE);
-                    }
-                }
+            public void run() {
+                final SQLTable table = Configuration.getInstance().getDirectory().getElement("COMPTE_PCE").getTable();
+                SQLBackgroundTableCache.getInstance().add(table, 3600);
+                // Force preload
+                SQLBackgroundTableCache.getInstance().getCacheForTable(table);
+
             }
         });
+        th.setDaemon(true);
+        th.setPriority(Thread.MIN_PRIORITY);
+        th.start();
     }
 
     public CompteRowValuesRenderer() {
         super();
-        cache.clear();
         AlternateTableCellRenderer.setBGColorMap(this, CollectionUtils.createMap(orange, orangeGrey, red, redLightGrey));
     }
 
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 
         Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-
-        if (value.getClass() == String.class) {
-            if (value != null) {
-                if (column == 0) {
-                    boolean exist;
-                    if (cache.get(value.toString()) == null) {
-                        exist = ComptePCESQLElement.isExist(value.toString());
-                        cache.put(value.toString(), exist);
+        TableCellRendererUtils.setColors(comp, table, isSelected);
+        if (column == 0 && value != null && value instanceof String) {
+            final String account = (String) value;
+            final boolean exist;
+            if (cache.get(account) == null) {
+                exist = ComptePCESQLElement.isExist(account);
+                cache.put(account, exist);
+            } else {
+                exist = cache.get(account);
+            }
+            if (!exist) {
+                if (!isSelected) {
+                    if (this.createAutoActive) {
+                        comp.setBackground(orange);
                     } else {
-                        exist = cache.get(value.toString());
+                        comp.setBackground(red);
                     }
-                    if (!exist) {
-                        if (!isSelected) {
-                            if (this.createAutoActive) {
-                                comp.setBackground(orange);
-                            } else {
-                                comp.setBackground(red);
-                            }
-                        } else {
-                            if (this.createAutoActive) {
-                                comp.setBackground(orangeLight);
-                            } else {
-                                comp.setBackground(redGrey);
-                            }
-                        }
-                        comp.setForeground(Color.WHITE);
+                } else {
+                    if (this.createAutoActive) {
+                        comp.setBackground(orangeLight);
+                    } else {
+                        comp.setBackground(redGrey);
                     }
-
                 }
+                comp.setForeground(Color.WHITE);
             }
         }
-
-        // TableCellEditor cellEditor = table.getColumnModel().getColumn(column).getCellEditor();
-        // cellEditor.addCellEditorListener(this);
-        //
-        // jumpToNextEditCell(table, hasFocus, isSelected, row, column);
-
         return comp;
     }
 
@@ -108,15 +99,4 @@ public class CompteRowValuesRenderer extends DefaultTableCellRenderer {
         this.createAutoActive = b;
     }
 
-    // @Override
-    // public void editingCanceled(ChangeEvent e) {
-    // // TODO Auto-generated method stub
-    //
-    // }
-    //
-    // @Override
-    // public void editingStopped(ChangeEvent e) {
-    // // TODO Auto-generated method stub
-    // setEditingMode(true);
-    // }
 }

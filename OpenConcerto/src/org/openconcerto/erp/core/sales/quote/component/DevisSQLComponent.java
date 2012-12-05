@@ -220,7 +220,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
             @Override
             public void propertyChange(PropertyChangeEvent arg0) {
-                if (comboClient.getValue() != null) {
+                if (!isFilling() && comboClient.getValue() != null) {
                     Integer id = comboClient.getValue();
 
                     if (id > 1) {

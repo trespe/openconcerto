@@ -500,23 +500,24 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         cFrais.weighty = 1;
         cFrais.gridx = 1;
 
+        // FIXME implémenter la remise et les port pour les avoirs
         JLabel labelPortHT = new JLabel(getLabelFor("PORT_HT"));
         labelPortHT.setHorizontalAlignment(SwingConstants.RIGHT);
         cFrais.gridy++;
-        panelPortEtRemise.add(labelPortHT, cFrais);
+        // panelPortEtRemise.add(labelPortHT, cFrais);
         cFrais.gridx++;
         DefaultGridBagConstraints.lockMinimumSize(textPortHT);
-        panelPortEtRemise.add(textPortHT, cFrais);
+        // panelPortEtRemise.add(textPortHT, cFrais);
 
         // Remise
         JLabel labelRemiseHT = new JLabel(getLabelFor("REMISE_HT"));
         labelRemiseHT.setHorizontalAlignment(SwingConstants.RIGHT);
         cFrais.gridy++;
         cFrais.gridx = 1;
-        panelPortEtRemise.add(labelRemiseHT, cFrais);
+        // panelPortEtRemise.add(labelRemiseHT, cFrais);
         cFrais.gridx++;
         DefaultGridBagConstraints.lockMinimumSize(textRemiseHT);
-        panelPortEtRemise.add(textRemiseHT, cFrais);
+        // panelPortEtRemise.add(textRemiseHT, cFrais);
         cFrais.gridy++;
 
         c.gridx++;

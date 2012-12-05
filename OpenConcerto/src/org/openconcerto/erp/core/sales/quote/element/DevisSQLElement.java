@@ -39,6 +39,8 @@ import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.utils.CollectionMap;
 
 import java.awt.event.ActionEvent;
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -106,7 +108,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     }
 
     public RowAction getCloneAction() {
-        return new RowAction(new AbstractAction("Créer à partir de") {
+        return new RowAction(new AbstractAction() {
             private EditFrame editFrame;
 
             public void actionPerformed(ActionEvent e) {
@@ -120,7 +122,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
                 ((DevisSQLComponent) this.editFrame.getSQLComponent()).loadDevisExistant(selectedRow.getID());
                 this.editFrame.setVisible(true);
             }
-        }, true) {
+        }, true, "sales.quote.clone") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                 return (selection != null && selection.size() == 1);
             };
@@ -128,7 +130,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     }
 
     public RowAction getRefuseAction() {
-        return new RowAction(new AbstractAction("Marquer comme refusé") {
+        return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
                 rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.REFUSE);
@@ -140,7 +142,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
                 }
                 IListe.get(e).getSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
             }
-        }, false) {
+        }, false, "sales.quote.refuse") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                 if (selection != null && selection.size() == 1) {
                     if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.EN_ATTENTE) {
@@ -153,7 +155,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     }
 
     public RowAction getAcceptAction() {
-        return new RowAction(new AbstractAction("Marquer comme accepté") {
+        return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 SQLRow selectedRow = IListe.get(e).getSelectedRow();
                 SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
@@ -166,7 +168,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
                 }
                 selectedRow.getTable().fireTableModified(IListe.get(e).getSelectedId());
             }
-        }, false) {
+        }, false, "sales.quote.accept") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                 if (selection != null && selection.size() == 1) {
                     if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.EN_ATTENTE) {
@@ -179,12 +181,12 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     }
 
     public RowAction getDevis2FactureAction() {
-        return new RowAction(new AbstractAction("Transfert vers facture") {
+        return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
                 elt.transfertFacture(IListe.get(e).getSelectedRow().getID());
             }
-        }, true) {
+        }, true, "sales.quote.create.invoice") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                 if (selection != null && selection.size() == 1) {
                     if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.ACCEPTE) {
@@ -197,11 +199,11 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     }
 
     public RowAction getDevis2CmdFournAction() {
-        return new RowAction(new AbstractAction("Transférer en commande") {
+        return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 transfertCommande(IListe.get(e).getSelectedRow());
             }
-        }, false) {
+        }, false, "sales.quote.create.supplier.order") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                 if (selection != null && selection.size() == 1) {
                     if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.ACCEPTE) {
@@ -214,12 +216,12 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     }
 
     public RowAction getDevis2CmdCliAction() {
-        return new RowAction(new AbstractAction("Transfert vers commande client") {
+        return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
                 elt.transfertCommandeClient(IListe.get(e).getSelectedRow().getID());
             }
-        }, true) {
+        }, true, "sales.quote.create.customer.order") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                 if (selection != null && selection.size() == 1) {
                     if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.ACCEPTE) {
@@ -232,7 +234,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     }
 
     public RowAction getAcceptAndCmdClientAction() {
-        return new RowAction(new AbstractAction("Marquer comme accepté et Transfert en commande client") {
+        return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 SQLRow selectedRow = IListe.get(e).getSelectedRow();
                 SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
@@ -247,7 +249,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
                 DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
                 elt.transfertCommandeClient(selectedRow.getID());
             }
-        }, false) {
+        }, false, "sales.quote.accept.create.customer.order") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                 if (selection != null && selection.size() == 1) {
                     if (selection.get(0).getInt("ID_ETAT_DEVIS") == EtatDevisSQLElement.EN_ATTENTE) {
@@ -287,8 +289,9 @@ public class DevisSQLElement extends ComptaSQLConfElement {
             rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
             rowValsElt.put("QTE", sqlRow.getObject("QTE"));
             rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
-            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
-            rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
+            rowValsElt.put("T_PA_HT", ((BigDecimal) rowValsElt.getObject("PA_HT")).multiply(new BigDecimal(rowValsElt.getInt("QTE"), MathContext.DECIMAL128)));
+            rowValsElt
+                    .put("T_PA_TTC", ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal(rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0), MathContext.DECIMAL128));
 
             map.put(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
 

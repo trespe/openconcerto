@@ -36,19 +36,29 @@ public class SQLBackgroundTableCacheItem implements SQLTableModifiedListener {
         reloadFromDbIfNeeded();
     }
 
+    @SuppressWarnings("unchecked")
     public synchronized void reloadFromDbIfNeeded() {
         final long delta = System.currentTimeMillis() - this.lastReload;
         if (delta / 1000 > this.timeout) {
-            final SQLSelect sel = new SQLSelect(this.table.getBase());
+            final SQLSelect sel = new SQLSelect();
             sel.addSelectStar(this.table);
             this.rows = Collections.unmodifiableList((List<SQLRow>) this.table.getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel, this.table)));
             this.lastReload = System.currentTimeMillis();
         }
     }
 
-    public synchronized SQLRow getFirstRowContains(final int id, final SQLField field) {
+    public synchronized SQLRow getFirstRowContains(final int value, final SQLField field) {
         for (SQLRow r : this.rows) {
-            if (r.getInt(field.getName()) == id) {
+            if (r.getInt(field.getName()) == value && !r.isArchived()) {
+                return r;
+            }
+        }
+        return null;
+    }
+
+    public synchronized SQLRow getFirstRowContains(final String value, final SQLField field) {
+        for (SQLRow r : this.rows) {
+            if (r.getString(field.getName()).equals(value) && !r.isArchived()) {
                 return r;
             }
         }

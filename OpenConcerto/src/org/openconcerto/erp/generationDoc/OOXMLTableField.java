@@ -70,10 +70,8 @@ public class OOXMLTableField extends OOXMLField {
             for (Attribute attr : attrs) {
                 context.put(attr.getName(), attr.getValue());
             }
-            return provider.getValue(context);
-        }
-
-        if (this.type.equalsIgnoreCase("LineReference")) {
+            value = provider.getValue(context);
+        } else if (this.type.equalsIgnoreCase("LineReference")) {
             return idRef;
         } else if (this.type.equalsIgnoreCase("DescriptifArticle")) {
             value = getDescriptifArticle(this.row);
@@ -90,6 +88,24 @@ public class OOXMLTableField extends OOXMLField {
             if (cellSize != null && cellSize.trim().length() != 0 && value != null) {
                 value = splitStringCell(cellSize, value.toString());
             }
+        }
+
+        // Liste des valeurs à ne pas afficher
+        List<String> listOfExcludedValues = null;
+
+        List<Element> excludeValue = this.elt.getChildren("exclude");
+        if (excludeValue != null && excludeValue.size() > 0) {
+
+            listOfExcludedValues = new ArrayList<String>();
+
+            for (Element element : excludeValue) {
+                String attributeValue = element.getAttributeValue("value");
+                listOfExcludedValues.add(attributeValue);
+            }
+        }
+
+        if (value != null && listOfExcludedValues != null && listOfExcludedValues.contains(value.toString())) {
+            value = null;
         }
 
         return value;

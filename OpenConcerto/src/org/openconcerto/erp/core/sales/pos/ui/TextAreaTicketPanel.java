@@ -29,6 +29,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.List;
 
 import javax.swing.JButton;
@@ -105,10 +107,12 @@ public class TextAreaTicketPanel extends JPanel {
         Categorie c = new Categorie("");
         for (SQLRow row2 : l2) {
             Article a = new Article(c, row2.getString("NOM"), row2.getInt("ID_ARTICLE"));
-            int ht = (int) row2.getLong("PV_HT");
+            BigDecimal ht = (BigDecimal) row2.getObject("PV_HT");
             a.setPriceHTInCents(ht);
-            float tva = TaxeCache.getCache().getTauxFromId(row2.getInt("ID_TAXE"));
-            a.setPriceInCents((int) Math.round(ht * (1.0 + (tva / 100.0D))));
+            int idTaxe = row2.getInt("ID_TAXE");
+            float tva = TaxeCache.getCache().getTauxFromId(idTaxe);
+            a.setPriceInCents(ht.multiply(new BigDecimal(1.0 + (tva / 100.0D)), MathContext.DECIMAL128));
+            a.setIdTaxe(idTaxe);
             t.addArticle(a);
             t.setArticleCount(a, row2.getInt("QTE"));
         }

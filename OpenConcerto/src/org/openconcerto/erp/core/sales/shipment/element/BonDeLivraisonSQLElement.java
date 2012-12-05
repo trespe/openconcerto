@@ -23,6 +23,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
@@ -106,19 +107,41 @@ public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
      * 
      * @param blID
      */
-    public void transfertFacture(int blID) {
+    public void transfertFacture(List<SQLRowAccessor> rowsBL) {
 
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-        EditFrame editFactureFrame = new EditFrame(elt);
-        editFactureFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
+        // MAYBE check if all rows have the same customer
+        if (rowsBL != null && rowsBL.size() > 0) {
 
-        SaisieVenteFactureSQLComponent comp = (SaisieVenteFactureSQLComponent) editFactureFrame.getSQLComponent();
+            SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+            EditFrame editFactureFrame = new EditFrame(elt);
+            editFactureFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
 
-        comp.setDefaults();
-        comp.loadBonItems(blID);
-        editFactureFrame.pack();
-        editFactureFrame.setState(JFrame.NORMAL);
-        editFactureFrame.setVisible(true);
+            SaisieVenteFactureSQLComponent comp = (SaisieVenteFactureSQLComponent) editFactureFrame.getSQLComponent();
+
+            comp.setDefaults();
+
+            SQLRowAccessor rowBL = rowsBL.get(0);
+            SQLRowValues rowVals = new SQLRowValues(elt.getTable());
+            rowVals.put("ID_CLIENT", rowBL.getForeign("ID_CLIENT").getID());
+            rowVals.put("NOM", rowBL.getObject("NOM"));
+            rowVals.put("INFOS", rowBL.getObject("INFOS"));
+            rowVals.put("IDSOURCE", rowBL.getObject("ID"));
+            rowVals.put("SOURCE", getTable().getName());
+
+            comp.select(rowVals);
+            comp.loadBonItems(rowBL, true);
+
+            for (int i = 1; i < rowsBL.size(); i++) {
+                SQLRowAccessor row = rowsBL.get(i);
+                rowVals.put("NOM", rowVals.getString("NOM") + "\n" + row.getObject("NOM"));
+                rowVals.put("INFOS", rowVals.getString("INFOS") + "\n" + row.getObject("INFOS"));
+                comp.loadBonItems(row, false);
+            }
+
+            editFactureFrame.pack();
+            editFactureFrame.setState(JFrame.NORMAL);
+            editFactureFrame.setVisible(true);
+        }
     }
 
     @Override

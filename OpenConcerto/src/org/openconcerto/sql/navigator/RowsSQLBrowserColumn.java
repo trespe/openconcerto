@@ -230,7 +230,7 @@ public class RowsSQLBrowserColumn extends SQLBrowserColumn<SQLRow, RowsSQLListMo
     static private Set<SQLRow> getParents(Collection<SQLRow> rows) {
         final Set<SQLRow> res = new HashSet<SQLRow>();
         for (final SQLRow r : rows) {
-            final SQLRow parent = SQLBrowser.getElement(r.getTable()).getParent(r);
+            final SQLRow parent = SQLBrowser.getElement(r.getTable()).getForeignParent(r);
             if (parent != null)
                 res.add(parent);
         }

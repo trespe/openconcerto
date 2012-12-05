@@ -19,7 +19,6 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.changer.correct.FixSerial;
 import org.openconcerto.sql.model.DBRoot;
-import org.openconcerto.sql.model.DBStructureItemDB;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
@@ -33,16 +32,10 @@ import org.openconcerto.sql.utils.ChangeTable.ConcatStep;
 import org.openconcerto.sql.utils.SQLCreateRoot;
 import org.openconcerto.utils.ExceptionHandler;
 
-import java.sql.DatabaseMetaData;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
@@ -146,216 +139,6 @@ public class ActionDB {
         } catch (SQLException e) {
             System.err.println("Unable to dump table " + newTable.getName());
             e.printStackTrace();
-        }
-    }
-
-    /**
-     * Affiche si il y a des différences entre les tables de base et baseDefault
-     * 
-     * @param base
-     * @param baseDefault
-     */
-    public static void compareDB(int base, int baseDefault) {
-
-        try {
-            if (Configuration.getInstance() == null) {
-                Configuration.setInstance(ComptaPropsConfiguration.create());
-            }
-            Configuration instance = Configuration.getInstance();
-            SQLTable tableSociete = Configuration.getInstance().getBase().getTable("SOCIETE_COMMON");
-
-            String baseName = tableSociete.getRow(base).getString("DATABASE_NAME");
-            String baseDefaultName = tableSociete.getRow(baseDefault).getString("DATABASE_NAME");
-
-            instance.getBase().getDBSystemRoot().mapAllRoots();
-            try {
-                Set<String> s = new HashSet<String>();
-                s.add(baseName);
-                s.add(baseDefaultName);
-                instance.getBase().fetchTables(s);
-            } catch (SQLException e) {
-                throw new IllegalStateException("could not access societe base", e);
-            }
-            // instance.getBase().getDBRoot(baseName);
-            // instance.getBase().getDBRoot(baseDefaultName);
-            System.err.println("baseName" + baseName);
-            System.err.println("baseDefault" + baseDefaultName);
-            instance.getSystemRoot().prependToRootPath("Common");
-            instance.getSystemRoot().prependToRootPath(baseName);
-            instance.getSystemRoot().prependToRootPath(baseDefaultName);
-
-            SQLSchema baseSQL = instance.getBase().getSchema(baseName);
-            SQLSchema baseSQLDefault = instance.getBase().getSchema(baseDefaultName);
-
-            DatabaseMetaData dbMetaDataSociete = baseSQL.getBase().getDataSource().getConnection().getMetaData();
-            DatabaseMetaData dbMetaDataSocieteDefault = baseSQLDefault.getBase().getDataSource().getConnection().getMetaData();
-
-            Map<String, Map<String, SQLField>> mapTableSociete = new HashMap<String, Map<String, SQLField>>();
-            Map<String, Map<String, SQLField>> mapTableSocieteDefault = new HashMap<String, Map<String, SQLField>>();
-
-            ResultSet rs = dbMetaDataSociete.getTables("", baseSQL.getName(), "%", null);
-
-            System.err.println("Start");
-
-            while (rs.next()) {
-                // System.err.println(rs.getString("TABLE_NAME") + ", TYPE ::" +
-                // rs.getString("TABLE_TYPE"));
-
-                if (rs.getString("TABLE_TYPE") != null && rs.getString("TABLE_TYPE").equalsIgnoreCase("TABLE")) {
-                    Map<String, SQLField> m = new HashMap<String, SQLField>();
-                    baseSQL.getTableNames();
-                    Set<SQLField> s = baseSQL.getTable(rs.getString("TABLE_NAME")).getFields();
-                    for (SQLField field : s) {
-                        m.put(field.getName(), field);
-                    }
-                    mapTableSociete.put(rs.getString("TABLE_NAME"), m);
-                }
-            }
-            rs.close();
-
-            rs = dbMetaDataSocieteDefault.getTables("", baseSQLDefault.getName(), "%", null);
-
-            while (rs.next()) {
-                // System.err.println(rs.getString("TABLE_NAME") + ", TYPE ::" +
-                // rs.getString("TABLE_TYPE"));
-                if (rs.getString("TABLE_TYPE") != null && rs.getString("TABLE_TYPE").equalsIgnoreCase("TABLE")) {
-                    Map<String, SQLField> m = new HashMap<String, SQLField>();
-                    Set<SQLField> s = baseSQLDefault.getTable(rs.getString("TABLE_NAME")).getFields();
-                    for (SQLField field : s) {
-                        m.put(field.getName(), field);
-                    }
-                    mapTableSocieteDefault.put(rs.getString("TABLE_NAME"), m);
-                }
-            }
-            rs.close();
-
-            System.err.println("Test 1 " + mapTableSociete.keySet().size());
-            // On verifie que toutes les tables de la societe sont contenues dans la base default
-            for (String tableName : mapTableSociete.keySet()) {
-
-                if (!mapTableSocieteDefault.containsKey(tableName)) {
-                    System.err.println("!! **** La table " + tableName + " n'est pas dans la base " + baseDefault);
-
-                } else {
-                    Map<String, SQLField> mSoc = mapTableSociete.get(tableName);
-                    Map<String, SQLField> mDef = mapTableSocieteDefault.get(tableName);
-                    if (mSoc.keySet().containsAll(mDef.keySet())) {
-                        if (mSoc.keySet().size() == mDef.keySet().size()) {
-                            System.err.println("Table " + tableName + " --- OK");
-                            compareTypeField(mSoc, mDef);
-                        } else {
-                            if (mSoc.keySet().size() > mDef.keySet().size()) {
-                                for (String fieldName : mDef.keySet()) {
-                                    mSoc.remove(fieldName);
-                                }
-                                System.err.println("!! **** Difference Table " + tableName);
-                                System.err.println(tableSociete.getRow(baseDefault).getString("DATABASE_NAME") + " Set Column " + mSoc);
-                                System.err.println(getAlterTable(mSoc, tableSociete.getRow(baseDefault).getString("DATABASE_NAME"), tableName));
-                            } else {
-
-                            }
-                        }
-                    } else {
-                        // System.err.println("!! **** Difference Table " + tableName);
-                        // System.err.println(tableSociete.getRow(base).getString("DATABASE_NAME") +
-                        // " Set Column " + mapTableSociete.get(tableName));
-                        // System.err.println(tableSociete.getRow(baseDefault).getString("DATABASE_NAME")
-                        // + " Set Column " + mapTableSocieteDefault.get(tableName));
-                        for (String fieldName : mSoc.keySet()) {
-                            mDef.remove(fieldName);
-                        }
-                        System.err.println("!! **** Difference Table " + tableName);
-                        System.err.println(tableSociete.getRow(base).getString("DATABASE_NAME") + " Set Column " + mDef);
-                        System.err.println(getAlterTable(mDef, tableSociete.getRow(base).getString("DATABASE_NAME"), tableName));
-                    }
-                }
-            }
-
-            System.err.println("Test 2 " + mapTableSocieteDefault.keySet().size());
-            // On verifie que toutes les tables de la base default sont contenues dans la base
-            // societe
-            for (Iterator i = mapTableSocieteDefault.keySet().iterator(); i.hasNext();) {
-                Object tableName = i.next();
-                if (!mapTableSociete.containsKey(tableName)) {
-                    System.err.println("!! **** La table " + tableName + " n'est pas dans la base " + baseDefault);
-                }
-            }
-
-            SQLSchema schem = instance.getBase().getSchema("Common");
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private static String getAlterTable(Map<String, SQLField> m, String baseName, String tableName) {
-        StringBuffer buf = new StringBuffer();
-        for (String s : m.keySet()) {
-            SQLField field = m.get(s);
-            buf.append("ALTER TABLE \"" + baseName + "\".\"" + tableName + "\" ADD COLUMN ");
-            buf.append("\"" + field.getName() + "\" ");
-            buf.append(getType(field));
-            buf.append(";\n");
-        }
-
-        return buf.toString();
-    }
-
-    private static String getType(SQLField field) {
-        String columnName = field.getName();
-        String columnType = field.getType().getTypeName();
-        StringBuffer result = new StringBuffer();
-        // NULL OR NOT NULL
-        // field.getType().getSize();
-        // String nullable = tableMetaData.getString("IS_NULLABLE");
-        String nullString = "NULL";
-        DBStructureItemDB db = field.getDB();
-        // if ("NO".equalsIgnoreCase(nullable)) {
-        // nullString = "NOT NULL";
-        // }
-
-        // DEFAULT
-        Object defaultValueO = field.getDefaultValue();
-        String defaultValue = (defaultValueO == null) ? null : defaultValueO.toString();
-        String defaultValueString = "";
-        if (defaultValue != null) {
-            defaultValueString = " default " + defaultValue;
-        }
-
-        int columnSize = field.getType().getSize();
-        Integer decimalDigit = (Integer) field.getMetadata("DECIMAL_DIGITS");
-        String stringColumnSize = "";
-        if (Integer.valueOf(columnSize).intValue() > 0) {
-            stringColumnSize = " (" + columnSize;
-
-            if (decimalDigit != null && Integer.valueOf(decimalDigit).intValue() > 0) {
-                stringColumnSize += ", " + decimalDigit;
-            }
-
-            stringColumnSize += ")";
-        }
-
-        if ((columnType.trim().equalsIgnoreCase("character varying") || columnType.trim().equalsIgnoreCase("varchar") || columnType.trim().equalsIgnoreCase("numeric"))
-                && stringColumnSize.length() > 0) {
-            result.append(" " + columnType + stringColumnSize + " ");
-            result.append(defaultValueString);
-        } else {
-            result.append(" " + columnType + " ");
-            result.append(defaultValueString);
-        }
-        return result.toString();
-    }
-
-    private static void compareTypeField(Map fieldsDefault, Map fields) {
-        for (Iterator i = fieldsDefault.keySet().iterator(); i.hasNext();) {
-
-            Object o = i.next();
-            SQLField field = (SQLField) fieldsDefault.get(o);
-            SQLField fieldDefault = (SQLField) fields.get(o);
-
-            if (field != null && fieldDefault != null && field.getType() != fieldDefault.getType()) {
-                System.err.println("---------> Type different Table " + field.getTable() + " -- Field " + field.getName());
-            }
         }
     }
 
@@ -495,82 +278,9 @@ public class ActionDB {
 
     }
 
-    public static void fixUserCommon(int base) {
-
-        if (Configuration.getInstance() == null) {
-            Configuration.setInstance(ComptaPropsConfiguration.create());
-        }
-        Configuration instance = Configuration.getInstance();
-        SQLTable tableSociete = Configuration.getInstance().getBase().getTable("SOCIETE_COMMON");
-
-        String baseName = tableSociete.getRow(base).getString("DATABASE_NAME");
-
-        instance.getBase().getDBSystemRoot().mapAllRoots();
-        try {
-            Set<String> s = new HashSet<String>();
-            s.add(baseName);
-            instance.getBase().fetchTables(s);
-        } catch (SQLException e) {
-            throw new IllegalStateException("could not access societe base", e);
-        }
-
-        System.err.println("baseName" + baseName);
-        instance.getSystemRoot().prependToRootPath("Common");
-        instance.getSystemRoot().prependToRootPath(baseName);
-
-        SQLSchema baseSQL = instance.getBase().getSchema(baseName);
-
-        DatabaseMetaData dbMetaDataSociete;
-        try {
-            dbMetaDataSociete = baseSQL.getBase().getDataSource().getConnection().getMetaData();
-
-            String[] type = new String[1];
-            type[0] = "TABLE";
-            ResultSet rs = dbMetaDataSociete.getTables("", baseSQL.getName(), "%", null);
-
-            System.err.println("Start " + rs.getFetchSize());
-            int i = 0;
-            while (rs.next()) {
-
-                if (rs.getString("TABLE_TYPE") != null && rs.getString("TABLE_TYPE").equalsIgnoreCase("TABLE")) {
-                    // System.err.println("FIND TABLE");
-                    // baseSQL.getTableNames();
-                    final SQLTable table = baseSQL.getTable(rs.getString("TABLE_NAME"));
-                    Set<SQLField> s = table.getFields();
-                    for (SQLField field : s) {
-                        if (field.getName().equalsIgnoreCase("ID_USER_COMMON_CREATE") || field.getName().equalsIgnoreCase("ID_USER_COMMON_MODIFY")) {
-                            Object o = field.getDefaultValue();
-                            if (o == null || (o instanceof Integer && ((Integer) o) == 0)
-
-                            ) {
-                                System.err.println("Bad default on " + field);
-                                baseSQL.getBase()
-                                        .execute(
-                                                "ALTER TABLE \"" + field.getTable().getSchema().getName() + "\".\"" + field.getTable().getName() + "\" ALTER COLUMN \"" + field.getName()
-                                                        + "\" SET DEFAULT 1;");
-
-                                baseSQL.getBase().execute(
-                                        "UPDATE \"" + field.getTable().getSchema().getName() + "\".\"" + field.getTable().getName() + "\" SET \"" + field.getName() + "\"=1 WHERE \"" + field.getName()
-                                                + "\"=0 OR \"" + field.getName() + "\" IS NULL;");
-                            }
-
-                        }
-                    }
-                }
-                // System.err.println(i++ + " " + rs.getString("TABLE_TYPE"));
-            }
-            rs.close();
-        } catch (SQLException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-    }
-
     public static void main(String[] args) {
         // updateMultiBase();
         // compareDB(41, 1);
-
-        fixUserCommon(41);
 
         // try {
         // patchSequences(new

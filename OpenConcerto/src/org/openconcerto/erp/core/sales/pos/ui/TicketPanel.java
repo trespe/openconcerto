@@ -129,7 +129,7 @@ public class TicketPanel extends JPanel implements CaisseListener {
 
     @Override
     public Dimension getMinimumSize() {
-        return new Dimension(480, 707);
+        return new Dimension(480, 550);
     }
 
     @Override

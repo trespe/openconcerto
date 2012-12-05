@@ -428,17 +428,17 @@ public class LettragePanel extends JPanel {
                 SQLRow rowEcr = LettragePanel.this.ecriturePanel.getListe().getSelectedRow();
                 MouvementSQLElement.showSource(rowEcr.getInt("ID_MOUVEMENT"));
             }
-        });
+        }, "financing.accouning.entries.source.show");
 
         // if (this.codeLettrage.getText().trim().length() != 0) {
-        final AbstractAction abstractAction = new AbstractAction("Lettrer") {
+        final AbstractAction abstractAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
 
                 int[] rowIndex = LettragePanel.this.ecriturePanel.getListe().getJTable().getSelectedRows();
                 actionLettrage(rowIndex);
             }
         };
-        this.ecriturePanel.getListe().addRowAction(abstractAction);
+        this.ecriturePanel.getListe().addRowAction(abstractAction, "financing.accouning.entries.match");
         // }
         this.codeLettrage.getDocument().addDocumentListener(new SimpleDocumentListener() {
             @Override
@@ -453,7 +453,7 @@ public class LettragePanel extends JPanel {
                 int[] rowIndex = LettragePanel.this.ecriturePanel.getListe().getJTable().getSelectedRows();
                 actionDelettrage(rowIndex);
             }
-        });
+        }, "financing.accouning.entries.unmatch");
 
         // menu.show(mE.getComponent(), mE.getPoint().x, mE.getPoint().y);
     }

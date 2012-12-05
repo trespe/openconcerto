@@ -22,17 +22,18 @@ import java.util.Set;
 
 public class AvailableModuleTableModel extends ModuleTableModel {
 
-    static private IFactory<Set<ModuleFactory>> getNonInstalled() {
-        return new IFactory<Set<ModuleFactory>>() {
+    static private IFactory<Set<ModuleReference>> getNonInstalled() {
+        return new IFactory<Set<ModuleReference>>() {
             @Override
-            public Set<ModuleFactory> createChecked() {
+            public Set<ModuleReference> createChecked() {
                 final ModuleManager mngr = ModuleManager.getInstance();
-                return CollectionUtils.select(mngr.getFactories().values(), new IPredicate<ModuleFactory>() {
+
+                return CollectionUtils.select(mngr.getAllKnownModuleReference(), new IPredicate<ModuleReference>() {
                     @Override
-                    public boolean evaluateChecked(ModuleFactory input) {
-                        return !mngr.isModuleInstalledLocally(input.getID());
+                    public boolean evaluateChecked(ModuleReference input) {
+                        return !mngr.isModuleInstalledLocally(input) && !mngr.isModuleInstalledOnServer(input);
                     }
-                }, new HashSet<ModuleFactory>());
+                }, new HashSet<ModuleReference>());
             }
         };
     }
@@ -43,21 +44,31 @@ public class AvailableModuleTableModel extends ModuleTableModel {
 
     @Override
     public int getColumnCount() {
-        return 4;
+        return 5;
     }
 
     @Override
     public String getColumnName(int column) {
         if (column == 3) {
             return "Description";
+        } else if (column == 4) {
+            return "Information";
         }
         return super.getColumnName(column);
     }
 
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
+        final ModuleReference moduleReference = this.getModuleReference(rowIndex);
         if (columnIndex == 3) {
-            return this.getFactory(rowIndex).getDescription();
+            final ModuleFactory f = ModuleManager.getInstance().getFactories().get(moduleReference);
+            if (f != null) {
+                return f.getDescription();
+            } else {
+                return "";
+            }
+        } else if (columnIndex == 4) {
+            return ModuleManager.getInstance().getInfo(moduleReference);
         }
         return super.getValueAt(rowIndex, columnIndex);
     }

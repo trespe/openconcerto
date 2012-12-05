@@ -17,6 +17,7 @@
 package org.openconcerto.sql.model;
 
 import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.xml.JDOMUtils;
 
 import java.math.BigDecimal;
@@ -43,7 +44,7 @@ import org.jdom.Element;
  */
 public abstract class SQLType {
 
-    private static Class getClass(int type, final int size) {
+    private static Class<?> getClass(int type, final int size) {
         switch (type) {
         case Types.BIT:
             // As of MySQL 5.0.3, BIT is for storing bit-field values
@@ -120,7 +121,7 @@ public abstract class SQLType {
         final List<String> typeID = Arrays.asList(base == null ? null : base.getURL(), type + "", size + "", String.valueOf(decDigits), typeName);
         SQLType res = instances.get(typeID);
         if (res == null) {
-            final Class clazz = getClass(type, size);
+            final Class<?> clazz = getClass(type, size);
             if (Boolean.class.isAssignableFrom(clazz))
                 res = new BooleanType(type, size, typeName, clazz);
             else if (Number.class.isAssignableFrom(clazz))
@@ -163,14 +164,14 @@ public abstract class SQLType {
     // TYPE_NAME
     private final String typeName;
     // the class this type accepts
-    private final Class javaType;
+    private final Class<?> javaType;
 
     private SQLBase base;
     private SQLSyntax syntax;
 
     private String xml;
 
-    private SQLType(int type, int size, Integer decDigits, String typeName, Class javaType) {
+    private SQLType(int type, int size, Integer decDigits, String typeName, Class<?> javaType) {
         this.type = type;
         this.size = size;
         this.decimalDigits = decDigits;
@@ -287,6 +288,7 @@ public abstract class SQLType {
         return this.getType() + this.getSize() + this.getJavaType().hashCode();
     }
 
+    @Override
     public final String toString() {
         return "SQLType #" + this.getType() + "(" + this.getSize() + "," + this.getDecimalDigits() + "): " + this.getJavaType();
     }
@@ -312,10 +314,10 @@ public abstract class SQLType {
     }
 
     /**
-     * Serialize an object to its sql string.
+     * Serialize an object to its SQL string.
      * 
-     * @param o an instance of getJavaType(), eg "it's".
-     * @return the sql representation, eg "'it''s'".
+     * @param o an instance of getJavaType(), e.g. "it's".
+     * @return the SQL representation, e.g. "'it''s'".
      * @throws IllegalArgumentException if o is not valid.
      * @see #isValid(Object)
      */
@@ -327,16 +329,24 @@ public abstract class SQLType {
             return this.toStringRaw(o);
     }
 
-    public final Object fromString(String s) {
-        if (s == null)
-            return null;
+    /**
+     * Serialize an object to its CSV string. <code>null</code> is \N, other values are always
+     * quoted.
+     * 
+     * @param o an instance of getJavaType(), e.g. "it's" or 12.
+     * @return the CSV representation, e.g. "it's" or "12".
+     * @throws IllegalArgumentException if o is not valid.
+     * @see #isValid(Object)
+     */
+    public final String toCSV(Object o) {
+        this.check(o);
+        if (o == null)
+            return "\\N";
         else
-            return this.fromNonNullString(s);
+            return StringUtils.doubleQuote(this.toCSVRaw(o));
     }
 
-    protected Object fromNonNullString(String s) {
-        throw new IllegalStateException("not implemented");
-    }
+    // fromString(String s) is too complicated, e.g. see SQLBase#unquoteStringStd()
 
     /**
      * Check if o is valid, do nothing if it is else throw an exception.
@@ -362,40 +372,49 @@ public abstract class SQLType {
 
     abstract protected String toStringRaw(Object o);
 
+    abstract protected String toCSVRaw(Object o);
+
     // ** static subclasses
 
     private static final class UnknownType extends SQLType {
-        public UnknownType(int type, int size, String typeName, Class clazz) {
+        public UnknownType(int type, int size, String typeName, Class<?> clazz) {
             super(type, size, null, typeName, clazz);
         }
 
+        @Override
         protected String toStringRaw(Object o) {
+            throw new IllegalStateException("not implemented");
+        }
+
+        @Override
+        protected String toCSVRaw(Object o) {
             throw new IllegalStateException("not implemented");
         }
     }
 
     private abstract static class ToStringType extends SQLType {
-        public ToStringType(int type, int size, String typeName, Class clazz) {
+        public ToStringType(int type, int size, String typeName, Class<?> clazz) {
             this(type, size, null, typeName, clazz);
         }
 
-        public ToStringType(int type, int size, Integer decDigits, String typeName, Class clazz) {
+        public ToStringType(int type, int size, Integer decDigits, String typeName, Class<?> clazz) {
             super(type, size, decDigits, typeName, clazz);
         }
 
+        @Override
         protected String toStringRaw(Object o) {
             return o.toString();
+        }
+
+        @Override
+        protected String toCSVRaw(Object o) {
+            return toStringRaw(o);
         }
     }
 
     private static class BooleanType extends ToStringType {
-        public BooleanType(int type, int size, String typeName, Class clazz) {
+        public BooleanType(int type, int size, String typeName, Class<?> clazz) {
             super(type, size, typeName, clazz);
-        }
-
-        @Override
-        public Object fromNonNullString(String s) {
-            return Boolean.valueOf(s);
         }
 
         @Override
@@ -406,10 +425,16 @@ public abstract class SQLType {
             } else
                 return super.toStringRaw(o);
         }
+
+        @Override
+        protected String toCSVRaw(Object o) {
+            // see SQLSyntaxPG.selectAll
+            return Boolean.TRUE.equals(o) ? "1" : "0";
+        }
     }
 
     private static class NumberType extends ToStringType {
-        public NumberType(int type, int size, Integer decDigits, String typeName, Class clazz) {
+        public NumberType(int type, int size, Integer decDigits, String typeName, Class<?> clazz) {
             super(type, size, decDigits, typeName, clazz);
         }
 
@@ -417,21 +442,10 @@ public abstract class SQLType {
         public boolean isValid(Object o) {
             return super.isValid(o) || o instanceof Number;
         }
-
-        @Override
-        protected Object fromNonNullString(String s) {
-            s = s.trim();
-            if (s.length() == 0)
-                return null;
-            else if (this.getJavaType().equals(Integer.class))
-                return Integer.valueOf(s);
-            else
-                return Double.valueOf(s);
-        }
     }
 
     private static abstract class DateOrTimeType extends SQLType {
-        public DateOrTimeType(int type, int size, Integer decDigits, String typeName, Class clazz) {
+        public DateOrTimeType(int type, int size, Integer decDigits, String typeName, Class<?> clazz) {
             super(type, size, decDigits, typeName, clazz);
         }
 
@@ -440,7 +454,13 @@ public abstract class SQLType {
             return super.isValid(o) || o instanceof java.util.Date || o instanceof java.util.Calendar || o instanceof Number;
         }
 
-        protected long getTime(Object o) {
+        @Override
+        public final String toStringRaw(Object o) {
+            // time has no special characters to escape
+            return "'" + toCSVRaw(o) + "'";
+        }
+
+        static protected long getTime(Object o) {
             if (o instanceof java.util.Date)
                 return ((java.util.Date) o).getTime();
             else if (o instanceof java.util.Calendar)
@@ -451,58 +471,66 @@ public abstract class SQLType {
     }
 
     private static class DateType extends DateOrTimeType {
-        public DateType(int type, int size, Integer decDigits, String typeName, Class clazz) {
+        public DateType(int type, int size, Integer decDigits, String typeName, Class<?> clazz) {
             super(type, size, decDigits, typeName, clazz);
         }
 
-        protected String toStringRaw(Object o) {
-            return "'" + new Date(getTime(o)).toString() + "'";
+        @Override
+        protected String toCSVRaw(Object o) {
+            final Date ts;
+            if (o instanceof Date)
+                ts = (Date) o;
+            else
+                ts = new Date(getTime(o));
+            return ts.toString();
         }
     }
 
     private static class TimestampType extends DateOrTimeType {
-        public TimestampType(int type, int size, Integer decDigits, String typeName, Class clazz) {
+        public TimestampType(int type, int size, Integer decDigits, String typeName, Class<?> clazz) {
             super(type, size, decDigits, typeName, clazz);
         }
 
-        protected String toStringRaw(Object o) {
+        @Override
+        protected String toCSVRaw(Object o) {
             final Timestamp ts;
             if (o instanceof Timestamp)
                 ts = (Timestamp) o;
             else
                 ts = new Timestamp(getTime(o));
-            return "'" + ts.toString() + "'";
+            return ts.toString();
         }
     }
 
     private static class TimeType extends DateOrTimeType {
-        public TimeType(int type, int size, Integer decDigits, String typeName, Class clazz) {
+        public TimeType(int type, int size, Integer decDigits, String typeName, Class<?> clazz) {
             super(type, size, decDigits, typeName, clazz);
         }
 
         @Override
-        protected String toStringRaw(Object o) {
+        protected String toCSVRaw(Object o) {
             final Time ts;
             if (o instanceof Time)
                 ts = (Time) o;
             else
                 ts = new Time(getTime(o));
-            return "'" + ts.toString() + "'";
+            return ts.toString();
         }
     }
 
     private static class StringType extends SQLType {
-        public StringType(int type, int size, String typeName, Class clazz) {
+        public StringType(int type, int size, String typeName, Class<?> clazz) {
             super(type, size, null, typeName, clazz);
         }
 
+        @Override
         protected String toStringRaw(Object o) {
             return SQLBase.quoteString(this.getBase(), (String) o);
         }
 
         @Override
-        protected Object fromNonNullString(String s) {
-            return s;
+        protected String toCSVRaw(Object o) {
+            return (String) o;
         }
     }
 

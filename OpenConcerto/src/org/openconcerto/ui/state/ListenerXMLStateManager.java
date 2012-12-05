@@ -14,13 +14,13 @@
  package org.openconcerto.ui.state;
 
 import org.openconcerto.ui.Log;
+import org.openconcerto.utils.FileUtils;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintStream;
 import java.util.EventListener;
 
 import javax.xml.parsers.DocumentBuilder;
@@ -73,17 +73,18 @@ public abstract class ListenerXMLStateManager<T, L extends EventListener> extend
     protected abstract void rmListener(L l);
 
     @Override
-    protected final void writeState(File file) throws FileNotFoundException, IOException {
-        final FileOutputStream f = new FileOutputStream(file);
-        final PrintStream out = new PrintStream(f);
-
-        writeState(out);
-
-        out.close();
-        f.close();
+    protected void writeState(File file) throws FileNotFoundException, IOException {
+        final BufferedWriter out = FileUtils.createXMLWriter(file);
+        try {
+            writeState(out);
+        } finally {
+            out.close();
+        }
     }
 
-    protected abstract void writeState(final PrintStream out) throws IOException;
+    protected void writeState(final BufferedWriter out) throws IOException {
+        throw new UnsupportedOperationException("Override one of writeState() methods");
+    }
 
     @Override
     protected final boolean readState(File file) {

@@ -14,18 +14,24 @@
  package org.openconcerto.sql.model;
 
 import static java.util.Arrays.asList;
+import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SystemQueryExecutor.QueryExn;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.utils.SQLCreateMoveableTable;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.cc.IncludeExclude;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -34,19 +40,32 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.apache.commons.dbutils.BasicRowProcessor;
-
 public class JDBCStructureSource extends StructureSource<SQLException> {
+
+    static String getCacheError(final String rootName) {
+        return "Cache won't be used for " + rootName + " since there's no metadata table";
+    }
 
     private final Set<String> schemas;
     private final CollectionMap<SQLName, String> tableNames;
 
-    public JDBCStructureSource(SQLBase b, Set<String> scope, Map<String, SQLSchema> newStruct) {
-        super(b, scope, newStruct);
+    public JDBCStructureSource(SQLBase b, TablesMap scope, Map<String, SQLSchema> newStruct, Set<String> outOfDateSchemas) {
+        super(b, scope, newStruct, outOfDateSchemas);
         this.schemas = new HashSet<String>();
         this.tableNames = new CollectionMap<SQLName, String>(new ArrayList<String>(2));
         // if we can't access the metadata directly from the base, obviously the base is not ok
         this.setPreVerify(false);
+    }
+
+    private String getTablePattern(final IncludeExclude<String> tables) {
+        assert !tables.isNoneIncluded();
+        return tables.getSole("%");
+    }
+
+    @Override
+    Set<String> getOutOfDateSchemas() {
+        // by definition, this is up to date
+        return Collections.emptySet();
     }
 
     @Override
@@ -64,23 +83,28 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         // getTables() only supports pattern (eg LIKE) so we must make multiple calls
         // copy schemas so we can remove system schemas directly
         for (final String s : new HashSet<String>(schemas)) {
-            final ResultSet rs = metaData.getTables(this.getBase().getMDName(), s, "%", new String[] { "TABLE", "SYSTEM TABLE", "VIEW" });
+            final IncludeExclude<String> tablesToRefresh = this.getTablesInScope(s);
+            if (tablesToRefresh.isNoneIncluded())
+                continue;
+            final ResultSet rs = metaData.getTables(this.getBase().getMDName(), s, getTablePattern(tablesToRefresh), new String[] { "TABLE", "SYSTEM TABLE", "VIEW" });
             while (rs.next()) {
                 final String tableType = rs.getString("TABLE_TYPE");
                 final String schemaName = rs.getString("TABLE_SCHEM");
-                if (tableType.equals("SYSTEM TABLE"))
+                if (tableType.equals("SYSTEM TABLE")) {
                     schemas.remove(schemaName);
-                else {
+                } else {
                     final String tableName = rs.getString("TABLE_NAME");
-                    // MySQL needs this.addConnectionProperty("useInformationSchema", "true");
-                    // but the time goes from 3.5s to 20s
-                    tableNames.putAll(new SQLName(schemaName, tableName), asList(rs.getString("TABLE_TYPE"), rs.getString("REMARKS")));
+                    if (tablesToRefresh.isIncluded(tableName)) {
+                        // MySQL needs this.addConnectionProperty("useInformationSchema", "true");
+                        // but the time goes from 3.5s to 20s
+                        tableNames.putAll(new SQLName(schemaName, tableName), asList(rs.getString("TABLE_TYPE"), rs.getString("REMARKS")));
+                    }
                 }
             }
         }
 
         // keep only tables in remaining schemas
-        final Iterator<SQLName> iter = getTablesNames().iterator();
+        final Iterator<SQLName> iter = tableNames.keySet().iterator();
         while (iter.hasNext()) {
             final SQLName tableName = iter.next();
             if (!schemas.contains(tableName.getItemLenient(-2)))
@@ -90,20 +114,33 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         // create metadata table here to avoid a second refresh
         // null if we shouldn't alter the base
         final SQLCreateMoveableTable createMetadata = SQLSchema.getCreateMetadata(getBase().getServer().getSQLSystem().getSyntax());
-        if (createMetadata != null) {
-            final Statement stmt = conn.createStatement();
-            try {
-                for (final String schema : schemas) {
+        final boolean useCache = getBase().getDBSystemRoot().useCache();
+        Statement stmt = null;
+        try {
+            for (final String schema : schemas) {
+                // * if toRefresh != null then the SQLSchema instance is already created (see
+                // SQLBase.assureAllTables()) : the table should also already be created
+                // * if toRefresh == null && the table isn't in scope then it has already been
+                // loaded in externalStruct
+                if (getTablesToRefresh(schema) == null && this.getTablesInScope(schema).isIncluded(SQLSchema.METADATA_TABLENAME)) {
                     final SQLName md = new SQLName(schema, SQLSchema.METADATA_TABLENAME);
                     if (!tableNames.containsKey(md)) {
                         // handle systems where schema are not DBRoot (e.g. MySQL)
-                        stmt.execute(createMetadata.asString(schema == null ? getBase().getName() : schema));
-                        tableNames.putAll(md, asList("TABLE", ""));
+                        final String rootName = schema == null ? getBase().getName() : schema;
+                        if (createMetadata != null) {
+                            if (stmt == null)
+                                stmt = conn.createStatement();
+                            stmt.execute(createMetadata.asString(rootName));
+                            tableNames.putAll(md, asList("TABLE", ""));
+                        } else if (useCache) {
+                            Log.get().warning(getCacheError(rootName));
+                        }
                     }
                 }
-            } finally {
-                stmt.close();
             }
+        } finally {
+            if (stmt != null)
+                stmt.close();
         }
 
         this.schemas.clear();
@@ -120,7 +157,8 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         return this.tableNames.keySet();
     }
 
-    protected void fillTables(final Set<String> newSchemas) throws SQLException {
+    @Override
+    protected void fillTables(final TablesMap newSchemas) throws SQLException {
         this.getBase().getDataSource().useConnection(new ConnectionHandlerNoSetup<Object, SQLException>() {
             @Override
             public Object handle(SQLDataSource ds) throws SQLException {
@@ -130,12 +168,31 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         });
     }
 
-    protected void _fillTables(final Set<String> newSchemas, final Connection conn) throws SQLException {
+    protected void _fillTables(final TablesMap newSchemas, final Connection conn) throws SQLException {
+        final boolean useCache = getBase().getDBSystemRoot().useCache();
+
         // for new tables, add ; for existing, refresh
         final DatabaseMetaData metaData = conn.getMetaData();
         // getColumns() only supports pattern (eg LIKE) so we must make multiple calls
-        for (final String s : newSchemas) {
-            final ResultSet rs = metaData.getColumns(this.getBase().getMDName(), s, "%", null);
+        for (final String s : newSchemas.keySet()) {
+            final Set<String> tablesToRefresh = newSchemas.get(s);
+            assert tablesToRefresh != null : "Null should have been resolved in getNames()";
+            if (tablesToRefresh.isEmpty())
+                continue;
+            final SQLSchema schema = getNewSchema(s);
+            final ResultSet rs = metaData.getColumns(this.getBase().getMDName(), s, getTablePattern(IncludeExclude.getNormalized(tablesToRefresh)), null);
+
+            // always fetch version to record in tables since we might decide to use cache later
+            String schemaVers = SQLSchema.getVersion(getBase(), s);
+            // shouldn't happen since we insert the version with SQLSchema.getCreateMetadata()
+            if (schemaVers == null) {
+                // don't create table here, but again it should already be created
+                schemaVers = schema.updateVersion(false);
+            }
+            if (schemaVers == null && useCache)
+                Log.get().warning("Cache won't be used for " + schema + " since there's no version");
+            if (this.getTablesToRefresh(s) == null)
+                schema.setFullyRefreshedVersion(schemaVers);
 
             // handle tables becoming empty (possible in pg)
             final Set<SQLName> tablesWithColumns = new HashSet<SQLName>();
@@ -143,13 +200,14 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
             boolean hasNext = rs.next();
             while (hasNext) {
                 final String schemaName = rs.getString("TABLE_SCHEM");
+                // that way we can use the variable 'schema'
+                assert CompareUtils.equals(schemaName, s);
                 final String tableName = rs.getString("TABLE_NAME");
                 tablesWithColumns.add(new SQLName(schemaName, tableName));
 
                 final Boolean moved;
-                if (newSchemas.contains(schemaName)) {
-                    final SQLSchema schema = getNewSchema(schemaName);
-                    moved = schema.refreshTable(metaData, rs);
+                if (tablesToRefresh.contains(tableName)) {
+                    moved = schema.refreshTable(metaData, rs, schemaVers);
                 } else {
                     moved = null;
                 }
@@ -157,8 +215,7 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
             }
 
             // tables with no column = all tables - tables with column
-            final SQLSchema schema = getNewSchema(s);
-            for (final String t : schema.getTableNames()) {
+            for (final String t : tablesToRefresh) {
                 if (!tablesWithColumns.contains(new SQLName(s, t))) {
                     // empty table with no db access
                     schema.getTable(t).emptyFields();
@@ -177,13 +234,20 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         final SQLSystem system = getBase().getServer().getSQLSystem();
         // procedures
         final Map<String, Map<String, String>> proceduresBySchema = new HashMap<String, Map<String, String>>();
-        for (final String s : newSchemas) {
+        for (final String s : newSchemas.keySet()) {
             final ResultSet rsProc = metaData.getProcedures(this.getBase().getMDName(), s, "%");
             while (rsProc.next()) {
                 // to ignore case : pg.AbstractJdbc2DatabaseMetaData doesn't quote aliases
-                final Map rsMap = BasicRowProcessor.instance().toMap(rsProc);
+                // also to use getColumnLabel() : on h2, getColumnName() returns the base name
+                final Map<String, Object> rsMap = new HashMap<String, Object>();
+                final ResultSetMetaData rsmd = rsProc.getMetaData();
+                final int cols = rsmd.getColumnCount();
+                for (int i = 1; i <= cols; i++) {
+                    rsMap.put(rsmd.getColumnLabel(i).toUpperCase(), rsProc.getObject(i));
+                }
+
                 final String schemaName = (String) rsMap.get("PROCEDURE_SCHEM");
-                if (newSchemas.contains(schemaName)) {
+                if (newSchemas.containsKey(schemaName)) {
                     final String procName = (String) rsMap.get("PROCEDURE_NAME");
                     Map<String, String> map = proceduresBySchema.get(schemaName);
                     if (map == null) {
@@ -212,19 +276,21 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
             }
         }
 
-        // if no schemas exist, there can be no triggers
+        // if no tables exist, there can be no triggers
         // (avoid a query and a special case since "in ()" is not valid)
-        if (newSchemas.size() > 0) {
+        final TablesMap sansEmpty = TablesMap.create(newSchemas);
+        sansEmpty.removeAllEmptyCollections();
+        if (sansEmpty.size() > 0) {
             final ITransformer<Tuple2<String, String>, SQLTable> tableFinder = new ITransformer<Tuple2<String, String>, SQLTable>() {
                 @Override
                 public SQLTable transformChecked(Tuple2<String, String> input) {
                     return getNewTable(input.get0(), input.get1());
                 }
             };
-            new JDBCStructureSource.TriggerQueryExecutor(tableFinder).apply(getBase(), newSchemas);
-            new JDBCStructureSource.ColumnsQueryExecutor(tableFinder).apply(getBase(), newSchemas);
+            new JDBCStructureSource.TriggerQueryExecutor(tableFinder).apply(getBase(), sansEmpty);
+            new JDBCStructureSource.ColumnsQueryExecutor(tableFinder).apply(getBase(), sansEmpty);
             try {
-                new JDBCStructureSource.ConstraintsExecutor(tableFinder).apply(getBase(), newSchemas);
+                new JDBCStructureSource.ConstraintsExecutor(tableFinder).apply(getBase(), sansEmpty);
             } catch (QueryExn e1) {
                 // constraints are not essentials, continue
                 e1.printStackTrace();
@@ -242,9 +308,9 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         }
 
         @Override
-        protected Object getQuery(SQLBase b, Set<String> newSchemas, Set<String> arg2) {
+        protected Object getQuery(SQLBase b, TablesMap tables) {
             try {
-                return b.getServer().getSQLSystem().getSyntax().getTriggerQuery(b, newSchemas, arg2);
+                return b.getServer().getSQLSystem().getSyntax().getTriggerQuery(b, tables);
             } catch (SQLException e) {
                 return e;
             }
@@ -262,8 +328,8 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         }
 
         @Override
-        protected String getQuery(SQLBase b, Set<String> newSchemas, Set<String> arg2) {
-            return b.getServer().getSQLSystem().getSyntax().getColumnsQuery(b, newSchemas, arg2);
+        protected String getQuery(SQLBase b, TablesMap tables) {
+            return b.getServer().getSQLSystem().getSyntax().getColumnsQuery(b, tables);
         }
 
         @Override
@@ -278,9 +344,9 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         }
 
         @Override
-        protected Object getQuery(SQLBase b, Set<String> newSchemas, Set<String> arg2) {
+        protected Object getQuery(SQLBase b, TablesMap tables) {
             try {
-                return b.getServer().getSQLSystem().getSyntax().getConstraints(b, newSchemas, arg2);
+                return b.getServer().getSQLSystem().getSyntax().getConstraints(b, tables);
             } catch (Exception e) {
                 return e;
             }

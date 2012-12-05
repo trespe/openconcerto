@@ -162,41 +162,10 @@ public abstract class SheetXml {
 
                         @Override
                         public void run() {
-                            try {
-                                SheetUtils.convert2PDF(doc, pdfFile);
-
-                            } catch (Throwable e) {
-                                ExceptionHandler.handle("Impossible de créer le PDF.", e);
-                            }
-                            List<StorageEngine> engines = StorageEngines.getInstance().getActiveEngines();
-                            for (StorageEngine storageEngine : engines) {
-                                if (storageEngine.isConfigured() && storageEngine.allowAutoStorage()) {
-                                    try {
-                                        storageEngine.connect();
-                                        final BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(pdfFile));
-                                        final String path = getStoragePath();
-                                        storageEngine.store(inStream, path, pdfFile.getName(), true);
-                                        inStream.close();
-                                        storageEngine.disconnect();
-                                    } catch (IOException e) {
-                                        ExceptionHandler.handle("Impossible de sauvegarder le PDF");
-                                    }
-                                    if (storageEngine instanceof CloudStorageEngine) {
-                                        try {
-                                            storageEngine.connect();
-                                            final BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(generatedFile));
-                                            final String path = getStoragePath();
-                                            storageEngine.store(inStream, path, generatedFile.getName(), true);
-                                            inStream.close();
-                                            storageEngine.disconnect();
-                                        } catch (IOException e) {
-                                            ExceptionHandler.handle("Impossible de sauvegarder le fichier généré");
-                                        }
-                                    }
-                                }
-                            }
+                            createPDF(generatedFile, pdfFile, doc, getStoragePath());
 
                         }
+
                     }, "convert and upload to pdf");
 
                     t.setDaemon(true);
@@ -210,6 +179,42 @@ public abstract class SheetXml {
         } catch (Exception e) {
             e.printStackTrace();
             ExceptionHandler.handle("Impossible de charger le document OpenOffice", e);
+        }
+    }
+
+    public static void createPDF(final File generatedFile, final File pdfFile, final OpenDocument doc, String storagePath) {
+        try {
+            SheetUtils.convert2PDF(doc, pdfFile);
+
+        } catch (Throwable e) {
+            ExceptionHandler.handle("Impossible de créer le PDF.", e);
+        }
+        List<StorageEngine> engines = StorageEngines.getInstance().getActiveEngines();
+        for (StorageEngine storageEngine : engines) {
+            if (storageEngine.isConfigured() && storageEngine.allowAutoStorage()) {
+                try {
+                    storageEngine.connect();
+                    final BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(pdfFile));
+                    final String path = storagePath;
+                    storageEngine.store(inStream, path, pdfFile.getName(), true);
+                    inStream.close();
+                    storageEngine.disconnect();
+                } catch (IOException e) {
+                    ExceptionHandler.handle("Impossible de sauvegarder le PDF", e);
+                }
+                if (storageEngine instanceof CloudStorageEngine) {
+                    try {
+                        storageEngine.connect();
+                        final BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(generatedFile));
+                        final String path = storagePath;
+                        storageEngine.store(inStream, path, generatedFile.getName(), true);
+                        inStream.close();
+                        storageEngine.disconnect();
+                    } catch (IOException e) {
+                        ExceptionHandler.handle("Impossible de sauvegarder le fichier généré", e);
+                    }
+                }
+            }
         }
     }
 

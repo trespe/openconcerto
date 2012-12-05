@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.utils;
 
+import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.Link;
 
@@ -26,7 +27,7 @@ public final class DropTable extends ChangeTable<DropTable> {
     private final SQLTable t;
 
     public DropTable(SQLTable t) {
-        super(t.getServer().getSQLSystem().getSyntax(), t.getName());
+        super(t.getServer().getSQLSystem().getSyntax(), t.getDBRoot().getName(), t.getName());
         this.t = t;
     }
 
@@ -40,22 +41,18 @@ public final class DropTable extends ChangeTable<DropTable> {
         return alterTable;
     }
 
-    public final String asString() {
-        return this.asString(this.t.getDBRoot().getName());
+    @Override
+    public String asString(final NameTransformer transf) {
+        return "DROP TABLE " + transf.transformTableName(new SQLName(this.getRootName(), this.getName())).quote() + ";";
     }
 
     @Override
-    public String asString(String rootName) {
-        return this.t.getBase().quote("DROP TABLE %f ;", this.t);
-    }
-
-    @Override
-    protected String asString(String rootName, ConcatStep step) {
+    protected String asString(final NameTransformer transf, ConcatStep step) {
         switch (step) {
         case DROP_FOREIGN:
-            return this.getAlterTable().asString(rootName, step);
+            return this.getAlterTable().asString(transf, step);
         case ALTER_TABLE:
-            return this.asString(rootName);
+            return this.asString(transf);
         default:
             return null;
         }

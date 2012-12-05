@@ -98,7 +98,9 @@ public final class SQLName {
     }
 
     /**
-     * Create a new instance, ignoring null items.
+     * Create a new instance, ignoring null and empty items. Ignore <code>null</code> for systems
+     * missing some JDBC level (e.g. MySQL has no schema), ignore "" for systems with private base
+     * (e.g. in H2 the JDBC name is "", but cannot be used in SQL queries).
      * 
      * @param items the names.
      */
@@ -106,7 +108,7 @@ public final class SQLName {
         super();
         this.items = new ArrayList<String>(items.size());
         for (final String item : items) {
-            if (item != null)
+            if (item != null && item.length() > 0)
                 this.items.add(item);
         }
     }
@@ -170,6 +172,52 @@ public final class SQLName {
 
     public SQLName getRest() {
         return new SQLName(this.items.subList(1, this.items.size()));
+    }
+
+    /**
+     * Resolve the passed name from this.
+     * 
+     * @param to the name to resolve, e.g. "t2".
+     * @return the resolved name, e.g. if this is "root"."t1", "root"."t2".
+     */
+    public final SQLName resolve(final SQLName to) {
+        final SQLName from = this;
+        final int fromCount = from.getItemCount();
+        final int toCount = to.getItemCount();
+        if (fromCount <= toCount) {
+            return to;
+        } else {
+            final List<String> l = new ArrayList<String>(fromCount);
+            l.addAll(from.asList().subList(0, fromCount - toCount));
+            l.addAll(to.asList());
+            return new SQLName(l);
+        }
+    }
+
+    /**
+     * The shortest SQLName to identify <code>to</code> from this.
+     * 
+     * @param to the name to shorten, e.g. "root"."t2".
+     * @return the shortest name identifying <code>to</code>, e.g. if this is "root"."t1", "t2".
+     */
+    public final SQLName getContextualName(final SQLName to) {
+        final SQLName from = this;
+        final int fromCount = from.getItemCount();
+        final int toCount = to.getItemCount();
+        if (fromCount < toCount) {
+            return to;
+        } else if (fromCount > toCount) {
+            final SQLName resolved = from.resolve(to);
+            assert resolved.getItemCount() == fromCount;
+            return from.getContextualName(resolved);
+        }
+        assert fromCount == toCount;
+        final int common = CollectionUtils.equalsFromStart(from.asList(), to.asList());
+        if (common == 0) {
+            return to;
+        } else {
+            return new SQLName(to.asList().subList(common, toCount));
+        }
     }
 
     public final List<String> asList() {

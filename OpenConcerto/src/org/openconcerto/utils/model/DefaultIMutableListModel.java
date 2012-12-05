@@ -20,9 +20,11 @@ import org.openconcerto.utils.change.ConstructorCreator;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.SortedSet;
 import java.util.TreeSet;
 
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
 
@@ -56,8 +58,10 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
         this.selectOnAdd = true;
         this.selectOnRm = false;
 
-        if (getSize() > 0) {
+        if (getSize() > 0 && this.isSelectOnAdd()) {
             this.selectedObject = getElementAt(0);
+        } else {
+            this.selectedObject = null;
         }
     }
 
@@ -81,31 +85,29 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
     }
 
     // implements javax.swing.MutableComboBoxModel
-    public void addElement(T anObject) {
-        this.objects.add(anObject);
-        fireIntervalAdded(this, this.objects.size() - 1, this.objects.size() - 1);
-        if (this.selectOnAdd && this.objects.size() == 1 && this.selectedObject == null && anObject != null) {
-            setSelectedItem(anObject);
-        }
+    public final void addElement(T anObject) {
+        this.addAll(Collections.singleton(anObject));
     }
 
     public void addAll(Collection<? extends T> items) {
-        this.addAll(null, items);
+        this.addAll(-1, items);
     }
 
     public void addAll(int index, Collection<? extends T> items) {
-        this.addAll(Integer.valueOf(index), items);
+        this.addAll(index, items, true);
     }
 
-    private void addAll(Integer index, Collection<? extends T> items) {
+    public void addAll(int index, Collection<? extends T> items, final boolean setSelection) {
         if (items.size() > 0) {
-            if (index == null) {
-                index = this.objects.size();
+            final int size = this.objects.size();
+            if (index < 0) {
+                index = size;
                 this.objects.addAll(items);
-            } else
-                this.objects.addAll(index.intValue(), items);
+            } else {
+                this.objects.addAll(index, items);
+            }
             fireIntervalAdded(this, index, index + items.size() - 1);
-            if (this.selectOnAdd && this.selectedObject == null) {
+            if (setSelection && this.isSelectOnAdd() && size == 0 && this.getSelectedItem() == null) {
                 setSelectedItem(items.iterator().next());
             }
         }
@@ -125,11 +127,11 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
     // from, to inclusive : to remove the fifth item call with (5,5)
     public void removeElementsAt(final int from, final int to) {
         final CollectionChangeEventCreator c = createCreator();
-        final int selectedIndex = this.objects.indexOf(this.selectedObject);
+        final int selectedIndex = this.objects.indexOf(this.getSelectedItem());
         if (selectedIndex >= from && selectedIndex <= to) {
-            if (!this.selectOnRm)
+            if (!this.isSelectOnRm()) {
                 setSelectedItem(null);
-            else if (from == 0) {
+            } else if (from == 0) {
                 // is this a removeAll
                 setSelectedItem(getSize() == to + 1 ? null : getElementAt(to + 1));
             } else {
@@ -143,9 +145,7 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
     }
 
     public void set(int index, T o) {
-        final CollectionChangeEventCreator c = createCreator();
-        this.objects.set(index, o);
-        this.fireContentsChanged(index, index, c);
+        this.replace(index, index, Collections.singleton(o));
     }
 
     /**
@@ -156,10 +156,41 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
      * @param l the list to insert.
      */
     public void replace(int index0, int index1, Collection<? extends T> l) {
+        this.replace(index0, index1, l, true);
+    }
+
+    public void replace(int index0, int index1, Collection<? extends T> l, final boolean setSelection) {
         final CollectionChangeEventCreator c = createCreator();
-        this.objects.subList(index0, index1 + 1).clear();
-        this.objects.addAll(index0, l);
+        final int selectedIndex = this.objects.indexOf(this.getSelectedItem());
+        if (index0 == index1 && l.size() == 1) {
+            this.objects.set(index0, l.iterator().next());
+        } else {
+            // sublist exclusive
+            this.objects.subList(index0, index1 + 1).clear();
+            this.objects.addAll(index0, l);
+        }
+        // if there was a selection and now not anymore
+        if (setSelection && selectedIndex >= 0 && this.objects.indexOf(this.getSelectedItem()) < 0) {
+            final int size = getSize();
+            if (!this.isSelectOnRm() || size == 0) {
+                setSelectedItem(null);
+            } else {
+                setSelectedItem(selectedIndex < size ? getElementAt(selectedIndex) : getElementAt(size - 1));
+            }
+        }
         this.fireContentsChanged(index0, index1, c);
+    }
+
+    public final void setAllElements(List<? extends T> items) {
+        this.setAllElements(items, true);
+    }
+
+    public void setAllElements(Collection<? extends T> items, boolean setSelection) {
+        final int size = getSize();
+        if (size == 0)
+            this.addAll(0, items, setSelection);
+        else
+            this.replace(0, size - 1, items, setSelection);
     }
 
     /**
@@ -195,15 +226,9 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
      * Empties the list.
      */
     public void removeAllElements() {
-        if (this.objects.size() > 0) {
-            final CollectionChangeEventCreator c = createCreator();
-            int firstIndex = 0;
-            int lastIndex = this.objects.size() - 1;
-            this.objects.clear();
-            this.selectedObject = null;
-            fireIntervalRemoved(firstIndex, lastIndex, c);
-        } else {
-            this.selectedObject = null;
+        final int size = this.objects.size();
+        if (size > 0) {
+            this.removeElementsAt(0, size - 1);
         }
     }
 
@@ -252,8 +277,8 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
     }
 
     /**
-     * Sets whether an add() or addAll() will select the first added item if the current selection
-     * is empty.
+     * Sets whether an add() or addAll() will select the first added item if the list is empty. This
+     * is the behavior of {@link DefaultComboBoxModel}.
      * 
      * @param selectOnAdd <code>false</code> if the selection should not be changed.
      */
@@ -261,12 +286,16 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
         this.selectOnAdd = selectOnAdd;
     }
 
+    public final boolean isSelectOnRm() {
+        return this.selectOnRm;
+    }
+
     /**
      * Sets whether the removal of the selected item will select the closest item left, or if the
      * selection will be empty.
      * 
-     * @param selectOnRm <code>true</code> to select the closest, <code>false</code> to empty
-     *        the selection.
+     * @param selectOnRm <code>true</code> to select the closest, <code>false</code> to empty the
+     *        selection.
      */
     public final void setSelectOnRm(boolean selectOnRm) {
         this.selectOnRm = selectOnRm;

@@ -11,13 +11,14 @@
  * When distributing the software, include this License Header Notice in each file.
  */
  
- package org.openconcerto.erp.core.supplychain.order.action;
+ package org.openconcerto.erp.core.sales.order.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
+import org.openconcerto.erp.core.sales.order.ui.CommandeClientRenderer;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -38,7 +39,9 @@ import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
+import javax.swing.BorderFactory;
 import javax.swing.JFrame;
+import javax.swing.JPanel;
 
 public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
 
@@ -81,48 +84,39 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
 
         final IListFrame frame = new IListFrame(listeAddPanel);
 
-        // FIXME Probleme avec le renderer
-        // final CommandeClientRenderer rend = CommandeClientRenderer.getInstance();
-        // c = new DefaultGridBagConstraints();
-        // final JPanel legendePanel = rend.getLegendePanel();
-        // legendePanel.setBorder(BorderFactory.createTitledBorder("Légende"));
-        // legendePanel.setOpaque(true);
-        // c.fill = GridBagConstraints.NONE;
-        // frame.getPanel().add(legendePanel, c);
-        // JTable table = frame.getPanel().getListe().getJTable();
-        // for (int i = 0; i < table.getColumnCount(); i++) {
-        // // if (table.getColumnClass(i) == Long.class ||
-        // // table.getColumnClass(i) ==
-        // // BigInteger.class) {
-        // table.getColumnModel().getColumn(i).setCellRenderer(rend);
-        // // }
-        // }
+        final CommandeClientRenderer rend = CommandeClientRenderer.getInstance();
+        c = new DefaultGridBagConstraints();
+        final JPanel legendePanel = rend.getLegendePanel();
+        legendePanel.setBorder(BorderFactory.createTitledBorder("Légende"));
+        legendePanel.setOpaque(true);
+        c.fill = GridBagConstraints.NONE;
+        frame.getPanel().add(legendePanel, c);
 
         frame.getPanel().getListe().addIListeActions(new MouseSheetXmlListeListener(CommandeClientXmlSheet.class) {
             @Override
             public List<RowAction> addToMenu() {
                 // Transfert vers facture
-                PredicateRowAction bonAction = new PredicateRowAction(new AbstractAction("Transfert vers BL") {
+                PredicateRowAction bonAction = new PredicateRowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent e) {
                         transfertBonLivraisonClient(IListe.get(e).getSelectedRow());
                     }
-                }, false);
+                }, false, "sales.order.create.deliverynote");
 
                 // Transfert vers facture
-                PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction("Transfert vers facture") {
+                PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent e) {
                         transfertFactureClient(IListe.get(e).getSelectedRow());
                     }
-                }, false);
+                }, false, "sales.order.create.invoice");
 
                 // Transfert vers commande
-                PredicateRowAction cmdAction = new PredicateRowAction(new AbstractAction("Transfert vers commande fournisseur") {
+                PredicateRowAction cmdAction = new PredicateRowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent e) {
                         CommandeClientSQLElement elt = (CommandeClientSQLElement) Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
                         elt.transfertCommande(IListe.get(e).getSelectedId());
                     }
 
-                }, false);
+                }, false, "sales.order.create.supplier.order");
 
                 cmdAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
                 factureAction.setPredicate(IListeEvent.getSingleSelectionPredicate());

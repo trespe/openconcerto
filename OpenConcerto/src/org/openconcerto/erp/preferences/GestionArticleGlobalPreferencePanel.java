@@ -28,6 +28,8 @@ public class GestionArticleGlobalPreferencePanel extends JavaPrefPreferencePanel
     public static String UNITE_VENTE = "UniteVenteActive";
     public static String USE_CREATED_ARTICLE = "UseCreatedArticle";
     public static String CREATE_ARTICLE_AUTO = "CreateArticleAuto";
+    public static String TVA_LINE = "TVALigne";
+    public static String SUPPLIER_PRODUCT_CODE = "SupplierProductCode";
 
     public GestionArticleGlobalPreferencePanel() {
         super("Gestion des articles", null);
@@ -36,6 +38,11 @@ public class GestionArticleGlobalPreferencePanel extends JavaPrefPreferencePanel
 
     @Override
     protected void addViews() {
+
+        PrefView<Boolean> viewAchat = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Gérer les codes articles fournisseurs", SUPPLIER_PRODUCT_CODE);
+        viewAchat.setDefaultValue(Boolean.FALSE);
+        this.addView(viewAchat);
+
         PrefView<Boolean> view = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Gérer les sorties de stock avec les factures et non les bons de livraison", STOCK_FACT);
         view.setDefaultValue(Boolean.TRUE);
         this.addView(view);
@@ -51,5 +58,10 @@ public class GestionArticleGlobalPreferencePanel extends JavaPrefPreferencePanel
         PrefView<Boolean> view4 = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Créer automatiquement les articles (si il n'y a aucune correspondance CODE, DESIGNATION)", CREATE_ARTICLE_AUTO);
         view4.setDefaultValue(Boolean.TRUE);
         this.addView(view4);
+
+        // FIXME Patch pour arfang
+        PrefView<Boolean> view5 = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Calculer la TVA par ligne", TVA_LINE);
+        view5.setDefaultValue(Boolean.FALSE);
+        this.addView(view5);
     }
 }

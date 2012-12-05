@@ -73,41 +73,7 @@ public class ListeDesClientsAction extends CreateFrameAbstractAction {
             }
         }
 
-        final String property = PrinterNXProps.getInstance().getProperty("QLPrinter");
-            if (property != null && property.trim().length() > 0) {
-                panel.getListe().addRowAction(RowAction.createAction("Imprimer l'étiquette client", null, new IClosure<List<SQLRowAccessor>>() {
-                    @Override
-                    public void executeChecked(List<SQLRowAccessor> input) {
-                        final SQLRowAccessor row = input.get(0);
-                        final LabelCreator c = new LabelCreator(720);
-                        c.setLeftMargin(10);
-                        c.setTopMargin(10);
-                        c.setDefaultFont(new Font("Verdana", Font.PLAIN, 50));
-
-                        c.addLineBold(row.getString("NOM"));
-                        final SQLRowAccessor foreignRow = row.getForeign("ID_ADRESSE");
-                        final String string = foreignRow.getString("RUE");
-                        String[] s = string.split("\n");
-                        for (String string2 : s) {
-                            System.err.println(string2);
-                            c.addLineNormal(string2);
-                        }
-
-                        Ville v = Ville.getVilleFromVilleEtCode(foreignRow.getString("VILLE"));
-                        c.addLineNormal(v.getCodepostal() + " " + v.getName());
-
-                        System.err.println("\"" + property + "\"");
-                        final QLPrinter prt = new QLPrinter(property);
-                        try {
-                            prt.print(c.getImage());
-                        } catch (Exception ex) {
-                            ex.printStackTrace();
-                        }
-                    }
-                }));
-            }
-
-
+       
         panel.setSearchFullMode(true);
         panel.setSelectRowOnAdd(false);
         return frame;

@@ -22,6 +22,15 @@ import org.jdom.Element;
 
 abstract class RepeatedBreaker<P, C extends ODNode> {
 
+    static final void setRepeated(final Element elem, final String attrName, final int i) {
+        if (i < 1)
+            throw new IllegalArgumentException("repeated <1 : " + i);
+        if (i == 1)
+            elem.removeAttribute(attrName, elem.getNamespace());
+        else
+            elem.setAttribute(attrName, String.valueOf(i), elem.getNamespace());
+    }
+
     @SuppressWarnings("rawtypes")
     static private final RepeatedBreaker CELL_BREAKER = new RepeatedBreaker<Row<?>, Cell<?>>("number-columns-repeated") {
         @Override
@@ -87,7 +96,7 @@ abstract class RepeatedBreaker<P, C extends ODNode> {
         if (repeat > 0) {
             final Element newElem = (Element) element.clone();
             element.getParentElement().addContent(element.getParent().indexOf(element) + (before ? 0 : 1), newElem);
-            newElem.setAttribute(this.attrName, repeat + "", element.getNamespace());
+            setRepeated(newElem, this.attrName, repeat);
             final C preCell = this.create(newElem, parent, firstIndex, false);
             for (int i = 0; i < repeat; i++) {
                 children.set(firstIndex + i, preCell);

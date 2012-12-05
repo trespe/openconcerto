@@ -20,8 +20,10 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.request.ListSQLRequest;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -77,6 +79,17 @@ public class AvoirClientSQLElement extends ComptaSQLConfElement {
      */
     public SQLComponent createComponent() {
         return new AvoirClientSQLComponent();
+    }
+
+    @Override
+    public synchronized ListSQLRequest createListRequest() {
+        return new ListSQLRequest(this.getTable(), this.getListFields()) {
+            @Override
+            protected void customizeToFetch(SQLRowValues graphToFetch) {
+                super.customizeToFetch(graphToFetch);
+                graphToFetch.put("A_DEDUIRE", null);
+            }
+        };
     }
 
     @Override

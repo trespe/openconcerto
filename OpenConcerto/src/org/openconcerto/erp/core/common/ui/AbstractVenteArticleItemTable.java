@@ -42,6 +42,7 @@ import org.openconcerto.utils.ExceptionHandler;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -82,7 +83,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
      */
     protected void init() {
 
-        SQLPreferences prefs = new SQLPreferences(getSQLElement().getTable().getDBRoot());
+        SQLPreferences prefs = SQLPreferences.getMemCached(getSQLElement().getTable().getDBRoot());
         final boolean selectArticle = prefs.getBoolean(GestionArticleGlobalPreferencePanel.USE_CREATED_ARTICLE, false);
         final boolean createAuto = prefs.getBoolean(GestionArticleGlobalPreferencePanel.CREATE_ARTICLE_AUTO, true);
 
@@ -92,7 +93,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         list.add(new SQLTableElement(e.getTable().getField("ID_STYLE")));
 
         // Article
-        final SQLTableElement tableElementArticle = new SQLTableElement(e.getTable().getField("ID_ARTICLE"), true, true, true);
+        SQLTableElement tableElementArticle = new SQLTableElement(e.getTable().getField("ID_ARTICLE"), true, true, true);
         list.add(tableElementArticle);
 
         // Code article
@@ -186,20 +187,19 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         // Prébilan
 
         if (e.getTable().getFieldsName().contains("PREBILAN")) {
-            prebilan = new SQLTableElement(e.getTable().getField("PREBILAN"), Long.class, new DeviseCellEditor());
-            prebilan.setRenderer(new DeviseNiceTableCellRenderer());
+            prebilan = new SQLTableElement(e.getTable().getField("PREBILAN"), BigDecimal.class);
             list.add(prebilan);
         }
 
         // Prix d'achat HT de la métrique 1
-        final SQLTableElement tableElement_PrixMetrique1_AchatHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_HA_1"), Long.class, new DeviseCellEditor()) {
-            @Override
-            public boolean isCellEditable(SQLRowValues vals) {
-                // TODO Raccord de méthode auto-généré
-                return !(selectArticle && !createAuto);
-            }
-        };
-        tableElement_PrixMetrique1_AchatHT.setRenderer(new DeviseNiceTableCellRenderer());
+        final SQLTableElement tableElement_PrixMetrique1_AchatHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_HA_1"), BigDecimal.class);
+        // @Override
+        // public boolean isCellEditable(SQLRowValues vals) {
+        // // TODO Raccord de méthode auto-généré
+        // return !(selectArticle && !createAuto);
+        // }
+        // };
+        // tableElement_PrixMetrique1_AchatHT.setRenderer(new DeviseNiceTableCellRenderer());
         list.add(tableElement_PrixMetrique1_AchatHT);
 
         SQLTableElement eltDevise = null;
@@ -210,25 +210,17 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             list.add(eltDevise);
 
             // Prix vente devise
-            eltUnitDevise = new SQLTableElement(e.getTable().getField("PV_U_DEVISE"), Long.class, new DeviseCellEditor());
+            eltUnitDevise = new SQLTableElement(e.getTable().getField("PV_U_DEVISE"), BigDecimal.class);
             list.add(eltUnitDevise);
         }
         // Prix de vente HT de la métrique 1
-        final DeviseCellEditor editorPVHT = new DeviseCellEditor();
+        // final DeviseCellEditor editorPVHT = new DeviseCellEditor();
+        // editorPVHT.setConvertToTTCEnable(true);
+        SQLField field = e.getTable().getField("PRIX_METRIQUE_VT_1");
+        final DeviseNumericCellEditor editorPVHT = new DeviseNumericCellEditor(field);
         editorPVHT.setConvertToTTCEnable(true);
-        final SQLTableElement tableElement_PrixMetrique1_VenteHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_VT_1"), Long.class, editorPVHT) {
-            @Override
-            public TableCellRenderer getTableCellRenderer() {
 
-                List<Integer> l = new ArrayList<Integer>();
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_CARRE));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_LARGEUR));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_METRE_LONGUEUR));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.AU_POID_METRECARRE));
-                l.add(Integer.valueOf(ReferenceArticleSQLElement.A_LA_PIECE));
-                return new ArticleRowValuesRenderer(l);
-            }
-        };
+        final SQLTableElement tableElement_PrixMetrique1_VenteHT = new SQLTableElement(field, BigDecimal.class, editorPVHT);
         list.add(tableElement_PrixMetrique1_VenteHT);
 
         // // Prix d'achat HT de la métrique 1
@@ -252,6 +244,10 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             @Override
             public TableCellRenderer getTableCellRenderer() {
                 return new QteUnitRowValuesRenderer();
+            }
+
+            protected Object getDefaultNullValue() {
+                return BigDecimal.ZERO;
             }
         };
         list.add(qteU);
@@ -281,13 +277,11 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         list.add(tableElement_ModeVente);
 
         // // Prix d'achat unitaire HT
-        this.ha = new SQLTableElement(e.getTable().getField("PA_HT"), Long.class, new DeviseCellEditor());
-        this.ha.setRenderer(new DeviseNiceTableCellRenderer());
+        this.ha = new SQLTableElement(e.getTable().getField("PA_HT"), BigDecimal.class);
         list.add(this.ha);
 
         // Prix de vente unitaire HT
-        final SQLTableElement tableElement_PrixVente_HT = new SQLTableElement(e.getTable().getField("PV_HT"), Long.class, new DeviseCellEditor());
-        tableElement_PrixVente_HT.setRenderer(new DeviseNiceTableCellRenderer());
+        final SQLTableElement tableElement_PrixVente_HT = new SQLTableElement(e.getTable().getField("PV_HT"), BigDecimal.class);
         list.add(tableElement_PrixVente_HT);
 
         // TVA
@@ -309,7 +303,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             list.add(this.service);
         }
 
-        this.totalHT = new SQLTableElement(e.getTable().getField("T_PV_HT"), Long.class, new DeviseCellEditor());
+        this.totalHT = new SQLTableElement(e.getTable().getField("T_PV_HT"), BigDecimal.class);
         this.totalHT.setEditable(false);
         if (e.getTable().getFieldsName().contains("POURCENT_ACOMPTE")) {
             SQLTableElement tableElementAcompte = new SQLTableElement(e.getTable().getField("POURCENT_ACOMPTE"));
@@ -326,43 +320,41 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         }
 
         // Total HT
-        SQLTableElement totalHA = new SQLTableElement(e.getTable().getField("T_PA_HT"), Long.class, new DeviseCellEditor());
-        totalHA.setRenderer(new DeviseNiceTableCellRenderer());
-        list.add(totalHA);
+        this.totalHA = new SQLTableElement(e.getTable().getField("T_PA_HT"), BigDecimal.class);
+        this.totalHA.setEditable(false);
+        list.add(this.totalHA);
 
         if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
             // Total HT
-            this.tableElementTotalDevise = new SQLTableElement(e.getTable().getField("PV_T_DEVISE"), Long.class, new DeviseCellEditor());
-            tableElementTotalDevise.setRenderer(new DeviseNiceTableCellRenderer());
+            this.tableElementTotalDevise = new SQLTableElement(e.getTable().getField("PV_T_DEVISE"), BigDecimal.class);
             list.add(tableElementTotalDevise);
         }
 
         // Marge HT
         if (e.getTable().getFieldsName().contains("MARGE_HT")) {
 
-            SQLTableElement marge = new SQLTableElement(e.getTable().getField("MARGE_HT"), Long.class, new DeviseCellEditor());
-            marge.setRenderer(new MargeTableCellRenderer());
+            final SQLTableElement marge = new SQLTableElement(e.getTable().getField("MARGE_HT"), BigDecimal.class);
             marge.setEditable(false);
             list.add(marge);
             this.totalHT.addModificationListener(marge);
-            totalHA.addModificationListener(marge);
+            this.totalHA.addModificationListener(marge);
             marge.setModifier(new CellDynamicModifier() {
                 @Override
                 public Object computeValueFrom(SQLRowValues row) {
 
-                    Long vt = row.getLong("T_PV_HT");
+                    BigDecimal vt = (BigDecimal) row.getObject("T_PV_HT");
 
-                    Long ha = row.getLong("T_PA_HT");
+                    BigDecimal ha = (BigDecimal) row.getObject("T_PA_HT");
 
                     final Object o = row.getObject("POURCENT_ACOMPTE");
-                    double lA = (o == null) ? 100 : ((BigDecimal) o).doubleValue();
-                    if (lA >= 0 && lA != 100) {
-                        ha = Math.round(ha * (lA / 100.0));
-                        vt = Math.round(vt * (lA / 100.0));
+                    BigDecimal lA = (o == null) ? BigDecimal.valueOf(100) : ((BigDecimal) o);
+                    if (lA.compareTo(BigDecimal.ZERO) >= 0 && lA.compareTo(BigDecimal.valueOf(100)) < 0) {
+                        ha = ha.multiply(lA, MathContext.DECIMAL128).movePointLeft(2);
+                        vt = vt.multiply(lA, MathContext.DECIMAL128).movePointLeft(2);
                     }
 
-                    Long r = Long.valueOf(vt - ha);
-                    return r;
+                    // Long r = Long.valueOf(vt - ha);
+                    return vt.subtract(ha).setScale(marge.getDecimalDigits(), RoundingMode.HALF_UP);
                 }
 
             });
@@ -371,7 +363,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
         if (e.getTable().getFieldsName().contains("MARGE_PREBILAN_HT")) {
 
-            SQLTableElement marge = new SQLTableElement(e.getTable().getField("MARGE_PREBILAN_HT"), Long.class, new DeviseCellEditor());
+            final SQLTableElement marge = new SQLTableElement(e.getTable().getField("MARGE_PREBILAN_HT"), Long.class, new DeviseCellEditor());
             marge.setRenderer(new MargeTableCellRenderer());
             marge.setEditable(false);
             list.add(marge);
@@ -381,19 +373,19 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                 @Override
                 public Object computeValueFrom(SQLRowValues row) {
 
-                    Long vt = row.getLong("T_PV_HT");
+                    BigDecimal vt = (BigDecimal) row.getObject("T_PV_HT");
 
-                    Long ha = (row.getObject("PREBILAN") == null ? 0 : row.getLong("PREBILAN"));
+                    BigDecimal ha = row.getObject("PREBILAN") == null ? BigDecimal.ZERO : (BigDecimal) row.getObject("PREBILAN");
 
                     final Object o = row.getObject("POURCENT_ACOMPTE");
-                    double lA = (o == null) ? 100 : ((BigDecimal) o).doubleValue();
-                    if (lA >= 0 && lA != 100) {
-                        ha = Math.round(ha * (lA / 100.0));
-                        vt = Math.round(vt * (lA / 100.0));
+                    BigDecimal lA = (o == null) ? BigDecimal.valueOf(100) : ((BigDecimal) o);
+                    if (lA.compareTo(BigDecimal.ZERO) >= 0 && lA.compareTo(BigDecimal.valueOf(100)) <= 100) {
+                        ha = ha.multiply(lA, MathContext.DECIMAL128).movePointLeft(2);
+                        vt = vt.multiply(lA, MathContext.DECIMAL128).movePointLeft(2);
                     }
 
-                    Long r = Long.valueOf(vt - ha);
-                    return r;
+                    // Long r = Long.valueOf(vt - ha);
+                    return vt.subtract(ha).setScale(marge.getDecimalDigits(), RoundingMode.HALF_UP);
                 }
 
             });
@@ -401,13 +393,14 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         }
 
         // Total HT
-        this.totalHT.setRenderer(new DeviseNiceTableCellRenderer());
+        // this.totalHT.setRenderer(new DeviseNiceTableCellRenderer());
+        this.totalHT.setEditable(false);
         list.add(this.totalHT);
         // Total TTC
         // FIXME add a modifier -> T_TTC modify P_VT_METRIQUE_1 + fix CellDynamicModifier not fire
         // if value not changed
-        this.tableElementTotalTTC = new SQLTableElement(e.getTable().getField("T_PV_TTC"), Long.class, new DeviseCellEditor());
-        this.tableElementTotalTTC.setRenderer(new DeviseNiceTableCellRenderer());
+        this.tableElementTotalTTC = new SQLTableElement(e.getTable().getField("T_PV_TTC"), BigDecimal.class);
+        this.tableElementTotalTTC.setEditable(false);
         list.add(this.tableElementTotalTTC);
 
         this.model = new RowValuesTableModel(e, list, e.getTable().getField("NOM"));
@@ -515,6 +508,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
         m3.setWhere(new Where(sqlTableArticle.getField("OBSOLETE"), "=", Boolean.FALSE));
 
+        // Deselection de l'article si le code est modifié
         tableElementCode.addModificationListener(tableElementArticle);
         tableElementArticle.setModifier(new CellDynamicModifier() {
             @Override
@@ -530,9 +524,9 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
         // Calcul automatique du total HT
         this.qte.addModificationListener(this.totalHT);
-        this.qte.addModificationListener(totalHA);
+        this.qte.addModificationListener(this.totalHA);
         qteU.addModificationListener(this.totalHT);
-        qteU.addModificationListener(totalHA);
+        qteU.addModificationListener(this.totalHA);
         if (tableElementRG != null) {
             tableElementRG.addModificationListener(this.totalHT);
         }
@@ -540,44 +534,45 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
         tableElement_PrixVente_HT.addModificationListener(this.totalHT);
         // tableElement_PrixVente_HT.addModificationListener(tableElement_PrixMetrique1_VenteHT);
-        this.ha.addModificationListener(totalHA);
+        this.ha.addModificationListener(this.totalHA);
 
         this.totalHT.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(final SQLRowValues row) {
                 final Object o2 = row.getObject("POURCENT_REMISE");
 
-                double lremise = (o2 == null) ? 0 : ((BigDecimal) o2).doubleValue();
+                BigDecimal lremise = (o2 == null) ? BigDecimal.ZERO : (BigDecimal) o2;
 
                 if (row.getTable().getFieldsName().contains("POURCENT_RG")) {
                     final Object o3 = row.getObject("POURCENT_RG");
-                    lremise += (o3 == null) ? 0 : ((BigDecimal) o3).doubleValue();
+                    if (o3 != null)
+                        lremise.add(((BigDecimal) o3));
                 }
 
                 int qte = (row.getObject("QTE") == null) ? 0 : Integer.parseInt(row.getObject("QTE").toString());
                 BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
-                Number f = (Number) row.getObject("PV_HT");
-                long r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
+                BigDecimal f = (BigDecimal) row.getObject("PV_HT");
+                BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte), MathContext.DECIMAL128), MathContext.DECIMAL128);
                 if (row.getTable().getFieldsName().contains("POURCENT_ACOMPTE")) {
                     final Object o = row.getObject("POURCENT_ACOMPTE");
-                    double lA = (o == null) ? 0 : ((BigDecimal) o).doubleValue();
-                    if (lA >= 0 && lA != 100) {
-                        r = Math.round(r * (lA / 100.0));
+                    BigDecimal lA = (o == null) ? BigDecimal.ZERO : ((BigDecimal) o);
+                    if (lA.compareTo(BigDecimal.ZERO) >= 0 && lA.compareTo(BigDecimal.valueOf(100)) <= 0) {
+                        r = r.multiply(lA, MathContext.DECIMAL128).movePointLeft(2);
                     }
                 }
-                if (lremise > 0 && lremise != 100) {
-                    r = Math.round(r * (100.0 - lremise) / 100.0);
+                if (lremise.compareTo(BigDecimal.ZERO) > 0 && lremise.compareTo(BigDecimal.valueOf(100)) < 100) {
+                    r = r.multiply(BigDecimal.valueOf(100).subtract(lremise), MathContext.DECIMAL128).movePointLeft(2);
                 }
-                return Long.valueOf(r);
+                return r.setScale(totalHT.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
             }
         });
-        totalHA.setModifier(new CellDynamicModifier() {
+        this.totalHA.setModifier(new CellDynamicModifier() {
             @Override
             public Object computeValueFrom(SQLRowValues row) {
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
                 BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
-                Number f = (Number) row.getObject("PA_HT");
-                long r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
-                return Long.valueOf(r);
+                BigDecimal f = (BigDecimal) row.getObject("PA_HT");
+                BigDecimal r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(6, BigDecimal.ROUND_HALF_UP);
+                return r.setScale(totalHA.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
             }
         });
 
@@ -590,16 +585,16 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                 @Override
                 public Object computeValueFrom(SQLRowValues row) {
                     final Object o2 = row.getObject("POURCENT_REMISE");
-                    double lremise = (o2 == null) ? 0 : ((BigDecimal) o2).doubleValue();
+                    BigDecimal lremise = (o2 == null) ? BigDecimal.ZERO : ((BigDecimal) o2);
                     int qte = Integer.parseInt(row.getObject("QTE").toString());
-                    Number f = (Number) row.getObject("PV_U_DEVISE");
+                    BigDecimal f = (BigDecimal) row.getObject("PV_U_DEVISE");
                     BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
-                    long r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
-                    ;
-                    if (lremise > 0 && lremise != 100) {
-                        r = Math.round(r * (100.0 - lremise) / 100.0);
+                    BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), MathContext.DECIMAL128);
+
+                    if (lremise.compareTo(BigDecimal.ZERO) > 0 && lremise.compareTo(BigDecimal.valueOf(100)) < 100) {
+                        r = r.multiply(BigDecimal.valueOf(100).subtract(lremise), MathContext.DECIMAL128).movePointLeft(2);
                     }
-                    return Long.valueOf(r);
+                    return r.setScale(tableElementTotalDevise.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
                 }
             });
         }
@@ -612,7 +607,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             @Override
             public Object computeValueFrom(SQLRowValues row) {
 
-                Number f = (Number) row.getObject("T_PV_HT");
+                BigDecimal f = (BigDecimal) row.getObject("T_PV_HT");
                 int idTaux = Integer.parseInt(row.getObject("ID_TAXE").toString());
 
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(idTaux);
@@ -629,11 +624,12 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                     }
                 }
 
-                PrixHT pHT = new PrixHT(f.longValue());
+                // PrixHT pHT = new PrixHT(f.longValue());
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
-                editorPVHT.setTaxe(resultTaux);
-                Long r = Long.valueOf(pHT.calculLongTTC(taux / 100f));
-                return r;
+                // editorPVHT.setTaxe(resultTaux);
+                // Long r = Long.valueOf(pHT.calculLongTTC(taux / 100f));
+                BigDecimal r = f.multiply(BigDecimal.valueOf(taux).movePointLeft(2).add(BigDecimal.ONE), MathContext.DECIMAL128);
+                return r.setScale(tableElementTotalTTC.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
             }
 
         });
@@ -685,8 +681,8 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                         // row.getObject("PRIX_METRIQUE_VT_1")).longValue());
                         BigDecimal t = (BigDecimal) row.getForeign("ID_DEVISE").getObject("TAUX");
 
-                        BigDecimal bigDecimal = new BigDecimal(row.getLong("PV_U_DEVISE"));
-                        return (t.equals(BigDecimal.ZERO) ? row.getObject("PRIX_METRIQUE_VT_1") : bigDecimal.multiply(t).longValue());
+                        BigDecimal bigDecimal = (BigDecimal) row.getObject("PV_U_DEVISE");
+                        return (t.equals(BigDecimal.ZERO) ? row.getObject("PRIX_METRIQUE_VT_1") : bigDecimal.multiply(t));
                     }
                     return row.getObject("PRIX_METRIQUE_VT_1");
                 }
@@ -702,11 +698,11 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         tableElement_PrixVente_HT.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(SQLRowValues row) {
                 if (row.getInt("ID_MODE_VENTE_ARTICLE") == ReferenceArticleSQLElement.A_LA_PIECE) {
-                    return Long.valueOf(((Number) row.getObject("PRIX_METRIQUE_VT_1")).longValue());
+                    return row.getObject("PRIX_METRIQUE_VT_1");
                 } else {
 
-                    final long prixVTFromDetails = ReferenceArticleSQLElement.getPrixVTFromDetails(row);
-                    return Long.valueOf(prixVTFromDetails);
+                    final BigDecimal prixVTFromDetails = ReferenceArticleSQLElement.getPrixVTFromDetails(row);
+                    return prixVTFromDetails.setScale(tableElement_PrixVente_HT.getDecimalDigits(), RoundingMode.HALF_UP);
                 }
             }
 
@@ -720,11 +716,11 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         this.ha.setModifier(new CellDynamicModifier() {
             public Object computeValueFrom(SQLRowValues row) {
                 if (row.getInt("ID_MODE_VENTE_ARTICLE") == ReferenceArticleSQLElement.A_LA_PIECE) {
-                    return Long.valueOf(((Number) row.getObject("PRIX_METRIQUE_HA_1")).longValue());
+                    return row.getObject("PRIX_METRIQUE_HA_1");
                 } else {
 
-                    final long prixHAFromDetails = ReferenceArticleSQLElement.getPrixHAFromDetails(row);
-                    return Long.valueOf(prixHAFromDetails);
+                    final BigDecimal prixHAFromDetails = ReferenceArticleSQLElement.getPrixHAFromDetails(row);
+                    return prixHAFromDetails.setScale(ha.getDecimalDigits(), RoundingMode.HALF_UP);
                 }
             }
 
@@ -801,7 +797,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                         return getTarif().getObject("ID_DEVISE");
                     } else if ((field.equalsIgnoreCase("PV_U_DEVISE"))) {
                         BigDecimal t = (BigDecimal) getTarif().getForeign("ID_DEVISE").getObject("TAUX");
-                        return t.multiply(new BigDecimal(row.getLong("PRIX_METRIQUE_VT_1"))).longValue();
+                        return t.multiply((BigDecimal) (row.getObject("PRIX_METRIQUE_VT_1"))).setScale(row.getTable().getField(field).getType().getDecimalDigits(), RoundingMode.HALF_UP);
 
                     }
                 }
@@ -812,7 +808,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                     return rowTarif.getObject(field);
                 else {
                     BigDecimal t = (BigDecimal) rowTarif.getForeign("ID_DEVISE").getObject("TAUX");
-                    return t.multiply(new BigDecimal(rowTarif.getLong(field))).longValue();
+                    return t.multiply((BigDecimal) (rowTarif.getObject(field))).setScale(row.getTable().getField(field).getType().getDecimalDigits(), RoundingMode.HALF_UP);
                 }
 
             } else if ((field.equalsIgnoreCase("ID_DEVISE"))) {

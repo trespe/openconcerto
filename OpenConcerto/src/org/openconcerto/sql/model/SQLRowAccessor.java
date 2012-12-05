@@ -15,8 +15,12 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.Link.Direction;
+import org.openconcerto.sql.model.graph.Step;
 import org.openconcerto.utils.convertor.StringClobConvertor;
 
+import java.math.BigDecimal;
 import java.sql.Clob;
 import java.text.DateFormat;
 import java.util.Calendar;
@@ -147,6 +151,10 @@ public abstract class SQLRowAccessor implements SQLData {
         return getObjectAs(field, Boolean.class);
     }
 
+    public final BigDecimal getBigDecimal(String field) {
+        return getObjectAs(field, BigDecimal.class);
+    }
+
     public final Calendar getDate(String field) {
         final Date d = this.getObjectAs(field, Date.class);
         if (d == null)
@@ -184,6 +192,21 @@ public abstract class SQLRowAccessor implements SQLData {
     public abstract Collection<? extends SQLRowAccessor> getReferentRows(final SQLField refField);
 
     public abstract Collection<? extends SQLRowAccessor> getReferentRows(final SQLTable refTable);
+
+    public final Collection<? extends SQLRowAccessor> followLink(final Link l) {
+        return this.followLink(l, Direction.ANY);
+    }
+
+    /**
+     * Return the rows linked to this one by <code>l</code>.
+     * 
+     * @param l the link to follow.
+     * @param direction which way, one can pass {@link Direction#ANY} to infer it except for self
+     *        references.
+     * @return the rows linked to this one.
+     * @see Step#create(SQLTable, SQLField, Direction)
+     */
+    public abstract Collection<? extends SQLRowAccessor> followLink(final Link l, final Direction direction);
 
     /**
      * Returns a java object modeling this row.

@@ -25,10 +25,14 @@ public class PrixUnitaireRemiseProvider extends UserInitialsValueProvider {
     @Override
     public Object getValue(SpreadSheetCellValueContext context) {
         SQLRowAccessor row = context.getRow();
-        final Long pv = row.getLong("PV_HT");
+        final BigDecimal pv = row.getBigDecimal("PV_HT");
         final BigDecimal remise = (BigDecimal) row.getObject("POURCENT_REMISE");
-        BigDecimal result = BigDecimal.ONE.subtract(remise.movePointLeft(2)).multiply(new BigDecimal(pv), MathContext.DECIMAL128);
-        result = result.movePointLeft(2);
+        BigDecimal acompte = BigDecimal.ONE;
+        if (row.getTable().contains("POURCENT_ACOMPTE")) {
+            acompte = ((BigDecimal) row.getObject("POURCENT_ACOMPTE")).movePointLeft(2);
+        }
+        BigDecimal result = BigDecimal.ONE.subtract(remise.movePointLeft(2)).multiply(pv, MathContext.DECIMAL128).multiply(acompte, MathContext.DECIMAL128);
+
         return result;
     }
 

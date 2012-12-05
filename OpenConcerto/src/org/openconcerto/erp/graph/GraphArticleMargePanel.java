@@ -17,6 +17,8 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -39,31 +41,41 @@ public class GraphArticleMargePanel extends GraphArticleVentePanel {
         sel.addSelect(tableVFElement.getField("PV_HT"));
         sel.addSelect(tableVFElement.getField("QTE"), "SUM");
 
-        final List<Object[]> rowsArticle = (List<Object[]>) Configuration.getInstance().getBase().getDataSource().execute(
-                sel.asString() + " GROUP BY \"SAISIE_VENTE_FACTURE_ELEMENT\".\"" + field + "\"" + ",\"SAISIE_VENTE_FACTURE_ELEMENT\".\"PA_HT\"" + ",\"SAISIE_VENTE_FACTURE_ELEMENT\".\"PV_HT\"",
-                new ArrayListHandler());
+        final List<Object[]> rowsArticle = (List<Object[]>) Configuration
+                .getInstance()
+                .getBase()
+                .getDataSource()
+                .execute(
+                        sel.asString() + " GROUP BY \"SAISIE_VENTE_FACTURE_ELEMENT\".\"" + field + "\"" + ",\"SAISIE_VENTE_FACTURE_ELEMENT\".\"PA_HT\"" + ",\"SAISIE_VENTE_FACTURE_ELEMENT\".\"PV_HT\"",
+                        new ArrayListHandler());
 
         Collections.sort(rowsArticle, new Comparator<Object[]>() {
             @Override
             public int compare(Object[] o1, Object[] o2) {
 
-                long marge1 = (Integer.parseInt(o1[2].toString()) - Integer.parseInt(o1[1].toString())) * Integer.parseInt(o1[3].toString());
-                long marge2 = (Integer.parseInt(o2[2].toString()) - Integer.parseInt(o2[1].toString())) * Integer.parseInt(o2[3].toString());
-                return (int) (marge2 - marge1);
+                BigDecimal pa1 = (BigDecimal) o1[1];
+                BigDecimal pv1 = (BigDecimal) o1[2];
+                BigDecimal qte1 = new BigDecimal(o1[3].toString());
+
+                BigDecimal pa2 = (BigDecimal) o2[1];
+                BigDecimal pv2 = (BigDecimal) o2[2];
+                BigDecimal qte2 = new BigDecimal(o2[3].toString());
+
+                BigDecimal marge1 = pv1.subtract(pa1).multiply(qte1, MathContext.DECIMAL128);
+                BigDecimal marge2 = pv2.subtract(pa2).multiply(qte2, MathContext.DECIMAL128);
+                return marge1.compareTo(marge2);
             }
         });
 
-        int rowCount = 0;
-        for (Object[] objects : rowsArticle) {
-            int value = Integer.parseInt(objects[1].toString());
-            rowCount += value;
-        }
-
         for (int i = 0; i < 10 && i < rowsArticle.size(); i++) {
             Object[] o = rowsArticle.get(i);
-            double value = (Long.parseLong(o[2].toString()) - Long.parseLong(o[1].toString())) * Integer.parseInt(o[3].toString()) / 100.0;
+            BigDecimal pa2 = (BigDecimal) o[1];
+            BigDecimal pv2 = (BigDecimal) o[2];
+            BigDecimal qte2 = new BigDecimal(o[3].toString());
+            BigDecimal marge2 = pv2.subtract(pa2).multiply(qte2, MathContext.DECIMAL128);
+
             final String string = o[0].toString();
-            values.add(value);
+            values.add(marge2);
             labels.add(string);
         }
 

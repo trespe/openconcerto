@@ -14,6 +14,7 @@
  package org.openconcerto.task;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLSelect;
@@ -83,11 +84,11 @@ public class UserTaskRight {
     public static List<UserTaskRight> getUserTaskRight(final User selectedUser) {
         List<UserTaskRight> result = cache.get(selectedUser);
         if (result == null) {
-
-            final SQLTable rightsT = Configuration.getInstance().getSystemRoot().findTable("TACHE_RIGHTS", true);
+            final DBSystemRoot systemRoot = Configuration.getInstance().getSystemRoot();
+            final SQLTable rightsT = systemRoot.findTable("TACHE_RIGHTS", true);
             final SQLField userF = rightsT.getField("ID_USER_COMMON");
             final SQLTable userT = rightsT.getForeignTable(userF.getName());
-            final SQLSelect sel = new SQLSelect(rightsT.getBase());
+            final SQLSelect sel = new SQLSelect(systemRoot, false);
             sel.addSelectStar(rightsT);
             sel.setWhere(new Where(userF, "=", selectedUser.getId()));
             String req = sel.toString();

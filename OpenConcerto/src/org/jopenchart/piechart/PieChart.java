@@ -7,22 +7,29 @@ import java.awt.Graphics2D;
 import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.jopenchart.Chart;
 import org.jopenchart.DataModel1D;
 import org.jopenchart.Label;
 
 public class PieChart extends Chart {
-    private final List<Label> labels = new ArrayList<Label>();
+    protected final List<Label> labels = new ArrayList<Label>();
 
     private Color separatorColor = Color.WHITE;
 
-    private int innerWidth;
+    protected int innerWidth;
 
     private int innerHeight;
 
-    private Color innerColor;
+    protected Color innerColor;
+    protected Map<Label, Color> colorMap = new HashMap<Label, Color>();
+
+    protected Color[] colors;
+
+    protected double[] spaces;
 
     public void setData(List<Number> data) {
         DataModel1D m = new DataModel1D();
@@ -55,35 +62,16 @@ public class PieChart extends Chart {
         DataModel1D model1 = (DataModel1D) this.getDataModel();
         double total = getTotalValue().doubleValue();
 
-        double space = 0.0D;
-
         int stop = model1.getSize();
-        Color[] colors = new Color[stop];
-        double[] spaces = new double[stop];
-        Color origine = this.getColor(0);
 
-        double mR = origine.getRed();
-        double mV = origine.getGreen();
-        double mB = origine.getBlue();
-        double dR = (255D - origine.getRed()) / stop;
-        double dV = (255D - origine.getGreen()) / stop;
-        double dB = (255D - origine.getBlue()) / stop;
-        for (int i = 0; i < stop; i++) {
-            colors[i] = new Color((int) mR, (int) mV, (int) mB);
-            mR += dR;
-            mV += dV;
-            mB += dB;
-            spaces[i] = space;
-        }
+        computeColorsAndSpaces();
         // spaces[0] = 10;
         int maxSpace = (int) spaces[0];
 
         int height2 = Math.min(xCenter, yCenter) - maxSpace - this.getMaxLabelHeight(g) / 2 - 2;
         int width2 = height2;// Math.min(xCenter, yCenter) - maxSpace;
         int posX = (getCenterX() - width2);
-        int posY = (getCenterY() - width2);// +
-        // this.getMaxLabelHeight(g);
-        // g.drawRect(0, 0, posX, posY);
+        int posY = (getCenterY() - width2);
         double ratio = 360 / total;
         double startAngle = 0D;
         for (int i = 0; i < stop; i++) {
@@ -183,12 +171,46 @@ public class PieChart extends Chart {
 
     }
 
-    private int getLabelWidth(Graphics2D g, String label) {
+    protected void computeColorsAndSpaces() {
+        double space = 0;
+        DataModel1D model1 = (DataModel1D) this.getDataModel();
+        int stop = model1.getSize();
+        colors = new Color[stop];
+        spaces = new double[stop];
+        Color origine = this.getColor(0);
+
+        double mR = origine.getRed();
+        double mV = origine.getGreen();
+        double mB = origine.getBlue();
+        double dR = (255D - origine.getRed()) / stop;
+        double dV = (255D - origine.getGreen()) / stop;
+        double dB = (255D - origine.getBlue()) / stop;
+        for (int i = 0; i < stop; i++) {
+            colors[i] = new Color((int) mR, (int) mV, (int) mB);
+            mR += dR;
+            mV += dV;
+            mB += dB;
+            spaces[i] = space;
+        }
+        // Apply user colors
+        for (int i = 0; i < stop; i++) {
+            if (i < labels.size()) {
+                final Label label = labels.get(i);
+                final Color color = colorMap.get(label);
+                if (color != null) {
+                    colors[i] = color;
+                }
+            }
+
+        }
+    }
+
+    protected int getLabelWidth(Graphics2D g, String label) {
         int w = (int) g.getFontMetrics().getStringBounds(label, g).getWidth();
         return w;
     }
 
-    private Number getTotalValue() {
+    protected Number getTotalValue() {
         DataModel1D model1 = (DataModel1D) this.getDataModel();
         double total = 0D;
         for (int i = 0; i < model1.getSize(); i++) {
@@ -199,11 +221,11 @@ public class PieChart extends Chart {
         return total;
     }
 
-    private int getCenterY() {
+    protected int getCenterY() {
         return this.getChartRectangle().height / 2;
     }
 
-    private int getCenterX() {
+    protected int getCenterX() {
         return this.getChartRectangle().width / 2;
     }
 
@@ -250,7 +272,7 @@ public class PieChart extends Chart {
         return separatorColor;
     }
 
-    private int getMaxLabelHeight(Graphics2D g) {
+    protected int getMaxLabelHeight(Graphics2D g) {
         int max = 0;
         for (Label label : this.labels) {
             int w = (int) g.getFontMetrics().getStringBounds(label.getLabel(), g).getHeight();
@@ -273,6 +295,11 @@ public class PieChart extends Chart {
     }
 
     public void addLabel(Label label) {
+        this.labels.add(label);
+    }
+
+    public void addLabel(Label label, Color red) {
+        colorMap.put(label, red);
         this.labels.add(label);
     }
 

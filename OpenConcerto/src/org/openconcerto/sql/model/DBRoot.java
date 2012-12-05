@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.model.SQLRowValuesCluster.Insert;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.sql.utils.ChangeTable;
@@ -35,6 +36,7 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -137,13 +139,12 @@ public final class DBRoot extends DBStructureItemDB {
 
     private final void createTables(final Map<? extends SQLCreateTableBase<?>, ? extends Map<String, ?>> undefinedNonDefaultValues, final boolean atLeast1UndefRow) throws SQLException {
         final int size = undefinedNonDefaultValues.size();
-        final String soleTableName;
         if (size == 0)
             return;
-        else if (size == 1)
-            soleTableName = undefinedNonDefaultValues.keySet().iterator().next().getName();
-        else
-            soleTableName = null;
+
+        final Set<String> tableNames = new HashSet<String>(size);
+        for (final SQLCreateTableBase<?> ct : undefinedNonDefaultValues.keySet())
+            tableNames.add(ct.getName());
 
         SQLUtils.executeAtomic(getDBSystemRoot().getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
             @Override
@@ -157,7 +158,7 @@ public final class DBRoot extends DBStructureItemDB {
                 if (atLeast1UndefRow) {
                     newUndefIDs = new HashMap<SQLCreateTableBase<?>, Number>();
                     newTables = new HashMap<SQLTable, SQLCreateTableBase<?>>();
-                    refetch(soleTableName);
+                    refetch(tableNames);
                 } else {
                     newUndefIDs = Collections.emptyMap();
                     newTables = null;
@@ -246,7 +247,7 @@ public final class DBRoot extends DBStructureItemDB {
                 return null;
             }
         });
-        this.refetch(soleTableName);
+        this.refetch(tableNames);
     }
 
     public SQLField getField(String name) {
@@ -277,7 +278,7 @@ public final class DBRoot extends DBStructureItemDB {
      * @throws SQLException if an error occurs while setting the value.
      */
     public final boolean setMetadata(final String name, final String value) throws SQLException {
-        return getSchema().setFwkMetadata(name, value);
+        return getSchema().setFwkMetadata(name, getBase().quoteString(value));
     }
 
     public final DatabaseGraph getGraph() {
@@ -293,13 +294,23 @@ public final class DBRoot extends DBStructureItemDB {
         this.refetch(null);
     }
 
-    public SQLTable refetch(final String tableName) throws SQLException {
+    /**
+     * Refetch one table.
+     * 
+     * @param tableName the name of the table, not <code>null</code>.
+     * @return the refreshed table, <code>null</code> if it doesn't exist.
+     * @throws SQLException if an error occurs.
+     */
+    public SQLTable refetchTable(final String tableName) throws SQLException {
         if (tableName == null) {
-            this.getSchema().refetch();
-            return null;
+            throw new NullPointerException("Null table");
         } else {
             return this.getSchema().fetchTable(tableName);
         }
+    }
+
+    public void refetch(final Set<String> tableNames) throws SQLException {
+        this.getBase().fetchTables(TablesMap.createFromTables(this.getSchema().getName(), tableNames));
     }
 
     public final SQLCreateRoot getDefinitionSQL(final SQLSystem sys) {

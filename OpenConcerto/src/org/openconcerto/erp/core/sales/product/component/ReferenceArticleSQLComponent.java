@@ -15,21 +15,19 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
-import org.openconcerto.erp.core.common.ui.DeviseField;
+import org.openconcerto.erp.core.common.ui.CodeFournisseurItemTable;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.element.UniteVenteArticleSQLElement;
 import org.openconcerto.erp.core.sales.product.ui.ArticleDesignationTable;
 import org.openconcerto.erp.core.sales.product.ui.ArticleTarifTable;
-import org.openconcerto.erp.model.PrixHT;
-import org.openconcerto.erp.model.PrixTTC;
+import org.openconcerto.erp.model.ISQLCompteSelector;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowListRSH;
@@ -43,7 +41,6 @@ import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.preferences.DefaultProps;
-import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Component;
@@ -54,10 +51,10 @@ import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.sql.SQLException;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -73,8 +70,8 @@ import javax.swing.event.DocumentListener;
 
 public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
-    private DeviseField textPVHT, textPVTTC, textPAHT;
-    private DeviseField textMetrique1VT, textMetrique1HA;
+    private JTextField textPVHT, textPVTTC, textPAHT;
+    private JTextField textMetrique1VT, textMetrique1HA;
 
     final JCheckBox boxService = new JCheckBox(getLabelFor("SERVICE"));
     final JCheckBox checkObs = new JCheckBox(getLabelFor("OBSOLETE"));
@@ -84,7 +81,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     private DocumentListener htDocListener, ttcDocListener, detailsListener;
     PropertyChangeListener propertyChangeListener;
     private PropertyChangeListener taxeListener;
-    final ElementComboBox comboSelTaxe = new ElementComboBox(false, 25);
+    final ElementComboBox comboSelTaxe = new ElementComboBox(false, 10);
     final ElementComboBox comboSelModeVente = new ElementComboBox(false, 25);
     private JLabel labelMetriqueHA1 = new JLabel(getLabelFor("PRIX_METRIQUE_HA_1"), SwingConstants.RIGHT);
     private JLabel labelMetriqueVT1 = new JLabel(getLabelFor("PRIX_METRIQUE_VT_1"), SwingConstants.RIGHT);
@@ -123,7 +120,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
     };
 
-    final DeviseField textMarge = new DeviseField();
+    final JTextField textMarge = new JTextField(15);
 
     private DocumentListener listenerMargeTextMarge = new SimpleDocumentListener() {
         @Override
@@ -140,27 +137,28 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         public void update(DocumentEvent e) {
             ReferenceArticleSQLComponent.this.textMarge.getDocument().removeDocumentListener(ReferenceArticleSQLComponent.this.listenerMargeTextMarge);
             if (ReferenceArticleSQLComponent.this.textPVHT.getText().trim().length() > 0 && ReferenceArticleSQLComponent.this.textPAHT.getText().trim().length() > 0) {
-                Long vt = (Long) ReferenceArticleSQLComponent.this.textPVHT.getUncheckedValue();
-                Long ha = (Long) ReferenceArticleSQLComponent.this.textPAHT.getUncheckedValue();
+                BigDecimal vt = new BigDecimal(ReferenceArticleSQLComponent.this.textPVHT.getText());
+
+                BigDecimal ha = new BigDecimal(ReferenceArticleSQLComponent.this.textPAHT.getText());
+
                 if (vt != null && ha != null) {
-                    if (vt != 0 && ha != 0) {
-                        // double d = (double) vt / (double) ha;
-                        long margeHT = vt - ha;
+                    if (!vt.equals(BigDecimal.ZERO) && !ha.equals(BigDecimal.ZERO)) {
+                        BigDecimal margeHT = vt.subtract(ha);
 
-                        double value;
+                        BigDecimal value;
+
                         if (DefaultNXProps.getInstance().getBooleanValue(TotalPanel.MARGE_MARQUE, false)) {
-                            if (vt > 0) {
-
-                                value = Math.round((double) margeHT / (double) vt * 10000.0);
+                            if (vt.compareTo(BigDecimal.ZERO) > 0) {
+                                value = margeHT.divide(vt, MathContext.DECIMAL128).multiply(BigDecimal.valueOf(100), MathContext.DECIMAL128);
                             } else {
-                                value = 0;
+                                value = BigDecimal.ZERO;
                             }
                         } else {
-                            value = Math.round((double) margeHT / (double) ha * 10000.0);
+                            value = margeHT.divide(ha, MathContext.DECIMAL128).multiply(BigDecimal.valueOf(100), MathContext.DECIMAL128);
                         }
 
-                        if (value > 0) {
-                            ReferenceArticleSQLComponent.this.textMarge.setText(GestionDevise.currencyToString(Double.valueOf(value).longValue()));
+                        if (value.compareTo(BigDecimal.ZERO) > 0) {
+                            ReferenceArticleSQLComponent.this.textMarge.setText(value.setScale(6, RoundingMode.HALF_UP).toString());
                         } else {
                             ReferenceArticleSQLComponent.this.textMarge.setText("0");
                         }
@@ -181,21 +179,26 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     };
 
     private void updateVtFromMarge() {
-        if (this.textMarge.getText().trim().length() > 0) {
+        if (this.textPAHT.getText().trim().length() > 0) {
 
-            Long ha = (Long) this.textPAHT.getUncheckedValue();
+            BigDecimal ha = new BigDecimal(this.textPAHT.getText());
             if (ha != null && this.textMarge.getText().trim().length() > 0) {
-                final String replaceAll = this.textMarge.getText().replaceAll(",", ".");
-                double d = Double.parseDouble(replaceAll.replaceAll(" ", ""));
+                // final String replaceAll =
+                // this.textMarge.getText().replaceAll(
+                // ",", ".");
+                // double d = Double.parseDouble(replaceAll.replaceAll(" ",
+                // ""));
+                BigDecimal d = new BigDecimal(this.textMarge.getText());
                 if (DefaultNXProps.getInstance().getBooleanValue(TotalPanel.MARGE_MARQUE, false)) {
-                    final double e = 1.0 - (d / 100.0);
-                    if (e == 0) {
+                    final BigDecimal e = BigDecimal.ONE.subtract(d.divide(BigDecimal.valueOf(100), MathContext.DECIMAL128));
+                    if (e.equals(BigDecimal.ZERO)) {
                         this.textPVHT.setText("0");
                     } else {
-                        this.textPVHT.setText(GestionDevise.currencyToString(Math.round(ha / e)));
+                        this.textPVHT.setText(ha.divide(e, MathContext.DECIMAL128).setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
                     }
                 } else {
-                    this.textPVHT.setText(GestionDevise.currencyToString(Math.round(ha * ((d / 100.0) + 1))));
+                    BigDecimal result = ha.multiply(d.divide(BigDecimal.valueOf(100), MathContext.DECIMAL128).add(BigDecimal.ONE));
+                    this.textPVHT.setText(result.setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
                 }
             }
         }
@@ -215,6 +218,9 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             this.tableTarifVente.setArticleValues(r);
             this.tableTarifVente.insertFrom("ID_ARTICLE", r.getID());
             this.tableDes.insertFrom("ID_ARTICLE", r.getID());
+            if (this.codeFournisseurTable != null) {
+                this.codeFournisseurTable.insertFrom("ID_ARTICLE", r.getID());
+            }
         }
     }
 
@@ -222,19 +228,19 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
 
-        this.textPVHT = new DeviseField();
-        this.textPVTTC = new DeviseField();
-        this.textPAHT = new DeviseField();
+        this.textPVHT = new JTextField(15);
+        this.textPVTTC = new JTextField(15);
+        this.textPAHT = new JTextField(15);
         this.textPVHT.getDocument().addDocumentListener(this.listenerMargeTextVT);
 
         // Init metrique devise field
-        this.textMetrique1HA = new DeviseField();
-        this.textMetrique1VT = new DeviseField();
+        this.textMetrique1HA = new JTextField(15);
+        this.textMetrique1VT = new JTextField(15);
 
         // init metrique value field
-        this.textValMetrique1 = new JTextField();
-        this.textValMetrique2 = new JTextField();
-        this.textValMetrique3 = new JTextField();
+        this.textValMetrique1 = new JTextField(15);
+        this.textValMetrique2 = new JTextField(15);
+        this.textValMetrique3 = new JTextField(15);
 
         this.textCode = new JTextField();
         this.textNom = new JTextField();
@@ -262,6 +268,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         c.weightx = 1;
         c.gridwidth = 1;
         final ElementComboBox comboSelFamille = new ElementComboBox(false, 25);
+        this.addSQLObject(comboSelFamille, "ID_FAMILLE_ARTICLE");
         DefaultGridBagConstraints.lockMinimumSize(comboSelFamille);
         this.add(comboSelFamille, c);
 
@@ -330,7 +337,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         JTabbedPane pane = new JTabbedPane();
         c.gridy++;
         c.weightx = 1;
-        c.weighty = 0.7;
+        c.weighty = 1;
 
         pane.add("Tarifs de vente", createTarifPanel());
         pane.add("Exportation", createExportationPanel());
@@ -338,22 +345,12 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         pane.add("Stock", createStockPanel());
         pane.add("Descriptif", createDescriptifPanel());
         pane.add("Désignations multilingues", createDesignationPanel());
+        pane.add("Comptabilité", createComptaPanel());
+        pane.add(getLabelFor("INFOS"), createInfosPanel());
+
         c.fill = GridBagConstraints.BOTH;
         this.add(pane, c);
 
-        c.gridy++;
-        c.weightx = 1;
-        c.weighty = 0;
-        c.fill = GridBagConstraints.HORIZONTAL;
-        this.add(new TitledSeparator("Informations complémentaires"), c);
-
-        c.gridy++;
-        c.weighty = 0.3;
-        ITextArea infos = new ITextArea();
-        c.fill = GridBagConstraints.BOTH;
-        this.add(infos, c);
-
-        this.addSQLObject(infos, "INFOS");
         this.addSQLObject(this.textMetrique1HA, "PRIX_METRIQUE_HA_1");
         this.addSQLObject(this.textMetrique1VT, "PRIX_METRIQUE_VT_1");
         this.addSQLObject(this.textValMetrique1, "VALEUR_METRIQUE_1");
@@ -361,7 +358,6 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.addSQLObject(this.textValMetrique3, "VALEUR_METRIQUE_3");
         this.addSQLObject(this.comboSelModeVente, "ID_MODE_VENTE_ARTICLE");
         this.addSQLObject(this.boxService, "SERVICE");
-        this.addSQLObject(comboSelFamille, "ID_FAMILLE_ARTICLE");
 
         this.addRequiredSQLObject(this.textNom, "NOM");
         this.addRequiredSQLObject(this.textCode, "CODE");
@@ -379,6 +375,22 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         };
         setListenerModeVenteActive(true);
         this.comboSelModeVente.setValue(ReferenceArticleSQLElement.A_LA_PIECE);
+    }
+
+    private Component createInfosPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints c = new DefaultGridBagConstraints();
+
+        c.weightx = 1;
+        c.weighty = 1;
+        ITextArea infos = new ITextArea();
+        c.fill = GridBagConstraints.BOTH;
+        panel.add(infos, c);
+
+        this.addSQLObject(infos, "INFOS");
+
+        return panel;
     }
 
     private Component createDescriptifPanel() {
@@ -570,6 +582,47 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         return panel;
     }
 
+    private Component createComptaPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        panel.setOpaque(false);
+        GridBagConstraints c = new DefaultGridBagConstraints();
+        c.gridwidth = 1;
+        c.weighty = 0;
+        c.weightx = 0;
+        ISQLCompteSelector sel = new ISQLCompteSelector();
+        c.fill = GridBagConstraints.BOTH;
+        panel.add(new JLabel(getLabelFor("ID_COMPTE_PCE")), c);
+        c.gridx++;
+        c.weightx = 1;
+        panel.add(sel, c);
+        this.addView(sel, "ID_COMPTE_PCE");
+
+        c.gridwidth = 1;
+        c.gridy++;
+        c.weighty = 0;
+        c.gridx = 0;
+        c.weightx = 0;
+        ISQLCompteSelector selAchat = new ISQLCompteSelector();
+        c.fill = GridBagConstraints.BOTH;
+        panel.add(new JLabel(getLabelFor("ID_COMPTE_PCE_ACHAT")), c);
+        c.gridx++;
+        c.weightx = 1;
+        panel.add(selAchat, c);
+        this.addView(selAchat, "ID_COMPTE_PCE_ACHAT");
+
+        c.gridy++;
+        c.weighty = 1;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.BOTH;
+        final JPanel spacer = new JPanel();
+        spacer.setOpaque(false);
+        panel.add(spacer, c);
+        return panel;
+    }
+
+    private SQLRowValues rowValuesDefaultCodeFournisseur;
+    private CodeFournisseurItemTable codeFournisseurTable;
+
     private Component createAchatPanel() {
         JPanel panel = new JPanel(new GridBagLayout());
         panel.setOpaque(false);
@@ -589,13 +642,35 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         panel.add(comboSelFournisseur, c);
         this.addView(comboSelFournisseur, "ID_FOURNISSEUR");
 
-        c.gridy++;
-        c.weighty = 1;
-        c.weightx = 1;
-        c.fill = GridBagConstraints.BOTH;
-        final JPanel spacer = new JPanel();
-        spacer.setOpaque(false);
-        panel.add(spacer, c);
+        SQLPreferences prefs = new SQLPreferences(ComptaPropsConfiguration.getInstanceCompta().getRootSociete());
+        final boolean supplierCode = prefs.getBoolean(GestionArticleGlobalPreferencePanel.SUPPLIER_PRODUCT_CODE, false);
+
+        if (getTable().getSchema().contains("CODE_FOURNISSEUR") && supplierCode) {
+            this.rowValuesDefaultCodeFournisseur = new SQLRowValues(getTable().getTable("CODE_FOURNISSEUR"));
+            this.codeFournisseurTable = new CodeFournisseurItemTable(this.rowValuesDefaultCodeFournisseur);
+            c.gridy++;
+            c.gridx = 0;
+            c.gridwidth = 3;
+            c.weighty = 1;
+            c.weightx = 1;
+            c.fill = GridBagConstraints.BOTH;
+            panel.add(this.codeFournisseurTable, c);
+            comboSelFournisseur.addValueListener(new PropertyChangeListener() {
+
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    rowValuesDefaultCodeFournisseur.put("ID_FOURNISSEUR", comboSelFournisseur.getSelectedId());
+                }
+            });
+        } else {
+            c.gridy++;
+            c.weighty = 1;
+            c.weightx = 1;
+            c.fill = GridBagConstraints.BOTH;
+            final JPanel spacer = new JPanel();
+            spacer.setOpaque(false);
+            panel.add(spacer, c);
+        }
         return panel;
     }
 
@@ -705,9 +780,9 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
                 rowVals.put("ID_TARIF", rowTarif.getID());
                 rowVals.put("ID_DEVISE", rowTarif.getInt("ID_DEVISE"));
                 rowVals.put("ID_TAXE", rowTarif.getInt("ID_TAXE"));
-                rowVals.put("PRIX_METRIQUE_VT_1", Long.valueOf(0));
-                rowVals.put("PV_HT", Long.valueOf(0));
-                rowVals.put("PV_TTC", Long.valueOf(0));
+                rowVals.put("PRIX_METRIQUE_VT_1", BigDecimal.ZERO);
+                rowVals.put("PV_HT", BigDecimal.ZERO);
+                rowVals.put("PV_TTC", BigDecimal.ZERO);
                 tableTarifVente.getModel().addRow(rowVals);
             }
         });
@@ -724,17 +799,26 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     protected void getMontantPanel(final GridBagConstraints c, DefaultProps props) {
 
         // PA devise
-        JPanel pDevise = new JPanel();
-        pDevise.add(new JLabel("Devise du fournisseur"));
-        final ElementComboBox boxDevise = new ElementComboBox();
-
-        pDevise.add(boxDevise);
+        JPanel pDevise = new JPanel(new GridBagLayout());
+        GridBagConstraints cDevise = new DefaultGridBagConstraints();
+        pDevise.add(new JLabel("Devise du fournisseur"), cDevise);
+        final ElementComboBox boxDevise = new ElementComboBox(true, 15);
+        cDevise.gridx++;
+        cDevise.weightx = 1;
+        pDevise.add(boxDevise, cDevise);
         this.addView(boxDevise, "ID_DEVISE_HA");
+        DefaultGridBagConstraints.lockMinimumSize(boxDevise);
 
-        pDevise.add(new JLabel("Prix d'achat devise"));
-        final DeviseField fieldHAD = new DeviseField();
-        pDevise.add(fieldHAD);
+        cDevise.weightx = 0;
+        cDevise.gridx++;
+        pDevise.add(new JLabel("Prix d'achat devise"), cDevise);
+        final JTextField fieldHAD = new JTextField(15);
+        cDevise.weightx = 1;
+        cDevise.gridx++;
+        pDevise.add(fieldHAD, cDevise);
         this.addView(fieldHAD, "PA_DEVISE");
+        DefaultGridBagConstraints.lockMinimumSize(fieldHAD);
+
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
@@ -747,43 +831,59 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             @Override
             public void update(DocumentEvent e) {
 
-                Long ha = (Long) fieldHAD.getUncheckedValue();
-                if (ha != null && fieldHAD.getText().trim().length() > 0) {
+                if (fieldHAD.getText().trim().length() > 0) {
+
+                    BigDecimal ha = new BigDecimal(fieldHAD.getText());
+
                     BigDecimal taux = BigDecimal.ONE;
                     if (boxDevise != null && boxDevise.getSelectedRow() != null && !boxDevise.getSelectedRow().isUndefined()) {
                         taux = (BigDecimal) boxDevise.getSelectedRow().getObject("TAUX");
-                        textPAHT.setValue(GestionDevise.currencyToString(taux.multiply(new BigDecimal(ha)).longValue()));
+                        textPAHT.setText(taux.multiply(ha, MathContext.DECIMAL128).setScale(getTable().getField("PA_DEVISE").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
                     }
+
                 }
             }
         });
 
         // PA
-        JPanel p = new JPanel();
-        p.add(new JLabel(getLabelFor("PA_HT")));
-        p.add(this.textPAHT);
+        JPanel p = new JPanel(new GridBagLayout());
+        GridBagConstraints cAchat = new DefaultGridBagConstraints();
+        p.add(new JLabel(getLabelFor("PA_HT")), cAchat);
+        cAchat.gridx++;
+        cAchat.weightx = 1;
+        p.add(this.textPAHT, cAchat);
         this.textPAHT.getDocument().addDocumentListener(this.listenerMargeTextHA);
 
         // Marge
-        p.add(new JLabel("Marge"));
-        Set<SQLField> set = new HashSet<SQLField>();
-        set.add(getTable().getField("PA_HT"));
-        this.textMarge.init("Marge", set);
-        p.add(this.textMarge);
+        cAchat.gridx++;
+        cAchat.weightx = 0;
+        p.add(new JLabel("Marge"), cAchat);
+        cAchat.weightx = 1;
+        cAchat.gridx++;
+        p.add(this.textMarge, cAchat);
         this.textMarge.getDocument().addDocumentListener(this.listenerMargeTextMarge);
-        p.add(new JLabel("%           "));
+        cAchat.gridx++;
+        cAchat.weightx = 0;
+        p.add(new JLabel("%           "), cAchat);
 
         // Poids
         JLabel labelPds = new JLabel(getLabelFor("POIDS"));
-        p.add(labelPds);
+        cAchat.gridx++;
+        cAchat.weightx = 0;
+        p.add(labelPds, cAchat);
         labelPds.setHorizontalAlignment(SwingConstants.RIGHT);
-        p.add(this.textPoids);
+        cAchat.weightx = 1;
+        cAchat.gridx++;
+        p.add(this.textPoids, cAchat);
+        DefaultGridBagConstraints.lockMinimumSize(this.textPoids);
 
         // Service
         String sService = props.getStringProperty("ArticleService");
         Boolean bService = Boolean.valueOf(sService);
         if (bService != null && bService.booleanValue()) {
-            p.add(this.boxService);
+            cAchat.gridx++;
+            cAchat.weightx = 0;
+            p.add(this.boxService, cAchat);
         }
 
         c.gridx = 0;
@@ -796,20 +896,31 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.add(p, c);
 
         // PV HT
-        JPanel p2 = new JPanel();
-        p2.add(new JLabel(getLabelFor("PV_HT")));
-        p2.add(this.textPVHT);
+        JPanel p2 = new JPanel(new GridBagLayout());
+        GridBagConstraints cVT = new DefaultGridBagConstraints();
+        p2.add(new JLabel(getLabelFor("PV_HT")), cVT);
+        cVT.gridx++;
+        cVT.weightx = 1;
+        p2.add(this.textPVHT, cVT);
 
         // Taxe
         JLabel labelTaxe = new JLabel(getLabelFor("ID_TAXE"));
-        p2.add(labelTaxe);
+        cVT.gridx++;
+        cVT.weightx = 0;
+        p2.add(labelTaxe, cVT);
         labelTaxe.setHorizontalAlignment(SwingConstants.RIGHT);
+        cVT.gridx++;
+        // cVT.weightx = 1;
 
-        p2.add(this.comboSelTaxe);
+        p2.add(this.comboSelTaxe, cVT);
 
         // PV_TTC
-        p2.add(new JLabel(getLabelFor("PV_TTC")));
-        p2.add(this.textPVTTC);
+        cVT.gridx++;
+        cVT.weightx = 0;
+        p2.add(new JLabel(getLabelFor("PV_TTC")), cVT);
+        cVT.gridx++;
+        cVT.weightx = 1;
+        p2.add(this.textPVTTC, cVT);
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
@@ -820,9 +931,13 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
         this.addRequiredSQLObject(this.textPAHT, "PA_HT");
         this.addRequiredSQLObject(this.textPVHT, "PV_HT");
+        DefaultGridBagConstraints.lockMinimumSize(this.textPVHT);
         this.addRequiredSQLObject(this.comboSelTaxe, "ID_TAXE");
+        DefaultGridBagConstraints.lockMinimumSize(this.comboSelTaxe);
         this.addRequiredSQLObject(this.textPVTTC, "PV_TTC");
-
+        DefaultGridBagConstraints.lockMinimumSize(this.textPVTTC);
+        DefaultGridBagConstraints.lockMinimumSize(this.textPAHT);
+        DefaultGridBagConstraints.lockMinimumSize(this.textMarge);
         this.ttcDocListener = new DocumentListener() {
             public void changedUpdate(DocumentEvent e) {
                 setTextHT();
@@ -1010,6 +1125,9 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             super.update();
         this.tableTarifVente.updateField("ID_ARTICLE", getSelectedID());
         this.tableDes.updateField("ID_ARTICLE", getSelectedID());
+        if (this.codeFournisseurTable != null) {
+            this.codeFournisseurTable.updateField("ID_ARTICLE", getSelectedID());
+        }
     }
 
     /**
@@ -1051,8 +1169,8 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             this.textMetrique1HA.setEnabled(false);
             this.textMetrique1VT.setEnabled(false);
 
-            this.textMetrique1HA.setValue(this.textPAHT.getText().trim());
-            this.textMetrique1VT.setValue(this.textPVHT.getText().trim());
+            this.textMetrique1HA.setText(this.textPAHT.getText().trim());
+            this.textMetrique1VT.setText(this.textPVHT.getText().trim());
             this.textPAHT.getDocument().addDocumentListener(this.pieceHAArticle);
             this.textPVHT.getDocument().addDocumentListener(this.pieceVTArticle);
             break;
@@ -1065,6 +1183,9 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         int id = super.insert(order);
         this.tableTarifVente.updateField("ID_ARTICLE", id);
         this.tableDes.updateField("ID_ARTICLE", id);
+        if (this.codeFournisseurTable != null) {
+            this.codeFournisseurTable.updateField("ID_ARTICLE", id);
+        }
         return id;
     }
 
@@ -1079,7 +1200,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         rowVals.put("ID_MODE_VENTE_ARTICLE", ReferenceArticleSQLElement.A_LA_PIECE);
         selectModeVente(ReferenceArticleSQLElement.A_LA_PIECE);
         rowVals.put("VALEUR_METRIQUE_1", Float.valueOf("1.0"));
-        rowVals.put("PA_HT", Long.valueOf(0));
+        rowVals.put("PA_HT", BigDecimal.ZERO);
         rowVals.put("POIDS", Float.valueOf(0));
 
         // SQLTable tableTarif = getTable().getTable("TARIF");
@@ -1106,15 +1227,20 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.textPVHT.getDocument().removeDocumentListener(this.htDocListener);
 
         String textTTC = this.textPVTTC.getText().trim();
-        PrixTTC ttc = new PrixTTC(GestionDevise.parseLongCurrency(textTTC));
-        int id = this.comboSelTaxe.getSelectedId();
-        if (id > 1) {
+        if (textTTC.length() > 0) {
+            BigDecimal ttc = new BigDecimal(textTTC);
+            int id = this.comboSelTaxe.getSelectedId();
+            if (id > 1) {
 
-            Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
-            float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
+                Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
+                float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
 
-            // float taux = (TaxeCache.getCache().getTauxFromId(id)) / 100.0F;
-            this.textPVHT.setText(GestionDevise.currencyToString(ttc.calculLongHT(taux)));
+                // float taux = (TaxeCache.getCache().getTauxFromId(id)) /
+                // 100.0F;
+                this.textPVHT.setText(ttc.divide(BigDecimal.valueOf(taux).add(BigDecimal.ONE), MathContext.DECIMAL128)
+                        .setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
+
+            }
         }
         this.textPVHT.getDocument().addDocumentListener(this.htDocListener);
     }
@@ -1124,15 +1250,20 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.textPVTTC.getDocument().removeDocumentListener(this.ttcDocListener);
 
         String textHT = this.textPVHT.getText().trim();
-        PrixHT ht = new PrixHT(GestionDevise.parseLongCurrency(textHT));
-        int id = this.comboSelTaxe.getSelectedId();
-        if (id > 1) {
+        if (textHT.length() > 0) {
+            BigDecimal ht = new BigDecimal(textHT);
+            int id = this.comboSelTaxe.getSelectedId();
+            if (id > 1) {
 
-            Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
-            float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
+                Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
+                float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
 
-            // float taux = (TaxeCache.getCache().getTauxFromId(id)) / 100.0F;
-            this.textPVTTC.setText(GestionDevise.currencyToString(ht.calculLongTTC(taux)));
+                // float taux = (TaxeCache.getCache().getTauxFromId(id)) /
+                // 100.0F;
+                this.textPVTTC.setText(ht.multiply(BigDecimal.valueOf(taux).add(BigDecimal.ONE), MathContext.DECIMAL128)
+                        .setScale(getTable().getField("PV_TTC").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
+
+            }
         }
         this.textPVTTC.getDocument().addDocumentListener(this.ttcDocListener);
     }
@@ -1148,9 +1279,9 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             float poidsTot = ReferenceArticleSQLElement.getPoidsFromDetails(rowVals);
             this.textPoids.setText(String.valueOf(poidsTot));
 
-            this.textPAHT.setText(GestionDevise.currencyToString(ReferenceArticleSQLElement.getPrixHAFromDetails(rowVals)));
+            this.textPAHT.setText(ReferenceArticleSQLElement.getPrixHAFromDetails(rowVals).setScale(getTable().getField("PA_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
 
-            this.textPVHT.setText(GestionDevise.currencyToString(ReferenceArticleSQLElement.getPrixVTFromDetails(rowVals)));
+            this.textPVHT.setText(ReferenceArticleSQLElement.getPrixVTFromDetails(rowVals).setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
 
             this.tableTarifVente.fireModification();
         }
@@ -1162,9 +1293,12 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
     public SQLRowValues getDetailsRowValues() {
         SQLRowValues rowVals = new SQLRowValues(getTable());
-        rowVals.put(this.textMetrique1HA.getField().getName(), this.textMetrique1HA.getUncheckedValue());
 
-        rowVals.put(this.textMetrique1VT.getField().getName(), this.textMetrique1VT.getUncheckedValue());
+        String textHA = this.textMetrique1HA.getText();
+        rowVals.put("PRIX_METRIQUE_HA_1", textHA.trim().length() == 0 ? BigDecimal.ZERO : new BigDecimal(textHA));
+
+        String textVT = this.textMetrique1VT.getText();
+        rowVals.put("PRIX_METRIQUE_VT_1", textVT.trim().length() == 0 ? BigDecimal.ZERO : new BigDecimal(textVT));
 
         put(rowVals, this.textValMetrique1);
         put(rowVals, this.textValMetrique2);

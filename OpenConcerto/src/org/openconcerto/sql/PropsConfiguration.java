@@ -32,6 +32,7 @@ import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.LogUtils;
 import org.openconcerto.utils.MultipleOutputStream;
+import org.openconcerto.utils.NetUtils;
 import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.cc.IClosure;
@@ -321,22 +322,35 @@ public class PropsConfiguration extends Configuration {
         return wanAddr + ":" + wanPort;
     }
 
-    public boolean isUsingSSH() {
+    public final boolean isUsingSSH() {
         return this.isUsingSSH;
+    }
+
+    public final boolean hasWANProperties() {
+        final String wanAddr = getProperty("server.wan.addr");
+        final String wanPort = getProperty("server.wan.port");
+        return hasWANProperties(wanAddr, wanPort);
+    }
+
+    private final boolean hasWANProperties(String wanAddr, String wanPort) {
+        return wanAddr != null && wanPort != null;
     }
 
     protected SQLServer createServer() {
         final String wanAddr = getProperty("server.wan.addr");
         final String wanPort = getProperty("server.wan.port");
-        if (wanAddr == null || wanPort == null)
+        if (!hasWANProperties(wanAddr, wanPort))
             return doCreateServer();
 
+        // if wanAddr is specified, always include it in ID, that way if we connect through the LAN
+        // or through the WAN we have the same ID
+        final String serverID = "tunnel to " + wanAddr + ":" + wanPort + " then " + getProperty("server.ip");
         final Logger log = Log.get();
         Exception origExn = null;
         final SQLServer defaultServer;
         if (!"true".equals(getProperty("server.wan.only"))) {
             try {
-                defaultServer = doCreateServer();
+                defaultServer = doCreateServer(serverID);
                 // works since all ds params are provided by doCreateServer()
                 defaultServer.getSystemRoot(getSystemRootName());
                 // ok
@@ -353,7 +367,7 @@ public class PropsConfiguration extends Configuration {
         this.openSSLConnection(wanAddr, Integer.valueOf(wanPort));
         this.isUsingSSH = true;
         log.info("ssl connection to " + this.conn.getHost() + ":" + this.conn.getPort());
-        final int localPort = 5436;
+        final int localPort = NetUtils.findFreePort(5436);
         try {
             // TODO add and use server.port
             final String[] serverAndPort = getProperty("server.ip").split(":");
@@ -362,8 +376,7 @@ public class PropsConfiguration extends Configuration {
         } catch (final Exception e1) {
             throw new IllegalStateException("Impossible de créer la liaison sécurisée. Vérifier que le logiciel n'est pas déjà lancé.", e1);
         }
-        setProperty("server.ip", "localhost:" + localPort);
-        final SQLServer serverThruSSL = doCreateServer();
+        final SQLServer serverThruSSL = doCreateServer("localhost:" + localPort, null, serverID);
         try {
             serverThruSSL.getSystemRoot(getSystemRootName());
         } catch (final Exception e) {
@@ -375,9 +388,17 @@ public class PropsConfiguration extends Configuration {
     }
 
     private SQLServer doCreateServer() {
+        return doCreateServer(null);
+    }
+
+    private SQLServer doCreateServer(final String id) {
+        return doCreateServer(this.getProperty("server.ip"), null, id);
+    }
+
+    private SQLServer doCreateServer(final String host, final String port, final String id) {
         // give login/password as its often the case that they are the same for all the bases of a
         // server (mandated for MySQL : when the graph is built, it needs access to all the bases)
-        return new SQLServer(getSystem(), this.getProperty("server.ip"), null, getLogin(), getPassword(), new IClosure<DBSystemRoot>() {
+        final SQLServer res = new SQLServer(getSystem(), host, port, getLogin(), getPassword(), new IClosure<DBSystemRoot>() {
             @Override
             public void executeChecked(final DBSystemRoot input) {
                 input.setRootsToMap(getRootsToMap());
@@ -389,6 +410,9 @@ public class PropsConfiguration extends Configuration {
                 initDS(input);
             }
         });
+        if (id != null)
+            res.setID(id);
+        return res;
     }
 
     private void openSSLConnection(final String addr, final int port) {
@@ -445,6 +469,7 @@ public class PropsConfiguration extends Configuration {
         }
     }
 
+    // the result can be modified (avoid that each subclass recreates an instance)
     protected Collection<String> getRootsToMap() {
         final Set<String> res = new HashSet<String>();
 
@@ -457,6 +482,11 @@ public class PropsConfiguration extends Configuration {
         return res;
     }
 
+    // the result can be modified (avoid that each subclass recreates an instance)
+    protected List<String> getRootPath() {
+        return new ArrayList<String>(SQLRow.toList(getProperty("systemRoot.rootPath", "")));
+    }
+
     public String getSystemRootName() {
         return this.getProperty("systemRoot");
     }
@@ -467,12 +497,10 @@ public class PropsConfiguration extends Configuration {
         // handle case when the root is not yet created
         if (res.getChildrenNames().contains(this.getRootName()))
             res.setDefaultRoot(this.getRootName());
-        final String rootsPath = getProperty("systemRoot.rootPath");
-        if (rootsPath != null) {
-            for (final String root : SQLRow.toList(rootsPath))
-                // not all the items of the path may exist in every databases (eg Controle.Common)
-                if (res.getChildrenNames().contains(root))
-                    res.appendToRootPath(root);
+        for (final String root : getRootPath()) {
+            // not all the items of the path may exist in every databases (eg Controle.Common)
+            if (res.getChildrenNames().contains(root))
+                res.appendToRootPath(root);
         }
         return res;
     }
@@ -483,6 +511,8 @@ public class PropsConfiguration extends Configuration {
 
     protected void initDS(final SQLDataSource ds) {
         ds.setCacheEnabled(true);
+        // supported by postgreSQL from 9.1-901, see also Connection#setClientInfo
+        ds.addConnectionProperty("ApplicationName", getAppID());
         propIterate(new IClosure<String>() {
             @Override
             public void executeChecked(final String propName) {

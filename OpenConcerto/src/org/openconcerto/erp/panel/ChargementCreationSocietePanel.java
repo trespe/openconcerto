@@ -16,6 +16,8 @@
 import org.openconcerto.erp.utils.ActionDB;
 import org.openconcerto.erp.utils.StatusListener;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
+import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSchema;
@@ -29,7 +31,6 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -112,64 +113,46 @@ public class ChargementCreationSocietePanel extends JPanel implements StatusList
     private void importationPlanComptable(int id, int typePCG) {
 
         SQLRow rowSociete = Configuration.getInstance().getBase().getTable("SOCIETE_COMMON").getRow(id);
-        // SQLBase base = Configuration.getInstance().getBase();
 
-        // FIXME by Sylvain comme on a deja accede à la base, les nouvelles tables non pas étaient
+        // FIXME by Sylvain comme on a déjà accede à la base, les nouvelles tables n'ont pas été
         // rechargées
-        SQLSchema baseNewSociete = Configuration.getInstance().getBase().getSchema(rowSociete.getString("DATABASE_NAME"));
+        final SQLSchema baseNewSociete = Configuration.getInstance().getBase().getSchema(rowSociete.getString("DATABASE_NAME"));
 
         SQLTable tableComptePCG = baseNewSociete.getTable("COMPTE_PCG");
-        SQLSelect sel = new SQLSelect(baseNewSociete.getBase());
+        final SQLSelect sel = new SQLSelect();
         sel.addSelect(tableComptePCG.getField("NUMERO"));
         sel.addSelect(tableComptePCG.getField("NOM"));
         sel.addSelect(tableComptePCG.getField("INFOS"));
 
-        // StringBuffer req = new StringBuffer("SELECT NUMERO, NOM, INFOS FROM \"" +
-        // rowSociete.getString("DATABASE_NAME") + "\".COMPTE_PCG WHERE ID > 1 AND ARCHIVE = 0 AND
-        // ");
-
         if (typePCG == 0) {
             sel.setWhere(new Where(tableComptePCG.getField("ID_TYPE_COMPTE_PCG_BASE"), "!=", 1));
-        } else {
-            if (typePCG == 1) {
-                sel.setWhere(new Where(tableComptePCG.getField("ID_TYPE_COMPTE_PCG_AB"), "!=", 1));
-            }
+        } else if (typePCG == 1) {
+            sel.setWhere(new Where(tableComptePCG.getField("ID_TYPE_COMPTE_PCG_AB"), "!=", 1));
         }
-        List tmpCpt = baseNewSociete.getBase().getDataSource().execute(sel.asString());
 
         try {
-            String insert = "INSERT INTO \"" + baseNewSociete.getName() + "\".\"COMPTE_PCE\" (\"NUMERO\", \"NOM\", \"INFOS\") VALUES (?, ?, ?)";
-            PreparedStatement stmt = baseNewSociete.getBase().getDataSource().getNewConnection().prepareStatement(insert);
+            baseNewSociete.getBase().getDataSource().useConnection(new ConnectionHandlerNoSetup<Object, SQLException>() {
 
-            for (int i = 0; i < tmpCpt.size(); i++) {
-                Map tmp = (HashMap) tmpCpt.get(i);
+                @Override
+                public Object handle(SQLDataSource ds) throws SQLException, SQLException {
+                    String insert = "INSERT INTO \"" + baseNewSociete.getName() + "\".\"COMPTE_PCE\" (\"NUMERO\", \"NOM\", \"INFOS\") VALUES (?, ?, ?)";
+                    PreparedStatement stmt = ds.getConnection().prepareStatement(insert);
+                    List tmpCpt = baseNewSociete.getBase().getDataSource().execute(sel.asString());
+                    for (int i = 0; i < tmpCpt.size(); i++) {
+                        Map tmp = (Map) tmpCpt.get(i);
+                        String numero = (tmp.get("NUMERO") == null) ? "" : tmp.get("NUMERO").toString();
+                        stmt.setString(1, numero);
+                        String nom = (tmp.get("NOM") == null) ? "" : tmp.get("NOM").toString();
+                        stmt.setString(2, nom);
+                        String infos = (tmp.get("INFOS") == null) ? "" : tmp.get("INFOS").toString();
+                        stmt.setString(3, infos);
+                        stmt.executeUpdate();
 
-                // StringBuffer insert = new StringBuffer("INSERT INTO \"" +
-                // baseNewSociete.getName() + "\".\"COMPTE_PCE\" (\"NUMERO\", \"NOM\", \"INFOS\")
-                // VALUES (");
+                    }
+                    return null;
+                }
+            });
 
-                String numero = (tmp.get("NUMERO") == null) ? "" : tmp.get("NUMERO").toString();
-                stmt.setString(1, numero);
-
-                // insert.append(SQLSelect.quoteString(numero)/* "'" + numero.replaceAll("'",
-                // "\\\\'") + "'"*/+", ");
-
-                String nom = (tmp.get("NOM") == null) ? "" : tmp.get("NOM").toString();
-                stmt.setString(2, nom);
-                // insert.append("'" + nom.replaceAll("'", "\\\\'") + "', ");
-
-                String infos = (tmp.get("INFOS") == null) ? "" : tmp.get("INFOS").toString();
-                // insert.append("'" + infos.replaceAll("'", "\\\\'") + "') ");
-                stmt.setString(3, infos);
-
-                // Statement state =
-                // baseNewSociete.getBase().getDataSource().getConnection().createStatement();
-                // stmt.addBatch();
-                stmt.executeUpdate();
-                // state.executeUpdate(insert.toString());
-
-            }
-            // stmt.executeUpdate();
         } catch (SQLException e) {
             e.printStackTrace();
         }
