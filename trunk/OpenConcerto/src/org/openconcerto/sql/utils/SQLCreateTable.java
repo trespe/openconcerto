@@ -35,7 +35,7 @@ public class SQLCreateTable extends SQLCreateTableBase<SQLCreateTable> {
     private boolean plain;
 
     public SQLCreateTable(final DBRoot b, final String name) {
-        super(b.getServer().getSQLSystem().getSyntax(), name);
+        super(b.getServer().getSQLSystem().getSyntax(), b.getName(), name);
         this.b = b;
         this.reset();
     }
@@ -113,9 +113,4 @@ public class SQLCreateTable extends SQLCreateTableBase<SQLCreateTable> {
             });
         }
     }
-
-    public final String asString() {
-        return super.asString(this.b.getName());
-    }
-
 }

@@ -28,6 +28,7 @@ public class LayoutHints {
     public static final LayoutHints DEFAULT_LIST_HINTS = new LayoutHints(true, true, false, true, true, true);
     public static final LayoutHints DEFAULT_GROUP_HINTS = new LayoutHints(true, false, false, false, true, true);
     public static final LayoutHints DEFAULT_SEPARATED_GROUP_HINTS = new LayoutHints(true, false, true, true, true, true);
+    public static final LayoutHints DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS = new LayoutHints(true, false, false, true, true, true);
 
     public LayoutHints(boolean largeWidth, boolean largeHeight, boolean showLabel, boolean separated, boolean fillWidth, boolean fillHeight) {
         this.largeWidth = largeWidth;
@@ -38,28 +39,61 @@ public class LayoutHints {
         this.fillHeight = fillHeight;
     }
 
+    public LayoutHints(LayoutHints localHint) {
+        this.largeWidth = localHint.largeWidth;
+        this.largeHeight = localHint.largeHeight;
+        this.showLabel = localHint.showLabel;
+        this.separated = localHint.separated;
+        this.fillWidth = localHint.fillWidth;
+        this.fillHeight = localHint.fillHeight;
+    }
+
     public boolean largeWidth() {
         return largeWidth;
+    }
+
+    public void setLargeWidth(boolean largeWidth) {
+        this.largeWidth = largeWidth;
     }
 
     public boolean largeHeight() {
         return largeHeight;
     }
 
+    public void setLargeHeight(boolean largeHeight) {
+        this.largeHeight = largeHeight;
+    }
+
     public boolean showLabel() {
         return showLabel;
+    }
+
+    public void setShowLabel(boolean showLabel) {
+        this.showLabel = showLabel;
     }
 
     public boolean isSeparated() {
         return separated;
     }
 
+    public void setSeparated(boolean separated) {
+        this.separated = separated;
+    }
+
     public boolean fillWidth() {
         return fillWidth;
     }
 
+    public void setFillWidth(boolean fillWidth) {
+        this.fillWidth = fillWidth;
+    }
+
     public boolean fillHeight() {
         return fillHeight;
+    }
+
+    public void setFillHeight(boolean fillHeight) {
+        this.fillHeight = fillHeight;
     }
 
     @Override

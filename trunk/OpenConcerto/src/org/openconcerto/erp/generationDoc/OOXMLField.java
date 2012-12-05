@@ -148,8 +148,14 @@ public class OOXMLField extends OOXMLElement {
 
                         // Devise en Long transformée en double
                         if (typeComp.equalsIgnoreCase("Devise")) {
-                            long result = Math.round(calcul(o, o2, this.op).doubleValue());
-                            return Double.valueOf(GestionDevise.currencyToString(result, false));
+
+                            BigDecimal result = calcul(o, o2, this.op);
+                            if (o instanceof Long) {
+                                long resultLong = Math.round(result.doubleValue());
+                                return Double.valueOf(GestionDevise.currencyToString(resultLong, false));
+                            } else {
+                                return result;
+                            }
                         }
                     }
 
@@ -303,7 +309,11 @@ public class OOXMLField extends OOXMLElement {
                         }
                     }
                 }
-                return new Double(GestionDevise.currencyToString(prix.longValue(), false));
+                if (result instanceof Long) {
+                    return new Double(GestionDevise.currencyToString(prix.longValue(), false));
+                } else {
+                    return result;
+                }
             } else if (typeComp.equalsIgnoreCase("globalAcompte")) {
                 Long prix = (Long) result;
                 int pourcent = this.row.getInt("POURCENT_ACOMPTE");
@@ -575,27 +585,38 @@ public class OOXMLField extends OOXMLElement {
         return ville.getCodepostal();
     }
 
-    private static Number calcul(Object o1, Object o2, String op) {
+    private static BigDecimal calcul(Object o1, Object o2, String op) {
 
-        double d1 = (o1 == null) ? 0 : Double.parseDouble(o1.toString());
-        double d2 = (o2 == null) ? 0 : Double.parseDouble(o2.toString());
+        BigDecimal d1;
+        if (o1 != null && o1 instanceof BigDecimal) {
+            d1 = (BigDecimal) o1;
+        } else {
+            d1 = (o1 == null) ? BigDecimal.ZERO : new BigDecimal(o1.toString());
+        }
+
+        BigDecimal d2;
+        if (o2 != null && o2 instanceof BigDecimal) {
+            d2 = (BigDecimal) o2;
+        } else {
+            d2 = (o2 == null) ? BigDecimal.ZERO : new BigDecimal(o2.toString());
+        }
 
         if (op.equalsIgnoreCase("+")) {
-            return d1 + d2;
+            return d1.add(d2);
         } else {
             if (op.equalsIgnoreCase("-")) {
-                return d1 - d2;
+                return d1.subtract(d2);
             } else {
                 if (op.equalsIgnoreCase("*")) {
-                    return d1 * d2;
+                    return d1.multiply(d2);
                 } else {
-                    if (op.equalsIgnoreCase("/") && d2 != 0) {
-                        return d1 / d2;
+                    if (op.equalsIgnoreCase("/") && d2.compareTo(BigDecimal.ZERO) != 0) {
+                        return d1.divide(d2);
                     }
                 }
             }
         }
-        return 0;
+        return BigDecimal.ZERO;
     }
 
 }

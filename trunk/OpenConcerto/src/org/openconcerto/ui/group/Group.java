@@ -13,99 +13,76 @@
  
  package org.openconcerto.ui.group;
 
+import org.openconcerto.utils.Tuple2;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
-import org.openconcerto.utils.Tuple3;
+public class Group extends Item {
 
-public class Group {
-
-    private final String id;
     private int order = 0;
-    private List<Tuple3<Group, LayoutHints, Integer>> list = new ArrayList<Tuple3<Group, LayoutHints, Integer>>();
-    private Group parent;
+    private List<Tuple2<Item, Integer>> list = new ArrayList<Tuple2<Item, Integer>>();
 
     public Group(String id) {
-        this.id = id.trim();
+        super(id);
+        this.localHint = new LayoutHints(LayoutHints.DEFAULT_GROUP_HINTS);
     }
 
-    public String getId() {
-        return id;
+    public Group(String id, LayoutHints hint) {
+        super(id, new LayoutHints(hint));
     }
 
-    public Group getParent() {
-        return parent;
+    public void addItem(String string) {
+        this.add(new Item(string));
     }
 
-    public Group getRoot() {
-        final Set<String> roots = new HashSet<String>();
-        Group root = parent;
-        while (root != null) {
-            if (roots.contains(root)) {
-                throw new IllegalStateException("Loop detected in group hierarchy at " + root.getId() + " for " + roots);
-            }
-            roots.add(root.getId());
-            root = root.getParent();
-        }
-        return root;
+    public void addItem(String string, LayoutHints hint) {
+        this.add(new Item(string, hint));
     }
 
-    public void add(Group group) {
-        this.add(group, LayoutHints.DEFAULT_GROUP_HINTS);
-    }
-
-    public void add(Group group, LayoutHints hints) {
-        group.parent = this;
+    public void add(Item item) {
         order += 100;
-        list.add(new Tuple3<Group, LayoutHints, Integer>(group, hints, order));
+        add(item, order);
     }
 
-    public void insert(Group group, LayoutHints hints, int order) {
-        group.parent = this;
-        list.add(new Tuple3<Group, LayoutHints, Integer>(group, hints, order));
+    public void add(Item item, Integer order) {
+        item.parent = this;
+        list.add(new Tuple2<Item, Integer>(item, order));
     }
 
-    public void add(String string) {
-        this.add(new Group(string), LayoutHints.DEFAULT_FIELD_HINTS);
-
-    }
-
-    public void add(String string, LayoutHints hints) {
-        this.add(new Group(string), hints);
+    public void insert(Item item, int order) {
+        item.parent = this;
+        list.add(new Tuple2<Item, Integer>(item, order));
     }
 
     public void dumpOneColumn() {
         final StringBuilder b = new StringBuilder();
-        dumpOneColumn(b, LayoutHints.DEFAULT_GROUP_HINTS, 0, 1);
+        dumpOneColumn(b, 0, 1);
         System.out.println(b.toString());
     }
 
-    public void dumpOneColumn(StringBuilder builder, LayoutHints localHint, int localOrder, int level) {
+    @Override
+    public void dumpOneColumn(StringBuilder builder, int localOrder, int level) {
         for (int i = 0; i < level - 1; i++) {
             builder.append("  ");
         }
-        if (list.size() == 0)
-            builder.append("+-- ");
-        else
-            builder.append("+-+ ");
-        builder.append(localOrder + " " + this.id + " [" + localHint + "]\n");
+        builder.append("+-+ ");
+        builder.append(localOrder + " " + this.getId() + " [" + localHint + "]\n");
         sortSubGroup();
-        for (Tuple3<Group, LayoutHints, Integer> tuple : list) {
-            ((Group) tuple.get0()).dumpOneColumn(builder, tuple.get1(), tuple.get2(), level + 1);
+        for (Tuple2<Item, Integer> tuple : list) {
+            ((Item) tuple.get0()).dumpOneColumn(builder, tuple.get1(), level + 1);
         }
     }
 
-    private void sortSubGroup() {
+    public void sortSubGroup() {
         if (list.size() > 1) {
-            Collections.sort(list, new Comparator<Tuple3<Group, LayoutHints, Integer>>() {
+            Collections.sort(list, new Comparator<Tuple2<Item, Integer>>() {
 
                 @Override
-                public int compare(Tuple3<Group, LayoutHints, Integer> o1, Tuple3<Group, LayoutHints, Integer> o2) {
-                    int c = o1.get2().compareTo(o2.get2());
+                public int compare(Tuple2<Item, Integer> o1, Tuple2<Item, Integer> o2) {
+                    int c = o1.get1().compareTo(o2.get1());
                     if (c == 0) {
                         c = o1.get0().getId().compareTo(o2.get0().getId());
                     }
@@ -117,46 +94,30 @@ public class Group {
 
     public void dumpTwoColumn() {
         final StringBuilder b = new StringBuilder();
-        System.out.println("==== Group "+this.getId()+" ====");
-        dumpTwoColumn(b, 0, LayoutHints.DEFAULT_GROUP_HINTS, 0, 1);
+        System.out.println("==== Group " + this.getId() + " ====");
+        dumpTwoColumn(b, 0, 0, 1);
         System.out.println(b.toString());
     }
 
-    public void dumpTwoColumn(StringBuilder builder, int x, LayoutHints localHint, int localOrder, int level) {
+    @Override
+    public int dumpTwoColumn(StringBuilder builder, int x, int localOrder, int level) {
         if (localHint.isSeparated()) {
             x = 0;
             builder.append(" -------\n");
         }
         if (isEmpty()) {
-            if (localHint.largeWidth() && x>0) {
-                builder.append("\n");
-                x = 0;
-            }
             // print a leaf
-            builder.append(" (" + x + ")");
-            builder.append(localOrder + " " + this.id + "[" + localHint + "]");
-
-            if (localHint.largeWidth()) {
-                x += 2;
-            } else {
-                x++;
-            }
-
-            if (x > 1) {
-                builder.append("\n");
-                x = 0;
-            }
+            x = super.dumpTwoColumn(builder, x, localOrder, level);
         } else {
             // Subgroup
             sortSubGroup();
-            for (Tuple3<Group, LayoutHints, Integer> tuple : list) {
-                final Group subGroup = tuple.get0();
-                final Integer subGroupOrder = (Integer) tuple.get2();
-                subGroup.dumpTwoColumn(builder, x, tuple.get1(), subGroupOrder, level + 1);
+            for (Tuple2<Item, Integer> tuple : list) {
+                final Item subGroup = tuple.get0();
+                final Integer subGroupOrder = (Integer) tuple.get1();
+                x = subGroup.dumpTwoColumn(builder, x, subGroupOrder, level + 1);
             }
         }
-
-
+        return x;
     }
 
     public int getSize() {
@@ -169,22 +130,95 @@ public class Group {
 
     public void sort() {
         sortSubGroup();
-        for (Tuple3<Group, LayoutHints, Integer> tuple : list) {
-            final Group subGroup = tuple.get0();
-            subGroup.sort();
+        for (Tuple2<Item, Integer> tuple : list) {
+            final Item subGroup = tuple.get0();
+            if (subGroup instanceof Group) {
+                ((Group) subGroup).sort();
+            }
         }
     }
 
-    public Group getGroup(int i) {
-        return this.list.get(i).get0();
+    public Item getItem(int index) {
+        return this.list.get(index).get0();
     }
 
-    public LayoutHints getLayoutHints(int i) {
-        return this.list.get(i).get1();
+    public void remove(int index) {
+        this.list.remove(index);
     }
 
-    public Integer getOrder(int i) {
-        return this.list.get(i).get2();
+    public Integer getOrder(int index) {
+        return this.list.get(index).get1();
+    }
+
+    @Override
+    public String toString() {
+        return "Group:" + this.getId();
+    }
+
+    public boolean contains(String id) {
+        return getItemFromId(id) != null;
+    }
+
+    public Item getItemFromId(String id) {
+        return getItemFromId(this, id);
+    }
+
+    private Item getItemFromId(Item item, String gId) {
+        if (item.getId().equals(gId)) {
+            return item;
+        }
+        if (item instanceof Group) {
+            final Group group = (Group) item;
+            final int size = group.getSize();
+            for (int i = 0; i < size; i++) {
+                final Item b = getItemFromId(group.getItem(i), gId);
+                if (b != null) {
+                    return b;
+                }
+            }
+        }
+        return null;
+    }
+
+    public void remove(String itemId) {
+        this.remove(this, itemId);
+    }
+
+    private void remove(Group group, String id) {
+        final int size = group.getSize();
+        for (int i = 0; i < size; i++) {
+            final Item b = group.getItem(i);
+            if (b.getId().endsWith(id)) {
+                remove(i);
+                return;
+            }
+            if (b instanceof Group) {
+                remove((Group) b, id);
+            }
+        }
+
+    }
+
+    public Integer getOrder(String id) {
+        final int size = this.getSize();
+        for (int i = 0; i < size; i++) {
+            final Tuple2<Item, Integer> b = list.get(i);
+            if (b.get0().getId().equals(id)) {
+                return b.get1();
+            }
+        }
+        return null;
+    }
+
+    public int getIndex(String id) {
+        final int size = this.getSize();
+        for (int i = 0; i < size; i++) {
+            final Tuple2<Item, Integer> b = list.get(i);
+            if (b.get0().getId().equals(id)) {
+                return i;
+            }
+        }
+        return -1;
     }
 
 }

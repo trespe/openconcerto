@@ -16,6 +16,7 @@
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.IPredicate;
+import org.openconcerto.utils.i18n.TranslationManager;
 
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
@@ -58,6 +59,14 @@ public abstract class RowAction implements IListeAction {
             super(action, header, popupMenu);
         }
 
+        public PredicateRowAction(Action action, boolean header, final String id) {
+            super(action, header, id);
+        }
+
+        public PredicateRowAction(Action action, boolean header, boolean popupMenu, final String id) {
+            super(action, header, popupMenu, id);
+        }
+
         public final PredicateRowAction setPredicate(IPredicate<? super IListeEvent> pred) {
             if (pred == null) {
                 throw new IllegalArgumentException("null predicate");
@@ -72,8 +81,8 @@ public abstract class RowAction implements IListeAction {
 
         @Override
         public boolean enabledFor(IListeEvent evt) {
-            if (pred == null) {
-                throw new IllegalStateException("No predicate for action:" + this.getAction() + ":" + this.getAction().getValue(Action.NAME));
+            if (this.pred == null) {
+                throw new IllegalStateException("No predicate for " + this);
             }
             return this.pred.evaluateChecked(evt);
         }
@@ -82,17 +91,33 @@ public abstract class RowAction implements IListeAction {
     private final Action action;
     private final boolean header, popupMenu;
     private List<String> path;
+    private final String id;
 
     public RowAction(Action action, boolean header) {
         this(action, header, true);
     }
 
     public RowAction(Action action, boolean header, boolean popupMenu) {
+        this(action, header, popupMenu, null);
+    }
+
+    public RowAction(Action action, boolean header, final String id) {
+        this(action, header, true, id);
+    }
+
+    public RowAction(Action action, boolean header, boolean popupMenu, final String id) {
         super();
         this.action = action;
         this.header = header;
         this.popupMenu = popupMenu;
         this.setGroup(null);
+        this.id = id;
+        if (id != null && action.getValue(Action.NAME) == null)
+            action.putValue(Action.NAME, TranslationManager.getInstance().getTranslationForAction(id));
+    }
+
+    public final String getID() {
+        return this.id;
     }
 
     public final Action getAction() {
@@ -161,5 +186,10 @@ public abstract class RowAction implements IListeAction {
         } else {
             return PopupBuilder.emptyInstance();
         }
+    }
+
+    @Override
+    public String toString() {
+        return this.getClass().getSimpleName() + (this.getID() == null ? "" : " ID '" + this.getID()) + "' with action '" + this.getAction().getValue(Action.NAME) + "'";
     }
 }

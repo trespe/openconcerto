@@ -18,14 +18,18 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
-import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.SQLBackgroundTableCache;
+import org.openconcerto.sql.model.SQLBackgroundTableCacheItem;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.component.ITextArea;
@@ -77,17 +81,16 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
 
             @Override
             public void update() {
-                // TODO Raccord de méthode auto-généré
-                int id = getSelectedID();
+                final int id = getSelectedID();
                 super.update();
-                SQLElement eltEcr = Configuration.getInstance().getDirectory().getElement("ECRITURE");
-                Configuration
-                        .getInstance()
-                        .getBase()
-                        .getDataSource()
-                        .execute(
-                                "UPDATE " + eltEcr.getTable().getSQLName().quote() + " SET \"COMPTE_NUMERO\"=c.\"NUMERO\",\"COMPTE_NOM\"=c.\"NOM\" FROM " + getTable().getSQLName().quote()
-                                        + " c WHERE c.\"ID\"=\"ID_COMPTE_PCE\" AND c.\"ID\"=" + id);
+                final DBSystemRoot sysRoot = getTable().getDBSystemRoot();
+                final SQLTable ecrT = sysRoot.getGraph().findReferentTable(getTable(), "ECRITURE");
+                final UpdateBuilder updateBuilder = new UpdateBuilder(ecrT);
+                updateBuilder.addTable(getTable());
+                updateBuilder.set("COMPTE_NUMERO", getTable().getField("NUMERO").getFieldRef());
+                updateBuilder.set("COMPTE_NOM", getTable().getField("NOM").getFieldRef());
+                updateBuilder.setWhere(new Where(getTable().getKey(), "=", ecrT.getField("ID_COMPTE_PCE")).and(new Where(getTable().getKey(), "=", id)));
+                sysRoot.getDataSource().execute(updateBuilder.asString());
             }
 
             public void addViews() {
@@ -222,6 +225,37 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
         return getId(numero, "Création automatique");
     }
 
+    public static SQLRow getRow(String numero, String nom) {
+        SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
+        SQLTable compteTable = base.getTable("COMPTE_PCE");
+        SQLSelect selCompte = new SQLSelect();
+        selCompte.addSelectStar(compteTable);
+        selCompte.setWhere(new Where(compteTable.getField("NUMERO"), "=", numero.trim()));
+
+        // String reqCompte = selCompte.asString();
+        //
+        // Object obCompte = base.getDataSource().execute(reqCompte, new ArrayListHandler());
+        //
+        // List myListCompte = (List) obCompte;
+
+        List<SQLRow> myListCompte = SQLRowListRSH.execute(selCompte);
+        if (myListCompte.size() != 0) {
+            return myListCompte.get(0);
+        } else {
+
+            SQLRowValues rowVals = new SQLRowValues(compteTable);
+            rowVals.put("NUMERO", numero);
+            rowVals.put("NOM", nom);
+            try {
+                return rowVals.insert();
+            } catch (SQLException e) {
+                ExceptionHandler.handle("Erreur lors de la création du compte numéro : " + numero, e);
+                return null;
+            }
+
+        }
+    }
+
     /**
      * retourne l'id d'un compte en fonction de son numero, si le compte n'existe pas il sera créé
      * automatiquement
@@ -231,56 +265,18 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
      * @return id du compte
      */
     public static int getId(String numero, String nom) {
-
-        SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-        SQLTable compteTable = base.getTable("COMPTE_PCE");
-        SQLSelect selCompte = new SQLSelect(base);
-        selCompte.addSelect(compteTable.getField("ID"));
-        selCompte.setWhere(new Where(compteTable.getField("NUMERO"), "=", numero.trim()));
-
-        String reqCompte = selCompte.asString();
-
-        Object obCompte = base.getDataSource().execute(reqCompte, new ArrayListHandler());
-
-        List myListCompte = (List) obCompte;
-
-        if (myListCompte.size() != 0) {
-            return Integer.parseInt(((Object[]) myListCompte.get(0))[0].toString());
-        } else {
-
-            SQLRowValues rowVals = new SQLRowValues(compteTable);
-            rowVals.put("NUMERO", numero);
-            rowVals.put("NOM", nom);
-            try {
-                SQLRow row = rowVals.insert();
-                return row.getID();
-            } catch (SQLException e) {
-
-                e.printStackTrace();
-            }
-            return rowVals.getID();
-        }
+        return getRow(numero, nom).getID();
     }
 
-    public static boolean isExist(String numero) {
+    public static boolean isExist(String account) {
 
-        if (numero.trim().length() == 0) {
+        if (account.trim().length() == 0) {
             return false;
         }
 
-        SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-        SQLTable compteTable = base.getTable("COMPTE_PCE");
-        SQLSelect selCompte = new SQLSelect(base);
-        selCompte.addSelect(compteTable.getField("ID"));
-        selCompte.setWhere(new Where(compteTable.getField("NUMERO"), "=", numero.trim()));
-
-        String reqCompte = selCompte.asString();
-
-        Object obCompte = base.getDataSource().execute(reqCompte, new ArrayListHandler());
-
-        List myListCompte = (List) obCompte;
-
-        return (myListCompte.size() != 0);
+        final SQLTable tableAccount = Configuration.getInstance().getDirectory().getElement("COMPTE_PCE").getTable();
+        final SQLBackgroundTableCacheItem item = SQLBackgroundTableCache.getInstance().getCacheForTable(tableAccount);
+        return (item.getFirstRowContains(account, tableAccount.getField("NUMERO")) != null);
 
     }
 
@@ -292,7 +288,7 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
     public static String getComptePceDefault(final String name) throws IllegalArgumentException {
         final SQLBase base = Configuration.getInstance().getBase();
         final SQLTable tableDefault = base.getTable("COMPTE_PCE_DEFAULT");
-        final SQLSelect sel = new SQLSelect(base);
+        final SQLSelect sel = new SQLSelect();
         sel.addSelect(tableDefault.getField("NUMERO_DEFAULT"));
 
         sel.setWhere(Where.quote("UPPER(%n) = %s", tableDefault.getField("NOM"), name.toUpperCase()));
@@ -308,6 +304,11 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
     public static int getIdComptePceDefault(final String name) throws Exception {
         final String numeroDefault = getComptePceDefault(name);
         return getId(numeroDefault);
+    }
+
+    public static SQLRow getRowComptePceDefault(final String name) throws Exception {
+        final String numeroDefault = getComptePceDefault(name);
+        return getRow(numeroDefault, "création automatique");
     }
 
     @Override

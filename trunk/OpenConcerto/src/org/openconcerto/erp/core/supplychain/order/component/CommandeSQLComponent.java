@@ -399,6 +399,14 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
                 }
             });
         }
+
+        this.fourn.addValueListener(new PropertyChangeListener() {
+
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                table.setFournisseur(fourn.getSelectedRow());
+            }
+        });
         // Bottom
         c.gridy++;
         c.weighty = 0;

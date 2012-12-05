@@ -90,7 +90,7 @@ public abstract class AbstractListeSheetXml extends SheetXml {
     protected abstract void createListeValues();
 
     @Override
-    public String getStoragePathP() {
+    protected String getStoragePathP() {
         return StringUtils.firstUp(elt.getPluralName());
     }
 

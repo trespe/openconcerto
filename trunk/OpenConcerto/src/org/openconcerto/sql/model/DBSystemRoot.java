@@ -17,6 +17,8 @@ import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.LoadingListener.LoadingChangeSupport;
 import org.openconcerto.sql.model.LoadingListener.LoadingEvent;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
+import org.openconcerto.sql.model.graph.TablesMap;
+import org.openconcerto.sql.utils.SQLCreateMoveableTable;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.IClosure;
 
@@ -27,10 +29,12 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
 
@@ -52,6 +56,8 @@ public final class DBSystemRoot extends DBStructureItemDB {
     private final Object graphMutex = new String("Graph mutex");
     @GuardedBy("this")
     private Set<String> rootsToMap;
+    @GuardedBy("this")
+    private boolean useCache;
 
     @GuardedBy("supp")
     private final PropertyChangeSupport supp;
@@ -74,6 +80,7 @@ public final class DBSystemRoot extends DBStructureItemDB {
         this.graph = null;
         // initial state since mapAllRoots() can cause exceptions to happen later on
         mapNoRoots();
+        this.useCache = Boolean.getBoolean(SQLBase.STRUCTURE_USE_XML);
         this.ds = null;
         this.schemaPath = Collections.emptyList();
         this.incoherentPath = false;
@@ -212,6 +219,60 @@ public final class DBSystemRoot extends DBStructureItemDB {
         }
     }
 
+    /**
+     * Set whether this instance uses a cache, can only be used before this has a data source. I.e.
+     * in the <code>systemRootInit</code> parameter of
+     * {@link SQLServer#SQLServer(SQLSystem, String, String, String, String, IClosure, IClosure)
+     * server}.
+     * 
+     * @param useCache <code>true</code> to use a cache.
+     * @see #hasDataSource()
+     */
+    public synchronized final void initUseCache(boolean useCache) {
+        if (this.hasDataSource())
+            throw new IllegalStateException("Instance already inited");
+        this.useCache = useCache;
+    }
+
+    /**
+     * Set whether this instance uses a cache. This creates the meta data table if needed.
+     * 
+     * @param useCache <code>true</code> to use a cache.
+     * @throws SQLException if an error occurs or if the cache cannot be used (e.g.
+     *         {@value SQLSchema#NOAUTO_CREATE_METADATA} is <code>true</code>).
+     */
+    public synchronized final void setUseCache(final boolean useCache) throws SQLException {
+        if (this.hasDataSource() && useCache) {
+            // null if we shouldn't alter the base
+            final SQLCreateMoveableTable createMetadata = SQLSchema.getCreateMetadata(this.getServer().getSQLSystem().getSyntax());
+            final TablesMap m = new TablesMap();
+            for (final DBRoot r : this.getChildrenMap().values()) {
+                // works because when created a root is always fully loaded (we don't allow roots
+                // with a subset of tables)
+                if (!r.contains(SQLSchema.METADATA_TABLENAME)) {
+                    if (createMetadata != null) {
+                        getDataSource().execute(createMetadata.asString(r.getName()));
+                        m.add(r.getName(), createMetadata.getName());
+                    } else {
+                        throw new SQLException(JDBCStructureSource.getCacheError(r.getName()));
+                    }
+                }
+            }
+            this.refresh(m, false);
+        }
+        this.useCache = useCache;
+    }
+
+    /**
+     * Whether this instance uses a cache for its structure and graph. This initial value is set to
+     * the property {@link SQLBase#STRUCTURE_USE_XML}.
+     * 
+     * @return <code>true</code> if this uses a cache.
+     */
+    public synchronized final boolean useCache() {
+        return this.useCache;
+    }
+
     public final SQLTable findTable(String name) {
         return findTable(name, false);
     }
@@ -270,14 +331,14 @@ public final class DBSystemRoot extends DBStructureItemDB {
     }
 
     void descendantsChanged(DBStructureItemJDBC parent, Set<String> childrenRefreshed, final boolean readCache) {
-        this.descendantsChanged(parent, childrenRefreshed, readCache, true);
+        this.descendantsChanged(TablesMap.createByRootFromChildren(parent, childrenRefreshed), readCache, true);
     }
 
-    void descendantsChanged(DBStructureItemJDBC parent, Set<String> childrenRefreshed, final boolean readCache, final boolean tableListChange) {
+    void descendantsChanged(TablesMap tablesRefreshed, final boolean readCache, final boolean tableListChange) {
         assert Thread.holdsLock(getTreeMutex()) : "By definition descendants must be changed with the tree lock";
         try {
             // don't fire GraphLoadingEvent here since we might be in an atomicRefresh
-            this.getGraph().refresh(parent, childrenRefreshed, readCache);
+            this.getGraph().refresh(tablesRefreshed, readCache);
         } catch (SQLException e) {
             throw new IllegalStateException("Couldn't refresh the graph");
         }
@@ -339,11 +400,44 @@ public final class DBSystemRoot extends DBStructureItemDB {
         this.refresh(childrenNames, true);
     }
 
-    public final void refresh(Set<String> childrenNames, final boolean readCache) throws SQLException {
+    public final TablesMap refresh(Set<String> childrenNames, final boolean readCache) throws SQLException {
+        return this.refresh(TablesMap.createFromKeys(childrenNames), readCache);
+    }
+
+    /**
+     * Refresh some tables.
+     * 
+     * @param tables which root/tables to refresh.
+     * @param readCache <code>false</code> to use JDBC.
+     * @return tables loaded with JDBC.
+     * @throws SQLException if an error occurs.
+     */
+    public final TablesMap refresh(TablesMap tables, final boolean readCache) throws SQLException {
         if (this.getJDBC() instanceof SQLBase) {
-            ((SQLBase) this.getJDBC()).refresh(childrenNames, readCache);
+            return ((SQLBase) this.getJDBC()).refresh(tables, readCache);
         } else if (this.getJDBC() instanceof SQLServer) {
-            ((SQLServer) this.getJDBC()).refresh(childrenNames, readCache);
+            final Map<String, TablesMap> toRefresh;
+            if (tables == null) {
+                toRefresh = null;
+            } else {
+                final int size = tables.size();
+                if (size == 0)
+                    return tables;
+                // translate from root to schema : sysRoot is server, meaning root is base and it
+                // has a unique null schema
+                toRefresh = new HashMap<String, TablesMap>(size);
+                for (final Entry<String, Set<String>> e : tables.entrySet()) {
+                    toRefresh.put(e.getKey(), TablesMap.createFromTables(null, e.getValue()));
+                }
+            }
+            final Map<String, TablesMap> refreshed = ((SQLServer) this.getJDBC()).refresh(toRefresh, readCache);
+            // translate from schema to root
+            final TablesMap res = new TablesMap(refreshed.size());
+            for (final Entry<String, TablesMap> e : refreshed.entrySet()) {
+                assert e.getValue().keySet().equals(Collections.singleton(null));
+                res.addAll(e.getKey(), e.getValue().get(null));
+            }
+            return res;
         } else {
             throw new IllegalStateException();
         }

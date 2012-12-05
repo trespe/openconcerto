@@ -21,9 +21,11 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.sqlobject.itemview.RowItemViewComponent;
 import org.openconcerto.ui.component.JRadioButtons;
+import org.openconcerto.utils.SwingWorker2;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 /**
  * Radio buttons displaying foreign rows.
@@ -51,8 +53,9 @@ public class RadioButtons extends JRadioButtons<Integer> implements RowItemViewC
         if (choiceTable == null) {
             throw new IllegalArgumentException("The field:" + this.field + " is not a foreign key");
         }
-        final SQLSelect sel = new SQLSelect(this.getTable().getBase());
-        sel.addSelectStar(choiceTable);
+        final SQLSelect sel = new SQLSelect();
+        sel.addSelect(choiceTable.getKey());
+        sel.addSelect(choiceTable.getField(this.colName));
         // support tables without ORDRE
         sel.addOrderSilent(choiceTable.getName());
         sel.addFieldOrder(choiceTable.getKey());
@@ -68,7 +71,24 @@ public class RadioButtons extends JRadioButtons<Integer> implements RowItemViewC
     @Override
     public final void init(SQLRowItemView v) {
         this.field = v.getField();
-        this.init(this.getForeignTable().getUndefinedID(), this.createChoices());
+        new SwingWorker2<Map<Integer, String>, Object>() {
+            @Override
+            protected Map<Integer, String> doInBackground() throws RuntimeException {
+                return createChoices();
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    init(getForeignTable().getUndefinedID(), this.get());
+                } catch (InterruptedException e) {
+                    // shouldn't happen since we're in done()
+                    e.printStackTrace();
+                } catch (ExecutionException e) {
+                    throw (RuntimeException) e.getCause();
+                }
+            };
+        }.execute();
     }
 
     private final SQLTable getForeignTable() {

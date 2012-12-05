@@ -180,7 +180,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                 }
             }
             CollectionMap<SQLRow, List<SQLRowValues>> map = updateStock(l, false);
-            if (map.keySet().size() > 0) {
+            if (map.keySet().size() > 0 && !rowOrigin.getTable().getName().equalsIgnoreCase("TICKET_CAISSE")) {
                 if (!rowOrigin.getTable().contains("ID_TARIF")) {
                     System.err.println("Attention la table " + rowOrigin.getTable().getName()
                             + " ne contient pas le champ ID_TARIF. La création automatique d'une commande fournisseur est donc impossible!");
@@ -270,6 +270,10 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
     }
 
     public static void createCommandeF(final CollectionMap<SQLRow, List<SQLRowValues>> col, final SQLRow rowDevise) {
+        createCommandeF(col, rowDevise, "");
+    }
+
+    public static void createCommandeF(final CollectionMap<SQLRow, List<SQLRowValues>> col, final SQLRow rowDevise, final String ref) {
 
         if (col.keySet().size() > 0) {
             SwingUtilities.invokeLater(new Runnable() {
@@ -315,6 +319,10 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                             if (rowDevise != null) {
                                 rowVals.put("ID_DEVISE", rowDevise.getID());
                             }
+                            if (commande.getTable().contains("ID_ADRESSE")) {
+                                rowVals.put("ID_ADRESSE", null);
+                            }
+                            rowVals.put("NOM", ref);
                             cmp.select(rowVals);
                             cmp.getRowValuesTable().getRowValuesTable().getRowValuesTableModel().clearRows();
                         }

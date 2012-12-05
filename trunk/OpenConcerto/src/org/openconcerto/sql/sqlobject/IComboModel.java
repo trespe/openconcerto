@@ -95,6 +95,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
 
         this.emptySupp = new EmptyChangeSupport(this);
         this.propSupp = new PropertyChangeSupport(this);
+        this.idToSelect = SQLRow.NONEXISTANT_ID;
 
         this.search = null;
         this.runnables = new ArrayList<Runnable>();
@@ -253,9 +254,6 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         } else {
             log("entering updateAllBegun");
             assert !isUpdating() : "Otherwise our modeToSelect = DISABLED and setEnabled() would overwrite modeToSelect";
-            // no need to synch only in EDT
-            this.idToSelect = this.getSelectedId();
-
             this.setUpdating(true);
 
             // Like ITableModel, don't remove all items, so that if the request fails we still
@@ -305,8 +303,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
                         List<IComboSelectionItem> items = null;
                         try {
                             items = this.get();
-                            removeAllItems();
-                            addAllItems(items);
+                            setAllItems(items);
                             IComboModel.this.filledOnce = true;
                         } catch (InterruptedException e) {
                             // ne devrait pas arriver puisque done() appelée après doInBackground()
@@ -356,8 +353,10 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         return this;
     }
 
-    private void addAllItems(List<IComboSelectionItem> items) {
-        this.getComboModel().addAll(items);
+    private void setAllItems(List<IComboSelectionItem> items) {
+        // don't change the selection, the caller will
+        this.getComboModel().setAllElements(items, false);
+        this.itemsByID.clear();
         for (final IComboSelectionItem item : items)
             this.itemsByID.put(item.getId(), item);
     }
@@ -365,12 +364,6 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     private void addItem(IComboSelectionItem item) {
         this.getComboModel().addElement(item);
         this.itemsByID.put(item.getId(), item);
-    }
-
-    private void removeAllItems() {
-        // combo.removeAll() does n fire() whereas our model does 1
-        this.getComboModel().removeAllElements();
-        this.itemsByID.clear();
     }
 
     private IComboSelectionItem getComboItem(int id) {
@@ -432,8 +425,29 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
             this.setValue(o.getId());
     }
 
+    /**
+     * Return the item that is or *will* be selected.
+     * 
+     * @return the want item (with a possibly <code>null</code> label).
+     * @see #getWantedID()
+     */
     @Override
     public final IComboSelectionItem getValue() {
+        if (!this.isUpdating())
+            return this.getSelectedValue();
+        else if (this.getWantedID() == SQLRow.NONEXISTANT_ID)
+            return null;
+        else
+            return new IComboSelectionItem(getWantedID(), null);
+    }
+
+    /**
+     * The currently selected item. I.e. the value before the last {@link #setValue(int)}) (possibly
+     * <code>null</code>) while {@link #isUpdating()}.
+     * 
+     * @return the selected item (with a non-<code>null</code> label).
+     */
+    public final IComboSelectionItem getSelectedValue() {
         return this.getSelectedItem();
     }
 
@@ -447,10 +461,17 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
      * @return the wanted ID.
      */
     public final int getWantedID() {
-        if (this.isUpdating()) {
-            return this.idToSelect;
-        } else
-            return this.getSelectedId();
+        return this.idToSelect;
+    }
+
+    private final void setWantedID(int id) {
+        if (this.idToSelect != id) {
+            final int old = this.idToSelect;
+            this.idToSelect = id;
+            this.propSupp.firePropertyChange("wantedID", old, id);
+            this.propSupp.firePropertyChange("value", null, getValue());
+            this.emptySupp.fireEmptyChange(this.isEmpty());
+        }
     }
 
     /**
@@ -459,7 +480,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
      * @return l'ID de l'item sélectionné, <code>SQLRow.NONEXISTANT_ID</code> si combo vide.
      */
     public final int getSelectedId() {
-        final IComboSelectionItem o = this.getValue();
+        final IComboSelectionItem o = this.getSelectedValue();
         if (o != null && o.getId() >= SQLRow.MIN_VALID_ID)
             return o.getId();
         else {
@@ -468,12 +489,12 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     }
 
     /**
-     * The selected row or <code>null</code> if this is empty.
+     * The wanted row or <code>null</code> if this is empty.
      * 
      * @return a SQLRow or <code>null</code>.
      * @see ComboSQLRequest#keepRows(boolean)
      */
-    public final SQLRow getSelectedRow() {
+    public final SQLRow getWantedRow() {
         if (this.isEmpty()) {
             return null;
         } else {
@@ -488,8 +509,9 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     }
 
     private final void comboValueChanged() {
-        this.propSupp.firePropertyChange("value", null, getValue());
-        this.emptySupp.fireEmptyChange(this.isEmpty());
+        this.propSupp.firePropertyChange("selectedValue", null, getSelectedValue());
+        if (!this.isUpdating())
+            this.setWantedID(this.getSelectedId());
     }
 
     private void selectID(int id) {
@@ -502,7 +524,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
             this.doUpdateAll(null, true);
 
         if (this.isUpdating()) {
-            this.idToSelect = id;
+            this.setWantedID(id);
             log("isUpdating: this.idToSelect = " + id);
         } else if (id == SQLRow.NONEXISTANT_ID) {
             this.setSelectedItem(null);
@@ -548,15 +570,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
                 this.addItem(newItem);
                 this.setSelectedItem(newItem);
             } else {
-                if (item == null && this.getSelectedItem() == item)
-                    // if both are equals setValue() would do nothing but we want to force fire when
-                    // the wanted ID doesn't exist (ie item == null)
-                    // Otherwise if a listener filters with isUpdating() and the selection
-                    // disappears from the items it won't know, since when the update begins the
-                    // selection clear is ignored.
-                    this.comboValueChanged();
-                else
-                    this.setSelectedItem(item);
+                this.setSelectedItem(item);
             }
         }
     }
@@ -591,7 +605,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
 
     @Override
     public final boolean isEmpty() {
-        return this.getValue() == null || this.isUndefIDEmpty(this.getSelectedId());
+        return this.getWantedID() == SQLRow.NONEXISTANT_ID || this.isUndefIDEmpty(this.getWantedID());
     }
 
     @Override

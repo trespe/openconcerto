@@ -143,4 +143,8 @@ public class Axis {
 
     }
 
+    public void setMarkerLenght(int markerLenght) {
+        this.markerLenght = markerLenght;
+    }
+
 }

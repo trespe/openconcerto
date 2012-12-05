@@ -64,39 +64,57 @@ public class OOXMLElement {
             for (Attribute attr : attrs) {
                 context.put(attr.getName(), attr.getValue());
             }
-            return provider.getValue(context);
-        }
+            res = provider.getValue(context);
+        } else
 
         if (type.equalsIgnoreCase("TotalHTTable")) {
-            return getTotalHTTable(row);
-        }
-
-        if (type.equalsIgnoreCase("DateEcheance")) {
+            res = getTotalHTTable(row);
+        } else if (type.equalsIgnoreCase("DateEcheance")) {
             int idModeReglement = row.getInt("ID_MODE_REGLEMENT");
             Date d = (Date) row.getObject("DATE");
-            return getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("datePattern"));
-        }
+            res = getDateEcheance(idModeReglement, d, this.elt.getAttributeValue("datePattern"));
+        } else {
 
-        final List<Element> eltFields = this.elt.getChildren("field");
+            final List<Element> eltFields = this.elt.getChildren("field");
 
-        if (eltFields != null) {
-            if (eltFields.size() > 1) {
-                String result = "";
-                for (Element eltField : eltFields) {
+            if (eltFields != null) {
+                if (eltFields.size() > 1) {
+                    String result = "";
+                    for (Element eltField : eltFields) {
 
-                    OOXMLField field = new OOXMLField(eltField, this.row, this.sqlElt, this.id, this.rowLanguage, cache);
+                        OOXMLField field = new OOXMLField(eltField, this.row, this.sqlElt, this.id, this.rowLanguage, cache);
 
-                    Object value = field.getValue();
-                    if (value != null) {
-                        result += value.toString() + " ";
+                        Object value = field.getValue();
+                        if (value != null) {
+                            result += value.toString() + " ";
+                        }
                     }
+                    res = result;
+                } else {
+                    OOXMLField field = new OOXMLField(eltFields.get(0), this.row, this.sqlElt, this.id, this.rowLanguage, cache);
+                    res = field.getValue();
                 }
-                res = result;
-            } else {
-                OOXMLField field = new OOXMLField(eltFields.get(0), this.row, this.sqlElt, this.id, this.rowLanguage, cache);
-                res = field.getValue();
             }
         }
+
+        // Liste des valeurs à ne pas afficher
+        List<String> listOfExcludedValues = null;
+
+        List<Element> excludeValue = this.elt.getChildren("exclude");
+        if (excludeValue != null && excludeValue.size() > 0) {
+
+            listOfExcludedValues = new ArrayList<String>();
+
+            for (Element element : excludeValue) {
+                String attributeValue = element.getAttributeValue("value");
+                listOfExcludedValues.add(attributeValue);
+            }
+        }
+
+        if (res != null && listOfExcludedValues != null && listOfExcludedValues.contains(res.toString())) {
+            res = null;
+        }
+
         return res;
     }
 

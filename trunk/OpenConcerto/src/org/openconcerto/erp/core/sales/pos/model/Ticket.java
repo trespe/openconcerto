@@ -13,12 +13,16 @@
  
  package org.openconcerto.erp.core.sales.pos.model;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.ui.TotalCalculator;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.erp.core.sales.pos.io.DefaultTicketPrinter;
 import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
 import org.openconcerto.erp.core.sales.pos.ui.TicketCellRenderer;
 import org.openconcerto.erp.preferences.TemplateNXProps;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
@@ -27,6 +31,9 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FilenameFilter;
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -106,9 +113,9 @@ public class Ticket {
             List<Element> children = root.getChildren("article");
             for (Element element : children) {
                 int qte = Integer.parseInt(element.getAttributeValue("qte"));
-                int prix_unitaire_cents_ht = Integer.parseInt(element.getAttributeValue("prixHT"));
+                BigDecimal prix_unitaire_cents_ht = new BigDecimal(element.getAttributeValue("prixHT"));
                 int idTaxe = Integer.parseInt(element.getAttributeValue("idTaxe"));
-                int prix_unitaire_cents = Integer.parseInt(element.getAttributeValue("prix"));
+                BigDecimal prix_unitaire_cents = new BigDecimal(element.getAttributeValue("prix"));
                 String categorie = element.getAttributeValue("categorie");
                 String name = element.getValue();
                 String codebarre = element.getAttributeValue("codebarre");
@@ -119,7 +126,7 @@ public class Ticket {
 
                 int id = valueID == null || valueID.trim().length() == 0 ? tableArticle.getUndefinedID() : Integer.parseInt(valueID);
                 Article art = new Article(cat, name, id);
-                art.priceInCents = prix_unitaire_cents;
+                art.setPriceInCents(prix_unitaire_cents);
                 art.setCode(codeArt);
                 art.setPriceHTInCents(prix_unitaire_cents_ht);
                 art.setIdTaxe(idTaxe);
@@ -314,9 +321,13 @@ public class Ticket {
         for (Pair<Article, Integer> item : this.items) {
             final Article article = item.getFirst();
             final Integer nb = item.getSecond();
+            Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
+            BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
+
+            BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(nb), MathContext.DECIMAL128).multiply(tauxTVA, MathContext.DECIMAL128);
             prt.addToBuffer(DefaultTicketPrinter.formatRight(MAX_QTE_WIDTH, String.valueOf(nb)) + " "
                     + DefaultTicketPrinter.formatLeft(maxWidth - 2 - MAX_PRICE_WIDTH - MAX_QTE_WIDTH, article.getName()) + " "
-                    + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(nb * article.getPriceInCents())));
+                    + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(multiply.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue())));
         }
 
         StringBuilder spacer = new StringBuilder();
@@ -473,15 +484,35 @@ public class Ticket {
         return this.paiements;
     }
 
+    SQLTable tableTVA = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().findTable("TAXE");
+    SQLTable tableElt = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
+
     public int getTotal() {
-        int total = 0;
+
+        TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
+
+        int i = 0;
         for (Pair<Article, Integer> line : this.items) {
 
             final int count = line.getSecond();
-            final int price = line.getFirst().priceInCents;
-            total += (count * price);
+            Article art = line.getFirst();
+            SQLRowValues rowVals = new SQLRowValues(tableElt);
+            rowVals.put("T_PV_HT", art.getPriceHTInCents().multiply(new BigDecimal(count)));
+            rowVals.put("QTE", count);
+            rowVals.put("ID_TAXE", art.idTaxe);
+            calc.addLine(rowVals, tableArticle.getRow(art.getId()), i, false);
+            i++;
         }
-        return total;
+        // BigDecimal total = BigDecimal.ZERO;
+        // for (Pair<Article, Integer> line : this.items) {
+        //
+        // final int count = line.getSecond();
+        // final BigDecimal price = line.getFirst().priceInCents;
+        // total = total.add(price.multiply(new BigDecimal(count), MathContext.DECIMAL128));
+        // }
+        // return total.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
+        calc.checkResult();
+        return calc.getTotalTTC().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
     }
 
     public List<Pair<Article, Integer>> getArticles() {

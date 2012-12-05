@@ -81,6 +81,11 @@ public class GrandLivreSheetXML extends AbstractListeSheetXml {
         return "GrandLivre" + date.getTime();
     }
 
+    @Override
+    protected String getStoragePathP() {
+        return "Grand Livre";
+    }
+
     public GrandLivreSheetXML(Date du, Date au, String compteDep, String compteEnd, int lettrage, boolean cumul, boolean excludeCptSolde, boolean centralClient, boolean centralFourn, int idJrnlExclude) {
         super();
         Calendar cal = Calendar.getInstance();

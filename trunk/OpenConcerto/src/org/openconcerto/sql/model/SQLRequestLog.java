@@ -13,7 +13,6 @@
  
  package org.openconcerto.sql.model;
 
-import org.openconcerto.sql.model.SQLDataSource.QueryInfo;
 import org.openconcerto.utils.ExceptionUtils;
 
 import java.awt.BorderLayout;
@@ -24,6 +23,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.sql.Connection;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -48,8 +48,9 @@ import javax.swing.table.TableRowSorter;
 
 public class SQLRequestLog {
 
-    private static final String ACTIVER_LA_CAPTURE = "Activer la capture";
-    private static final String DESACTIVER_LA_CAPTURE = "Désactiver la capture";
+    private static final Color BG_PINK = new Color(254, 240, 240);
+    private static final String ACTIVER_LA_CAPTURE = "Enable monitoring";
+    private static final String DESACTIVER_LA_CAPTURE = "Disable monitoring";
     private static List<SQLRequestLog> list = new ArrayList<SQLRequestLog>(500);
     private static boolean enabled;
     private String query;
@@ -65,6 +66,8 @@ public class SQLRequestLog {
     private static JLabel textInfo = new JLabel("Total: ");
     private static final SimpleDateFormat sdt = new SimpleDateFormat("HH:MM:ss.SS");
     private static final DecimalFormat dformat = new DecimalFormat("##0.00");
+
+    private boolean isHighlighted = false;
 
     private static final String format(final Object nano) {
         final long l = ((Number) nano).longValue();
@@ -91,7 +94,7 @@ public class SQLRequestLog {
         this.inSwing = inSwing;
         this.forShare = query.contains("FOR SHARE");
         if (this.forShare) {
-            this.comment = "Utilise FOR SHARE. " + comment;
+            this.comment = "Use FOR SHARE. " + comment;
         }
         this.threadId = "[" + Thread.currentThread().getId() + "] " + Thread.currentThread().getName();
     }
@@ -111,8 +114,8 @@ public class SQLRequestLog {
         log(query, comment, 0, starAtMs, startTime, startTime, startTime, startTime, startTime, startTime);
     }
 
-    public static void log(String query, String comment, QueryInfo info, long timeMs, long startTime, long afterCache, long afterQueryInfo, long afterExecute, long afterHandle, long endTime) {
-        log(query, comment, System.identityHashCode(info.getConnection()), timeMs, startTime, afterCache, afterQueryInfo, afterExecute, afterHandle, endTime);
+    public static void log(String query, String comment, Connection conn, long timeMs, long startTime, long afterCache, long afterQueryInfo, long afterExecute, long afterHandle, long endTime) {
+        log(query, comment, System.identityHashCode(conn), timeMs, startTime, afterCache, afterQueryInfo, afterExecute, afterHandle, endTime);
     }
 
     private static void fireEvent() {
@@ -125,8 +128,8 @@ public class SQLRequestLog {
                 }
                 final long totalMs = getTotalMs();
                 final long totalSQLMs = getTotalSQLMs();
-                textInfo.setText("Total: " + totalMs + " ms,  Swing: " + getTotalSwing() + " ms, SQL: " + totalSQLMs + " ms, traitement: " + (totalMs - totalSQLMs) + " ms , " + getNbConnections()
-                        + " connexions, " + getNbThread() + " threads");
+                textInfo.setText("Total: " + totalMs + " ms,  Swing: " + getTotalSwing() + " ms, SQL: " + totalSQLMs + " ms, processing: " + (totalMs - totalSQLMs) + " ms , " + getNbConnections()
+                        + " conn., " + getNbThread() + " threads");
             }
         });
     }
@@ -195,7 +198,7 @@ public class SQLRequestLog {
     }
 
     public static void showFrame() {
-        JFrame f = new JFrame("Requêtes SQL");
+        JFrame f = new JFrame("SQL monitoring");
         final SQLRequestLogModel model = new SQLRequestLogModel();
         final JTable table = new JTable(model);
         final TableRowSorter<TableModel> sorter = new TableRowSorter<TableModel>(table.getModel());
@@ -209,6 +212,7 @@ public class SQLRequestLog {
                 if (e.getClickCount() >= 2) {
                     showStack(model, sorter, table.getSelectedRow());
                 }
+                highLight(model, sorter, table.getSelectedRow());
 
             }
         });
@@ -220,26 +224,22 @@ public class SQLRequestLog {
             protected void setValue(Object value) {
                 super.setValue(sdt.format(value));
             }
+
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                final Component tableCellRendererComponent = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                final SQLRequestLog rowAt = model.getRowAt(sorter.convertRowIndexToModel(row));
+                if (rowAt.isHighlighted) {
+                    tableCellRendererComponent.setBackground(Color.black);
+                    tableCellRendererComponent.setForeground(Color.white);
+                } else {
+                    tableCellRendererComponent.setBackground(Color.white);
+                    tableCellRendererComponent.setForeground(Color.black);
+                }
+                return tableCellRendererComponent;
+            }
         });
         timeCol.setMaxWidth(80);
         timeCol.setMinWidth(80);
-
-        // Column Total SQL
-        final TableColumn totalCol = table.getColumnModel().getColumn(4);
-        final DefaultTableCellRenderer nanoRenderer = new DefaultTableCellRenderer() {
-
-            {
-                this.setHorizontalAlignment(SwingConstants.RIGHT);
-            }
-
-            @Override
-            protected void setValue(Object value) {
-                super.setValue(format(value));
-            }
-        };
-        totalCol.setCellRenderer(nanoRenderer);
-        totalCol.setMaxWidth(160);
-        totalCol.setMinWidth(100);
 
         // SQL
         final DefaultTableCellRenderer cellRendererDurationSQL = new DefaultTableCellRenderer() {
@@ -272,8 +272,8 @@ public class SQLRequestLog {
         cellRendererDurationSQL.setHorizontalAlignment(SwingConstants.RIGHT);
         final TableColumn execCol = table.getColumnModel().getColumn(1);
         execCol.setCellRenderer(cellRendererDurationSQL);
-        execCol.setMaxWidth(160);
-        execCol.setMinWidth(100);
+        execCol.setMaxWidth(80);
+        execCol.setMinWidth(80);
 
         // Traitement
         final DefaultTableCellRenderer cellRendererTraitement = new DefaultTableCellRenderer() {
@@ -300,13 +300,56 @@ public class SQLRequestLog {
         cellRendererTraitement.setHorizontalAlignment(SwingConstants.RIGHT);
         final TableColumn processingCol = table.getColumnModel().getColumn(2);
         processingCol.setCellRenderer(cellRendererTraitement);
-        processingCol.setMaxWidth(160);
-        processingCol.setMinWidth(100);
+        processingCol.setMaxWidth(80);
+        processingCol.setMinWidth(80);
 
-        table.getColumnModel().getColumn(3).setCellRenderer(nanoRenderer);
+        // Clean Up
+        final DefaultTableCellRenderer nanoRenderer = new DefaultTableCellRenderer() {
+
+            {
+                this.setHorizontalAlignment(SwingConstants.RIGHT);
+            }
+
+            @Override
+            protected void setValue(Object value) {
+                super.setValue(format(value));
+            }
+        };
+        final TableColumn cleanupCol = table.getColumnModel().getColumn(3);
+        cleanupCol.setCellRenderer(nanoRenderer);
+        cleanupCol.setMaxWidth(80);
+        cleanupCol.setMinWidth(80);
+
+        // Column Total SQL
+        final TableColumn totalCol = table.getColumnModel().getColumn(4);
+
+        totalCol.setCellRenderer(nanoRenderer);
+        totalCol.setMaxWidth(80);
+        totalCol.setMinWidth(80);
+
+        // Request
+        final TableColumn reqCol = table.getColumnModel().getColumn(5);
+        final DefaultTableCellRenderer cellRendererQuery = new DefaultTableCellRenderer() {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                final JLabel tableCellRendererComponent = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (!isSelected) {
+                    final SQLRequestLog rowAt = model.getRowAt(sorter.convertRowIndexToModel(row));
+                    if (rowAt.isInSwing() && !rowAt.getComment().contains("cache")) {
+                        tableCellRendererComponent.setBackground(BG_PINK);
+                    } else {
+                        tableCellRendererComponent.setBackground(Color.WHITE);
+                    }
+                    tableCellRendererComponent.setForeground(Color.BLACK);
+                }
+                return tableCellRendererComponent;
+            }
+        };
+        reqCol.setCellRenderer(cellRendererQuery);
+        reqCol.setMinWidth(400);
 
         // Column Info
-        final DefaultTableCellRenderer cellRendererQuery = new DefaultTableCellRenderer() {
+        final DefaultTableCellRenderer cellRendererInfo = new DefaultTableCellRenderer() {
             @Override
             public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 final JLabel tableCellRendererComponent = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
@@ -321,12 +364,13 @@ public class SQLRequestLog {
                 return tableCellRendererComponent;
             }
         };
-        table.getColumnModel().getColumn(6).setCellRenderer(cellRendererQuery);
-
+        table.getColumnModel().getColumn(6).setCellRenderer(cellRendererInfo);
+        table.getColumnModel().getColumn(6).setMaxWidth(200);
+        table.getColumnModel().getColumn(6).setMinWidth(80);
         // Column Connexion
 
-        table.getColumnModel().getColumn(7).setMaxWidth(100);
-        table.getColumnModel().getColumn(7).setMinWidth(100);
+        table.getColumnModel().getColumn(7).setMaxWidth(80);
+        table.getColumnModel().getColumn(7).setMinWidth(80);
         // Column Thread
         final DefaultTableCellRenderer cellRendererThread = new DefaultTableCellRenderer() {
             @Override
@@ -334,7 +378,7 @@ public class SQLRequestLog {
                 final JLabel tableCellRendererComponent = (JLabel) super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
                 if (!isSelected) {
                     if (model.getRowAt(sorter.convertRowIndexToModel(row)).isInSwing()) {
-                        tableCellRendererComponent.setBackground(new Color(254, 240, 240));
+                        tableCellRendererComponent.setBackground(BG_PINK);
                     } else {
                         tableCellRendererComponent.setBackground(Color.WHITE);
                     }
@@ -345,7 +389,7 @@ public class SQLRequestLog {
         };
 
         table.getColumnModel().getColumn(8).setCellRenderer(cellRendererThread);
-        table.getColumnModel().getColumn(8).setMinWidth(100);
+        table.getColumnModel().getColumn(8).setMinWidth(150);
         JPanel p = new JPanel(new BorderLayout());
 
         JPanel bar = new JPanel(new FlowLayout());
@@ -370,7 +414,7 @@ public class SQLRequestLog {
             }
         });
         bar.add(b0);
-        final JButton b1 = new JButton("Effacer tout");
+        final JButton b1 = new JButton("Clear");
         b1.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -379,7 +423,7 @@ public class SQLRequestLog {
             }
         });
         bar.add(b1);
-        final JButton b2 = new JButton("Afficher la stacktrace");
+        final JButton b2 = new JButton("Show stacktrace");
         b2.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
@@ -390,7 +434,8 @@ public class SQLRequestLog {
         bar.add(b2);
 
         p.add(bar, BorderLayout.NORTH);
-
+        table.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        table.getTableHeader().setReorderingAllowed(true);
         JScrollPane sc = new JScrollPane(table);
 
         p.add(sc, BorderLayout.CENTER);
@@ -420,7 +465,7 @@ public class SQLRequestLog {
         return this.query;
     }
 
-    public String getConnection() {
+    public String getComment() {
         return this.comment;
     }
 
@@ -498,9 +543,9 @@ public class SQLRequestLog {
             if (rowAt.isInSwing()) {
                 text += " (Swing)";
             }
-            text += "\nDébut: " + sdt.format(rowAt.getStartAsMs()) + "\n";
+            text += "\nStart: " + sdt.format(rowAt.getStartAsMs()) + "\n";
 
-            text += "Durée totale: " + dformat.format(rowAt.getDurationTotalNano() / 1000000D) + " ms, dont " + dformat.format(rowAt.getDurationSQLNano() / 1000000D) + " ms en SQL\n";
+            text += "Total duration: " + dformat.format(rowAt.getDurationTotalNano() / 1000000D) + " ms, " + dformat.format(rowAt.getDurationSQLNano() / 1000000D) + " ms SQL\n";
             text += rowAt.getQuery() + "\n" + rowAt.getStack();
             JTextArea area = new JTextArea(text);
 
@@ -513,6 +558,17 @@ public class SQLRequestLog {
             fStack.setLocationRelativeTo(null);
             fStack.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
             fStack.setVisible(true);
+        }
+    }
+
+    protected static void highLight(SQLRequestLogModel model, TableRowSorter<TableModel> sorter, int s) {
+        if (s >= 0 && s < model.getRowCount()) {
+            final SQLRequestLog rowAt = model.getRowAt(sorter.convertRowIndexToModel(s));
+            String req = rowAt.getQuery();
+            for (SQLRequestLog l : list) {
+                l.isHighlighted = l.getQuery().equals(req);
+            }
+            model.fireTableRowsUpdated(0, model.getRowCount() - 1);
         }
     }
 }

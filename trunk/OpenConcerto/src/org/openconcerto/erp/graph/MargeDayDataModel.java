@@ -18,9 +18,12 @@ import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.NumberUtils;
 import org.openconcerto.utils.RTInterruptedException;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -87,26 +90,27 @@ public class MargeDayDataModel extends DataModel1D {
                         final Where w2 = new Where(tableSaisieVenteFElt.getField("ID_SAISIE_VENTE_FACTURE"), "=", tableSaisieVenteF.getKey());
                         sel.setWhere(w.and(w2));
 
-                        long total = 0;
+                        BigDecimal total = BigDecimal.ZERO;
                         Object[] o = tableSaisieVenteF.getBase().getDataSource().executeA1(sel.asString());
-                        if (o != null && o[0] != null && o[1] != null && (Long.valueOf(o[0].toString()) != 0 || Long.valueOf(o[1].toString()) != 0)) {
-                            long ha = Long.valueOf(o[0].toString());
-                            long vt = Long.valueOf(o[1].toString());
-                            total = vt - ha;
+                        if (o != null) {
+                            BigDecimal pa = (BigDecimal) o[0];
+                            BigDecimal pv = (BigDecimal) o[1];
+                            if (pa != null && pv != null && (!NumberUtils.areNumericallyEqual(pa, BigDecimal.ZERO) || !NumberUtils.areNumericallyEqual(pv, BigDecimal.ZERO))) {
+                                total = pv.subtract(pa);
+                            }
                         }
 
-                        final float value = total / 100;
-
-                        if (value > chart.getHigherRange().floatValue()) {
-                            long euros = (long) value;
-                            String currencyToString = GestionDevise.currencyToString(euros * 100, true);
-                            chart.getLeftAxis().getLabels().get(2).setLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €");
-                            currencyToString = GestionDevise.currencyToString(euros * 100 / 2, true);
-                            chart.getLeftAxis().getLabels().get(1).setLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €");
-                            chart.setHigherRange(value);
+                        if (total.doubleValue() > chart.getHigherRange().doubleValue()) {
+                            // String currencyToString = GestionDevise.currencyToString(euros * 100,
+                            // true);
+                            chart.getLeftAxis().getLabels().get(2).setLabel(total.setScale(0, RoundingMode.HALF_UP).toString() + " €");
+                            // currencyToString = GestionDevise.currencyToString(euros * 100 / 2,
+                            // true);
+                            chart.getLeftAxis().getLabels().get(1).setLabel(total.divide(new BigDecimal(2), MathContext.DECIMAL128).setScale(0, RoundingMode.HALF_UP) + " €");
+                            chart.setHigherRange(total);
                         }
-                        if (((int) value) != 0) {
-                            MargeDayDataModel.this.setValueAt(i, value);
+                        if (total.compareTo(BigDecimal.ZERO) != 0) {
+                            MargeDayDataModel.this.setValueAt(i, total);
                             fireDataModelChanged();
                             Thread.sleep(20);
                         }

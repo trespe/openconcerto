@@ -24,6 +24,10 @@ import org.openconcerto.sql.model.SQLSyntax;
 public final class SQLCreateMoveableTable extends SQLCreateTableBase<SQLCreateMoveableTable> {
 
     public SQLCreateMoveableTable(SQLSyntax syntax, String name) {
-        super(syntax, name);
+        this(syntax, null, name);
+    }
+
+    public SQLCreateMoveableTable(final SQLSyntax syntax, final String root, final String name) {
+        super(syntax, root, name);
     }
 }

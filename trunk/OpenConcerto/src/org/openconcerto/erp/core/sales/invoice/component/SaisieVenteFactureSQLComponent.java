@@ -979,7 +979,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             } else {
                 if (JOptionPane.showConfirmDialog(this, "Attention en modifiant cette facture, vous supprimerez les chéques et les échéances associés. Continuer?", "Modification de facture",
                         JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-                    SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+                    SQLPreferences prefs = SQLPreferences.getMemCached(getTable().getDBRoot());
                     if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
                         // On efface les anciens mouvements de stocks
                         SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
@@ -1314,16 +1314,12 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
      * @param idBl
      * 
      */
-    public void loadBonItems(int idBl) {
+    public void loadBonItems(SQLRowAccessor rowBL, boolean clear) {
 
         SQLElement bon = Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON");
         SQLElement bonElt = Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON_ELEMENT");
-        if (idBl > 1) {
-            SQLInjector injector = SQLInjector.getInjector(bon.getTable(), this.getTable());
-            this.select(injector.createRowValuesFrom(idBl));
-            this.listenerModeReglDefaut.propertyChange(null);
-        }
-        loadItem(this.tableFacture, bon, idBl, bonElt);
+
+        loadItem(this.tableFacture, bon, rowBL.getID(), bonElt, clear);
     }
 
     public void addRowItem(SQLRowValues row) {
@@ -1349,7 +1345,6 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             e.printStackTrace();
         }
         this.tableFacture.getModel().clearRows();
-        this.tableFacture.getModel().addNewRow();
 
         // User
         // SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
@@ -1469,7 +1464,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
      */
     private void updateStock(int id) {
 
-        SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+        SQLPreferences prefs = SQLPreferences.getMemCached(getTable().getDBRoot());
         if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
 
             MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");

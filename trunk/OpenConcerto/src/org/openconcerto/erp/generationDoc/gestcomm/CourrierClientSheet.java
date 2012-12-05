@@ -40,6 +40,16 @@ public class CourrierClientSheet extends AbstractJOOReportsSheet {
         init(year, "Courrier.odt", "CourrierPrinter");
     }
 
+    @Override
+    public String getDefaultTemplateID() {
+        return TEMPLATE_ID;
+    }
+
+    @Override
+    public String getDefaultLocationProperty() {
+        return TEMPLATE_PROPERTY_NAME;
+    }
+
     /**
      * @return une Map contenant les valeurs à remplacer dans la template
      */

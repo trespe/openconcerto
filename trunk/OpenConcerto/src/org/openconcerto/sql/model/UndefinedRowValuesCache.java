@@ -13,7 +13,13 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.request.MultipleSQLSelectExecutor;
+import org.openconcerto.utils.ExceptionHandler;
+
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 // do not use fields DEFAULT since they're not always constants, plus for some systems we need a
@@ -40,5 +46,41 @@ public class UndefinedRowValuesCache {
             this.map.put(t, rv);
         }
         return rv;
+    }
+
+    public void preload(List<SQLTable> tablesToCache) {
+        if (tablesToCache.size() <= 0) {
+            throw new IllegalArgumentException("Empty list");
+        }
+        final List<SQLSelect> queries = new ArrayList<SQLSelect>(tablesToCache.size());
+        final int size = tablesToCache.size();
+        for (int i = 0; i < size; i++) {
+            final SQLTable sqlTable = tablesToCache.get(i);
+            final SQLSelect select = new SQLSelect(true);
+            select.addSelectStar(sqlTable);
+            select.setWhere(sqlTable.getKey(), "=", sqlTable.getUndefinedID());
+            queries.add(select);
+        }
+        final MultipleSQLSelectExecutor executor = new MultipleSQLSelectExecutor(tablesToCache.get(0).getDBSystemRoot(), queries);
+        try {
+            final List<List<SQLRow>> l = executor.execute();
+            if (l.size() != tablesToCache.size()) {
+                throw new IllegalStateException("Internal SQL error while preloading");
+            }
+            for (int i = 0; i < size; i++) {
+                final SQLTable sqlTable = tablesToCache.get(i);
+                final List<SQLRow> rows = l.get(i);
+                if (rows.size() > 0) {
+                    final SQLRowValues rv = new SQLRowValues(sqlTable);
+                    rv.loadAllSafe(rows.get(0));
+                    this.map.put(sqlTable, rv);
+                } else {
+                    System.err.println("Warning: no undefined row in table: " + sqlTable.getName() + " id: " + sqlTable.getUndefinedID());
+                }
+            }
+        } catch (SQLException e) {
+            ExceptionHandler.handle("Unable to preload tables", e);
+        }
+
     }
 }

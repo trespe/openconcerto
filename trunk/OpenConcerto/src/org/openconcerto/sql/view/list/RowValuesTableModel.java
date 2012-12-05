@@ -13,14 +13,16 @@
  
  package org.openconcerto.sql.view.list;
 
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.OrderedSet;
 
 import java.math.BigDecimal;
@@ -43,6 +45,8 @@ import javax.swing.table.AbstractTableModel;
 
 public class RowValuesTableModel extends AbstractTableModel {
     // modification of rowValues MUST be done in AWT EDT
+    // methods that perform requests, MUST use the runnableQueue
+    // synchronized is used to protect list access
     private List<SQLRowValues> rowValues = new ArrayList<SQLRowValues>();
 
     private OrderedSet<TableModelListener> tableModelListeners = new OrderedSet<TableModelListener>();
@@ -128,7 +132,8 @@ public class RowValuesTableModel extends AbstractTableModel {
         return this.nbColumn;
     }
 
-    public synchronized int getRowCount() {
+    public int getRowCount() {
+        checkEDT();
         return this.rowValues.size();
     }
 
@@ -156,8 +161,7 @@ public class RowValuesTableModel extends AbstractTableModel {
     }
 
     public Object getValueAt(int rowIndex, int columnIndex) {
-        if (!SwingUtilities.isEventDispatchThread())
-            Thread.dumpStack();
+        checkEDT();
         final Object result;
 
         if (rowIndex >= this.rowValues.size()) {
@@ -173,9 +177,13 @@ public class RowValuesTableModel extends AbstractTableModel {
         return result;
     }
 
-    public void putValue(Object value, int rowIndex, String fieldName) {
+    private void checkEDT() {
         if (!SwingUtilities.isEventDispatchThread())
             Thread.dumpStack();
+    }
+
+    public void putValue(Object value, int rowIndex, String fieldName) {
+        checkEDT();
         final SQLRowValues rowVal = this.rowValues.get(rowIndex);
         rowVal.put(fieldName, value);
 
@@ -186,17 +194,18 @@ public class RowValuesTableModel extends AbstractTableModel {
     }
 
     public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
-        if (!SwingUtilities.isEventDispatchThread())
-            Thread.dumpStack();
+        checkEDT();
         if (!this.editable)
             return;
+        if (this.list.size() <= columnIndex) {
+            return;
+        }
         SQLTableElement sqlTableElem = this.list.get(columnIndex);
 
         SQLRowValues rowVal = this.rowValues.get(rowIndex);
         Object realVal = sqlTableElem.convertEditorValueToModel(aValue, rowVal);
         if (realVal == null || realVal.getClass() == this.getColumnClass(columnIndex)) {
             sqlTableElem.setValueFrom(rowVal, realVal);
-            fireTableModelModified(rowIndex);
             fireTableChanged(new TableModelEvent(this, rowIndex, rowIndex, columnIndex));
         } else {
             System.err.println("RowValuesTableModel:setValueAt:" + realVal + "(" + realVal.getClass() + ") at (row:" + rowIndex + "/col:" + columnIndex + ")");
@@ -208,17 +217,15 @@ public class RowValuesTableModel extends AbstractTableModel {
     /**
      * 
      */
-    private void dumpValues() {
+    public void dumpValues() {
         for (int i = 0; i < this.rowValues.size(); i++) {
             SQLRowValues val = this.rowValues.get(i);
             System.out.println("Item" + i + ":" + val);
-
         }
     }
 
     public String getColumnName(int columnIndex) {
         SQLTableElement sqlTableElem = this.list.get(columnIndex);
-        // System.err.println(sqlTableElem.getRowField());
         return sqlTableElem.getColumnName();
     }
 
@@ -226,22 +233,27 @@ public class RowValuesTableModel extends AbstractTableModel {
      * Valider les modifications dans la base
      */
     public void commitData() {
+        checkEDT();
+        final List<SQLRowValues> rowsToCommmit = new ArrayList<SQLRowValues>();
+        rowsToCommmit.addAll(this.rowValues);
+        runnableQueue.execute(new Runnable() {
 
-        List<SQLRowValues> rowsToCommmit = new ArrayList<SQLRowValues>();
-        synchronized (this.rowValues) {
-            rowsToCommmit.addAll(this.rowValues);
-        }
+            @Override
+            public void run() {
+                try {
+                    final int size = rowsToCommmit.size();
+                    for (int i = 0; i < size; i++) {
+                        final SQLRowValues r = rowsToCommmit.get(i);
+                        SQLRow row = r.commit();
+                        r.setID(row.getIDNumber());
+                    }
+                } catch (SQLException e) {
+                    ExceptionHandler.handle("Commit fail", e);
+                }
 
-        try {
-            final int size = rowsToCommmit.size();
-            for (int i = 0; i < size; i++) {
-                final SQLRowValues r = rowsToCommmit.get(i);
-                SQLRow row = r.commit();
-                r.setID(row.getIDNumber());
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        });
+
     }
 
     public void addTableModelListener(TableModelListener l) {
@@ -263,7 +275,6 @@ public class RowValuesTableModel extends AbstractTableModel {
             for (int columnIndex = 0; columnIndex < this.list.size(); columnIndex++) {
                 SQLTableElement sqlTableElem = this.list.get(columnIndex);
                 if (sqlTableElem.getField() != null) {
-                    // System.err.println(sqlTableElem.getField().getName() + " ->" + to);
                     if (sqlTableElem.getField().getName().equalsIgnoreCase(to)) {
                         this.mapColumnField.put(to, columnIndex);
                         return columnIndex;
@@ -277,78 +288,78 @@ public class RowValuesTableModel extends AbstractTableModel {
         }
     }
 
-    public synchronized void addNewRowAt(final int index) {
+    public void addNewRowAt(final int index) {
+        checkEDT();
+        if (index > getRowCount()) {
+            throw new IllegalArgumentException(index + " > row count: " + getRowCount());
+        } else if (index < 0) {
+            throw new IllegalArgumentException(index + " <0");
+        }
 
         runnableQueue.submit(new Runnable() {
 
             @Override
             public void run() {
 
-                int realIndex = index;
-                if (realIndex < 0)
-                    realIndex = 0;
-
                 final SQLRowValues newRowParDefaut = new SQLRowValues(RowValuesTableModel.this.defautRow);
-                synchronized (rowValues) {
-
-                    // Insertion
-                    if (realIndex < (getRowCount())) {
-
-                        // Insertion au milieu
-                        if (realIndex > 0) {
-                            SQLRowValues vals1 = RowValuesTableModel.this.rowValues.get(realIndex - 1);
-                            SQLRowValues vals2 = RowValuesTableModel.this.rowValues.get(realIndex);
-                            final String orderField = vals1.getTable().getOrderField().getName();
-
-                            Number n1 = (Number) vals1.getObject(orderField);
-                            Number n2 = (Number) vals2.getObject(orderField);
-                            if (n1 != null && n2 != null) {
-                                double tmp = n2.doubleValue() - n1.doubleValue();
-                                newRowParDefaut.put(orderField, BigDecimal.valueOf(n1.doubleValue() + (tmp / 2.0)));
-                            } else {
-                                if (n1 != null) {
-                                    newRowParDefaut.put(orderField, BigDecimal.valueOf(n1.doubleValue() + 0.1));
-                                }
-                            }
-                        }
-                        // Insertion en haut de la JTable
-                        else {
-                            SQLRowValues vals = RowValuesTableModel.this.rowValues.get(realIndex);
-                            final String orderField = vals.getTable().getOrderField().getName();
-                            Number n = (Number) vals.getObject(orderField);
-                            if (n != null) {
-                                newRowParDefaut.put(orderField, BigDecimal.valueOf(n.doubleValue() - 0.1));
-                            } else {
-                                newRowParDefaut.put(orderField, BigDecimal.valueOf(vals.getTable().getMaxOrder().doubleValue() + 0.1));
-                            }
-                        }
-                    } else {
-                        if (getRowCount() > 0) {
-                            // Ajout d'une ligne à la fin de la JTable
-                            SQLRowValues vals = RowValuesTableModel.this.rowValues.get(realIndex - 1);
-                            final String orderField = vals.getTable().getOrderField().getName();
-                            Number n = (Number) vals.getObject(orderField);
-                            if (n != null) {
-                                // FIXME la valeur de l'ordre peut etre deja utilisé maybe use
-                                // maxOrder
-                                newRowParDefaut.put(orderField, BigDecimal.valueOf(n.doubleValue() + 1.0));
-                            }
-                        } else {
-                            newRowParDefaut.put(newRowParDefaut.getTable().getOrderField().getName(), newRowParDefaut.getTable().getMaxOrder().doubleValue() + 1.0);
-                        }
-                    }
-                    RowValuesTableModel.this.rowValues.add(realIndex, newRowParDefaut);
-                }
-                final int fireIndex = realIndex;
-
+                final BigDecimal maxOrder = newRowParDefaut.getTable().getMaxOrder();
                 SwingUtilities.invokeLater(new Runnable() {
 
                     @Override
                     public void run() {
+                        // Insertion
+                        if (index < (getRowCount())) {
+
+                            // Insertion au milieu
+                            if (index > 0) {
+                                SQLRowValues vals1 = RowValuesTableModel.this.rowValues.get(index - 1);
+                                SQLRowValues vals2 = RowValuesTableModel.this.rowValues.get(index);
+                                final String orderField = vals1.getTable().getOrderField().getName();
+
+                                Number n1 = (Number) vals1.getObject(orderField);
+                                Number n2 = (Number) vals2.getObject(orderField);
+                                if (n1 != null && n2 != null) {
+                                    double tmp = n2.doubleValue() - n1.doubleValue();
+                                    newRowParDefaut.put(orderField, BigDecimal.valueOf(n1.doubleValue() + (tmp / 2.0)));
+                                } else {
+                                    if (n1 != null) {
+                                        newRowParDefaut.put(orderField, BigDecimal.valueOf(n1.doubleValue() + 0.1));
+                                    }
+                                }
+                            }
+                            // Insertion en haut de la JTable
+                            else {
+                                SQLRowValues vals = RowValuesTableModel.this.rowValues.get(index);
+                                final String orderField = vals.getTable().getOrderField().getName();
+                                Number n = (Number) vals.getObject(orderField);
+                                if (n != null) {
+                                    newRowParDefaut.put(orderField, BigDecimal.valueOf(n.doubleValue() - 0.1));
+                                } else {
+                                    newRowParDefaut.put(orderField, BigDecimal.valueOf(maxOrder.doubleValue() + 0.1));
+                                }
+                            }
+                        } else {
+                            if (getRowCount() > 0) {
+                                // Ajout d'une ligne à la fin de la JTable
+                                SQLRowValues vals = RowValuesTableModel.this.rowValues.get(index - 1);
+                                final String orderField = vals.getTable().getOrderField().getName();
+                                Number n = (Number) vals.getObject(orderField);
+                                if (n != null) {
+                                    // FIXME la valeur de l'ordre peut etre deja utilisé maybe use
+                                    // maxOrder
+                                    newRowParDefaut.put(orderField, BigDecimal.valueOf(n.doubleValue() + 1.0));
+                                }
+                            } else {
+
+                                newRowParDefaut.put(newRowParDefaut.getTable().getOrderField().getName(), maxOrder.doubleValue() + 1.0);
+                            }
+                        }
+                        RowValuesTableModel.this.rowValues.add(index, newRowParDefaut);
+
                         final int size = RowValuesTableModel.this.tableModelListeners.size();
                         for (int i = 0; i < size; i++) {
                             final TableModelListener l = RowValuesTableModel.this.tableModelListeners.get(i);
-                            l.tableChanged(new TableModelEvent(RowValuesTableModel.this, fireIndex, fireIndex, TableModelEvent.ALL_COLUMNS, TableModelEvent.INSERT));
+                            l.tableChanged(new TableModelEvent(RowValuesTableModel.this, index, index, TableModelEvent.ALL_COLUMNS, TableModelEvent.INSERT));
                         }
                     }
                 });
@@ -362,26 +373,14 @@ public class RowValuesTableModel extends AbstractTableModel {
      * 
      * @param index index de la ligne
      */
-    public synchronized void removeRowAt(final int index) {
-        if (!SwingUtilities.isEventDispatchThread())
-            Thread.dumpStack();
+    public void removeRowAt(final int index) {
+        checkEDT();
         if (index < 0)
             return;
-        runnableQueue.submit(new Runnable() {
 
-            @Override
-            public void run() {
+        RowValuesTableModel.this.rowValuesDeleted.add(RowValuesTableModel.this.rowValues.remove(index));
+        fireTableRowsDeleted(index, index);
 
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        synchronized (RowValuesTableModel.this.rowValues) {
-                            RowValuesTableModel.this.rowValuesDeleted.add(RowValuesTableModel.this.rowValues.remove(index));
-                        }
-                        fireTableRowsDeleted(index, index);
-                    }
-                });
-            }
-        });
     }
 
     /**
@@ -389,46 +388,32 @@ public class RowValuesTableModel extends AbstractTableModel {
      * 
      * @param index tableau des index de ligne à supprimer
      */
-    public synchronized void removeRowsAt(final int[] index) {
-        if (!SwingUtilities.isEventDispatchThread())
-            Thread.dumpStack();
+    public void removeRowsAt(final int[] index) {
+        checkEDT();
         if (index.length <= 0)
             return;
-        runnableQueue.submit(new Runnable() {
 
-            @Override
-            public void run() {
+        final List<SQLRowValues> rowVals = new ArrayList<SQLRowValues>(index.length);
+        for (int i : index) {
+            final SQLRowValues rowValues2 = RowValuesTableModel.this.rowValues.get(i);
+            rowVals.add(rowValues2);
+            RowValuesTableModel.this.rowValuesDeleted.add(rowValues2);
+        }
+        RowValuesTableModel.this.rowValues.removeAll(rowVals);
+        fireTableDataChanged();
 
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        synchronized (rowValues) {
-                            final List<SQLRowValues> rowVals = new ArrayList<SQLRowValues>(index.length);
-                            for (int i : index) {
-                                final SQLRowValues rowValues2 = RowValuesTableModel.this.rowValues.get(i);
-                                rowVals.add(rowValues2);
-                                RowValuesTableModel.this.rowValuesDeleted.add(rowValues2);
-                            }
-                            RowValuesTableModel.this.rowValues.removeAll(rowVals);
-                        }
-                        fireTableDataChanged();
-                    }
-                });
-            }
-        });
     }
 
-    public synchronized void addNewRow() {
-
+    public void addNewRow() {
         addNewRowAt(getRowCount());
     }
 
     public boolean isLastRowValid() {
-
         return isRowValid(this.rowValues.size() - 1);
     }
 
     public boolean isRowValid(int index) {
-
+        checkEDT();
         if (this.rowValues.size() == 0)
             return true;
 
@@ -459,6 +444,7 @@ public class RowValuesTableModel extends AbstractTableModel {
     }
 
     public void updateField(String field, SQLRowValues rowVals, String fieldCondition) {
+        checkEDT();
         if (rowVals != null) {
             int stop = this.rowValues.size();
 
@@ -523,10 +509,7 @@ public class RowValuesTableModel extends AbstractTableModel {
     }
 
     public void updateField(String field, int id, String fieldCondition) {
-        // System.out.println("RowValuesTableModel.updateField()" + field + " ->" + id);
-        // dumpValues();
         if (id > 0) {
-
             updateField(field, this.element.getTable().getForeignTable(field).getRow(id).createUpdateRow(), fieldCondition);
         }
     }
@@ -536,36 +519,30 @@ public class RowValuesTableModel extends AbstractTableModel {
     }
 
     public void insertFrom(final String field, final int id, final int exceptID) {
-        if (!SwingUtilities.isEventDispatchThread()) {
-            Thread.dumpStack();
-        }
+        checkEDT();
         if (id > 0) {
             runnableQueue.submit(new Runnable() {
 
                 @Override
                 public void run() {
 
-                    SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
-                    sel.addSelect(RowValuesTableModel.this.element.getTable().getKey());
-                    Where w = new Where(RowValuesTableModel.this.element.getTable().getField(field), "=", id);
-                    w = w.and(new Where(RowValuesTableModel.this.element.getTable().getKey(), "!=", exceptID));
+                    SQLSelect sel = new SQLSelect();
+                    final SQLTable table = RowValuesTableModel.this.element.getTable();
+                    sel.addSelectStar(table);
+                    Where w = new Where(table.getField(field), "=", id);
+                    w = w.and(new Where(table.getKey(), "!=", exceptID));
                     sel.setWhere(w);
-                    sel.addFieldOrder(RowValuesTableModel.this.element.getTable().getOrderField());
-                    String req = sel.asString();
+                    sel.addFieldOrder(table.getOrderField());
 
-                    final List<Map> l = RowValuesTableModel.this.element.getTable().getBase().getDataSource().execute(req);
+                    final List<SQLRow> listOfRows = SQLRowListRSH.execute(sel);
 
                     SwingUtilities.invokeLater(new Runnable() {
                         public void run() {
                             RowValuesTableModel.this.rowValues.clear();
-                            for (int i = 0; i < l.size(); i++) {
-                                Map m = l.get(i);
-                                Number idItem = (Number) m.get(RowValuesTableModel.this.element.getTable().getKey().getName());
-
-                                final SQLRow sqlrow = RowValuesTableModel.this.element.getTable().getRow(idItem.intValue());
-                                SQLRowValues row = sqlrow.createUpdateRow();
+                            for (int i = 0; i < listOfRows.size(); i++) {
+                                SQLRow sqlRow = listOfRows.get(i);
+                                SQLRowValues row = sqlRow.createUpdateRow();
                                 RowValuesTableModel.this.rowValues.add(row);
-
                             }
                             fireTableModelModified(RowValuesTableModel.this.rowValues.size());
                         }
@@ -627,8 +604,7 @@ public class RowValuesTableModel extends AbstractTableModel {
     }
 
     public void addRow(final SQLRowValues row, final boolean fireModified) {
-        if (!SwingUtilities.isEventDispatchThread())
-            Thread.dumpStack();
+        checkEDT();
 
         runnableQueue.submit(new Runnable() {
 
@@ -656,31 +632,22 @@ public class RowValuesTableModel extends AbstractTableModel {
                         }
                     });
                 }
+
             }
         });
     }
 
     public void clearRows() {
-        runnableQueue.submit(new Runnable() {
 
-            @Override
-            public void run() {
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        final int size = RowValuesTableModel.this.rowValues.size();
-                        if (size > 0) {
-                            RowValuesTableModel.this.rowValues.clear();
+        final int size = RowValuesTableModel.this.rowValues.size();
+        if (size > 0) {
+            RowValuesTableModel.this.rowValues.clear();
+            fireTableRowsDeleted(0, size - 1);
+        }
 
-                            fireTableRowsDeleted(0, size - 1);
-                        }
-                    }
-                });
-
-            }
-        });
     }
 
-    public SQLTableElement getSQLTableElementAt(int columnIndex) {
+    public synchronized SQLTableElement getSQLTableElementAt(int columnIndex) {
         if (columnIndex >= 0 && columnIndex < this.list.size()) {
             return this.list.get(columnIndex);
         } else {
@@ -688,7 +655,7 @@ public class RowValuesTableModel extends AbstractTableModel {
         }
     }
 
-    public int getColumnIndexForElement(SQLTableElement e) {
+    public synchronized int getColumnIndexForElement(SQLTableElement e) {
         for (int columnIndex = 0; columnIndex < this.list.size(); columnIndex++) {
             SQLTableElement sqlTableElem = this.list.get(columnIndex);
             if (sqlTableElem.equals(e)) {
@@ -699,8 +666,7 @@ public class RowValuesTableModel extends AbstractTableModel {
     }
 
     public SQLRowValues getRowValuesAt(int rowIndex) {
-        if (!SwingUtilities.isEventDispatchThread())
-            Thread.dumpStack();
+        checkEDT();
         return this.rowValues.get(rowIndex);
     }
 
@@ -713,8 +679,7 @@ public class RowValuesTableModel extends AbstractTableModel {
     }
 
     public void fireTableChanged(TableModelEvent event) {
-        if (!SwingUtilities.isEventDispatchThread())
-            Thread.dumpStack();
+        checkEDT();
         for (int i = 0; i < this.tableModelListeners.size(); i++) {
             TableModelListener l = this.tableModelListeners.get(i);
             l.tableChanged(event);
@@ -814,13 +779,13 @@ public class RowValuesTableModel extends AbstractTableModel {
      * @return le nouvel index
      */
     public int moveBy(int rowIndex, int inc) {
-        if (!SwingUtilities.isEventDispatchThread())
-            Thread.dumpStack();
+        checkEDT();
         int destIndex = rowIndex + inc;
 
         // On vérifie que l'on reste dans le tableau
         if (rowIndex >= 0 && destIndex >= 0) {
             if (rowIndex < this.rowValues.size() && destIndex < this.rowValues.size()) {
+
                 SQLRowValues rowValues1 = this.rowValues.get(rowIndex);
                 SQLRowValues rowValues2 = this.rowValues.get(destIndex);
                 this.rowValues.set(rowIndex, rowValues2);
@@ -835,6 +800,15 @@ public class RowValuesTableModel extends AbstractTableModel {
             }
         }
         return destIndex;
+    }
+
+    public List<SQLRowValues> getCopyOfValues() {
+        checkEDT();
+        List<SQLRowValues> vals = new ArrayList<SQLRowValues>(this.rowValues.size());
+        for (SQLRowValues sqlRowValues : this.rowValues) {
+            vals.add(sqlRowValues.asRowValues());
+        }
+        return vals;
     }
 
     /**

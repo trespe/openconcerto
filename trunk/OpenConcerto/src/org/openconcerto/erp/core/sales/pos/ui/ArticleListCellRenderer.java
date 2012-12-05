@@ -13,8 +13,6 @@
  
  package org.openconcerto.erp.core.sales.pos.ui;
 
-
-
 import org.openconcerto.erp.core.sales.pos.model.Article;
 
 import java.awt.Color;
@@ -24,6 +22,7 @@ import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.RenderingHints;
+import java.math.RoundingMode;
 
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -65,7 +64,7 @@ public class ArticleListCellRenderer implements ListCellRenderer {
         p.add(l, c);
         c.gridx++;
         c.weightx = 0;
-        final JLabel l2 = new JLabel(TicketCellRenderer.centsToString(article.getPriceInCents()) + "€");
+        final JLabel l2 = new JLabel(TicketCellRenderer.centsToString(article.getPriceInCents().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue()) + "€");
         p.add(l2, c);
         l.setFont(l.getFont().deriveFont(24f));
         l2.setFont(l2.getFont().deriveFont(24f));

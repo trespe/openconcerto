@@ -18,6 +18,7 @@ package org.openconcerto.sql.sqlobject;
 
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.ui.component.combo.VarDesc;
+import org.openconcerto.utils.CompareUtils;
 
 /**
  * @author ILM Informatique
@@ -92,7 +93,7 @@ public class IComboSelectionItem implements VarDesc, Comparable<IComboSelectionI
             final IComboSelectionItem item = (IComboSelectionItem) o;
             // have to test also the label, otherwise when a row is modified (and obviously don't
             // change id) Swing won't update it.
-            result = item.getId() == getId() && item.getLabel().equals(this.getLabel());
+            result = item.getId() == getId() && CompareUtils.equals(item.getLabel(), this.getLabel());
         } else {
             result = false;
         }
@@ -101,7 +102,7 @@ public class IComboSelectionItem implements VarDesc, Comparable<IComboSelectionI
 
     @Override
     public int hashCode() {
-        return this.fLabel.hashCode() + getId();
+        return this.getId() + (this.fLabel == null ? 0 : 31 * this.fLabel.hashCode());
     }
 
     public String asString(final int precision) {

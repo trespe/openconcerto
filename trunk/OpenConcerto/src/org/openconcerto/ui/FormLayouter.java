@@ -27,6 +27,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 import com.jgoodies.forms.layout.CellConstraints;
+import com.jgoodies.forms.layout.CellConstraints.Alignment;
 import com.jgoodies.forms.layout.FormLayout;
 import com.jgoodies.forms.layout.RowSpec;
 
@@ -47,7 +48,16 @@ public class FormLayouter {
 
     private static final String BORDER_GAP = "3dlu";
     private static final String ROW_GAP = BORDER_GAP;
-    private static final String ROW_HEIGHT = "top:p";
+    private static String ROW_HEIGHT;
+
+    public static final void setDefaultRowAlign(Alignment align) {
+        ROW_HEIGHT = align.abbreviation() + ":p";
+    }
+
+    static {
+        // that way labels are aligned with JTextComponents' content
+        setDefaultRowAlign(CellConstraints.CENTER);
+    }
 
     private final Container co;
     // le nombre de colonnes
@@ -57,6 +67,7 @@ public class FormLayouter {
     // le layout
     private final FormLayout layout;
     private final CellConstraints constraints;
+    private Alignment rowAlign;
     // les coordonnées de la prochaine cellule
     private int x, y;
 
@@ -71,6 +82,8 @@ public class FormLayouter {
         this.x = 0;
         this.y = 0;
         this.constraints = new CellConstraints();
+        // i.e. from ROW_HEIGHT
+        this.rowAlign = CellConstraints.DEFAULT;
 
         this.co = co;
         this.width = width;
@@ -86,6 +99,14 @@ public class FormLayouter {
         this.layout = new FormLayout(colSpec, rowSpec);
         this.layout.setColumnGroups(new int[][] { colGroups });
         co.setLayout(this.layout);
+    }
+
+    public final void setRowAlign(Alignment rowAlign) {
+        this.rowAlign = rowAlign;
+    }
+
+    public final Alignment getRowAlign() {
+        return this.rowAlign;
     }
 
     /**
@@ -124,10 +145,10 @@ public class FormLayouter {
         w = this.checkArgs(comp, w);
 
         final int realWidth = this.getRealFieldWidth(w);
-        // Guillaume : right alignment like the Mac ; vertically centred for checkboxes
+        // Guillaume : right alignment like the Mac
         final JLabel lab = new JLabel(desc);
-        this.co.add(lab, this.constraints.xy(this.getLabelX(), this.getY(), CellConstraints.RIGHT, CellConstraints.CENTER));
-        this.co.add(comp, this.constraints.xyw(this.getFieldX(), this.getY(), realWidth));
+        this.co.add(lab, this.constraints.xy(this.getLabelX(), this.getY(), CellConstraints.RIGHT, this.getRowAlign()));
+        this.co.add(comp, this.constraints.xyw(this.getFieldX(), this.getY(), realWidth, CellConstraints.DEFAULT, this.getRowAlign()));
         this.x += w;
         return lab;
     }
@@ -161,7 +182,7 @@ public class FormLayouter {
         p.setBorder(BorderFactory.createTitledBorder(desc));
         p.add(comp);
 
-        this.co.add(p, this.constraints.xyw(this.getLabelX(), this.getY(), realWidth));
+        this.co.add(p, this.constraints.xyw(this.getLabelX(), this.getY(), realWidth, CellConstraints.DEFAULT, this.getRowAlign()));
         this.x += w;
         return p;
     }

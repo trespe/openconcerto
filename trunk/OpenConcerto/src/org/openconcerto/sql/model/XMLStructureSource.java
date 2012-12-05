@@ -13,8 +13,11 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.Log;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.utils.cc.IncludeExclude;
 
 import java.io.File;
 import java.io.IOException;
@@ -22,15 +25,16 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.jdom.Document;
 import org.jdom.Element;
-import org.jdom.JDOMException;
 import org.jdom.input.SAXBuilder;
 
 public class XMLStructureSource extends StructureSource<IOException> {
@@ -39,20 +43,25 @@ public class XMLStructureSource extends StructureSource<IOException> {
      * Date format used in xml files.
      */
     public static final DateFormat XMLDATE_FMT = new SimpleDateFormat("yyyyMMdd-HHmmss.SSSZ");
-    public static final String version = "20100917-1546";
+    public static final String version = "20121123-1059";
 
     private final Map<String, Element> xmlSchemas;
 
-    private final Set<String> schemas;
+    private final Set<String> schemas, outOfDateSchemas;
     private final Set<SQLName> tableNames;
     private final Set<String> allSchemas;
+    private final DBItemFileCache dir;
 
-    public XMLStructureSource(SQLBase b, Set<String> scope) {
+    public XMLStructureSource(SQLBase b, TablesMap scope, DBItemFileCache dir) {
         super(b, scope);
         this.xmlSchemas = new HashMap<String, Element>();
         this.schemas = new HashSet<String>();
+        this.outOfDateSchemas = new HashSet<String>();
         this.allSchemas = new HashSet<String>();
         this.tableNames = new HashSet<SQLName>();
+        if (dir == null)
+            throw new NullPointerException("Null dir");
+        this.dir = dir;
         // the XML files could be corrupted, so we don't want to start reading them, dropping some
         // tables only to discover later that we can't finish. Tables having been dropped, we can't
         // fallback to JDBC.
@@ -76,58 +85,78 @@ public class XMLStructureSource extends StructureSource<IOException> {
             throw new IOException("could not get schemas", exn);
         }
 
-        String versionPb = "";
+        String problems = "";
+        final TablesMap outOfDateTables = new TablesMap();
         final SAXBuilder sxb = new SAXBuilder();
-        final List<String> savedSchemas = this.getBase().getSavedSchemas();
-        // remove out of scope for this refresh
-        this.filterOutOfScope(savedSchemas);
-        // remove inexistent schemas
-        savedSchemas.retainAll(this.allSchemas);
-        for (final String schemaName : savedSchemas) {
-            final File schemaFile = this.getBase().getSchemaFile(schemaName);
-            final Document document;
-            try {
-                document = sxb.build(schemaFile);
-            } catch (JDOMException e1) {
-                throw new IOException("couldn't parse " + schemaFile, e1);
-            }
-            final Element rootElem = document.getRootElement();
-            final Element schemaElem = rootElem.getChild("schema");
-            final String schemaNameAttr = schemaElem.getAttributeValue("name");
-            // for systems without schemas, names are null
-            if (!CompareUtils.equals(schemaName, schemaNameAttr))
-                throw new IOException("name attr: " + schemaNameAttr + " != " + schemaName + " :file name");
+        for (final DBItemFileCache savedSchema : this.dir.getSavedDesc(SQLSchema.class, SQLBase.FILENAME)) {
+            final String schemaName = savedSchema.getName();
+            // ignore out of scope for this refresh and inexistent schemas
+            if (!this.allSchemas.contains(schemaName) || !this.isInScope(schemaName))
+                continue;
 
-            // verify versions
-            String thisVersionBad = "";
+            final String schemaDBVersion = SQLSchema.getVersion(this.getBase(), schemaName);
+
+            final File schemaFile = savedSchema.getFile(SQLBase.FILENAME);
+            String schemaProblem = "";
+            Element schemaElem = null;
             try {
+                final Document document;
+                try {
+                    document = sxb.build(schemaFile);
+                } catch (Exception e1) {
+                    // catch all exceptions (i.e. including IOException) since they might not
+                    // contain the file
+                    throw new IOException("couldn't parse " + schemaFile, e1);
+                }
+                final Element rootElem = document.getRootElement();
+                schemaElem = rootElem.getChild("schema");
+                final String schemaNameAttr = schemaElem.getAttributeValue("name");
+                // for systems without schemas, names are null
+                if (!CompareUtils.equals(schemaName, schemaNameAttr))
+                    throw new IOException("name attr: " + schemaNameAttr + " != " + schemaName + " :file name");
+
+                // verify versions
                 final String codecVersion = rootElem.getAttributeValue("codecVersion");
-                thisVersionBad += isVersionBad(codecVersion, version);
-                thisVersionBad += isVersionBad(SQLSchema.getVersion(schemaElem), SQLSchema.getVersion(this.getBase(), schemaName));
+                schemaProblem += isVersionBad(codecVersion, version);
+                // the schema itself is out of date (it might miss some new tables or still contains
+                // dropped tables), but some tables inside may be up to date, so don't add to
+                // schemaProblem
+                if (isVersionBad(SQLSchema.getVersion(schemaElem), schemaDBVersion).length() > 0)
+                    this.outOfDateSchemas.add(schemaName);
             } catch (Exception e) {
-                thisVersionBad += ExceptionUtils.getStackTrace(e);
+                schemaProblem += ExceptionUtils.getStackTrace(e);
             }
             // remove spaces added by isVersionBad()
-            thisVersionBad = thisVersionBad.trim();
-            if (thisVersionBad.length() > 0) {
-                schemaFile.delete();
+            schemaProblem = schemaProblem.trim();
+            if (schemaProblem.length() > 0) {
+                // delete all files not just structure, since every information about obsolete
+                // schemas is obsolete
+                savedSchema.delete(Boolean.getBoolean(SQLBase.STRUCTURE_KEEP_INVALID_XML));
                 // don't throw right away, continue deleting invalid files
-                versionPb += thisVersionBad;
-            }
-
-            if (versionPb.isEmpty()) {
+                problems += schemaProblem;
+            } else {
+                assert schemaElem != null;
                 this.xmlSchemas.put(schemaName, schemaElem);
 
                 this.schemas.add(schemaName);
+                final IncludeExclude<String> tablesToRefresh = this.getTablesInScope(schemaName);
                 final List l = schemaElem.getChildren("table");
                 for (int i = 0; i < l.size(); i++) {
                     final Element elementTable = (Element) l.get(i);
-                    this.tableNames.add(new SQLName(schemaName, elementTable.getAttributeValue("name")));
+                    final String tableName = elementTable.getAttributeValue("name");
+                    if (tablesToRefresh.isIncluded(tableName)) {
+                        if (isVersionBad(SQLSchema.getVersion(elementTable), schemaDBVersion).length() == 0)
+                            this.tableNames.add(new SQLName(schemaName, tableName));
+                        else
+                            outOfDateTables.add(schemaName, tableName);
+                    }
                 }
             }
         }
-        if (versionPb.length() > 0)
-            throw new IllegalStateException("files with wrong versions: " + versionPb);
+        if (problems.length() > 0)
+            SQLBase.logCacheError(this.dir, new IllegalStateException("invalid files : " + problems));
+        if (outOfDateTables.size() > 0)
+            Log.get().config("Ignoring out of date tables : " + outOfDateTables);
     }
 
     private String isVersionBad(String xmlVersion, String actualVersion) {
@@ -145,10 +174,17 @@ public class XMLStructureSource extends StructureSource<IOException> {
         return this.tableNames;
     }
 
-    protected void fillTables(final Set<String> newSchemas) {
-        for (final String schemaName : newSchemas) {
+    @Override
+    final Set<String> getOutOfDateSchemas() {
+        return Collections.unmodifiableSet(this.outOfDateSchemas);
+    }
+
+    @Override
+    protected void fillTables(final TablesMap newSchemas) {
+        for (final Entry<String, Set<String>> e : newSchemas.entrySet()) {
+            final String schemaName = e.getKey();
             final Element schemaElem = this.xmlSchemas.get(schemaName);
-            this.getNewSchema(schemaName).load(schemaElem);
+            this.getNewSchema(schemaName).load(schemaElem, e.getValue());
         }
     }
 

@@ -90,6 +90,10 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
             this.init(null, choices);
     }
 
+    public final boolean isInited() {
+        return this.choices.size() > 0;
+    }
+
     /**
      * Init this component. If a value of <code>choices</code> is <code>null</code> the ID will be
      * used as the label.
@@ -100,6 +104,10 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
      *        <code>null</code>.
      */
     public final void init(final V emptyID, final Map<V, String> choices) {
+        if (choices.isEmpty())
+            throw new IllegalArgumentException("Empty choices");
+        if (this.isInited())
+            throw new IllegalStateException("Already inited : " + this.choices.keySet());
         this.emptyID = emptyID;
         for (final Map.Entry<V, String> e : choices.entrySet()) {
             final V choice = e.getKey();
@@ -137,9 +145,11 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
                 this.add(btn);
             }
         }
+        this.revalidate();
+        assert this.isInited();
 
-        // initialise la valeur à indéfini
-        this.resetValue();
+        // select the button
+        this.setValue(this.value);
     }
 
     private void valueChanged(V id) {
@@ -151,12 +161,14 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
     private final void addBtn(String btnLabel, V id) {
         final JRadioButton btn = new JRadioButton(btnLabel);
         btn.setOpaque(false);
+        btn.setEnabled(this.isEnabled());
         for (final MouseListener l : this.mouseListeners) {
             btn.addMouseListener(l);
         }
         this.choices.put(id, btn);
     }
 
+    @Override
     public final void setEnabled(boolean b) {
         super.setEnabled(b);
         for (final JRadioButton btn : this.choices.values()) {
@@ -172,11 +184,15 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
      * @param id the id of the button to select, <code>null</code> means the empty ID.
      */
     public void setValue(V id) {
-        // treat unknown value as empty
-        // MAYBE add a boolean to throw an exception
-        if (id == null || !this.choices.containsKey(id))
-            id = this.emptyID;
-        this.choices.get(id).setSelected(true);
+        if (!this.isInited()) {
+            this.valueChanged(id);
+        } else {
+            // treat unknown value as empty
+            // MAYBE add a boolean to throw an exception
+            if (id == null || !this.choices.containsKey(id))
+                id = this.emptyID;
+            this.choices.get(id).setSelected(true);
+        }
     }
 
     public final V getValue() {

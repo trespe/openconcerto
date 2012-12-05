@@ -250,6 +250,7 @@ public abstract class StyleDesc<S extends Style> {
         return false;
     }
 
+    // evaluate conditions in styleMaps and return the first that evaluates to true
     protected Element evaluateConditions(final StyledNode<S, ?> styledNode, final List<Element> styleMaps) {
         return null;
     }
@@ -267,12 +268,25 @@ public abstract class StyleDesc<S extends Style> {
      */
     public final S createAutoStyle(final ODPackage pkg, final String baseName) {
         final ODXMLDocument xml = pkg.getContent();
-        final Namespace style = xml.getVersion().getSTYLE();
-        final Element elem = new Element(getElementName(), getElementNS());
-        this.initStyle(elem);
-        elem.setAttribute("name", xml.findUnusedName(this, baseName), style);
+        final Element elem = createElement(xml.findUnusedName(this, baseName));
         xml.addAutoStyle(elem);
         return this.create(pkg, elem);
+    }
+
+    public final S createCommonStyle(final ODPackage pkg, final String styleName) {
+        final ODXMLDocument styles = pkg.getStyles();
+        if (pkg.getStyle(styles.getDocument(), this, styleName) != null)
+            throw new IllegalArgumentException("Existing style " + styleName);
+        final Element elem = createElement(styleName);
+        styles.getChild("styles", true).addContent(elem);
+        return this.create(pkg, elem);
+    }
+
+    protected final Element createElement(final String styleName) {
+        final Element elem = new Element(getElementName(), getElementNS());
+        this.initStyle(elem);
+        elem.setAttribute("name", styleName, getVersion().getSTYLE());
+        return elem;
     }
 
     protected void initStyle(final Element elem) {

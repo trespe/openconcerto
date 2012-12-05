@@ -112,11 +112,19 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
     // *** setValue
 
     private void setValueAttributes(ODValueType type, Object val) {
+        final Attribute valueTypeAttr = this.getElement().getAttribute("value-type", getValueNS());
+        // e.g. DATE
+        final ODValueType currentType = valueTypeAttr == null ? null : ODValueType.get(valueTypeAttr.getValue());
+        // remove old value attribute (assume Element is valid, otherwise we would need to remove
+        // all possible value attributes)
+        if (currentType != null && !currentType.equals(type)) {
+            // e.g. @date-value
+            this.getElement().removeAttribute(currentType.getValueAttribute(), getValueNS());
+        }
+
         if (type == null) {
-            final Attribute valueTypeAttr = this.getElement().getAttribute("value-type", getValueNS());
             if (valueTypeAttr != null) {
                 valueTypeAttr.detach();
-                this.getElement().removeAttribute(ODValueType.get(valueTypeAttr.getValue()).getValueAttribute(), getValueNS());
             }
         } else {
             this.getElement().setAttribute("value-type", type.getName(), getValueNS());

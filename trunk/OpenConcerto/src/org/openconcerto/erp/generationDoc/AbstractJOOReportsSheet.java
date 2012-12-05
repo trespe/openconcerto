@@ -84,6 +84,10 @@ public abstract class AbstractJOOReportsSheet {
         return result.toString();
     }
 
+    public abstract String getDefaultTemplateID();
+
+    public abstract String getDefaultLocationProperty();
+
     protected void init(String year, String templateId, String attributePrinter) {
         this.year = year;
         this.templateId = templateId;
@@ -110,7 +114,7 @@ public abstract class AbstractJOOReportsSheet {
 
             String fileName = getFileName();
             final InputStream fileTemplate = TemplateManager.getInstance().getTemplate(this.templateId);
-            File outputDir = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(this.templateId);
+            File outputDir = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(getDefaultTemplateID());
             File fileOutOO = getDocumentFile();
             if (fileOutOO.exists() && overwrite) {
                 if (this.askOverwriting) {
@@ -147,7 +151,7 @@ public abstract class AbstractJOOReportsSheet {
                     final Component doc = ooConnexion.loadDocument(fileOutOO, !show);
 
                     if (this.savePDF()) {
-                        File pdfOutputDir = DocumentLocalStorageManager.getInstance().getPDFOutputDirectory(templateId);
+                        File pdfOutputDir = DocumentLocalStorageManager.getInstance().getPDFOutputDirectory(getDefaultTemplateID());
                         doc.saveToPDF(new File(pdfOutputDir, fileName + ".pdf"), "writer_pdf_Export");
                     }
                     if (print) {
@@ -198,7 +202,7 @@ public abstract class AbstractJOOReportsSheet {
     }
 
     private File getDocumentFile() {
-        File outputDir = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(templateId);
+        File outputDir = DocumentLocalStorageManager.getInstance().getDocumentOutputDirectory(getDefaultTemplateID());
         return new File(outputDir, getFileName() + ".odt");
     }
 

@@ -29,30 +29,30 @@ public class ModuleTableModel extends AbstractTableModel {
 
     static private final int CB_INDEX = 0;
 
-    private final IFactory<? extends Collection<ModuleFactory>> rowSource;
-    private List<ModuleFactory> list;
-    private final Set<ModuleFactory> selection;
+    private final IFactory<? extends Collection<ModuleReference>> rowSource;
+    private List<ModuleReference> list;
+    private final Set<ModuleReference> selection;
 
-    public ModuleTableModel(IFactory<? extends Collection<ModuleFactory>> rowSource) {
+    public ModuleTableModel(IFactory<? extends Collection<ModuleReference>> rowSource) {
         this.rowSource = rowSource;
-        this.selection = new HashSet<ModuleFactory>();
+        this.selection = new HashSet<ModuleReference>();
         this.reload();
     }
 
     public final void reload() {
-        this.list = new ArrayList<ModuleFactory>(this.rowSource.createChecked());
+        this.list = new ArrayList<ModuleReference>(this.rowSource.createChecked());
         // sort alphabetically
-        Collections.sort(this.list, new Comparator<ModuleFactory>() {
+        Collections.sort(this.list, new Comparator<ModuleReference>() {
             @Override
-            public int compare(ModuleFactory o1, ModuleFactory o2) {
-                return o1.getID().compareTo(o2.getID());
+            public int compare(ModuleReference o1, ModuleReference o2) {
+                return o1.getId().compareTo(o2.getId());
             }
         });
         this.selection.retainAll(this.list);
         this.fireTableDataChanged();
     }
 
-    public final Collection<ModuleFactory> getCheckedRows() {
+    public final Set<ModuleReference> getCheckedRows() {
         return Collections.unmodifiableSet(this.selection);
     }
 
@@ -66,7 +66,7 @@ public class ModuleTableModel extends AbstractTableModel {
         return this.list.size();
     }
 
-    protected final ModuleFactory getFactory(int i) {
+    protected final ModuleReference getModuleReference(int i) {
         return this.list.get(i);
     }
 
@@ -87,10 +87,14 @@ public class ModuleTableModel extends AbstractTableModel {
 
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
-        final ModuleFactory f = this.getFactory(rowIndex);
+        final ModuleReference f = this.getModuleReference(rowIndex);
         if (columnIndex == 1) {
             try {
-                return f.getName();
+                final ModuleFactory moduleFactory = ModuleManager.getInstance().getFactories().get(f.getId());
+                if (moduleFactory != null) {
+                    return moduleFactory.getName();
+                }
+                return f.getId();
             } catch (Exception e) {
                 return e.getMessage();
             }
@@ -111,9 +115,9 @@ public class ModuleTableModel extends AbstractTableModel {
     public void setValueAt(Object value, int rowIndex, int columnIndex) {
         if (columnIndex == CB_INDEX) {
             if ((Boolean) value)
-                this.selection.add(this.getFactory(rowIndex));
+                this.selection.add(this.getModuleReference(rowIndex));
             else
-                this.selection.remove(this.getFactory(rowIndex));
+                this.selection.remove(this.getModuleReference(rowIndex));
         }
     }
 

@@ -1,0 +1,199 @@
+<translation lang="fr">
+	<!-- File -->
+	<menu id="menu.file" label="Fichier" />
+	<menu id="backup" label="Sauvegarde" />
+	<menu id="export.accounting" label="Export relation expert" />
+	<menu id="modules" label="Modules" />
+	<menu id="preferences" label="Préférences" />
+	<menu id="quit" label="Quitter" />
+	<!-- Creation -->
+	<menu id="menu.create" label="Saisie" />
+	<menu id="accounting" label="Comptabilité" />
+	<menu id="accounting.entry.create" label="Ecritures comptables" />
+	<menu id="customer" label="Clients" />
+	<menu id="customer.quote.create" label="Devis" />
+	<menu id="customer.letter.create" label="Courrier" />
+	<menu id="customer.proposal.create" label="Proposition" />
+	<menu id="project.create" label="Affaire" />
+	<menu id="appointment.create" label="Fiche de rendez-vous" />
+	<menu id="mission.create" label="Ordre de mission" />
+	<menu id="mission.notice.create" label="Avis d'intervention" />
+	<menu id="customer.delivery.create" label="Bon de livraison" />
+	<menu id="customer.order.create" label="Commande" />
+	<menu id="pos.sale.create" label="Vente comptoir" />
+	<menu id="customer.invoice.create" label="Facture" />
+	<menu id="kd.invoice.create" label="Facture CTC" />
+	<menu id="customer.credit.create" label="Facture d'avoir" />
+	<menu id="supplier" label="Fournisseur" />
+	<menu id="supplier.order.create" label="Commande fournisseur" />
+	<menu id="supplier.receipt.create" label="Bon de réception" />
+	<menu id="supplier.purchase.create" label="Achat fournisseur" />
+	<menu id="supplier.credit.create" label="Avoir fournisseur" />
+	<menu id="stock.io.create" label="Mouvement de stock" />
+
+	<!-- List -->
+	<menu id="menu.list" label="Gestion" />
+	<menu id="menu.list.customer" label="Gestion des clients" />
+	<menu id="customer.list" label="Liste des clients" />
+	<menu id="contact.list" label="Liste des contacts" />
+	<menu id="customer.history" label="Historique des clients" />
+	<menu id="customer.quote.list" label="Liste des devis" />
+	<menu id="customer.proposal.list" label="Liste des propositions" />
+	<menu id="customer.proposal.item.list" label="Liste des éléments de proposition" />
+	<menu id="menu.list.mission" label="Missions" />
+	<menu id="project.list" label="Liste des affaires" />
+	<menu id="mission.list" label="Liste des missions" />
+	<menu id="appointment.list" label="Liste des rendez-vous" />
+	<menu id="appointment.unplanned.list" label="" />
+	<menu id="appointment.notvalidated.list" label="" />
+	<menu id="mission.order.list" label="" />
+	<menu id="mission.notice.list" label="" />
+	<menu id="customer.order.list" label="Liste des commmandes" />
+	<menu id="customer.delivery.list" label="Liste des bons de livraison" />
+	<menu id="sales.list" label="Liste des ventes" />
+	<menu id="customer.invoice.list" label="Liste des factures" />
+	<menu id="payment.factoring.create" label="" />
+	<menu id="payment.factoring.list" label="" />
+	<menu id="customer.credit.list" label="Liste des avoirs" />
+	<menu id="menu.list.supplier" label="Fournisseurs" />
+	<menu id="supplier.list" label="Liste des fournisseurs" />
+	<menu id="supplier.contact.list" label="Liste des contact fournisseur" />
+	<menu id="supplier.history" label="Historique des fournisseurs" />
+	<menu id="supplier.order.list" label="Liste des commandes fournisseur" />
+	<menu id="supplier.receipt.list" label="Liste des bons de réception" />
+	<menu id="supplier.purchase.list" label="Liste des saisies d'achat" />
+	<menu id="supplier.credit.list" label="Liste des avoirs fournisseur" />
+	<menu id="product.list" label="Liste des articles" />
+	<menu id="product.reference.list" label="Liste des références" />
+	<menu id="stock.io.list" label="Listes des mouvements de stock" />
+	<menu id="menu.list.pos" label="Point de vente" />
+	<menu id="pos.receipt.list" label="Liste des tickets de caisse" />
+	<menu id="pos.sales.report" label="Liste des ventes en caisse" />
+	<menu id="sales.report" label="" />
+	<!-- Accounting -->
+	<menu id="menu.accounting" label="Etats" />
+	<menu id="accounting.balance" label="Balance" />
+	<menu id="accounting.client.balance" label="Balance agée" />
+	<menu id="accounting.analytical.result" label="Compte de résultat analytique" />
+	<menu id="accounting.ledger" label="Journaux" />
+	<menu id="accounting.general.ledger" label="Grand livre" />
+	<menu id="accounting.entries.ledger" label="Liste des écritures" />
+	<menu id="accounting.entries.list" label="Liste des écritures par classe" />
+	<menu id="menu.accounting.closing" label="Clôture" />
+	<menu id="accounting.validating" label="Validation des écritures" />
+	<menu id="accounting.closing" label="Assistant de clôture" />
+	<!-- Documents -->
+	<menu id="menu.report" label="Déclaration" />
+	<menu id="accounting.vat.report" label="Déclaration de TVA" />
+	<menu id="accounting.costs.report" label="Etat des charges" />
+	<menu id="accounting.balance.report" label="Compte de résultat et bilan" />
+	<menu id="employe.social.report" label="Déclaration N4DS" />
+	<!-- Stats -->
+	<menu id="menu.stats" label="Statistique" />
+	<menu id="sales.graph" label="Evolution du chiffre d'affaires" />
+	<menu id="sales.margin.graph" label="Evolution des marges" />
+	<menu id="sales.list.report" label="Journal des ventes" />
+	<menu id="sales.product.graph" label="Articles les plus vendus" />
+	<menu id="sales.product.margin.graph" label="Articles les plus rentables" />
+	<menu id="sales.list.graph" label="Etat des ventes" />
+	<!-- Payment -->
+	<menu id="menu.payment" label="Paiement" />
+	<menu id="payment.checking.create" label="Pointage manuel par compte" />
+	<menu id="payment.reconciliation.create" label="Lettrage manuel par compte" />
+	<menu id="menu.payment.customer" label="Clients" />
+	<menu id="customer.invoice.unpaid.list" label="Factures clients non payées" />
+	<menu id="customer.dept.list" label="Liste des débiteurs" />
+	<menu id="customer.payment.list" label="Liste des encaissements" />
+	<menu id="customer.payment.followup.list" label="Liste des relances" />
+	<menu id="customer.payment.check.pending.list" label="Chèques des clients" />
+	<menu id="customer.payment.check.pending.create" label="Chèques à encaisser" />
+	<menu id="customer.credit.check.list" label="Chèques d'avoir" />
+	<menu id="customer.credit.check.create" label="Chèques d'avoir à décaisser" />
+	<menu id="menu.payment.supplier" label="Fournisseurs" />
+	<menu id="supplier.invoice.unpaid.list" label="Factures fournisseurs impayées" />
+	<menu id="supplier.bill.list" label="Liste des traites et virements aux fournisseurs" />
+	<menu id="supplier.payment.check.list" label="Chèques aux fournisseurs" />
+	<menu id="supplier.payment.check.pending.list" label="Chèques à décaisser" />
+	<!-- Payroll -->
+	<menu id="menu.payroll" label="Paye" />
+	<menu id="payroll.list.report.print" label="Livre de paye" />
+	<menu id="payroll.profile.list" label="Liste des profils de paye" />
+	<menu id="payroll.history" label="Liste des fiches de paye" />
+	<menu id="payroll.create" label="Edition des fiches de paye" />
+	<menu id="payroll.deposit.create" label="Acompte sur salaire" />
+	<menu id="employee.list" label="Liste des salariés" />
+	<menu id="payroll.section" label="Liste des rubriques de paye" />
+	<menu id="payroll.variable" label="Liste des variables et plafonds" />
+	<menu id="payroll.closing" label="Clôture mensuelle" />
+	<!-- Organization -->
+	<menu id="menu.organization" label="Structure" />
+	<menu id="accounting.chart" label="Plan comptable de l'entreprise" />
+	<menu id="accounting.journal" label="Gestion des journaux comptables" />
+	<menu id="user.list" label="Liste des utilisateurs" />
+	<menu id="user.right.list" label="Gestion des droits" />
+	<menu id="user.task.right" label="Autorisations liées aux tâches" />
+	<menu id="salesman.list" label="Liste des commerciaux" />
+	<menu id="pos.list" label="Liste des caisses" />
+	<menu id="secretary.list" label="Liste des secrétaires" />
+	<menu id="auditor.list" label="Liste des vérificateurs" />
+	<menu id="index.list" label="Liste des indices" />
+	<menu id="enterprise.list" label="Liste des sociétés" />
+	<menu id="divison.list" label="" />
+	<menu id="divison.bank.list" label="" />
+	<menu id="enterprise.create" label="Nouvelle société" />
+	<menu id="mission.sample.list" label="" />
+	<menu id="mission.code.list" label="" />
+	<menu id="department.list" label="" />
+	<!-- Test -->
+	<menu id="menu.test" label="En test" />
+	<!-- Help -->
+	<menu id="menu.help" label="Aide" />
+	<menu id="information" label="Informations" />
+	<menu id="tips" label="Astuces" />
+	<!-- Quote -->
+	<action id="sales.quote.accept" label="Marquer comme accepté" />
+	<action id="sales.quote.refuse" label="Marquer comme refusé" />
+	<action id="sales.quote.create.invoice" label="Transfert vers facture" />
+	<action id="sales.quote.create.supplier.order" label="Transférer en commande" />
+	<action id="sales.quote.clone" label="Créer à partir de" />
+	<action id="sales.quote.create.customer.order" label="Transfert vers commande client" />
+	<action id="sales.quote.accept.create.customer.order" label="Marquer comme accepté et Transfert en commande client" />
+	<!-- Customer -->
+	<action id="customerrelationship.customer.label.print" label="Imprimer l'étiquette client" />
+	<action id="customerrelationship.customer.info.create" label="Créer la fiche client" />
+	<action id="customerrelationship.customer.email.send" label="Envoyer un email" />
+	<!-- Matching -->
+	<action id="financing.accouning.entries.source.show" label="Voir la source" />
+	<action id="financing.accouning.entries.match" label="Lettrer" />
+	<action id="financing.accouning.entries.unmatch" label="Délettrer" />
+	<!-- Invoice -->
+	<action id="sales.invoice.purchase.update" label="Mettre à jour le total achat" />
+	<action id="sales.invoice.comment.add" label="Ajouter un commentaire" />
+	<action id="sales.invoice.create.delivery" label="Transférer en bon de livraison" />
+	<action id="sales.invoice.create.credit" label="Transférer en avoir" />
+	<action id="sales.invoice.clone" label="Créer à partir de" />
+	<action id="sales.invoice.info.show" label="Détails client" />
+	<action id="sales.invoice.create.supplier.order" label="Transférer en commande" />
+	<action id="sales.shipment.create.invoice" label="Transfert en facture" />
+
+	<!-- Document -->
+	<action id="document.quickprint" label="Impression rapide" />
+	<action id="document.print" label="Impression..." />
+	<action id="document.print.all" label="Imprimer les documents" />
+	<action id="document.preview" label="Voir le document" />
+	<action id="document.modify" label="Modifier le document avec OpenOffice" />
+	<action id="document.create" label="Générer le document" />
+	<action id="document.pdf.send.email" label="Envoyer le document PDF par email" />
+	<action id="document.send.email" label="Envoyer le document par email" />
+
+	<!-- Supplier order -->
+	<action id="supplychain.order.create.purchase" label="Transfert vers saisie achat" />
+	<action id="supplychain.order.create.receipt" label="Transfert vers bon de réception" />
+
+	<!-- Customer order -->
+	<action id="sales.order.create.deliverynote" label="Transfert vers bon de livraison" />
+	<action id="sales.order.create.invoice" label="Transfert vers facture" />
+	<action id="sales.order.create.supplier.order" label="Transfert vers commande fournisseur" />
+
+
+</translation>

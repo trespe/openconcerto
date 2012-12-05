@@ -44,21 +44,21 @@ public class SQLRequestLogModel extends DefaultTableModel {
     public String getColumnName(int columnIndex) {
         switch (columnIndex) {
         case 0:
-            return "Heure";
+            return "Time";
         case 1:
-            return "Durée SQL";
+            return "SQL";
         case 2:
-            return "Durée traitement";
+            return "Processing";
         case 3:
-            return "Durée cleanup";
+            return "Cleanup";
         case 4:
-            return "Durée totale";
+            return "Total duration";
         case 5:
-            return "Requête";
+            return "Query";
         case 6:
-            return "Infos";
+            return "Info";
         case 7:
-            return "Connexion";
+            return "Connection";
         case 8:
             return "Thread";
         }
@@ -87,7 +87,7 @@ public class SQLRequestLogModel extends DefaultTableModel {
         case 5:
             return l.getQuery();
         case 6:
-            return l.getConnection();
+            return l.getComment();
         case 7:
             if (l.getConnectionId() == 0)
                 return "";

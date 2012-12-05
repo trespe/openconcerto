@@ -5,13 +5,17 @@ import java.awt.RenderingHints;
 
 public class BottomAxis extends Axis {
 
-    public BottomAxis(Axis a) {
+    boolean leftAlign;
+
+    public BottomAxis(Axis a, boolean leftAlign) {
         super("x");
         this.addLabels(a.getLabels());
+        this.leftAlign = leftAlign;
     }
 
-    public BottomAxis() {
+    public BottomAxis(boolean leftAlign) {
         super("x");
+        this.leftAlign = leftAlign;
     }
 
     public void render(Graphics2D g) {
@@ -27,12 +31,13 @@ public class BottomAxis extends Axis {
             } else {
                 x = i * dx;
             }
-            g.drawLine((int) x, getY(), (int) x, getY() + getMarkerLenght());
+            int alignment = (this.leftAlign ? getX() : 0);
+            g.drawLine(alignment + (int) x, getY(), alignment + (int) x, getY() + getMarkerLenght());
             int labelH = g.getFontMetrics().getAscent();
             double labelW = (int) g.getFontMetrics().getStringBounds(label.getLabel(), g).getWidth() / 2 - 1;
             // Label
             g.setColor(label.getColor());
-            g.drawString(label.getLabel(), (int) (x - labelW), labelH + getY() + getMarkerLenght() + getMarkerSpacing());
+            g.drawString(label.getLabel(), alignment + (int) (x - labelW), labelH + getY() + getMarkerLenght() + getMarkerSpacing());
 
         }
         g.setColor(this.getColor());

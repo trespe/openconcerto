@@ -120,8 +120,8 @@ public class SQLTextComboTableCellEditor extends AbstractCellEditor implements T
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
         if (value != null) {
             this.val = (Integer) value;
+            this.comboBox.setValue(this.val);
         }
-        this.comboBox.setValue(Integer.valueOf(value.toString()));
         this.comboBox.grabFocus();
 
         this.comboBox.addValueListener(new PropertyChangeListener() {

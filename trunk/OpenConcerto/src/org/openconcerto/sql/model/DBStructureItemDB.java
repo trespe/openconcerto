@@ -95,9 +95,10 @@ public class DBStructureItemDB extends DBStructureItem<DBStructureItemDB> {
                 for (final Entry<String, ? extends DBStructureItemJDBC> e : jdbcChildren.entrySet()) {
                     res.put(e.getKey(), getDB(e.getValue()));
                 }
+                res = Collections.unmodifiableMap(res);
                 synchronized (this) {
                     this.childrenJDBC = jdbcChildren;
-                    this.children = Collections.unmodifiableMap(res);
+                    this.children = res;
                 }
             }
             return res;

@@ -42,9 +42,14 @@ public abstract class CreateFrameAbstractAction extends AbstractAction {
         final JFrame frame = createFrame();
         frame.setIconImages(Gestion.getFrameIcon());
 
-        WindowStateManager stateManager = new WindowStateManager(frame, new File(Configuration.getInstance().getConfDir(), "Configuration" + File.separator + "Frame" + File.separator
-                + this.getValue(Action.NAME).toString() + ".xml"), true);
-
+        final Object name = this.getValue(Action.NAME);
+        WindowStateManager stateManager = null;
+        if (name != null) {
+            stateManager = new WindowStateManager(frame, new File(Configuration.getInstance().getConfDir(), "Configuration" + File.separator + "Frame" + File.separator + name.toString() + ".xml"),
+                    true);
+        } else {
+            System.err.println("Warning: no action name for action " + this + ", unable to use a window state manager.");
+        }
         frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         frame.pack();
 
@@ -53,7 +58,7 @@ public abstract class CreateFrameAbstractAction extends AbstractAction {
         int h = Math.min(d.height - 100, frame.getHeight());
         frame.setMinimumSize(new Dimension(w, h));
         frame.setLocationRelativeTo(null);
-        if (mustLoadState) {
+        if (mustLoadState && stateManager != null) {
             stateManager.loadState();
         }
         FrameUtil.show(frame);

@@ -17,9 +17,9 @@ import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.order.component.CommandeClientSQLComponent;
+import org.openconcerto.erp.core.sales.order.ui.CommandeClientRenderer;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.sales.shipment.component.BonDeLivraisonSQLComponent;
-import org.openconcerto.erp.core.supplychain.order.component.CommandeSQLComponent;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
@@ -30,8 +30,13 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.SQLTableModelColumn;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.cc.IClosure;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -39,6 +44,7 @@ import java.util.Set;
 
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
+import javax.swing.table.TableColumn;
 
 public class CommandeClientSQLElement extends ComptaSQLConfElement {
 
@@ -87,6 +93,25 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
         Set<String> s = new HashSet<String>();
         s.add("ID_DEVIS");
         return s;
+    }
+
+    @Override
+    protected SQLTableModelSourceOnline createTableSource() {
+        SQLTableModelSourceOnline source = super.createTableSource();
+
+        final CommandeClientRenderer rend = CommandeClientRenderer.getInstance();
+
+        for (SQLTableModelColumn col : source.getColumns()) {
+            col.setColumnInstaller(new IClosure<TableColumn>() {
+
+                @Override
+                public void executeChecked(TableColumn input) {
+                    input.setCellRenderer(rend);
+
+                }
+            });
+        }
+        return source;
     }
 
     /*
@@ -182,12 +207,14 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
             rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
             rowValsElt.put("QTE", sqlRow.getObject("QTE"));
             rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
-            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
-            rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
+
+            rowValsElt.put("T_PA_HT", ((BigDecimal) rowValsElt.getObject("PA_HT")).multiply(new BigDecimal(rowValsElt.getInt("QTE")), MathContext.DECIMAL128));
+            rowValsElt.put("T_PA_TTC",
+                    ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal((rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0)), MathContext.DECIMAL128));
 
             map.put(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
 
         }
-        MouvementStockSQLElement.createCommandeF(map, rowCmd.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"));
+        MouvementStockSQLElement.createCommandeF(map, rowCmd.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"), rowCmd.getString("NUMERO") + " - " + rowCmd.getString("NOM"));
     }
 }

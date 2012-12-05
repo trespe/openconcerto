@@ -19,7 +19,7 @@ import org.openconcerto.erp.core.sales.shipment.report.BonLivraisonXmlSheet;
 import org.openconcerto.erp.core.sales.shipment.ui.BonLivraisionRenderer;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
@@ -75,12 +75,12 @@ public class ListeDesBonsDeLivraisonAction extends CreateFrameAbstractAction {
         edit1.getPanel().getListe().addIListeActions(new MouseSheetXmlListeListener(BonLivraisonXmlSheet.class) {
             @Override
             public List<RowAction> addToMenu() {
-                PredicateRowAction actionTransfertFacture = new PredicateRowAction(new AbstractAction("Transfert en facture") {
+                PredicateRowAction actionTransfertFacture = new PredicateRowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent ev) {
-                        transfertFactureClient(IListe.get(ev).getSelectedRow());
+                        transfertFactureClient(IListe.get(ev).getSelectedRows());
                     }
-                }, false);
-                actionTransfertFacture.setPredicate(IListeEvent.getSingleSelectionPredicate());
+                }, false, "sales.shipment.create.invoice");
+                actionTransfertFacture.setPredicate(IListeEvent.getNonEmptySelectionPredicate());
                 List<RowAction> l = new ArrayList<RowAction>();
                 l.add(actionTransfertFacture);
 
@@ -96,8 +96,8 @@ public class ListeDesBonsDeLivraisonAction extends CreateFrameAbstractAction {
      * 
      * @param row
      */
-    private void transfertFactureClient(SQLRow row) {
+    private void transfertFactureClient(List<SQLRowAccessor> rows) {
         BonDeLivraisonSQLElement elt = (BonDeLivraisonSQLElement) Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON");
-        elt.transfertFacture(row.getID());
+        elt.transfertFacture(rows);
     }
 }

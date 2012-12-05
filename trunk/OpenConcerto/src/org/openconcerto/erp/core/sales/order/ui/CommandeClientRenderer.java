@@ -25,19 +25,23 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.table.AlternateTableCellRenderer;
-import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.ui.table.TableCellRendererDecorator;
 
+import java.awt.Color;
 import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JTable;
 
-public class CommandeClientRenderer extends DeviseNiceTableCellRenderer {
+public class CommandeClientRenderer extends TableCellRendererDecorator {
 
     private static HashSet<Integer> setFacture = new HashSet<Integer>();
     private static HashSet<Integer> setBon = new HashSet<Integer>();
@@ -114,6 +118,11 @@ public class CommandeClientRenderer extends DeviseNiceTableCellRenderer {
     }
 
     private static CommandeClientRenderer instance = null;
+    private static final Map<Color, Color> COLORS = new HashMap<Color, Color>();
+    static {
+        COLORS.put(DeviseNiceTableCellRenderer.couleurFacture, DeviseNiceTableCellRenderer.couleurFactureMore);
+        COLORS.put(DeviseNiceTableCellRenderer.couleurBon, DeviseNiceTableCellRenderer.couleurBonMore);
+    }
 
     public synchronized static CommandeClientRenderer getInstance() {
         if (instance == null) {
@@ -124,26 +133,26 @@ public class CommandeClientRenderer extends DeviseNiceTableCellRenderer {
 
     private CommandeClientRenderer() {
         super();
-        AlternateTableCellRenderer.setBGColorMap(this, CollectionUtils.createMap(couleurFacture, couleurFactureMore, couleurBon, couleurBonMore));
     }
 
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 
-        Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        Component comp = this.getRenderer(table, column).getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        AlternateTableCellRenderer.setBGColorMap((JComponent) comp, COLORS);
         final int rowID = ITableModel.getLine(table.getModel(), row).getID();
 
         if (setFacture.contains(rowID)) {
             if (isSelected) {
-                comp.setBackground(couleurFactureDark);
+                comp.setBackground(DeviseNiceTableCellRenderer.couleurFactureDark);
             } else {
-                comp.setBackground(couleurFacture);
+                comp.setBackground(DeviseNiceTableCellRenderer.couleurFacture);
             }
         } else {
             if (setBon.contains(rowID)) {
                 if (isSelected) {
-                    comp.setBackground(couleurBonDark);
+                    comp.setBackground(DeviseNiceTableCellRenderer.couleurBonDark);
                 } else {
-                    comp.setBackground(couleurBon);
+                    comp.setBackground(DeviseNiceTableCellRenderer.couleurBon);
                 }
             }
         }
@@ -158,13 +167,13 @@ public class CommandeClientRenderer extends DeviseNiceTableCellRenderer {
 
         JPanel panel = new JPanel();
         panel.add(labelFacture);
-        panel.setBackground(couleurFacture);
+        panel.setBackground(DeviseNiceTableCellRenderer.couleurFacture);
         panelLegende.add(panel, c);
 
         JPanel panel2 = new JPanel();
         JLabel labelBL = new JLabel("Commandes transférées en bon de livraison");
         panel2.add(labelBL);
-        panel2.setBackground(couleurBon);
+        panel2.setBackground(DeviseNiceTableCellRenderer.couleurBon);
 
         c.gridy++;
         c.gridx = 0;

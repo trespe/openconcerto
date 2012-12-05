@@ -15,41 +15,19 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
-import org.openconcerto.erp.core.common.ui.PanelFrame;
-import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
-import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
-import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
 import org.openconcerto.erp.core.sales.invoice.report.ListeFactureXmlSheet;
-import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.ui.DateEnvoiRenderer;
 import org.openconcerto.erp.core.sales.invoice.ui.ListeFactureRenderer;
-import org.openconcerto.erp.generationEcritures.GenerationMvtRetourNatexis;
-import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.erp.preferences.DefaultNXProps;
-import org.openconcerto.erp.rights.NXRights;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowAccessor;
-import org.openconcerto.sql.model.SQLRowListRSH;
-import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLSelect;
-import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.sqlobject.ElementComboBox;
-import org.openconcerto.sql.users.UserManager;
-import org.openconcerto.sql.view.EditFrame;
-import org.openconcerto.sql.view.EditPanel;
-import org.openconcerto.sql.view.EditPanelListener;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.list.IListe;
-import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
-import org.openconcerto.sql.view.list.RowAction;
-import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
@@ -60,15 +38,11 @@ import org.openconcerto.utils.cc.IClosure;
 
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -83,19 +57,18 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
     private IListFrame frame;
     // private EditFrame editFrame;
     private ListeGestCommEltPanel listeAddPanel;
-    private SQLElement eltEcheance = Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT");
-    private SQLElement eltMvt = Configuration.getInstance().getDirectory().getElement("MOUVEMENT");
-    private boolean affact = UserManager.getInstance().getCurrentUser().getRights().haveRight(NXRights.ACCES_RETOUR_AFFACTURAGE.getCode());
     private boolean filterOnCurrentYear = false;
+    private boolean reglementEditable = true;
 
     public ListeSaisieVenteFactureAction() {
-        this(false);
+        this(false, true);
     }
 
-    public ListeSaisieVenteFactureAction(boolean filterOnCurrentYear) {
+    public ListeSaisieVenteFactureAction(boolean filterOnCurrentYear, boolean reglementEditable) {
         super();
         this.putValue(Action.NAME, "Liste des factures");
         this.filterOnCurrentYear = filterOnCurrentYear;
+        this.reglementEditable = reglementEditable;
     }
 
     public JFrame createFrame() {
@@ -115,7 +88,7 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
             final SQLTableModelColumn dateEnvoiCol = src.getColumn(eltFacture.getTable().getField("DATE_ENVOI"));
 
             if (dateEnvoiCol != null) {
-                ((SQLTableModelColumnPath) dateEnvoiCol).setEditable(true);
+                ((SQLTableModelColumnPath) dateEnvoiCol).setEditable(reglementEditable);
 
                 dateEnvoiCol.setColumnInstaller(new IClosure<TableColumn>() {
                     @Override
@@ -126,7 +99,7 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
                 });
             }
             final SQLTableModelColumn dateReglCol = src.getColumn(eltFacture.getTable().getField("DATE_REGLEMENT"));
-            ((SQLTableModelColumnPath) dateReglCol).setEditable(true);
+            ((SQLTableModelColumnPath) dateReglCol).setEditable(reglementEditable);
 
             // Edition des dates de reglement
             dateReglCol.setColumnInstaller(new IClosure<TableColumn>() {
@@ -184,52 +157,6 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
         }
 
         this.frame = new IListFrame(this.listeAddPanel);
-
-        // FIXME Maybe Stock rowSelection in new List
-        final MouseSheetXmlListeListener mouseListener = new MouseSheetXmlListeListener(VenteFactureXmlSheet.class) {
-            @Override
-            public List<RowAction> addToMenu() {
-
-                // final SQLRow row = liste.getSelectedRow();
-                List<RowAction> l = new ArrayList<RowAction>(5);
-                    PredicateRowAction actionBL = new PredicateRowAction(new AbstractAction("Transférer en bon de livraison") {
-                        public void actionPerformed(ActionEvent e) {
-                            SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                            elt.transfertBL(IListe.get(e).getSelectedId());
-                        }
-                    }, false);
-                    actionBL.setPredicate(IListeEvent.getSingleSelectionPredicate());
-                    l.add(actionBL);
-                PredicateRowAction actionClone = new PredicateRowAction(new AbstractAction("Créer à partir de ...") {
-                    public void actionPerformed(ActionEvent e) {
-
-                        SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                        EditFrame editFrame = new EditFrame(eltFact, EditPanel.CREATION);
-
-                        ((SaisieVenteFactureSQLComponent) editFrame.getSQLComponent()).loadFactureExistante(IListe.get(e).getSelectedId());
-                        editFrame.setVisible(true);
-                    }
-                }, false);
-                actionClone.setPredicate(IListeEvent.getSingleSelectionPredicate());
-                l.add(actionClone);
-
-                PredicateRowAction actionAvoir = new PredicateRowAction(new AbstractAction("Transférer en avoir") {
-                    public void actionPerformed(ActionEvent e) {
-                        SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                        elt.transfertAvoir(IListe.get(e).getSelectedId());
-                    }
-                }, false);
-                actionAvoir.setPredicate(IListeEvent.getSingleSelectionPredicate());
-                l.add(actionAvoir);
-
-                return l;
-                // return super.addToMenu();
-
-            }
-        };
-        // this.frame.getPanel().getListe().addRowActions(mouseListener.getRowActions());
-        this.frame.getPanel().getListe().addIListeActions(mouseListener.getRowActions());
-        this.frame.getPanel().getListe().setDefaultRowAction(mouseListener.getDefaultRowAction());
 
         return this.frame;
     }

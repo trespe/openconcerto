@@ -26,15 +26,16 @@ public class PGSQLBase extends SQLBase {
 
     // *** quoting
 
-    static private final Pattern backslashQuote = Pattern.compile("\\\\");
+    static final Pattern BACKSLASH_PATTERN = Pattern.compile("\\", Pattern.LITERAL);
+    static final String TWO_BACKSLASH_REPLACEMENT = Matcher.quoteReplacement("\\\\");
 
     @Override
     public final String quoteString(String s) {
         final String res = super.quoteString(s);
         // see PostgreSQL Documentation 4.1.2.1 String Constants
         // escape \ by replacing them with \\
-        final Matcher matcher = backslashQuote.matcher(res);
+        final Matcher matcher = BACKSLASH_PATTERN.matcher(res);
         // only use escape form if needed (=> equals with other systems most of the time)
-        return matcher.find() ? "E" + matcher.replaceAll("\\\\\\\\") : res;
+        return matcher.find() ? "E" + matcher.replaceAll(TWO_BACKSLASH_REPLACEMENT) : res;
     }
 }

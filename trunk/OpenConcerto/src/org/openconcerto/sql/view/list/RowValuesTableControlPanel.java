@@ -22,24 +22,20 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.util.List;
 
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.table.TableCellEditor;
 
-public class RowValuesTableControlPanel extends JPanel implements MouseListener {
+public class RowValuesTableControlPanel extends JPanel {
 
     private final RowValuesTable table;
     private final RowValuesTableModel model;
-    JButton buttonBas, buttonHaut, buttonAjouter, buttonInserer, buttonClone, buttonSuppr;
-    private static String MSG = "Sélectionnez d'abord une ligne";
+    private JButton buttonBas, buttonHaut, buttonAjouter, buttonInserer, buttonClone, buttonSuppr;
 
     public RowValuesTableControlPanel(final RowValuesTable table) {
         this(table, null);
@@ -56,11 +52,13 @@ public class RowValuesTableControlPanel extends JPanel implements MouseListener 
 
     public RowValuesTableControlPanel(final RowValuesTable table, final List<JButton> l) {
         super(new GridBagLayout());
-        this.model = table.getRowValuesTableModel();
-        if (table == null)
+        if (table == null) {
             throw new IllegalArgumentException("RowValuesTable null");
-        if (this.model == null)
+        }
+        this.model = table.getRowValuesTableModel();
+        if (this.model == null) {
             throw new IllegalArgumentException("RowValuesTableModel null");
+        }
         this.table = table;
 
         this.setOpaque(false);
@@ -128,6 +126,7 @@ public class RowValuesTableControlPanel extends JPanel implements MouseListener 
                     cellEditor.cancelCellEditing();
                 }
                 RowValuesTableControlPanel.this.model.removeRowsAt(table.getSelectedRows());
+                table.clearSelection();
             }
         });
         this.buttonSuppr.setEnabled(false);
@@ -143,16 +142,9 @@ public class RowValuesTableControlPanel extends JPanel implements MouseListener 
             }
         }
 
-        RowValuesTableControlPanel.this.buttonClone.addMouseListener(this);
-        RowValuesTableControlPanel.this.buttonSuppr.addMouseListener(this);
-        RowValuesTableControlPanel.this.buttonInserer.addMouseListener(this);
-        RowValuesTableControlPanel.this.buttonHaut.addMouseListener(this);
-        RowValuesTableControlPanel.this.buttonBas.addMouseListener(this);
-
         table.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
 
             public void valueChanged(ListSelectionEvent event) {
-                System.err.println("RowValuesTableControlPanel.RowValuesTableControlPanel(...).new ListSelectionListener() {...}.valueChanged()" + table.getSelectedRow());
                 boolean b = table.getSelectedRow() >= 0;
 
                 RowValuesTableControlPanel.this.buttonClone.setEnabled(b);
@@ -178,7 +170,6 @@ public class RowValuesTableControlPanel extends JPanel implements MouseListener 
 
     public void deplacerDe(int inc) {
         final int rowIndex = this.table.getSelectedRow();
-
         int dest = this.model.moveBy(rowIndex, inc);
         this.table.getSelectionModel().setSelectionInterval(dest, dest);
     }
@@ -228,36 +219,5 @@ public class RowValuesTableControlPanel extends JPanel implements MouseListener 
 
     public void setVisibleButtonSuppr(boolean b) {
         this.buttonSuppr.setVisible(b);
-    }
-
-    @Override
-    public void mouseClicked(MouseEvent e) {
-        if (e.getSource() instanceof JButton) {
-            final JButton source = (JButton) e.getSource();
-            if (!source.isEnabled()) {
-                JOptionPane.showMessageDialog(source, RowValuesTableControlPanel.MSG);
-            }
-        }
-
-    }
-
-    @Override
-    public void mouseEntered(MouseEvent e) {
-
-    }
-
-    @Override
-    public void mouseExited(MouseEvent e) {
-
-    }
-
-    @Override
-    public void mousePressed(MouseEvent e) {
-
-    }
-
-    @Override
-    public void mouseReleased(MouseEvent e) {
-
     }
 }

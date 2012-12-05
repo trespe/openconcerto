@@ -26,6 +26,8 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
@@ -103,7 +105,7 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
      * @param rowVals
      * @return le prix d'achat en centimes
      */
-    public static long getPrixHAFromDetails(SQLRowValues rowVals) {
+    public static BigDecimal getPrixHAFromDetails(SQLRowValues rowVals) {
         return getValuePiece(rowVals, PRIX_HA);
     }
 
@@ -113,7 +115,7 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
      * @param rowVals
      * @return le prix de vente en centimes
      */
-    public static long getPrixVTFromDetails(SQLRowValues rowVals) {
+    public static BigDecimal getPrixVTFromDetails(SQLRowValues rowVals) {
         return getValuePiece(rowVals, PRIX_VT);
     }
 
@@ -141,7 +143,7 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         return 0.0F;
     }
 
-    private static long getValuePiece(SQLRowValues rowVals, int value) {
+    private static BigDecimal getValuePiece(SQLRowValues rowVals, int value) {
         if (rowVals.getObject("ID_MODE_VENTE_ARTICLE") == null) {
             throw new IllegalArgumentException("La SQLRowValues ne contient pas ID_MODE_VENTE_ARTICLE");
         }
@@ -150,10 +152,10 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
             mode = A_LA_PIECE;
         }
         // prix HA
-        long metrique1HA = rowVals.getObject("PRIX_METRIQUE_HA_1") == null ? 0 : ((Long) rowVals.getObject("PRIX_METRIQUE_HA_1")).longValue();
+        BigDecimal metrique1HA = rowVals.getObject("PRIX_METRIQUE_HA_1") == null ? BigDecimal.ZERO : ((BigDecimal) rowVals.getObject("PRIX_METRIQUE_HA_1"));
 
         // Prix VT
-        long metrique1VT = rowVals.getObject("PRIX_METRIQUE_VT_1") == null ? 0 : ((Long) rowVals.getObject("PRIX_METRIQUE_VT_1")).longValue();
+        BigDecimal metrique1VT = rowVals.getObject("PRIX_METRIQUE_VT_1") == null ? BigDecimal.ZERO : ((BigDecimal) rowVals.getObject("PRIX_METRIQUE_VT_1"));
 
         // Valeur
         float valMetrique1 = (rowVals.getObject("VALEUR_METRIQUE_1") == null) ? 0.0F : rowVals.getFloat("VALEUR_METRIQUE_1");
@@ -164,49 +166,48 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         if (mode == A_LA_PIECE) {
             if (value == PRIX_HA) {
                 if (rowVals.getObject("PA_HT") != null) {
-                    long l = rowVals.getLong("PA_HT");
-                    return l;
+                    return (BigDecimal) rowVals.getObject("PA_HT");
+
                 }
-                return 0;
+                return BigDecimal.ZERO;
 
             }
             if (rowVals.getObject("PV_HT") != null) {
-                long l = rowVals.getLong("PV_HT");
-                return l;
+                return (BigDecimal) rowVals.getObject("PV_HT");
             }
-            return 0;
+            return BigDecimal.ZERO;
 
         }
         // Mode de vente au metre carré
         if (mode == AU_METRE_CARRE) {
             float surface = valMetrique1 * valMetrique2;
             if (value == PRIX_HA) {
-                return (long) (metrique1HA * surface);
+                return metrique1HA.multiply(BigDecimal.valueOf(surface), MathContext.DECIMAL128);
             }
-            return (long) (metrique1VT * surface);
+            return metrique1VT.multiply(BigDecimal.valueOf(surface), MathContext.DECIMAL128);
         }
         // Mode de vente au metre, largeur
         if (mode == AU_METRE_LARGEUR) {
             if (value == PRIX_HA) {
-                return (long) (metrique1HA * valMetrique2);
+                return metrique1HA.multiply(BigDecimal.valueOf(valMetrique2), MathContext.DECIMAL128);
             }
-            return (long) (metrique1VT * valMetrique2);
+            return metrique1VT.multiply(BigDecimal.valueOf(valMetrique2), MathContext.DECIMAL128);
         }
         // Mode de vente au metre, longueur
         if (mode == AU_METRE_LONGUEUR) {
             if (value == PRIX_HA) {
-                return (long) (metrique1HA * valMetrique1);
+                return metrique1HA.multiply(BigDecimal.valueOf(valMetrique1), MathContext.DECIMAL128);
             }
-            return (long) (metrique1VT * valMetrique1);
+            return metrique1VT.multiply(BigDecimal.valueOf(valMetrique1), MathContext.DECIMAL128);
         }
         // Mode de vente au poids / m2
         if (mode == AU_POID_METRECARRE) {
             float surface = valMetrique1 * valMetrique2;
             float p = surface * valMetrique3;
             if (value == PRIX_HA) {
-                return (long) (metrique1HA * p);
+                return metrique1HA.multiply(BigDecimal.valueOf(p), MathContext.DECIMAL128);
             }
-            return (long) (metrique1VT * p);
+            return metrique1VT.multiply(BigDecimal.valueOf(p), MathContext.DECIMAL128);
         }
         throw new IllegalStateException("Unknown mode:" + mode);
 

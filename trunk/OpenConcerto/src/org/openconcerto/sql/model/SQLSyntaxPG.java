@@ -16,6 +16,7 @@
 import org.openconcerto.sql.changer.correct.FixSerial;
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLTable.Index;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.FileUtils;
@@ -28,7 +29,6 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.Clob;
@@ -68,9 +68,9 @@ class SQLSyntaxPG extends SQLSyntax {
     SQLSyntaxPG() {
         super(SQLSystem.POSTGRESQL);
         this.typeNames.putAll(Boolean.class, "boolean", "bool", "bit");
+        this.typeNames.putAll(Short.class, "smallint");
         this.typeNames.putAll(Integer.class, "integer", "int", "int4");
         this.typeNames.putAll(Long.class, "bigint", "int8");
-        this.typeNames.putAll(BigInteger.class, "bigint");
         this.typeNames.putAll(BigDecimal.class, "decimal", "numeric");
         this.typeNames.putAll(Float.class, "real", "float4");
         this.typeNames.putAll(Double.class, "double precision", "float8");
@@ -335,6 +335,11 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     @Override
+    public String getFormatTimestamp(String sqlTS, boolean basic) {
+        return "to_char(cast(" + sqlTS + " as timestamp), " + SQLBase.quoteStringStd(basic ? "YYYYMMDD\"T\"HH24MISS.US" : "YYYY-MM-DD\"T\"HH24:MI:SS.US") + ")";
+    }
+
+    @Override
     public SQLBase createBase(SQLServer server, String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
         return new PGSQLBase(server, name, login, pass, dsInit);
     }
@@ -373,52 +378,44 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     @Override
-    public String getNullIsDataComparison(String x, boolean eq, String y) {
-        return x + (eq ? " IS NOT DISTINCT FROM " : " IS DISTINCT FROM ") + y;
-    }
-
-    @Override
     public String getFunctionQuery(SQLBase b, Set<String> schemas) {
         return "SELECT ROUTINE_SCHEMA as \"schema\", ROUTINE_NAME as \"name\", ROUTINE_DEFINITION as \"src\" FROM \"information_schema\".ROUTINES where ROUTINE_CATALOG='" + b.getMDName()
                 + "' and ROUTINE_SCHEMA in (" + quoteStrings(b, schemas) + ")";
     }
 
     @Override
-    public String getTriggerQuery(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException {
+    public String getTriggerQuery(SQLBase b, TablesMap tables) throws SQLException {
         return "SELECT tgname as \"TRIGGER_NAME\", n.nspname as \"TABLE_SCHEMA\", c.relname as \"TABLE_NAME\", tgfoid as \"ACTION\", pg_get_triggerdef(t.oid) as \"SQL\" \n" +
         // from
                 "FROM pg_catalog.pg_trigger t\n" +
                 // table
-                "LEFT join pg_catalog.pg_class c on t.tgrelid = c.oid\n" +
+                "INNER JOIN pg_catalog.pg_class c on t.tgrelid = c.oid\n" +
                 // schema
-                "LEFT JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace\n" +
+                "INNER JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace\n" +
+                // requested tables
+                getTablesMapJoin(b, tables, "n.nspname", "c.relname") +
                 // where
-                "where not t." + (b.getVersion()[0] >= 9 ? "tgisinternal" : "tgisconstraint") + " and " + getInfoSchemaWhere(b, "n.nspname", schemas, "c.relname", tables);
-    }
-
-    private final String getInfoSchemaWhere(SQLBase b, final String schemaCol, Set<String> schemas, final String tableCol, Set<String> tables) {
-        final String tableWhere = tables == null ? "" : " and " + tableCol + " in (" + quoteStrings(b, tables) + ")";
-        return schemaCol + " in ( " + quoteStrings(b, schemas) + ") " + tableWhere;
-        // no need of base, since pg can only see its current base
+                "\nwhere not t." + (b.getVersion()[0] >= 9 ? "tgisinternal" : "tgisconstraint");
     }
 
     @Override
-    public String getColumnsQuery(SQLBase b, Set<String> schemas, Set<String> tables) {
+    public String getColumnsQuery(SQLBase b, TablesMap tables) {
         return "SELECT TABLE_SCHEMA as \"" + INFO_SCHEMA_NAMES_KEYS.get(0) + "\", TABLE_NAME as \"" + INFO_SCHEMA_NAMES_KEYS.get(1) + "\", COLUMN_NAME as \"" + INFO_SCHEMA_NAMES_KEYS.get(2)
-                + "\" , CHARACTER_SET_NAME as \"CHARACTER_SET_NAME\", COLLATION_NAME as \"COLLATION_NAME\" from INFORMATION_SCHEMA.COLUMNS where "
-                + getInfoSchemaWhere(b, "TABLE_SCHEMA", schemas, "TABLE_NAME", tables);
+                + "\" , CHARACTER_SET_NAME as \"CHARACTER_SET_NAME\", COLLATION_NAME as \"COLLATION_NAME\" from INFORMATION_SCHEMA.COLUMNS\n" +
+                // requested tables
+                getTablesMapJoin(b, tables, "TABLE_SCHEMA", "TABLE_NAME");
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<Map<String, Object>> getConstraints(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException {
+    public List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException {
         final String sel = "select nsp.nspname as \"TABLE_SCHEMA\", rel.relname as \"TABLE_NAME\", c.conname as \"CONSTRAINT_NAME\", c.oid as cid, \n"
                 + "case c.contype when 'u' then 'UNIQUE' when 'c' then 'CHECK' when 'f' then 'FOREIGN KEY' when 'p' then 'PRIMARY KEY' end as \"CONSTRAINT_TYPE\", att.attname as \"COLUMN_NAME\", c.conkey as \"colsNum\", att.attnum as \"colNum\"\n"
                 // from
                 + "from pg_catalog.pg_constraint c\n" + "join pg_namespace nsp on nsp.oid = c.connamespace\n" + "left join pg_class rel on rel.oid = c.conrelid\n"
                 + "left join pg_attribute att on  att.attrelid = c.conrelid and att.attnum = ANY(c.conkey)\n"
-                // where
-                + "where " + getInfoSchemaWhere(b, "nsp.nspname", schemas, "rel.relname", tables)
+                // requested tables
+                + getTablesMapJoin(b, tables, "nsp.nspname", "rel.relname")
                 // order
                 + "\norder by nsp.nspname, rel.relname, c.conname";
         // don't cache since we don't listen on system tables

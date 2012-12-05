@@ -20,12 +20,11 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.AliasedField;
 import org.openconcerto.sql.model.AliasedTable;
-import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 
+import java.math.BigDecimal;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -57,6 +56,7 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
     private Timestamp du, au;
 
     public EtatVentesXmlSheet(Date du, Date au) {
+        super();
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         final Calendar c1 = Calendar.getInstance();
         c1.setTime(du);
@@ -80,8 +80,18 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
     }
 
     @Override
+    protected String getStoragePathP() {
+        return "Etat Ventes";
+    }
+
+    Date d;
+
+    @Override
     public String getName() {
-        return "EtatVentes" + new Date().getTime();
+        if (d == null) {
+            d = new Date();
+        }
+        return "EtatVentes" + d.getTime();
     }
 
     protected void createListeValues() {
@@ -156,7 +166,7 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
             Number ha = (Number) sqlRow[3];
             Number ht = (Number) sqlRow[4];
             Number ttc = (Number) sqlRow[5];
-            ArticleVendu a = new ArticleVendu(code, nom, qteVendu.intValue(), ht.longValue(), ha.longValue(), ttc.longValue());
+            ArticleVendu a = new ArticleVendu(code, nom, qteVendu.intValue(), (BigDecimal) ht, (BigDecimal) ha, (BigDecimal) ttc);
             map.put(code + "##" + nom, a);
         }
 
@@ -169,8 +179,8 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
         // Liste des valeurs de la feuille OO
         ArrayList<Map<String, Object>> listValues = new ArrayList<Map<String, Object>>(listeIds.size());
 
-        long totalTPAInCents = 0;
-        long totalTPVTTCInCents = 0;
+        BigDecimal totalTPA = BigDecimal.ZERO;
+        BigDecimal totalTPVTTC = BigDecimal.ZERO;
 
         for (Object[] obj : listeIds) {
             Map<String, Object> mValues = new HashMap<String, Object>();
@@ -182,14 +192,14 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
             mValues.put("CODE", code);
             mValues.put("NOM", nom);
             mValues.put("QTE", a.qte);
-            mValues.put("T_PA", (a.ha / 100.0D));
-            mValues.put("T_PV_HT", (a.ht / 100.0D));
-            mValues.put("T_PV_TTC", (a.ttc / 100.0D));
+            mValues.put("T_PA", a.ha);
+            mValues.put("T_PV_HT", a.ht);
+            mValues.put("T_PV_TTC", a.ttc);
             mValues.put("NB_CHEQUE", obj[2]);
             mValues.put("NB_CB", obj[3]);
             mValues.put("NB_ESPECES", obj[4]);
-            totalTPAInCents += a.ha;
-            totalTPVTTCInCents += a.ttc;
+            totalTPA = totalTPA.add(a.ha);
+            totalTPVTTC = totalTPVTTC.add(a.ttc);
             listValues.add(mValues);
             System.out.println("EtatVentesXmlSheet.createListeValues():" + listValues);
         }
@@ -275,7 +285,7 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
             listValuesAchat.add(mValues);
         }
 
-        totalTPVTTCInCents += totalVCInCents;
+        totalTPVTTC = totalTPVTTC.add(new BigDecimal(totalVCInCents).movePointLeft(2));
 
         // Récapitulatif
         Map<String, Object> valuesE = this.mapAllSheetValues.get(2);
@@ -319,12 +329,12 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
         valuesAchat.put("TOTAL", totalAchatInCents / 100f);
         valuesE.put("TOTAL_HA", totalAchatInCents / 100f);
         valuesE.put("TOTAL", totalEInCents / 100f);
-        valuesE.put("TOTAL_VT", totalTPVTTCInCents / 100f);
+        valuesE.put("TOTAL_VT", totalTPVTTC);
         values.put("TOTAL", totalVCInCents / 100f);
-        values.put("TOTAL_MARGE", (totalTPVTTCInCents - totalTPAInCents) / 100f);
-        valuesE.put("TOTAL_GLOBAL", (totalTPVTTCInCents + totalAchatInCents) / 100f);
-        values.put("TOTAL_PA", totalTPAInCents / 100f);
-        values.put("TOTAL_PV_TTC", totalTPVTTCInCents / 100f);
+        values.put("TOTAL_MARGE", totalTPVTTC.subtract(totalTPA));
+        valuesE.put("TOTAL_GLOBAL", totalTPVTTC.add(new BigDecimal(totalAchatInCents).movePointLeft(2)));
+        values.put("TOTAL_PA", totalTPA);
+        values.put("TOTAL_PV_TTC", totalTPVTTC);
 
         String periode = "Période Du " + DATE_FORMAT.format(this.du) + " au " + DATE_FORMAT.format(this.au);
         values.put("DATE", periode);
@@ -346,9 +356,9 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
     class ArticleVendu {
         public String code, nom;
         public int qte;
-        public long ht, ha, ttc;
+        public BigDecimal ht, ha, ttc;
 
-        public ArticleVendu(String code, String nom, int qte, long ht, long ha, long ttc) {
+        public ArticleVendu(String code, String nom, int qte, BigDecimal ht, BigDecimal ha, BigDecimal ttc) {
             this.code = code;
             this.nom = nom;
             this.qte = qte;

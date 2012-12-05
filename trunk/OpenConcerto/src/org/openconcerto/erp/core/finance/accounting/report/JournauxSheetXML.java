@@ -27,6 +27,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.text.DateFormat;
@@ -62,6 +63,11 @@ public class JournauxSheetXML extends AbstractListeSheetXml {
     @Override
     public String getDefaultTemplateId() {
         return TEMPLATE_ID;
+    }
+
+    @Override
+    public String getStoragePathP() {
+        return "Journaux";
     }
 
     Date date;

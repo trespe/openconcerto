@@ -14,6 +14,7 @@
  package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.Log;
+import org.openconcerto.openoffice.ODEpoch;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.Style;
@@ -72,6 +73,7 @@ public class CellStyle extends StyleStyle {
         @Override
         protected Element evaluateConditions(final StyledNode<CellStyle, ?> styledNode, final List<Element> styleMaps) {
             final Cell<?> cell = (Cell<?>) styledNode;
+            final ODEpoch epoch = cell.getODDocument().getEpoch();
             final Object cellValue = cell.getValue();
             final boolean cellIsEmpty = cell.isEmpty();
             for (final Element styleMap : styleMaps) {
@@ -79,8 +81,8 @@ public class CellStyle extends StyleStyle {
                 Matcher matcher = cellContentPatrn.matcher(condition);
                 if (matcher.matches()) {
                     final Object parsed = parse(matcher.group(2));
-                    final Object usedCellValue = getValue(cellIsEmpty, cellValue, parsed);
-                    if (RelationalOperator.getInstance(matcher.group(1)).compare(usedCellValue, parsed))
+                    final Object usedCellValue = getValue(cellIsEmpty, epoch, cellValue, parsed);
+                    if (usedCellValue != null && RelationalOperator.getInstance(matcher.group(1)).compare(usedCellValue, parsed))
                         return styleMap;
                 } else if ((matcher = cellContentBetweenPatrn.matcher(condition)).matches()) {
                     final boolean wantBetween = condition.startsWith("cell-content-is-between");
@@ -88,10 +90,12 @@ public class CellStyle extends StyleStyle {
                     final Object o1 = parse(matcher.group(1));
                     final Object o2 = parse(matcher.group(2));
                     assert o1.getClass() == o2.getClass();
-                    final Object usedCellValue = getValue(cellIsEmpty, cellValue, o1);
-                    final boolean isBetween = CompareUtils.compare(usedCellValue, o1) >= 0 && CompareUtils.compare(usedCellValue, o2) <= 0;
-                    if (isBetween == wantBetween)
-                        return styleMap;
+                    final Object usedCellValue = getValue(cellIsEmpty, epoch, cellValue, o1);
+                    if (usedCellValue != null) {
+                        final boolean isBetween = CompareUtils.compare(usedCellValue, o1) >= 0 && CompareUtils.compare(usedCellValue, o2) <= 0;
+                        if (isBetween == wantBetween)
+                            return styleMap;
+                    }
                 } else {
                     // If a consumer does not recognize a condition, it shall ignore the <style:map>
                     // element containing the condition.
@@ -204,9 +208,26 @@ public class CellStyle extends StyleStyle {
             throw new IllegalStateException("Unknown default for " + clazz);
     }
 
-    // LO uses the default value for the type when the cell is empty
-    static private Object getValue(boolean cellIsEmpty, Object cellValue, Object parsed) {
-        return !cellIsEmpty ? cellValue : getDefault(parsed.getClass());
+    // convert cellValue to class of parsed, return null if not possible
+    static private Object getValue(boolean cellIsEmpty, ODEpoch epoch, Object cellValue, Object parsed) {
+        final Class<?> conditionClass = parsed.getClass();
+        if (cellIsEmpty) {
+            // LO uses the default value for the type when the cell is empty
+            return getDefault(conditionClass);
+        } else if (cellValue.getClass() == conditionClass) {
+            return cellValue;
+        } else {
+            // LO doesn't convert between String and Number, but Boolean are Numbers
+            if (conditionClass == String.class) {
+                return null;
+            } else if (conditionClass == Boolean.class) {
+                return BooleanStyle.toBoolean(cellValue);
+            } else if (Number.class.isAssignableFrom(conditionClass)) {
+                return NumberStyle.toNumber(cellValue, epoch);
+            } else {
+                throw new IllegalStateException("Invalid class value for condition : " + conditionClass);
+            }
+        }
     }
 
     public final Color getBackgroundColor() {

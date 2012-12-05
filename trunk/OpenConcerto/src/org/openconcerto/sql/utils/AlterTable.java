@@ -41,14 +41,18 @@ public final class AlterTable extends ChangeTable<AlterTable> {
     private final SQLTable t;
 
     public AlterTable(SQLTable t) {
-        super(t.getServer().getSQLSystem().getSyntax(), t.getName());
+        super(t.getServer().getSQLSystem().getSyntax(), t.getDBRoot().getName(), t.getName());
         this.t = t;
     }
 
     // for CREATE TABLE
-    AlterTable(SQLSyntax s, String tableName) {
-        super(s, tableName);
+    AlterTable(SQLSyntax s, String rootName, String tableName) {
+        super(s, rootName, tableName);
         this.t = null;
+    }
+
+    public final SQLTable getTable() {
+        return this.t;
     }
 
     @Override
@@ -199,29 +203,25 @@ public final class AlterTable extends ChangeTable<AlterTable> {
         });
     }
 
-    public final String asString() {
-        return this.asString(this.t.getDBRoot().getName());
+    @Override
+    protected String asString(final NameTransformer transf, ConcatStep step) {
+        return this.asString(transf, step.getTypes());
     }
 
     @Override
-    protected String asString(String rootName, ConcatStep step) {
-        return this.asString(rootName, step.getTypes());
-    }
-
-    @Override
-    public String asString(String rootName) {
+    public String asString(final NameTransformer transf) {
         // even for a single instance of AlterTable we need to order types since
         // supportMultiAlterClause() might return false, in which case we might return several SQL
         // statements
-        return this.asString(rootName, ChangeTable.ORDERED_TYPES);
+        return this.asString(transf, ChangeTable.ORDERED_TYPES);
     }
 
-    private final String asString(final String rootName, final Set<ClauseType> types) {
-        final SQLName tableName = new SQLName(rootName, this.getName());
+    private final String asString(final NameTransformer transf, final Set<ClauseType> types) {
+        final SQLName tableName = transf.transformTableName(new SQLName(getRootName(), this.getName()));
         final List<String> genClauses = new ArrayList<String>(this.getClauses(tableName, types));
         this.modifyClauses(genClauses);
         if (types.contains(ClauseType.ADD_CONSTRAINT))
-            genClauses.addAll(this.getForeignConstraints(rootName));
+            genClauses.addAll(this.getForeignConstraints(transf));
 
         final StringBuffer res = new StringBuffer(512);
         final String alterTable = "ALTER TABLE " + tableName.quote();

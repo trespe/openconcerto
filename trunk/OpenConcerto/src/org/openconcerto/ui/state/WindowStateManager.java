@@ -22,9 +22,9 @@ import java.awt.Window;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.event.WindowListener;
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
-import java.io.PrintStream;
 
 import org.w3c.dom.Document;
 import org.w3c.dom.Node;
@@ -81,20 +81,20 @@ public class WindowStateManager extends ListenerXMLStateManager<Window, WindowLi
     }
 
     @Override
-    protected void writeState(PrintStream out) throws IOException {
-        out.println("<window>");
+    protected void writeState(BufferedWriter out) throws IOException {
+        out.write("<window>\n");
         // Taille
-        out.print("<size");
-        out.print(" width=\"" + this.getSrc().getSize().width + "\"");
-        out.print(" height=\"" + this.getSrc().getSize().height + "\"");
-        out.println("/>");
+        out.write("<size");
+        out.write(" width=\"" + this.getSrc().getSize().width + "\"");
+        out.write(" height=\"" + this.getSrc().getSize().height + "\"");
+        out.write("/>\n");
         // Position
-        out.print("<location");
-        out.print(" x=\"" + this.getSrc().getLocation().x + "\"");
-        out.print(" y=\"" + this.getSrc().getLocation().y + "\"");
-        out.println("/>");
+        out.write("<location");
+        out.write(" x=\"" + this.getSrc().getLocation().x + "\"");
+        out.write(" y=\"" + this.getSrc().getLocation().y + "\"");
+        out.write("/>\n");
 
-        out.println("</window>");
+        out.write("</window>\n");
     }
 
     @Override

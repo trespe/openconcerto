@@ -19,7 +19,10 @@ import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.SQLRowValuesCluster.ValueChangeListener;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
+import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.model.graph.Step;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.utils.ReOrder;
 import org.openconcerto.sql.utils.SQLUtils;
@@ -93,6 +96,21 @@ public final class SQLRowValues extends SQLRowAccessor {
          * Copy every SQLRowValues.
          */
         COPY_ROW
+    }
+
+    static public enum CreateMode {
+        /**
+         * Never create rows.
+         */
+        CREATE_NONE,
+        /**
+         * For multi-link step, create one row with all links.
+         */
+        CREATE_ONE,
+        /**
+         * For multi-link step, create one row for each link.
+         */
+        CREATE_MANY
     }
 
     public static final Object SQL_DEFAULT = new Object() {
@@ -390,7 +408,7 @@ public final class SQLRowValues extends SQLRowAccessor {
     }
 
     public SQLRowValues retainReferents(Collection<SQLRowValues> toRetain) {
-        toRetain = CollectionUtils.createIdentitySet(toRetain);
+        toRetain = CollectionUtils.toIdentitySet(toRetain);
         // copy otherwise ConcurrentModificationException
         for (final Entry<SQLField, Collection<SQLRowValues>> e : CopyUtils.copy(this.getReferents()).entrySet()) {
             for (final SQLRowValues ref : e.getValue()) {
@@ -934,6 +952,11 @@ public final class SQLRowValues extends SQLRowAccessor {
         this.getGraph().removeValueListener(this, l);
     }
 
+    @Override
+    public final Collection<SQLRowValues> followLink(final Link l, final Direction direction) {
+        return this.followPath(new Path(getTable()).add(l, direction), CreateMode.CREATE_NONE, false);
+    }
+
     /**
      * Create the necessary SQLRowValues so that the graph of this row goes along the passed path.
      * 
@@ -955,40 +978,87 @@ public final class SQLRowValues extends SQLRowAccessor {
     }
 
     private final SQLRowValues followPath(final Path p, final boolean create) {
+        final Collection<SQLRowValues> res = followPath(p, create ? CreateMode.CREATE_ONE : CreateMode.CREATE_NONE, true);
+        // since we passed onlyOne=true
+        assert res.size() <= 1;
+        return CollectionUtils.getSole(res);
+    }
+
+    /**
+     * Return the rows at the end of the passed path.
+     * 
+     * @param path a path, e.g. SITE, BATIMENT, LOCAL.
+     * @return the existing rows at the end of <code>path</code>, never <code>null</code>, e.g.
+     *         [LOCAL[3], LOCAL[5]].
+     */
+    public final Collection<SQLRowValues> getDistantRows(final Path path) {
+        return followPath(path, CreateMode.CREATE_NONE, false);
+    }
+
+    public final Collection<SQLRowValues> followPath(final Path p, final CreateMode create, final boolean onlyOne) {
         if (p.getFirst() != this.getTable())
             throw new IllegalArgumentException("path " + p + " doesn't start with us " + this);
         if (p.length() > 0) {
-            final SQLField ff = p.getSingleStep(0);
-            if (ff == null)
-                throw new IllegalArgumentException("path " + p + " isn't single link");
-            final SQLRowValues next;
-            if (!p.isBackwards(0)) {
-                final Object fkValue = this.getObject(ff.getName());
-                if (fkValue instanceof SQLRowValues) {
-                    next = (SQLRowValues) fkValue;
-                } else if (create) {
-                    next = new SQLRowValues(ff.getDBSystemRoot().getGraph().getForeignTable(ff));
-                    // keep the id, if present
-                    if (fkValue instanceof Number)
-                        next.setID((Number) fkValue);
-                    this.put(ff.getName(), next);
-                } else
-                    return null;
-            } else {
-                final Set<SQLRowValues> referentRows = this.getReferentRows(ff);
-                if (referentRows.size() == 1)
-                    next = referentRows.iterator().next();
-                else if (referentRows.size() > 1)
-                    throw new IllegalStateException("more than one " + ff.getTable().getSQLName() + " pointing through " + ff + " to " + this);
-                else if (create) {
-                    next = new SQLRowValues(ff.getTable());
-                    next.put(ff.getName(), this);
-                } else
-                    return null;
+            // fail-fast : avoid creating rows
+            if (onlyOne && create == CreateMode.CREATE_MANY && !p.isSingleLink())
+                throw new IllegalStateException("more than one link with " + create + " and onlyOne : " + p);
+
+            // Set is needed when a row is multi-linked to another (to avoid calling recursively
+            // followPath() on the same instance)
+            // IdentitySet is needed since multiple rows can be equal, e.g. empty rows :
+            // SITE -- chef -> CONTACT
+            // _____-- rapport -> CONTACT
+            final Set<SQLRowValues> next = new LinkedIdentitySet<SQLRowValues>();
+            final Step firstStep = p.getStep(0);
+            final Set<SQLField> ffs = firstStep.getFields();
+            for (final SQLField ff : ffs) {
+                if (firstStep.isForeign(ff)) {
+                    final Object fkValue = this.getObject(ff.getName());
+                    if (fkValue instanceof SQLRowValues) {
+                        next.add((SQLRowValues) fkValue);
+                    } else if (create == CreateMode.CREATE_ONE || create == CreateMode.CREATE_MANY) {
+                        assert create == CreateMode.CREATE_MANY || (create == CreateMode.CREATE_ONE && next.size() <= 1);
+                        final SQLRowValues nextOne;
+                        if (create == CreateMode.CREATE_ONE && next.size() == 1) {
+                            nextOne = next.iterator().next();
+                        } else {
+                            nextOne = new SQLRowValues(ff.getDBSystemRoot().getGraph().getForeignTable(ff));
+                            // keep the id, if present
+                            if (fkValue instanceof Number)
+                                nextOne.setID((Number) fkValue);
+                            next.add(nextOne);
+                        }
+                        this.put(ff.getName(), nextOne);
+                    }
+                } else {
+                    final Set<SQLRowValues> referentRows = this.getReferentRows(ff);
+                    if (referentRows.size() > 0) {
+                        next.addAll(referentRows);
+                    } else if (create == CreateMode.CREATE_ONE || create == CreateMode.CREATE_MANY) {
+                        assert create == CreateMode.CREATE_MANY || (create == CreateMode.CREATE_ONE && next.size() <= 1);
+                        final SQLRowValues nextOne;
+                        if (create == CreateMode.CREATE_ONE && next.size() == 1) {
+                            nextOne = next.iterator().next();
+                        } else {
+                            nextOne = new SQLRowValues(ff.getTable());
+                            next.add(nextOne);
+                        }
+                        nextOne.put(ff.getName(), this);
+                    }
+                }
             }
-            return next.followPath(p.minusFirst(), create);
-        } else
-            return this;
+            if (onlyOne && next.size() > 1)
+                throw new IllegalStateException("more than one row and onlyOne=true : " + next);
+
+            // see comment above for IdentitySet
+            final Set<SQLRowValues> res = new LinkedIdentitySet<SQLRowValues>();
+            for (final SQLRowValues n : next) {
+                res.addAll(n.followPath(p.minusFirst(), create, onlyOne));
+            }
+            return res;
+        } else {
+            return Collections.singleton(this);
+        }
     }
 
     public final SQLRowValues flatten() {
@@ -1713,7 +1783,7 @@ public final class SQLRowValues extends SQLRowAccessor {
         final List<SQLField> fields = new ArrayList<SQLField>(fieldsNames.size());
         for (final String fName : fieldsNames)
             fields.add(src.getField(fName));
-        final SQLSelect sel = new SQLSelect(src.getBase(), true);
+        final SQLSelect sel = new SQLSelect(true);
         sel.addAllSelect(fields);
         final String colNames = "(" + CollectionUtils.join(fields, ",", new ITransformer<SQLField, String>() {
             @Override

@@ -78,7 +78,7 @@ public abstract class DBStructureItem<D extends DBStructureItem<D>> {
         return this.parent;
     }
 
-    // result must not be modified (e.g. immutable or a private copy)
+    // result must be immutable
     // may contain null values for children not loaded
     public abstract Map<String, ? extends D> getChildrenMap();
 

@@ -69,11 +69,6 @@ public enum Axis {
 
     final void setRepeated(final Element elem, final int i) {
         assert elem.getName().equals(this.getElemName());
-        if (i < 1)
-            throw new IllegalArgumentException("repeated <1 : " + i);
-        if (i == 1)
-            elem.removeAttribute(getRepeatedAttrName(), elem.getNamespace());
-        else
-            elem.setAttribute(getRepeatedAttrName(), String.valueOf(i), elem.getNamespace());
+        RepeatedBreaker.setRepeated(elem, getRepeatedAttrName(), i);
     }
 }

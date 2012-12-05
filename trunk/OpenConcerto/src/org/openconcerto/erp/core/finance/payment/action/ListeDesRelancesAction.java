@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.finance.payment.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.FicheRelanceSheet;
 import org.openconcerto.erp.generationDoc.gestcomm.RelanceSheet;
@@ -21,6 +22,7 @@ import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
@@ -31,6 +33,7 @@ import org.openconcerto.utils.ExceptionHandler;
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.util.List;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
@@ -162,7 +165,6 @@ public class ListeDesRelancesAction extends CreateFrameAbstractAction implements
                     }
                 }
             });
-
             menu.show(e.getComponent(), e.getPoint().x, e.getPoint().y);
         }
     }

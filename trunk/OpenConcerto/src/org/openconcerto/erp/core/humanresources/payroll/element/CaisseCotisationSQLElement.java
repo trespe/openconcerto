@@ -113,7 +113,7 @@ public class CaisseCotisationSQLElement extends ConfSQLElement {
                 c.gridx = 0;
                 panelInfos.add(sep, c);
 
-                this.addView("ID_ADRESSE", REQ + ";" + DEC + ";" + SEP);
+                this.addView("ID_ADRESSE_COMMON", REQ + ";" + DEC + ";" + SEP);
                 ElementSQLObject eltAdr = (ElementSQLObject) this.getView("ID_ADRESSE_COMMON");
                 c.gridy++;
                 c.gridx = 0;

@@ -178,9 +178,9 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
             boxPays = new ElementComboBox(true, 25);
             c.gridx++;
             c.weightx = 0.5;
-            DefaultGridBagConstraints.lockMinimumSize(boxPays);
             this.add(boxPays, c);
             this.addView(boxPays, "ID_PAYS");
+            DefaultGridBagConstraints.lockMinimumSize(boxPays);
         }
         if (getTable().getFieldsName().contains("LOCALISATION")) {
             c.gridy++;

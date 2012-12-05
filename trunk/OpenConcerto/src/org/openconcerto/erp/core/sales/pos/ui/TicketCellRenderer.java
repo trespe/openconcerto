@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.sales.pos.ui;
 
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.pos.model.Article;
 import org.openconcerto.ui.touch.ScrollableList;
 import org.openconcerto.utils.Pair;
@@ -24,6 +25,9 @@ import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -48,14 +52,20 @@ public class TicketCellRenderer implements ListCellRenderer {
         p.add(l1, c);
         c.gridx++;
         c.weightx = 1;
-        final JLabel l2 = new JLabel(item.getFirst().getName().toUpperCase(), SwingConstants.LEFT);
+        Article article = item.getFirst();
+        final JLabel l2 = new JLabel(article.getName().toUpperCase(), SwingConstants.LEFT);
         p.add(l2, c);
         c.gridx++;
         c.weightx = 0;
-        final JLabel l3 = new JLabel(centsToString(item.getFirst().getPriceInCents() * item.getSecond()), SwingConstants.RIGHT);
+
+        Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
+        BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
+
+        BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(item.getSecond()), MathContext.DECIMAL128).multiply(tauxTVA, MathContext.DECIMAL128);
+        final JLabel l3 = new JLabel(centsToString(multiply.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue()), SwingConstants.RIGHT);
         p.add(l3, c);
 
-        // 
+        //
         l1.setOpaque(false);
         l2.setOpaque(false);
         l3.setOpaque(false);
@@ -92,13 +102,18 @@ public class TicketCellRenderer implements ListCellRenderer {
         g.drawString(s1, inset, height);
         final int width1 = (int) g.getFontMetrics().getStringBounds("999 ", g).getWidth() + inset * 2;
 
-        String s2 = item.getFirst().getName().toUpperCase();
+        Article article = item.getFirst();
+        String s2 = article.getName().toUpperCase();
         final int maxLength = 13;
         if (s2.length() > maxLength)
             s2 = s2.substring(0, maxLength + 1) + '…';
         g.drawString(s2, width1 + inset, height);
 
-        final String s3 = centsToString(item.getFirst().getPriceInCents() * item.getSecond());
+        Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
+        BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
+
+        BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(item.getSecond()), MathContext.DECIMAL128).multiply(tauxTVA, MathContext.DECIMAL128);
+        final String s3 = centsToString(multiply.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue());
         final int width3 = (int) g.getFontMetrics().getStringBounds(s3, g).getWidth() + inset * 2;
         g.drawString(s3, list.getWidth() - width3, height);
     }

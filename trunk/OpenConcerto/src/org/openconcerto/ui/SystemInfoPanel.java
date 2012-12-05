@@ -31,6 +31,8 @@ import java.util.List;
 import javax.swing.JEditorPane;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.LookAndFeel;
+import javax.swing.UIManager;
 
 /**
  * A panel displaying various system informations (eg vm version, user name, network address).
@@ -53,9 +55,11 @@ public class SystemInfoPanel extends JPanel {
         }
         final Runtime rt = Runtime.getRuntime();
         final String stats = "<i>mémoire :</i> " + formatBytes(rt.freeMemory()) + " / " + formatBytes(rt.totalMemory()) + " ; " + rt.availableProcessors() + " processeur(s)";
+        final LookAndFeel lookAndFeel = UIManager.getLookAndFeel();
+        final String lafDesc = lookAndFeel == null ? "Aucun thème" : lookAndFeel.getName() + ", " + lookAndFeel.getDescription();
 
         final JEditorPane p = new HTMLTextField(("Version <b>" + version + "</b> de " + getLink(getProperty("java.vendor"), vendorURI) + " ; "
-                + getLink("dossier d'installation", new File(getProperty("java.home")).toURI()) + "<br>" + stats));
+                + getLink("dossier d'installation", new File(getProperty("java.home")).toURI()) + "<br>" + stats + "<br>" + lafDesc));
 
         l.add("Java", p);
 

@@ -16,10 +16,10 @@
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLSyntax.ConstraintType;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
-import org.openconcerto.sql.model.SystemQueryExecutor.QueryExn;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.Link.Rule;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.utils.ChangeTable;
 import org.openconcerto.sql.utils.SQLCreateMoveableTable;
@@ -39,6 +39,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -49,6 +50,7 @@ import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import net.jcip.annotations.GuardedBy;
@@ -75,6 +77,9 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
      * The {@link DBRoot#setMetadata(String, String) meta data} configuring the policy regarding
      * undefined IDs for a particular root. Can be either :
      * <dl>
+     * <dt>inDB</dt>
+     * <dd>all undefined IDs must be in {@value #undefTable}. Allow different IDs like "min" but
+     * without the performance penalty</dd>
      * <dt>min</dt>
      * <dd>for min("ID")</dd>
      * <dt>nonexistant</dt>
@@ -122,39 +127,103 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         return UNDEFINED_IDs.get(schema);
     }
 
-    private static final Tuple2<Boolean, Number> getUndefID(SQLSchema b, String tableName) {
+    static final Tuple2<Boolean, Number> getUndefID(SQLSchema b, String tableName) {
         synchronized (UNDEFINED_IDs) {
             final Map<String, Number> map = getUndefIDs(b);
             return Tuple2.create(map.containsKey(tableName), map.get(tableName));
         }
     }
 
-    public static final void setUndefID(SQLSchema schema, String tableName, Integer value) throws SQLException {
-        synchronized (UNDEFINED_IDs) {
-            final SQLTable undefT = schema.getTable(undefTable);
-            final String sql = undefT.getField("UNDEFINED_ID").getType().toString(value);
-            final boolean modified;
-            final Tuple2<Boolean, Number> currentValue = getUndefID(schema, tableName);
-            if (!currentValue.get0()) {
-                // INSERT
-                SQLRowValues.insertCount(undefT, "(\"TABLENAME\", \"UNDEFINED_ID\") VALUES(" + schema.getBase().quoteString(tableName) + ", " + sql + ")");
-                modified = true;
-            } else if (!CompareUtils.equals(currentValue.get1(), value)) {
-                // UPDATE
-                final UpdateBuilder update = new UpdateBuilder(undefT).set("UNDEFINED_ID", sql);
-                update.setWhere(new Where(undefT.getField("TABLENAME"), "=", tableName));
-                schema.getDBSystemRoot().getDataSource().execute(update.asString());
-                modified = true;
-            } else {
-                modified = false;
-            }
-            if (modified) {
-                schema.updateVersion();
-                undefT.fireTableModified(SQLRow.NONEXISTANT_ID);
-            }
+    private static final SQLCreateMoveableTable getCreateUndefTable(SQLSyntax syntax) {
+        final SQLCreateMoveableTable createTable = new SQLCreateMoveableTable(syntax, undefTable);
+        createTable.addVarCharColumn("TABLENAME", 250);
+        createTable.addColumn("UNDEFINED_ID", syntax.getIDType());
+        createTable.setPrimaryKey("TABLENAME");
+        return createTable;
+    }
+
+    private static final SQLTable getUndefTable(SQLSchema schema, boolean create) throws SQLException {
+        final SQLTable undefT = schema.getTable(undefTable);
+        if (undefT != null || !create) {
+            return undefT;
+        } else {
+            schema.getDBSystemRoot().getDataSource().execute(getCreateUndefTable(SQLSyntax.get(schema)).asString(schema.getDBRoot().getName()));
+            schema.updateVersion();
+            return schema.fetchTable(undefTable);
         }
     }
 
+    public static final void setUndefID(SQLSchema schema, String tableName, Integer value) throws SQLException {
+        setUndefIDs(schema, Collections.singletonMap(tableName, value));
+    }
+
+    // return modified count
+    public static final int setUndefIDs(SQLSchema schema, Map<String, ? extends Number> values) throws SQLException {
+        synchronized (UNDEFINED_IDs) {
+            final SQLTable undefT = getUndefTable(schema, true);
+            final SQLType undefType = undefT.getField("UNDEFINED_ID").getType();
+            final List<List<String>> toInsert = new ArrayList<List<String>>();
+            final List<List<String>> toUpdate = new ArrayList<List<String>>();
+            final Map<String, Number> currentValues = getUndefIDs(schema);
+            final SQLBase b = schema.getBase();
+            final SQLSystem system = b.getServer().getSQLSystem();
+            for (final Entry<String, ? extends Number> e : values.entrySet()) {
+                final String tableName = e.getKey();
+                final Number undefValue = e.getValue();
+                final List<List<String>> l;
+                if (!currentValues.containsKey(tableName)) {
+                    l = toInsert;
+                } else if (CompareUtils.equals(currentValues.get(tableName), undefValue)) {
+                    l = null;
+                } else {
+                    l = toUpdate;
+                }
+                if (l != null) {
+                    final String undefSQL;
+                    if (undefValue == null && system == SQLSystem.POSTGRESQL)
+                        // column "UNDEFINED_ID" is of type integer but expression is of type text
+                        undefSQL = "cast( NULL as " + undefType.getTypeName() + ")";
+                    else
+                        undefSQL = undefType.toString(undefValue);
+                    l.add(Arrays.asList(b.quoteString(tableName), undefSQL));
+                }
+            }
+            final SQLSyntax syntax = system.getSyntax();
+            if (toInsert.size() > 0) {
+                // INSERT
+                SQLRowValues.insertCount(undefT, "(\"TABLENAME\", \"UNDEFINED_ID\") " + syntax.getValues(toInsert, 2));
+            }
+            if (toUpdate.size() > 0) {
+                // UPDATE
+                // h2 doesn't support multi-table UPDATE
+                if (system == SQLSystem.H2) {
+                    final StringBuilder updates = new StringBuilder();
+                    for (final List<String> l : toUpdate) {
+                        final UpdateBuilder update = new UpdateBuilder(undefT).set("UNDEFINED_ID", l.get(1));
+                        update.setWhere(Where.createRaw(undefT.getField("TABLENAME").getFieldRef() + " = " + l.get(0)));
+                        updates.append(update.asString());
+                        updates.append(";\n");
+                    }
+                    schema.getDBSystemRoot().getDataSource().execute(updates.toString());
+                } else {
+                    final UpdateBuilder update = new UpdateBuilder(undefT);
+                    final String constantTableAlias = "newUndef";
+                    update.addRawTable(syntax.getConstantTable(toUpdate, constantTableAlias, Arrays.asList("t", "v")), null);
+                    update.setWhere(Where.createRaw(undefT.getField("TABLENAME").getFieldRef() + " = " + new SQLName(constantTableAlias, "t").quote()));
+                    update.set("UNDEFINED_ID", new SQLName(constantTableAlias, "v").quote());
+                    schema.getDBSystemRoot().getDataSource().execute(update.asString());
+                }
+            }
+            final int res = toInsert.size() + toUpdate.size();
+            if (res > 0) {
+                undefT.fireTableModified(SQLRow.NONEXISTANT_ID);
+            }
+            return res;
+        }
+    }
+
+    @GuardedBy("this")
+    private String version;
     private final CopyOnWriteMap<String, SQLField> fields;
     @GuardedBy("this")
     private final Set<SQLField> primaryKeys;
@@ -208,6 +277,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         this.constraints = new HashSet<Constraint>();
         // not known
         this.undefinedID = null;
+        assert !this.undefinedIDKnown();
     }
 
     // *** setter
@@ -222,6 +292,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
 
     @SuppressWarnings("unchecked")
     void loadFields(Element xml) {
+        synchronized (this) {
+            this.version = SQLSchema.getVersion(xml);
+        }
+
         final LinkedHashMap<String, SQLField> newFields = new LinkedHashMap<String, SQLField>();
         for (final Element elementField : (List<Element>) xml.getChildren("field")) {
             final SQLField f = SQLField.create(this, elementField);
@@ -235,10 +309,9 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             newPrimaryKeys.add(fieldName);
         }
 
-        final String undefAttr = xml.getAttributeValue("undefID");
         synchronized (getTreeMutex()) {
             synchronized (this) {
-                this.setState(newFields, newPrimaryKeys, undefAttr == null ? null : Integer.valueOf(undefAttr));
+                this.setState(newFields, newPrimaryKeys, null);
 
                 final Element triggersElem = xml.getChild("triggers");
                 if (triggersElem != null)
@@ -279,63 +352,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
     // * from JDBC
 
     public void fetchFields() throws SQLException {
-        this.fetchFields(false);
-    }
-
-    void fetchFields(final boolean onlyUseSchema) throws SQLException {
-        synchronized (getTreeMutex()) {
-            synchronized (this) {
-                final boolean removed = this.getBase().getDataSource().useConnection(new ConnectionHandlerNoSetup<Boolean, SQLException>() {
-                    @Override
-                    public Boolean handle(SQLDataSource ds) throws SQLException {
-                        final DatabaseMetaData metaData = ds.getConnection().getMetaData();
-
-                        final ResultSet tableRS = metaData.getTables(getBase().getMDName(), getSchema().getName(), getName(), new String[] { "TABLE", "SYSTEM TABLE", "VIEW" });
-                        final boolean removed = !tableRS.next();
-                        if (!removed) {
-                            setType(tableRS.getString("TABLE_TYPE"));
-                            setComment(tableRS.getString("REMARKS"));
-
-                            final ResultSet rs = metaData.getColumns(getBase().getMDName(), getSchema().getName(), getName(), null);
-                            // call next() to position the cursor
-                            if (!rs.next()) {
-                                // empty table
-                                emptyFields();
-                            } else {
-                                fetchFields(metaData, rs);
-                            }
-                        }
-
-                        return removed;
-                    }
-                });
-                if (removed) {
-                    SQLBase.mustContain(this, Collections.<SQLTable> emptySet(), Collections.singleton(this), "tables");
-                    if (onlyUseSchema)
-                        getSchema().rmTableWithoutSysRootLock(getName());
-                    else
-                        getSchema().rmTable(getName());
-                } else {
-                    this.clearNonPersistent();
-                    new JDBCStructureSource.TriggerQueryExecutor(null).apply(this);
-                    new JDBCStructureSource.ColumnsQueryExecutor(null).apply(this);
-                    try {
-                        new JDBCStructureSource.ConstraintsExecutor(null).apply(this);
-                    } catch (QueryExn e) {
-                        // constraints are not essential continue
-                        e.printStackTrace();
-                        this.addConstraint((Constraint) null);
-                    }
-                }
-
-                if (!onlyUseSchema) {
-                    // we might have added/dropped a foreign key even if the set of tables hasn't
-                    // changed
-                    this.getDBSystemRoot().descendantsChanged(this, null, false, removed);
-                    this.save();
-                }
-            }
-        }
+        this.getBase().fetchTables(TablesMap.createBySchemaFromTable(this));
     }
 
     /**
@@ -343,16 +360,19 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
      * 
      * @param metaData the metadata.
      * @param rs the resultSet of a getColumns(), the cursor must be on a row.
+     * @param version the version of the schema.
      * @return whether the <code>rs</code> has more row.
      * @throws SQLException if an error occurs.
      * @throws IllegalStateException if the current row of <code>rs</code> doesn't describe this.
      */
-    boolean fetchFields(DatabaseMetaData metaData, ResultSet rs) throws SQLException {
+    boolean fetchFields(DatabaseMetaData metaData, ResultSet rs, String version) throws SQLException {
         if (!this.isUs(rs))
             throw new IllegalStateException("rs current row does not describe " + this);
 
         synchronized (getTreeMutex()) {
             synchronized (this) {
+                this.version = version;
+
                 // we need to match the database ordering of fields
                 final LinkedHashMap<String, SQLField> newFields = new LinkedHashMap<String, SQLField>();
                 // fields
@@ -435,6 +455,8 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
                 Log.get().config("the first row (which should be the undefined):\n" + update);
                 return undef.intValue();
             }
+        } else if ("inDB".equals(policy)) {
+            throw new IllegalStateException("Not in " + new SQLName(this.getDBRoot().getName(), undefTable) + " : " + this.getName());
         } else if (policy != null && !"nonexistant".equals(policy)) {
             final int res = Integer.parseInt(policy);
             if (res < SQLRow.MIN_VALID_ID)
@@ -452,6 +474,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         synchronized (getTreeMutex()) {
             synchronized (this) {
                 this.clearNonPersistent();
+                this.version = table.version;
                 this.setState(table.fields, table.getPKsNames(), table.undefinedID);
                 this.triggers.putAll(table.triggers);
                 if (table.constraints == null)
@@ -790,7 +813,12 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
      * @return le nombre de lignes de cette table.
      */
     public int getRowCount() {
-        final SQLSelect sel = new SQLSelect(this.getBase(), true).addSelectFunctionStar("count").addFrom(this);
+        return this.getRowCount(true);
+    }
+
+    public int getRowCount(final boolean includeUndefined) {
+        final SQLSelect sel = new SQLSelect(true).addSelectFunctionStar("count").addFrom(this);
+        sel.setExcludeUndefined(!includeUndefined);
         final Number count = (Number) this.getBase().getDataSource().execute(sel.asString(), new IResultSetHandler(SQLDataSource.SCALAR_HANDLER, false));
         return count.intValue();
     }
@@ -993,6 +1021,21 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         return this.getUndefinedID(false).intValue();
     }
 
+    // if false getUndefinedID() might contact the DB
+    synchronized final boolean undefinedIDKnown() {
+        return this.undefinedID != null;
+    }
+
+    /*
+     * No longer save the undefined IDs. We mustn't search undefined IDs when loading structure
+     * since the undefined rows might not yet be inserted. When getUndefinedID() was called, we used
+     * to save the ID alongside the table structure with the new structure version. Which is wrong
+     * since we haven't refreshed the table structure. One solution would be to create an undefined
+     * ID version : when loading, as with the structure, we now have to check the saved version
+     * against the one in the metadata table, but since FWK_UNDEFINED_ID is small and already
+     * cached, we might as well simplify and forego the version altogether.
+     */
+
     private final Integer getUndefinedID(final boolean internal) {
         Integer res = null;
         synchronized (this) {
@@ -1003,22 +1046,19 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             if (!internal && this.getSchema().isFetchAllUndefinedIDs()) {
                 // init all undefined, MAYBE one request with UNION ALL
                 for (final SQLTable sibling : this.getSchema().getTables()) {
-                    Integer siblingRes = getUndefinedID(true);
+                    Integer siblingRes = sibling.getUndefinedID(true);
                     assert siblingRes != null;
                     if (sibling == this)
                         res = siblingRes;
                 }
-                // save all tables
-                this.getBase().save(this.getSchema().getName());
             } else {
                 res = this.fetchUndefID();
                 synchronized (this) {
                     this.undefinedID = res;
                 }
-                if (!internal)
-                    this.save();
             }
         }
+        assert this.undefinedIDKnown();
         return res;
     }
 
@@ -1028,12 +1068,6 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             return null;
         else
             return res;
-    }
-
-    // save just this table
-    final void save() {
-        // (for now save all tables)
-        this.getBase().save(this.getSchema().getName());
     }
 
     // static
@@ -1198,11 +1232,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             sb.append('"');
         }
 
-        if (this.undefinedID != null) {
-            sb.append(" undefID=\"");
-            sb.append(this.undefinedID);
-            sb.append('"');
-        }
+        SQLSchema.appendVersionAttr(this.version, sb);
 
         if (getType() != null) {
             sb.append(" type=\"");
@@ -1399,7 +1429,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
 
     public synchronized final SQLCreateMoveableTable getCreateTable(final SQLSystem system) {
         final SQLSyntax syntax = SQLSyntax.get(system);
-        final SQLCreateMoveableTable res = new SQLCreateMoveableTable(syntax, this.getName());
+        final SQLCreateMoveableTable res = new SQLCreateMoveableTable(syntax, this.getDBRoot().getName(), this.getName());
         for (final SQLField f : this.getOrderedFields()) {
             res.addColumn(f);
         }

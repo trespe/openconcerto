@@ -513,9 +513,11 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         if (cellStyle != null)
             return cellStyle;
         // then the row (as specified in §2 of section 8.1)
-        cellStyle = this.getRow(row).getElement().getAttributeValue("default-cell-style-name", getTABLE());
-        if (cellStyle != null)
-            return cellStyle;
+        if (Style.isStandardStyleResolution()) {
+            cellStyle = this.getRow(row).getElement().getAttributeValue("default-cell-style-name", getTABLE());
+            if (cellStyle != null)
+                return cellStyle;
+        }
         // and finally the column
         return this.getColumn(column).getElement().getAttributeValue("default-cell-style-name", getTABLE());
     }

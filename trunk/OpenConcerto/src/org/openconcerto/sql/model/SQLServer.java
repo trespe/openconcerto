@@ -17,6 +17,7 @@
 package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.model.LoadingListener.StructureLoadingEvent;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.utils.SQL_URL;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.CopyOnWriteMap;
@@ -29,6 +30,7 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -116,6 +118,9 @@ public final class SQLServer extends DBStructureItemJDBC {
     private final IClosure<SQLDataSource> dsInit;
     private final ITransformer<String, String> urlTransf;
 
+    @GuardedBy("this")
+    private String id;
+
     public SQLServer(SQLSystem system, String host) {
         this(system, host, null);
     }
@@ -152,6 +157,8 @@ public final class SQLServer extends DBStructureItemJDBC {
         this.bases = null;
         this.systemRootInit = systemRootInit;
         this.urlTransf = this.getSQLSystem().getURLTransf(this);
+
+        this.id = this.getName();
 
         // cannot refetch now as we don't have any datasource yet (see createSystemRoot())
     }
@@ -201,12 +208,16 @@ public final class SQLServer extends DBStructureItemJDBC {
         return res;
     }
 
-    void refresh(Set<String> namesToRefresh, final boolean readCache) {
-        this.refresh(namesToRefresh, readCache, false);
+    Map<String, TablesMap> refresh(final Map<String, TablesMap> namesToRefresh, final boolean readCache) {
+        return this.refresh(namesToRefresh, readCache, false);
     }
 
-    private void refresh(final Set<String> namesToRefresh, final boolean readCache, final boolean init) {
+    // return null if this cannot be refreshed (i.e. this is above DBSystemRoot)
+    private Map<String, TablesMap> refresh(final Map<String, TablesMap> tablesToRefresh, final boolean readCache, final boolean init) {
         if (this.getDS() != null) {
+            if (Collections.emptyMap().equals(tablesToRefresh))
+                return tablesToRefresh;
+            final Set<String> namesToRefresh = tablesToRefresh == null ? null : tablesToRefresh.keySet();
             // for mysql we must know our children, since they can reference each other and thus the
             // graph needs them
             final StructureLoadingEvent evt = new StructureLoadingEvent(this, namesToRefresh);
@@ -250,19 +261,26 @@ public final class SQLServer extends DBStructureItemJDBC {
                     }
 
                     // fire once all the bases are loaded so that the graph is coherent
-                    this.getDBSystemRoot().getGraph().atomicRefresh(new Callable<Object>() {
+                    return this.getDBSystemRoot().getGraph().atomicRefresh(new Callable<Map<String, TablesMap>>() {
                         @Override
-                        public Object call() throws Exception {
+                        public Map<String, TablesMap> call() throws Exception {
+                            final Map<String, TablesMap> res = new HashMap<String, TablesMap>();
                             // add or refresh
                             for (final String cat : cats) {
+                                final TablesMap jdbcTables;
                                 final SQLBase existing = getBase(cat);
-                                if (existing != null)
-                                    existing.refresh(null, readCache);
-                                else
+                                if (existing != null) {
+                                    jdbcTables = existing.refresh(tablesToRefresh == null ? null : tablesToRefresh.get(cat), readCache);
+                                } else {
+                                    // ignore tablesToRefresh if the base didn't exist (see
+                                    // SQLBase.assureAllTables())
                                     // we already have the datasource, so login/pass aren't used
-                                    getBase(cat, "", "", DSINIT_ERROR, readCache);
+                                    jdbcTables = createBase(cat, "", "", DSINIT_ERROR, readCache);
+                                }
+                                if (!jdbcTables.isEmpty())
+                                    res.put(cat, jdbcTables);
                             }
-                            return null;
+                            return res;
                         }
                     });
                 }
@@ -274,6 +292,7 @@ public final class SQLServer extends DBStructureItemJDBC {
         } else if (!init) {
             throw new IllegalArgumentException("Cannot create bases since this server cannot have a connection");
         }
+        return null;
     }
 
     /**
@@ -359,19 +378,24 @@ public final class SQLServer extends DBStructureItemJDBC {
     }
 
     public SQLBase getBase(String baseName, String login, String pass, IClosure<SQLDataSource> dsInit, boolean readCache) {
-        if (this.getDBSystemRoot() != null && dsInit != DSINIT_ERROR)
+        if (this.getDBSystemRoot() != null)
             throw new IllegalStateException("getBase(name, login, pass) should only be used for systems where SQLBase is DBSystemRoot");
         synchronized (this.getTreeMutex()) {
             SQLBase base = this.getBase(baseName);
             if (base == null) {
-                final DBSystemRoot sysRoot = this.getDBSystemRoot();
-                if (sysRoot != null && !sysRoot.createNode(this, baseName))
-                    throw new IllegalStateException(baseName + " is filtered, you must add it to rootsToMap");
-                base = this.getSQLSystem().getSyntax().createBase(this, baseName, login == null ? this.login : login, pass == null ? this.pass : pass, dsInit != null ? dsInit : this.dsInit);
-                this.putBase(baseName, base, readCache);
+                this.createBase(baseName, login, pass, dsInit, readCache);
+                base = this.getBase(baseName);
             }
             return base;
         }
+    }
+
+    private final TablesMap createBase(String baseName, String login, String pass, IClosure<SQLDataSource> dsInit, boolean readCache) {
+        final DBSystemRoot sysRoot = this.getDBSystemRoot();
+        if (sysRoot != null && !sysRoot.createNode(this, baseName))
+            throw new IllegalStateException(baseName + " is filtered, you must add it to rootsToMap");
+        final SQLBase base = this.getSQLSystem().getSyntax().createBase(this, baseName, login == null ? this.login : login, pass == null ? this.pass : pass, dsInit != null ? dsInit : this.dsInit);
+        return this.putBase(baseName, base, readCache);
     }
 
     public final DBSystemRoot getSystemRoot(String name) {
@@ -438,11 +462,11 @@ public final class SQLServer extends DBStructureItemJDBC {
         }
     }
 
-    private void putBase(String baseName, SQLBase base, boolean readCache) {
+    private TablesMap putBase(String baseName, SQLBase base, boolean readCache) {
         assert Thread.holdsLock(getTreeMutex());
         final CollectionChangeEventCreator c = this.createChildrenCreator();
         this.getBases().put(baseName, base);
-        base.init(readCache);
+        final TablesMap res = base.init(readCache);
         this.fireChildrenChanged(c);
         // if base is null, no new tables (furthermore descendantsChanged() would create our
         // children)
@@ -456,6 +480,7 @@ public final class SQLServer extends DBStructureItemJDBC {
                 this.setDefaultBase(baseName);
             }
         }
+        return res;
     }
 
     @Override
@@ -516,6 +541,16 @@ public final class SQLServer extends DBStructureItemJDBC {
             synchronized (this.systemRootInit) {
                 this.systemRootInit.executeChecked(systemRoot);
             }
+    }
+
+    public final synchronized void setID(final String id) {
+        this.id = id;
+    }
+
+    // needed since the host doesn't always identify one server (e.g. 127.0.0.1:1234 might be a
+    // tunnel to different servers)
+    public final synchronized String getID() {
+        return this.id;
     }
 
     public final DBFileCache getFileCache() {

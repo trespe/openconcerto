@@ -413,7 +413,7 @@ public abstract class SQLElement {
         // we want ARCHIVED existant and defined rows (since we never touch undefined ones)
         final SQLRowMode mode = new SQLRowMode(ArchiveMode.ARCHIVED, true, true);
         final Set<SQLRow> foreigns = new HashSet<SQLRow>(this.getNormalForeigns(row, mode).values());
-        final SQLRow parent = this.getParent(row, mode);
+        final SQLRow parent = this.getForeignParent(row, mode);
         if (parent != null) {
             foreigns.add(parent);
         }
@@ -1291,11 +1291,24 @@ public abstract class SQLElement {
         return mm;
     }
 
-    public SQLRow getParent(SQLRow row) {
-        return this.getParent(row, SQLRowMode.VALID);
+    public SQLRowAccessor getParent(SQLRowAccessor row) {
+        check(row);
+        final List<SQLRowAccessor> parents = new ArrayList<SQLRowAccessor>();
+        for (final Link l : this.getParentsLinks()) {
+            parents.addAll(row.followLink(l));
+        }
+        if (parents.size() > 1)
+            throw new IllegalStateException("More than one parent for " + row + " : " + parents);
+        return parents.size() == 0 ? null : parents.get(0);
     }
 
-    private SQLRow getParent(SQLRow row, final SQLRowMode mode) {
+    public SQLRow getForeignParent(SQLRow row) {
+        return this.getForeignParent(row, SQLRowMode.VALID);
+    }
+
+    // ATTN cannot replace with getParent(SQLRowAccessor) since some callers assume the result to be
+    // a foreign row (which isn't the case for private)
+    private SQLRow getForeignParent(SQLRow row, final SQLRowMode mode) {
         check(row);
         return this.getParentForeignField() == null ? null : row.getForeignRow(this.getParentForeignField(), mode);
     }

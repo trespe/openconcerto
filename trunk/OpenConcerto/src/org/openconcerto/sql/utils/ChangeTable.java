@@ -75,6 +75,61 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         }
     }
 
+    /**
+     * Allow to change names of tables.
+     * 
+     * @author Sylvain
+     */
+    public static class NameTransformer {
+
+        /**
+         * Transformer that does nothing.
+         */
+        public static final NameTransformer NOP = new NameTransformer();
+
+        /**
+         * Called once for each {@link ChangeTable}.
+         * 
+         * @param tableName the original table name.
+         * @return the name that will be used.
+         */
+        public SQLName transformTableName(final SQLName tableName) {
+            return tableName;
+        }
+
+        /**
+         * Called once for each foreign key.
+         * 
+         * @param rootName the name of the root of the table.
+         * @param tableName the name of the table.
+         * @param linkDest the name of the destination table.
+         * @return the name that will be used to reference the foreign table.
+         */
+        public SQLName transformLinkDestTableName(final String rootName, final String tableName, final SQLName linkDest) {
+            return transformTableName(linkDest.getItemCount() == 1 ? new SQLName(rootName, linkDest.getName()) : linkDest);
+        }
+    }
+
+    public static class ChangeRootNameTransformer extends NameTransformer {
+
+        private final String r;
+
+        public ChangeRootNameTransformer(String r) {
+            super();
+            this.r = r;
+        }
+
+        @Override
+        public SQLName transformTableName(final SQLName tableName) {
+            return new SQLName(this.r, tableName.getName());
+        }
+
+        @Override
+        public SQLName transformLinkDestTableName(final String rootName, final String tableName, final SQLName linkDest) {
+            return linkDest.getItemCount() == 1 ? transformTableName(new SQLName(rootName, linkDest.getName())) : linkDest;
+        }
+    }
+
     public static final Set<ClauseType> ORDERED_TYPES;
 
     static {
@@ -93,7 +148,15 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @return the SQL needed.
      */
     public static List<String> cat(List<? extends ChangeTable<?>> cts, final String r) {
-        return cat(cts, r, false);
+        return cat(cts, new ChangeRootNameTransformer(r));
+    }
+
+    public static List<String> cat(final List<? extends ChangeTable<?>> cts) {
+        return cat(cts, NameTransformer.NOP);
+    }
+
+    public static List<String> cat(final List<? extends ChangeTable<?>> cts, final NameTransformer transf) {
+        return cat(cts, transf, false);
     }
 
     /**
@@ -108,6 +171,12 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      *         size, e.g. if no boundaries are passed all SQL will be in one list.
      */
     public static List<List<String>> cat(final Collection<? extends ChangeTable<?>> cts, final String r, final EnumSet<ConcatStep> boundaries) {
+        if (r == null)
+            throw new NullPointerException("r is null");
+        return cat(cts, new ChangeRootNameTransformer(r), boundaries);
+    }
+
+    public static List<List<String>> cat(final Collection<? extends ChangeTable<?>> cts, final NameTransformer transf, final EnumSet<ConcatStep> boundaries) {
         final List<List<String>> res = new ArrayList<List<String>>();
         List<String> current = null;
         for (final ConcatStep step : ConcatStep.values()) {
@@ -116,7 +185,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
                 res.add(current);
             }
             for (final ChangeTable<?> ct : cts) {
-                final String asString = ct.asString(r, step);
+                final String asString = ct.asString(transf, step);
                 if (asString != null && asString.length() > 0) {
                     current.add(asString);
                 }
@@ -127,8 +196,8 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         return res;
     }
 
-    private static List<String> cat(List<? extends ChangeTable<?>> cts, final String r, final boolean forceCat) {
-        final List<String> res = cat(cts, r, EnumSet.noneOf(ConcatStep.class)).get(0);
+    private static List<String> cat(List<? extends ChangeTable<?>> cts, final NameTransformer transf, final boolean forceCat) {
+        final List<String> res = cat(cts, transf, EnumSet.noneOf(ConcatStep.class)).get(0);
         // don't return [""] because the caller might test the size of the result and assume that
         // the DB was changed
         // MySQL needs to have its "alter table add/drop fk" in separate execute()
@@ -140,10 +209,40 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     }
 
     public static String catToString(List<? extends ChangeTable<?>> cts, final String r) {
-        return cat(cts, r, true).get(0);
+        return cat(cts, new ChangeRootNameTransformer(r), true).get(0);
     }
 
     public static final class FCSpec {
+
+        static public FCSpec createFromLink(final Link l) {
+            return createFromLink(l, l.getTarget());
+        }
+
+        /**
+         * Create an instance using an existing link but pointing to another table.
+         * 
+         * @param l an existing link, e.g. root1.LOCAL pointing to root1.BATIMENT.
+         * @param newDest the new destination for the link, e.g. root2.BATIMENT.
+         * @return a new instance, e.g. root1.LOCAL pointing to root2.BATIMENT.
+         * @throws IllegalArgumentException if <code>newDest</code> is not compatible with
+         *         <code>l.{@link Link#getTarget() getTarget()}</code>.
+         */
+        static public FCSpec createFromLink(final Link l, final SQLTable newDest) {
+            if (newDest != l.getTarget()) {
+                final List<SQLField> ffs = l.getFields();
+                final Set<SQLField> pks = newDest.getPrimaryKeys();
+                if (ffs.size() != pks.size())
+                    throw new IllegalArgumentException("Size mismatch : " + ffs + " " + pks);
+                int i = 0;
+                for (final SQLField pk : pks) {
+                    if (!ffs.get(i).getType().equals(pk.getType()))
+                        throw new IllegalArgumentException("Type mismatch " + ffs.get(i) + " " + pk);
+                    i++;
+                }
+            }
+            return new FCSpec(l.getCols(), newDest.getContextualSQLName(l.getSource()), newDest.getPKsNames(), l.getUpdateRule(), l.getDeleteRule());
+        }
+
         private final List<String> cols;
         private final SQLName refTable;
         private final List<String> refCols;
@@ -181,16 +280,17 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         }
     }
 
-    private String name;
+    private String rootName, name;
     private final SQLSyntax syntax;
     private final List<FCSpec> fks;
     private final CollectionMap<ClauseType, String> clauses;
     private final CollectionMap<ClauseType, DeferredClause> inClauses;
     private final CollectionMap<ClauseType, DeferredClause> outClauses;
 
-    public ChangeTable(final SQLSyntax syntax, final String name) {
+    public ChangeTable(final SQLSyntax syntax, final String rootName, final String name) {
         super();
         this.syntax = syntax;
+        this.rootName = rootName;
         this.name = name;
         this.fks = new ArrayList<FCSpec>();
         this.clauses = new CollectionMap<ClauseType, String>();
@@ -283,19 +383,47 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @return this.
      */
     public final T addIntegerColumn(String name, Integer defaultVal, boolean nullable) {
-        return this.addNumberColumn(name, "integer", defaultVal, nullable);
+        return this.addNumberColumn(name, Integer.class, defaultVal, nullable);
     }
 
     public final T addLongColumn(String name, Long defaultVal, boolean nullable) {
-        return this.addNumberColumn(name, "bigint", defaultVal, nullable);
+        return this.addNumberColumn(name, Long.class, defaultVal, nullable);
     }
 
     public final T addShortColumn(String name, Short defaultVal, boolean nullable) {
-        return this.addNumberColumn(name, "smallint", defaultVal, nullable);
+        return this.addNumberColumn(name, Short.class, defaultVal, nullable);
     }
 
-    private final T addNumberColumn(String name, String sqlType, Number defaultVal, boolean nullable) {
-        return this.addColumn(name, sqlType + " " + getSyntax().getDefaultClause(defaultVal == null ? null : defaultVal.toString()) + " " + getSyntax().getNullableClause(nullable));
+    /**
+     * Adds a number column.
+     * 
+     * @param name the name of the column.
+     * @param javaType the java class, it must be supported by the {@link #getSyntax() syntax}, e.g.
+     *        Double.class.
+     * @param defaultVal the default value of the column, can be <code>null</code>, e.g. 3.14.
+     * @param nullable whether the column accepts NULL.
+     * @return this.
+     * @see SQLSyntax#getTypeNames(Class)
+     */
+    public final <N extends Number> T addNumberColumn(String name, Class<N> javaType, N defaultVal, boolean nullable) {
+        final Set<String> typeNames = getSyntax().getTypeNames(javaType);
+        if (typeNames.size() == 0)
+            throw new IllegalArgumentException(javaType + " isn't supported by " + getSyntax());
+        return this.addColumn(name, typeNames.iterator().next(), defaultVal == null ? null : defaultVal.toString(), nullable);
+    }
+
+    /**
+     * Adds a column.
+     * 
+     * @param name the name of the column.
+     * @param sqlType the SQL type, e.g. "double precision" or "varchar(32)".
+     * @param defaultVal the SQL default value of the column, can be <code>null</code>, e.g. "3.14"
+     *        or "'small text'".
+     * @param nullable whether the column accepts NULL.
+     * @return this.
+     */
+    public final T addColumn(String name, String sqlType, String defaultVal, boolean nullable) {
+        return this.addColumn(name, getSyntax().getFieldDecl(sqlType, defaultVal, nullable));
     }
 
     public abstract T addColumn(String name, String definition);
@@ -313,7 +441,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     }
 
     public final T addForeignConstraint(Link l, boolean createIndex) {
-        return this.addForeignConstraint(new FCSpec(l.getCols(), l.getContextualName(), l.getRefCols(), l.getUpdateRule(), l.getDeleteRule()), createIndex);
+        return this.addForeignConstraint(FCSpec.createFromLink(l), createIndex);
     }
 
     public final T addForeignConstraint(String fieldName, SQLName refTable, String refCols) {
@@ -518,21 +646,29 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     protected void modifyOutClauses(List<DeferredClause> clauses) {
     }
 
+    public final String asString() {
+        return this.asString(NameTransformer.NOP);
+    }
+
+    public final String asString(final String rootName) {
+        return this.asString(new ChangeRootNameTransformer(rootName));
+    }
+
     // we can't implement asString() since our subclasses have more parameters
     // so we implement outClausesAsString()
-    public abstract String asString(final String rootName);
+    public abstract String asString(final NameTransformer transf);
 
     // called by #cat()
-    protected abstract String asString(final String rootName, final ConcatStep step);
+    protected abstract String asString(final NameTransformer transf, final ConcatStep step);
 
     // [ CONSTRAINT "BATIMENT_ID_SITE_fkey" FOREIGN KEY ("ID_SITE") REFERENCES "SITE"("ID") ON
     // DELETE CASCADE; ]
-    protected final List<String> getForeignConstraints(final String rootName) {
+    protected final List<String> getForeignConstraints(final NameTransformer transf) {
         final List<String> res = new ArrayList<String>(this.fks.size());
         for (final FCSpec fk : this.fks) {
             // resolve relative path, a table is identified by root.table
             final SQLName relRefTable = fk.getRefTable();
-            final SQLName refTable = relRefTable.getItemCount() == 1 ? new SQLName(rootName, relRefTable.getName()) : relRefTable;
+            final SQLName refTable = transf.transformLinkDestTableName(getRootName(), getName(), relRefTable);
             res.add(getConstraintPrefix() + this.getSyntax().getFK(this.name + "_", fk.getCols(), refTable, fk.getRefCols(), fk.getUpdateRule(), fk.getDeleteRule()));
         }
         return res;
@@ -540,7 +676,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
 
     @Override
     public String toString() {
-        return this.asString(null);
+        return this.asString();
     }
 
     public final String getName() {
@@ -549,6 +685,10 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
 
     public final void setName(String name) {
         this.name = name;
+    }
+
+    public final String getRootName() {
+        return this.rootName;
     }
 
     public static interface DeferredClause {

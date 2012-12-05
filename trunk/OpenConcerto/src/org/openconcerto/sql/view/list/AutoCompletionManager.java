@@ -27,6 +27,7 @@ import java.beans.PropertyChangeListener;
 import java.sql.Types;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.Vector;
@@ -86,7 +87,7 @@ public class AutoCompletionManager implements SelectionListener {
         init(fromTableElement, fillFrom, table, tableModel, modeCompletion, req, foreign, new ValidStateChecker());
     }
 
-    public void init(SQLTableElement fromTableElement, SQLField fillFrom, RowValuesTable table, RowValuesTableModel tableModel, int modeCompletion, ComboSQLRequest req, boolean foreign,
+    public void init(final SQLTableElement fromTableElement, final SQLField fillFrom, RowValuesTable table, RowValuesTableModel tableModel, int modeCompletion, ComboSQLRequest req, boolean foreign,
             ValidStateChecker validStateChecker) {
 
         this.tableModel = tableModel;
@@ -107,7 +108,16 @@ public class AutoCompletionManager implements SelectionListener {
 
                         int i = textComboCellEdit.getComboSelectedId();
                         if (AutoCompletionManager.this.lastSelectedComboId != i) {
-                            idSelected(i, null);
+                            if (fromTableElement.getField().getForeignTable().equals(fillFrom.getTable())) {
+                                idSelected(i, null);
+                            } else {
+                                int selectedID = SQLRow.NONEXISTANT_ID;
+                                final SQLRow selectedRow = textComboCellEdit.getCombo().getSelectedRow();
+                                if (selectedRow != null) {
+                                    selectedID = selectedRow.getForeignRow("ID_" + fillFrom.getTable().getName()).getID();
+                                }
+                                idSelected(selectedID, null);
+                            }
                         }
                         AutoCompletionManager.this.lastSelectedComboId = i;
                         System.err.println("editing stopped");
@@ -145,7 +155,7 @@ public class AutoCompletionManager implements SelectionListener {
         }
     }
 
-    private HashMap<String, String> fillBy = new HashMap<String, String>();
+    private HashMap<String, String> fillBy = new LinkedHashMap<String, String>();
     private int lastId = -1;
     private int lastEditingRow = -1;
 

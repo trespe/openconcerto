@@ -19,7 +19,6 @@ import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
 import org.openconcerto.erp.core.finance.accounting.ui.SuppressionEcrituresPanel;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureElementXmlSheet;
-import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.quote.ui.EtatDevisRenderer;
 import org.openconcerto.erp.generationDoc.AbstractSheetXml;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
@@ -30,10 +29,10 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
+import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.users.rights.JListSQLTablePanel;
 import org.openconcerto.sql.view.IListPanel;
 import org.openconcerto.sql.view.ListeAddPanel;
@@ -42,7 +41,6 @@ import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
-import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.Color;
 import java.awt.Font;
@@ -53,10 +51,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -94,7 +90,6 @@ public class ListeHistoriquePanel extends JPanel {
 
     static {
         SQLElementDirectory dir = Configuration.getInstance().getDirectory();
-        elementSheet.put(dir.getElement("SAISIE_VENTE_FACTURE"), VenteFactureXmlSheet.class);
         elementSheet.put(dir.getElement("SAISIE_VENTE_FACTURE_ELEMENT"), VenteFactureElementXmlSheet.class);
     }
 
@@ -102,7 +97,9 @@ public class ListeHistoriquePanel extends JPanel {
     private final ListSelectionListener listListener = new ListSelectionListener() {
 
         public void valueChanged(ListSelectionEvent e) {
-
+            if (e != null && e.getValueIsAdjusting()) {
+                return;
+            }
             int selectIndex = ListeHistoriquePanel.this.jListePanel.getSelectedIndex();
 
             SQLRowAccessor row = ListeHistoriquePanel.this.jListePanel.getModel().getRowAt(selectIndex);
@@ -129,17 +126,7 @@ public class ListeHistoriquePanel extends JPanel {
 
                 Where w = null;
                 final SQLTable table = liste.getElement().getTable();
-                for (String key : ListeHistoriquePanel.this.whereList.keySet()) {
-                    Where wTmp = ListeHistoriquePanel.this.whereList.get(key);
 
-                    if (liste.getListe().getRequest().getAllFields().containsAll(wTmp.getFields())) {
-                        if (w == null) {
-                            w = wTmp;
-                        } else {
-                            w = w.and(wTmp);
-                        }
-                    }
-                }
                 if (id > 1) {
                     if (ListeHistoriquePanel.this.listFieldMap != null && ListeHistoriquePanel.this.listFieldMap.get(table) != null) {
                         SQLField field = ListeHistoriquePanel.this.listFieldMap.get(table);
@@ -175,13 +162,13 @@ public class ListeHistoriquePanel extends JPanel {
         }
     };
 
-    public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap) {
-        this(title, req, listTableOnglet, panelBottom, listFieldMap, "Tous");
+    public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap, Where where) {
+        this(title, req, listTableOnglet, panelBottom, listFieldMap, "Tous", where);
     }
 
     public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap,
-            String undefinedLabel) {
-        this(title, req, listTableOnglet, panelBottom, listFieldMap, undefinedLabel, false);
+            String undefinedLabel, Where where) {
+        this(title, req, listTableOnglet, panelBottom, listFieldMap, undefinedLabel, false, where);
     }
 
     // TODO verifier que les tables contiennent bien la clef etrangere
@@ -194,9 +181,10 @@ public class ListeHistoriquePanel extends JPanel {
      *        de foreignKey pointant sur tableList
      * @param undefinedLabel label pour l'indéfini permettant de tout sélectionner, null si
      *        l'undefined n'est pas à inclure.
+     * @param where
      */
     public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap,
-            String undefinedLabel, final boolean sourceWithOutTransformer) {
+            String undefinedLabel, final boolean sourceWithOutTransformer, Where where) {
         super();
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -231,9 +219,21 @@ public class ListeHistoriquePanel extends JPanel {
                 final SQLElement elt = Configuration.getInstance().getDirectory().getElement(listPanelTable.get(i));
 
                 IListPanel liste;
+                SQLTableModelSourceOnline createTableSource = elt.getTableSource(true);
+                final ListSQLRequest request = createTableSource.getReq();
+                if (sourceWithOutTransformer) {
+                    request.setSelectTransf(null);
+                }
+                if (where != null) {
+                    if (request.getAllFields().containsAll(where.getFields())) {
+                        request.setWhere(where);
+                    }
+                }
 
                 if (elt.getTable().contains("ID_MOUVEMENT")) {
-                    liste = new ListeGestCommEltPanel(elt, Where.FALSE, "historique-" + title) {
+
+                    liste = new ListeGestCommEltPanel(elt, new IListe(createTableSource), "historique-" + title) {
+
                         protected void handleAction(JButton source, ActionEvent evt) {
 
                             if (elt.getTable().contains("ID_MOUVEMENT")) {
@@ -257,15 +257,11 @@ public class ListeHistoriquePanel extends JPanel {
                     };
 
                 } else {
-                    SQLTableModelSourceOnline createTableSource = elt.createTableSource(Where.FALSE);
-                    if (sourceWithOutTransformer) {
-                        createTableSource.getReq().setSelectTransf(null);
-                    }
+
                     liste = new ListeAddPanel(elt, new IListe(createTableSource), "historique-" + title) {
                         @Override
                         protected void handleAction(JButton source, ActionEvent evt) {
                             if (source == this.buttonAjouter) {
-                                final boolean deaf = isDeaf();
                                 // toujours remplir la createFrame avec la ligne sélectionnée
                                 // car la frame écoute la sélection mais pas les modif, et se reset
                                 // qd on la ferme
@@ -301,6 +297,7 @@ public class ListeHistoriquePanel extends JPanel {
                 liste.getListe().setSQLEditable(false);
                 liste.setOpaque(false);
                 liste.setBorder(null);
+                liste.getListe().getModel().setHibernateDelay(-1);
 
                 if (listPanelTable.size() > 1) {
                     Font f = UIManager.getFont("TitledBorder.font");
@@ -377,12 +374,6 @@ public class ListeHistoriquePanel extends JPanel {
     }
 
     public void selectIDinJList(int id) {
-        // int index = this.jListePanel.getModel().getIndexForId(id);
-        // if (index >= 0) {
-        // this.jListePanel.getJList().setSelectedIndex(index);
-        // this.jListePanel.getJList().ensureIndexIsVisible(index);
-        // }
-
         this.jListePanel.selectID(id);
     }
 
@@ -409,21 +400,9 @@ public class ListeHistoriquePanel extends JPanel {
         }
     }
 
-    /**
-     * @param col Collection de SQLField
-     * @return liste des noms des champs contenus dans col
-     */
-    private List<String> getListSQLField(Collection<SQLField> col) {
-        List<String> l = new ArrayList<String>();
-        for (Iterator<SQLField> i = col.iterator(); i.hasNext();) {
-            SQLField field = i.next();
-            l.add(field.getName());
-        }
-        return l;
-    }
-
     public void addListSelectionListener(ListSelectionListener l) {
         this.jListePanel.addListSelectionListener(l);
+        System.out.println("ListeHistoriquePanel.addListSelectionListener()" + jListePanel);
     }
 
     public void removeListSelectionListener(ListSelectionListener l) {
@@ -466,7 +445,7 @@ public class ListeHistoriquePanel extends JPanel {
                 listeIds.add(liste.idFromIndex(i));
             }
         } else {
-            listeIds = Collections.EMPTY_LIST;
+            listeIds = Collections.emptyList();
         }
         return listeIds;
     }
@@ -511,7 +490,23 @@ public class ListeHistoriquePanel extends JPanel {
      */
 
     public IListe getIListeFromTableName(String tableName) {
-        IListe liste = null;
+        IListPanel liste = getIListePanelFromTableName(tableName);
+        if (liste == null) {
+            return null;
+        } else {
+            return liste.getListe();
+        }
+    }
+
+    /**
+     * Permet d'obtenir la IListe correspondant au nom d'une table
+     * 
+     * @param tableName nom de la table
+     * @return la Iliste associée, dans le cas échéant null
+     */
+
+    public IListPanel getIListePanelFromTableName(String tableName) {
+        IListPanel liste = null;
         for (int i = 0; i < this.vectListePanel.size(); i++) {
             IListPanel listeTmp = this.vectListePanel.get(i);
             // FIXME Null pointer Exception when client deleted
@@ -521,7 +516,7 @@ public class ListeHistoriquePanel extends JPanel {
                     final ITableModel model = list.getModel();
                     if (model != null) {
                         if (model.getTable().getName().equalsIgnoreCase(tableName)) {
-                            liste = listeTmp.getListe();
+                            liste = listeTmp;
                         }
                     }
                 }
@@ -552,12 +547,38 @@ public class ListeHistoriquePanel extends JPanel {
     }
 
     public void fireListesChanged() {
-
-        for (int i = 0; i < this.vectListePanel.size(); i++) {
-            IListPanel listeTmp = this.vectListePanel.get(i);
-            listeTmp.getListe().getModel().fireTableDataChanged();
-            listeTmp.getListe().getModel().fireTableStructureChanged();
+        System.err.println("ListeHistoriquePanel.fireListesChanged()");
+        final int size = this.vectListePanel.size();
+        for (int i = 0; i < size; i++) {
+            final IListPanel listeTmp = this.vectListePanel.get(i);
+            final ITableModel model = listeTmp.getListe().getModel();
+            model.fireTableDataChanged();
+            model.fireTableStructureChanged();
         }
 
     }
+
+    // TODO Gestion de weakListener pour eviter de devoir supprimer les listeners pour le garbage
+
+    // public void addWeakListenerTable(TableModelListener listener, String tableName) {
+    // addListenerTable(new WeakListener(listener), tableName);
+    // }
+    //
+    // private final class WeakListener extends WeakReference<TableModelListener> implements
+    // TableModelListener {
+    // private WeakListener(TableModelListener referent) {
+    // super(referent);
+    // }
+    //
+    // @Override
+    // public void tableChanged(TableModelEvent e) {
+    //
+    // final TableModelListener l = this.get();
+    // if (l != null)
+    // l.tableChanged(e);
+    // // else
+    // //
+    // // this.rmListener_(this);
+    // }
+    // }
 }

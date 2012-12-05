@@ -78,6 +78,17 @@ public abstract class AbstractModule {
     }
 
     /**
+     * Should create permanent items. NOTE: all files created in
+     * {@link LocalContext#getLocalDirectory()} will be deleted automatically, i.e. no action is
+     * necessary in {@link #uninstall(DBRoot)}.
+     * 
+     * @param ctxt to create database objects.
+     */
+    protected void install(LocalContext ctxt) {
+
+    }
+
+    /**
      * Should add elements for the tables of this module. It's also the place to
      * {@link SQLElement#setAction(String, SQLElement.ReferenceAction) set actions} for foreign keys
      * of this module. NOTE: this method is called as long as the module is installed in the

@@ -46,6 +46,13 @@ public class ListeGestCommEltPanel extends ListeAddPanel {
         this.setOpaque(false);
     }
 
+    public ListeGestCommEltPanel(SQLElement elem, IListe l, String variant) {
+        // TODO verifier que l'element contient la clef etrangere ID_MOUVEMENT
+        super(elem, l, variant);
+        this.setAddVisible(false);
+        this.setOpaque(false);
+    }
+
     public ListeGestCommEltPanel(SQLElement elem, boolean showAdd) {
         this(elem, showAdd, null, null);
     }

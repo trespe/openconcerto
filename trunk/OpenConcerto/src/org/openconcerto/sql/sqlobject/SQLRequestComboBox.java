@@ -180,7 +180,9 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
                 updatingChanged((Boolean) evt.getNewValue());
             }
         });
-        this.req.addValueListener(new PropertyChangeListener() {
+        // since modelValueChanged() updates the UI use selectedValue (i.e. IComboSelectionItem
+        // with a label)
+        this.req.addListener("selectedValue", new PropertyChangeListener() {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
                 modelValueChanged();
@@ -332,6 +334,14 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         return this.req.getItem(id);
     }
 
+    public final void addModelListener(String propName, PropertyChangeListener l) {
+        this.req.addListener(propName, l);
+    }
+
+    public final void removeModelListener(String propName, PropertyChangeListener l) {
+        this.req.rmListener(propName, l);
+    }
+
     // *** value
 
     public final void resetValue() {
@@ -354,12 +364,8 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     }
 
     public final Integer getValue() {
-        final IComboSelectionItem o = this.req.getSelectedItem();
-        if (o != null && o.getId() >= SQLRow.MIN_VALID_ID)
-            return o.getId();
-        else {
-            return null;
-        }
+        final int id = this.getWantedID();
+        return id == SQLRow.NONEXISTANT_ID ? null : id;
     }
 
     /**
@@ -371,6 +377,10 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         return this.req.getSelectedId();
     }
 
+    public final int getWantedID() {
+        return this.req.getWantedID();
+    }
+
     /**
      * The selected row or <code>null</code> if this is empty.
      * 
@@ -380,12 +390,12 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         if (this.isEmpty())
             return null;
         else {
-            return this.req.getSelectedRow();
+            return this.req.getWantedRow();
         }
     }
 
     private void modelValueChanged() {
-        final IComboSelectionItem newValue = this.req.getValue();
+        final IComboSelectionItem newValue = this.req.getSelectedValue();
         // user makes invalid edit => combo invalid=true and value=null => model value=null
         // and if we call combo.setValue() it will change invalid to false
         if (this.combo.getValue() != newValue)

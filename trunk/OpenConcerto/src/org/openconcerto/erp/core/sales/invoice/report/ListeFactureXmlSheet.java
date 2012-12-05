@@ -16,14 +16,11 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
 import org.openconcerto.erp.generationDoc.AbstractListeSheetXml;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -43,8 +40,14 @@ public class ListeFactureXmlSheet extends AbstractListeSheetXml {
     private List<Integer> listeIds;
 
     public ListeFactureXmlSheet(List<Integer> listeIds) {
+        super();
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
         this.listeIds = listeIds;
+    }
+
+    @Override
+    public String getStoragePathP() {
+        return "Autres";
     }
 
     @Override

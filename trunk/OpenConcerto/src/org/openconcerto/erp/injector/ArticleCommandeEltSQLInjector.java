@@ -29,6 +29,9 @@ public class ArticleCommandeEltSQLInjector extends SQLInjector {
     public ArticleCommandeEltSQLInjector(final DBRoot root) {
         super(articleTable, commandeEltTable);
         createDefaultMap();
+        if (commandeEltTable.contains("ID_ARTICLE")) {
+            map(articleTable.getKey(), commandeEltTable.getField("ID_ARTICLE"));
+        }
         if (articleTable.getFieldsName().contains("ID_DEVISE")) {
             remove(articleTable.getField("ID_DEVISE"), commandeEltTable.getField("ID_DEVISE"));
         }

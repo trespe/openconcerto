@@ -28,28 +28,29 @@ import java.util.prefs.Preferences;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 
-public class InstalledModuleTableModel extends ModuleTableModel {
+public class LocalInstalledModuleTableModel extends ModuleTableModel {
 
     static private final int STATE_INDEX = 3;
     static private final int REQUIRED_INDEX = 4;
-    static private final int LAST_INDEX = REQUIRED_INDEX;
+    static private final int INFO_INDEX = 5;
+    static private final int LAST_INDEX = INFO_INDEX;
     private final Preferences prefs;
     private Set<String> requiredIDs;
     private final PreferenceChangeListener pcl;
 
-    public InstalledModuleTableModel(IFactory<? extends Collection<ModuleFactory>> rowSource) {
+    public LocalInstalledModuleTableModel(IFactory<? extends Collection<ModuleReference>> rowSource) {
         super(rowSource);
         this.requiredIDs = null;
         this.prefs = ModuleManager.getInstance().getRequiredIDsPrefs();
         this.pcl = new PreferenceChangeListener() {
             @Override
             public void preferenceChange(PreferenceChangeEvent evt) {
-                final Set<String> ids = InstalledModuleTableModel.this.requiredIDs;
+                final Set<String> ids = LocalInstalledModuleTableModel.this.requiredIDs;
                 if (evt.getNewValue() == null)
                     ids.remove(evt.getKey());
                 else
                     ids.add(evt.getKey());
-                fireTableChanged(new TableModelEvent(InstalledModuleTableModel.this, 0, getRowCount() - 1, REQUIRED_INDEX));
+                fireTableChanged(new TableModelEvent(LocalInstalledModuleTableModel.this, 0, getRowCount() - 1, REQUIRED_INDEX));
                 assert fetchRequiredIDs().equals(ids);
             }
         };
@@ -90,7 +91,7 @@ public class InstalledModuleTableModel extends ModuleTableModel {
         }
     }
 
-    private boolean isRequiredID(final String id) {
+    private boolean isRequiredByUser(final String id) {
         if (this.requiredIDs == null)
             this.requiredIDs = this.fetchRequiredIDs();
         return this.requiredIDs == null ? false : this.requiredIDs.contains(id);
@@ -107,6 +108,8 @@ public class InstalledModuleTableModel extends ModuleTableModel {
             return "Etat";
         } else if (column == REQUIRED_INDEX) {
             return "Démarrage";
+        } else if (column == INFO_INDEX) {
+            return "Information";
         } else {
             return super.getColumnName(column);
         }
@@ -114,11 +117,13 @@ public class InstalledModuleTableModel extends ModuleTableModel {
 
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
-        final ModuleFactory f = this.getFactory(rowIndex);
+        final ModuleReference f = this.getModuleReference(rowIndex);
         if (columnIndex == STATE_INDEX) {
-            return ModuleManager.getInstance().isModuleRunning(f.getID()) ? "Actif" : "Inactif";
+            return ModuleManager.getInstance().isModuleRunning(f.getId()) ? "Démarré" : "Arrêté";
         } else if (columnIndex == REQUIRED_INDEX) {
-            return this.isRequiredID(f.getID()) ? "Obligatoire" : "Facultatif";
+            return (this.isRequiredByUser(f.getId()) || ModuleManager.getInstance().isModuleRequiredLocally(f)) ? "Obligatoire" : "Facultatif";
+        } else if (columnIndex == INFO_INDEX) {
+            return ModuleManager.getInstance().getInfo(f);
         } else {
             return super.getValueAt(rowIndex, columnIndex);
         }

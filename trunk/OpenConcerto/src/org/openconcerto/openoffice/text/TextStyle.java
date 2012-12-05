@@ -74,7 +74,11 @@ public class TextStyle extends StyleStyle {
         }
 
         public final Color getColor() {
-            return OOUtils.decodeRGB(this.getAttributeValue("color", this.getNS("fo")));
+            final String attrValue = this.getAttributeValue("color", this.getNS("fo"));
+            if (attrValue == null)
+                return Color.BLACK;
+            else
+                return OOUtils.decodeRGB(attrValue);
         }
 
         public final void setColor(Color color) {

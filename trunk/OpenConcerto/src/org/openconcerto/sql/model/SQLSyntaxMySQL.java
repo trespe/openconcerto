@@ -16,6 +16,7 @@
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLTable.Index;
 import org.openconcerto.sql.model.graph.Link.Rule;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
 import org.openconcerto.sql.utils.SQLUtils;
@@ -36,7 +37,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.Connection;
@@ -64,9 +64,9 @@ class SQLSyntaxMySQL extends SQLSyntax {
     SQLSyntaxMySQL() {
         super(SQLSystem.MYSQL);
         this.typeNames.putAll(Boolean.class, "boolean", "bool", "bit");
+        this.typeNames.putAll(Short.class, "smallint");
         this.typeNames.putAll(Integer.class, "integer", "int");
         this.typeNames.putAll(Long.class, "bigint");
-        this.typeNames.putAll(BigInteger.class, "bigint");
         this.typeNames.putAll(BigDecimal.class, "decimal", "numeric");
         this.typeNames.putAll(Float.class, "float");
         this.typeNames.putAll(Double.class, "double precision", "real");
@@ -203,7 +203,7 @@ class SQLSyntaxMySQL extends SQLSyntax {
         if (!newNullable && newDef != null && newDef.trim().toUpperCase().equals("NULL"))
             newDef = null;
 
-        return Collections.singletonList(SQLSelect.quote("MODIFY COLUMN %n " + newType + getNullableClause(newNullable) + getDefaultClause(newDef), f));
+        return Collections.singletonList(SQLSelect.quote("MODIFY COLUMN %n " + getFieldDecl(newType, newDef, newNullable), f));
     }
 
     @Override
@@ -332,6 +332,50 @@ class SQLSyntaxMySQL extends SQLSyntax {
         else
             return "NOT (" + nullSafe + ")";
     }
+    
+
+    @Override
+    public String getFormatTimestamp(String sqlTS, boolean basic) {
+        return "DATE_FORMAT(" + sqlTS + ", " + SQLBase.quoteStringStd(basic ? "%Y%m%dT%H%i%s.%f" : "%Y-%m-%dT%H:%i:%s.%f") + ")";
+    }
+
+    private final void getRow(StringBuilder sb, List<String> row, final int requiredColCount, List<String> columnsAlias) {
+        // should be OK since requiredColCount is computed from columnsAlias in getConstantTable()
+        assert columnsAlias == null || requiredColCount == columnsAlias.size();
+        final int actualColCount = row.size();
+        if (actualColCount != requiredColCount)
+            throw new IllegalArgumentException("Wrong number of columns, should be " + requiredColCount + " but row is " + row);
+        for (int i = 0; i < actualColCount; i++) {
+            sb.append(row.get(i));
+            if (columnsAlias != null) {
+                sb.append(" as ");
+                sb.append(SQLBase.quoteIdentifier(columnsAlias.get(i)));
+            }
+            if (i < actualColCount - 1)
+                sb.append(", ");
+        }
+    }
+
+    @Override
+    public String getConstantTable(List<List<String>> rows, String alias, List<String> columnsAlias) {
+        final int rowCount = rows.size();
+        if (rowCount < 1)
+            throw new IllegalArgumentException("Empty rows will cause a syntax error");
+        final int colCount = columnsAlias.size();
+        if (colCount < 1)
+            throw new IllegalArgumentException("Empty columns will cause a syntax error");
+        final StringBuilder sb = new StringBuilder(rows.size() * 64);
+        sb.append("( SELECT ");
+        // aliases needed only for the first row
+        getRow(sb, rows.get(0), colCount, columnsAlias);
+        for (int i = 1; i < rowCount; i++) {
+            sb.append("\nUNION ALL\nSELECT ");
+            getRow(sb, rows.get(i), colCount, null);
+        }
+        sb.append(" ) as ");
+        sb.append(SQLBase.quoteIdentifier(alias));
+        return sb.toString();
+    }
 
     @Override
     public String getFunctionQuery(SQLBase b, Set<String> schemas) {
@@ -341,34 +385,45 @@ class SQLSyntaxMySQL extends SQLSyntax {
     }
 
     @Override
-    public String getTriggerQuery(SQLBase b, Set<String> schemas, Set<String> tables) {
-        return "SELECT \"TRIGGER_NAME\", null as \"TABLE_SCHEMA\", EVENT_OBJECT_TABLE as \"TABLE_NAME\", ACTION_STATEMENT as \"ACTION\", null as \"SQL\" from INFORMATION_SCHEMA.TRIGGERS where "
-                + getInfoSchemaWhere("\"EVENT_OBJECT_CATALOG\"", b, "EVENT_OBJECT_SCHEMA", schemas, "EVENT_OBJECT_TABLE", tables);
+    public String getTriggerQuery(SQLBase b, TablesMap tables) {
+        return "SELECT \"TRIGGER_NAME\", null as \"TABLE_SCHEMA\", EVENT_OBJECT_TABLE as \"TABLE_NAME\", ACTION_STATEMENT as \"ACTION\", null as \"SQL\" from INFORMATION_SCHEMA.TRIGGERS "
+                + getMySQLTablesMapJoin(b, tables, "EVENT_OBJECT_SCHEMA", "EVENT_OBJECT_TABLE");
     }
 
-    private final String getInfoSchemaWhere(final String catCol, SQLBase b, final String schemaCol, Set<String> schemas, final String tableCol, Set<String> tables) {
-        final String tableWhere = tables == null ? "" : " and " + tableCol + " in (" + quoteStrings(b, tables) + ")";
-        return catCol + " is null and " + schemaCol + " = '" + b.getMDName() + "' " + tableWhere;
+    private String getMySQLTablesMapJoin(final SQLBase b, final TablesMap tables, final String schemaCol, final String tableCol) {
+        // MySQL only has "null" schemas through JDBC
+        assert tables.size() <= 1;
+        // but in information_schema, the TABLE_CATALOG is always NULL and TABLE_SCHEMA has the JDBC
+        // database name
+        final TablesMap translated;
+        if (tables.size() == 0) {
+            translated = tables;
+        } else {
+            assert tables.keySet().equals(Collections.singleton(null)) : tables;
+            translated = new TablesMap(1);
+            translated.put(b.getMDName(), tables.get(null));
+        }
+        return getTablesMapJoin(b, translated, schemaCol, tableCol);
     }
 
     @Override
-    public String getColumnsQuery(SQLBase b, Set<String> schemas, Set<String> tables) {
+    public String getColumnsQuery(SQLBase b, TablesMap tables) {
         return "SELECT null as \"" + INFO_SCHEMA_NAMES_KEYS.get(0) + "\", \"" + INFO_SCHEMA_NAMES_KEYS.get(1) + "\", \"" + INFO_SCHEMA_NAMES_KEYS.get(2)
-                + "\" , \"CHARACTER_SET_NAME\", \"COLLATION_NAME\" from INFORMATION_SCHEMA.\"COLUMNS\" where "
-                + getInfoSchemaWhere("\"TABLE_CATALOG\"", b, "TABLE_SCHEMA", schemas, "TABLE_NAME", tables);
+                + "\" , \"CHARACTER_SET_NAME\", \"COLLATION_NAME\" from INFORMATION_SCHEMA.\"COLUMNS\" " + getMySQLTablesMapJoin(b, tables, "TABLE_SCHEMA", "TABLE_NAME");
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<Map<String, Object>> getConstraints(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException {
+    public List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException {
         final String sel = "SELECT null as \"TABLE_SCHEMA\", c.\"TABLE_NAME\", c.\"CONSTRAINT_NAME\", tc.\"CONSTRAINT_TYPE\", \"COLUMN_NAME\", c.\"ORDINAL_POSITION\"\n"
                 // from
                 + " FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE c\n"
                 // "-- sub-select otherwise at least 15s\n" +
-                + "JOIN (SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS T where " + getInfoSchemaWhere("\"CONSTRAINT_CATALOG\"", b, "TABLE_SCHEMA", schemas, "TABLE_NAME", tables)
+                + "JOIN (SELECT * FROM INFORMATION_SCHEMA.TABLE_CONSTRAINTS T " + getMySQLTablesMapJoin(b, tables, "TABLE_SCHEMA", "TABLE_NAME")
                 + ") tc on tc.\"TABLE_SCHEMA\" = c.\"TABLE_SCHEMA\" and tc.\"TABLE_NAME\"=c.\"TABLE_NAME\" and tc.\"CONSTRAINT_NAME\"=c.\"CONSTRAINT_NAME\"\n"
-                // where
-                + " where " + getInfoSchemaWhere("c.\"TABLE_CATALOG\"", b, "c.TABLE_SCHEMA", schemas, "c.TABLE_NAME", tables)
+                // requested tables
+                + getMySQLTablesMapJoin(b, tables, "c.TABLE_SCHEMA", "c.TABLE_NAME")
+                // order
                 + "order by c.\"TABLE_SCHEMA\", c.\"TABLE_NAME\", c.\"CONSTRAINT_NAME\", c.\"ORDINAL_POSITION\"";
         // don't cache since we don't listen on system tables
         final List<Map<String, Object>> res = (List<Map<String, Object>>) b.getDBSystemRoot().getDataSource().execute(sel, new IResultSetHandler(SQLDataSource.MAP_LIST_HANDLER, false));

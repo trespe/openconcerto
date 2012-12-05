@@ -200,7 +200,13 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                 // TODO hack to view the focus (should try to paint around the button)
                 final JCheckBox cb = new JCheckBox(" ");
                 cb.setOpaque(false);
-                final JPanel panel = new JPanel(new BorderLayout());
+                final JPanel panel = new JPanel(new BorderLayout()) {
+                    @Override
+                    public void setEnabled(boolean enabled) {
+                        super.setEnabled(enabled);
+                        cb.setEnabled(enabled);
+                    }
+                };
                 panel.add(cb, BorderLayout.LINE_START);
                 comp = addValidatedValueWrapper(castVW(new BooleanValueWrapper(panel, cb), Boolean.class, wantedType), type);
             } else if (Date.class.isAssignableFrom(type.getJavaType())) {

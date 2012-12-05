@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.generationDoc.AbstractJOOReportsSheet;
-import org.openconcerto.erp.generationDoc.AbstractSheetXml;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.GestionDevise;
@@ -29,6 +28,18 @@ import java.util.Map;
 public class DevisTextSheet extends AbstractJOOReportsSheet {
 
     private SQLRow row;
+
+    public static final String TEMPLATE_ID = DevisXmlSheet.TEMPLATE_ID;
+
+    @Override
+    public String getDefaultTemplateID() {
+        return TEMPLATE_ID;
+    }
+
+    @Override
+    public String getDefaultLocationProperty() {
+        return DevisXmlSheet.TEMPLATE_PROPERTY_NAME;
+    }
 
     /**
      * @return une Map contenant les valeurs à remplacer dans la template

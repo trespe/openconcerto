@@ -21,26 +21,26 @@ public class InvoiceEditGroup extends Group {
     public InvoiceEditGroup() {
         super("sales.invoice.edit");
         final Group g = new Group("sales.invoice.identifier");
-        g.add("NUMERO");
-        g.add("DATE");
-        g.add("NOM", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
-        g.add("ID_COMMERCIAL");
+        g.addItem("NUMERO");
+        g.addItem("DATE");
+        g.addItem("NOM", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        g.addItem("ID_COMMERCIAL");
         this.add(g);
 
         final Group gCustomer = new Group("sales.invoice.customer");
-        gCustomer.add("ID_CLIENT", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
-        add(gCustomer, LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        gCustomer.addItem("ID_CLIENT", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        add(gCustomer);
 
         final Group gAddress = new Group("sales.invoice.address");
-        gAddress.add("ID_ADRESSE");
-        add(gAddress, LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        gAddress.addItem("ID_ADRESSE");
+        add(gAddress);
 
         final Group gElements = new Group("sales.invoice.elements");
-        gElements.add("(SAISIE_VENTE_FACTURE_ELEMENT)*", LayoutHints.DEFAULT_LIST_HINTS);
-        add(gElements, LayoutHints.DEFAULT_LIST_HINTS);
+        gElements.addItem("(SAISIE_VENTE_FACTURE_ELEMENT)*", LayoutHints.DEFAULT_LIST_HINTS);
+        add(gElements);
 
         final Group gInfos = new Group("sales.invoice.info");
-        gInfos.add("INFOS", new LayoutHints(true, false, true, true, true, false));
+        gInfos.addItem("INFOS", new LayoutHints(true, false, true, true, true, false));
         add(gInfos);
 
     }

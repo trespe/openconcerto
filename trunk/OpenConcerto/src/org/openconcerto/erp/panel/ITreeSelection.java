@@ -16,15 +16,19 @@
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.sqlobject.itemview.RowItemViewComponent;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
+import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObject;
 import org.openconcerto.utils.checks.EmptyObjectHelper;
@@ -40,6 +44,7 @@ import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractAction;
 import javax.swing.JComponent;
@@ -53,7 +58,6 @@ import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
 import org.apache.commons.collections.Predicate;
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 // TODO Drag'n drop des nodes
 public class ITreeSelection extends JTree implements MouseListener, EmptyObject, ValueWrapper<Integer>, RowItemViewComponent {
@@ -101,13 +105,12 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         if (this.element == null) {
             this.rootNode = new ITreeSelectionNode(null);
         } else {
-            SQLRow row = this.element.getTable().getRow(element.getTable().getUndefinedID());
+            SQLRowValues row = UndefinedRowValuesCache.getInstance().getDefaultRowValues(element.getTable());
             this.rootNode = new ITreeSelectionNode(row);
         }
         this.model = new DefaultTreeModel(this.rootNode);
         this.setModel(this.model);
         loadTree();
-        this.expandRow(0);
         setTableListener();
         this.addMouseListener(this);
     }
@@ -330,20 +333,36 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
 
     private void loadTree() {
 
-        SQLTable table = this.element.getTable();
-        SQLSelect sel = new SQLSelect(table.getBase());
+        SwingWorker2<List<SQLRow>, Object> worker = new SwingWorker2<List<SQLRow>, Object>() {
+            @Override
+            protected List<SQLRow> doInBackground() throws Exception {
+                SQLTable table = element.getTable();
+                SQLSelect sel = new SQLSelect();
+                sel.addSelectStar(table);
 
-        sel.addSelect(table.getKey());
-        sel.addSelect(table.getField("ID_" + table.getName() + "_PERE"));
-
-        List l = (List) table.getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
-
-        if (l != null) {
-            for (int i = 0; i < l.size(); i++) {
-                Object[] tmp = (Object[]) l.get(i);
-                addNewNode(((Number) tmp[0]).intValue(), ((Number) tmp[1]).intValue());
+                return SQLRowListRSH.execute(sel);
             }
-        }
+
+            @Override
+            protected void done() {
+                List<SQLRow> l;
+                try {
+                    l = get();
+                    if (l != null) {
+                        for (int i = 0; i < l.size(); i++) {
+                            SQLRow row = l.get(i);
+                            addNewNode(row, row.getInt("ID_" + element.getTable().getName() + "_PERE"));
+                        }
+                        expandRow(0);
+                    }
+                } catch (InterruptedException e) {
+                    ExceptionHandler.handle("", e);
+                } catch (ExecutionException e) {
+                    ExceptionHandler.handle("", e);
+                }
+            }
+        };
+        worker.execute();
     }
 
     /**
@@ -352,14 +371,13 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
      * @param id
      * @param idPere
      */
-    private void addNewNode(int id, int idPere) {
-        SQLTable table = this.element.getTable();
-        ITreeSelectionNode nodePere = this.mapNode.get(Integer.valueOf(idPere));
-        SQLRow row = table.getRow(id);
-        ITreeSelectionNode newNode = new ITreeSelectionNode(row);
-        this.mapNode.put(Integer.valueOf(id), newNode);
+    private void addNewNode(SQLRow row, int idPere) {
 
-        if (id > 1) {
+        ITreeSelectionNode nodePere = this.mapNode.get(Integer.valueOf(idPere));
+        ITreeSelectionNode newNode = new ITreeSelectionNode(row);
+        this.mapNode.put(row.getID(), newNode);
+
+        if (row != null && !row.isUndefined()) {
             if (nodePere != null && idPere > 1) {
                 addNode(newNode, nodePere);
             } else {
@@ -444,7 +462,7 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
                 SQLRow row = table.getRow(id);
                 int idPere = row.getInt("ID_" + element.getTable().getName() + "_PERE");
 
-                addNewNode(id, idPere);
+                addNewNode(row, idPere);
             }
 
             public void rowDeleted(SQLTable table, int id) {

@@ -16,6 +16,7 @@
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 
 import java.util.List;
 
@@ -23,9 +24,9 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 public class ITreeSelectionNode extends DefaultMutableTreeNode {
 
-    SQLRow row;
+    SQLRowAccessor row;
 
-    public ITreeSelectionNode(SQLRow row) {
+    public ITreeSelectionNode(SQLRowAccessor row) {
         super();
         this.row = row;
     }

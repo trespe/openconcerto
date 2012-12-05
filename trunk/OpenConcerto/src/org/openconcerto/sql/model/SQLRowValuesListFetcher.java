@@ -14,6 +14,7 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.model.graph.Step;
 import org.openconcerto.utils.CollectionMap;
@@ -275,6 +276,8 @@ public class SQLRowValuesListFetcher {
         super();
         this.graph = graph.deepCopy();
         this.descendantPath = referentPath == null ? new Path(graph.getTable()) : referentPath;
+        if (!this.descendantPath.isDirection(Direction.REFERENT))
+            throw new IllegalArgumentException("path is not (exclusively) referent : " + this.descendantPath);
         final SQLRowValues descRow = this.graph.followPath(this.descendantPath);
         if (descRow == null)
             throw new IllegalArgumentException("path is not contained in the passed rowValues : " + referentPath + "\n" + this.graph.printTree());
@@ -369,7 +372,7 @@ public class SQLRowValuesListFetcher {
     public final void requirePath(final Path p) {
         this.checkFrozen();
         if (this.getGraph().followPath(p) == null)
-            throw new IllegalArgumentException("Path not included in this graph : " + p);
+            throw new IllegalArgumentException("Path not included in this graph : " + p + "\n" + this.getGraph().printGraph());
         if (this.minGraph == null)
             this.minGraph = new SQLRowValues(getGraph().getTable());
         this.minGraph.assurePath(p);
@@ -502,6 +505,16 @@ public class SQLRowValuesListFetcher {
         return res == null ? null : res.values();
     }
 
+    /**
+     * The fetchers grafted at the passed path.
+     * 
+     * @param graftPath where the fetchers are grafted, e.g. MISSION, DOSSIER, SITE.
+     * @return the grafts by their path to fetch, e.g. SITE, BATIMENT, LOCAL, CPI_BT.
+     */
+    public final Map<Path, SQLRowValuesListFetcher> getGrafts(final Path graftPath) {
+        return Collections.unmodifiableMap(this.grafts.get(graftPath));
+    }
+
     private final void addFields(final SQLSelect sel, final SQLRowValues vals, final String alias) {
         for (final String fieldName : vals.getFields())
             sel.addSelect(new AliasedField(vals.getTable().getField(fieldName), alias));
@@ -579,7 +592,7 @@ public class SQLRowValuesListFetcher {
                 final Step lastStep = p.getStep(p.length() - 1);
                 // if we go backwards it should be from the start (i.e. we can't go backwards, then
                 // forwards and backwards again)
-                if (!lastStep.isForeign() && !p.isSingleDirection(false))
+                if (!lastStep.isForeign() && p.getDirection() != Direction.REFERENT)
                     throw new SQLRowValuesCluster.StopRecurseException().setCompletely(false);
                 return transf.transformChecked(input);
             }
@@ -969,10 +982,24 @@ public class SQLRowValuesListFetcher {
                             final int destinationSize = destinationRows.size();
                             assert destinationSize > 0 : "Map contains row but have no corresponding value: " + row;
                             final String ffName = descendantPath.getSingleStep(i).getName();
-                            // avoid the first deepCopy() and copy before merging
+                            // avoid the first deepCopy() (needed since rows of 'previous' have
+                            // already been added to 'map') and copy before merging
                             for (int j = 1; j < destinationSize; j++) {
-                                previous.deepCopy().put(ffName, destinationRows.get(j));
+                                final SQLRowValues previousCopy = previous.deepCopy().put(ffName, destinationRows.get(j));
+                                // put the copied rowValues into 'map' otherwise they'd be
+                                // unreachable and thus couldn't have referents. Tested by
+                                // SQLRowValuesListFetcherTest.testSameReferentMergedMultipleTimes()
+                                // i+1 since we start from 'previous' not 'desc'
+                                for (int k = stop; k >= i + 1; k--) {
+                                    final SQLRowValues descCopy = previousCopy.followPath(descendantPath.subPath(i + 1, k));
+                                    if (descCopy != null) {
+                                        final Tuple2<Path, Number> rowCopy = Tuple2.create(descendantPath.subPath(0, k), descCopy.getIDNumber());
+                                        assert map.containsKey(rowCopy) : "Since we already iterated with i";
+                                        map.put(rowCopy, descCopy);
+                                    }
+                                }
                             }
+                            // don't call map.put() it has already been handled below
                             previous.put(ffName, destinationRows.get(0));
                         }
                     } else {

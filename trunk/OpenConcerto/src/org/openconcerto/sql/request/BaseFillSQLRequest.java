@@ -128,18 +128,27 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
     }
 
     protected final SQLRowValuesListFetcher getFetcher(final Where w) {
-        final String tableName = getPrimaryTable().getName();
         // graphToFetch can be modified freely so don't the use the simple constructor
         final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(getGraphToFetch(), false);
+        return setupFetcher(fetcher, w);
+    }
+
+    // allow to pass fetcher since they are mostly immutable (and for huge graphs they are slow to
+    // create)
+    protected final SQLRowValuesListFetcher setupFetcher(final SQLRowValuesListFetcher fetcher, final Where w) {
+        final String tableName = getPrimaryTable().getName();
         setupForeign(fetcher);
+        final ITransformer<SQLSelect, SQLSelect> origSelTransf = fetcher.getSelTransf();
         fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
             @Override
             public SQLSelect transformChecked(SQLSelect sel) {
+                if (origSelTransf != null)
+                    sel = origSelTransf.transformChecked(sel);
                 sel = transformSelect(sel);
                 if (lockSelect)
                     sel.addWaitPreviousWriteTXTable(tableName);
                 for (final Path orderP : getOrder()) {
-                    sel.addOrder(sel.assurePath(getPrimaryTable().getName(), orderP), false);
+                    sel.addOrder(sel.assurePath(tableName, orderP), false);
                 }
                 return sel.andWhere(getWhere()).andWhere(w);
             }

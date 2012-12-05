@@ -445,8 +445,12 @@ public final class IListe extends JPanel {
     }
 
     public final RowAction addRowAction(Action action) {
+        return this.addRowAction(action, null);
+    }
+
+    public final RowAction addRowAction(Action action, String id) {
         // for backward compatibility don't put in header
-        final RowAction res = new PredicateRowAction(action, false, true).setPredicate(IListeEvent.getSingleSelectionPredicate());
+        final RowAction res = new PredicateRowAction(action, false, true, id).setPredicate(IListeEvent.getSingleSelectionPredicate());
         this.addIListeAction(res);
         return res;
     }
@@ -1278,7 +1282,7 @@ public final class IListe extends JPanel {
                 }
                 final SQLElement elem = dir.getElement(current.getTable());
                 ancestors.add(0, elem.getDescription(current));
-                current = elem.getParent(current);
+                current = elem.getForeignParent(current);
             }
 
             return CollectionUtils.join(ancestors, SEP);
@@ -1295,7 +1299,7 @@ public final class IListe extends JPanel {
                 }
                 final SQLElement elem = dir.getElement(current.getTable());
                 if (parent == null || sameParent) {
-                    final SQLRow currentParent = elem.getParent(current);
+                    final SQLRow currentParent = elem.getForeignParent(current);
                     if (parent == null)
                         parent = currentParent;
                     else if (!parent.equals(currentParent))

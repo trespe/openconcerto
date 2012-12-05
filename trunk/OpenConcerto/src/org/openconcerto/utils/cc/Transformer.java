@@ -13,12 +13,18 @@
  
  package org.openconcerto.utils.cc;
 
-import org.apache.commons.collections.TransformerUtils;
-
 public abstract class Transformer<E, T> implements ITransformer<E, T>, IClosure<E>, org.apache.commons.collections.Transformer {
 
+    private static final ITransformer<Object, Object> nopTransf = new ITransformer<Object, Object>() {
+        @Override
+        public Object transformChecked(Object input) {
+            return input;
+        }
+    };
+
+    @SuppressWarnings("unchecked")
     public static final <N> ITransformer<N, N> nopTransformer() {
-        return new ITransformerWrapper<N, N>(TransformerUtils.nopTransformer());
+        return (ITransformer<N, N>) nopTransf;
     }
 
     @SuppressWarnings("unchecked")

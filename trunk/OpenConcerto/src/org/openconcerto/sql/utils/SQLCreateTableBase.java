@@ -37,8 +37,8 @@ public abstract class SQLCreateTableBase<T extends SQLCreateTableBase<T>> extend
     private List<String> pk;
     private boolean tmp;
 
-    public SQLCreateTableBase(final SQLSyntax syntax, final String name) {
-        super(syntax, name);
+    public SQLCreateTableBase(final SQLSyntax syntax, final String rootName, final String name) {
+        super(syntax, rootName, name);
         this.reset();
     }
 
@@ -80,35 +80,36 @@ public abstract class SQLCreateTableBase<T extends SQLCreateTableBase<T>> extend
     }
 
     @Override
-    public String asString(final String r) {
-        return this.asString(r, true);
+    public String asString(final NameTransformer transf) {
+        return this.asString(transf, true);
     }
 
-    public final String asString(final String rootName, final boolean includeConstraint) {
-        return this.asString(rootName, includeConstraint ? EnumSet.allOf(ClauseType.class) : EnumSet.complementOf(EnumSet.of(ClauseType.ADD_CONSTRAINT)));
+    public final String asString(final NameTransformer transf, final boolean includeConstraint) {
+        return this.asString(transf, includeConstraint ? EnumSet.allOf(ClauseType.class) : EnumSet.complementOf(EnumSet.of(ClauseType.ADD_CONSTRAINT)));
     }
 
     @Override
-    protected final String asString(String rootName, ConcatStep step) {
+    protected final String asString(final NameTransformer transf, ConcatStep step) {
         switch (step) {
         case ALTER_TABLE:
-            return this.asString(rootName, step.getTypes());
+            return this.asString(transf, step.getTypes());
         case ADD_INDEX:
         case ADD_FOREIGN:
-            return new AlterTable(getSyntax(), getName()).mutateTo(this).asString(rootName, step);
+            return new AlterTable(getSyntax(), getRootName(), getName()).mutateTo(this).asString(transf, step);
         default:
             return null;
         }
     }
 
-    private String asString(final String rootName, final Set<ClauseType> types) {
+    private String asString(final NameTransformer transf, final Set<ClauseType> types) {
         final StringBuffer res = new StringBuffer(512);
+        final SQLName transformedName = transf.transformTableName(new SQLName(getRootName(), getName()));
         final SQLName tableName;
         if (this.tmp) {
             // PG: temporary tables may not specify a schema name
-            tableName = new SQLName(this.getName());
+            tableName = new SQLName(transformedName.getName());
         } else {
-            tableName = new SQLName(rootName, this.getName());
+            tableName = transformedName;
         }
 
         final List<String> genClauses = new ArrayList<String>(this.getClauses(tableName, types));
@@ -121,7 +122,7 @@ public abstract class SQLCreateTableBase<T extends SQLCreateTableBase<T>> extend
                 }
             }) + ")");
         if (types.contains(ClauseType.ADD_CONSTRAINT)) {
-            genClauses.addAll(this.getForeignConstraints(rootName));
+            genClauses.addAll(this.getForeignConstraints(transf));
         }
         if (genClauses.size() > 0) {
             if (this.tmp) {

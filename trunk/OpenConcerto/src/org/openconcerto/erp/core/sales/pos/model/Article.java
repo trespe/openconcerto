@@ -13,15 +13,16 @@
  
  package org.openconcerto.erp.core.sales.pos.model;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 
 public class Article {
     private Categorie s;
     private String name;
-    int priceInCents;
+    private BigDecimal priceInCents;
     int idTaxe;
-    int priceHTInCents;
+    BigDecimal priceHTInCents;
     String barCode = "empty barcode";
     String code = "";
     private final int id;
@@ -38,11 +39,11 @@ public class Article {
         return this.id;
     }
 
-    public int getPriceHTInCents() {
+    public BigDecimal getPriceHTInCents() {
         return this.priceHTInCents;
     }
 
-    public void setPriceHTInCents(int priceHTInCents) {
+    public void setPriceHTInCents(BigDecimal priceHTInCents) {
         this.priceHTInCents = priceHTInCents;
     }
 
@@ -59,11 +60,11 @@ public class Article {
         codes.put(bar, this);
     }
 
-    public void setPriceInCents(int priceInCents) {
+    public void setPriceInCents(BigDecimal priceInCents) {
         this.priceInCents = priceInCents;
     }
 
-    public int getPriceInCents() {
+    public BigDecimal getPriceInCents() {
         return this.priceInCents;
     }
 

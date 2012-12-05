@@ -23,7 +23,6 @@ import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
 import org.openconcerto.sql.model.DBFileCache;
 import org.openconcerto.sql.model.DBItemFileCache;
 import org.openconcerto.sql.model.DBRoot;
-import org.openconcerto.sql.model.DBStructureItemJDBC;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.LoadingListener.GraphLoadingEvent;
 import org.openconcerto.sql.model.SQLBase;
@@ -37,17 +36,15 @@ import org.openconcerto.sql.model.TableRef;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Link.Rule;
-import org.openconcerto.sql.model.graph.ToRefreshSpec.TablesByRoot;
 import org.openconcerto.sql.model.graph.ToRefreshSpec.ToRefreshActual;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.cc.IPredicate;
 
+import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -92,8 +89,36 @@ public class DatabaseGraph extends BaseGraph {
      */
     public static final String INFER_FK = "org.openconcerto.sql.graph.inferFK";
 
-    private static final String XML_VERSION = "20120228-1810";
+    private static final String XML_VERSION = "20121024-1614";
     private static final String FILENAME = "graph.xml";
+
+    // passedBase is the base that was passed for the catalog parameter of getImportedKeys() or
+    // getExportedKeys()
+    public static SQLTable getTableFromJDBCMetaData(final SQLBase passedBase, final String jdbcCat, final String jdbcSchem, final String jdbcName) {
+        final SQLServer server = passedBase.getServer();
+
+        final String correctedCat;
+        // h2 doesn't support and jdbcCat is in upper case
+        // postgresql returns null
+        if (server.getSQLSystem().isInterBaseSupported()) {
+            correctedCat = jdbcCat;
+        } else {
+            correctedCat = passedBase.getName();
+        }
+
+        final SQLBase base = server.getBase(correctedCat);
+        final SQLSchema schema = base == null ? null : base.getSchema(jdbcSchem);
+        if (schema == null)
+            throw new IllegalStateException("Schema " + correctedCat + "." + jdbcSchem + " does not exist (probably filtered by DBSystemRoot.getRootsToMap())");
+        final SQLTable res;
+        if (server.getSQLSystem() == SQLSystem.MYSQL)
+            // MySQL returns all lowercase foreignTableName, see Bug #18446 :
+            // INFORMATION_SCHEMA.KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME always lowercase
+            res = getTableIgnoringCase(schema, jdbcName);
+        else
+            res = (SQLTable) schema.getCheckedChild(jdbcName);
+        return res;
+    }
 
     private final DBSystemRoot base;
     @GuardedBy("this")
@@ -127,11 +152,11 @@ public class DatabaseGraph extends BaseGraph {
         this.mappedFromFile = null;
     }
 
-    public final void refresh(final DBStructureItemJDBC parent, final Set<String> childrenRefreshed, final boolean readCache) throws SQLException {
+    public final void refresh(final TablesMap tablesRefreshed, final boolean readCache) throws SQLException {
         if (inAtomicRefresh()) {
-            this.atomicRefreshItems.get().add(parent, childrenRefreshed, readCache);
+            this.atomicRefreshItems.get().add(tablesRefreshed, readCache);
         } else {
-            refresh(new ToRefreshSpec().add(parent, childrenRefreshed, readCache));
+            refresh(new ToRefreshSpec().add(tablesRefreshed, readCache));
         }
     }
 
@@ -214,7 +239,7 @@ public class DatabaseGraph extends BaseGraph {
      */
     private synchronized Map<String, Set<String>> mapTables(final ToRefreshSpec toRefreshSpec) throws SQLException {
         assert Thread.holdsLock(this.base.getTreeMutex()) : "Cannot graph a changing object";
-        Map<String, Set<String>> res = new TablesByRoot();
+        Map<String, Set<String>> res = new TablesMap();
 
         final Set<SQLTable> currentTables = this.getAllTables();
         final ToRefreshActual toRefresh = toRefreshSpec.getActual(this.base, currentTables);
@@ -251,9 +276,21 @@ public class DatabaseGraph extends BaseGraph {
                 this.getGraphP().removeAllVertices(oldTablesInScope);
                 assert this.getGraphP().vertexSet().size() == 0 && this.getGraphP().edgeSet().size() == 0;
             } else {
-                // removing a vertex also removes edges, so only remove tables that don't exist
-                // anymore to avoid removing links pointing to tables.
-                this.getGraphP().removeAllVertices(org.openconcerto.utils.CollectionUtils.subtract(oldTablesInScope, newTablesInScope));
+                // Removing a vertex also removes edges, so check that we also refresh referent
+                // tables otherwise they won't have any foreign links anymore which is wrong if
+                // removedTable was just renamed
+                // Also the cache is only cleared for tables in scope, meaning that the cache for
+                // those referent tables will be incoherent with the actual graph
+                final Collection<SQLTable> removedTables = org.openconcerto.utils.CollectionUtils.subtract(oldTablesInScope, newTablesInScope);
+                for (final SQLTable removedTable : removedTables) {
+                    final Set<SQLTable> referentTables = getReferentTables(removedTable);
+                    // MAYBE add option to refresh needed tables instead of failing
+                    if (!oldTablesInScope.containsAll(referentTables)) {
+                        throw new IllegalStateException(removedTable + " has been removed but some of its referents won't be refreshed : "
+                                + org.openconcerto.utils.CollectionUtils.subtract(referentTables, oldTablesInScope));
+                    }
+                }
+                this.getGraphP().removeAllVertices(removedTables);
 
                 // remove links that will be refreshed.
                 final Set<Link> linksToRemove = new HashSet<Link>();
@@ -266,8 +303,8 @@ public class DatabaseGraph extends BaseGraph {
             // add new tables (and existing but it's OK graph vertices is a set)
             Graphs.addAllVertices(this.getGraphP(), newTablesInScope);
         }
-        final TablesByRoot fromXML = toRefresh.getFromXML();
-        final TablesByRoot fromJDBC = toRefresh.getFromJDBC();
+        final TablesMap fromXML = toRefresh.getFromXML();
+        final TablesMap fromJDBC = toRefresh.getFromJDBC();
         if (fromXML.size() > 0) {
             final DBItemFileCache dir = this.getFileCache();
             try {
@@ -317,6 +354,10 @@ public class DatabaseGraph extends BaseGraph {
     }
 
     private boolean map(final DBRoot r, final Set<String> tableNames) throws SQLException {
+        // on PG test goes from 75ms to 18ms
+        if (tableNames.size() <= 1)
+            return false;
+
         if (r.getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
             this.map(r, null, tableNames);
             return true;
@@ -360,35 +401,19 @@ public class DatabaseGraph extends BaseGraph {
             final String keyName = (String) m[7];
             // "KEY_SEQ"
             final short seq = ((Number) m[8]).shortValue();
-            // "PKTABLE_CAT", h2 doesn't support and PKTABLE_CAT is in uppercase, so don't bother
-            // just use our base name
-            final String foreignCat;
-            // postgresql returns null
-            if (this.base.getServer().getSQLSystem().isInterBaseSupported() && m[0] != null) {
-                foreignCat = (String) m[0];
-            } else
-                foreignCat = r.getBase().getName();
-            // "PKTABLE_SCHEM"
-            final String foreignSchema = (String) m[1];
-            // "PKTABLE_NAME"
-            final String foreignTableName = (String) m[2];
             // "PKCOLUMN_NAME"
             final String foreignTableColName = (String) m[3];
             // "FK_NAME"
             final String foreignKeyName = (String) m[11];
 
             final SQLField key = r.getTable(fkTableName).getField(keyName);
-            final SQLBase base = server.getBase(foreignCat);
-            final SQLSchema schema = base == null ? null : base.getSchema(foreignSchema);
-            if (schema == null)
-                throw new IllegalStateException(key.getSQLName() + " references " + foreignCat + "." + foreignSchema + " which does not exist (probably filtered by DBSystemRoot.getRootsToMap())");
+
             final SQLTable foreignTable;
-            if (this.base.getServer().getSQLSystem() == SQLSystem.MYSQL)
-                // MySQL returns all lowercase foreignTableName, see Bug #18446 :
-                // INFORMATION_SCHEMA.KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME always lowercase
-                foreignTable = getTableIgnoringCase(schema, foreignTableName);
-            else
-                foreignTable = (SQLTable) schema.getCheckedChild(foreignTableName);
+            try {
+                foreignTable = getTableFromJDBCMetaData(r.getBase(), (String) m[0], (String) m[1], (String) m[2]);
+            } catch (Exception e) {
+                throw new IllegalStateException("Could not find what " + key.getSQLName() + " references", e);
+            }
 
             metadataFKs.put(fkTableName, keyName);
             if (seq == 1) {
@@ -438,23 +463,30 @@ public class DatabaseGraph extends BaseGraph {
         }
     }
 
-    private final SQLTable getTableIgnoringCase(final SQLSchema s, String tablename) {
+    static private final SQLTable getTableIgnoringCase(final SQLSchema s, String tablename) {
+        final List<SQLTable> matchingTables = new ArrayList<SQLTable>(4);
         for (final String tname : s.getTableNames())
             if (tname.equalsIgnoreCase(tablename))
-                return s.getTable(tname);
-        return null;
+                matchingTables.add(s.getTable(tname));
+        if (matchingTables.size() == 0)
+            // this will throw an exception
+            return (SQLTable) s.getCheckedChild(tablename);
+        else if (matchingTables.size() == 1)
+            return matchingTables.get(0);
+        else
+            throw new IllegalStateException("More than one table matches " + tablename + " : " + matchingTables);
     }
 
     // ** cache
 
     /**
-     * Where xml dumps are saved, always <code>null</code> if {@link SQLBase#STRUCTURE_USE_XML} is
+     * Where xml dumps are saved, always <code>null</code> if {@link DBSystemRoot#useCache()} is
      * <code>false</code>.
      * 
      * @return the directory of xmls dumps, <code>null</code> if it can't be found.
      */
     private DBItemFileCache getFileCache() {
-        final boolean useXML = Boolean.getBoolean(SQLBase.STRUCTURE_USE_XML);
+        final boolean useXML = this.base.useCache();
         final DBFileCache d = this.getServer().getFileCache();
         if (!useXML || d == null)
             return null;
@@ -496,37 +528,47 @@ public class DatabaseGraph extends BaseGraph {
     boolean save(final DBRoot r) {
         final String rootName = r.getName();
         final File rootFile = this.getRootFile(rootName);
-        if (rootFile == null)
+        if (rootFile == null) {
             return false;
-        else
+        } else {
+            assert Thread.holdsLock(this.base.getTreeMutex()) : "Might save garbage if two threads open the same file";
+            BufferedWriter pWriter = null;
             try {
                 FileUtils.mkdir_p(rootFile.getParentFile());
-                PrintWriter pWriter = new PrintWriter(new FileOutputStream(rootFile));
-                pWriter.print("<root codecVersion=\"");
-                pWriter.print(XML_VERSION);
-                pWriter.print("\"");
+                pWriter = FileUtils.createXMLWriter(rootFile);
+                pWriter.write("<root codecVersion=\"");
+                pWriter.write(XML_VERSION);
+                pWriter.write("\"");
                 SQLSchema.getVersionAttr(r.getSchema(), pWriter);
-                pWriter.println(" >\n");
+                pWriter.write(" >\n");
                 for (final SQLTable t : r.getDescs(SQLTable.class)) {
                     final Set<Link> flinks = this.getForeignLinks(t);
-                    if (!flinks.isEmpty()) {
-                        pWriter.print("<table name=\"");
-                        pWriter.print(OUTPUTTER.escapeAttributeEntities(t.getName()));
-                        pWriter.println("\">");
-                        for (final Link l : flinks) {
-                            l.toXML(pWriter);
-                        }
-                        pWriter.println("</table>");
+                    // now that the atomic level is the table we must explicitly record which tables
+                    // have no links (to differentiate from tables which we don't know of)
+                    pWriter.write("<table name=\"");
+                    pWriter.write(OUTPUTTER.escapeAttributeEntities(t.getName()));
+                    pWriter.write("\">\n");
+                    for (final Link l : flinks) {
+                        l.toXML(pWriter);
                     }
+                    pWriter.write("</table>\n");
                 }
-                pWriter.println("\n</root>");
-                pWriter.close();
+                pWriter.write("\n</root>\n");
 
                 return true;
             } catch (Exception e) {
                 Log.get().log(Level.WARNING, "unable to save files in " + rootFile, e);
                 return false;
+            } finally {
+                if (pWriter != null) {
+                    try {
+                        pWriter.close();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
             }
+        }
     }
 
     /**
@@ -537,8 +579,8 @@ public class DatabaseGraph extends BaseGraph {
      * @throws JDOMException if a file is not valid XML.
      * @throws IOException if a file content is not correct.
      */
-    private TablesByRoot mapFromXML(final TablesByRoot fromXML) throws JDOMException, IOException {
-        final TablesByRoot res = new TablesByRoot();
+    private TablesMap mapFromXML(final TablesMap fromXML) throws JDOMException, IOException {
+        final TablesMap res = new TablesMap();
         for (final DBItemFileCache cache : getSavedCaches(true)) {
             final String rootName = cache.getName();
             if (!fromXML.containsKey(rootName))
@@ -546,7 +588,7 @@ public class DatabaseGraph extends BaseGraph {
             final Document doc = new SAXBuilder().build(getGraphFile(cache));
             final String fileVersion = doc.getRootElement().getAttributeValue("codecVersion");
             if (!XML_VERSION.equals(fileVersion))
-                throw new IOException("wrong version expected " + XML_VERSION + " got: " + fileVersion);
+                throw new IOException("wrong format version, expected " + XML_VERSION + " got: " + fileVersion);
             // if the systemRoot doesn't contain the saved root, it means it is filtered (otherwise
             // it would have been erased) so we don't need to load it
             if (this.base.contains(rootName)) {
@@ -557,7 +599,7 @@ public class DatabaseGraph extends BaseGraph {
                 final String xmlVersion = SQLSchema.getVersion(doc.getRootElement());
                 final String actualVersion = r.getSchema().getVersion();
                 if (!CompareUtils.equals(xmlVersion, actualVersion))
-                    throw new IOException("wrong version expected " + actualVersion + " got: " + xmlVersion);
+                    throw new IOException("wrong DB version, expected " + actualVersion + " got: " + xmlVersion);
                 final Set<String> fromXMLTableNames = fromXML.get(rootName);
                 for (final Object o : doc.getRootElement().getChildren()) {
                     final Element tableElem = (Element) o;
@@ -567,10 +609,11 @@ public class DatabaseGraph extends BaseGraph {
                             final Element linkElem = (Element) lo;
                             addLink(Link.fromXML(t, linkElem));
                         }
+                        // t was loaded (even if it had no links)
                         res.add(rootName, t.getName());
                     }
                 }
-                // add the root even if no tables have links
+                // rootName was loaded from XML (even if it had no tables)
                 if (!res.containsKey(rootName))
                     res.put(rootName, Collections.<String> emptySet());
             }
@@ -606,7 +649,7 @@ public class DatabaseGraph extends BaseGraph {
     public Set<Link> getLinks(SQLTable table, Direction dir, final IPredicate<? super Link> pred) {
         final Set<Link> allLinks = this.getLinks(table, dir);
         // don't create instance for nothing
-        return pred == null || pred == IPredicate.truePredicate() ? allLinks : org.openconcerto.utils.CollectionUtils.filter(allLinks, pred, new HashSet<Link>());
+        return pred == null || pred == IPredicate.truePredicate() ? allLinks : org.openconcerto.utils.CollectionUtils.select(allLinks, pred, new HashSet<Link>());
     }
 
     public Set<Link> getLinksWithOpposite(final SQLTable table, final Direction dir, final String oppositeTableName) {

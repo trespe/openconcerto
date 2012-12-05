@@ -58,7 +58,6 @@ public final class SQLSelect {
     // [SQLField], eg : [|SITE.ID_SITE|], known fields in this select (addRawSelect)
     private final List<SQLField> selectFields;
     private Where where;
-    private boolean whereAddToFrom;
     private final List<FieldRef> groupBy;
     private Where having;
     // [String]
@@ -129,7 +128,6 @@ public final class SQLSelect {
         this.select = new ArrayList<String>();
         this.selectFields = new ArrayList<SQLField>();
         this.where = null;
-        this.whereAddToFrom = true;
         this.groupBy = new ArrayList<FieldRef>();
         this.having = null;
         this.order = new ArrayList<String>();
@@ -165,7 +163,6 @@ public final class SQLSelect {
         this.select = new ArrayList<String>(orig.select);
         this.selectFields = new ArrayList<SQLField>(orig.selectFields);
         this.where = orig.where == null ? null : new Where(orig.where);
-        this.whereAddToFrom = orig.whereAddToFrom;
         this.groupBy = new ArrayList<FieldRef>(orig.groupBy);
         this.having = orig.having == null ? null : new Where(orig.having);
         this.order = new ArrayList<String>(orig.order);
@@ -183,7 +180,10 @@ public final class SQLSelect {
     }
 
     public final SQLSystem getSQLSystem() {
-        return this.declaredTables.getSysRoot().getServer().getSQLSystem();
+        final DBSystemRoot sysRoot = this.declaredTables.getSysRoot();
+        if (sysRoot == null)
+            throw new IllegalStateException("No systemRoot supplied (neither in the constructor nor by adding an item)");
+        return sysRoot.getServer().getSQLSystem();
     }
 
     public String asString() {
@@ -387,7 +387,7 @@ public final class SQLSelect {
     public SQLSelect addFieldOrder(FieldRef fieldRef, final Direction dir, final Nulls nulls) {
         // with Derby if you ORDER BY w/o mentioning the field in the select clause
         // you can't get the table names of columns in a result set.
-        if (this.getSQLSystem().equals(SQLSystem.DERBY))
+        if (fieldRef.getField().getServer().getSQLSystem().equals(SQLSystem.DERBY))
             this.addSelect(fieldRef);
 
         return this.addRawOrder(fieldRef.getFieldRef() + dir.getSQL() + (nulls == null ? "" : nulls.getSQL()));
@@ -544,7 +544,7 @@ public final class SQLSelect {
         // qui ne sont peut être plus utiles
         // une solution : ne calculer le from que dans asString() => marche pas car on s'en
         // sert dans addOrder
-        if (this.whereAddToFrom && w != null) {
+        if (w != null) {
             for (final FieldRef f : w.getFields()) {
                 this.from.add(this.declaredTables.add(f));
             }
@@ -564,17 +564,6 @@ public final class SQLSelect {
      */
     public SQLSelect andWhere(Where w) {
         return this.setWhere(Where.and(this.getWhere(), w));
-    }
-
-    /**
-     * Whether the tables used in the where are added to our from. By default this is
-     * <code>true</code>, but you might want to set it to <code>false</code> eg with
-     * "SELECT * FROM T where ID in (select T_ID from T2)".
-     * 
-     * @param b <code>true</code> if the tables should be added.
-     */
-    public final void setWhereAddToFrom(final boolean b) {
-        this.whereAddToFrom = b;
     }
 
     // *** join
@@ -969,7 +958,7 @@ public final class SQLSelect {
         if (!this.contains(seed)) {
             return seed;
         } else {
-            long time = System.currentTimeMillis();
+            long time = 1;
             for (int i = 0; i < 50; i++) {
                 final String res;
                 final String cat = seed + "_" + time;

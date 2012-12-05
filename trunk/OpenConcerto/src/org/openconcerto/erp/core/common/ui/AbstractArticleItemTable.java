@@ -47,7 +47,7 @@ import javax.swing.ScrollPaneConstants;
 
 public abstract class AbstractArticleItemTable extends JPanel {
     protected RowValuesTable table;
-    protected SQLTableElement totalHT;
+    protected SQLTableElement totalHT, totalHA;
     protected SQLTableElement tableElementTVA;
     protected SQLTableElement tableElementTotalTTC;
     protected SQLTableElement tableElementTotalDevise;
@@ -157,6 +157,10 @@ public abstract class AbstractArticleItemTable extends JPanel {
         return this.ha;
     }
 
+    public SQLTableElement getTotalHaElement() {
+        return this.totalHA;
+    }
+
     public SQLTableElement getTVAElement() {
         return this.tableElementTVA;
     }
@@ -201,7 +205,7 @@ public abstract class AbstractArticleItemTable extends JPanel {
         final SQLTable tableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
 
         final boolean modeAvance = DefaultNXProps.getInstance().getBooleanValue("ArticleModeVenteAvance", false);
-        SQLPreferences prefs = new SQLPreferences(tableArticle.getDBRoot());
+        SQLPreferences prefs = SQLPreferences.getMemCached(tableArticle.getDBRoot());
         final boolean createArticle = prefs.getBoolean(GestionArticleGlobalPreferencePanel.CREATE_ARTICLE_AUTO, true);
 
         // On récupére les articles qui composent la table

@@ -17,18 +17,19 @@ import org.openconcerto.ftp.FTPUtils;
 import org.openconcerto.ftp.IFtp;
 import org.openconcerto.utils.FileUtils;
 
+import java.awt.AWTException;
+import java.awt.SystemTray;
+import java.awt.TrayIcon;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.PrintStream;
 import java.util.Properties;
 
+import javax.swing.ImageIcon;
 import javax.swing.JOptionPane;
 
 public class UpdateManager implements Runnable {
@@ -200,6 +201,13 @@ public class UpdateManager implements Runnable {
     }
 
     private void update(int toVersion) {
+
+        try {
+            SystemTray.getSystemTray().add(new TrayIcon(new ImageIcon(this.getClass().getResource("tray.png")).getImage()));
+        } catch (AWTException e2) {
+            e2.printStackTrace();
+        }
+        displayMessage("Préparation de la mise à jour");
         System.out.println("Update application");
         File tempDir = new File("Update");
         if (tempDir.exists()) {
@@ -212,19 +220,15 @@ public class UpdateManager implements Runnable {
             return;
         }
         File f = new File("Update/.version");
-        FileOutputStream fOp;
         try {
-            fOp = new FileOutputStream(f);
-
-            PrintStream out = new PrintStream(fOp);
-            out.println(toVersion);
-            out.close();
-        } catch (FileNotFoundException e1) {
+            FileUtils.write(String.valueOf(toVersion) + "\n", f);
+        } catch (IOException e1) {
             JOptionPane.showMessageDialog(null, "Impossible de créer le .version\nVérifiez les permissions des fichiers ou lancez le logiciel en tant qu'administrateur");
             return;
         }
         final IFtp ftp = new IFtp();
         try {
+            displayMessage("Connexion au serveur");
             ftp.connect(this.server);
             boolean logged = ftp.login(this.login, this.pass);
             if (!logged) {
@@ -244,6 +248,7 @@ public class UpdateManager implements Runnable {
                 ftp.disconnect();
                 return;
             }
+            displayMessage("Téléchargement des fichiers");
             FTPUtils.saveR(ftp, tempDir);
 
             if (tempDir.getAbsolutePath().contains("workspace") && !tempDir.getAbsolutePath().contains("dist")) {
@@ -258,8 +263,13 @@ public class UpdateManager implements Runnable {
                 ftp.disconnect();
                 return;
             }
+            displayMessage("Copie des fichiers");
+            try {
+                ftp.disconnect();
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
             Runtime.getRuntime().exec("java -jar " + updaterFilename);
-            ftp.disconnect();
             System.exit(0);
 
         } catch (Exception e) {
@@ -268,5 +278,13 @@ public class UpdateManager implements Runnable {
 
         }
 
+    }
+
+    void displayMessage(String s) {
+        try {
+            SystemTray.getSystemTray().getTrayIcons()[0].displayMessage("Mise à jour en cours", s, TrayIcon.MessageType.INFO);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 }

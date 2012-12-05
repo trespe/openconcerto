@@ -18,6 +18,7 @@ import org.openconcerto.utils.EnumOrderedSet;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
 
+import java.sql.Statement;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -155,6 +156,12 @@ public enum SQLSystem {
         public boolean isClearingPathSupported() {
             // TODO see if SCHEMA_SEARCH_PATH can be passed an empty list
             // (in addition to merge with SCHEMA)
+            return false;
+        }
+
+        @Override
+        public boolean isMultipleResultSetsSupported() {
+            // https://groups.google.com/d/msg/h2-database/Is91FqarxDw/5x-xW3_IPwUJ
             return false;
         }
 
@@ -304,6 +311,22 @@ public enum SQLSystem {
     }
 
     /**
+     * The number of levels between the parameters.
+     * 
+     * @param clazz1 the start structure item class, e.g. {@link SQLTable}.
+     * @param clazz2 the destination structure item class, e.g. {@link SQLSchema} or {@link DBRoot}.
+     * @return the distance between parameters, e.g. -1.
+     */
+    public final int getHops(Class<? extends DBStructureItem<?>> clazz1, Class<? extends DBStructureItem<?>> clazz2) {
+        final EnumOrderedSet<HierarchyLevel> levels;
+        if (DBStructureItemDB.class.isAssignableFrom(clazz1) || DBStructureItemDB.class.isAssignableFrom(clazz2))
+            levels = this.getLevels();
+        else
+            levels = HierarchyLevel.getAll();
+        return levels.getHops(this.getLevel(clazz1), this.getLevel(clazz2));
+    }
+
+    /**
      * The level of the root for this system, ie the level above {@link HierarchyLevel#SQLTABLE}.
      * 
      * @return level of the root.
@@ -321,7 +344,7 @@ public enum SQLSystem {
             throw new IllegalArgumentException(clazz + " should be either DBRoot or DBSystemRoot");
     }
 
-    public final HierarchyLevel getLevel(Class<? extends DBStructureItem> clazz) {
+    public final HierarchyLevel getLevel(Class<? extends DBStructureItem<?>> clazz) {
         if (DBStructureItemDB.class.isAssignableFrom(clazz))
             return this.getDBLevel(clazz.asSubclass(DBStructureItemDB.class));
         else
@@ -432,6 +455,15 @@ public enum SQLSystem {
     }
 
     public boolean isTablesCommentSupported() {
+        return true;
+    }
+
+    /**
+     * Whether more than one result set can be retrieved.
+     * 
+     * @return <code>true</code> if {@link Statement#getMoreResults()} is functional.
+     */
+    public boolean isMultipleResultSetsSupported() {
         return true;
     }
 

@@ -247,9 +247,9 @@ public class TabbedListeModifyPanel extends JPanel {
     /*
      * public void updateEditor(boolean visible, String description) { final int indexOfComponent =
      * tabbedPane.indexOfComponent(editormodifComp); if (!visible) { if (indexOfComponent != -1) {
-     * tabbedPane.remove(editormodifComp); } } else { final String desc = "Edition:" + description + "
-     * [F9]"; if (indexOfComponent == -1) { tabbedPane.insertTab(desc, null, editormodifComp, null,
-     * 1); } else { tabbedPane.setTitleAt(indexOfComponent, desc); } } }
+     * tabbedPane.remove(editormodifComp); } } else { final String desc = "Edition:" + description +
+     * " [F9]"; if (indexOfComponent == -1) { tabbedPane.insertTab(desc, null, editormodifComp,
+     * null, 1); } else { tabbedPane.setTitleAt(indexOfComponent, desc); } } }
      */
 
     public void activateList() {
@@ -282,7 +282,7 @@ public class TabbedListeModifyPanel extends JPanel {
         }
     }
 
-    public void showAddTab(List sqlRows) {
+    public void showAddTab(List<SQLRow> sqlRows) {
         int index = tabbedPane.indexOfComponent(editorAddComp);
         if (index != -1) {
             // existe
@@ -320,8 +320,9 @@ public class TabbedListeModifyPanel extends JPanel {
                 }
 
                 public void inserted(int id) {
-                    hideAddTab();
-
+                    if (!editorAddComp.alwaysVisible()) {
+                        hideAddTab();
+                    }
                 }
 
                 public void modified() {

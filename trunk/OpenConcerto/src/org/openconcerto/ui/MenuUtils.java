@@ -79,8 +79,13 @@ public class MenuUtils {
         final int[] groupRange = getRange(children, groupName);
         final T res;
         if (groupRange == null) {
-            if (children.length > 0)
-                c.add(new JSeparator());
+            if (children.length > 0) {
+                if (c instanceof JMenu) {
+                    ((JMenu) c).addSeparator();
+                } else {
+                    c.add(new JSeparator());
+                }
+            }
             res = created;
             c.add(res);
         } else {

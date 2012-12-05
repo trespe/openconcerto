@@ -46,6 +46,7 @@ public class AddMDFields extends Changer<SQLTable> {
         super(b);
     }
 
+    @Override
     protected void changeImpl(SQLTable table) throws SQLException {
         if (testTable(table) && !table.getFieldsName().containsAll(fields)) {
             final SQLTable userT = table.getDBRoot().findTable("USER_COMMON");
@@ -63,6 +64,8 @@ public class AddMDFields extends Changer<SQLTable> {
             }
 
             getDS().execute(alter.asString());
+            table.fetchFields();
+            table.getSchema().updateVersion();
             this.getStream().println("added metadata fields on " + table.getSQLName());
         }
     }

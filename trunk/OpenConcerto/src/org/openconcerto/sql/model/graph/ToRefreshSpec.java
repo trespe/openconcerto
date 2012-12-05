@@ -14,15 +14,11 @@
  package org.openconcerto.sql.model.graph;
 
 import org.openconcerto.sql.model.DBRoot;
-import org.openconcerto.sql.model.DBStructureItemJDBC;
 import org.openconcerto.sql.model.DBSystemRoot;
-import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.SetMap;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -30,34 +26,16 @@ import java.util.Set;
  * Coalesce multiple refresh.
  * 
  * @author Sylvain
- * @see #add(DBStructureItemJDBC, Set, boolean)
+ * @see #add(TablesMap, boolean)
  * @see #getActual(DBSystemRoot, Set)
  */
 class ToRefreshSpec {
 
-    static final class TablesByRoot extends SetMap<String, String> {
-        TablesByRoot() {
-            super(3, Mode.NULL_MEANS_ALL, true);
-        }
-
-        TablesByRoot(Map<? extends String, ? extends Set<String>> m) {
-            this();
-            this.putAllCollections(m);
-        }
-
-        @Override
-        protected Set<String> createCollection(Collection<? extends String> v) {
-            final Set<String> res = new HashSet<String>(Math.max(8, v.size()));
-            res.addAll(v);
-            return res;
-        }
-    }
-
     static final class ToRefreshActual {
-        private final TablesByRoot fromXML, fromJDBC;
+        private final TablesMap fromXML, fromJDBC;
         private final Set<SQLTable> oldTables, newTables;
 
-        private ToRefreshActual(TablesByRoot fromXML, TablesByRoot fromJDBC, Set<SQLTable> oldTables, Set<SQLTable> newTables) {
+        private ToRefreshActual(TablesMap fromXML, TablesMap fromJDBC, Set<SQLTable> oldTables, Set<SQLTable> newTables) {
             super();
             this.fromXML = fromXML;
             this.fromJDBC = fromJDBC;
@@ -65,11 +43,11 @@ class ToRefreshSpec {
             this.newTables = newTables;
         }
 
-        public final TablesByRoot getFromXML() {
+        public final TablesMap getFromXML() {
             return this.fromXML;
         }
 
-        public final TablesByRoot getFromJDBC() {
+        public final TablesMap getFromJDBC() {
             return this.fromJDBC;
         }
 
@@ -83,8 +61,8 @@ class ToRefreshSpec {
         }
     }
 
-    static private final TablesByRoot createMap(final DBSystemRoot sysRoot) {
-        final TablesByRoot res = new TablesByRoot();
+    static private final TablesMap createMap(final DBSystemRoot sysRoot) {
+        final TablesMap res = new TablesMap();
         for (final DBRoot r : sysRoot.getChildrenMap().values()) {
             // copy r.getChildrenNames() since they're immutable
             res.put(r.getName(), r.getChildrenNames());
@@ -94,11 +72,11 @@ class ToRefreshSpec {
 
     // fill the passed map with current tables in sysRoot
     // i.e. remove inexistent roots and tables and expand null
-    static private TablesByRoot fillMap(final TablesByRoot toRefresh, final DBSystemRoot sysRoot) {
+    static private TablesMap fillMap(final TablesMap toRefresh, final DBSystemRoot sysRoot) {
         if (toRefresh == null)
             return createMap(sysRoot);
 
-        final TablesByRoot res = new TablesByRoot(toRefresh);
+        final TablesMap res = TablesMap.create(toRefresh);
         for (final Entry<String, Set<String>> e : toRefresh.entrySet()) {
             final String rootName = e.getKey();
             if (!sysRoot.contains(rootName)) {
@@ -116,24 +94,24 @@ class ToRefreshSpec {
     }
 
     // null value meaning all tables, null map meaning all roots
-    private TablesByRoot tablesFromXML, tablesFromJDBC;
+    private TablesMap tablesFromXML, tablesFromJDBC;
 
     ToRefreshSpec() {
         super();
         // at first nothing to refresh
-        this.tablesFromXML = new TablesByRoot();
-        this.tablesFromJDBC = new TablesByRoot();
+        this.tablesFromXML = new TablesMap();
+        this.tablesFromJDBC = new TablesMap();
     }
 
-    public final TablesByRoot getTablesFromXML() {
+    public final TablesMap getTablesFromXML() {
         return this.tablesFromXML;
     }
 
-    public final TablesByRoot getTablesFromJDBC() {
+    public final TablesMap getTablesFromJDBC() {
         return this.tablesFromJDBC;
     }
 
-    private final boolean isInScope(final TablesByRoot m, final SQLTable t) {
+    private final boolean isInScope(final TablesMap m, final SQLTable t) {
         final String rootName = t.getDBRoot().getName();
         if (!m.containsKey(rootName))
             return false;
@@ -151,35 +129,17 @@ class ToRefreshSpec {
         return this.isInScope(this.tablesFromXML, t) || this.isInScope(this.tablesFromJDBC, t);
     }
 
-    public final ToRefreshSpec add(final DBStructureItemJDBC parent, final Set<String> childrenRefreshed, final boolean readCache) {
-        final TablesByRoot tablesByRoot = readCache ? this.tablesFromXML : this.tablesFromJDBC;
+    public final ToRefreshSpec add(final TablesMap tablesRefreshed, final boolean readCache) {
+        final TablesMap tablesByRoot = readCache ? this.tablesFromXML : this.tablesFromJDBC;
         // else we already refresh all
         if (tablesByRoot != null) {
-            final boolean parentIsSysRoot = parent != null && parent.getDB() instanceof DBSystemRoot;
-            if (parent == null || parentIsSysRoot && childrenRefreshed == null) {
+            if (tablesRefreshed == null) {
                 if (readCache)
                     this.tablesFromXML = null;
                 else
                     this.tablesFromJDBC = null;
             } else {
-                if (parentIsSysRoot) {
-                    for (final String s : childrenRefreshed)
-                        tablesByRoot.put(s, null);
-                } else {
-                    final String key = parent.getDBRoot().getName();
-                    // else we already refresh the whole root
-                    if (!tablesByRoot.containsKey(key) || tablesByRoot.get(key) != null) {
-                        if (!(parent.getDB() instanceof DBRoot)) {
-                            tablesByRoot.add(key, parent.getAnc(SQLTable.class).getName());
-                            // if parent is DBRoot and SQLBase then childrenRefreshed is the null
-                            // SQLSchema, meaning all tables in the base
-                        } else if (childrenRefreshed == null || parent instanceof SQLBase) {
-                            tablesByRoot.put(key, null);
-                        } else {
-                            tablesByRoot.addAll(key, childrenRefreshed);
-                        }
-                    }
-                }
+                tablesByRoot.addAll(tablesRefreshed);
             }
         }
         return this;
@@ -198,10 +158,10 @@ class ToRefreshSpec {
     }
 
     public final ToRefreshActual getActual(final DBSystemRoot sysRoot, final Set<SQLTable> currentGraphTables) {
-        final TablesByRoot fromXML;
-        final TablesByRoot fromJDBC;
+        final TablesMap fromXML;
+        final TablesMap fromJDBC;
         if (this.tablesFromJDBC == null) {
-            fromXML = new TablesByRoot();
+            fromXML = new TablesMap();
             fromJDBC = createMap(sysRoot);
         } else {
             fromXML = fillMap(this.tablesFromXML, sysRoot);

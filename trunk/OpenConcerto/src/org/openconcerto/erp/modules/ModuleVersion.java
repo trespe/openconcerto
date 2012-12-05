@@ -82,6 +82,6 @@ public class ModuleVersion implements Comparable<ModuleVersion> {
 
     @Override
     public String toString() {
-        return "v" + this.getMajor() + "." + this.getMinor();
+        return this.getMajor() + "." + this.getMinor();
     }
 }

@@ -35,6 +35,16 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
 
     public static final String TEMPLATE_PROPERTY_NAME = "LocationRelance";
 
+    @Override
+    public String getDefaultTemplateID() {
+        return TEMPLATE_ID;
+    }
+
+    @Override
+    public String getDefaultLocationProperty() {
+        return TEMPLATE_PROPERTY_NAME;
+    }
+
     /**
      * @return une Map contenant les valeurs à remplacer dans la template
      */

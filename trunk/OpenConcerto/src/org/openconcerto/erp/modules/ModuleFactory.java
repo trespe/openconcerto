@@ -194,7 +194,7 @@ public abstract class ModuleFactory {
     }
 
     public final Preferences getPreferences(final boolean local, final DBRoot root) {
-        final Preferences rootPrefs = local ? Preferences.userRoot() : new SQLPreferences(root);
+        final Preferences rootPrefs = local ? Preferences.userRoot() : SQLPreferences.getMemCached(root);
         // ID is a package name, transform to path to avoid bumping into the size limit
         return rootPrefs.node(ModulePreferencePanel.getAppPrefPath() + this.getID().replace('.', '/'));
     }
@@ -202,5 +202,9 @@ public abstract class ModuleFactory {
     @Override
     public String toString() {
         return getClass().getSimpleName() + " " + getID() + " (" + getMajorVersion() + "." + getMinorVersion() + ")";
+    }
+
+    public ModuleReference getReference() {
+        return new ModuleReference(this.id, this.version);
     }
 }

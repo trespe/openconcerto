@@ -14,6 +14,7 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.model.SQLField.Properties;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.Tuple2;
@@ -36,8 +37,9 @@ class SQLSyntaxMS extends SQLSyntax {
     SQLSyntaxMS() {
         super(SQLSystem.MSSQL);
         this.typeNames.putAll(Boolean.class, "bit");
-        this.typeNames.putAll(Integer.class, "tinyint", "smallint", "unsigned smallint", "int", "unsigned int");
-        this.typeNames.putAll(Long.class, "bigint");
+        this.typeNames.putAll(Short.class, "smallint");
+        this.typeNames.putAll(Integer.class, "unsigned smallint", "int");
+        this.typeNames.putAll(Long.class, "unsigned int", "bigint");
         this.typeNames.putAll(BigDecimal.class, "unsigned bigint", "decimal", "numeric", "smallmoney", "money");
         this.typeNames.putAll(Float.class, "real");
         this.typeNames.putAll(Double.class, "float");
@@ -145,7 +147,7 @@ class SQLSyntaxMS extends SQLSyntax {
             // MAYBE implement AlterTableAlterColumn.CHANGE_ONLY_TYPE
             final String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, type);
             final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
-            res.add(SQLSelect.quote("ALTER COLUMN %n " + type + getDefaultClause(newDef) + getNullableClause(newNullable), f));
+            res.add(SQLSelect.quote("ALTER COLUMN %n " + getFieldDecl(type, newDef, newNullable), f));
         } else {
             if (toAlter.contains(Properties.NULLABLE))
                 res.add(this.setNullable(f, nullable));
@@ -257,7 +259,11 @@ class SQLSyntaxMS extends SQLSyntax {
 
     @Override
     public String getNullIsDataComparison(String x, boolean eq, String y) {
-        return SQLSystem.H2.getSyntax().getNullIsDataComparison(x, eq, y);
+        final String nullSafe = x + " = " + y + " or ( " + x + " is null and " + y + " is null)";
+        if (eq)
+            return nullSafe;
+        else
+            return x + " <> " + y + " or (" + x + " is null and " + y + " is not null) " + " or (" + x + " is not null and " + y + " is null) ";
     }
 
     @Override
@@ -270,16 +276,15 @@ class SQLSyntaxMS extends SQLSyntax {
     }
 
     @Override
-    public String getTriggerQuery(SQLBase b, Set<String> schemas, Set<String> tables) {
-        final String tableWhere = tables == null ? "" : " and tabl.name in (" + quoteStrings(b, tables) + ")";
+    public String getTriggerQuery(SQLBase b, TablesMap tables) {
         // for some reason OBJECT_DEFINITION always returns null
         return "SELECT  trig.name as \"TRIGGER_NAME\", SCHEMA_NAME( tabl.schema_id ) as \"TABLE_SCHEMA\", tabl.name as \"TABLE_NAME\",  null as \"ACTION\", cast(OBJECT_DEFINITION(trig.object_id) as varchar(4096)) as \"SQL\"\n"
                 //
                 + "FROM " + new SQLName(b.getName(), "sys", "triggers") + " trig\n"
                 //
                 + "join " + new SQLName(b.getName(), "sys", "objects") + " tabl on trig.parent_id = tabl.object_id\n"
-                //
-                + "where SCHEMA_NAME( tabl.schema_id ) in (" + quoteStrings(b, schemas) + ") " + tableWhere;
+                // requested tables
+                + getTablesMapJoin(b, tables, "SCHEMA_NAME( tabl.schema_id )", "tabl.name");
     }
 
     @Override
@@ -288,20 +293,14 @@ class SQLSyntaxMS extends SQLSyntax {
     }
 
     @Override
-    public String getColumnsQuery(SQLBase b, Set<String> schemas, Set<String> tables) {
+    public String getColumnsQuery(SQLBase b, TablesMap tables) {
         // TODO
         return null;
     }
 
-    private final String getInfoSchemaWhere(SQLBase b, final String schemaCol, Set<String> schemas, final String tableCol, Set<String> tables) {
-        final String tableWhere = tables == null ? "" : " and " + tableCol + " in (" + quoteStrings(b, tables) + ")";
-        return schemaCol + " in ( " + quoteStrings(b, schemas) + ") " + tableWhere;
-        // no need of base, since we query the views of the right base
-    }
-
     @Override
-    public List<Map<String, Object>> getConstraints(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException {
-        final String where = "where " + getInfoSchemaWhere(b, "SCHEMA_NAME(t.schema_id)", schemas, "t.name", tables);
+    public List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException {
+        final String where = getTablesMapJoin(b, tables, "SCHEMA_NAME(t.schema_id)", "t.name");
         final String sel = "SELECT SCHEMA_NAME(t.schema_id) AS \"TABLE_SCHEMA\", t.name AS \"TABLE_NAME\", k.name AS \"CONSTRAINT_NAME\", case k.type when 'UQ' then 'UNIQUE' when 'PK' then 'PRIMARY KEY' end as \"CONSTRAINT_TYPE\", col_name(c.object_id, c.column_id) AS \"COLUMN_NAME\", c.key_ordinal AS \"ORDINAL_POSITION\"\n"
                 + "FROM sys.key_constraints k\n"
                 //
@@ -341,5 +340,15 @@ class SQLSyntaxMS extends SQLSyntax {
         // MS needs either the CLR : http://msdn.microsoft.com/en-us/magazine/cc163473.aspx
         // or http://www.codeproject.com/KB/database/xp_pcre.aspx
         return null;
+    }
+
+    @Override
+    public String getFormatTimestamp(String sqlTS, boolean basic) {
+        final String extended = "CONVERT(nvarchar(30), " + sqlTS + ", 126) + '000'";
+        if (basic) {
+            return "replace( replace( " + extended + ", '-', ''), ':' , '' )";
+        } else {
+            return extended;
+        }
     }
 }

@@ -176,6 +176,8 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     private volatile int retryWait;
     @GuardedBy("this")
     private boolean blockWhenExhausted;
+    @GuardedBy("this")
+    private long softMinEvictableIdleTimeMillis;
 
     private final ReentrantLock testLock = new ReentrantLock();
 
@@ -286,6 +288,15 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         // but not too much as it can lock out other users (the server has a max connection count)
         this.setMaxIdle(16);
         this.setBlockWhenExhausted(false);
+        // check 5 connections every 4 seconds
+        this.setTimeBetweenEvictionRunsMillis(4000);
+        this.setNumTestsPerEvictionRun(5);
+        // kill extra (above minIdle) connections after 40s
+        this.setSoftMinEvictableIdleTimeMillis(TimeUnit.SECONDS.toMillis(40));
+        // kill idle connections after 30 minutes (even if it means re-creating some new ones
+        // immediately afterwards to ensure minIdle connections)
+        this.setMinEvictableIdleTimeMillis(TimeUnit.MINUTES.toMillis(30));
+
         // see #createDataSource() for properties not supported by this class
         this.tables = Collections.emptySet();
         this.cache = null;
@@ -490,7 +501,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             throw e;
         }
 
-        SQLRequestLog.log(query, "", info, timeMs, time, afterCache, afterQueryInfo, afterExecute, afterHandle, System.nanoTime());
+        SQLRequestLog.log(query, "", info.getConnection(), timeMs, time, afterCache, afterQueryInfo, afterExecute, afterHandle, System.nanoTime());
 
         return result;
     }
@@ -515,7 +526,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         return this.exec;
     }
 
-    public final class QueryInfo {
+    private final class QueryInfo {
         private final String query;
         // whether query change the state of our connection
         private final boolean changeState;
@@ -633,7 +644,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         }
 
         // an error has occured, try within another connection if possible
-        public final Connection obtainNewConnection() {
+        final Connection obtainNewConnection() {
             if (!this.privateConnection)
                 return null;
             else {
@@ -651,7 +662,13 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         }
     }
 
-    private final boolean handlingConnection() {
+    /**
+     * Whether the current thread has called {@link #useConnection(ConnectionHandler)}.
+     * 
+     * @return <code>true</code> if within <code>useConnection()</code> and thus safe to call
+     *         {@link #getConnection()}.
+     */
+    public final boolean handlingConnection() {
         return this.handlers.containsKey(Thread.currentThread());
     }
 
@@ -743,7 +760,6 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         try {
             res = executeOnce(query, queryInfo.getConnection());
         } catch (SQLException exn) {
-            Log.get().log(Level.INFO, "executeOnce() failed for " + queryInfo, exn);
             if (State.DEBUG)
                 State.INSTANCE.addFailedRequest(query);
             // maybe this was a network problem, so wait a little
@@ -765,6 +781,8 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 else
                     throw new SQLException("second exec failed: " + e.getLocalizedMessage(), exn);
             }
+            // only log if the second succeeds (otherwise it's thrown)
+            Log.get().log(Level.INFO, "executeOnce() failed for " + queryInfo, exn);
         }
         return res;
     }
@@ -985,6 +1003,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      * @return la connection à cette source de donnée.
      * @throws IllegalStateException if not called from within useConnection().
      * @see #useConnection(ConnectionHandler)
+     * @see #handlingConnection()
      */
     public final Connection getConnection() {
         final HandlersStack res = this.handlers.get(Thread.currentThread());
@@ -1005,7 +1024,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      * @see #returnConnection(Connection)
      * @see #closeConnection(Connection)
      */
-    public final Connection getNewConnection() {
+    protected final Connection getNewConnection() {
         try {
             return this.borrowConnection(false);
         } catch (RTInterruptedException e) {
@@ -1113,18 +1132,26 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         }
     }
 
+    public synchronized final long getSoftMinEvictableIdleTimeMillis() {
+        return this.softMinEvictableIdleTimeMillis;
+    }
+
+    public synchronized final void setSoftMinEvictableIdleTimeMillis(long millis) {
+        this.softMinEvictableIdleTimeMillis = millis;
+        if (this.connectionPool != null) {
+            this.connectionPool.setSoftMinEvictableIdleTimeMillis(millis);
+        }
+    }
+
     @Override
     protected synchronized DataSource createDataSource() throws SQLException {
         if (isClosed()) {
             // initialize lotta things
             super.createDataSource();
+            // methods not defined in superclass and thus not called in super.createDataSource()
             this.connectionPool.setLifo(true);
             this.setBlockWhenExhausted(this.blockWhenExhausted);
-            // after 40s idle connections are closed
-            this.connectionPool.setTimeBetweenEvictionRunsMillis(4000);
-            this.connectionPool.setNumTestsPerEvictionRun(5);
-            // soft meaning only kill connections above minIdle
-            this.connectionPool.setSoftMinEvictableIdleTimeMillis(40000);
+            this.connectionPool.setSoftMinEvictableIdleTimeMillis(this.softMinEvictableIdleTimeMillis);
             // PoolingDataSource returns a PoolGuardConnectionWrapper that complicates a lot of
             // things for nothing, so overload to simply return an object of the pool
             this.dataSource = new PoolingDataSource(this.connectionPool) {

@@ -76,6 +76,15 @@ public class SQLTableElement {
         this.addUndefined = addUndefined;
     }
 
+    int decimalDigits = -1;
+
+    public int getDecimalDigits() {
+        if (decimalDigits < 0) {
+            decimalDigits = this.field.getType().getDecimalDigits();
+        }
+        return decimalDigits;
+    }
+
     public SQLTableElement(SQLField field, boolean addUndefined, boolean addElement, SQLRowValues rowVals) {
         this(field);
         this.EMPTY_ID = field.getTable().getUndefinedID();

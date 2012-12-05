@@ -18,6 +18,7 @@ import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLTable.Index;
 import org.openconcerto.sql.model.graph.Link.Rule;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
 import org.openconcerto.utils.CollectionMap;
@@ -34,7 +35,9 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.sql.Types;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -47,6 +50,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.logging.Level;
 
 /**
  * A class that abstract the syntax of different SQL systems. Type is an SQL datatype like 'int' or
@@ -63,6 +67,9 @@ public abstract class SQLSyntax {
     static public final String ID_NAME = "ID";
     static private final Map<SQLSystem, SQLSyntax> instances = new HashMap<SQLSystem, SQLSyntax>();
     static public final String DATA_EXT = ".txt";
+
+    static protected final String TS_EXTENDED_JAVA_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSS000";
+    static protected final String TS_BASIC_JAVA_FORMAT = "yyyyMMdd'T'HHmmss.SSS000";
 
     static public enum ConstraintType {
         CHECK, FOREIGN_KEY("FOREIGN KEY"), PRIMARY_KEY("PRIMARY KEY"), UNIQUE;
@@ -342,9 +349,13 @@ public abstract class SQLSyntax {
             final String sqlDefault = getDefault(f, sqlType);
             final boolean nullable = getNullable(f);
 
-            res += sqlType + getDefaultClause(sqlDefault) + getNullableClause(nullable);
+            res += getFieldDecl(sqlType, sqlDefault, nullable);
         }
         return res;
+    }
+
+    public final String getFieldDecl(final String sqlType, final String sqlDefault, final boolean nullable) {
+        return sqlType + getDefaultClause(sqlDefault) + getNullableClause(nullable);
     }
 
     protected final boolean getNullable(SQLField f) {
@@ -699,7 +710,7 @@ public abstract class SQLSyntax {
         // only run at the end to avoid being stopped while loading
         r.getBase().getDataSource().execute(disableFKChecks(r));
         for (final Tuple2<File, SQLTable> t : tables)
-            loadData(t.get0(), t.get1(), delete);
+            loadData(t.get0(), t.get1(), delete, Level.INFO);
         r.getBase().getDataSource().execute(enableFKChecks(r));
     }
 
@@ -708,12 +719,18 @@ public abstract class SQLSyntax {
     }
 
     public final void loadData(final File f, final SQLTable t, final boolean delete) throws IOException, SQLException {
-        Log.get().info("loading " + f + " into " + t.getSQLName() + "... ");
+        this.loadData(f, t, delete, null);
+    }
+
+    public final void loadData(final File f, final SQLTable t, final boolean delete, final Level level) throws IOException, SQLException {
+        if (level != null)
+            Log.get().log(level, "loading " + f + " into " + t.getSQLName() + "... ");
         if (delete)
             t.getBase().getDataSource().execute("DELETE FROM " + t.getSQLName().quote());
         _loadData(f, t);
         t.fireTableModified(SQLRow.NONEXISTANT_ID);
-        Log.get().info("done loading " + f);
+        if (level != null)
+            Log.get().log(level, "done loading " + f);
     }
 
     protected abstract void _loadData(File f, SQLTable t) throws IOException, SQLException;
@@ -832,18 +849,133 @@ public abstract class SQLSyntax {
      * @param y an sql expression, eg "1".
      * @return the corresponding clause, eg "someField is distinct from 1".
      */
-    public abstract String getNullIsDataComparison(String x, boolean eq, String y);
+    public String getNullIsDataComparison(String x, boolean eq, String y) {
+        return x + (eq ? " IS NOT DISTINCT FROM " : " IS DISTINCT FROM ") + y;
+    }
+
+    public final String getFormatTimestamp(final Timestamp ts, final boolean basic) {
+        return this.getFormatTimestamp(SQLBase.quoteStringStd(ts.toString()), basic);
+    }
+
+    /**
+     * Return the SQL function that format a time stamp to a complete representation. The
+     * {@link SimpleDateFormat format} is {@value #TS_EXTENDED_JAVA_FORMAT} : microseconds and no
+     * time zone (only format supported by all systems).
+     * <p>
+     * NOTE : from ISO 8601:2004(E) §4.2.2.4 the decimal sign is included even in basic format.
+     * </p>
+     * 
+     * @param sqlTS an SQL expression of type time stamp.
+     * @param basic <code>true</code> if the format should be basic, i.e. with the minimum number of
+     *        characters ; <code>false</code> if additional separators must be added (more legible).
+     * @return the SQL needed to format the passed parameter.
+     */
+    public abstract String getFormatTimestamp(final String sqlTS, final boolean basic);
+
+    public final String getInsertOne(final SQLName tableName, final List<String> fields, String... values) {
+        return this.getInsertOne(tableName, fields, Arrays.asList(values));
+    }
+
+    public final String getInsertOne(final SQLName tableName, final List<String> fields, final List<String> values) {
+        return getInsert(tableName, fields, Collections.singletonList(values));
+    }
+
+    public final String getInsert(final SQLName tableName, final List<String> fields, final List<List<String>> values) {
+        return "INSERT INTO " + tableName.quote() + "(" + quoteIdentifiers(fields) + ") " + getValues(values, fields.size());
+    }
+
+    public final String getValues(final List<List<String>> rows) {
+        return this.getValues(rows, -1);
+    }
+
+    /**
+     * Create a VALUES expression.
+     * 
+     * @param rows the rows with the SQL expression for each cell.
+     * @param colCount the number of columns the rows must have, -1 meaning infer it from
+     *        <code>rows</code>.
+     * @return the VALUES expression, e.g. "VALUES (1, 'one'), (2, 'two'), (3, 'three')".
+     */
+    public final String getValues(final List<List<String>> rows, int colCount) {
+        final int rowCount = rows.size();
+        if (rowCount < 1)
+            throw new IllegalArgumentException("Empty rows will cause a syntax error");
+        if (colCount < 0)
+            colCount = rows.get(0).size();
+        final StringBuilder sb = new StringBuilder(rowCount * 64);
+        final char space = rowCount > 6 ? '\n' : ' ';
+        sb.append("VALUES");
+        sb.append(space);
+        for (final List<String> row : rows) {
+            if (row.size() != colCount)
+                throw new IllegalArgumentException("Row have wrong size, not " + colCount + " : " + row);
+            sb.append("(");
+            sb.append(CollectionUtils.join(row, ", "));
+            sb.append("),");
+            sb.append(space);
+        }
+        // remove last ", "
+        sb.setLength(sb.length() - 2);
+        return sb.toString();
+    }
+
+    /**
+     * Get a constant table usable as a join.
+     * 
+     * @param rows the SQL values for the table, e.g. [["1", "'one'"], ["2", "'two'"]].
+     * @param alias the table alias, e.g. "t".
+     * @param columnsAlias the columns aliases.
+     * @return a constant table, e.g. ( VALUES (1, 'one'), (2, 'two') ) as "t" ("n", "name").
+     */
+    public String getConstantTable(final List<List<String>> rows, final String alias, final List<String> columnsAlias) {
+        final int colSize = columnsAlias.size();
+        if (colSize < 1)
+            throw new IllegalArgumentException("Empty columns will cause a syntax error");
+        final StringBuilder sb = new StringBuilder(rows.size() * 64);
+        sb.append("( ");
+        sb.append(getValues(rows, colSize));
+        sb.append(" ) as ");
+        sb.append(SQLBase.quoteIdentifier(alias));
+        sb.append(" (");
+        for (final String colAlias : columnsAlias) {
+            sb.append(SQLBase.quoteIdentifier(colAlias));
+            sb.append(", ");
+        }
+        // remove last ", "
+        sb.setLength(sb.length() - 2);
+        sb.append(")");
+        return sb.toString();
+    }
+
+    protected final String getTablesMapJoin(final SQLBase b, final TablesMap tables, final String schemaExpr, final String tableExpr) {
+        final List<List<String>> rows = new ArrayList<List<String>>();
+        for (final Entry<String, Set<String>> e : tables.entrySet()) {
+            final String schemaName = b.quoteString(e.getKey());
+            if (e.getValue() == null) {
+                rows.add(Arrays.asList(schemaName, "NULL"));
+            } else {
+                for (final String tableName : e.getValue())
+                    rows.add(Arrays.asList(schemaName, b.quoteString(tableName)));
+            }
+        }
+        final String tableAlias = "tables";
+        final SQLName schemaName = new SQLName(tableAlias, "schema");
+        final SQLName tableName = new SQLName(tableAlias, "table");
+
+        final String schemaWhere = schemaExpr + " = " + schemaName.quote();
+        final String tableWhere = "(" + tableName.quote() + " is null or " + tableExpr + " = " + tableName.quote() + ")";
+        return "INNER JOIN " + getConstantTable(rows, tableAlias, Arrays.asList(schemaName.getName(), tableName.getName())) + " on " + schemaWhere + " and " + tableWhere;
+    }
 
     /**
      * A query to retrieve columns metadata from INFORMATION_SCHEMA. The result must have at least
      * {@link #INFO_SCHEMA_NAMES_KEYS}.
      * 
      * @param b the base.
-     * @param schemas the schemas names.
-     * @param tables the tables names, <code>null</code> to not filter.
+     * @param tables the tables by schemas names.
      * @return the query to retrieve information about columns.
      */
-    public abstract String getColumnsQuery(SQLBase b, Set<String> schemas, Set<String> tables);
+    public abstract String getColumnsQuery(SQLBase b, TablesMap tables);
 
     /**
      * Return the query to find the functions. The result must have 3 columns : schema, name and src
@@ -860,13 +992,12 @@ public abstract class SQLSyntax {
      * Return the constraints in the passed tables.
      * 
      * @param b the base.
-     * @param schemas the schemas names.
-     * @param tables the tables names, <code>null</code> to not filter.
+     * @param tables the tables by schemas names.
      * @return a list of map with at least "TABLE_SCHEMA", "TABLE_NAME", "CONSTRAINT_NAME",
      *         "CONSTRAINT_TYPE" and (List of String)"COLUMN_NAMES" keys.
      * @throws SQLException if an error occurs.
      */
-    public abstract List<Map<String, Object>> getConstraints(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException;
+    public abstract List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException;
 
     protected static final String quoteStrings(final SQLBase b, Collection<String> c) {
         return CollectionUtils.join(c, ", ", new ITransformer<String, String>() {
@@ -896,12 +1027,11 @@ public abstract class SQLSyntax {
      * (the SQL needed to create the trigger, can be <code>null</code>).
      * 
      * @param b the base.
-     * @param schemas the schemas names.
-     * @param tables the tables names, <code>null</code> to not filter.
+     * @param tables the tables by schemas names.
      * @return the query to retrieve triggers.
      * @throws SQLException if an error occurs.
      */
-    public abstract String getTriggerQuery(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException;
+    public abstract String getTriggerQuery(SQLBase b, TablesMap tables) throws SQLException;
 
     public abstract String getDropTrigger(Trigger t);
 

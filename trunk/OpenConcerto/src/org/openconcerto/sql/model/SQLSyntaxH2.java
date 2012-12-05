@@ -14,6 +14,7 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.model.SQLField.Properties;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.utils.NetUtils;
 import org.openconcerto.utils.Tuple2;
 
@@ -101,7 +102,7 @@ class SQLSyntaxH2 extends SQLSyntax {
             // MAYBE implement AlterTableAlterColumn.CHANGE_ONLY_TYPE
             final String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, type);
             final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
-            res.add(SQLSelect.quote("ALTER COLUMN %n " + type + getDefaultClause(newDef) + getNullableClause(newNullable), f));
+            res.add(SQLSelect.quote("ALTER COLUMN %n " + getFieldDecl(type, newDef, newNullable), f));
         } else {
             if (toAlter.contains(Properties.DEFAULT))
                 res.add(this.setDefault(f, defaultVal));
@@ -178,54 +179,71 @@ class SQLSyntaxH2 extends SQLSyntax {
     }
 
     @Override
-    public String getNullIsDataComparison(String x, boolean eq, String y) {
-        // TODO use === or at least fix H2 :
-        // TRUE or null => TRUE
-        // FALSE or null => null
-        final String nullSafe = x + " = " + y + " or ( " + x + " is null and " + y + " is null)";
-        if (eq)
-            return nullSafe;
-        else
-            return x + " <> " + y + " or (" + x + " is null and " + y + " is not null) " + " or (" + x + " is not null and " + y + " is null) ";
+    public String getFormatTimestamp(String sqlTS, boolean basic) {
+        return "FORMATDATETIME(" + sqlTS + ", " + SQLBase.quoteStringStd(basic ? TS_BASIC_JAVA_FORMAT : TS_EXTENDED_JAVA_FORMAT) + ")";
+    }
+
+    // (SELECT "C1" as "num", "C2" as "name" FROM VALUES(1, 'Hello'), (2, 'World')) AS V;
+    @Override
+    public String getConstantTable(List<List<String>> rows, String alias, List<String> columnsAlias) {
+        // TODO submit a bug report to ask for V("num", "name") notation
+        final StringBuilder sb = new StringBuilder();
+        sb.append("( SELECT ");
+        final int colCount = columnsAlias.size();
+        for (int i = 0; i < colCount; i++) {
+            sb.append(SQLBase.quoteIdentifier("C" + (i + 1)));
+            sb.append(" as ");
+            sb.append(SQLBase.quoteIdentifier(columnsAlias.get(i)));
+            sb.append(", ");
+        }
+        // remove last ", "
+        sb.setLength(sb.length() - 2);
+        sb.append(" FROM ");
+        sb.append(this.getValues(rows, colCount));
+        sb.append(" ) AS ");
+        sb.append(SQLBase.quoteIdentifier(alias));
+        return sb.toString();
     }
 
     @Override
     public String getFunctionQuery(SQLBase b, Set<String> schemas) {
-        // src is null since H2 only supports alias to Java static functions
-        // "SELECT ALIAS_SCHEMA as \"schema\", ALIAS_NAME as \"name\", null as \"src\" FROM \"INFORMATION_SCHEMA\".FUNCTION_ALIASES where ALIAS_CATALOG='"
-        // + this.getBase().getMDName() + "' and ALIAS_SCHEMA in (" +
-        // toString(proceduresBySchema.keySet()) + ")";
-
-        // H2 functions are per db not per schema, so this doesn't fit our structure
-        return null;
+        // src can be null since H2 supports alias to Java static functions
+        // perhaps join on FUNCTION_COLUMNS to find out parameters' types
+        final String src = "coalesce(\"SOURCE\", \"JAVA_CLASS\" || '.' || \"JAVA_METHOD\" ||' parameter(s): ' || \"COLUMN_COUNT\")";
+        return "SELECT ALIAS_SCHEMA as \"schema\", ALIAS_NAME as \"name\", " + src + " as \"src\" FROM \"INFORMATION_SCHEMA\".FUNCTION_ALIASES where ALIAS_CATALOG=" + b.quoteString(b.getMDName())
+                + " and ALIAS_SCHEMA in (" + quoteStrings(b, schemas) + ")";
     }
 
     @Override
-    public String getTriggerQuery(SQLBase b, Set<String> schemas, Set<String> tables) {
-        return "SELECT \"TRIGGER_NAME\", \"TABLE_SCHEMA\", \"TABLE_NAME\", \"JAVA_CLASS\" as \"ACTION\", \"SQL\" from INFORMATION_SCHEMA.TRIGGERS where " + getInfoSchemaWhere(b, schemas, tables);
+    public String getTriggerQuery(SQLBase b, TablesMap tables) {
+        return "SELECT \"TRIGGER_NAME\", \"TABLE_SCHEMA\", \"TABLE_NAME\", \"JAVA_CLASS\" as \"ACTION\", \"SQL\" from INFORMATION_SCHEMA.TRIGGERS " + getTablesMapJoin(b, tables) + " where "
+                + getInfoSchemaWhere(b);
     }
 
-    private final String getInfoSchemaWhere(SQLBase b, Set<String> schemas, Set<String> tables) {
-        final String tableWhere = tables == null ? "" : " and \"TABLE_NAME\" in (" + quoteStrings(b, tables) + ")";
-        return "\"TABLE_CATALOG\" = '" + b.getMDName() + "' and \"TABLE_SCHEMA\" in (" + quoteStrings(b, schemas) + ") " + tableWhere;
+    private String getTablesMapJoin(final SQLBase b, final TablesMap tables) {
+        return getTablesMapJoin(b, tables, SQLBase.quoteIdentifier("TABLE_SCHEMA"), SQLBase.quoteIdentifier("TABLE_NAME"));
+    }
+
+    private final String getInfoSchemaWhere(SQLBase b) {
+        return "\"TABLE_CATALOG\" = " + b.quoteString(b.getMDName());
     }
 
     @Override
-    public String getColumnsQuery(SQLBase b, Set<String> schemas, Set<String> tables) {
+    public String getColumnsQuery(SQLBase b, TablesMap tables) {
         return "SELECT \"" + INFO_SCHEMA_NAMES_KEYS.get(0) + "\", \"" + INFO_SCHEMA_NAMES_KEYS.get(1) + "\", \"" + INFO_SCHEMA_NAMES_KEYS.get(2)
-                + "\" , \"CHARACTER_SET_NAME\", \"COLLATION_NAME\" from INFORMATION_SCHEMA.\"COLUMNS\" where " + getInfoSchemaWhere(b, schemas, tables);
+                + "\" , \"CHARACTER_SET_NAME\", \"COLLATION_NAME\" from INFORMATION_SCHEMA.\"COLUMNS\" " + getTablesMapJoin(b, tables) + " where " + getInfoSchemaWhere(b);
     }
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<Map<String, Object>> getConstraints(SQLBase b, Set<String> schemas, Set<String> tables) throws SQLException {
+    public List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException {
         final String sel = "SELECT \"TABLE_SCHEMA\", \"TABLE_NAME\", \"CONSTRAINT_NAME\", \n"
         //
                 + "case \"CONSTRAINT_TYPE\"  when 'REFERENTIAL' then 'FOREIGN KEY' else \"CONSTRAINT_TYPE\" end as \"CONSTRAINT_TYPE\", \"COLUMN_LIST\"\n"
                 //
-                + "FROM INFORMATION_SCHEMA.CONSTRAINTS"
+                + "FROM INFORMATION_SCHEMA.CONSTRAINTS " + getTablesMapJoin(b, tables)
                 // where
-                + " where " + getInfoSchemaWhere(b, schemas, tables);
+                + " where " + getInfoSchemaWhere(b);
         // don't cache since we don't listen on system tables
         final List<Map<String, Object>> res = (List<Map<String, Object>>) b.getDBSystemRoot().getDataSource().execute(sel, new IResultSetHandler(SQLDataSource.MAP_LIST_HANDLER, false));
         for (final Map<String, Object> m : res) {

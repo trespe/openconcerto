@@ -143,7 +143,7 @@ public class TodoListModel extends DefaultTableModel {
         final int oldSize;
         synchronized (this.dataVector) {
             oldSize = this.dataVector.size();
-            for (int i = 0; i < this.dataVector.size(); i++) {
+            for (int i = 0; i < oldSize; i++) {
                 TodoListElement elt = (TodoListElement) this.dataVector.get(i);
                 TodoListElement eltN = newDataVector.remove(elt.getRowValues().getID());
                 if (eltN == null) {

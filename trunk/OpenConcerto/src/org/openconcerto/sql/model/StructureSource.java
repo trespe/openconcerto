@@ -13,7 +13,9 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.cc.IncludeExclude;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -37,30 +39,56 @@ import java.util.Set;
  */
 public abstract class StructureSource<E extends Exception> {
 
-    private final Set<String> toRefresh;
+    private final TablesMap toRefresh;
     private final SQLBase base;
     private boolean preVerify;
     private Map<String, SQLSchema> newStructure;
     // schemas loaded by another StructureSource
     private final boolean hasExternalStruct;
     private final Map<String, SQLSchema> externalStruct;
+    // each table has a version, thus externalStruct can contain a subset of toRefresh
+    private final Set<String> externalOutOfDateSchemas;
 
-    public StructureSource(SQLBase b, Set<String> toRefresh) {
-        this(b, toRefresh, null);
+    public StructureSource(SQLBase b, TablesMap toRefresh) {
+        this(b, toRefresh, null, null);
     }
 
-    public StructureSource(SQLBase b, Set<String> toRefresh, Map<String, SQLSchema> externalStruct) {
+    public StructureSource(SQLBase b, TablesMap toRefresh, Map<String, SQLSchema> externalStruct, Set<String> externalOutOfDateSchemas) {
         super();
         this.base = b;
-        this.toRefresh = toRefresh;
+        this.toRefresh = TablesMap.create(toRefresh);
+        if (this.toRefresh != null)
+            this.toRefresh.removeAllEmptyCollections();
         this.preVerify = false;
         this.newStructure = null;
         this.hasExternalStruct = externalStruct != null;
         this.externalStruct = externalStruct == null ? Collections.<String, SQLSchema> emptyMap() : externalStruct;
+        if (externalOutOfDateSchemas == null) {
+            if (externalStruct != null)
+                throw new NullPointerException("Null out of date");
+            else
+                externalOutOfDateSchemas = Collections.emptySet();
+        }
+        this.externalOutOfDateSchemas = externalOutOfDateSchemas;
     }
 
-    final Set<String> getToRefresh() {
+    final TablesMap getToRefresh() {
         return this.toRefresh;
+    }
+
+    final Set<String> getSchemasToRefresh() {
+        // OK since we called removeAllEmptyCollections() in the constructor
+        return this.getToRefresh() == null ? null : this.getToRefresh().keySet();
+    }
+
+    final Set<String> getTablesToRefresh(final String schema) {
+        if (this.getToRefresh() == null) {
+            return null;
+        } else {
+            // null result is null value (i.e. refresh all) not absence of key
+            assert this.getToRefresh().containsKey(schema);
+            return this.getToRefresh().get(schema);
+        }
     }
 
     final boolean hasExternalStruct() {
@@ -84,9 +112,9 @@ public abstract class StructureSource<E extends Exception> {
                     return null;
                 }
             });
-            if (this.preVerify) {
+            if (this.isPreVerify()) {
                 this.newStructure = this.createTables();
-                this.fillTables(this.newStructure.keySet());
+                this.fillTablesP();
             }
         } catch (Exception e) {
             throw new PrechangeException(e);
@@ -96,6 +124,9 @@ public abstract class StructureSource<E extends Exception> {
     final Map<String, SQLSchema> getNewStructure() {
         return this.newStructure;
     }
+
+    // schemas in getNewStructure() that haven't all asked for tables
+    abstract Set<String> getOutOfDateSchemas();
 
     private final Map<String, SQLSchema> createTables() {
         final Map<String, SQLSchema> res = new HashMap<String, SQLSchema>();
@@ -141,9 +172,13 @@ public abstract class StructureSource<E extends Exception> {
         this.preVerify = preVerify;
     }
 
+    public final boolean isPreVerify() {
+        return this.preVerify;
+    }
+
     // scope = toRefresh ∩ rootsToMap
     public final boolean isInTotalScope(String schemaName) {
-        return this.getBase().getDBSystemRoot().createNode(this.getBase(), schemaName) && (this.toRefresh == null || this.toRefresh.contains(schemaName));
+        return this.getBase().getDBSystemRoot().createNode(this.getBase(), schemaName) && (this.toRefresh == null || this.getSchemasToRefresh().contains(schemaName));
     }
 
     // only keep schemas that we must load (ie exclude out of scope and already loaded in
@@ -152,26 +187,46 @@ public abstract class StructureSource<E extends Exception> {
         final Iterator<String> iter = schemas.iterator();
         while (iter.hasNext()) {
             final String schema = iter.next();
-            if (!this.isInTotalScope(schema) || this.externalStruct.containsKey(schema))
+            if (!this.isInScope(schema))
                 iter.remove();
         }
     }
 
-    // existing schemas to refresh = toRefresh ∩ childrenNames
-    public final Set<String> getSchemasToRefresh() {
-        return CollectionUtils.inter(this.getBase().getChildrenNames(), this.toRefresh);
+    protected final boolean isInScope(String schema) {
+        return this.isInTotalScope(schema) && (!this.externalStruct.containsKey(schema) || this.externalOutOfDateSchemas.contains(schema));
     }
 
-    // existing tables to refresh = tables of getSchemasToRefresh()
-    public final Set<SQLName> getTablesToRefresh() {
+    final IncludeExclude<String> getTablesInScope(final String schema) {
+        assert isInScope(schema) : "Schema " + schema + " not in scope and this method doesn't check it";
+        final Set<String> includes = getTablesToRefresh(schema);
+        final Set<String> excludes;
+        if (this.hasExternalStruct()) {
+            final SQLSchema externalSchema = this.externalStruct.get(schema);
+            assert (externalSchema == null) == !this.externalStruct.containsKey(schema) : "externalStruct has a null value";
+            excludes = externalSchema == null ? Collections.<String> emptySet() : externalSchema.getChildrenNames();
+        } else {
+            excludes = Collections.<String> emptySet();
+        }
+        return IncludeExclude.getNormalized(includes, excludes);
+    }
+
+    // existing schemas to refresh = toRefresh ∩ childrenNames
+    public final Set<String> getExistingSchemasToRefresh() {
+        return CollectionUtils.inter(this.getBase().getChildrenNames(), this.getSchemasToRefresh());
+    }
+
+    // existing tables to refresh
+    public final Set<SQLName> getExistingTablesToRefresh() {
         if (this.toRefresh == null)
             return this.getBase().getAllTableNames();
         else {
             final Set<SQLName> res = new HashSet<SQLName>();
-            for (final String schemaName : this.getSchemasToRefresh()) {
+            for (final String schemaName : this.getExistingSchemasToRefresh()) {
+                final Set<String> tablesToRefresh = this.getToRefresh().get(schemaName);
                 final SQLSchema schema = this.getBase().getSchema(schemaName);
                 for (final SQLTable t : schema.getTables()) {
-                    res.add(t.getSQLName(schema));
+                    if (tablesToRefresh == null || tablesToRefresh.contains(t.getName()))
+                        res.add(t.getSQLName(schema));
                 }
             }
             return res;
@@ -182,6 +237,23 @@ public abstract class StructureSource<E extends Exception> {
     public abstract Set<String> getSchemas();
 
     public abstract Set<SQLName> getTablesNames();
+
+    public final TablesMap getTablesMap() {
+        return this.getTablesMap(false);
+    }
+
+    protected final TablesMap getTablesMap(final boolean includeEmptySchemas) {
+        final TablesMap res = new TablesMap();
+        if (includeEmptySchemas) {
+            for (final String s : getSchemas()) {
+                res.put(s, Collections.<String> emptySet());
+            }
+        }
+        for (final SQLName table : getTablesNames()) {
+            res.add(table.getItemLenient(-2), table.getName());
+        }
+        return res;
+    }
 
     // schemas that will be filled by fillTables()
     // ie ours + externalStruct
@@ -208,8 +280,8 @@ public abstract class StructureSource<E extends Exception> {
      */
     public final void fillTables() throws E {
         assert Thread.holdsLock(this.getBase().getDBSystemRoot().getTreeMutex());
-        if (!this.preVerify)
-            this.fillTables(this.getSchemas());
+        if (!this.isPreVerify())
+            this.fillTablesP();
         else {
             mutateTo(this.newStructure);
         }
@@ -225,7 +297,7 @@ public abstract class StructureSource<E extends Exception> {
     }
 
     protected final SQLSchema getNewSchema(String name) {
-        if (!this.preVerify)
+        if (!this.isPreVerify())
             return this.getBase().getSchema(name);
         else {
             return this.newStructure.get(name);
@@ -240,7 +312,12 @@ public abstract class StructureSource<E extends Exception> {
             return newSchema.getTable(name);
     }
 
-    protected abstract void fillTables(Set<String> newSchemas) throws E;
+    protected final void fillTablesP() throws E {
+        // needs all schemas since even empty ones must be filled (e.g. schema version, procedures)
+        this.fillTables(getTablesMap(true));
+    }
+
+    protected abstract void fillTables(TablesMap newSchemas) throws E;
 
     // save the new content if necessary
     public abstract void save();

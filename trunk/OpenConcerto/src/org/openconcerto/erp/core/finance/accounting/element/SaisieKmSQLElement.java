@@ -129,7 +129,7 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
             SQLRow rowSaisieKm = vals.insert();
             idSaisie = rowSaisieKm.getID();
 
-            SQLSelect selEcriture = new SQLSelect(base);
+            SQLSelect selEcriture = new SQLSelect();
             selEcriture.addSelect(ecrTable.getField("ID"));
 
             Where w = new Where(ecrTable.getField("ID_MOUVEMENT"), "=", idMvt);
@@ -278,7 +278,6 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
             c.gridwidth = GridBagConstraints.REMAINDER;
             c.fill = GridBagConstraints.BOTH;
             this.add(this.tableKm, c);
-            this.tableKm.getModel().clearRows();
 
             // Initialisation du panel des Totaux
             JPanel panelTotal = new JPanel();
@@ -633,50 +632,26 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
             }
             this.tableKm.revalidate();
             this.tableKm.repaint();
-            // totalCred = (float) new PrixHT(totalCred).getValue();
-            // totalDeb = (float) new PrixHT(totalDeb).getValue();
-
             this.isCompteExist = isCompteExist;
             this.allLineValid = allLineValid;
             this.setTotals(totalCred, totalDeb);
-
             updateValidState();
 
             // add a row to balance totals
             final long diffWithNoValid = totalDebWithNoValid - totalCredWithNoValid;
-            // System.err.println("Valid ___ " + diff + " NO VALID _____ " +
-            // diffWithNoValid);
             if (diffWithNoValid != 0) {
                 if (diffWithNoValid > 0) {
                     this.defaultEcritureRowVals.put("DEBIT", Long.valueOf(0));
                     this.defaultEcritureRowVals.put("CREDIT", Long.valueOf(diffWithNoValid));
                     if (this.model.isLastRowValid()) {
                         this.tableKm.getModel().addRow(new SQLRowValues(this.defaultEcritureRowVals));
-                        SwingUtilities.invokeLater(new Runnable() {
-                            public void run() {
-                                if (SaisieKmComponent.this.model.getRowCount() > 0) {
-                                    SaisieKmComponent.this.tableKm.editCellAt(SaisieKmComponent.this.model.getRowCount() - 1, 0);
-                                }
-                            }
-                        });
+
                     }
                 } else {
                     this.defaultEcritureRowVals.put("DEBIT", Long.valueOf(-diffWithNoValid));
                     this.defaultEcritureRowVals.put("CREDIT", Long.valueOf(0));
                     if (this.model.isLastRowValid()) {
                         this.tableKm.getModel().addRow(new SQLRowValues(this.defaultEcritureRowVals));
-
-                        SwingUtilities.invokeLater(new Runnable() {
-                            public void run() {
-                                if (SaisieKmComponent.this.model.getRowCount() > 0) {
-                                    SaisieKmComponent.this.tableKm.editCellAt(SaisieKmComponent.this.model.getRowCount() - 1, 0);
-                                }
-                            }
-                        });
-
-                        // System.err.println("RowValid " + e.getType());
-                    } else {
-                        System.err.println(e.getType());
                     }
                 }
             } else {

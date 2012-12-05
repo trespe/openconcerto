@@ -90,6 +90,34 @@ public class FamilleArticleSQLElement extends ComptaSQLConfElement {
 
                 this.addSQLObject(familleBox, "ID_FAMILLE_ARTICLE_PERE");
 
+                // Compte associée
+                final JLabel labelCompte = new JLabel(getLabelFor("ID_COMPTE_PCE"), SwingConstants.RIGHT);
+                c.gridx = 0;
+                c.gridy++;
+                c.weightx = 0;
+                this.add(labelCompte, c);
+                final ElementComboBox compteBox = new ElementComboBox(true, 25);
+                DefaultGridBagConstraints.lockMinimumSize(compteBox);
+                c.gridx++;
+                c.weightx = 1;
+                this.add(compteBox, c);
+
+                this.addSQLObject(compteBox, "ID_COMPTE_PCE");
+
+                // Compte associée
+                final JLabel labelCompteAchat = new JLabel(getLabelFor("ID_COMPTE_PCE_ACHAT"), SwingConstants.RIGHT);
+                c.gridx = 0;
+                c.gridy++;
+                c.weightx = 0;
+                this.add(labelCompteAchat, c);
+                final ElementComboBox compteBoxAchat = new ElementComboBox(true, 25);
+                DefaultGridBagConstraints.lockMinimumSize(compteBoxAchat);
+                c.gridx++;
+                c.weightx = 1;
+                this.add(compteBoxAchat, c);
+
+                this.addSQLObject(compteBoxAchat, "ID_COMPTE_PCE_ACHAT");
+
                 // Champ Module
                 c.gridx = 0;
                 c.gridy++;

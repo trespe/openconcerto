@@ -45,6 +45,7 @@ import org.jdom.Namespace;
  */
 public class Style extends ODNode {
 
+    private static boolean STANDARD_STYLE_RESOLUTION = false;
     private static final Map<XMLVersion, Map<String, StyleDesc<?>>> family2Desc;
     private static final Map<XMLVersion, Map<String, StyleDesc<?>>> elemName2Desc;
     private static final Map<XMLVersion, Map<Class<? extends Style>, StyleDesc<?>>> class2Desc;
@@ -81,6 +82,20 @@ public class Style extends ODNode {
             PageLayoutStyle.registerDesc();
             descsLoaded = true;
         }
+    }
+
+    /**
+     * Whether to search styles according to the standard or to LibreOffice.
+     * 
+     * @param std <code>true</code> to search like the standard, <code>false</code> to search like
+     *        LibreOffice.
+     */
+    public static void setStandardStyleResolution(boolean std) {
+        STANDARD_STYLE_RESOLUTION = std;
+    }
+
+    public static boolean isStandardStyleResolution() {
+        return STANDARD_STYLE_RESOLUTION;
     }
 
     // until now a majority of styles have remained constant through versions

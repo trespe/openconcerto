@@ -35,6 +35,8 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
@@ -349,16 +351,16 @@ public class OOgenerationXML {
             numeroRef++;
             if (!cache && rowElt.getTable().getFieldRaw("ID_TAXE") != null) {
                 SQLRowAccessor rowTaxe = getForeignRow(rowElt, rowElt.getTable().getField("ID_TAXE"));
-                long ht = 0;
+                BigDecimal ht = BigDecimal.ZERO;
                 if (rowElt.getTable().getFieldRaw("T_PV_HT") != null) {
-                    ht = rowElt.getLong("T_PV_HT");
+                    ht = (BigDecimal) rowElt.getObject("T_PV_HT");
                 }
 
                 if (taxe.get(rowTaxe) != null) {
 
                     final Object object = taxe.get(rowTaxe).get("MONTANT_HT");
-                    long montant = (object == null) ? 0 : (Long) object;
-                    taxe.get(rowTaxe).put("MONTANT_HT", montant + ht);
+                    BigDecimal montant = (object == null) ? BigDecimal.ZERO : (BigDecimal) object;
+                    taxe.get(rowTaxe).put("MONTANT_HT", montant.add(ht));
                 } else {
                     Map<String, Object> m = new HashMap<String, Object>();
                     m.put("MONTANT_HT", ht);
@@ -543,7 +545,9 @@ public class OOgenerationXML {
                 } else {
                     Object value = m.get(name);
                     if (name.equalsIgnoreCase("MONTANT_TVA")) {
-                        value = Math.round(((Long) m.get("MONTANT_HT") * rowTaxe.getFloat("TAUX") / 100.0));
+                        // value = Math.round(((Long) m.get("MONTANT_HT") * rowTaxe.getFloat("TAUX")
+                        // / 100.0));
+                        value = ((BigDecimal) m.get("MONTANT_HT")).multiply(new BigDecimal(rowTaxe.getFloat("TAUX")), MathContext.DECIMAL128).movePointLeft(2);
                     } else if (name.equalsIgnoreCase("NOM")) {
                         value = rowTaxe.getString("NOM");
                         // TODO prefix et suffix
@@ -556,10 +560,10 @@ public class OOgenerationXML {
                             value = value + suffix;
                         }
                     }
-                    if (typeComp != null && typeComp.equalsIgnoreCase("Devise")) {
-
-                        value = Double.valueOf(GestionDevise.currencyToString((Long) value, false));
-                    }
+                    // if (typeComp != null && typeComp.equalsIgnoreCase("Devise")) {
+                    // if (value != null && value instanceof Long)
+                    // value = Double.valueOf(GestionDevise.currencyToString((Long) value, false));
+                    // }
                     fill(test ? "A1" : loc, value, sheet, false, null, null, test, false);
                 }
             }

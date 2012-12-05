@@ -21,6 +21,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.group.Group;
+import org.openconcerto.ui.group.Item;
 import org.openconcerto.ui.group.LayoutHints;
 
 import java.awt.Color;
@@ -65,19 +66,31 @@ public class GroupSQLComponent extends BaseSQLComponent {
         this.group.sort();
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.NONE;
-        layout(this.group, 0, LayoutHints.DEFAULT_GROUP_HINTS, 0, 0, c);
+        layout(this.group, 0, 0, 0, c);
     }
 
-    public void layout(final Group currentGroup, final Integer order, final LayoutHints size, int x, final int level, final GridBagConstraints c) {
+    public void layout(final Item currentItem, final Integer order, int x, final int level, final GridBagConstraints c) {
+        final String id = currentItem.getId();
+        final LayoutHints size = currentItem.getLocalHint();
         if (size.isSeparated()) {
             x = 0;
             c.gridx = 0;
             c.gridy++;
         }
+        if (currentItem instanceof Group) {
+            Group currentGroup = (Group) currentItem;
+            final int stop = currentGroup.getSize();
+            for (int i = 0; i < stop; i++) {
+                final Item subGroup = currentGroup.getItem(i);
+                final Integer subGroupOrder = currentGroup.getOrder(i);
 
-        if (currentGroup.isEmpty()) {
+                layout(subGroup, subGroupOrder, x, level + 1, c);
+
+            }
+
+        } else {
             System.out.print(" (" + x + ")");
-            final String id = currentGroup.getId();
+
             System.out.print(order + " " + id + "[" + size + "]");
             c.gridwidth = 1;
             if (size.showLabel()) {
@@ -151,18 +164,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
                 x = 0;
             }
 
-        } else {
-            final int stop = currentGroup.getSize();
-            for (int i = 0; i < stop; i++) {
-                final Group subGroup = currentGroup.getGroup(i);
-                final Integer subGroupOrder = currentGroup.getOrder(i);
-                final LayoutHints subGroupSize = currentGroup.getLayoutHints(i);
-                layout(subGroup, subGroupOrder, subGroupSize, x, level + 1, c);
-
-            }
-
         }
-
     }
 
     public JComponent createEditor(final String id) {

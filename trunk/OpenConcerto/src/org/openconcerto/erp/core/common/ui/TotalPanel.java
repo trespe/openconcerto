@@ -14,19 +14,20 @@
  package org.openconcerto.erp.core.common.ui;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.view.list.RowValuesTable;
-import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.SwingWorker2;
 
 import java.awt.Color;
 import java.awt.Dimension;
@@ -36,9 +37,10 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.math.BigDecimal;
 import java.math.MathContext;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.ExecutionException;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -53,7 +55,6 @@ import javax.swing.event.TableModelListener;
 public class TotalPanel extends JPanel implements TableModelListener {
     public static String MARGE_MARQUE = "MargeMarque";
     private RowValuesTable table;
-    private int columnIndexHT, columnIndexTVA, columnIndexService, columnIndexHA, columnIndexQte, columnIndexDevise, columnIndexPoids;
     private DeviseField textTotalHT, textTotalHTSel;
     private DeviseField textTotalTVA, textTotalTVASel;
     private DeviseField textTotalTTC, textTotalTTCSel;
@@ -70,6 +71,9 @@ public class TotalPanel extends JPanel implements TableModelListener {
     private int columnIndexEchTTC = -1;
     SQLTableElement ha;
     private SQLRequestComboBox selPortTVA;
+    private TotalCalculator calc;
+
+    AbstractArticleItemTable articleTable;
 
     public TotalPanel(AbstractArticleItemTable articleItemTable, DeviseField textTotalHT, DeviseField textTotalTVA, DeviseField textTotalTTC, DeviseField textPortHT, DeviseField textRemiseHT,
             DeviseField textService, DeviseField textTotalHA, DeviseField textTotalDevise, JTextField textTotalPoids, JPanel tableEchantillon) {
@@ -81,21 +85,13 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
         super();
         this.selPortTVA = selPortTva;
-        this.ha = (articleItemTable.getPrebilanElement() == null) ? articleItemTable.getHaElement() : articleItemTable.getPrebilanElement();
+        this.articleTable = articleItemTable;
         this.supp = new PropertyChangeSupport(this);
         this.table = articleItemTable.getRowValuesTable();
-        this.columnIndexHT = this.table.getRowValuesTableModel().getColumnIndexForElement(articleItemTable.getPrixTotalHTElement());
-        this.columnIndexTVA = this.table.getRowValuesTableModel().getColumnIndexForElement(articleItemTable.getTVAElement());
-        this.columnIndexDevise = (articleItemTable.getTableElementTotalDevise() == null ? -1 : this.table.getRowValuesTableModel().getColumnIndexForElement(
-                articleItemTable.getTableElementTotalDevise()));
-        this.columnIndexService = this.table.getRowValuesTableModel().getColumnIndexForElement(articleItemTable.getPrixServiceElement());
-        this.columnIndexPoids = this.table.getRowValuesTableModel().getColumnIndexForElement(articleItemTable.getPoidsTotalElement());
+
+        this.ha = (articleItemTable.getPrebilanElement() == null) ? articleItemTable.getHaElement() : articleItemTable.getPrebilanElement();
         this.gestionHA = ha != null && articleItemTable.getQteElement() != null;
 
-        if (this.gestionHA) {
-            this.columnIndexHA = this.table.getRowValuesTableModel().getColumnIndexForElement(ha);
-            this.columnIndexQte = this.table.getRowValuesTableModel().getColumnIndexForElement(articleItemTable.getQteElement());
-        }
         this.textPoids = (textTotalPoids == null ? new JTextField() : textTotalPoids);
         this.textTotalHT = textTotalHT;
         this.textTotalHT.setBold();
@@ -112,6 +108,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
         this.textTotalTVASel = new DeviseField();
         this.marge = new JTextField();
         this.margeSel = new JTextField();
+
         if (articleItemTable.getTableElementTotalDevise() != null) {
             this.textTotalDevise = textTotalDevise;
             this.textTotalDeviseSel = new DeviseField();
@@ -131,13 +128,16 @@ public class TotalPanel extends JPanel implements TableModelListener {
         reconfigure(this.textHASel);
         reconfigure(this.margeSel);
 
-        String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
-        Boolean b = Boolean.valueOf(val);
+        // String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
+        // Boolean b = Boolean.valueOf(val);
 
-        if (this.columnIndexHT < 0 || this.columnIndexTVA < 0 || (b != null && b.booleanValue() && this.columnIndexService < 0)) {
-            throw new IllegalArgumentException("Impossible de trouver la colonne de " + articleItemTable.getPrixTotalHTElement() + " / " + articleItemTable.getTVAElement() + " / "
-                    + articleItemTable.getPrixServiceElement());
-        }
+        // if (this.columnIndexHT < 0 || this.columnIndexTVA < 0 || (b != null && b.booleanValue()
+        // && this.columnIndexService < 0)) {
+        // throw new IllegalArgumentException("Impossible de trouver la colonne de " +
+        // articleItemTable.getPrixTotalHTElement() + " / " + articleItemTable.getTVAElement() +
+        // " / "
+        // + articleItemTable.getPrixServiceElement());
+        // }
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
 
@@ -385,14 +385,46 @@ public class TotalPanel extends JPanel implements TableModelListener {
         field.setEditable(false);
         field.setEnabled(false);
         field.setDisabledTextColor(Color.BLACK);
-
     }
 
     public void tableChanged(TableModelEvent e) {
-        if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() == this.columnIndexHT || e.getColumn() == this.columnIndexTVA || e.getColumn() == this.columnIndexEchHT
-                || e.getColumn() == this.columnIndexEchTTC || e.getColumn() == this.columnIndexDevise) {
+        int columnIndexForElementHT = this.articleTable.getModel().getColumnIndexForElement(this.articleTable.getPrixTotalHTElement());
+        int columnIndexForElementTVA = this.articleTable.getModel().getColumnIndexForElement(this.articleTable.getTVAElement());
+        int columnIndexForElementDevise = this.articleTable.getModel().getColumnIndexForElement(this.articleTable.getTableElementTotalDevise());
+
+        int columnIndexForElementEchHT = -1;
+        int columnIndexForElementEchTTC = -1;
+
+        if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() == columnIndexForElementHT || e.getColumn() == columnIndexForElementTVA || e.getColumn() == columnIndexForElementEchHT
+                || e.getColumn() == columnIndexForElementEchTTC || e.getColumn() == columnIndexForElementDevise) {
             // System.out.println(e);
             updateTotal();
+        }
+    }
+
+    private static String CLEAR = "";
+
+    private void clearTextField() {
+
+        if (textTotalDevise != null) {
+            textTotalDevise.setText(CLEAR);
+            textTotalDeviseSel.setText(CLEAR);
+        }
+
+        textPoids.setText(CLEAR);
+        textTotalHT.setText(CLEAR);
+        textService.setText(CLEAR);
+        textTotalTVA.setText(CLEAR);
+        textTotalTTC.setText(CLEAR);
+        textTotalHTSel.setText(CLEAR);
+        textServiceSel.setText(CLEAR);
+        textTotalTVASel.setText(CLEAR);
+        textTotalTTCSel.setText(CLEAR);
+        if (gestionHA) {
+            textHA.setText(CLEAR);
+            marge.setText(CLEAR);
+            textHASel.setText(CLEAR);
+            margeSel.setText(CLEAR);
         }
     }
 
@@ -400,257 +432,214 @@ public class TotalPanel extends JPanel implements TableModelListener {
      * 
      */
     public void updateTotal() {
-        long valPortHT, valRemiseHT, realTotalHT;
 
-        try {
-            long totalHT = 0;
-            long totalHA = 0;
+        final long valRemiseHT;
+        final BigDecimal valPortHT;
 
-            long totalService = 0;
-            long totalHTSel = 0;
-            long totalHASel = 0;
+        clearTextField();
 
-            long totalServiceSel = 0;
-            long totalDeviseSel = 0;
-            long totalDevise = 0;
-            double totalPoids = 0;
-            int[] selectedRows = this.table.getSelectedRows();
-            Map<SQLRowAccessor, Long> mapHtTVA = new HashMap<SQLRowAccessor, Long>();
-            Map<SQLRowAccessor, Long> mapHtTVASel = new HashMap<SQLRowAccessor, Long>();
+        final List<SQLRowValues> list = articleTable.getModel().getCopyOfValues();
 
+        final TotalCalculatorParameters params = new TotalCalculatorParameters(list);
 
-            for (int i = 0; i < this.table.getRowValuesTableModel().getRowCount(); i++) {
+        // Total Service
+        String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
+        Boolean bServiceActive = Boolean.valueOf(val);
 
-                Number nHT = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexHT);
-                totalHT += nHT.longValue();
+        final int[] selectedRows = this.table.getSelectedRows();
 
-                // Total HA
-                if (this.gestionHA) {
-                    Number nHA = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexHA);
-                    Number nQte = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexQte);
-                    if (this.ha != null && this.ha.getField().getName().equalsIgnoreCase("PREBILAN")) {
-                        totalHA += (nHA.longValue());
-                    } else {
-                        totalHA += (nHA.longValue() * nQte.intValue());
-                    }
-                }
+        // Remise à inclure
 
-                // Total Service
-                String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
-                Boolean bServiceActive = Boolean.valueOf(val);
-                if (bServiceActive != null && bServiceActive) {
-                    Boolean b = (Boolean) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexService);
-                    if (b != null && b.booleanValue()) {
-                        totalService += nHT.longValue();
-                    }
-                }
-
-                // Total Devise
-                Number nDevise = null;
-                if (this.textTotalDevise != null) {
-                    nDevise = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexDevise);
-                    totalDevise += nDevise.longValue();
-                }
-
-                // Total TVA
-                if (mapHtTVA.get(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE")) == null) {
-                    mapHtTVA.put(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE"), nHT.longValue());
-                } else {
-                    Long l = mapHtTVA.get(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE"));
-                    mapHtTVA.put(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE"), l + nHT.longValue());
-                }
-
-                // Total Poids
-                Number nPoids = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexPoids);
-                totalPoids += nPoids == null ? 0 : nPoids.doubleValue();
-
-                // Calcul total sélectionné
-                if (containsInt(selectedRows, i)) {
-
-                    totalHTSel += nHT.longValue();
-
-                    if (this.gestionHA) {
-                        Number nHA = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexHA);
-                        Number nQte = (Number) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexQte);
-                        if (this.ha != null && this.ha.getField().getName().equalsIgnoreCase("PREBILAN")) {
-                            totalHASel += (nHA.longValue());
-                        } else {
-                            totalHASel += (nHA.longValue() * nQte.intValue());
-                        }
-                    }
-
-                    if (bServiceActive != null && bServiceActive) {
-                        Boolean b = (Boolean) this.table.getRowValuesTableModel().getValueAt(i, this.columnIndexService);
-                        if (b.booleanValue()) {
-                            totalServiceSel += nHT.longValue();
-                        }
-                    }
-
-                    if (mapHtTVASel.get(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE")) == null) {
-                        mapHtTVASel.put(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE"), nHT.longValue());
-                    } else {
-                        Long l = mapHtTVASel.get(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE"));
-                        mapHtTVASel.put(this.table.getRowValuesTableModel().getRowValuesAt(i).getForeign("ID_TAXE"), l + nHT.longValue());
-                    }
-                    // totalTTCSel += nTTC.longValue();
-                    if (this.textTotalDevise != null) {
-                        totalDeviseSel += nDevise.longValue();
-                    }
-                }
-            }
-
-            // Frais de port à inclure
-            if (this.textPortHT.getText().trim().length() > 0) {
-                if (!this.textPortHT.getText().trim().equals("-")) {
-                    valPortHT = GestionDevise.parseLongCurrency(this.textPortHT.getText().trim());
-                } else {
-                    valPortHT = 0;
-                }
-            } else {
-                valPortHT = 0;
-            }
-
-            // Remise à inclure
-            if (this.textRemiseHT.getText().trim().length() > 0) {
-                if (!this.textRemiseHT.getText().trim().equals("-")) {
-                    valRemiseHT = GestionDevise.parseLongCurrency(this.textRemiseHT.getText().trim());
-                } else {
-                    valRemiseHT = 0;
-                }
+        // FIXME Remise à appliquer en plus sur les frais de ports??
+        if (this.textRemiseHT.getText().trim().length() > 0) {
+            if (!this.textRemiseHT.getText().trim().equals("-")) {
+                valRemiseHT = GestionDevise.parseLongCurrency(this.textRemiseHT.getText().trim());
             } else {
                 valRemiseHT = 0;
             }
+        } else {
+            valRemiseHT = 0;
+        }
+        params.setRemiseHT(valRemiseHT);
 
-            realTotalHT = totalHT + valPortHT - valRemiseHT;
-            // long portTTC = new PrixHT(valPortHT).calculLongTTC(0.196F);
+        // Frais de port à inclure
+        if (textPortHT.getText().trim().length() > 0) {
+            if (!textPortHT.getText().trim().equals("-")) {
+                long p = GestionDevise.parseLongCurrency(textPortHT.getText().trim());
+                valPortHT = new BigDecimal(p).movePointLeft(2);
+            } else {
+                valPortHT = BigDecimal.ZERO;
+            }
+        } else {
+            valPortHT = BigDecimal.ZERO;
+        }
+        params.setPortHT(valPortHT);
 
-            // TVA Port inclus
-            if (this.selPortTVA != null) {
+        final SQLRow tvaPort = selPortTVA == null ? null : selPortTVA.getSelectedRow();
+        final SQLRowValues rowValsPort;
+        // TVA Port inclus
+        if (tvaPort != null && !valPortHT.equals(BigDecimal.ZERO) && !tvaPort.isUndefined()) {
+            rowValsPort = new SQLRowValues(articleTable.getSQLElement().getTable());
+            rowValsPort.put(articleTable.getPrixTotalHTElement().getField().getName(), valPortHT);
+            rowValsPort.put("QTE", 1);
+            rowValsPort.put("ID_TAXE", tvaPort);
+        } else {
+            rowValsPort = null;
+        }
 
-                SQLRow tvaPort = this.selPortTVA.getSelectedRow();
-                if (tvaPort != null) {
-                    // Total TVA
-                    if (mapHtTVA.get(tvaPort) == null) {
-                        mapHtTVA.put(tvaPort, valPortHT);
-                    } else {
-                        Long l = mapHtTVA.get(tvaPort);
-                        mapHtTVA.put(tvaPort, l + valPortHT);
-                    }
+        final Boolean isServiceActive = bServiceActive;
+
+        // Calcul des totaux
+        SwingWorker2<TotalCalculator, Object> worker = new SwingWorker2<TotalCalculator, Object>() {
+
+            @Override
+            protected TotalCalculator doInBackground() throws Exception {
+
+                params.fetchArticle();
+
+                if (calc == null) {
+                    SQLTableElement tableElementTotalDevise = articleTable.getTableElementTotalDevise();
+                    String fieldDevise = (tableElementTotalDevise == null ? null : tableElementTotalDevise.getField().getName());
+
+                    SQLTableElement tableElementTotalHA = (articleTable.getPrebilanElement() == null) ? articleTable.getTotalHaElement() : articleTable.getPrebilanElement();
+                    String fieldHA = (tableElementTotalHA == null ? null : tableElementTotalHA.getField().getName());
+                    SQLTableElement tableElementTotalHT = articleTable.getPrixTotalHTElement();
+                    String fieldHT = (tableElementTotalHT == null ? null : tableElementTotalHT.getField().getName());
+
+                    calc = new TotalCalculator(fieldHA, fieldHT, fieldDevise);
+
                 }
-            }
+                calc.initValues();
+                calc.setSelectedRows(selectedRows);
 
-            long realTotalTVA = 0;
-            // Déduction de la remise pour la TVA
-            long totalHTAvantRemise = totalHT + valPortHT;
-            long remiseToApply = valRemiseHT;
-            if (remiseToApply > 0) {
-                Set<SQLRowAccessor> setHtTVA = mapHtTVA.keySet();
-                int i = 0;
-                for (SQLRowAccessor row : mapHtTVA.keySet()) {
-                    Long ht = mapHtTVA.get(row);
-                    i++;
-                    if (i == setHtTVA.size()) {
-                        mapHtTVA.put(row, ht - remiseToApply);
-                    } else {
-                        // Prorata
-                        long r = new BigDecimal(ht).divide(new BigDecimal(totalHTAvantRemise), MathContext.DECIMAL128).multiply(new BigDecimal(valRemiseHT)).setScale(0, BigDecimal.ROUND_HALF_UP)
-                                .longValue();
-                        mapHtTVA.put(row, ht - r);
-                        remiseToApply -= r;
+                // Calcul avant remise
+                final BigDecimal totalHTAvtremise;
+
+                if (valRemiseHT != 0) {
+                    calc.setServiceActive(isServiceActive);
+
+                    for (int i = 0; i < list.size(); i++) {
+
+                        SQLRowValues rowVals = list.get(i);
+                        calc.addLine(rowVals, params.getMapArticle().get(rowVals.getInt("ID_ARTICLE")), i, false);
                     }
-                }
-            }
-            for (SQLRowAccessor row : mapHtTVA.keySet()) {
-                BigDecimal d = new BigDecimal(TaxeCache.getCache().getTauxFromId(row.getID()));
-                BigDecimal result = d.multiply(new BigDecimal(mapHtTVA.get(row)), MathContext.DECIMAL128).movePointLeft(2);
-                realTotalTVA += result.setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
-            }
 
-            long realTotalTTC = realTotalHT + realTotalTVA;
-
-            if (this.textTotalDevise != null) {
-                this.textTotalDevise.setText(GestionDevise.currencyToString(totalDevise));
-                this.textTotalDeviseSel.setText(GestionDevise.currencyToString(totalDeviseSel));
-            }
-            this.textPoids.setText(String.valueOf(totalPoids));
-            this.textTotalHT.setText(GestionDevise.currencyToString(realTotalHT));
-            this.textService.setText(GestionDevise.currencyToString(totalService));
-            this.textTotalTVA.setText(GestionDevise.currencyToString(realTotalTVA));
-            this.textTotalTTC.setText(GestionDevise.currencyToString(realTotalTTC));
-            this.textTotalHTSel.setText(GestionDevise.currencyToString(totalHTSel));
-            this.textServiceSel.setText(GestionDevise.currencyToString(totalServiceSel));
-
-            long realTotalTVASel = 0;
-            for (SQLRowAccessor row : mapHtTVASel.keySet()) {
-                BigDecimal d = new BigDecimal(TaxeCache.getCache().getTauxFromId(row.getID()));
-                BigDecimal result = d.multiply(new BigDecimal(mapHtTVASel.get(row)), MathContext.DECIMAL128).movePointLeft(2);
-                realTotalTVASel += result.setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
-            }
-
-            this.textTotalTVASel.setText(GestionDevise.currencyToString(realTotalTVASel));
-            this.textTotalTTCSel.setText(GestionDevise.currencyToString(realTotalTVASel + totalHTSel));
-            if (this.gestionHA) {
-                this.textHA.setText(GestionDevise.currencyToString(totalHA));
-
-                double m = 0.0;
-                long d = 0;
-                if (totalHA > 0) {
-                    d = totalHT - valRemiseHT - totalHA;
-                    if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
-                        m = Math.round(((double) d / (double) totalHT) * 10000.0) / 100.0;
-                    } else {
-                        m = Math.round(((double) d / (double) totalHA) * 10000.0) / 100.0;
-                    }
-                }
-                if (d <= 0) {
-                    this.marge.setForeground(Color.red);
-                    this.marge.setDisabledTextColor(Color.RED);
+                    // TVA Port inclus
+                    // if (this.selPortTVA != null && !valPortHT.equals(BigDecimal.ZERO)) {
+                    //
+                    // SQLRow tvaPort = this.selPortTVA.getSelectedRow();
+                    // if (tvaPort != null) {
+                    // calc.addLine(-1, valPortHT, null, null, 1, 0, false, tvaPort, false);
+                    // }
+                    // }
+                    totalHTAvtremise = calc.getTotalHT();
                 } else {
-                    this.marge.setForeground(this.textTotalTTC.getForeground());
-                    this.marge.setDisabledTextColor(this.textTotalTTC.getForeground());
+                    totalHTAvtremise = BigDecimal.ZERO;
                 }
-                this.marge.setText("(" + m + "%) " + GestionDevise.currencyToString(d));
 
-                this.textHASel.setText(GestionDevise.currencyToString(totalHASel));
+                calc.initValues();
+                calc.setRemise(valRemiseHT, totalHTAvtremise);
 
-                double m2 = 0.0;
-                long e = 0;
-                if (totalHASel > 0) {
-                    e = totalHTSel - totalHASel;
-                    if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
-                        m2 = Math.round(((double) e / (double) totalHTSel) * 10000.0) / 100.0;
-                    } else {
-                        m2 = Math.round(((double) e / (double) totalHASel) * 10000.0) / 100.0;
+
+                // Total des elements
+                int rowCount = list.size();
+                for (int i = 0; i < rowCount; i++) {
+                    SQLRowValues values = list.get(i);
+                    calc.addLine(values, params.getMapArticle().get(values.getInt("ID_ARTICLE")), i, i == (rowCount - 1));
+                }
+
+                // TVA Port inclus
+                if (rowValsPort != null) {
+                    calc.addLine(rowValsPort, null, 0, false);
+                }
+
+                // Verification du resultat ht +tva = ttc
+                calc.checkResult();
+                return calc;
+            }
+
+            @Override
+            protected void done() {
+                TotalCalculator calc;
+                try {
+                    calc = get();
+
+                    BigDecimal totalHT = calc.getTotalHT();
+
+                    if (textTotalDevise != null) {
+                        textTotalDevise.setText(GestionDevise.currencyToString(calc.getTotalDevise().setScale(2, RoundingMode.HALF_UP)));
+                        textTotalDeviseSel.setText(GestionDevise.currencyToString(calc.getTotalDeviseSel().setScale(2, RoundingMode.HALF_UP)));
                     }
+
+                    textPoids.setText(String.valueOf(calc.getTotalPoids()));
+
+                    textTotalHT.setText(GestionDevise.currencyToString(totalHT));
+                    textService.setText(GestionDevise.currencyToString(calc.getTotalService().setScale(2, RoundingMode.HALF_UP)));
+                    textTotalTVA.setText(GestionDevise.currencyToString(calc.getTotalTVA().setScale(2, RoundingMode.HALF_UP)));
+                    textTotalTTC.setText(GestionDevise.currencyToString(calc.getTotalTTC().setScale(2, RoundingMode.HALF_UP)));
+                    BigDecimal totalHTSel = calc.getTotalHTSel();
+                    textTotalHTSel.setText(GestionDevise.currencyToString(totalHTSel.setScale(2, RoundingMode.HALF_UP)));
+                    textServiceSel.setText(GestionDevise.currencyToString(calc.getTotalServiceSel().setScale(2, RoundingMode.HALF_UP)));
+
+                    textTotalTVASel.setText(GestionDevise.currencyToString(calc.getTotalTVASel().setScale(2, RoundingMode.HALF_UP)));
+                    textTotalTTCSel.setText(GestionDevise.currencyToString(calc.getTotalTTCSel().setScale(2, RoundingMode.HALF_UP)));
+                    if (gestionHA) {
+                        BigDecimal totalHA = calc.getTotalHA();
+                        textHA.setText(GestionDevise.currencyToString(totalHA.setScale(2, RoundingMode.HALF_UP)));
+
+                        BigDecimal m = BigDecimal.ZERO;
+                        BigDecimal d = BigDecimal.ZERO;
+                        if (totalHA.compareTo(BigDecimal.ZERO) > 0) {
+                            // d = totalHT.subtract(valRemiseHT).subtract(totalHA);
+                            d = totalHT.subtract(totalHA);
+                            if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
+                                m = d.divide(totalHT, MathContext.DECIMAL128).movePointRight(2);
+                            } else {
+                                m = d.divide(totalHA, MathContext.DECIMAL128).movePointRight(2);
+                            }
+                        }
+                        if (d.compareTo(BigDecimal.ZERO) <= 0) {
+                            marge.setForeground(Color.red);
+                            marge.setDisabledTextColor(Color.RED);
+                        } else {
+                            marge.setForeground(textTotalTTC.getForeground());
+                            marge.setDisabledTextColor(textTotalTTC.getForeground());
+                        }
+                        marge.setText("(" + m.setScale(2, RoundingMode.HALF_UP) + "%) " + GestionDevise.currencyToString(d.setScale(2, RoundingMode.HALF_UP)));
+
+                        BigDecimal totalHASel = calc.getTotalHASel();
+                        textHASel.setText(GestionDevise.currencyToString(totalHASel.setScale(2, RoundingMode.HALF_UP)));
+
+                        BigDecimal m2 = BigDecimal.ZERO;
+                        BigDecimal e = BigDecimal.ZERO;
+                        if (totalHASel.compareTo(BigDecimal.ZERO) > 0) {
+                            e = totalHTSel.subtract(totalHASel);
+                            if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
+                                m2 = e.divide(totalHTSel, MathContext.DECIMAL128).movePointRight(2);
+                            } else {
+                                m2 = e.divide(totalHASel, MathContext.DECIMAL128).movePointRight(2);
+                            }
+                        }
+                        margeSel.setText("(" + m2.setScale(2, RoundingMode.HALF_UP) + "%) " + GestionDevise.currencyToString(e.setScale(2, RoundingMode.HALF_UP)));
+                        if (e.compareTo(BigDecimal.ZERO) <= 0) {
+                            margeSel.setForeground(Color.red);
+                            margeSel.setDisabledTextColor(Color.RED);
+                        } else {
+                            margeSel.setForeground(textTotalTTC.getForeground());
+                            margeSel.setDisabledTextColor(textTotalTTC.getForeground());
+                        }
+
+                    }
+                    supp.firePropertyChange("value", null, null);
+                } catch (InterruptedException e1) {
+                    ExceptionHandler.handle("", e1);
+                } catch (ExecutionException e1) {
+                    ExceptionHandler.handle("", e1);
                 }
-                this.margeSel.setText("(" + m2 + "%) " + GestionDevise.currencyToString(e));
-                if (e <= 0) {
-                    this.margeSel.setForeground(Color.red);
-                    this.margeSel.setDisabledTextColor(Color.RED);
-                } else {
-                    this.margeSel.setForeground(this.textTotalTTC.getForeground());
-                    this.margeSel.setDisabledTextColor(this.textTotalTTC.getForeground());
-                }
-
-            }
-            this.supp.firePropertyChange("value", null, null);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private static boolean containsInt(int[] tab, int i) {
-        if (tab == null) {
-            return false;
-        }
-
-        for (int j = 0; j < tab.length; j++) {
-            if (tab[j] == i) {
-                return true;
             }
 
-        }
-        return false;
+        };
+        worker.execute();
     }
 
     private static final JLabel getLabelFor(SQLField field) {

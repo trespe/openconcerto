@@ -188,8 +188,9 @@ public enum ODValueType {
     /**
      * The instance for the passed value type.
      * 
-     * @param name the value of the value-type attribute, eg "date".
-     * @return the corresponding instance, eg {@link #DATE}.
+     * @param name the value of the value-type attribute, e.g. "date".
+     * @return the corresponding instance, never <code>null</code>, e.g. {@link #DATE}.
+     * @throws IllegalArgumentException if <code>name</code> isn't a valid type.
      */
     public static ODValueType get(String name) {
         return ODValueType.valueOf(name.toUpperCase());

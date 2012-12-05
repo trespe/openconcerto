@@ -26,7 +26,6 @@ import org.openconcerto.sql.users.rights.JListSQLTablePanel;
 
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -65,8 +64,11 @@ public class HistoriqueClientFrame {
         map.put(b.getTable("DEVIS_ELEMENT"), b.getTable("DEVIS_ELEMENT").getField("ID_DEVIS"));
 
         final HistoriqueClientBilanPanel bilanPanel = new HistoriqueClientBilanPanel();
-        this.listPanel = new ListeHistoriquePanel("Clients", JListSQLTablePanel.createComboRequest(b.getTable("CLIENT"), true), mapList, bilanPanel, map);
+        SQLTable tableEch = Configuration.getInstance().getRoot().findTable("ECHEANCE_CLIENT");
+        Where wNotRegle = new Where(tableEch.getField("REGLE"), "=", Boolean.FALSE);
+        wNotRegle = wNotRegle.and(new Where(tableEch.getField("REG_COMPTA"), "=", Boolean.FALSE));
 
+        this.listPanel = new ListeHistoriquePanel("Clients", JListSQLTablePanel.createComboRequest(b.getTable("CLIENT"), true), mapList, bilanPanel, map, wNotRegle);
         this.listPanel.addListenerTable(new TableModelListener() {
             public void tableChanged(TableModelEvent arg0) {
                 bilanPanel.updateRelance(HistoriqueClientFrame.this.listPanel.getListId("RELANCE"));
@@ -99,12 +101,6 @@ public class HistoriqueClientFrame {
                 bilanPanel.updateTotalVente(id);
             }
         }, "SAISIE_VENTE_FACTURE");
-
-        SQLTable tableEch = Configuration.getInstance().getRoot().findTable("ECHEANCE_CLIENT");
-        Where wNotRegle = new Where(tableEch.getField("REGLE"), "=", Boolean.FALSE);
-        wNotRegle = wNotRegle.and(new Where(tableEch.getField("REG_COMPTA"), "=", Boolean.FALSE));
-
-        this.listPanel.addWhere("FiltreEcheance", wNotRegle);
 
         this.panelFrame = new PanelFrame(this.listPanel, "Historique client");
         this.panelFrame.addWindowListener(new WindowAdapter() {

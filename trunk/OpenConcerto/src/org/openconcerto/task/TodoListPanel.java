@@ -13,6 +13,8 @@
  
  package org.openconcerto.task;
 
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
@@ -32,7 +34,10 @@ import org.openconcerto.ui.table.JCheckBoxTableCellRender;
 import org.openconcerto.ui.table.TablePopupMouseListener;
 import org.openconcerto.ui.table.TimestampTableCellEditor;
 import org.openconcerto.ui.table.TimestampTableCellRenderer;
+import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.TableSorter;
+import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.Color;
@@ -40,15 +45,12 @@ import java.awt.Component;
 import java.awt.Graphics;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.awt.Image;
 import java.awt.Insets;
 import java.awt.Point;
-import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.awt.image.ImageObserver;
 import java.net.URL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -175,51 +177,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         this.model.setTable(this.t);
 
         this.comboUser = new JMenu("Afficher les tâches assignées à...");
-        final List<Integer> canViewUsers = new ArrayList<Integer>();
-        for (final UserTaskRight right : UserTaskRight.getUserTaskRight(currentUser)) {
-            if (right.canRead())
-                canViewUsers.add(right.getIdToUser());
-        }
-        // final Vector users = new Vector();
-        final SQLTable userT = UserManager.getInstance().getTable();
-        SQLSelect select1 = new SQLSelect(userT.getBase());
-        select1.addSelect(userT.getKey());
-        select1.addSelect(userT.getField("NOM"));
-        select1.addSelect(userT.getField("PRENOM"));
-        select1.addSelect(userT.getField("SURNOM"));
-        final Where meWhere = new Where(userT.getKey(), "=", currentUser.getId());
-        final Where canViewWhere = new Where(userT.getKey(), canViewUsers);
-        select1.setWhere(meWhere.or(canViewWhere));
-
-        userT.getDBSystemRoot().getDataSource().execute(select1.asString(), new ResultSetHandler() {
-            public Object handle(ResultSet rs) throws SQLException {
-                while (rs.next()) {
-
-                    String string = rs.getString(4).trim();
-                    if (string.length() == 0) {
-                        string = rs.getString(3).trim() + " " + rs.getString(2).trim().toUpperCase();
-                    }
-
-                    final JCheckBoxMenuItem checkBoxMenuItem = new JCheckBoxMenuItem(string);
-                    TodoListPanel.this.comboUser.add(checkBoxMenuItem);
-
-                    final int uId = rs.getInt(1);
-
-                    TodoListPanel.this.users.add(new User(uId, rs.getString(2)));
-                    checkBoxMenuItem.addActionListener(new ActionListener() {
-
-                        public void actionPerformed(ActionEvent e) {
-                            if (checkBoxMenuItem.isSelected())
-                                addUserListenerId(uId);
-                            else
-                                removeUserListenerId(uId);
-                        }
-
-                    });
-                }
-                return null;
-            }
-        });
+        initViewableUsers(currentUser);
 
         // L'utilisateur courant doit voir ses taches + toutes les taches dont il a les droits
         this.model.addIdListenerSilently(Integer.valueOf(currentUser.getId()));
@@ -306,6 +264,82 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         initListeners();
 
         this.model.asynchronousFill();
+    }
+
+    private void initViewableUsers(final User currentUser) {
+        final SwingWorker2<List<Tuple3<String, Integer, String>>, Object> worker = new SwingWorker2<List<Tuple3<String, Integer, String>>, Object>() {
+
+            @Override
+            protected List<Tuple3<String, Integer, String>> doInBackground() throws Exception {
+                final List<Integer> canViewUsers = new ArrayList<Integer>();
+                for (final UserTaskRight right : UserTaskRight.getUserTaskRight(currentUser)) {
+                    if (right.canRead())
+                        canViewUsers.add(right.getIdToUser());
+                }
+                // final Vector users = new Vector();
+                final SQLTable userT = UserManager.getInstance().getTable();
+                final DBSystemRoot systemRoot = Configuration.getInstance().getSystemRoot();
+                final SQLSelect select1 = new SQLSelect(systemRoot, false);
+                select1.addSelect(userT.getKey());
+                select1.addSelect(userT.getField("NOM"));
+                select1.addSelect(userT.getField("PRENOM"));
+                select1.addSelect(userT.getField("SURNOM"));
+                final Where meWhere = new Where(userT.getKey(), "=", currentUser.getId());
+                final Where canViewWhere = new Where(userT.getKey(), canViewUsers);
+                select1.setWhere(meWhere.or(canViewWhere));
+
+                final List<Tuple3<String, Integer, String>> result = new ArrayList<Tuple3<String, Integer, String>>();
+                userT.getDBSystemRoot().getDataSource().execute(select1.asString(), new ResultSetHandler() {
+                    public Object handle(ResultSet rs) throws SQLException {
+                        while (rs.next()) {
+                            String displayName = rs.getString(4).trim();
+                            if (displayName.length() == 0) {
+                                displayName = rs.getString(3).trim() + " " + rs.getString(2).trim().toUpperCase();
+                            }
+                            final int uId = rs.getInt(1);
+                            final String name = rs.getString(2);
+                            result.add(new Tuple3<String, Integer, String>(displayName, uId, name));
+
+                        }
+                        return null;
+                    }
+                });
+                return result;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    final List<Tuple3<String, Integer, String>> tuples = get();
+                    for (Tuple3<String, Integer, String> tuple3 : tuples) {
+                        final JCheckBoxMenuItem checkBoxMenuItem = new JCheckBoxMenuItem(tuple3.get0());
+                        TodoListPanel.this.comboUser.add(checkBoxMenuItem);
+
+                        final int uId = tuple3.get1();
+                        final String name = tuple3.get2();
+
+                        TodoListPanel.this.users.add(new User(uId, name));
+                        checkBoxMenuItem.addActionListener(new ActionListener() {
+
+                            public void actionPerformed(ActionEvent e) {
+                                if (checkBoxMenuItem.isSelected())
+                                    addUserListenerId(uId);
+                                else
+                                    removeUserListenerId(uId);
+                            }
+
+                        });
+                    }
+
+                } catch (Exception e) {
+                    ExceptionHandler.handle("Unable to get tasks users", e);
+                }
+
+            }
+        };
+
+        worker.execute();
+
     }
 
     /**
@@ -488,21 +522,13 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
             this.t.getColumnModel().getColumn(3).setCellRenderer(this.timestampTableCellRendererDeadLine);
             this.t.getColumnModel().getColumn(3).setCellEditor(this.timestampTableCellEditorDeadLine);
         }
-        {
-            final TableColumn userColumn = this.t.getColumnModel().getColumn(this.t.getColumnModel().getColumnCount() - 1);
-            userColumn.setCellRenderer(this.userTableCellRenderer);
-            userColumn.setMaxWidth(150);
-            userColumn.setMinWidth(100);
-            // only display allowed recipients
-            final List<User> canAddUsers = new ArrayList<User>();
-            for (final UserTaskRight right : UserTaskRight.getUserTaskRight(UserManager.getInstance().getCurrentUser())) {
-                assert right.getIdUser() == UserManager.getUserID();
-                if (right.canAdd()) {
-                    canAddUsers.add(UserManager.getInstance().getUser(right.getIdToUser()));
-                }
-            }
-            userColumn.setCellEditor(new UserTableCellEditor(new UserComboBox(canAddUsers)));
-        }
+
+        final TableColumn userColumn = this.t.getColumnModel().getColumn(this.t.getColumnModel().getColumnCount() - 1);
+        userColumn.setCellRenderer(this.userTableCellRenderer);
+        userColumn.setMaxWidth(150);
+        userColumn.setMinWidth(100);
+        t.setEnabled(false);
+        initUserCellEditor(userColumn);
 
         this.t.setBlockEventOnColumn(false);
         this.t.setBlockRepaint(false);
@@ -513,6 +539,38 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         this.t.setRowHeight(this.t.getRowHeight() + 4);
         AlternateTableCellRenderer.UTILS.setAllColumns(this.t);
         this.t.repaint();
+
+    }
+
+    private void initUserCellEditor(final TableColumn userColumn) {
+        SwingWorker2<List<UserTaskRight>, Object> worker = new SwingWorker2<List<UserTaskRight>, Object>() {
+            @Override
+            protected List<UserTaskRight> doInBackground() throws Exception {
+                return UserTaskRight.getUserTaskRight(UserManager.getInstance().getCurrentUser());
+            }
+
+            @Override
+            protected void done() {
+                // only display allowed recipients
+                try {
+                    final List<UserTaskRight> rights = get();
+                    final List<User> canAddUsers = new ArrayList<User>();
+                    for (final UserTaskRight right : rights) {
+                        assert right.getIdUser() == UserManager.getUserID();
+                        if (right.canAdd()) {
+                            canAddUsers.add(UserManager.getInstance().getUser(right.getIdToUser()));
+                        }
+                    }
+                    userColumn.setCellEditor(new UserTableCellEditor(new UserComboBox(canAddUsers)));
+                    t.setEnabled(true);
+                } catch (Exception e) {
+                    ExceptionHandler.handle("Unable to get user task rights", e);
+                }
+
+                super.done();
+            }
+        };
+        worker.execute();
 
     }
 
@@ -619,24 +677,6 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
 
     public void stopUpdate() {
         this.model.stopUpdate();
-    }
-
-    private class HeaderImageObserver implements ImageObserver {
-        JTableHeader header;
-        int col;
-
-        HeaderImageObserver(JTableHeader header, int col) {
-            this.header = header;
-            this.col = col;
-        }
-
-        public boolean imageUpdate(Image img, int flags, int x, int y, int w, int h) {
-            if ((flags & (FRAMEBITS | ALLBITS)) != 0) {
-                Rectangle rect = this.header.getHeaderRect(this.col);
-                this.header.repaint(rect);
-            }
-            return (flags & (ALLBITS | ABORT)) == 0;
-        }
     }
 
     public void stateChanged(int state) {

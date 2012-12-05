@@ -396,6 +396,7 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
         final JButton del = new JButton(new ImageIcon(BaseSQLComponent.class.getResource("delete.png")));
         del.setBorder(null);
         del.setOpaque(false);
+        del.setContentAreaFilled(false);
         del.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 SQLBrowserColumn.this.search.setText("");

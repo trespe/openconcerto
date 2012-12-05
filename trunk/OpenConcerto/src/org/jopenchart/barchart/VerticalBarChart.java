@@ -12,7 +12,7 @@ import org.jopenchart.LeftAxis;
 public class VerticalBarChart extends BarChart {
     public VerticalBarChart() {
         left = new LeftAxis();
-        bottom = new BottomAxis();
+        bottom = new BottomAxis(false);
     }
 
     public void setLeftAxis(Axis axis) {
@@ -22,7 +22,7 @@ public class VerticalBarChart extends BarChart {
     }
 
     public void setBottomAxis(Axis axis) {
-        this.bottom = new BottomAxis(axis);
+        this.bottom = new BottomAxis(axis, false);
         this.bottom.setChart(this);
     }
 

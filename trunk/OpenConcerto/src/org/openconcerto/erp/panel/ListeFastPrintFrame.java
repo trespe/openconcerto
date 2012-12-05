@@ -180,6 +180,7 @@ public class ListeFastPrintFrame extends JFrame {
                             ListeFastPrintFrame.this.operation.setText("Impression du document " + bSheet.getGeneratedFile());
                         }
                     });
+
                     bSheet.fastPrintDocument(copies);
                     final int progress = ++i;
                     SwingUtilities.invokeLater(new Runnable() {
@@ -199,7 +200,7 @@ public class ListeFastPrintFrame extends JFrame {
                     }
                 });
             }
-        });
+        }, "Impressions multiple");
         this.thread.start();
 
     }

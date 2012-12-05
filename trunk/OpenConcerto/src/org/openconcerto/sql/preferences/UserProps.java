@@ -16,14 +16,16 @@
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.ui.preferences.AbstractProps;
+import org.openconcerto.utils.i18n.I18nUtils;
 
 import java.io.File;
+import java.util.Locale;
 
 public class UserProps extends AbstractProps {
     private static final String PASSWORD = "Password";
     private static final String LAST_LOGIN = "LastLogin";
     private static final String LAST_SOCIETE = "LastSociete";
-
+    private static final String LANGUAGE = "Language";
     private static UserProps instance;
 
     public void setLastLoginName(String login) {
@@ -65,4 +67,15 @@ public class UserProps extends AbstractProps {
         return instance;
     }
 
+    public Locale getLocale() {
+        final String p = getProperty(UserProps.LANGUAGE);
+        if (p == null) {
+            return Locale.getDefault();
+        }
+        return I18nUtils.createLocaleFromString(p);
+    }
+
+    public void setLocale(Locale locale) {
+        setProperty(UserProps.LANGUAGE, locale.toString());
+    }
 }

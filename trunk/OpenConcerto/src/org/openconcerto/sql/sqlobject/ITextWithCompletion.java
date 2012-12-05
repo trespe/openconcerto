@@ -480,6 +480,7 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
         }
         if (item != null) {
             if (this.fillWith != null) {
+                // FIXME SQL request in Swing
                 SQLRow row = this.comboRequest.getPrimaryTable().getRow(item.getId());
                 this.setText(row.getObject(this.fillWith).toString());
             } else {

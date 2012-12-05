@@ -74,7 +74,7 @@ public final class DBFileCache {
         final List<String> names = new ArrayList<String>(ancs.size() + 2);
         if (includeServer) {
             names.add(getName(server.getSQLSystem()));
-            names.add(server.getName());
+            names.add(server.getID());
         }
         for (final DBStructureItemJDBC anc : ancs) {
             names.add(anc.getName());
@@ -113,7 +113,7 @@ public final class DBFileCache {
         } catch (IOException e) {
             throw new IllegalArgumentException("could not create dirs", e);
         }
-        this.serverCache = getChildFrom(this.getSystemDir(), Collections.singletonList(this.server.getName()));
+        this.serverCache = getChildFrom(this.getSystemDir(), Collections.singletonList(this.server.getID()));
     }
 
     final File getSystemDir() {

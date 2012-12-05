@@ -23,6 +23,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,6 +33,7 @@ import java.io.RandomAccessFile;
 import java.io.Reader;
 import java.net.URL;
 import java.nio.channels.FileChannel;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -40,6 +42,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
 
 public final class FileUtils {
 
@@ -569,6 +572,52 @@ public final class FileUtils {
     }
 
     /**
+     * Create a writer for the passed file, and write the XML declaration.
+     * 
+     * @param f a file
+     * @return a writer with the same encoding as the XML.
+     * @throws IOException if an error occurs.
+     * @see StreamUtils#createXMLWriter(java.io.OutputStream)
+     */
+    public static BufferedWriter createXMLWriter(final File f) throws IOException {
+        final FileOutputStream outs = new FileOutputStream(f);
+        try {
+            return StreamUtils.createXMLWriter(outs);
+        } catch (RuntimeException e) {
+            outs.close();
+            throw e;
+        } catch (IOException e) {
+            outs.close();
+            throw e;
+        }
+    }
+
+    /**
+     * Create an UTF-8 buffered writer.
+     * 
+     * @param f the file to write to.
+     * @return a buffered writer.
+     * @throws FileNotFoundException if the file cannot be opened.
+     */
+    public static BufferedWriter createWriter(final File f) throws FileNotFoundException {
+        return createWriter(f, StringUtils.UTF8);
+    }
+
+    public static BufferedWriter createWriter(final File f, final Charset cs) throws FileNotFoundException {
+        final FileOutputStream outs = new FileOutputStream(f);
+        try {
+            return new BufferedWriter(new OutputStreamWriter(outs, cs));
+        } catch (RuntimeException e) {
+            try {
+                outs.close();
+            } catch (IOException e1) {
+                e1.printStackTrace();
+            }
+            throw e;
+        }
+    }
+
+    /**
      * Execute the passed transformer with the lock on the passed file.
      * 
      * @param <T> return type.
@@ -614,10 +663,25 @@ public final class FileUtils {
 
     // windows cannot execute a string, it demands a file
     public static final File getFile(final URL url) throws IOException {
+        // avoid unnecessary IO if already a file
+        File urlFile = null;
+        // inexpensive comparison before trying to convert to URI and call the File constructor
+        if ("file".equalsIgnoreCase(url.getProtocol())) {
+            try {
+                urlFile = new File(url.toURI());
+            } catch (Exception e) {
+                Log.get().log(Level.FINER, "couldn't convert to file " + url, e);
+            }
+        }
+        if (urlFile != null)
+            return urlFile;
+
         final File shortcutFile;
         final File currentFile = files.get(url);
         if (currentFile == null || !currentFile.exists()) {
             shortcutFile = File.createTempFile("windowsIsLame", ".vbs");
+            // ATTN if the VM is not terminated normally, the file won't be deleted
+            // perhaps a thread to delete the file after a certain amount of time
             shortcutFile.deleteOnExit();
             files.put(url, shortcutFile);
             final InputStream stream = url.openStream();
@@ -701,6 +765,42 @@ public final class FileUtils {
         } catch (InterruptedException e) {
             throw ExceptionUtils.createExn(IOException.class, "interrupted", e);
         }
+    }
+
+    // from guava/src/com/google/common/io/Files.java
+    /** Maximum loop count when creating temp directories. */
+    private static final int TEMP_DIR_ATTEMPTS = 10000;
+
+    /**
+     * Atomically creates a new directory somewhere beneath the system's temporary directory (as
+     * defined by the {@code java.io.tmpdir} system property), and returns its name.
+     * 
+     * <p>
+     * Use this method instead of {@link File#createTempFile(String, String)} when you wish to
+     * create a directory, not a regular file. A common pitfall is to call {@code createTempFile},
+     * delete the file and create a directory in its place, but this leads a race condition which
+     * can be exploited to create security vulnerabilities, especially when executable files are to
+     * be written into the directory.
+     * 
+     * <p>
+     * This method assumes that the temporary volume is writable, has free inodes and free blocks,
+     * and that it will not be called thousands of times per second.
+     * 
+     * @param prefix the prefix string to be used in generating the directory's name.
+     * @return the newly-created directory.
+     * @throws IllegalStateException if the directory could not be created.
+     */
+    public static File createTempDir(final String prefix) {
+        final File baseDir = new File(System.getProperty("java.io.tmpdir"));
+        final String baseName = prefix + System.currentTimeMillis() + "-";
+
+        for (int counter = 0; counter < TEMP_DIR_ATTEMPTS; counter++) {
+            final File tempDir = new File(baseDir, baseName + counter);
+            if (tempDir.mkdir()) {
+                return tempDir;
+            }
+        }
+        throw new IllegalStateException("Failed to create directory within " + TEMP_DIR_ATTEMPTS + " attempts (tried " + baseName + "0 to " + baseName + (TEMP_DIR_ATTEMPTS - 1) + ')');
     }
 
     /**

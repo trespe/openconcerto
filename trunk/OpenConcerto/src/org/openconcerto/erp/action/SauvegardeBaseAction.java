@@ -90,7 +90,7 @@ public class SauvegardeBaseAction extends CreateFrameAbstractAction {
 
         frame.setIconImages(Gestion.getFrameIcon());
         frame.setAlwaysOnTop(true);
-        frame.setVisible(true);
+
         return frame;
     }
 }
