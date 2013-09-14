@@ -13,82 +13,118 @@
  
  package org.openconcerto.ui.group;
 
-import java.util.HashSet;
-import java.util.Set;
+import net.jcip.annotations.GuardedBy;
 
 public class Item {
+
+    public static Item copy(final Item item, final Group newParent) {
+        return item instanceof Group ? Group.copy((Group) item, newParent) : new Item(item, newParent);
+    }
+
     private String id;
-    protected Group parent;
-    protected LayoutHints localHint;
+    @GuardedBy("this")
+    private boolean frozen;
+    private Group parent;
+    private LayoutHints localHint;
 
-    public Item(String id) {
+    public Item(final String id) {
+        this(id, null);
+    }
+
+    public Item(final String id, final LayoutHints hint) {
         this.id = id.trim();
-        this.localHint = new LayoutHints(LayoutHints.DEFAULT_FIELD_HINTS);
+        this.frozen = false;
+        this.setLocalHint(hint);
     }
 
-    public Item(String id, LayoutHints hint) {
-        this.id = id.trim();
-        this.localHint = new LayoutHints(hint);
+    public Item(final Item item, final Group newParent) {
+        this.id = item.id;
+        // no need to copy if frozen
+        this.frozen = false;
+        this.parent = newParent;
+        this.setLocalHint(item.localHint);
     }
 
-    public String getId() {
-        return id;
+    public final String getId() {
+        return this.id;
     }
 
-    public void setId(String id) {
+    public final void setId(final String id) {
+        checkFrozen("setId");
         this.id = id;
     }
 
+    public final synchronized boolean isFrozen() {
+        return this.frozen;
+    }
+
+    protected final void checkFrozen(String op) {
+        if (this.isFrozen())
+            throw new IllegalStateException("Frozen cannot " + op);
+    }
+
+    public synchronized void freeze() {
+        this.frozen = true;
+    }
+
+    public final Item getChildFromID(final String id) {
+        return this.getDescFromID(id, 1);
+    }
+
+    public final Item getDescFromID(final String id) {
+        return this.getDescFromID(id, -1);
+    }
+
+    public Item getDescFromID(final String id, final int maxLevel) {
+        return this.getId().equals(id) ? this : null;
+    }
+
     public Group getParent() {
-        return parent;
+        return this.parent;
+    }
+
+    final void setParent(Group parent) {
+        checkFrozen("setParent");
+        this.parent = parent;
     }
 
     public LayoutHints getLocalHint() {
-        return localHint;
+        return this.localHint;
     }
 
-    public void setLocalHint(LayoutHints localHint) {
-        this.localHint = localHint;
+    public void setLocalHint(final LayoutHints localHint) {
+        checkFrozen("setLocalHint");
+        this.localHint = new LayoutHints(localHint == null ? LayoutHints.DEFAULT_FIELD_HINTS : localHint);
     }
 
-    public Group getRoot() {
-        final Set<String> roots = new HashSet<String>();
-        Group root = parent;
-        while (root != null) {
-            if (roots.contains(root)) {
-                throw new IllegalStateException("Loop detected in group hierarchy at " + root.getId() + " for " + roots);
-            }
-            roots.add(root.getId());
-            root = root.getParent();
+    public final Group getRoot() {
+        Item current = this;
+        while (current.getParent() != null) {
+            current = current.getParent();
         }
-        return root;
+        return current instanceof Group ? (Group) current : null;
     }
 
-    public void dumpOneColumn(StringBuilder builder, int localOrder, int level) {
+    protected void printTree(final StringBuilder builder, final int localOrder, final int level) {
         for (int i = 0; i < level - 1; i++) {
             builder.append("  ");
         }
 
         builder.append("+-- ");
-        builder.append(localOrder + " " + this.getId() + " [" + localHint + "]\n");
+        builder.append(localOrder + " " + this.getId() + " [" + this.localHint + "]\n");
     }
 
-    public int dumpTwoColumn(StringBuilder builder, int x, int localOrder, int level) {
-        if (localHint.largeWidth() && x > 0) {
+    protected int printColumns(final StringBuilder builder, final int width, int x, final int localOrder, final int level) {
+        if (this.localHint.largeWidth() && x > 0) {
             builder.append("\n");
             x = 0;
         }
         // print a leaf
         builder.append(" (" + x + ")");
-        builder.append(localOrder + " " + this.getId() + "[" + localHint + "]");
+        builder.append(localOrder + " " + this.getId() + "[" + this.localHint + "]");
 
-        if (localHint.largeWidth()) {
-            x += 2;
-        } else {
-            x++;
-        }
-
-        if (x > 1) {
+        x++;
+        if (x >= width || this.localHint.largeWidth()) {
             builder.append("\n");
             x = 0;
         }
@@ -97,6 +133,17 @@ public class Item {
 
     @Override
     public String toString() {
-        return "Item:" + this.getId();
+        return this.getClass().getSimpleName() + " '" + this.getId() + "'";
+    }
+
+    public boolean equalsDesc(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        final Item other = (Item) obj;
+        return this.id.equals(other.id) && this.localHint.equals(other.localHint);
     }
 }

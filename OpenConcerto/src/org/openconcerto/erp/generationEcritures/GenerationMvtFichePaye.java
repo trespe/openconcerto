@@ -23,6 +23,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 
+import java.sql.SQLException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -49,7 +50,7 @@ public final class GenerationMvtFichePaye extends GenerationEcritures implements
 
     private Map<String, SQLTable> mapTableSource = new HashMap<String, SQLTable>();
 
-    public GenerationMvtFichePaye(int[] idFichePaye, String mois, String annee) {
+    public GenerationMvtFichePaye(int[] idFichePaye, String mois, String annee) throws SQLException {
 
         SQLTable tableNet = Configuration.getInstance().getBase().getTable("RUBRIQUE_NET");
         SQLTable tableBrut = Configuration.getInstance().getBase().getTable("RUBRIQUE_BRUT");
@@ -67,7 +68,7 @@ public final class GenerationMvtFichePaye extends GenerationEcritures implements
         new Thread(GenerationMvtFichePaye.this).start();
     }
 
-    private void genereComptaFichePaye() throws IllegalArgumentException {
+    private void genereComptaFichePaye() throws Exception {
 
         System.out.println("Génération des ecritures  reglement du mouvement " + this.idMvt);
 
@@ -91,12 +92,7 @@ public final class GenerationMvtFichePaye extends GenerationEcritures implements
             SQLRow rowSal = tableSalarie.getRow(rowFiche.getInt("ID_SALARIE"));
             int idComptePaye = rowPrefsCompte.getInt("ID_COMPTE_PCE_PAYE");
             if (idComptePaye <= 1) {
-
-                try {
-                    idComptePaye = ComptePCESQLElement.getIdComptePceDefault("PayeRemunerationPersonnel");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idComptePaye = ComptePCESQLElement.getIdComptePceDefault("PayeRemunerationPersonnel");
             }
             this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idComptePaye));
             this.mEcritures.put("NOM", rowSal.getString("NOM") + " " + this.nom);
@@ -116,11 +112,7 @@ public final class GenerationMvtFichePaye extends GenerationEcritures implements
             SQLRow rowRegl = tableReglementPaye.getRow(rowSal.getInt("ID_REGLEMENT_PAYE"));
             int idComptePayeRegl = rowRegl.getInt("ID_COMPTE_PCE");
             if (idComptePayeRegl <= 1) {
-                try {
-                    idComptePayeRegl = ComptePCESQLElement.getIdComptePceDefault("PayeReglement");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idComptePayeRegl = ComptePCESQLElement.getIdComptePceDefault("PayeReglement");
             }
             this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idComptePayeRegl));
             this.mEcritures.put("NOM", rowSal.getString("NOM") + " " + this.nom);
@@ -147,11 +139,7 @@ public final class GenerationMvtFichePaye extends GenerationEcritures implements
             if (acompte != 0) {
                 int idCompteAcompte = rowPrefsCompte.getInt("ID_COMPTE_PCE_ACOMPTE");
                 if (idCompteAcompte <= 1) {
-                    try {
-                        idCompteAcompte = ComptePCESQLElement.getIdComptePceDefault("PayeAcompte");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idCompteAcompte = ComptePCESQLElement.getIdComptePceDefault("PayeAcompte");
                 }
                 this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteAcompte));
                 this.mEcritures.put("NOM", rowSal.getString("NOM") + " Acompte sur " + this.nom);
@@ -162,11 +150,7 @@ public final class GenerationMvtFichePaye extends GenerationEcritures implements
                 SQLRow rowRegl = tableReglementPaye.getRow(rowSal.getInt("ID_REGLEMENT_PAYE"));
                 int idComptePayeRegl = rowRegl.getInt("ID_COMPTE_PCE");
                 if (idComptePayeRegl <= 1) {
-                    try {
-                        idComptePayeRegl = ComptePCESQLElement.getIdComptePceDefault("PayeReglement");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idComptePayeRegl = ComptePCESQLElement.getIdComptePceDefault("PayeReglement");
                 }
                 this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idComptePayeRegl));
                 this.mEcritures.put("NOM", rowSal.getString("NOM") + " Acompte sur " + this.nom);
@@ -310,7 +294,7 @@ public final class GenerationMvtFichePaye extends GenerationEcritures implements
     public void run() {
         try {
             genereComptaFichePaye();
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
             e.printStackTrace();
         }

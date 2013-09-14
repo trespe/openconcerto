@@ -18,6 +18,7 @@ package org.openconcerto.sql.element;
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -26,6 +27,7 @@ import org.openconcerto.sql.model.SQLType;
 import org.openconcerto.sql.request.MutableRowItemView;
 import org.openconcerto.sql.request.RowItemDesc;
 import org.openconcerto.sql.request.RowNotFound;
+import org.openconcerto.sql.request.SQLFieldTranslator;
 import org.openconcerto.sql.request.SQLForeignRowItemView;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.request.SQLRowView;
@@ -71,6 +73,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -82,6 +85,7 @@ import javax.swing.JPanel;
 import javax.swing.JViewport;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.border.TitledBorder;
 import javax.swing.text.JTextComponent;
 
@@ -93,7 +97,7 @@ import javax.swing.text.JTextComponent;
  * 
  * @author ilm
  */
-public abstract class BaseSQLComponent extends SQLComponent implements Scrollable {
+public abstract class BaseSQLComponent extends SQLComponent implements Scrollable, RIVPanel {
     protected static final String REQ = "required";
     protected static final String DEC = "notdecorated";
     protected static final String SEP = "noseparator";
@@ -283,14 +287,14 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                     final String s = (String) t;
                     final boolean ok = s == null || s.length() <= type.getSize();
                     // only compute string if needed
-                    return ok ? ValidState.getTrueInstance() : ValidState.create(ok, "La valeur fait " + (s.length() - type.getSize()) + " caractère(s) de trop");
+                    return ok ? ValidState.getTrueInstance() : ValidState.create(ok, TM.tr("sqlComp.stringValueTooLong", s.length() - type.getSize()));
                 }
             });
             // other numeric SQL types are fixed size like their java counterparts
         } else if (BigDecimal.class.isAssignableFrom(fieldClass)) {
             final Integer decimalDigits = type.getDecimalDigits();
             final int intDigits = type.getSize() - decimalDigits;
-            final String reason = "Nombre trop grand, il doit faire moins de " + intDigits + " chiffre(s) avant la virgule (" + decimalDigits + " après)";
+            final String reason = TM.tr("sqlComp.bdTooHigh", intDigits, decimalDigits);
             res = ValidatedValueWrapper.add(res, new ITransformer<T, ValidState>() {
                 @Override
                 public ValidState transformChecked(T t) {
@@ -330,7 +334,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
 
     private final <R extends MutableRowItemView> R initRIV(R rowItemView, String fields) {
         final List<String> fieldListS = SQLRow.toList(fields);
-        final Set<SQLField> fieldList = new HashSet<SQLField>(fieldListS.size());
+        final Set<SQLField> fieldList = new LinkedHashSet<SQLField>(fieldListS.size());
         for (final String fieldName : fieldListS) {
             fieldList.add(this.getField(fieldName));
         }
@@ -349,12 +353,23 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
 
         // ParentForeignField is always required
         final String fieldName = v.getField().getName();
-        if (spec.isRequired() || fieldName.equals(getElement().getParentForeignField()) || this.getRequiredNames() == null || this.getRequiredNames().contains(v.getSQLName())) {
+        final Set<String> reqNames = this.getRequiredNames();
+        if (spec.isRequired() || fieldName.equals(getElement().getParentForeignField()) || reqNames == null || reqNames.contains(v.getSQLName())) {
             this.required.add(v);
             if (v instanceof ElementSQLObject)
                 ((ElementSQLObject) v).setRequired(true);
+            if (reqNames != null)
+                this.requiredNames.add(v.getSQLName());
         }
         this.getRequest().add(v);
+
+        if (v.getComp() instanceof SQLComponentItem) {
+            ((SQLComponentItem) v.getComp()).added(this, v);
+        }
+        // reset just before adding to the UI :
+        // - avoid updating value while displayed
+        // - but still wait the longest to be sure the RIV is initialized (SQLComponentItem)
+        v.resetValue();
 
         if (!this.hide.contains(v.getField())) {
             if (spec.isAdditional()) {
@@ -487,16 +502,14 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         for (final SQLRowItemView obj : this.getRequest().getViews()) {
             final ValidState state = obj.getValidState();
             if (!state.isValid()) {
-                String explanation = "'" + getDesc(obj) + "' n'est pas valide";
                 final String txt = state.getValidationText();
-                if (txt != null)
-                    explanation += " (" + txt + ")";
+                final String explanation = TM.tr("sqlComp.invalidItem", "'" + getDesc(obj) + "'", txt != null ? 1 : 0, txt);
                 pbs.add(explanation);
                 res = false;
                 // ne regarder si vide que pour les valides (souvent les non-valides sont vides car
                 // il ne peuvent renvoyer de valeur)
             } else if (this.getRequired().contains(obj) && obj.isEmpty()) {
-                pbs.add("'" + getDesc(obj) + "' est vide");
+                pbs.add(TM.tr("sqlComp.emptyItem", "'" + getDesc(obj) + "'"));
                 res = false;
             }
         }
@@ -504,12 +517,21 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     }
 
     protected final String getDesc(final SQLRowItemView obj) {
-        return getDesc(obj.getSQLName(), getRIVDesc(obj.getSQLName())).get0();
+        return getLabelFor(obj.getSQLName());
     }
 
-    static protected final Tuple2<String, Boolean> getDesc(final String itemName, final RowItemDesc desc) {
+    public final String getLabelFor(String itemName) {
+        return getDesc(itemName, getRIVDesc(itemName)).get0();
+    }
+
+    // not public since desc could be different from getRIVDesc(itemName)
+    protected final Tuple2<String, Boolean> getDesc(final String itemName, final RowItemDesc desc) {
         final boolean emptyLabel = desc.getLabel() == null || desc.getLabel().trim().length() == 0;
-        return Tuple2.create(emptyLabel ? itemName : desc.getLabel(), !emptyLabel);
+        return Tuple2.create(emptyLabel ? itemName : getLabel(itemName, desc), !emptyLabel);
+    }
+
+    protected String getLabel(final String itemName, final RowItemDesc desc) {
+        return desc.getLabel();
     }
 
     /*
@@ -555,7 +577,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
             else
                 return this.getRequest().insert(order).getID();
         } catch (SQLException e) {
-            ExceptionHandler.handle(this, "Impossible d'insérer", e);
+            ExceptionHandler.handle(this, TM.tr("sqlComp.insertError"), e);
             return -1;
         }
     }
@@ -587,9 +609,9 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         } catch (RowNotFound e) {
             // l'id demandé n'existe pas : prévenir tout le monde
             this.getTable().fireRowDeleted(e.getRow().getID());
-            ExceptionHandler.handle(this, "La ligne n'est plus dans la base : " + e.getRow(), e);
+            ExceptionHandler.handle(this, TM.tr("sqlComp.deletedRow", e.getRow()), e);
         } catch (IllegalStateException e) {
-            ExceptionHandler.handle(this, "Impossible de sélectionner " + r, e);
+            ExceptionHandler.handle(this, TM.tr("sqlComp.selectError", r), e);
         }
     }
 
@@ -631,6 +653,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     }
 
     public int getSelectedID() {
+        assert (SwingUtilities.isEventDispatchThread());
         return this.getRequest().getSelectedID();
     }
 
@@ -640,7 +663,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                 throw new SQLException("forbidden");
             this.getRequest().update();
         } catch (SQLException e) {
-            ExceptionHandler.handle(this, "Impossible de mettre à jour", e);
+            ExceptionHandler.handle(this, TM.tr("sqlComp.updateError"), e);
         }
     }
 
@@ -655,7 +678,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
             // } else
             this.getElement().archive(this.getSelectedID());
         } catch (SQLException e) {
-            ExceptionHandler.handle(this, "Impossible d'archiver " + this + ": ", e);
+            ExceptionHandler.handle(this, TM.tr("sqlComp.archiveError", this), e);
         }
     }
 
@@ -665,8 +688,13 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         return this.required;
     }
 
+    /**
+     * The SQL names that are required.
+     * 
+     * @return the required SQL names, <code>null</code> meaning all of them.
+     */
     protected final Set<String> getRequiredNames() {
-        return this.requiredNames;
+        return this.requiredNames == null ? null : Collections.unmodifiableSet(this.requiredNames);
     }
 
     /**
@@ -690,12 +718,12 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         this.alwaysEditable = alwaysEditable;
     }
 
-    public final String getLabelFor(String field) {
-        return getDesc(field, getRIVDesc(field)).get0();
-    }
-
     public final RowItemDesc getRIVDesc(String field) {
-        return Configuration.getInstance().getTranslator().getDescFor(this.getTable(), getCode(), getElement().getMDPath(), field);
+        final Configuration conf = Configuration.getInstance();
+        if (conf == null)
+            return SQLFieldTranslator.NULL_DESC;
+        else
+            return conf.getTranslator().getDescFor(this.getTable(), getCode(), getElement().getMDPath(), field);
     }
 
     public final void setRIVDesc(String itemName, RowItemDesc desc) {
@@ -703,18 +731,18 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
             Configuration.getTranslator(this.getTable()).storeDescFor(this.getTable(), getCode(), itemName, desc);
             updateUI(itemName, desc);
         } catch (SQLException e) {
-            ExceptionHandler.handle(this, "Impossible d'enregistrer la documentation de " + itemName, e);
+            ExceptionHandler.handle(this, TM.tr("sqlComp.saveDocError", itemName), e);
         }
     }
 
     protected void updateUI(final String itemName, final RowItemDesc desc) {
     }
 
-    static protected void updateUI(final String itemName, final JComponent label, final RowItemDesc desc) {
+    protected final void updateUI(final String itemName, final JComponent label, final RowItemDesc desc) {
         updateUI(itemName, label, desc, null);
     }
 
-    static protected void updateUI(final String itemName, final JComponent label, final RowItemDesc desc, final Color emptyLabelColor) {
+    protected final void updateUI(final String itemName, final JComponent label, final RowItemDesc desc, final Color emptyLabelColor) {
         label.setToolTipText(desc.getDocumentation().trim().length() == 0 ? null : desc.getDocumentation());
         final Tuple2<String, Boolean> tuple = getDesc(itemName, desc);
         final String s = tuple.get0();
@@ -814,6 +842,16 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         public final boolean isAdditional() {
             return this.isAdditional;
         }
+    }
+
+    @Override
+    public SQLElementDirectory getDirectory() {
+        return this.getElement().getDirectory();
+    }
+
+    @Override
+    public SQLComponent getSQLComponent() {
+        return this;
     }
 
     // *** scrollable

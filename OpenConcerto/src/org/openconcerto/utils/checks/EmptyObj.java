@@ -13,7 +13,6 @@
  
  /*
  * Créé le 3 févr. 2005
- * 
  */
 package org.openconcerto.utils.checks;
 
@@ -28,4 +27,5 @@ public interface EmptyObj {
 
     public void addEmptyListener(EmptyListener l);
 
+    public void removeEmptyListener(EmptyListener l);
 }

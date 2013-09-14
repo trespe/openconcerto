@@ -21,7 +21,6 @@ import org.openconcerto.utils.cc.IClosure;
 
 import java.io.File;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.JFrame;

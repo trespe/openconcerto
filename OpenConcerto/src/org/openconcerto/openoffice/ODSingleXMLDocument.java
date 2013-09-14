@@ -15,16 +15,18 @@
 
 import static org.openconcerto.openoffice.ODPackage.RootElement.CONTENT;
 import org.openconcerto.openoffice.ODPackage.RootElement;
+import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.utils.Base64;
 import org.openconcerto.utils.CollectionUtils;
-import org.openconcerto.utils.CopyUtils;
 import org.openconcerto.utils.FileUtils;
-import org.openconcerto.utils.cc.IFactory;
+import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.SimpleXMLPath;
 import org.openconcerto.xml.Step;
 import org.openconcerto.xml.Step.Axis;
 
+import java.awt.Point;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -32,15 +34,21 @@ import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 import org.apache.commons.collections.Transformer;
 import org.jdom.Attribute;
+import org.jdom.Content;
+import org.jdom.DocType;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -54,12 +62,19 @@ import org.jdom.xpath.XPath;
  */
 public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
 
+    static private enum ContentPart {
+        PROLOGUE, MAIN, EPILOGUE
+    }
+
+    private static final String BASIC_LANG_NAME = "ooo:Basic";
     private static final SimpleXMLPath<Attribute> ALL_HREF_ATTRIBUTES = SimpleXMLPath.allAttributes("href", "xlink");
     private static final SimpleXMLPath<Element> ALL_BINARY_DATA_ELEMENTS = SimpleXMLPath.allElements("binary-data", "office");
     // see 10.4.5 <office:binary-data> of OpenDocument-v1.2-os
     private static final Set<String> BINARY_DATA_PARENTS = CollectionUtils.createSet("draw:image", "draw:object-ole", "style:background-image", "text:list-level-style-image");
 
     final static Set<String> DONT_PREFIX;
+    static private final Map<XMLVersion, List<Set<Element>>> ELEMS_ORDER;
+    static private final Map<XMLVersion, Map<Tuple2<Namespace, String>, ContentPart>> ELEMS_PARTS;
     static {
         DONT_PREFIX = new HashSet<String>();
         // don't touch to user fields and variables
@@ -69,6 +84,191 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         DONT_PREFIX.add("variable-get");
         DONT_PREFIX.add("variable-decl");
         DONT_PREFIX.add("variable-set");
+
+        final XMLVersion[] versions = XMLVersion.values();
+        ELEMS_ORDER = new HashMap<XMLVersion, List<Set<Element>>>(versions.length);
+        ELEMS_PARTS = new HashMap<XMLVersion, Map<Tuple2<Namespace, String>, ContentPart>>(versions.length);
+        for (final XMLVersion v : versions) {
+            // some elements can only appear in some types but since we have the null wild card,
+            // they'd match that. So always include all elements.
+            final List<Set<Element>> children = createChildren(v, null);
+
+            ELEMS_ORDER.put(v, children);
+
+            final Map<Tuple2<Namespace, String>, ContentPart> m = new HashMap<Tuple2<Namespace, String>, ODSingleXMLDocument.ContentPart>(ContentPart.values().length);
+            boolean beforeNull = true;
+            for (final Set<Element> s : children) {
+                if (s == null) {
+                    m.put(null, ContentPart.MAIN);
+                    assert beforeNull : "more than one null";
+                    beforeNull = false;
+                } else {
+                    for (final Element elem : s)
+                        m.put(Tuple2.create(elem.getNamespace(), elem.getName()), beforeNull ? ContentPart.PROLOGUE : ContentPart.EPILOGUE);
+                }
+            }
+            ELEMS_PARTS.put(v, m);
+        }
+    }
+
+    private static final List<Set<Element>> createChildren(XMLVersion v, ContentType t) {
+        final Namespace textNS = v.getTEXT();
+        final Namespace tableNS = v.getTABLE();
+        final List<Set<Element>> res = new ArrayList<Set<Element>>(24);
+
+        if (t == null || t == ContentType.TEXT)
+            res.add(Collections.singleton(new Element("forms", v.getOFFICE())));
+        // first only for text, second only for spreadsheet
+        final Element textTrackedChanges = new Element("tracked-changes", textNS);
+        final Element tableTrackedChanges = new Element("tracked-changes", tableNS);
+        if (t == null)
+            res.add(CollectionUtils.createSet(textTrackedChanges, tableTrackedChanges));
+        else if (t == ContentType.TEXT)
+            res.add(Collections.singleton(textTrackedChanges));
+        else if (t == ContentType.SPREADSHEET)
+            res.add(Collections.singleton(tableTrackedChanges));
+
+        // text-decls
+        res.add(Collections.singleton(new Element("variable-decls", textNS)));
+        res.add(Collections.singleton(new Element("sequence-decls", textNS)));
+        res.add(Collections.singleton(new Element("user-field-decls", textNS)));
+        res.add(Collections.singleton(new Element("dde-connection-decls", textNS)));
+        res.add(Collections.singleton(new Element("alphabetical-index-auto-mark-file", textNS)));
+
+        // table-decls
+        res.add(Collections.singleton(new Element("calculation-settings", tableNS)));
+        res.add(Collections.singleton(new Element("content-validations", tableNS)));
+        res.add(Collections.singleton(new Element("label-ranges", tableNS)));
+
+        if (v == XMLVersion.OD && (t == null || t == ContentType.PRESENTATION)) {
+            // perhaps add presentation-decls (needs new namespace in XMLVersion)
+        }
+
+        // main content
+        res.add(null);
+
+        if (v == XMLVersion.OD && (t == null || t == ContentType.PRESENTATION)) {
+            // perhaps add presentation:settings
+        }
+
+        // table-functions
+        res.add(Collections.singleton(new Element("named-expressions", tableNS)));
+        res.add(Collections.singleton(new Element("database-ranges", tableNS)));
+        res.add(Collections.singleton(new Element("data-pilot-tables", tableNS)));
+        res.add(Collections.singleton(new Element("consolidation", tableNS)));
+        res.add(Collections.singleton(new Element("dde-links", tableNS)));
+
+        if (v == XMLVersion.OOo && (t == null || t == ContentType.PRESENTATION)) {
+            // perhaps add presentation:settings
+        }
+
+        return res;
+    }
+
+    // return null if not an element
+    // return the part the element is in (assume MAIN for unknown elements)
+    static private ContentPart getPart(final Map<Tuple2<Namespace, String>, ContentPart> parts, final Content bodyContent) {
+        if (!(bodyContent instanceof Element))
+            return null;
+        final Element elem = (Element) bodyContent;
+        ContentPart res = parts.get(Tuple2.create(elem.getNamespace(), elem.getName()));
+        if (res == null)
+            res = parts.get(null);
+        assert res != null;
+        return res;
+    }
+
+    static private int[] getLastNulls(final Map<Tuple2<Namespace, String>, ContentPart> parts, final Element body) {
+        @SuppressWarnings("unchecked")
+        final List<Content> content = body.getContent();
+        return getLastNulls(parts, content, content.size());
+    }
+
+    // return the start of the EPILOGUE, at 0 with non-elements (i.e. having a null ContentPart), at
+    // 1 the first EPILOGUE element
+    static private int[] getLastNulls(final Map<Tuple2<Namespace, String>, ContentPart> parts, final List<Content> content, final int contentSize) {
+        // start from the end until we leave the epilogue (quicker than traversing the main part as
+        // prologue and epilogue sizes are bounded and small)
+        ContentPart contentPart = null;
+        final ListIterator<Content> thisChildrenIter = content.listIterator(contentSize);
+        int nullsStartIndex = -1;
+        while ((contentPart == null || contentPart == ContentPart.EPILOGUE) && thisChildrenIter.hasPrevious()) {
+            contentPart = getPart(parts, thisChildrenIter.previous());
+            if (contentPart != null) {
+                nullsStartIndex = -1;
+            } else if (nullsStartIndex < 0) {
+                nullsStartIndex = thisChildrenIter.nextIndex();
+            }
+        }
+        final int lastNullsStart = contentPart == null || contentPart == ContentPart.EPILOGUE ? thisChildrenIter.nextIndex() : thisChildrenIter.nextIndex() + 1;
+        final int lastNullsEnd = nullsStartIndex < 0 ? lastNullsStart : nullsStartIndex + 1;
+        return new int[] { lastNullsStart, lastNullsEnd };
+    }
+
+    /**
+     * Slice the body into parts. Since some content have no part (e.g. comment), they can be added
+     * to the previous or next range. If <code>overlapping</code> is <code>true</code> they will be
+     * added to both, else only to the next range.
+     * 
+     * @param parts parts definition.
+     * @param body the element to slice.
+     * @param overlapping <code>true</code> if ranges can overlap.
+     * @return the start (inclusive, {@link Point#x}) and end (exclusive, {@link Point#y}) for each
+     *         {@link ContentPart}.
+     */
+    static private Point[] getBounds(final Map<Tuple2<Namespace, String>, ContentPart> parts, final Element body, final boolean overlapping) {
+        @SuppressWarnings("unchecked")
+        final List<Content> content = body.getContent();
+        final int contentSize = content.size();
+        if (contentSize == 0)
+            return new Point[] { new Point(0, 0), new Point(0, 0), new Point(0, 0) };
+
+        // start from the beginning until we leave the prologue
+        ContentPart contentPart = null;
+        ListIterator<Content> thisChildrenIter = content.listIterator(0);
+        final int prologueStart = 0;
+        int nullsStartIndex = -1;
+        while ((contentPart == null || contentPart == ContentPart.PROLOGUE) && thisChildrenIter.hasNext()) {
+            contentPart = getPart(parts, thisChildrenIter.next());
+            if (contentPart != null) {
+                nullsStartIndex = -1;
+            } else if (nullsStartIndex < 0) {
+                nullsStartIndex = thisChildrenIter.previousIndex();
+            }
+        }
+        final int nullsEnd = contentPart == null || contentPart == ContentPart.PROLOGUE ? thisChildrenIter.nextIndex() : thisChildrenIter.previousIndex();
+        final int nullsStart = nullsStartIndex < 0 ? nullsEnd : nullsStartIndex;
+        assert nullsStart >= 0 && nullsStart <= nullsEnd;
+        final int mainStart = nullsStart;
+        final int prologueStop = overlapping ? nullsEnd : nullsStart;
+
+        final int epilogueEnd = contentSize;
+        final int[] lastNulls = getLastNulls(parts, content, contentSize);
+        final int lastNullsStart = lastNulls[0];
+        final int lastNullsEnd = lastNulls[1];
+        assert lastNullsStart >= mainStart && lastNullsStart <= lastNullsEnd;
+        final int epilogueStart = lastNullsStart;
+        final int mainEnd = overlapping ? lastNullsEnd : lastNullsStart;
+
+        final Point[] res = new Point[] { new Point(prologueStart, prologueStop), new Point(mainStart, mainEnd), new Point(epilogueStart, epilogueEnd) };
+        assert res.length == ContentPart.values().length;
+        return res;
+    }
+
+    static private int getValidIndex(final Map<Tuple2<Namespace, String>, ContentPart> parts, final Element body, final int index) {
+        // overlapping ranges to have longest main part possible and thus avoid changing index
+        final Point[] bounds = getBounds(parts, body, true);
+        final Point mainBounds = bounds[ContentPart.MAIN.ordinal()];
+
+        final int mainEnd = mainBounds.y;
+        if (index < 0 || index > mainEnd)
+            return mainEnd;
+
+        final int mainStart = mainBounds.x;
+        if (index < mainStart)
+            return mainStart;
+
+        return index;
     }
 
     // Voir le TODO du ctor
@@ -96,6 +296,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         final Element root = singleContent.getRootElement();
         root.addContent(content.getRootElement().removeContent());
         // see section 2.1.1 first meta, then settings, then the rest
+        createScriptsElement(root, files);
         prependToRoot(files.getDocument(RootElement.SETTINGS.getZipEntry()), root);
         prependToRoot(files.getDocument(RootElement.META.getZipEntry()), root);
         final ODSingleXMLDocument single = new ODSingleXMLDocument(singleContent, files);
@@ -114,6 +315,28 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
             }
         }
         return single;
+    }
+
+    private static void createScriptsElement(final Element root, final ODPackage pkg) {
+        final Map<String, Library> basicLibraries = pkg.readBasicLibraries();
+        if (basicLibraries.size() > 0) {
+            final XMLFormatVersion formatVersion = pkg.getFormatVersion();
+            final XMLVersion version = formatVersion.getXMLVersion();
+            final Namespace officeNS = version.getOFFICE();
+
+            // scripts must be before the body and automatic styles
+            final Element scriptsElem = JDOMUtils.getOrCreateChild(root, formatVersion.getXML().getOfficeScripts(), officeNS, 0);
+            final Element scriptElem = new Element(formatVersion.getXML().getOfficeScript(), officeNS);
+            scriptElem.setAttribute("language", BASIC_LANG_NAME, version.getNS("script"));
+            // script must be before events
+            scriptsElem.addContent(0, scriptElem);
+
+            final Element libsElem = new Element("libraries", version.getLibrariesNS());
+            for (final Library lib : basicLibraries.values()) {
+                libsElem.addContent(lib.toFlatXML(formatVersion));
+            }
+            scriptElem.addContent(libsElem);
+        }
     }
 
     private static void prependToRoot(Document settings, final Element root) {
@@ -200,8 +423,16 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
 
         final boolean contentIsFlat = pkg == null;
         this.pkg = contentIsFlat ? new ODPackage() : pkg;
-        for (final RootElement e : RootElement.getPackageElements())
-            this.pkg.rmFile(e.getZipEntry());
+        if (!contentIsFlat) {
+            final Set<String> toRm = new HashSet<String>();
+            for (final RootElement e : RootElement.getPackageElements())
+                toRm.add(e.getZipEntry());
+            for (final String e : this.pkg.getEntries()) {
+                if (e.startsWith(Library.DIR_NAME))
+                    toRm.add(e);
+            }
+            this.pkg.rmFiles(toRm);
+        }
         this.pkg.putFile(CONTENT.getZipEntry(), this, "text/xml");
 
         // update href
@@ -255,7 +486,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
             final Document clonedDoc = new Document(new Element(root.getName(), root.getNamespace()));
             clonedDoc.getRootElement().addContent(styles.detach());
             try {
-                this.mergeStyles(new ODXMLDocument(clonedDoc));
+                this.mergeStyles(new ODXMLDocument(clonedDoc), true);
             } catch (JDOMException e) {
                 throw new IllegalArgumentException("can't find common styles names.");
             }
@@ -300,6 +531,69 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         return this.pkg;
     }
 
+    private final Element getBasicScriptElem() {
+        return this.getBasicScriptElem(false);
+    }
+
+    private final Element getBasicScriptElem(final boolean create) {
+        final OOXML xml = getXML();
+        final String officeScripts = xml.getOfficeScripts();
+        final Element scriptsElem = this.getChild(officeScripts, create);
+        if (scriptsElem == null)
+            return null;
+        final Namespace scriptNS = this.getVersion().getNS("script");
+        final Namespace officeNS = this.getVersion().getOFFICE();
+        @SuppressWarnings("unchecked")
+        final List<Element> scriptElems = scriptsElem.getChildren(xml.getOfficeScript(), officeNS);
+        for (final Element scriptElem : scriptElems) {
+            if (scriptElem.getAttributeValue("language", scriptNS).equals(BASIC_LANG_NAME))
+                return scriptElem;
+        }
+        if (create) {
+            final Element res = new Element(xml.getOfficeScript(), officeNS);
+            res.setAttribute("language", BASIC_LANG_NAME, scriptNS);
+            scriptsElem.addContent(res);
+            return res;
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * Parse BASIC libraries in this flat XML.
+     * 
+     * @return the BASIC libraries by name.
+     */
+    public final Map<String, Library> readBasicLibraries() {
+        return this.readBasicLibraries(this.getBasicScriptElem()).get0();
+    }
+
+    private final Tuple2<Map<String, Library>, Map<String, Element>> readBasicLibraries(final Element scriptElem) {
+        if (scriptElem == null)
+            return Tuple2.create(Collections.<String, Library> emptyMap(), Collections.<String, Element> emptyMap());
+
+        final Namespace libNS = this.getVersion().getLibrariesNS();
+        final Namespace linkNS = this.getVersion().getNS("xlink");
+        final Map<String, Library> res = new HashMap<String, Library>();
+        final Map<String, Element> resElems = new HashMap<String, Element>();
+        @SuppressWarnings("unchecked")
+        final List<Element> libsElems = scriptElem.getChildren("libraries", libNS);
+        for (final Element libsElem : libsElems) {
+            @SuppressWarnings("unchecked")
+            final List<Element> libElems = libsElem.getChildren();
+            for (final Element libElem : libElems) {
+                final Library library = Library.fromFlatXML(libElem, this.getPackage(), linkNS);
+                if (library != null) {
+                    if (res.put(library.getName(), library) != null)
+                        throw new IllegalStateException("Duplicate library named " + library.getName());
+                    resElems.put(library.getName(), libElem);
+                }
+            }
+        }
+
+        return Tuple2.create(res, resElems);
+    }
+
     /**
      * Append a document.
      * 
@@ -317,10 +611,12 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
      * @param pageBreak whether a page break should be inserted before <code>doc</code>.
      */
     public synchronized void add(ODSingleXMLDocument doc, boolean pageBreak) {
-        if (doc != null && pageBreak)
+        if (doc != null && pageBreak) {
             // only add a page break, if a page was really added
-            this.getBody().addContent(this.getPageBreak());
-        this.add(null, 0, doc);
+            final Element thisBody = this.getBody();
+            thisBody.addContent(getLastNulls(ELEMS_PARTS.get(getVersion()), thisBody)[0], this.getPageBreak());
+        }
+        this.add(null, -1, doc);
     }
 
     public synchronized void replace(Element elem, ODSingleXMLDocument doc) {
@@ -329,6 +625,15 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         elem.detach();
     }
 
+    // use content index and not children (element) index, since it's more accurate (we can add
+    // after or before a comment) and faster (no filter and adjusted index)
+    /**
+     * Add the passed document at the specified place.
+     * 
+     * @param where a descendant of the body, <code>null</code> meaning the body itself.
+     * @param index the content index inside <code>where</code>, -1 meaning the end.
+     * @param doc the document to add, <code>null</code> means no-op.
+     */
     public synchronized void add(Element where, int index, ODSingleXMLDocument doc) {
         if (doc == null)
             return;
@@ -340,6 +645,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
             copyNS(doc.getDocument(), this.getDocument());
             this.mergeEmbedded(doc);
             this.mergeSettings(doc);
+            this.mergeScripts(doc);
             this.mergeAllStyles(doc, false);
             this.mergeBody(where, index, doc);
         } catch (JDOMException exn) {
@@ -367,7 +673,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         // but since the UI for common styles doesn't allow to customize List Style
         // and there is no common styles for tables : office:styles doesn't reference any automatic
         // styles
-        this.mergeStyles(doc);
+        this.mergeStyles(doc, sameDoc);
         // on the contrary autostyles do refer to other autostyles :
         // choosing "activate bullets" will create an automatic paragraph style:style
         // referencing an automatic text:list-style.
@@ -381,18 +687,134 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
     private void mergeEmbedded(ODSingleXMLDocument doc) {
         // since we are adding another document our existing thumbnail is obsolete
         this.pkg.rmFile("Thumbnails/thumbnail.png");
-        // copy the files
-        final ODPackage opkg = CopyUtils.copy(doc.pkg);
-        for (final String name : opkg.getEntries()) {
-            final ODPackageEntry e = opkg.getEntry(name);
+        this.pkg.rmFile("layout-cache");
+        // copy the files (only non generated files, e.g. content.xml will be merged later)
+        for (final String name : doc.pkg.getEntries()) {
+            final ODPackageEntry e = doc.pkg.getEntry(name);
             if (!ODPackage.isStandardFile(e.getName())) {
-                this.pkg.putFile(this.prefix(e.getName()), e.getData(), e.getType());
+                this.pkg.putCopy(e, this.prefix(e.getName()));
             }
         }
     }
 
     private void mergeSettings(ODSingleXMLDocument doc) throws JDOMException {
-        this.addIfNotPresent(doc, "./office:settings", 0);
+        // used to call addIfNotPresent(), but it cannot create the element at the correct position
+        final String elemName = "settings";
+        if (this.getChild(elemName, false) == null) {
+            final Element other = doc.getChild(elemName, false);
+            if (other != null) {
+                this.getChild(elemName, true).addContent(other.cloneContent());
+            }
+        }
+    }
+
+    private void mergeScripts(ODSingleXMLDocument doc) {
+        // <office:script>*
+        this.addBasicLibraries(doc.readBasicLibraries());
+
+        // <office:event-listeners>?
+        final Map<String, EventListener> oEvents = doc.getPackage().readEventListeners();
+        if (oEvents.size() > 0) {
+            // check if they can be merged
+            final Map<String, EventListener> thisEvents = this.getPackage().readEventListeners();
+            final Set<String> duplicateEvents = CollectionUtils.inter(thisEvents.keySet(), oEvents.keySet());
+            for (final String eventName : duplicateEvents) {
+                final Element thisEvent = thisEvents.get(eventName).getElement();
+                final Element oEvent = oEvents.get(eventName).getElement();
+                if (!JDOMUtils.equalsDeep(oEvent, thisEvent)) {
+                    throw new IllegalArgumentException("Incompatible elements for " + eventName);
+                }
+            }
+
+            final OOXML xml = getXML();
+            final Element thisScripts = this.getChild(xml.getOfficeScripts(), true);
+            final Element thisEventListeners = JDOMUtils.getOrCreateChild(thisScripts, xml.getOfficeEventListeners(), this.getVersion().getOFFICE());
+            for (final Entry<String, EventListener> e : oEvents.entrySet()) {
+                if (!thisEvents.containsKey(e.getKey())) {
+                    // we can just clone since libraries aren't renamed when merged
+                    thisEventListeners.addContent((Element) e.getValue().getElement().clone());
+                }
+            }
+        }
+    }
+
+    /**
+     * Add the passed libraries to this document. Passed libraries with the same content as existing
+     * ones are ignored.
+     * 
+     * @param libraries what to add.
+     * @return the actually added libraries.
+     * @throws IllegalArgumentException if <code>libraries</code> contains duplicates or if it
+     *         cannot be merged into this.
+     * @see Library#canBeMerged(Library)
+     */
+    public final Set<String> addBasicLibraries(final Collection<? extends Library> libraries) {
+        return this.addBasicLibraries(Library.toMap(libraries));
+    }
+
+    public final Set<String> addBasicLibraries(final ODPackage pkg) {
+        if (pkg == this.pkg)
+            return Collections.emptySet();
+        return this.addBasicLibraries(pkg.readBasicLibraries());
+    }
+
+    final Set<String> addBasicLibraries(final Map<String, Library> oLibraries) {
+        if (oLibraries.size() == 0)
+            return Collections.emptySet();
+
+        final Tuple2<Map<String, Library>, Map<String, Element>> thisLibrariesAndElements = this.readBasicLibraries(this.getBasicScriptElem(false));
+        final Map<String, Library> thisLibraries = thisLibrariesAndElements.get0();
+        final Map<String, Element> thisLibrariesElements = thisLibrariesAndElements.get1();
+        // check that the libraries to add which are already in us can be merged (no elements
+        // conflict)
+        final Set<String> duplicateLibs = Library.canBeMerged(thisLibraries, oLibraries);
+        final Set<String> newLibs = new HashSet<String>(oLibraries.keySet());
+        newLibs.removeAll(thisLibraries.keySet());
+
+        // merge modules
+        for (final String duplicateLib : duplicateLibs) {
+            final Library thisLib = thisLibraries.get(duplicateLib);
+            final Library oLib = oLibraries.get(duplicateLib);
+            assert thisLib != null && oLib != null : "Not duplicate " + duplicateLib;
+            oLib.mergeToFlatXML(this.getFormatVersion(), thisLib, thisLibrariesElements.get(duplicateLib));
+        }
+        if (newLibs.size() > 0) {
+            final Element thisScriptElem = this.getBasicScriptElem(true);
+            final Element librariesElem = JDOMUtils.getOrCreateChild(thisScriptElem, "libraries", this.getVersion().getLibrariesNS());
+            for (final String newLib : newLibs)
+                librariesElem.addContent(oLibraries.get(newLib).toFlatXML(this.getFormatVersion()));
+        }
+
+        // merge dialogs
+        for (final Library oLib : oLibraries.values()) {
+            final String libName = oLib.getName();
+            // can be null
+            final Library thisLib = thisLibraries.get(libName);
+            oLib.mergeDialogs(this.getPackage(), thisLib);
+        }
+
+        return newLibs;
+    }
+
+    /**
+     * Remove the passed libraries.
+     * 
+     * @param libraries which libraries to remove.
+     * @return the actually removed libraries.
+     */
+    public final Set<String> removeBasicLibraries(final Collection<String> libraries) {
+        final Map<String, Element> thisLibrariesElements = this.readBasicLibraries(this.getBasicScriptElem(false)).get1();
+        final Set<String> res = new HashSet<String>();
+        for (final String libToRm : libraries) {
+            final Element elemToRm = thisLibrariesElements.get(libToRm);
+            if (elemToRm != null) {
+                elemToRm.detach();
+                res.add(libToRm);
+            }
+            if (Library.removeFromPackage(this.getPackage(), libToRm))
+                res.add(libToRm);
+        }
+        return res;
     }
 
     /**
@@ -412,11 +834,52 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
     }
 
     // merge everything under office:styles
-    private void mergeStyles(ODXMLDocument doc) throws JDOMException {
+    private void mergeStyles(ODXMLDocument doc, boolean sameDoc) throws JDOMException {
         // les default-style (notamment tab-stop-distance)
         this.mergeUnique(doc, "styles", "style:default-style", "style:family", NOP_ElementTransformer);
+        // data styles
+        // we have to prefix data styles since they're automatically generated by LO
+        // (e.g. user created cellStyle1, LO generated dataStyleN0 in a document, then in another
+        // document created cellStyle2, LO also generated dataStyleN0)
+        // MAYBE search for orphans that discarded (same name) styles might leave
+        // Don't prefix if we're merging styles into content (content contains no styles, so there
+        // can be no collision ; also we don't prefix the body)
+        final String dsNS = "number";
+        final boolean prefixDataStyles = !sameDoc;
+        final List<Element> addedDataStyles = this.addStyles(doc, "styles", Step.createElementStep(null, dsNS, new IPredicate<Element>() {
+            private final Set<String> names;
+            {
+                this.names = new HashSet<String>(DataStyle.DATA_STYLES.size());
+                for (final Class<? extends DataStyle> cl : DataStyle.DATA_STYLES) {
+                    final StyleDesc<? extends DataStyle> styleDesc = Style.getStyleDesc(cl, getVersion());
+                    this.names.add(styleDesc.getElementName());
+                    assert styleDesc.getElementNS().getPrefix().equals(dsNS) : styleDesc;
+                }
+            }
+
+            @Override
+            public boolean evaluateChecked(Element elem) {
+                return this.names.contains(elem.getName());
+            }
+        }), prefixDataStyles);
+        if (prefixDataStyles) {
+            // data styles reference each other (e.g. style:map)
+            final SimpleXMLPath<Attribute> simplePath = SimpleXMLPath.allAttributes("apply-style-name", "style");
+            for (final Attribute attr : simplePath.selectNodes(addedDataStyles)) {
+                attr.setValue(prefix(attr.getValue()));
+            }
+        }
         // les styles
-        this.stylesNames.addAll(this.mergeUnique(doc, "styles", "style:style"));
+        // if we prefixed data styles, we must prefix references
+        this.stylesNames.addAll(this.mergeUnique(doc, "styles", "style:style", !prefixDataStyles ? NOP_ElementTransformer : new ElementTransformer() {
+            @Override
+            public Element transform(Element elem) throws JDOMException {
+                final Attribute attr = elem.getAttribute("data-style-name", elem.getNamespace());
+                if (attr != null)
+                    attr.setValue(prefix(attr.getValue()));
+                return elem;
+            }
+        }));
         // on ajoute outline-style si non présent
         this.addStylesIfNotPresent(doc, "outline-style");
         // les list-style
@@ -463,52 +926,98 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
     /**
      * Fusionne les corps.
      * 
+     * @param where the element where to add the main content, <code>null</code> meaning at the root
+     *        of the body.
+     * @param index the content index inside <code>where</code>, -1 meaning at the end.
      * @param doc le document à fusionner avec celui-ci.
      * @throws JDOMException
      */
     private void mergeBody(Element where, int index, ODSingleXMLDocument doc) throws JDOMException {
-        // copy forms from doc to this
-        final String formsName = "forms";
-        final Namespace formsNS = getVersion().getOFFICE();
-        final String bodyPath = this.getContentTypeVersioned().getBodyPath();
-        this.add(new IFactory<Element>() {
-            @Override
-            public Element createChecked() {
-                final Element ourForms = getBody().getChild(formsName, formsNS);
-                if (ourForms != null) {
-                    return ourForms;
+        final Element thisBody = this.getBody();
+        final Map<Tuple2<Namespace, String>, ContentPart> parts = ELEMS_PARTS.get(getVersion());
+
+        // find where to add
+        final Element nonNullWhere = where != null ? where : thisBody;
+        if (nonNullWhere == thisBody) {
+            // don't add in prologue or epilogue (ATTN the caller passed the index in reference to
+            // the existing body but it might change and thus the index might need correction)
+            index = getValidIndex(parts, thisBody, index);
+        } else {
+            // check that the element is rooted in the main part
+            final Element movedChild = JDOMUtils.getAncestor(nonNullWhere, new IPredicate<Element>() {
+                @Override
+                public boolean evaluateChecked(Element input) {
+                    return input.getParent() == thisBody;
+                }
+            });
+            if (movedChild == null)
+                throw new IllegalStateException("not adding in body : " + nonNullWhere);
+            final ContentPart contentPart = getPart(parts, movedChild);
+            if (contentPart != ContentPart.MAIN)
+                throw new IllegalStateException("not adding in main : " + contentPart + " ; " + nonNullWhere);
+        }
+
+        final ChildCreator childCreator = ChildCreator.createFromSets(thisBody, ELEMS_ORDER.get(getVersion()));
+        int prologueAddedCount = 0;
+        final Element otherBody = doc.getBody();
+        // split doc body in to three parts to keep non-elements
+        final Point[] bounds = getBounds(parts, otherBody, false);
+        @SuppressWarnings("unchecked")
+        final List<Content> otherContent = otherBody.getContent();
+        // prologue and epilogue have small and bounded size
+        final List<Content> mainElements = new ArrayList<Content>(otherContent.size());
+        final ListIterator<Content> listIter = otherContent.listIterator();
+        for (final ContentPart part : ContentPart.values()) {
+            final Point partBounds = bounds[part.ordinal()];
+            final int partEnd = partBounds.y;
+            while (listIter.nextIndex() < partEnd) {
+                assert listIter.hasNext() : "wrong bounds";
+                final Content c = listIter.next();
+                if (c instanceof Element) {
+                    final Element bodyChild = (Element) c;
+                    if (part == ContentPart.PROLOGUE) {
+                        final int preSize = thisBody.getContentSize();
+                        final String childName = bodyChild.getName();
+                        if (childName.equals("forms")) {
+                            final Element elem = (Element) bodyChild.clone();
+                            // TODO prefix xml:id and their draw:control references
+                            this.prefix(elem, true);
+                            childCreator.getChild(bodyChild, true).addContent(elem.removeContent());
+                        } else if (childName.equals("variable-decls") || childName.equals("sequence-decls") || childName.equals("user-field-decls")) {
+                            final Element elem = (Element) bodyChild.clone();
+                            // * user fields are global to a document, they do not vary across it.
+                            // Hence they are initialized at declaration
+                            // * variables are not initialized at declaration
+                            detachDuplicate(elem);
+                            this.prefix(elem, true);
+                            childCreator.getChild(bodyChild, true).addContent(elem.removeContent());
+                        } else {
+                            Log.get().fine("Ignoring in " + part + " : " + bodyChild);
+                        }
+                        final int postSize = thisBody.getContentSize();
+                        prologueAddedCount += postSize - preSize;
+                    } else if (part == ContentPart.MAIN) {
+                        mainElements.add(this.prefix((Element) bodyChild.clone(), true));
+                    } else if (part == ContentPart.EPILOGUE) {
+                        Log.get().fine("Ignoring in " + part + " : " + bodyChild);
+                    }
+                } else if (part == ContentPart.MAIN) {
+                    mainElements.add((Content) c.clone());
                 } else {
-                    final Element res = new Element(formsName, formsNS);
-                    // forms should be the first child of the body
-                    getBody().addContent(0, res);
-                    return res;
+                    Log.get().finer("Ignoring non-element in " + part);
                 }
             }
-        }, -1, doc, bodyPath + "/" + formsNS.getPrefix() + ":" + formsName, this.prefixTransf);
-        this.add(where, index, doc, bodyPath, new ElementTransformer() {
-            public Element transform(Element elem) throws JDOMException {
-                // ATTN n'ajoute pas sequence-decls
-                // forms already added above
-                if (elem.getName().equals("sequence-decls") || (elem.getName().equals(formsName) && elem.getNamespace().equals(formsNS)))
-                    return null;
+        }
 
-                if (elem.getName().equals("user-field-decls")) {
-                    // user fields are global to a document, they do not vary across it.
-                    // hence they are initialized at declaration
-                    // we should assure that there's no 2 declaration with the same name
-                    detachDuplicate(elem);
-                }
-
-                if (elem.getName().equals("variable-decls")) {
-                    // variables are not initialized at declaration
-                    // we should still assure that there's no 2 declaration with the same name
-                    detachDuplicate(elem);
-                }
-
-                // par défaut
-                return ODSingleXMLDocument.this.prefixTransf.transform(elem);
-            }
-        });
+        if (nonNullWhere == thisBody) {
+            assert index >= 0;
+            index += prologueAddedCount;
+            assert index >= 0 && index <= thisBody.getContentSize();
+        }
+        if (index < 0)
+            nonNullWhere.addContent(mainElements);
+        else
+            nonNullWhere.addContent(index, mainElements);
     }
 
     /**
@@ -551,10 +1060,11 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
      * 
      * @param elem l'élément à préfixer.
      * @param references whether to prefix hrefs.
+     * @return <code>elem</code>.
      * @throws JDOMException if an error occurs.
      */
-    void prefix(Element elem, boolean references) throws JDOMException {
-        Iterator attrs = this.getXPath(".//@text:style-name | .//@table:style-name | .//@draw:style-name | .//@style:data-style-name").selectNodes(elem).iterator();
+    Element prefix(Element elem, boolean references) throws JDOMException {
+        Iterator attrs = this.getXPath(".//@text:style-name | .//@table:style-name | .//@draw:style-name | .//@style:data-style-name | .//@style:apply-style-name").selectNodes(elem).iterator();
         while (attrs.hasNext()) {
             Attribute attr = (Attribute) attrs.next();
             // text:list/@text:style-name references text:list-style
@@ -589,6 +1099,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
                     attr.setValue(prefixedPath);
             }
         }
+        return elem;
     }
 
     /**
@@ -635,15 +1146,13 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
 
     private final ElementTransformer prefixTransf = new ElementTransformer() {
         public Element transform(Element elem) throws JDOMException {
-            ODSingleXMLDocument.this.prefix(elem, true);
-            return elem;
+            return ODSingleXMLDocument.this.prefix(elem, true);
         }
     };
 
     private final ElementTransformer prefixTransfNoRef = new ElementTransformer() {
         public Element transform(Element elem) throws JDOMException {
-            ODSingleXMLDocument.this.prefix(elem, false);
-            return elem;
+            return ODSingleXMLDocument.this.prefix(elem, false);
         }
     };
 
@@ -726,14 +1235,25 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
      * @throws JDOMException
      */
     private List<Element> prefixAndAddAutoStyles(ODXMLDocument doc) throws JDOMException {
+        return addStyles(doc, "automatic-styles", Step.getAnyChildElementStep(), true);
+    }
+
+    // add styles from doc/rootElem/styleElemStep/@style:name, optionally prefixing
+    private List<Element> addStyles(ODXMLDocument doc, final String rootElem, final Step<Element> styleElemStep, boolean prefix) throws JDOMException {
+        // needed since we add to us directly under rootElem
+        if (styleElemStep.getAxis() != Axis.child)
+            throw new IllegalArgumentException("Not child axis : " + styleElemStep.getAxis());
         final List<Element> result = new ArrayList<Element>(128);
-        final List otherNames = this.getXPath("./*/@style:name").selectNodes(doc.getChild("automatic-styles"));
-        Iterator iter = otherNames.iterator();
-        while (iter.hasNext()) {
-            Attribute attr = (Attribute) iter.next();
-            Element parent = (Element) attr.getParent().clone();
-            parent.setAttribute("name", this.prefix(attr.getValue()), this.getVersion().getSTYLE());
-            this.getChild("automatic-styles").addContent(parent);
+        final Element thisChild = this.getChild(rootElem);
+        // find all elements with a style:name in doc
+        final SimpleXMLPath<Attribute> simplePath = SimpleXMLPath.create(styleElemStep, Step.createAttributeStep("name", "style"));
+        for (final Attribute attr : simplePath.selectNodes(doc.getChild(rootElem))) {
+            final Element parent = (Element) attr.getParent().clone();
+            // prefix their name
+            if (prefix)
+                parent.setAttribute(attr.getName(), this.prefix(attr.getValue()), attr.getNamespace());
+            // and add to us
+            thisChild.addContent(parent);
             result.add(parent);
         }
         return result;
@@ -769,6 +1289,24 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
             if (thisSettings != null) {
                 final Document settings = createDocument(res, RootElement.SETTINGS, officeVersion);
                 settings.getRootElement().addContent(thisSettings.detach());
+            }
+        }
+        // scripts
+        {
+            final Element thisScript = this.getBasicScriptElem();
+            if (thisScript != null) {
+                final Map<String, Library> basicLibraries = this.readBasicLibraries(thisScript).get0();
+                final Element lcRootElem = new Element("libraries", XMLVersion.LIBRARY_NS);
+                for (final Library lib : basicLibraries.values()) {
+                    lcRootElem.addContent(lib.toPackageLibrariesElement(officeVersion));
+                    for (final Entry<String, Document> e : lib.toPackageDocuments(officeVersion).entrySet()) {
+                        this.pkg.putFile(Library.DIR_NAME + "/" + lib.getName() + "/" + e.getKey(), e.getValue(), FileUtils.XML_TYPE);
+                    }
+                }
+                final Document lc = new Document(lcRootElem, new DocType("library:libraries", "-//OpenOffice.org//DTD OfficeDocument 1.0//EN", "libraries.dtd"));
+                this.pkg.putFile(Library.DIR_NAME + "/" + Library.LIBRARY_LIST_FILENAME, lc, FileUtils.XML_TYPE);
+                thisScript.detach();
+                // nothing to do for dialogs, since they cannot be in our Document
             }
         }
         // styles
@@ -880,6 +1418,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
                     // <element name="office:styles"> <interleave>...
                     // so just append the new style
                     styles.addContent(pageBreakStyle);
+                    this.stylesNames.add(styleName);
                 }
             } catch (JDOMException e) {
                 // static path, shouldn't happen

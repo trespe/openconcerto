@@ -38,6 +38,7 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
     private final JCheckBox checkModeVente, checkLongueur, checkLargeur, checkPoids, checkGestionStockMin;
     private final JCheckBox checkService, checkVenteComptoir, checkShowPoids, checkShowStyle, checkSFE;
     private final JCheckBox checkDevise, checkMarge;
+    private JCheckBox checkSite;
 
     public GestionArticlePreferencePanel() {
         super();
@@ -108,6 +109,9 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         props.setProperty("ArticleModeVenteAvance", String.valueOf(this.checkModeVente.isSelected()));
         props.setProperty("ArticleService", String.valueOf(this.checkService.isSelected()));
         props.setProperty("ArticleSFE", String.valueOf(this.checkSFE.isSelected()));
+        if (this.checkSite != null) {
+            props.setProperty("ShowSiteFacture", String.valueOf(this.checkSite.isSelected()));
+        }
         props.setProperty("ArticleVenteComptoir", String.valueOf(this.checkVenteComptoir.isSelected()));
         props.setProperty("ArticleStockMin", String.valueOf(this.checkGestionStockMin.isSelected()));
         props.setProperty(AbstractVenteArticleItemTable.ARTICLE_SHOW_DEVISE, String.valueOf(this.checkDevise.isSelected()));
@@ -127,6 +131,9 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         this.checkGestionStockMin.setSelected(true);
         this.checkDevise.setSelected(false);
         this.checkMarge.setSelected(false);
+        if (this.checkSite != null) {
+            this.checkSite.setSelected(false);
+        }
     }
 
     @Override
@@ -188,6 +195,13 @@ public class GestionArticlePreferencePanel extends DefaultPreferencePanel {
         this.checkModeVente.setSelected(bModeVente == null || bModeVente.booleanValue());
         enableAdvancedMode(bModeVente == null || bModeVente.booleanValue());
 
+        // Site
+        if (this.checkSite != null) {
+            // Show Style
+            final String s = props.getStringProperty("ShowSiteFacture");
+            final Boolean b = s.equalsIgnoreCase("true");
+            this.checkSite.setSelected(b != null && b);
+        }
     }
 
     /**

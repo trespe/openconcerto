@@ -13,8 +13,10 @@
  
  package org.openconcerto.erp.core.common.ui;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.list.IListe;
@@ -29,6 +31,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.io.File;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -40,11 +43,12 @@ import javax.swing.DefaultComboBoxModel;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.event.EventListenerList;
 
 public class IListFilterDatePanel extends JPanel {
 
     private JDate dateDu, dateAu;
-
+    private static final String CUSTOM_COMBO_ITEM = "Personnalisée";
     private Map<IListe, SQLField> mapList;
     // Cache des transformers initiaux
     private Map<IListe, ITransformer<SQLSelect, SQLSelect>> mapListTransformer;
@@ -54,16 +58,18 @@ public class IListFilterDatePanel extends JPanel {
 
     private JComboBox combo;
 
-    private final PropertyChangeListener listener = new PropertyChangeListener() {
+    private EventListenerList listeners = new EventListenerList();
+
+    private final ActionListener listener = new ActionListener() {
+
         @Override
-        public void propertyChange(PropertyChangeEvent evt) {
-            // TODO Auto-generated method stub
+        public void actionPerformed(ActionEvent e) {
+            combo.setSelectedItem(CUSTOM_COMBO_ITEM);
             fireDateChanged();
         }
     };
 
     // FIXME Cacher pour ne pas recharger la liste si il n'y a aucune modif
-
     public IListFilterDatePanel(IListe l, SQLField fieldDate) {
         this(l, fieldDate, null);
         if (l.getRequest() == Configuration.getInstance().getDirectory().getElement(l.getSource().getPrimaryTable()).getListRequest()) {
@@ -84,22 +90,31 @@ public class IListFilterDatePanel extends JPanel {
 
     private static void initDefaultMap() {
         mapDefault = new LinkedHashMap<String, Tuple2<Date, Date>>();
-        Calendar c = Calendar.getInstance();
 
+        // ALL
+        Date emptyDate = null;
+        mapDefault.put("Sans filtrage", Tuple2.create(emptyDate, emptyDate));
+
+        Calendar c = Calendar.getInstance();
         // Année courante
+        clearTimeSchedule(c);
         c.set(Calendar.DATE, 1);
         c.set(Calendar.MONTH, 0);
         Date d1 = c.getTime();
+        setEndTimeSchedule(c);
         c.set(Calendar.DATE, 31);
         c.set(Calendar.MONTH, 11);
         Date d2 = c.getTime();
         mapDefault.put("Année courante", Tuple2.create(d1, d2));
 
         // Année précedente
+        clearTimeSchedule(c);
         c.set(Calendar.DATE, 1);
         c.set(Calendar.MONTH, 0);
         c.add(Calendar.YEAR, -1);
         Date d3 = c.getTime();
+
+        setEndTimeSchedule(c);
         c.set(Calendar.DATE, 31);
         c.set(Calendar.MONTH, 11);
         Date d4 = c.getTime();
@@ -107,37 +122,60 @@ public class IListFilterDatePanel extends JPanel {
 
         // Mois courant
         c = Calendar.getInstance();
+        clearTimeSchedule(c);
         c.set(Calendar.DATE, 1);
         Date d5 = c.getTime();
         c.set(Calendar.DATE, c.getActualMaximum(Calendar.DATE));
+        setEndTimeSchedule(c);
         Date d6 = c.getTime();
         mapDefault.put("Mois courant", Tuple2.create(d5, d6));
 
         // Mois précédent
         c = Calendar.getInstance();
+        clearTimeSchedule(c);
         c.set(Calendar.DATE, 1);
         c.add(Calendar.MONTH, -1);
         Date d7 = c.getTime();
         c.set(Calendar.DATE, c.getActualMaximum(Calendar.DATE));
+        setEndTimeSchedule(c);
         Date d8 = c.getTime();
         mapDefault.put("Mois précédent", Tuple2.create(d7, d8));
 
         // semaine courante
         c = Calendar.getInstance();
+        clearTimeSchedule(c);
         c.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
         Date d9 = c.getTime();
         c.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+        setEndTimeSchedule(c);
         Date d10 = c.getTime();
         mapDefault.put("Semaine courante", Tuple2.create(d9, d10));
 
         // semaine précédente
         c = Calendar.getInstance();
+        clearTimeSchedule(c);
         c.add(Calendar.DATE, -7);
         c.set(Calendar.DAY_OF_WEEK, Calendar.MONDAY);
         Date d11 = c.getTime();
         c.set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY);
+        setEndTimeSchedule(c);
         Date d12 = c.getTime();
         mapDefault.put("Semaine précédente", Tuple2.create(d11, d12));
+
+        // Exercice courant
+        SQLRow rowEx = ComptaPropsConfiguration.getInstanceCompta().getRowSociete().getForeignRow("ID_EXERCICE_COMMON");
+        Calendar c1 = rowEx.getDate("DATE_DEB");
+        clearTimeSchedule(c1);
+        Calendar c2 = rowEx.getDate("DATE_FIN");
+        setEndTimeSchedule(c2);
+
+        final Tuple2<Date, Date> exerciceTuple = Tuple2.create(c1.getTime(), c2.getTime());
+        if (findItem(exerciceTuple, mapDefault).equals(CUSTOM_COMBO_ITEM)) {
+            mapDefault.put("Exercice courant", exerciceTuple);
+        }
+
+        // Custom
+        mapDefault.put(CUSTOM_COMBO_ITEM, null);
     }
 
     public static void addDefaultValue(String label, Tuple2<Date, Date> period) {
@@ -169,6 +207,7 @@ public class IListFilterDatePanel extends JPanel {
 
         this.mapListTransformer = new HashMap<IListe, ITransformer<SQLSelect, SQLSelect>>();
         for (IListe l : mapList.keySet()) {
+
             this.mapListTransformer.put(l, l.getRequest().getSelectTransf());
         }
 
@@ -183,7 +222,7 @@ public class IListFilterDatePanel extends JPanel {
         // Période pédéfini
         if (map != null && map.keySet().size() > 0) {
             DefaultComboBoxModel model = new DefaultComboBoxModel();
-            model.addElement("Tous");
+
             for (String s : this.map.keySet()) {
                 model.addElement(s);
             }
@@ -206,8 +245,11 @@ public class IListFilterDatePanel extends JPanel {
         this.add(this.dateDu, c);
         this.add(new JLabel("Au"), c);
         this.add(this.dateAu, c);
-        this.dateAu.addValueListener(this.listener);
-        this.dateDu.addValueListener(this.listener);
+        this.dateAu.addActionListener(this.listener);
+        this.dateDu.addActionListener(this.listener);
+
+        IListFilterDateStateManager stateManager = new IListFilterDateStateManager(this, getConfigFile(mapList), true);
+        stateManager.loadState();
     }
 
     public void setDateDu(Date d) {
@@ -216,6 +258,14 @@ public class IListFilterDatePanel extends JPanel {
 
     public void setDateAu(Date d) {
         this.dateAu.setValue(d);
+    }
+
+    public Date getFromValue() {
+        return this.dateDu.getValue();
+    }
+
+    public Date getToValue() {
+        return this.dateAu.getValue();
     }
 
     private static Tuple2<String, Tuple2<Date, Date>> DEFAULT_FILTER = null;
@@ -236,116 +286,178 @@ public class IListFilterDatePanel extends JPanel {
         }
     }
 
+    /**
+     * 
+     * @param t do nothing if t is null
+     */
     public void setPeriode(Tuple2<Date, Date> t) {
-        if (t == null) {
-            setPeriode(null, null);
-        } else {
-
+        if (t != null) {
             setPeriode(t.get0(), t.get1());
         }
     }
 
     public void setPeriode(Date du, Date au) {
-        this.dateAu.rmValueListener(this.listener);
-        this.dateDu.rmValueListener(this.listener);
-
         setDateAu(au);
         setDateDu(du);
 
         fireDateChanged();
-
-        this.dateAu.addValueListener(this.listener);
-        this.dateDu.addValueListener(this.listener);
     }
 
     public void fireDateChanged() {
-
+        System.err.println("FIRE");
         if (this.dateAu.getValue() == null && this.dateDu.getValue() == null) {
-            System.err.println("Null ");
             for (IListe list : this.mapList.keySet()) {
-
                 list.getRequest().setSelectTransf(this.mapListTransformer.get(list));
             }
-            return;
-        }
-
-        if (this.dateAu.getValue() == null) {
-            System.err.println("Du " + this.dateDu.getValue());
+        } else if (this.dateAu.getValue() == null) {
             final Calendar c = Calendar.getInstance();
             c.setTime(this.dateDu.getValue());
-            c.set(Calendar.HOUR_OF_DAY, 0);
-            c.set(Calendar.MINUTE, 0);
-            c.set(Calendar.MILLISECOND, 1);
+            clearTimeSchedule(c);
 
             for (final IListe list : this.mapList.keySet()) {
                 final SQLField filterField = this.mapList.get(list);
                 list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
                     @Override
                     public SQLSelect transformChecked(SQLSelect input) {
-                        ITransformer<SQLSelect, SQLSelect> t = mapListTransformer.get(list);
-                        if (t != null) {
-                            input = t.transformChecked(input);
-                        }
-                        input.andWhere(new Where(input.getAlias(filterField), ">=", c.getTime()));
-                        return input;
+                        Where w = new Where(input.getAlias(filterField), ">=", c.getTime());
+                        return setWhere(input, w, mapListTransformer.get(list));
                     }
                 });
             }
-            return;
-        }
 
-        if (this.dateDu.getValue() == null) {
-            System.err.println("Au " + this.dateAu.getValue());
+        } else if (this.dateDu.getValue() == null) {
             final Calendar c = Calendar.getInstance();
             c.setTime(this.dateAu.getValue());
-            c.set(Calendar.HOUR_OF_DAY, 23);
-            c.set(Calendar.MINUTE, 59);
-            c.set(Calendar.MILLISECOND, 59);
+            setEndTimeSchedule(c);
             for (final IListe list : this.mapList.keySet()) {
                 final SQLField filterField = this.mapList.get(list);
 
                 list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
                     @Override
                     public SQLSelect transformChecked(SQLSelect input) {
-                        ITransformer<SQLSelect, SQLSelect> t = mapListTransformer.get(list);
-                        if (t != null) {
-                            input = t.transformChecked(input);
-                        }
-                        input.andWhere(new Where(input.getAlias(filterField), "<=", c.getTime()));
-                        return input;
+                        Where w = new Where(input.getAlias(filterField), "<=", c.getTime());
+                        return setWhere(input, w, mapListTransformer.get(list));
                     }
                 });
             }
-            return;
-        }
-        System.err.println("Between ");
 
-        final Calendar c = Calendar.getInstance();
-        c.setTime(this.dateAu.getValue());
+        } else {
+            final Calendar c = Calendar.getInstance();
+            c.setTime(this.dateAu.getValue());
+            setEndTimeSchedule(c);
+
+            final Calendar c2 = Calendar.getInstance();
+            c2.setTime(this.dateDu.getValue());
+            clearTimeSchedule(c2);
+
+            for (final IListe list : this.mapList.keySet()) {
+                final SQLField filterField = this.mapList.get(list);
+
+                list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
+                    @Override
+                    public SQLSelect transformChecked(SQLSelect input) {
+                        final Where w = new Where(input.getAlias(filterField), c2.getTime(), c.getTime());
+                        return setWhere(input, w, mapListTransformer.get(list));
+                    }
+                });
+            }
+        }
+
+        final Tuple2<Date, Date> selectedTuple = Tuple2.create(this.dateDu.getValue(), this.dateAu.getValue());
+        this.combo.setSelectedItem(findItem(selectedTuple, this.map));
+        for (PropertyChangeListener l : this.listeners.getListeners(PropertyChangeListener.class)) {
+            l.propertyChange(new PropertyChangeEvent(this, "valueChanged", null, selectedTuple));
+        }
+    }
+
+    public void addValueListener(PropertyChangeListener l) {
+        this.listeners.add(PropertyChangeListener.class, l);
+    }
+
+    public void rmValueListener(PropertyChangeListener l) {
+        this.listeners.remove(PropertyChangeListener.class, l);
+    }
+
+    private SQLSelect setWhere(SQLSelect input, Where w, ITransformer<SQLSelect, SQLSelect> t) {
+        if (t != null) {
+            input = t.transformChecked(input);
+        }
+        input.andWhere(w);
+        return input;
+    }
+
+    public static String findItem(Tuple2<Date, Date> t, Map<String, Tuple2<Date, Date>> mapItem) {
+
+        Date d1 = t.get0();
+        Date d2 = t.get1();
+        Calendar c1 = getCalendarFromDate(d1);
+        Calendar c2 = getCalendarFromDate(d2);
+
+        for (String label : mapItem.keySet()) {
+            Tuple2<Date, Date> t2 = mapItem.get(label);
+            if (t2 != null) {
+                final Date get0 = t2.get0();
+                final Date get1 = t2.get1();
+                Calendar cGet0 = getCalendarFromDate(get0);
+                Calendar cGet1 = getCalendarFromDate(get1);
+
+                if (isDateEquals(c1, cGet0) && isDateEquals(c2, cGet1)) {
+                    return label;
+                }
+            }
+        }
+        return CUSTOM_COMBO_ITEM;
+    }
+
+    private static Calendar getCalendarFromDate(final Date d) {
+        Calendar cal = null;
+        if (d != null) {
+            cal = Calendar.getInstance();
+            cal.setTime(d);
+        }
+        return cal;
+    }
+
+    public static boolean isDateEquals(Calendar d1, Calendar d2) {
+        boolean b = false;
+        if (d1 == null && d2 == null) {
+            b = true;
+        } else if (d1 != null && d2 != null) {
+            b = d1.get(Calendar.DAY_OF_MONTH) == d2.get(Calendar.DAY_OF_MONTH) && d2.get(Calendar.YEAR) == d1.get(Calendar.YEAR) && d1.get(Calendar.MONTH) == d2.get(Calendar.MONTH);
+        } else {
+            b = false;
+        }
+        return b;
+    }
+
+    private static void clearTimeSchedule(final Calendar c) {
+        c.set(Calendar.HOUR_OF_DAY, 0);
+        c.set(Calendar.MINUTE, 0);
+        c.set(Calendar.SECOND, 0);
+        c.set(Calendar.MILLISECOND, 0);
+    }
+
+    private static void setEndTimeSchedule(final Calendar c) {
         c.set(Calendar.HOUR_OF_DAY, 23);
         c.set(Calendar.MINUTE, 59);
+        c.set(Calendar.SECOND, 59);
         c.set(Calendar.MILLISECOND, 59);
+    }
 
-        final Calendar c2 = Calendar.getInstance();
-        c2.setTime(this.dateDu.getValue());
-        c2.set(Calendar.HOUR_OF_DAY, 0);
-        c2.set(Calendar.MINUTE, 0);
-        c2.set(Calendar.MILLISECOND, 1);
-        for (final IListe list : this.mapList.keySet()) {
-            final SQLField filterField = this.mapList.get(list);
+    static private final File getConfigFile(Map<IListe, SQLField> mapList) {
+        final Configuration conf = Configuration.getInstance();
+        if (conf == null)
+            return null;
 
-            list.getRequest().setSelectTransf(new ITransformer<SQLSelect, SQLSelect>() {
-                @Override
-                public SQLSelect transformChecked(SQLSelect input) {
-                    ITransformer<SQLSelect, SQLSelect> t = mapListTransformer.get(list);
-                    if (t != null) {
-                        input = t.transformChecked(input);
-                    }
-                    input.andWhere(new Where(input.getAlias(filterField), c2.getTime(), c.getTime()));
-                    return input;
-                }
-            });
+        String name = null;
+        for (IListe l : mapList.keySet()) {
+            String confName = l.getConfigFile().getName();
+            if (name == null) {
+                name = confName;
+            } else if (name.compareTo(confName) > 0) {
+                name = confName;
+            }
         }
-
+        return new File(conf.getConfDir(), "DateRanges" + File.separator + name);
     }
 }

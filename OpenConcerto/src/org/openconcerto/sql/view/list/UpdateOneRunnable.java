@@ -23,26 +23,26 @@ final class UpdateOneRunnable extends AbstractUpdateOneRunnable {
     private final SQLTableEvent evt;
 
     public UpdateOneRunnable(ITableModel model, SQLTableEvent evt) {
-        super(model, evt.getTable(), evt.getId());
+        super(model, evt.getRow());
         this.evt = evt;
     }
 
+    @Override
     public void run() {
         if (this.getTable() == this.getReq().getParent().getPrimaryTable()) {
             final ListSQLLine line = this.getReq().get(this.getID());
-            // handle deleted rows (ie line == null) by using this.getID()
+            // handle deleted rows (i.e. line == null) by using this.getID(), must be done before
+            // finding lines
             if (line == null)
                 this.getReq().fireLineChanged(this.getID(), line, null);
-            else {
-                final CollectionMap<Path, ListSQLLine> affectedPaths = this.getAffectedPaths();
-                // the line should be in the list (since SQLTableModelLinesSource.get()
-                // returned it), so if not yet part of the list add it.
-                if (affectedPaths.getNonNull(new Path(getTable())).isEmpty())
-                    line.clearCache();
-                // then, update affectedPaths (it's not because the changed table is the primary
-                // table, that it's not also referenced, eg CIRCUIT.ORIGINE)
-                updateLines(affectedPaths);
-            }
+            final CollectionMap<Path, ListSQLLine> affectedPaths = this.getAffectedPaths();
+            // the line should be in the list (since SQLTableModelLinesSource.get()
+            // returned it), so if not yet part of the list add it.
+            if (line != null && affectedPaths.getNonNull(new Path(getTable())).isEmpty())
+                line.clearCache();
+            // then, update affectedPaths (it's not because the changed table is the primary
+            // table, that it's not also referenced, e.g. CIRCUIT.ORIGINE)
+            updateLines(affectedPaths);
         } else {
             // eg CONTACT[3] has changed
             updateLines(this.getAffectedPaths());

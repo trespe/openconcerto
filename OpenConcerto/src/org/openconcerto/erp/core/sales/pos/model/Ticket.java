@@ -20,6 +20,7 @@ import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.erp.core.sales.pos.io.DefaultTicketPrinter;
 import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
 import org.openconcerto.erp.core.sales.pos.ui.TicketCellRenderer;
+import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.TemplateNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -61,6 +62,7 @@ public class Ticket {
 
     private static final SQLTable tableArticle = Configuration.getInstance().getRoot().findTable("ARTICLE");
 
+    @SuppressWarnings("unchecked")
     public static Ticket getTicketFromCode(String code) {
         // Code: 01_05042011_00002
         // filtre les chiffres
@@ -484,33 +486,24 @@ public class Ticket {
         return this.paiements;
     }
 
-    SQLTable tableTVA = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().findTable("TAXE");
-    SQLTable tableElt = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
-
     public int getTotal() {
-
-        TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
-
-        int i = 0;
-        for (Pair<Article, Integer> line : this.items) {
-
+        final SQLTable tableElt = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
+        final TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
+        final String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
+        final Boolean bServiceActive = Boolean.valueOf(val);
+        calc.setServiceActive(bServiceActive != null && bServiceActive);
+        final int size = this.items.size();
+        for (int i = 0; i < size; i++) {
+            final Pair<Article, Integer> line = this.items.get(i);
             final int count = line.getSecond();
-            Article art = line.getFirst();
-            SQLRowValues rowVals = new SQLRowValues(tableElt);
+            final Article art = line.getFirst();
+            final SQLRowValues rowVals = new SQLRowValues(tableElt);
             rowVals.put("T_PV_HT", art.getPriceHTInCents().multiply(new BigDecimal(count)));
             rowVals.put("QTE", count);
             rowVals.put("ID_TAXE", art.idTaxe);
             calc.addLine(rowVals, tableArticle.getRow(art.getId()), i, false);
-            i++;
+
         }
-        // BigDecimal total = BigDecimal.ZERO;
-        // for (Pair<Article, Integer> line : this.items) {
-        //
-        // final int count = line.getSecond();
-        // final BigDecimal price = line.getFirst().priceInCents;
-        // total = total.add(price.multiply(new BigDecimal(count), MathContext.DECIMAL128));
-        // }
-        // return total.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
         calc.checkResult();
         return calc.getTotalTTC().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
     }
@@ -521,7 +514,6 @@ public class Ticket {
 
     public void clearArticle(Article article) {
         Pair<Article, Integer> toRemove = null;
-
         for (Pair<Article, Integer> line : this.items) {
             if (line.getFirst().equals(article)) {
                 toRemove = line;
@@ -529,11 +521,8 @@ public class Ticket {
             }
         }
         if (toRemove != null) {
-
             this.items.remove(toRemove);
-
         }
-
     }
 
     public void setArticleCount(Article article, int count) {
@@ -542,7 +531,6 @@ public class Ticket {
             return;
         }
         Pair<Article, Integer> toModify = null;
-
         for (Pair<Article, Integer> line : this.items) {
             if (line.getFirst().equals(article)) {
                 toModify = line;
@@ -550,7 +538,6 @@ public class Ticket {
             }
         }
         if (toModify != null) {
-            System.out.println("Ticket.setArticleCount():" + article + " " + count);
             toModify.setSecond(count);
         }
 

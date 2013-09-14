@@ -20,11 +20,8 @@ import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.ExceptionHandler;
 
-import java.sql.SQLException;
 import java.util.Date;
-
 
 public class GenerationMvtAvoirFournisseur extends GenerationEcritures {
 
@@ -45,7 +42,7 @@ public class GenerationMvtAvoirFournisseur extends GenerationEcritures {
         this.idAvoirFourn = idAvoirFourn;
     }
 
-    public int genereMouvement() {
+    public int genereMouvement() throws Exception {
 
         SQLTable avoirFournTable = base.getTable("AVOIR_FOURNISSEUR");
         SQLTable fournTable = base.getTable("FOURNISSEUR");
@@ -91,98 +88,72 @@ public class GenerationMvtAvoirFournisseur extends GenerationEcritures {
         this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteAchat));
         this.mEcritures.put("DEBIT", Long.valueOf(0));
         this.mEcritures.put("CREDIT", Long.valueOf(prixHT.getLongValue()));
-        try {
+
+        ajoutEcriture();
+
+        if (prixTVA.getLongValue() > 0) {
+            // compte TVA
+            int idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_ACHAT");
+            if (avoirRow.getBoolean("IMMO")) {
+                idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_IMMO");
+                if (idCompteTVA <= 1) {
+                    idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVAImmo");
+                }
+            } else {
+                idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_ACHAT");
+                if (idCompteTVA <= 1) {
+                    idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVADeductible");
+                }
+            }
+
+            this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTVA));
+            this.mEcritures.put("DEBIT", Long.valueOf(0));
+            this.mEcritures.put("CREDIT", Long.valueOf(prixTVA.getLongValue()));
             ajoutEcriture();
 
-            if (prixTVA.getLongValue() > 0) {
-                // compte TVA
-                int idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_ACHAT");
-                if (avoirRow.getBoolean("IMMO")) {
-                    idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_IMMO");
-                    if (idCompteTVA <= 1) {
-                        try {
-                            idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVAImmo");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                } else {
-                    idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_ACHAT");
-                    if (idCompteTVA <= 1) {
-                        try {
-                            idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVADeductible");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
+            if (rowFourn.getBoolean("UE")) {
+                int idCompteTVAIntra = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_INTRA");
+                if (idCompteTVAIntra <= 1) {
+                    idCompteTVAIntra = ComptePCESQLElement.getIdComptePceDefault("TVAIntraComm");
                 }
-
-                this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTVA));
-                this.mEcritures.put("DEBIT", Long.valueOf(0));
-                this.mEcritures.put("CREDIT", Long.valueOf(prixTVA.getLongValue()));
+                this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTVAIntra));
+                this.mEcritures.put("DEBIT", Long.valueOf(prixTVA.getLongValue()));
+                this.mEcritures.put("CREDIT", Long.valueOf(0));
                 ajoutEcriture();
-
-                if (rowFourn.getBoolean("UE")) {
-                    int idCompteTVAIntra = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_INTRA");
-                    if (idCompteTVAIntra <= 1) {
-                        try {
-                            idCompteTVAIntra = ComptePCESQLElement.getIdComptePceDefault("TVAIntraComm");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTVAIntra));
-                    this.mEcritures.put("DEBIT", Long.valueOf(prixTVA.getLongValue()));
-                    this.mEcritures.put("CREDIT", Long.valueOf(0));
-                    ajoutEcriture();
-                }
             }
-            // compte Fournisseur
-            int idCompteFourn = rowFourn.getInt("ID_COMPTE_PCE");
-            if (idCompteFourn <= 1) {
-                idCompteFourn = rowPrefsCompte.getInt("ID_COMPTE_PCE_FOURNISSEUR");
-                if (idCompteFourn <= 1) {
-                    try {
-                        idCompteFourn = ComptePCESQLElement.getIdComptePceDefault("Fournisseurs");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-            this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteFourn));
-            this.mEcritures.put("DEBIT", Long.valueOf(prixTTC.getLongValue()));
-            this.mEcritures.put("CREDIT", Long.valueOf(0));
-            ajoutEcriture();
-
-            // Mise à jour de mouvement associé à la facture d'avoir
-            SQLRowValues valAvoir = new SQLRowValues(avoirFournTable);
-            valAvoir.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
-
-            try {
-                if (valAvoir.getInvalid() == null) {
-
-                    valAvoir.update(this.idAvoirFourn);
-                }
-            } catch (SQLException e) {
-                System.err.println("Erreur à l'insertion dans la table " + avoirFournTable.getName() + " : " + e);
-                e.printStackTrace();
-            }
-
-            // if (avoirRow.getInt("ID_MODE_REGLEMENT") > 1) {
-            // new GenerationMvtReglementAvoir(this.idAvoirFourn, this.idMvt);
-            // } else {
-            // valAvoir.put("SOLDE", Boolean.FALSE);
-            // try {
-            // valAvoir.update(this.idAvoirClient);
-            // } catch (SQLException e) {
-            // e.printStackTrace();
-            // }
-            // }
-
-        } catch (IllegalArgumentException e) {
-            ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
         }
+        // compte Fournisseur
+        int idCompteFourn = rowFourn.getInt("ID_COMPTE_PCE");
+        if (idCompteFourn <= 1) {
+            idCompteFourn = rowPrefsCompte.getInt("ID_COMPTE_PCE_FOURNISSEUR");
+            if (idCompteFourn <= 1) {
+                idCompteFourn = ComptePCESQLElement.getIdComptePceDefault("Fournisseurs");
+            }
+        }
+        this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteFourn));
+        this.mEcritures.put("DEBIT", Long.valueOf(prixTTC.getLongValue()));
+        this.mEcritures.put("CREDIT", Long.valueOf(0));
+        ajoutEcriture();
+
+        // Mise à jour de mouvement associé à la facture d'avoir
+        SQLRowValues valAvoir = new SQLRowValues(avoirFournTable);
+        valAvoir.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
+
+        if (valAvoir.getInvalid() == null) {
+
+            valAvoir.update(this.idAvoirFourn);
+        }
+
+        // if (avoirRow.getInt("ID_MODE_REGLEMENT") > 1) {
+        // new GenerationMvtReglementAvoir(this.idAvoirFourn, this.idMvt);
+        // } else {
+        // valAvoir.put("SOLDE", Boolean.FALSE);
+        // try {
+        // valAvoir.update(this.idAvoirClient);
+        // } catch (SQLException e) {
+        // e.printStackTrace();
+        // }
+        // }
 
         return this.idMvt;
     }

@@ -13,6 +13,8 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
+import org.openconcerto.utils.CompareUtils;
+
 import java.awt.Point;
 import java.util.regex.Matcher;
 
@@ -70,8 +72,8 @@ public final class Range {
      */
     public Range(String startSheet, Point startPoint, String endSheet, Point endPoint) {
         super();
-        if (startSheet == null)
-            throw new NullPointerException("null sheet");
+        if (startSheet == null && endSheet != null)
+            throw new NullPointerException("null start sheet, but non null endSheet : " + endSheet);
         this.sheet1 = startSheet;
         this.sheet2 = endSheet == null ? startSheet : endSheet;
         this.start = startPoint;
@@ -95,7 +97,7 @@ public final class Range {
     }
 
     public final boolean spanSheets() {
-        return !this.getStartSheet().equals(this.getEndSheet());
+        return !CompareUtils.equals(this.getStartSheet(), this.getEndSheet());
     }
 
     @Override
@@ -107,7 +109,7 @@ public final class Range {
         if (getClass() != obj.getClass())
             return false;
         final Range o = (Range) obj;
-        return this.sheet1.equals(o.sheet1) && this.start.equals(o.start) && this.sheet2.equals(o.sheet2) && this.end.equals(o.end);
+        return CompareUtils.equals(this.sheet1, o.sheet1) && this.start.equals(o.start) && CompareUtils.equals(this.sheet2, o.sheet2) && this.end.equals(o.end);
     }
 
     @Override
@@ -124,7 +126,8 @@ public final class Range {
     @Override
     public String toString() {
         final StringBuilder sb = new StringBuilder(32);
-        sb.append(this.getStartSheet());
+        if (this.getStartSheet() != null)
+            sb.append(this.getStartSheet());
         sb.append(".");
         sb.append(Table.getAddress(getStartPoint()));
         sb.append(":");

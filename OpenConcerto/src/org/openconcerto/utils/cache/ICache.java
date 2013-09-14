@@ -55,6 +55,8 @@ public class ICache<K, V, D> {
     private Map<D, CacheWatcher<K, D>> watchers;
     private final CollectionMap<K, CacheWatcher<K, D>> watchersByKey;
 
+    private ICache<K, V, D> parent;
+
     public ICache() {
         this(60);
     }
@@ -88,6 +90,8 @@ public class ICache<K, V, D> {
 
         this.watchers = null;
         this.watchersByKey = new CollectionMap<K, CacheWatcher<K, D>>(HashSet.class);
+
+        this.parent = null;
     }
 
     private final Timer getTimer() {
@@ -113,19 +117,43 @@ public class ICache<K, V, D> {
     }
 
     /**
+     * Allow to continue the search for a key in another instance.
+     * 
+     * @param parent the cache to search when a key isn't found in this.
+     */
+    public final synchronized void setParent(final ICache<K, V, D> parent) {
+        ICache<K, V, D> current = parent;
+        while (current != null) {
+            if (current == this)
+                throw new IllegalArgumentException("Cycle detected, cannot set parent to " + parent);
+            current = current.getParent();
+        }
+        this.parent = parent;
+    }
+
+    public final synchronized ICache<K, V, D> getParent() {
+        return this.parent;
+    }
+
+    /**
      * If <code>sel</code> is in cache returns its value, else if key is running block until the key
-     * is put (or the current thread is interrupted). Otherwise the key is not in cache so return a
-     * CacheResult of state {@link State#NOT_IN_CACHE}.
+     * is put (or the current thread is interrupted). Then if a {@link #setParent(ICache) parent}
+     * has been set, use it. Otherwise the key is not in cache so return a CacheResult of state
+     * {@link State#NOT_IN_CACHE}.
      * 
      * @param sel the key we're getting the value for.
      * @return a CacheResult with the appropriate state.
      */
     public final CacheResult<V> get(K sel) {
+        return this.get(sel, true);
+    }
+
+    private final CacheResult<V> get(K sel, final boolean checkRunning) {
         synchronized (this) {
             if (this.cache.containsKey(sel)) {
                 log("IN cache", sel);
                 return new CacheResult<V>(this.cache.get(sel));
-            } else if (isRunning(sel)) {
+            } else if (checkRunning && isRunning(sel)) {
                 log("RUNNING", sel);
                 try {
                     this.wait();
@@ -134,6 +162,9 @@ public class ICache<K, V, D> {
                     return CacheResult.getInterrupted();
                 }
                 return this.get(sel);
+            } else if (this.parent != null) {
+                log("CALLING parent", sel);
+                return this.parent.get(sel, false);
             } else {
                 log("NOT in cache", sel);
                 return CacheResult.getNotInCache();

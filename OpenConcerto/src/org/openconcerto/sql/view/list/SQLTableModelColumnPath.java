@@ -20,6 +20,8 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.request.RowItemDesc;
+import org.openconcerto.sql.request.SQLFieldTranslator;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.sql.SQLException;
@@ -35,8 +37,16 @@ import java.util.Set;
  */
 public class SQLTableModelColumnPath extends SQLTableModelColumn {
 
+    private static final RowItemDesc getDescFor(SQLField field) {
+        final Configuration conf = Configuration.getInstance();
+        if (conf == null)
+            return SQLFieldTranslator.getDefaultDesc(field);
+        else
+            return conf.getTranslator().getDescFor(field.getTable(), field.getName());
+    }
+
     private static final String getLabelFor(SQLField field) {
-        return Configuration.getInstance().getTranslator().getLabelFor(field);
+        return getDescFor(field).getLabel();
     }
 
     private final FieldPath p;
@@ -51,7 +61,7 @@ public class SQLTableModelColumnPath extends SQLTableModelColumn {
     }
 
     public SQLTableModelColumnPath(FieldPath fp) {
-        this(fp, Configuration.getInstance().getTranslator().getTitleFor(fp.getField()));
+        this(fp, getDescFor(fp.getField()).getTitleLabel());
     }
 
     public SQLTableModelColumnPath(FieldPath fp, final String name) {

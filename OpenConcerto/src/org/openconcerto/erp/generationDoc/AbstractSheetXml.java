@@ -21,6 +21,7 @@ import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.sync.SyncClient;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.concurrent.Callable;
@@ -58,7 +59,8 @@ public abstract class AbstractSheetXml extends SheetXml {
                         templateId = getDefaultTemplateId();
                     }
                     final OOgenerationXML oXML = new OOgenerationXML(AbstractSheetXml.this.row);
-                    AbstractSheetXml.this.generatedOpenDocumentFile = oXML.createDocument(templateId, getType(), getDocumentOutputDirectory(), getValidFileName(getName()), getRowLanguage());
+                    AbstractSheetXml.this.generatedOpenDocumentFile = oXML.createDocument(templateId, getType(), getDocumentOutputDirectory(), getValidFileName(getName()), getRowLanguage(),
+                            AbstractSheetXml.this.getMetaGeneration());
 
                 } catch (Exception e) {
                     DEFAULT_HANDLER.uncaughtException(null, e);
@@ -117,8 +119,10 @@ public abstract class AbstractSheetXml extends SheetXml {
                 System.out.println("AbstractSheet: getFromCloud: " + remotePath + " " + generatedOpenDocumentFile.getName() + " to " + outputDirectory.getAbsolutePath());
                 client.retrieveFile(outputDirectory, remotePath, generatedOpenDocumentFile.getName(), config.getToken());
                 generatedOpenDocumentFile.setLastModified(System.currentTimeMillis());
+            } catch (FileNotFoundException e) {
+                // Not an error
+                System.out.println("AbstractSheet: getFromCloud: " + remotePath + " " + generatedOpenDocumentFile.getName() + " not found on server");
             } catch (Exception e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
             }
         }

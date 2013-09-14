@@ -28,8 +28,8 @@ public class GestionArticleGlobalPreferencePanel extends JavaPrefPreferencePanel
     public static String UNITE_VENTE = "UniteVenteActive";
     public static String USE_CREATED_ARTICLE = "UseCreatedArticle";
     public static String CREATE_ARTICLE_AUTO = "CreateArticleAuto";
-    public static String TVA_LINE = "TVALigne";
     public static String SUPPLIER_PRODUCT_CODE = "SupplierProductCode";
+    public static String SHOW_PRODUCT_BAR_CODE = "ShowProductBarCode";
 
     public GestionArticleGlobalPreferencePanel() {
         super("Gestion des articles", null);
@@ -59,9 +59,9 @@ public class GestionArticleGlobalPreferencePanel extends JavaPrefPreferencePanel
         view4.setDefaultValue(Boolean.TRUE);
         this.addView(view4);
 
-        // FIXME Patch pour arfang
-        PrefView<Boolean> view5 = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Calculer la TVA par ligne", TVA_LINE);
+        PrefView<Boolean> view5 = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Afficher le code barre des articles dans les sélecteurs", SHOW_PRODUCT_BAR_CODE);
         view5.setDefaultValue(Boolean.FALSE);
         this.addView(view5);
+
     }
 }

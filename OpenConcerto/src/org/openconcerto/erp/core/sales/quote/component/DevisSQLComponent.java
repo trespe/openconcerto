@@ -17,6 +17,7 @@ import static org.openconcerto.utils.CollectionUtils.createSet;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
+import org.openconcerto.erp.core.common.ui.AbstractArticleItemTable;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
@@ -24,6 +25,7 @@ import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
 import org.openconcerto.erp.core.sales.quote.ui.DevisItemTable;
 import org.openconcerto.erp.panel.PanelOOSQLComponent;
+import org.openconcerto.map.ui.ITextComboVilleViewer;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -33,6 +35,7 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
@@ -46,7 +49,9 @@ import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.VFlowLayout;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.GestionDevise;
+
+import org.openconcerto.utils.cc.ITransformer;
+
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Color;
@@ -54,6 +59,8 @@ import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
@@ -62,11 +69,13 @@ import java.util.List;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButton;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
@@ -77,7 +86,7 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 
 public class DevisSQLComponent extends BaseSQLComponent {
-    private DevisItemTable table;
+    private AbstractArticleItemTable table;
     private JUniqueTextField numeroUniqueDevis;
     private final SQLTable tableNum = getTable().getBase().getTable("NUMEROTATION_AUTO");
     private final ITextArea infos = new ITextArea();
@@ -87,11 +96,32 @@ public class DevisSQLComponent extends BaseSQLComponent {
     private DeviseField fieldHT;
     private PanelOOSQLComponent panelOO;
 
+    // Site d'intervention
+    final JTextField telSite = new JTextField(20);
+    final ITextComboVilleViewer villeSite = new ITextComboVilleViewer();
+    final JTextField faxSite = new JTextField(20);
+    final JTextField telPSite = new JTextField(20);
+    final JTextField mailSite = new JTextField(20);
+    final JTextField contactSite = new JTextField(20);
+    final JTextField desSite = new JTextField(20);
+    final ITextArea adrSite = new ITextArea();
+
+    // Donneur d'ordre
+    final JTextField telDonneur = new JTextField(20);
+    final JTextField sirenDonneur = new JTextField(20);
+    final ITextComboVilleViewer villeDonneur = new ITextComboVilleViewer();
+    final JTextField faxDonneur = new JTextField(20);
+    final JTextField telPDonneur = new JTextField(20);
+    final JTextField mailDonneur = new JTextField(20);
+    final JTextField contactDonneur = new JTextField(20);
+    final JTextField desDonneur = new JTextField(20);
+    final ITextArea adrDonneur = new ITextArea();
+
     public DevisSQLComponent(final SQLElement elt) {
         super(elt);
     }
 
-    public DevisItemTable getRowValuesTable() {
+    public AbstractArticleItemTable getRowValuesTable() {
         return this.table;
     }
 
@@ -151,6 +181,13 @@ public class DevisSQLComponent extends BaseSQLComponent {
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.EAST;
         c.gridx += 2;
+        this.radioEtat.initLocalization(new ITransformer<String, String>() {
+            @Override
+            public String transformChecked(String id) {
+                return id;
+                // return TranslationManager.getInstance().getTranslationForItem(id);
+            }
+        });
         this.add(this.radioEtat, c);
         // this.radioEtat.setVisible(false);
 
@@ -215,44 +252,9 @@ public class DevisSQLComponent extends BaseSQLComponent {
         c.weighty = 0;
         c.fill = GridBagConstraints.NONE;
         this.add(comboClient, c);
+        addRequiredSQLObject(comboClient, "ID_CLIENT");
+
         final ElementComboBox boxTarif = new ElementComboBox();
-        comboClient.addValueListener(new PropertyChangeListener() {
-
-            @Override
-            public void propertyChange(PropertyChangeEvent arg0) {
-                if (!isFilling() && comboClient.getValue() != null) {
-                    Integer id = comboClient.getValue();
-
-                    if (id > 1) {
-
-                        SQLRow row = comboClient.getElement().getTable().getRow(id);
-                        if (comboClient.getElement().getTable().getFieldsName().contains("ID_TARIF")) {
-
-                            SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
-                            if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
-                                    && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
-                                boxTarif.setValue(foreignRow.getID());
-                                // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
-                                // true);
-                            } else {
-                                boxTarif.setValue(foreignRow.getID());
-                            }
-
-                            // SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
-                            // if (foreignRow.isUndefined() &&
-                            // !row.getForeignRow("ID_DEVISE").isUndefined()) {
-                            // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
-                            // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
-                            // foreignRow = rowValsD;
-                            //
-                            // }
-                            // table.setTarif(foreignRow, true);
-                        }
-                    }
-                }
-
-            }
-        });
 
         if (getTable().getFieldsName().contains("DATE_VALIDITE")) {
             c.gridx++;
@@ -280,23 +282,27 @@ public class DevisSQLComponent extends BaseSQLComponent {
             this.add(boxTarif, c);
             this.addView(boxTarif, "ID_TARIF");
             DefaultGridBagConstraints.lockMinimumSize(boxTarif);
-            boxTarif.addValueListener(new PropertyChangeListener() {
+            boxTarif.addModelListener("wantedID", new PropertyChangeListener() {
 
                 @Override
                 public void propertyChange(PropertyChangeEvent evt) {
-                    table.setTarif(boxTarif.getSelectedRow(), false);
+
+                    SQLRow selectedRow = boxTarif.getRequest().getPrimaryTable().getRow(boxTarif.getWantedID());
+                    table.setTarif(selectedRow, !isFilling());
                 }
             });
         }
 
         // Table d'élément
-        this.table = new DevisItemTable();
+            this.table = new DevisItemTable();
+
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;
-        c.gridy += 2;
+        c.gridy += 5;
         c.weighty = 1;
         c.gridwidth = GridBagConstraints.REMAINDER;
         this.add(this.table, c);
+        this.addView(this.table.getRowValuesTable(), "");
 
         // Panel en bas
         final JPanel bottomPanel = new JPanel(new GridBagLayout());
@@ -365,7 +371,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         panelRemise.add(radioPourCent, cRemise);
 
         this.textPourcentRemise = new JTextField(5);
-        DefaultGridBagConstraints.lockMinimumSize(textPourcentRemise);
+        DefaultGridBagConstraints.lockMinimumSize(this.textPourcentRemise);
         cRemise.gridx++;
         panelRemise.add(this.textPourcentRemise, cRemise);
 
@@ -394,7 +400,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         final DeviseField fieldTTC = new DeviseField();
         final DeviseField fieldDevise = new DeviseField();
         final DeviseField fieldService = new DeviseField();
-        fieldHT.setEditable(false);
+        this.fieldHT.setEditable(false);
         fieldTVA.setEditable(false);
         fieldTTC.setEditable(false);
         fieldService.setEditable(false);
@@ -484,21 +490,278 @@ public class DevisSQLComponent extends BaseSQLComponent {
             }
         });
 
-        addRequiredSQLObject(comboClient, "ID_CLIENT");
         addSQLObject(textObjet, "OBJET");
         addSQLObject(this.textPoidsTotal, "T_POIDS");
         addRequiredSQLObject(dateDevis, "DATE");
         addRequiredSQLObject(this.radioEtat, "ID_ETAT_DEVIS");
         addRequiredSQLObject(this.numeroUniqueDevis, "NUMERO");
         addSQLObject(this.infos, "INFOS");
+        comboClient.addModelListener("wantedID", new PropertyChangeListener() {
 
+            @Override
+            public void propertyChange(PropertyChangeEvent arg0) {
+                if (!isFilling()) {
+                    Integer id = comboClient.getWantedID();
+
+                    if (id > 1) {
+
+                        SQLRow row = comboClient.getElement().getTable().getRow(id);
+                        if (comboClient.getElement().getTable().getFieldsName().contains("ID_TARIF")) {
+
+                            SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                            if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
+                                    && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
+                                boxTarif.setValue(foreignRow.getID());
+                                // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
+                                // true);
+                            } else {
+                                boxTarif.setValue(foreignRow.getID());
+                            }
+
+                            // SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
+                            // if (foreignRow.isUndefined() &&
+                            // !row.getForeignRow("ID_DEVISE").isUndefined()) {
+                            // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
+                            // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
+                            // foreignRow = rowValsD;
+                            //
+                            // }
+                            // table.setTarif(foreignRow, true);
+                        }
+                    }
+                }
+
+            }
+        });
         DefaultGridBagConstraints.lockMinimumSize(comboCommercial);
         DefaultGridBagConstraints.lockMinimumSize(comboClient);
+    }
+
+    private enum Type_Diff {
+        SITE("SITE"), DONNEUR_ORDRE("DONNEUR");
+        private final String name;
+
+        private Type_Diff(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return this.name;
+        }
+    }
+
+    private JPanel createPanelDiff(final Type_Diff type) {
+
+        GridBagConstraints cTabSite = new DefaultGridBagConstraints();
+        JPanel tabSite = new JPanel(new GridBagLayout());
+
+        cTabSite.weightx = 1;
+        cTabSite.fill = GridBagConstraints.HORIZONTAL;
+        cTabSite.gridwidth = 2;
+
+        final String name = type.getName();
+        final JCheckBox boxSiteDiff = new JCheckBox(getLabelFor(name + "_DIFF"));
+
+        tabSite.add(boxSiteDiff, cTabSite);
+        this.addView(boxSiteDiff, name + "_DIFF");
+
+        final String fieldSiren = "SIREN_" + name;
+        if (getTable().contains(fieldSiren)) {
+            final JLabel labelSrenSite = new JLabel(getLabelFor(fieldSiren));
+            labelSrenSite.setHorizontalAlignment(SwingConstants.RIGHT);
+            cTabSite.gridwidth = 1;
+            cTabSite.gridx = 2;
+            cTabSite.weightx = 0;
+            tabSite.add(labelSrenSite, cTabSite);
+
+            cTabSite.gridx++;
+            cTabSite.weightx = 1;
+            if (type == Type_Diff.SITE) {
+                throw new IllegalArgumentException("Le siren n'est pas à renseigné pour le site");
+            }
+            final JTextField siren = this.sirenDonneur;
+            tabSite.add(siren, cTabSite);
+            this.addView(siren, fieldSiren);
+            DefaultGridBagConstraints.lockMinimumSize(siren);
+        }
+        cTabSite.gridy++;
+        cTabSite.gridx = 0;
+        cTabSite.weightx = 0;
+        cTabSite.fill = GridBagConstraints.HORIZONTAL;
+        cTabSite.gridwidth = 1;
+        final JLabel labelSiteDes = new JLabel(getLabelFor("DESIGNATION_" + name));
+
+        labelSiteDes.setHorizontalAlignment(SwingConstants.RIGHT);
+
+        tabSite.add(labelSiteDes, cTabSite);
+        cTabSite.gridx++;
+        cTabSite.weightx = 1;
+        final JTextField designation = type == Type_Diff.SITE ? this.desSite : this.desDonneur;
+        tabSite.add(designation, cTabSite);
+        this.addView(designation, "DESIGNATION_" + name);
+        DefaultGridBagConstraints.lockMinimumSize(designation);
+
+        final JLabel labelTelSite = new JLabel(getLabelFor("TEL_" + name));
+        labelTelSite.setHorizontalAlignment(SwingConstants.RIGHT);
+        cTabSite.gridx++;
+        cTabSite.weightx = 0;
+        tabSite.add(labelTelSite, cTabSite);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 1;
+        final JTextField tel = type == Type_Diff.SITE ? this.telSite : this.telDonneur;
+        tabSite.add(tel, cTabSite);
+        this.addView(tel, "TEL_" + name);
+        DefaultGridBagConstraints.lockMinimumSize(tel);
+
+        final JLabel labelSiteAdr = new JLabel(getLabelFor("ADRESSE_" + name));
+        labelSiteAdr.setHorizontalAlignment(SwingConstants.RIGHT);
+        cTabSite.gridy++;
+        cTabSite.gridx = 0;
+        cTabSite.weightx = 0;
+        tabSite.add(labelSiteAdr, cTabSite);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 1;
+        final ITextArea adresse = type == Type_Diff.SITE ? this.adrSite : this.adrDonneur;
+        tabSite.add(adresse, cTabSite);
+        this.addView(adresse, "ADRESSE_" + name);
+        DefaultGridBagConstraints.lockMinimumSize(adresse);
+
+        final JLabel labelTelPSite = new JLabel(getLabelFor("TEL_P_" + name));
+        labelTelPSite.setHorizontalAlignment(SwingConstants.RIGHT);
+        cTabSite.gridx++;
+        cTabSite.weightx = 0;
+        tabSite.add(labelTelPSite, cTabSite);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 1;
+        final JTextField telP = type == Type_Diff.SITE ? this.telPSite : this.telPDonneur;
+        tabSite.add(telP, cTabSite);
+        this.addView(telP, "TEL_P_" + name);
+
+        cTabSite.gridy++;
+        cTabSite.gridx = 0;
+        cTabSite.weightx = 0;
+        final JLabel labelVilleAdr = new JLabel(getLabelFor("VILLE_" + name));
+        labelVilleAdr.setHorizontalAlignment(SwingConstants.RIGHT);
+        tabSite.add(labelVilleAdr, cTabSite);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 1;
+        final ITextComboVilleViewer ville = type == Type_Diff.SITE ? this.villeSite : this.villeDonneur;
+        tabSite.add(ville, cTabSite);
+        this.addView(ville, "VILLE_" + name);
+        DefaultGridBagConstraints.lockMinimumSize(ville);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 0;
+
+        final JLabel labelFaxSite = new JLabel(getLabelFor("FAX_" + name));
+        labelFaxSite.setHorizontalAlignment(SwingConstants.RIGHT);
+        tabSite.add(labelFaxSite, cTabSite);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 1;
+        final JTextField fax = type == Type_Diff.SITE ? this.faxSite : this.faxDonneur;
+        tabSite.add(fax, cTabSite);
+        this.addView(fax, "FAX_" + name);
+        DefaultGridBagConstraints.lockMinimumSize(fax);
+
+        cTabSite.gridy++;
+        cTabSite.gridx = 0;
+        cTabSite.weightx = 0;
+
+        final JLabel labelContactSite = new JLabel(getLabelFor("CONTACT_" + name));
+        labelContactSite.setHorizontalAlignment(SwingConstants.RIGHT);
+        tabSite.add(labelContactSite, cTabSite);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 1;
+        final JTextField contact = type == Type_Diff.SITE ? this.contactSite : this.contactDonneur;
+        tabSite.add(contact, cTabSite);
+        this.addView(contact, "CONTACT_" + name);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 0;
+
+        final JLabel labelMailSite = new JLabel(getLabelFor("MAIL_" + name));
+        labelMailSite.setHorizontalAlignment(SwingConstants.RIGHT);
+        tabSite.add(labelMailSite, cTabSite);
+
+        cTabSite.gridx++;
+        cTabSite.weightx = 1;
+        final JTextField mail = type == Type_Diff.SITE ? this.mailSite : this.mailDonneur;
+        tabSite.add(mail, cTabSite);
+        this.addView(mail, "MAIL_" + name);
+
+        boxSiteDiff.addItemListener(new ItemListener() {
+
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                final boolean selected = boxSiteDiff.isSelected();
+                setSiteEnabled(selected, type);
+                if (!selected) {
+                    clearFieldDiff(type);
+                }
+            }
+        });
+        return tabSite;
+    }
+
+    private void clearFieldDiff(Type_Diff type) {
+        if (type == Type_Diff.SITE) {
+            this.desSite.setText("");
+            this.adrSite.setText("");
+            this.villeSite.setValue(null);
+            this.telPSite.setText("");
+            this.telSite.setText("");
+            this.mailSite.setText("");
+            this.contactSite.setText("");
+            this.faxSite.setText("");
+        } else {
+            this.sirenDonneur.setText("");
+            this.desDonneur.setText("");
+            this.adrDonneur.setText("");
+            this.villeDonneur.setValue(null);
+            this.telPDonneur.setText("");
+            this.telDonneur.setText("");
+            this.mailDonneur.setText("");
+            this.contactDonneur.setText("");
+            this.faxDonneur.setText("");
+        }
+    }
+
+    private void setSiteEnabled(boolean b, Type_Diff type) {
+        if (type == Type_Diff.SITE) {
+            this.desSite.setEditable(b);
+            this.adrSite.setEditable(b);
+            this.villeSite.setEnabled(b);
+            this.telPSite.setEditable(b);
+            this.telSite.setEditable(b);
+            this.mailSite.setEditable(b);
+            this.contactSite.setEditable(b);
+            this.faxSite.setEditable(b);
+        } else {
+            this.sirenDonneur.setEditable(b);
+            this.desDonneur.setEditable(b);
+            this.adrDonneur.setEditable(b);
+            this.villeDonneur.setEnabled(b);
+            this.telPDonneur.setEditable(b);
+            this.telDonneur.setEditable(b);
+            this.mailDonneur.setEditable(b);
+            this.contactDonneur.setEditable(b);
+            this.faxDonneur.setEditable(b);
+        }
     }
 
     @Override
     protected SQLRowValues createDefaults() {
         System.err.println("Create defaults");
+
+        setSiteEnabled(false, Type_Diff.DONNEUR_ORDRE);
+        setSiteEnabled(false, Type_Diff.SITE);
+
         // Numero incremental auto
         final SQLRowValues rowVals = new SQLRowValues(getTable());
         rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(DevisSQLElement.class));
@@ -524,7 +787,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         } else {
             SQLRowValues foreign = UndefinedRowValuesCache.getInstance().getDefaultRowValues(getTable());
             if (foreign != null && !foreign.isUndefined()) {
-                rowVals.put("ID_ETAT_DEVIS", foreign.getID());
+                rowVals.put("ID_ETAT_DEVIS", foreign.getObject("ID_ETAT_DEVIS"));
             } else {
                 rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.EN_ATTENTE);
             }
@@ -544,8 +807,8 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
     private void calculPourcentage() {
         final String remiseP = this.textPourcentRemise.getText().replace(',', '.');
-        Long totalHT = (Long) this.fieldHT.getUncheckedValue();
-        Long remiseHT = (Long) this.textRemiseHT.getUncheckedValue();
+        Long totalHT = this.fieldHT.getValue();
+        Long remiseHT = this.textRemiseHT.getValue();
 
         totalHT = totalHT == null ? Long.valueOf(0) : totalHT;
         remiseHT = remiseHT == null ? Long.valueOf(0) : remiseHT;
@@ -555,7 +818,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
             final long remise = valueRemise * (totalHT.longValue() + remiseHT.longValue()) / 100;
             if (remiseHT != remise) {
-                this.textRemiseHT.setValue(GestionDevise.currencyToString(remise));
+                this.textRemiseHT.setValue(remise);
             }
 
         } catch (final NumberFormatException e) {
@@ -635,7 +898,13 @@ public class DevisSQLComponent extends BaseSQLComponent {
         if (r != null) {
             this.table.insertFrom("ID_DEVIS", r.getID());
             // this.radioEtat.setVisible(r.getID() > getTable().getUndefinedID());
+            if (getTable().contains("SITE_DIFF"))
+                setSiteEnabled(r.getBoolean("SITE_DIFF"), Type_Diff.SITE);
+
+            if (getTable().contains("DONNEUR_DIFF"))
+                setSiteEnabled(r.getBoolean("DONNEUR_DIFF"), Type_Diff.DONNEUR_ORDRE);
         }
+
     }
 
     @Override
@@ -683,6 +952,8 @@ public class DevisSQLComponent extends BaseSQLComponent {
             final SQLRowValues rowVals = new SQLRowValues(devis.getTable());
             rowVals.put("ID_CLIENT", row.getInt("ID_CLIENT"));
             rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(DevisSQLElement.class));
+
+
             this.select(rowVals);
         }
 

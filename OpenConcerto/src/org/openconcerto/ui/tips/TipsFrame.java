@@ -149,16 +149,14 @@ public class TipsFrame extends JFrame {
         }
         currentIndex = i % this.tips.size();
         // Le panel du tips doit faire 640,480;
-        synchronized (getTreeLock()) {
-            this.remove(currentPanel);
-            this.invalidate();
-            currentPanel = this.tips.get(i).getPanel();
-            currentPanel.setMinimumSize(new Dimension(480, H));
-            currentPanel.setPreferredSize(new Dimension(480, H));
-            this.add(currentPanel, constraintPanel);
-            this.validateTree();
-        }
-        this.repaint();
+        final JPanel panel = (JPanel) this.getContentPane();
+        panel.remove(currentPanel);
+        currentPanel = this.tips.get(i).getPanel();
+        currentPanel.setMinimumSize(new Dimension(480, H));
+        currentPanel.setPreferredSize(new Dimension(480, H));
+        panel.add(currentPanel, constraintPanel);
+        panel.revalidate();
+        panel.repaint();
     }
 
     public static void main(String[] args) {
@@ -170,10 +168,11 @@ public class TipsFrame extends JFrame {
         t1.addText("- des commandes et bons de réception");
 
         Tip t2 = new Tip();
-        t1.addText("Le logiciel intègre un module de cartographie.");
+        t2.addText("Le logiciel intègre un module de cartographie.");
 
         TipsFrame f = new TipsFrame(true);
         f.addTip(t1);
+        f.addTip(t2);
         f.setCurrentTip(0);
         f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         f.setVisible(true);

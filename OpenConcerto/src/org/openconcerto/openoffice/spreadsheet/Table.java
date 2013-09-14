@@ -18,7 +18,9 @@ import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.StyleStyleDesc;
+import org.openconcerto.openoffice.StyledNode;
 import org.openconcerto.openoffice.XMLVersion;
+import org.openconcerto.openoffice.spreadsheet.CellStyle.StyleTableCellProperties;
 import org.openconcerto.openoffice.spreadsheet.SheetTableModel.MutableTableModel;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.Tuple2;
@@ -53,6 +55,12 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
     }
 
     static Element createEmpty(final XMLVersion ns, final int colCount, final int rowCount) {
+        return createEmpty(ns, colCount, rowCount, null);
+    }
+
+    // pass styleName to avoid creating possibly expensive Table instance (readCols/readRows) in
+    // order to use setStyleName()
+    static Element createEmpty(final XMLVersion ns, final int colCount, final int rowCount, final String styleName) {
         // from the relaxNG
         if (colCount < 1 || rowCount < 1)
             throw new IllegalArgumentException("a table must have at least one cell");
@@ -60,7 +68,9 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         Axis.COLUMN.setRepeated(col, colCount);
         final Element row = Row.createEmpty(ns).addContent(Cell.createEmpty(ns, colCount));
         Axis.ROW.setRepeated(row, rowCount);
-        return new Element("table", ns.getTABLE()).addContent(col).addContent(row);
+        final Element res = new Element("table", ns.getTABLE()).addContent(col).addContent(row);
+        StyledNode.setStyleName(res, styleName);
+        return res;
     }
 
     static final String getName(final Element elem) {
@@ -513,6 +523,8 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         if (cellStyle != null)
             return cellStyle;
         // then the row (as specified in §2 of section 8.1)
+        // in reality LO never generates table-row/@default-cell-style-name and its behavior is
+        // really unpredictable if it opens files with it
         if (Style.isStandardStyleResolution()) {
             cellStyle = this.getRow(row).getElement().getAttributeValue("default-cell-style-name", getTABLE());
             if (cellStyle != null)
@@ -524,6 +536,11 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
 
     public final CellStyle getStyleAt(int column, int row) {
         return getCellStyleDesc().findStyleForNode(this.getImmutableCellAt(column, row), this.getStyleNameAt(column, row));
+    }
+
+    public final StyleTableCellProperties getTableCellPropertiesAt(int column, int row) {
+        final CellStyle styleAt = this.getStyleAt(column, row);
+        return styleAt == null ? null : styleAt.getTableCellProperties(this.getImmutableCellAt(column, row));
     }
 
     protected StyleStyleDesc<CellStyle> getCellStyleDesc() {
@@ -681,12 +698,30 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      * extra cells will be chopped off. Otherwise empty cells will be created.
      * 
      * @param newSize the new column count.
-     * @param colIndex the index of the column to be copied, -1 for empty column (i.e. default
-     *        style).
+     * @param colIndex the index of the column to be copied, -1 for empty column (and no style).
      * @param keepTableWidth <code>true</code> if the table should be same width after the column
      *        change.
      */
     public final void setColumnCount(int newSize, int colIndex, final boolean keepTableWidth) {
+        this.setColumnCount(newSize, colIndex, null, keepTableWidth);
+    }
+
+    /**
+     * Changes the column count. If <code>newSize</code> is less than {@link #getColumnCount()}
+     * extra cells will be chopped off. Otherwise empty cells will be created.
+     * 
+     * @param newSize the new column count.
+     * @param colStyle the style of the new columns, <code>null</code> for no style (throws
+     *        exception if the table has a non-null width).
+     * @param keepTableWidth <code>true</code> if the table should be same width after the column
+     *        change.
+     * @see #createColumnStyle(Number, LengthUnit)
+     */
+    public final void setColumnCount(int newSize, ColumnStyle colStyle, final boolean keepTableWidth) {
+        this.setColumnCount(newSize, -1, colStyle, keepTableWidth);
+    }
+
+    private final void setColumnCount(int newSize, int colIndex, ColumnStyle colStyle, final boolean keepTableWidth) {
         final int toGrow = newSize - this.getColumnCount();
         if (toGrow < 0) {
             this.removeColumn(newSize, this.getColumnCount(), keepTableWidth);
@@ -703,7 +738,7 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
 
             final Element elemToClone;
             if (colIndex < 0) {
-                elemToClone = Column.createEmpty(getODDocument().getVersion(), this.createDefaultColStyle());
+                elemToClone = Column.createEmpty(getODDocument().getVersion(), colStyle);
             } else {
                 elemToClone = getColumn(colIndex).getElement();
             }
@@ -801,10 +836,14 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
             // compute table width from column-width
             final TableStyle style = this.getStyle();
             if (style != null) {
-                if (nullWidthCol != null)
+                if (nullWidthCol == null)
+                    style.setWidth(newWidth);
+                else if (currentWidth != null)
                     throw new IllegalStateException("Cannot update table width since a column has no width : " + nullWidthCol);
-                style.setWidth(newWidth);
+                // else currentWidth == null, no inconsistency, nothing to update
             }
+            // either there's no table width or it's positive and equal to the sum of its columns
+            assert style == null || style.getWidth() == null || (newWidth >= 0 && style.getWidth() == newWidth);
             for (final Column<?> col : this.cols) {
                 final ColumnStyle colStyle = col.getStyle();
                 // if no style, nothing to remove
@@ -825,9 +864,16 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         return style == null ? null : style.getWidth();
     }
 
-    private final ColumnStyle createDefaultColStyle() {
-        final ColumnStyle colStyle = this.getStyleDesc(ColumnStyle.class).createAutoStyle(this.getODDocument().getPackage(), "defaultCol");
-        colStyle.setWidth(20.0f);
+    /**
+     * Create and add an automatic style.
+     * 
+     * @param amount the column width.
+     * @param unit the unit of <code>amount</code>.
+     * @return the newly added style.
+     */
+    public final ColumnStyle createColumnStyle(final Number amount, final LengthUnit unit) {
+        final ColumnStyle colStyle = this.getStyleDesc(ColumnStyle.class).createAutoStyle(this.getODDocument().getPackage());
+        colStyle.setWidth(amount, unit);
         return colStyle;
     }
 
@@ -835,9 +881,13 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         this.remove(col, newSize, -1);
     }
 
-    // both inclusive
     private final void remove(final Axis col, final int fromIndex, final int toIndexIncl) {
-        assert col == Axis.COLUMN || toIndexIncl < 0 : "Row index will be wrong";
+        this.remove(col, fromIndex, toIndexIncl, true);
+    }
+
+    // both inclusive
+    private final void remove(final Axis col, final int fromIndex, final int toIndexIncl, final boolean updateList) {
+        assert col == Axis.COLUMN || !updateList || toIndexIncl < 0 : "Row index will be wrong";
         final List<? extends TableCalcNode<?, ?>> l = col == Axis.COLUMN ? this.cols : this.rows;
         final int toIndexValid = CollectionUtils.getValidIndex(l, toIndexIncl);
         final int toRemoveCount = toIndexValid - fromIndex + 1;
@@ -864,7 +914,8 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
             }
         }
         // one remove to be efficient
-        l.subList(fromIndex, toIndexValid + 1).clear();
+        if (updateList)
+            l.subList(fromIndex, toIndexValid + 1).clear();
     }
 
     public final void ensureRowCount(int newSize) {
@@ -901,6 +952,85 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
             this.getElement().addContent(elemToClone);
             addRow(elemToClone, getRowStyleDesc(), getCellStyleDesc());
         }
+    }
+
+    public final void removeRow(int index) {
+        this.removeRows(index, index + 1);
+    }
+
+    /**
+     * Remove rows between the two passed indexes. If the origin of a merged cell is contained in
+     * the rows to remove, then it will be unmerged, otherwise (the origin is before the rows) the
+     * merged cell will just be shrunk.
+     * 
+     * @param firstIndex the start index, inclusive.
+     * @param lastIndex the stop index, exclusive.
+     */
+    public final void removeRows(int firstIndex, int lastIndex) {
+        if (firstIndex < 0)
+            throw new IllegalArgumentException("Negative index " + firstIndex);
+        if (firstIndex == lastIndex)
+            return;
+        if (firstIndex > lastIndex)
+            throw new IllegalArgumentException("First index after last index " + firstIndex + " > " + lastIndex);
+
+        // remove row elements, minding merged cells
+        final int columnCount = getColumnCount();
+        final Set<Point> coverOrigins = new HashSet<Point>();
+        for (int y = firstIndex; y < lastIndex; y++) {
+            for (int x = 0; x < columnCount; x++) {
+                final Cell<D> cell = this.getImmutableCellAt(x, y);
+                if (cell.isCovered()) {
+                    coverOrigins.add(this.getCoverOrigin(x, y));
+                    // cells spanning inside the removed rows don't need to be unmerged
+                } else if (cell.coversOtherCells() && y + cell.getRowsSpanned() > lastIndex) {
+                    this.getCellAt(x, y).unmerge();
+                }
+            }
+        }
+
+        // don't update this.rows as we need them below and indexes would be wrong anyway
+        this.remove(Axis.ROW, firstIndex, lastIndex - 1, false);
+
+        // adjust rows spanned
+        // we haven't yet reset this.rows, so we can use getImmutableCellAt()
+        for (final Point coverOrigin : coverOrigins) {
+            // if the origin is inside the removed rows, then the whole merged cell was removed
+            // (if the merged cell extended past lastIndex, it got unmerged above and wasn't added
+            // to the set)
+            if (coverOrigin.y >= firstIndex) {
+                assert this.getImmutableCellAt(coverOrigin.x, coverOrigin.y).getElement().getDocument() == null;
+                continue;
+            }
+            final Cell<D> coverOriginCell = this.getImmutableCellAt(coverOrigin.x, coverOrigin.y);
+            final int rowsSpanned = coverOriginCell.getRowsSpanned();
+            // otherwise the cover origin is between firstIndex and lastIndex and should have been
+            // unmerged
+            assert rowsSpanned > 1;
+            final int stopY = coverOrigin.y + rowsSpanned;
+            final int toRemove = Math.min(lastIndex, stopY) - firstIndex;
+            assert toRemove > 0 && toRemove < rowsSpanned;
+            coverOriginCell.getElement().setAttribute("number-rows-spanned", (rowsSpanned - toRemove) + "", getTABLE());
+        }
+
+        // remove empty table-row-group
+        // since indexes are stored in TableGroup, we can do it after having removed rows
+        final Set<TableGroup> groups = new HashSet<TableGroup>();
+        for (int y = firstIndex; y < lastIndex; y++) {
+            groups.add(this.getRowGroupAt(y));
+        }
+        for (final TableGroup group : groups) {
+            TableGroup g = group;
+            Element elem = g.getElement();
+            while (g != null && elem.getParent() != null && elem.getChildren().size() == 0) {
+                elem.detach();
+                g = g.getParent();
+                elem = g == null ? null : g.getElement();
+            }
+        }
+
+        // recreate list from XML
+        this.readRows();
     }
 
     // *** table models
@@ -960,6 +1090,37 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         }
     }
 
+    /**
+     * All ranges defined in this table.
+     * 
+     * @return the names.
+     * @see SpreadSheet#getRangesNames()
+     */
+    public final Set<String> getRangesNames() {
+        return SpreadSheet.getRangesNames(getElement(), getTABLE());
+    }
+
+    /**
+     * Get a named range in this table.
+     * 
+     * @param name the name of the range.
+     * @return a named range, or <code>null</code> if the passed name doesn't exist.
+     * @see #getRangesNames()
+     * @see SpreadSheet#getRange(String)
+     */
+    public final Range getRange(String name) {
+        return SpreadSheet.getRange(getElement(), getTABLE(), name);
+    }
+
+    public final MutableTableModel<D> getTableModel(String name) {
+        final Range points = getRange(name);
+        if (points == null)
+            return null;
+        if (points.spanSheets())
+            throw new IllegalStateException("different sheet names: " + points.getStartSheet() + " != " + points.getEndSheet());
+        return this.getMutableTableModel(points.getStartPoint(), points.getEndPoint());
+    }
+
     // * UsedRange & CurrentRegion
 
     /**
@@ -1007,8 +1168,8 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
             return false;
 
         if (checkStyle) {
-            final CellStyle style = getStyleAt(x, y);
-            return style == null || (style.getBackgroundColor() == null && style.getTableCellProperties().getBorders().isEmpty());
+            final StyleTableCellProperties tableCellProperties = this.getTableCellPropertiesAt(x, y);
+            return tableCellProperties == null || (tableCellProperties.getBackgroundColor() == null && tableCellProperties.getBorders().isEmpty());
         } else {
             return true;
         }

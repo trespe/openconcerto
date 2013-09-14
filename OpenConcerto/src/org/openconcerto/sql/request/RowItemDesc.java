@@ -13,18 +13,21 @@
  
  package org.openconcerto.sql.request;
 
+import net.jcip.annotations.ThreadSafe;
+
 /**
  * A container to hold information on how to refer to a particular item of a row.
  * 
  * @author ilm
  */
+@ThreadSafe
 public class RowItemDesc {
 
     private static final String EMPTY_DOC = "";
 
-    private String label;
-    private String titlelabel;
-    private String documentation;
+    private final String label;
+    private final String titlelabel;
+    private final String documentation;
 
     public RowItemDesc(String label, String title) {
         this(label, title, EMPTY_DOC);
@@ -47,5 +50,4 @@ public class RowItemDesc {
     public String getDocumentation() {
         return this.documentation;
     }
-
 }

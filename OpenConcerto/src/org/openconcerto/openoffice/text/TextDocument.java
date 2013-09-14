@@ -21,6 +21,7 @@ import org.openconcerto.openoffice.XMLFormatVersion;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 import org.jdom.Element;
 
@@ -58,9 +59,21 @@ public class TextDocument extends ODDocument {
     }
 
     public final Paragraph getParagraph(int i) {
+        return new Paragraph(this.getParagraphChildren().get(i), this);
+    }
+
+    @SuppressWarnings("unchecked")
+    private final List<Element> getParagraphChildren() {
         final Element proto = Paragraph.createEmpty(getVersion());
-        final Element child = (Element) this.getBody().getChildren(proto.getName(), proto.getNamespace()).get(i);
-        return new Paragraph(child, this);
+        return this.getBody().getChildren(proto.getName(), proto.getNamespace());
+    }
+
+    public final int getParagraphCount() {
+        return this.getParagraphChildren().size();
+    }
+
+    public final String getCharacterContent(final boolean ooMode) {
+        return TextNode.getChildrenCharacterContent(this.getBody(), this.getFormatVersion(), ooMode);
     }
 
     /**

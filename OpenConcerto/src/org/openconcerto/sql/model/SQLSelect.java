@@ -16,6 +16,7 @@
 import org.openconcerto.sql.model.Order.Direction;
 import org.openconcerto.sql.model.Order.Nulls;
 import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.model.graph.Step;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
@@ -452,7 +453,7 @@ public final class SQLSelect {
      * @param s une collection de nom de champs, eg "NOM".
      * @return this pour pouvoir chaîner.
      */
-    public SQLSelect addAllSelect(SQLTable t, Collection<String> s) {
+    public SQLSelect addAllSelect(TableRef t, Collection<String> s) {
         for (final String fieldName : s) {
             this.addSelect(t.getField(fieldName));
         }
@@ -505,10 +506,10 @@ public final class SQLSelect {
         return this.addRawSelect(function + "(*)", null);
     }
 
-    public SQLSelect addSelectStar(SQLTable table) {
-        this.select.add(SQLBase.quoteIdentifier(table.getName()) + ".*");
+    public SQLSelect addSelectStar(TableRef table) {
+        this.select.add(SQLBase.quoteIdentifier(table.getAlias()) + ".*");
         this.from.add(this.declaredTables.add(table));
-        this.selectFields.addAll(table.getOrderedFields());
+        this.selectFields.addAll(table.getTable().getOrderedFields());
         return this;
     }
 
@@ -794,16 +795,16 @@ public final class SQLSelect {
 
         TableRef current = firstTableRef;
         for (int i = 0; i < p.length(); i++) {
-            final Set<SQLField> step = p.getStepFields(i);
+            final Step step = p.getStep(i);
+            // |BATIMENT.ID_SITE|
+            final SQLField ff = step.getSingleField();
             // TODO handle multi-link:
             // JOIN test.article art ON obs.ID_ARTICLE_1 = art.ID or obs.ID_ARTICLE_2 = art.ID
-            if (step.size() != 1)
+            if (ff == null)
                 throw new IllegalArgumentException(p + " has more than 1 link at index " + i);
-            // |BATIMENT.ID_SITE|
-            final SQLField ff = step.iterator().next();
             final SQLSelectJoin j;
             // are we currently at the start of the foreign field or at the destination
-            final boolean forward = current.getTable() == ff.getTable();
+            final boolean forward = step.getDirection() == org.openconcerto.sql.model.graph.Link.Direction.FOREIGN;
             if (forward) {
                 // bat.ID_SITE
                 j = this.getJoin(current.getField(ff.getName()));

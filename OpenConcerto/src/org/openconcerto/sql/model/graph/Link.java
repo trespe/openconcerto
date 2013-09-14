@@ -30,7 +30,9 @@ import java.io.Writer;
 import java.sql.DatabaseMetaData;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import net.jcip.annotations.ThreadSafe;
 
@@ -140,6 +142,18 @@ public class Link extends DirectedEdge<SQLTable> {
         public String asString() {
             return this.sql;
         }
+    }
+
+    static final Set<SQLField> getSingleFields(final Set<Link> links) {
+        final Set<SQLField> res = new HashSet<SQLField>(links.size());
+        for (final Link l : links) {
+            final SQLField singleField = l.getSingleField();
+            if (singleField != null)
+                res.add(singleField);
+            else
+                return null;
+        }
+        return res;
     }
 
     // ArrayList is thread-safe if not modified

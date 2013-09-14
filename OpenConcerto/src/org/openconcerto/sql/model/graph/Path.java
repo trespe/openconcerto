@@ -153,7 +153,11 @@ public class Path {
     }
 
     public Path minusLast() {
-        return this.subPath(0, this.length() - 1);
+        return this.minusLast(1);
+    }
+
+    public Path minusLast(final int count) {
+        return this.subPath(0, this.length() - count);
     }
 
     public Path subPath(int fromIndex) {
@@ -243,7 +247,11 @@ public class Path {
      *         itself and the current end of this path.
      */
     public final Path add(final SQLTable destTable) {
-        return this.add(Step.create(getLast(), destTable));
+        return this.add(destTable, Direction.ANY);
+    }
+
+    public final Path add(final SQLTable destTable, final Direction dir) {
+        return this.add(Step.create(getLast(), destTable, dir));
     }
 
     /**
@@ -411,7 +419,7 @@ public class Path {
     }
 
     public Path add(Link l, Direction direction) {
-        return this.add(l.getLabel(), direction);
+        return this.add(Step.create(getLast(), l, direction));
     }
 
     public final List<Step> getSteps() {

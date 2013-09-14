@@ -14,9 +14,12 @@
  package org.openconcerto.sql.view.list;
 
 import org.openconcerto.sql.model.FieldPath;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValues.CreateMode;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.view.list.search.SearchQueue;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.util.ArrayList;
@@ -142,15 +145,50 @@ public final class ListSQLLine implements Comparable<ListSQLLine> {
     /**
      * Load the passed values into this row at the passed path.
      * 
+     * @param id ID of vals, needed when vals is <code>null</code>.
      * @param vals values to load, eg CONTACT.NOM = "Dupont".
      * @param p where to load the values, eg "SITE.ID_CONTACT_CHEF".
      */
-    void loadAt(SQLRowValues vals, Path p) {
-        final SQLRowValues current = this.getRow().assurePath(p);
+    void loadAt(int id, SQLRowValues vals, Path p) {
+        final String lastReferentField = SearchQueue.getLastReferentField(p);
         // load() empties vals, so getFields() before
-        final Set<Integer> indexes = this.pathToIndex(p, vals.getFields());
+        final Set<Integer> indexes = lastReferentField == null ? this.pathToIndex(p, vals.getFields()) : null;
         // replace our values with the new ones
-        current.load(vals, null);
+        if (lastReferentField == null) {
+            for (final SQLRowValues v : this.getRow().followPath(p, CreateMode.CREATE_NONE, false)) {
+                v.load(vals.deepCopy(), null);
+            }
+        } else {
+            // e.g. if p is SITE <- BATIMENT <- LOCAL, lastField is LOCAL.ID_BATIMENT
+            // if p is SITE -> CLIENT <- SITE (i.e. siblings of a site), lastField is SITE.ID_CLIENT
+            final SQLField lastField = p.getStep(-1).getSingleField();
+            final Collection<SQLRowValues> previous;
+            if (p.length() > 1 && p.getStep(-2).reverse().equals(p.getStep(-1)))
+                previous = this.getRow().followPath(p.minusLast(2), CreateMode.CREATE_NONE, false);
+            else
+                previous = null;
+            // the rows that vals should point to, e.g. BATIMENT or CLIENT
+            final Collection<SQLRowValues> targets = this.getRow().followPath(p.minusLast(), CreateMode.CREATE_NONE, false);
+            for (final SQLRowValues target : targets) {
+                // remove existing referent with the updated ID
+                SQLRowValues toRemove = null;
+                for (final SQLRowValues toUpdate : target.getReferentRows(lastField)) {
+                    // don't back track (in the example a given SITE will be at the primary location
+                    // and a second time along its siblings)
+                    if ((previous == null || !previous.contains(toUpdate)) && toUpdate.getID() == id) {
+                        if (toRemove != null)
+                            throw new IllegalStateException("Duplicate IDs " + id + " : " + System.identityHashCode(toRemove) + " and " + System.identityHashCode(toUpdate) + "\n"
+                                    + this.getRow().printGraph());
+                        toRemove = toUpdate;
+                    }
+                }
+                if (toRemove != null)
+                    toRemove.remove(lastField.getName());
+                // attach updated values
+                if (vals != null && vals.getLong(lastField.getName()) == target.getIDNumber().longValue())
+                    vals.deepCopy().put(lastField.getName(), target);
+            }
+        }
         // update our cache
         if (indexes == null)
             this.clearCache();
@@ -166,11 +204,11 @@ public final class ListSQLLine implements Comparable<ListSQLLine> {
      * @return the index of columns using "CPI.ID_LOCAL.DESIGNATION", or null for every columns.
      */
     private Set<Integer> pathToIndex(final Path p, final Collection<String> modifiedFields) {
-        if (containsFK(p.getLast(), modifiedFields))
-            // eg CPI.ID_LOCAL, easier to just refresh the whole line, than to search for each
-            // column affected (that would mean expanding the fk)
+        if (containsFK(p.getLast(), modifiedFields)) {
+            // e.g. CPI.ID_LOCAL, easier to just refresh the whole line, than to search for each
+            // column affected (that would mean expanding the FK)
             return null;
-        else {
+        } else {
             final Set<Integer> res = new HashSet<Integer>();
             final Set<FieldPath> modifiedPaths = FieldPath.create(p, modifiedFields);
             final List<? extends SQLTableModelColumn> cols = this.src.getParent().getAllColumns();

@@ -24,6 +24,7 @@ import org.openconcerto.sql.model.DBFileCache;
 import org.openconcerto.sql.model.DBItemFileCache;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.FieldRef;
 import org.openconcerto.sql.model.LoadingListener.GraphLoadingEvent;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
@@ -900,46 +901,103 @@ public class DatabaseGraph extends BaseGraph {
         return this.getWhereClause(t1, t2, null);
     }
 
+    public Where getWhereClause(final Step step) {
+        return this.getWhereClause(step.getFrom(), step.getTo(), step);
+    }
+
     /**
      * Renvoie la clause WHERE pour faire la jointure en t1 et t2.
      * 
      * @param t1 la premiere table.
      * @param t2 la deuxieme table.
-     * @param fields les champs à utiliser, <code>null</code> pour tous.
+     * @param fields les liens à utiliser, <code>null</code> pour tous.
      * @return le OR des champs passés.
      */
-    public Where getWhereClause(TableRef t1, TableRef t2, Set<SQLField> fields) {
-        // OR car OBSsERVATION.ID_ARTICLE_1,2,3
+    public Where getWhereClause(TableRef t1, TableRef t2, Step fields) {
+        // OR car OBSERVATION.ID_ARTICLE_1,2,3
         return Where.or(this.getStraightWhereClause(t1, t2, fields));
     }
+
+    // MAYBE allow to pass self reference links in both directions with a SetMap<Direction, Link>,
+    // e.g. find both next and previous mission
 
     /**
      * Renvoie les clauses WHERE pour faire la jointure en t1 et t2.
      * 
      * @param t1 la premiere table.
      * @param t2 la deuxieme table.
-     * @param fields les champs à utiliser, <code>null</code> pour tous.
+     * @param step les liens à utiliser, <code>null</code> pour tous.
      * @return les WHERE demandés.
      */
-    public Set<Where> getStraightWhereClause(TableRef t1, TableRef t2, Set<SQLField> fields) {
-        final Set<Where> res = new HashSet<Where>();
+    public Set<Where> getStraightWhereClause(TableRef t1, TableRef t2, Step step) {
+        if (step == null) {
+            step = Step.create(t1.getTable(), t2.getTable());
+        } else {
+            if (t1 == null)
+                t1 = step.getFrom();
+            else if (step.getFrom() != t1.getTable())
+                throw new IllegalArgumentException("step isn't from t1 " + step);
+            if (t2 == null)
+                t2 = step.getTo();
+            else if (step.getTo() != t2.getTable())
+                throw new IllegalArgumentException("step isn'ts to t2 " + step);
+        }
 
-        for (final Link l : this.getLinks(t1.getTable(), t2.getTable())) {
-            final SQLField f = l.getLabel();
-            if (fields == null || fields != null && fields.contains(f)) {
-                final SQLTable target = l.getTarget();
-                assert target == t1.getTable() || target == t2.getTable();
-                final Where w;
-                if (target == t1.getTable()) {
-                    w = new Where(t2.getField(f.getName()), "=", t1.getKey());
-                } else {
-                    w = new Where(t1.getField(f.getName()), "=", t2.getKey());
-                }
-                res.add(w);
-            }
+        final Set<Where> res = new HashSet<Where>();
+        for (final Link l : step.getLinks()) {
+            final Direction dir = step.getDirection(l);
+            res.add(getWhereClause(t1, t2, l, dir));
         }
 
         return res;
+    }
+
+    public Where getWhereClause(final Link l) {
+        return getWhereClause(l.getSource(), l.getTarget(), l, Direction.FOREIGN);
+    }
+
+    /**
+     * The where clause to join t1 to t2.
+     * 
+     * @param t1 the first table, can be <code>null</code>, e.g. <code>null</code>.
+     * @param t2 the second table, can be <code>null</code>, e.g. "LOCAL loc".
+     * @param l a link between <code>t1</code> and <code>t2</code>, e.g. LOCAL.ID_BATIMENT.
+     * @param dir how to go through <code>l</code>, either {@link Direction#FOREIGN} or
+     *        {@link Direction#REFERENT}, e.g. <code>REFERENT</code>.
+     * @return the WHERE, e.g. loc.ID_BATIMENT = BATIMENT.ID.
+     */
+    public Where getWhereClause(final TableRef t1, final TableRef t2, final Link l, final Direction dir) {
+        if (l == null)
+            throw new NullPointerException("Null link");
+        TableRef src, dest;
+        if (dir == Direction.FOREIGN) {
+            src = t1;
+            dest = t2;
+        } else if (dir == Direction.REFERENT) {
+            src = t2;
+            dest = t1;
+        } else {
+            throw new IllegalArgumentException("Invalid direction : " + dir);
+        }
+        if (src == null)
+            src = l.getSource();
+        else if (src.getTable() != l.getSource())
+            throw new IllegalArgumentException("Wrong source table " + src.getTable() + " != " + l.getSource());
+        if (dest == null)
+            dest = l.getTarget();
+        else if (dest.getTable() != l.getTarget())
+            throw new IllegalArgumentException("Wrong target table " + dest.getTable() + " != " + l.getTarget());
+        final Iterator<SQLField> primaryKeys = dest.getTable().getPrimaryKeys().iterator();
+        Where w = null;
+        for (final SQLField f : l.getFields()) {
+            assert f.getTable() == src.getTable();
+            final FieldRef f1 = src.getField(f.getName());
+            final FieldRef f2 = dest.getField(primaryKeys.next().getName());
+            w = new Where(f1, "=", f2).and(w);
+        }
+        assert w != null : "Empty fields for " + l;
+        assert !primaryKeys.hasNext() : "Mismatch";
+        return w;
     }
 
     /**
@@ -956,11 +1014,8 @@ public class DatabaseGraph extends BaseGraph {
 
     public Where getJointure(Path p) {
         Where res = null;
-        for (int i = 1; i <= p.length(); i++) {
-            SQLTable previous = p.getTable(i - 1);
-            SQLTable table = p.getTable(i);
-            Where wc = this.getWhereClause(previous, table, p.getStepFields(i - 1));
-            res = wc.and(res);
+        for (int i = 0; i < p.length(); i++) {
+            res = this.getWhereClause(p.getStep(i)).and(res);
         }
         return res;
     }
@@ -971,7 +1026,7 @@ public class DatabaseGraph extends BaseGraph {
         } else if (p.length() == 1) {
             final SQLTable previous = p.getTable(0);
             final SQLTable table = p.getTable(1);
-            return this.getStraightWhereClause(previous, table, p.getStepFields(0));
+            return this.getStraightWhereClause(previous, table, p.getStep(0));
         } else {
             final Set<Where> res = new HashSet<Where>();
 

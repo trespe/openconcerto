@@ -84,6 +84,10 @@ public final class SQLFilter {
         this.listeners = Collections.emptyList();
     }
 
+    public final SQLElementDirectory getDirectory() {
+        return this.dir;
+    }
+
     /**
      * The path from the passed table to the filtered row.
      * 
@@ -177,7 +181,7 @@ public final class SQLFilter {
             connectedSet = this.filterGraph.getAllTables();
         else {
             // getFieldRaw since it can be inexistant
-            final String parentForeignField = this.dir.getElement(table).getParentForeignField();
+            final String parentForeignField = this.getDirectory().getElement(table).getParentForeignField();
             // 5x faster than getElement(table).getDescendantTables()
             connectedSet = this.filterGraph.getDescTables(table, table.getFieldRaw(parentForeignField));
         }

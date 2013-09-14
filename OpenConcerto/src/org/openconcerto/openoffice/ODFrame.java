@@ -13,6 +13,8 @@
  
  package org.openconcerto.openoffice;
 
+import org.openconcerto.openoffice.text.TextNode;
+
 import java.math.BigDecimal;
 
 import org.jdom.Element;
@@ -44,6 +46,20 @@ public class ODFrame<D extends ODDocument> extends ImmutableDocStyledNode<Graphi
         super(parent, frame, GraphicStyle.class);
         this.width = LengthUnit.parseLength(this.getSVGAttr("width"), getUnit());
         this.height = LengthUnit.parseLength(this.getSVGAttr("height"), getUnit());
+    }
+
+    private final Element getTextBox() {
+        final Element res;
+        if (this.getODDocument().getVersion() == XMLVersion.OOo)
+            res = this.getElement();
+        else
+            res = this.getElement().getChild("text-box", this.getElement().getNamespace("draw"));
+        assert res.getName().equals("text-box");
+        return res;
+    }
+
+    public final String getCharacterContent(final boolean ooMode) {
+        return TextNode.getChildrenCharacterContent(this.getTextBox(), getODDocument().getFormatVersion(), ooMode);
     }
 
     public final BigDecimal getWidth() {

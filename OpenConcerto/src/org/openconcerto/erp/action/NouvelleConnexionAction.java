@@ -17,6 +17,7 @@ import static org.openconcerto.task.config.ComptaBasePropsConfiguration.getStrea
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.DefaultMenuConfiguration;
 import org.openconcerto.erp.config.Gestion;
+import org.openconcerto.erp.config.Log;
 import org.openconcerto.erp.config.MainFrame;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.common.ui.StatusPanel;
@@ -70,6 +71,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
+import java.util.logging.Level;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -143,6 +145,7 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                     } catch (Throwable e) {
                         // not OK to continue without required elements
                         openEmergencyModuleManager("Impossible de configurer les modules requis", e);
+                        return;
                     }
 
 
@@ -159,10 +162,9 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                             f.setTitle(comptaPropsConfiguration.getAppName() + " " + version + socTitle);
                             f.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
                             // Init menus
-                            DefaultMenuConfiguration mConfiguration = new DefaultMenuConfiguration();
-                            mConfiguration.createMenuGroup();
-                            mConfiguration.registerMenuActions();
-                            f.setJMenuBar(Gestion.isMinimalMode() ? f.createMinimalMenu() : f.createMenu());
+                            // DefaultMenuConfiguration mConfiguration = new
+                            // DefaultMenuConfiguration();
+                            // mConfiguration.createMenuAndActions();
 
                         }
                     });
@@ -171,6 +173,7 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                         public void run() {
                             if (ModuleManager.getInstance().isSetup()) {
                                 final MainFrame mainFrame = MainFrame.getInstance();
+                                mainFrame.initMenuBar();
                                 FrameUtil.show(mainFrame);
                             }
                         }
@@ -278,6 +281,7 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                 Ville.init(new NXDatabaseAccessor());
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("TAXE"), 600);
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("PREFS_COMPTE"), 600);
+                SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("COMPTE_PCE"), 600);
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("JOURNAL"), 600);
 
                 SQLBackgroundTableCache.getInstance().add(baseSociete.getTable("COMMERCIAL"), 600);
@@ -319,24 +323,21 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
         }
     }
 
-    private void openEmergencyModuleManager(final String str, Throwable e) {
-        System.err.println("The following exception is preventing a normal startup:");
-        e.printStackTrace();
-        System.err.println("Opening the module manager in order to resolve the issue.");
+    private void openEmergencyModuleManager(final String str, final Throwable e) {
+        Log.get().log(Level.SEVERE, "Normal startup impossible, opening the module manager in order to resolve the issue.", e);
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
-                if (fMod == null) {
-                    fMod = new ModuleFrame();
-                    fMod.pack();
-                    fMod.setMinimumSize(new Dimension(480, 640));
-                    fMod.setLocationRelativeTo(null);
-                    fMod.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-                    fMod.setTitle(str);
-                    fMod.setVisible(true);
-                }
+                ExceptionHandler.handle(str, e);
+                final ModuleFrame fMod = new ModuleFrame();
+                fMod.pack();
+                fMod.setMinimumSize(new Dimension(480, 640));
+                fMod.setLocationRelativeTo(null);
+                fMod.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                fMod.setTitle(str);
+                fMod.setVisible(true);
+                fMod.toFront();
             }
         });
-
     }
 }

@@ -15,13 +15,8 @@
 
 import org.openconcerto.erp.action.AboutAction;
 import org.openconcerto.erp.action.PreferencesAction;
-import org.openconcerto.erp.action.SauvegardeBaseAction;
-import org.openconcerto.erp.action.list.ListeDesUsersCommonAction;
 import org.openconcerto.erp.core.common.ui.StatusPanel;
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.users.UserManager;
-import org.openconcerto.sql.users.rights.LockAdminUserRight;
-import org.openconcerto.sql.users.rights.UserRights;
 import org.openconcerto.task.TodoListPanel;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
 import org.openconcerto.ui.AutoHideTabbedPane;
@@ -42,9 +37,12 @@ import java.awt.Image;
 import java.awt.event.ActionEvent;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import javax.swing.AbstractAction;
@@ -60,16 +58,16 @@ import javax.swing.JSeparator;
 public class MainFrame extends JFrame {
 
     // menus
-    public static final String STRUCTURE_MENU = "Structure";
-    public static final String PAYROLL_MENU = "Paye";
-    public static final String PAYMENT_MENU = "Paiement";
-    public static final String STATS_MENU = "Statistiques";
-    public static final String DECLARATION_MENU = "Déclaration";
-    public static final String STATE_MENU = "Etats";
-    public static final String LIST_MENU = "Gestion";
-    public static final String CREATE_MENU = "Saisie";
-    public static final String FILE_MENU = "Fichier";
-    private static final String HELP_MENU = "Aide";
+    public static final String STRUCTURE_MENU = "menu.organization";
+    public static final String PAYROLL_MENU = "menu.payroll";
+    public static final String PAYMENT_MENU = "menu.payment";
+    public static final String STATS_MENU = "menu.stats";
+    public static final String DECLARATION_MENU = "menu.report";
+    public static final String STATE_MENU = "menu.accounting";
+    public static final String LIST_MENU = "menu.list";
+    public static final String CREATE_MENU = "menu.create";
+    public static final String FILE_MENU = "menu.file";
+    public static final String HELP_MENU = "menu.help";
 
     static private final List<Runnable> runnables = new ArrayList<Runnable>();
     static private MainFrame instance = null;
@@ -186,142 +184,120 @@ public class MainFrame extends JFrame {
         new NewsUpdater(this.image);
     }
 
-    public final JMenuBar createMinimalMenu() {
-        final JMenuBar res = new JMenuBar();
-        final JMenu fileMenu = new JMenu(FILE_MENU);
-        fileMenu.add(new SauvegardeBaseAction());
-        if (!Gestion.MAC_OS_X) {
-            fileMenu.add(new JMenuItem(new AbstractAction("Quitter") {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-                    quit();
-                }
-            }));
-        }
-        res.add(fileMenu);
-
-        final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
-        if (rights.haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {
-            final JMenu structMenu = new JMenu(STRUCTURE_MENU);
-            structMenu.add(new JMenuItem(new ListeDesUsersCommonAction()));
-            res.add(structMenu);
-        }
-
-        final JMenu helpMenu = new JMenu(HELP_MENU);
-        helpMenu.add(new JMenuItem(AboutAction.getInstance()));
-        res.add(helpMenu);
-
-        return res;
+    // create the UI menu from the menu manager
+    public final void initMenuBar() {
+        final MenuManager mm = MenuManager.getInstance();
+        final PropertyChangeListener listener = new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                // TODO change only if needed (mind the actions)
+                setJMenuBar(createMenu(mm));
+                getLayeredPane().revalidate();
+            }
+        };
+        mm.addPropertyChangeListener(listener);
+        listener.propertyChange(null);
     }
 
-    public final JMenuBar createMenu() {
+    private final JMenuBar createMenu(final MenuManager mm) {
         final JMenuBar result = new JMenuBar();
-        final Group g = MenuManager.getInstance().getGroup();
+        final Group g = mm.getGroup();
         for (int i = 0; i < g.getSize(); i++) {
             final Item item = g.getItem(i);
-            result.add(createJMenuFrom(item));
+            if (item.getLocalHint().isVisible())
+                result.add(createJMenuFrom(item, mm));
         }
         return result;
     }
 
-    private JMenu createJMenuFrom(final Item item) {
+    private final JMenu createJMenuFrom(final Item item, final MenuManager mm) {
+        assert item.getLocalHint().isVisible();
         final String id = item.getId();
-        String name = MenuManager.getInstance().getLabelForId(id);
-        String menuLabel = name;
+        final String name = mm.getLabelForId(id);
+        final String menuLabel;
+        final Color c;
         if (name == null || name.trim().isEmpty()) {
             menuLabel = id;
-        }
-        final JMenu m = new JMenu(menuLabel);
-        if (name == null || name.trim().isEmpty()) {
-            m.setForeground(new Color(200, 65, 20));
-        }
-        if (item instanceof Group) {
-            final Group g = (Group) item;
-            for (int i = 0; i < g.getSize(); i++) {
-                final Item child = g.getItem(i);
-                final List<JMenuItem> menuItems = createJMenuItemsFrom(child);
-                if (child.getLocalHint().isSeparated() && m.getMenuComponentCount() > 0) {
-                    m.addSeparator();
-                }
-                for (JMenuItem jMenuItem : menuItems) {
-                    m.add(jMenuItem);
-                }
-            }
+            c = new Color(200, 65, 20);
         } else {
+            menuLabel = name;
+            c = null;
+        }
+        assert menuLabel != null;
+        final JMenu m = new JMenu(menuLabel);
+        if (c != null)
+            m.setForeground(c);
 
-            m.add(createJMenuItemForId(id));
+        if (item instanceof Group) {
+            createMenuItemsRec(mm, m, Collections.<String> emptyList(), (Group) item);
+        } else {
+            m.add(createJMenuItemForId(id, mm));
         }
         return m;
     }
 
-    private List<JMenuItem> createJMenuItemsFrom(Item item) {
-        List<JMenuItem> result = new ArrayList<JMenuItem>();
-        final String id = item.getId();
-        String name = MenuManager.getInstance().getLabelForId(id);
-        String menuLabel = name;
-        if (name == null || name.trim().isEmpty()) {
-            menuLabel = id;
-        }
-        if (item instanceof Group) {
-            Group g = (Group) item;
-            JMenu m = null;
-            if (g.getLocalHint().showLabel()) {
-                m = new JMenu(menuLabel);
-                if (name == null || name.trim().isEmpty()) {
-                    m.setForeground(new Color(20, 65, 200));
-                }
-                result.add(m);
-            }
-            if (g.getLocalHint().isSeparated() && !g.getLocalHint().showLabel()) {
-                // result.add(null);
-            }
-            for (int i = 0; i < g.getSize(); i++) {
-                final Item child = g.getItem(i);
-                final List<JMenuItem> menuItems = createJMenuItemsFrom(child);
-                for (JMenuItem jMenuItem : menuItems) {
-                    if (m == null) {
-                        result.add(jMenuItem);
-                    } else {
-                        if (child.getLocalHint().isSeparated()) {
-                            m.addSeparator();
-                        }
-                        m.add(jMenuItem);
-                    }
-                }
-            }
+    private final void createMenuItemsRec(final MenuManager mm, final JMenu topLevelMenu, final List<String> path, final Group g) {
+        assert g.getLocalHint().isVisible();
+        for (int i = 0; i < g.getSize(); i++) {
+            final Item child = g.getItem(i);
+            if (!child.getLocalHint().isVisible())
+                continue;
 
-        } else {
-            result.add(createJMenuItemForId(id));
+            if (child instanceof Group) {
+                final List<String> newPath = new ArrayList<String>(path);
+                newPath.add(child.getId());
+                createMenuItemsRec(mm, topLevelMenu, newPath, (Group) child);
+            } else {
+                final List<String> newPath;
+                if (path.size() % 2 == 0) {
+                    newPath = new ArrayList<String>(path);
+                    newPath.add(null);
+                } else {
+                    newPath = path;
+                }
+                MenuUtils.addMenuItem(createJMenuItemForId(child.getId(), mm), topLevelMenu, newPath);
+            }
         }
-
-        return result;
     }
 
-    public JMenuItem createJMenuItemForId(final String id) {
-        final String name = MenuManager.getInstance().getLabelForId(id);
-        String menuLabel = name;
-        if (name == null || name.trim().isEmpty()) {
-            menuLabel = id;
+    static public String getFirstNonEmpty(final List<String> l) {
+        for (final String s : l) {
+            if (s != null && !s.trim().isEmpty()) {
+                return s;
+            }
         }
-        final JMenuItem menuItem = new JMenuItem(menuLabel);
-        Action actionForId = MenuManager.getInstance().getActionForId(id);
-        if (actionForId == null) {
-            actionForId = new AbstractAction(name) {
+        return null;
+    }
 
+    private final JMenuItem createJMenuItemForId(final String id, final MenuManager mm) {
+        final String mngrLabel = mm.getLabelForId(id);
+        final Action mngrAction = mm.getActionForId(id);
+        final String mngrActionName = mngrAction == null || mngrAction.getValue(Action.NAME) == null ? null : mngrAction.getValue(Action.NAME).toString();
+
+        final String label = getFirstNonEmpty(Arrays.asList(mngrLabel, mngrActionName, id));
+        assert label != null;
+        final Action action;
+        final Color fg;
+        if (mngrAction == null) {
+            action = new AbstractAction(label) {
                 @Override
                 public void actionPerformed(ActionEvent e) {
                     JOptionPane.showMessageDialog(MainFrame.this, "No action for " + id);
                 }
             };
-            menuItem.setForeground(new Color(200, 65, 95));
-        }
-        if (name == null || name.trim().isEmpty()) {
-            menuItem.setForeground(new Color(20, 65, 200));
+            fg = new Color(200, 65, 95);
+        } else {
+            action = mngrAction;
+            fg = label.equals(id) ? new Color(20, 65, 200) : null;
         }
 
-        actionForId.putValue(Action.NAME, menuLabel);
-        menuItem.setAction(actionForId);
-        return menuItem;
+        final JMenuItem res = new JMenuItem(action);
+        // don't use action name but the provided label
+        res.setHideActionText(true);
+        res.setText(label);
+        if (fg != null)
+            res.setForeground(fg);
+        return res;
     }
 
     public JMenuItem addMenuItem(final Action action, final String... path) {

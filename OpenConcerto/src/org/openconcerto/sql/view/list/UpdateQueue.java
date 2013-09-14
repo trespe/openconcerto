@@ -13,18 +13,25 @@
  
  package org.openconcerto.sql.view.list;
 
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.view.list.UpdateRunnable.RmAllRunnable;
 import org.openconcerto.utils.IFutureTask;
+import org.openconcerto.utils.RecursionType;
 import org.openconcerto.utils.SleepingQueue;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.Deque;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.FutureTask;
 
 import org.apache.commons.collections.CollectionUtils;
@@ -53,10 +60,8 @@ final class UpdateQueue extends SleepingQueue {
                 putUpdateAll();
             else if (evt.getMode() == Mode.ROW_UPDATED) {
                 rowModified(evt);
-            } else if (evt.getMode() == Mode.ROW_ADDED) {
-                rowAdded(evt.getTable(), evt.getId());
-            } else if (evt.getMode() == Mode.ROW_DELETED) {
-                rowDeleted(evt.getTable(), evt.getId());
+            } else {
+                rowAddedOrDeleted(evt);
             }
         }
 
@@ -69,8 +74,8 @@ final class UpdateQueue extends SleepingQueue {
 
     private final ITableModel tableModel;
     private final TableListener tableListener;
-    // TODO rm : needed for now since our optimizations are false if the graph contains referent
-    // rows, see http://192.168.1.10:3000/issues/show/22
+    // TODO rm : needed for now since our optimizations are false if there's a where not on the
+    // primary table, see http://192.168.1.10:3000/issues/show/22
     private boolean alwaysUpdateAll = false;
 
     public UpdateQueue(ITableModel model) {
@@ -111,7 +116,7 @@ final class UpdateQueue extends SleepingQueue {
 
     void rowModified(final SQLTableEvent evt) {
         final int id = evt.getId();
-        if (id < 0) {
+        if (id < SQLRow.MIN_VALID_ID) {
             this.putUpdateAll();
         } else if (CollectionUtils.containsAny(this.tableModel.getReq().getLineFields(), evt.getFields())) {
             this.put(evt);
@@ -119,34 +124,31 @@ final class UpdateQueue extends SleepingQueue {
         // si on n'affiche pas le champ ignorer
     }
 
-    void rowAdded(SQLTable table, int id) {
-        if (!table.equals(this.tableModel.getReq().getPrimaryTable())) {
-            // on ignore
-        } else {
-            this.update(id);
-        }
+    // takes 1-2ms, perhaps cache
+    final Set<SQLTable> getNotForeignTables() {
+        final Set<SQLTable> res = new HashSet<SQLTable>();
+        final SQLRowValues maxGraph = this.tableModel.getReq().getMaxGraph();
+        maxGraph.getGraph().walk(maxGraph, res, new ITransformer<State<Set<SQLTable>>, Set<SQLTable>>() {
+            @Override
+            public Set<SQLTable> transformChecked(State<Set<SQLTable>> input) {
+                if (input.getPath().length() == 0 || input.isBackwards())
+                    input.getAcc().add(input.getCurrent().getTable());
+                return input.getAcc();
+            }
+        }, RecursionType.BREADTH_FIRST, null);
+        return res;
     }
 
-    final void rowDeleted(SQLTable table, int id) {
-        if (!table.equals(this.tableModel.getReq().getPrimaryTable())) {
-            // on ignore
-        } else {
-            if (id < 0)
-                // MAYBE faire tout effacer
-                throw new IllegalArgumentException("remove id:" + id + " < 0");
-
-            this.update(id);
-        }
+    void rowAddedOrDeleted(final SQLTableEvent evt) {
+        if (evt.getId() < SQLRow.MIN_VALID_ID)
+            this.putUpdateAll();
+        // if a row of a table that we point to is added, we will care when the referent table will
+        // point to it
+        else if (this.getNotForeignTables().contains(evt.getTable()))
+            this.put(evt);
     }
 
     // *** puts
-
-    private void update(final int id) {
-        if (id < 0)
-            this.putUpdateAll();
-        else
-            this.put(new SQLTableEvent(this.tableModel.getTable(), id, Mode.ROW_UPDATED));
-    }
 
     private void put(SQLTableEvent evt) {
         this.put(UpdateRunnable.create(this.tableModel, evt));

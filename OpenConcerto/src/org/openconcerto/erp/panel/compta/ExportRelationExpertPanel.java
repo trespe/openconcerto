@@ -30,6 +30,7 @@ import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 
 import java.awt.GridBagConstraints;
@@ -51,6 +52,7 @@ import javax.swing.JCheckBox;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
@@ -169,11 +171,8 @@ public class ExportRelationExpertPanel extends JPanel implements ActionListener 
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == this.buttonGen) {
-            Date toDay = new Date();
-            DateFormat format = new SimpleDateFormat("ddMMyyyy_HHMMSS");
-            File fOut = new File(fileChooser.getSelectedFile(), "ExportOpenConcerto_" + format.format(toDay) + ".xls");
+
             try {
-                BufferedOutputStream bufOut = new BufferedOutputStream(new FileOutputStream(fOut.getAbsolutePath()));
 
                 SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
                 SQLSelect sel = new SQLSelect();
@@ -217,91 +216,123 @@ public class ExportRelationExpertPanel extends JPanel implements ActionListener 
 
                 sel.setWhere(w);
 
-                List l = (List) base.getDataSource().execute(sel.asString(), new ArrayListHandler());
-                System.err.println(sel.asString());
-                if (l != null) {
-                    for (int i = 0; i < l.size(); i++) {
-
-                        // Ligne à insérer dans le fichier
-                        StringBuffer line = new StringBuffer();
-
-                        Object[] tmp = (Object[]) l.get(i);
-
-                        // Date
-                        Date d = (Date) tmp[3];
-                        line.append(dateFormat.format(d));
-                        line.append('\t');
-                        // Jrnl
-                        line.append(tmp[6].toString().trim());
-                        line.append('\t');
-                        // N° Cpt
-                        String cpt = tmp[2].toString().trim();
-                        line.append(cpt);
-                        line.append('\t');
-
-                        // ?
-                        line.append('\t');
-
-                        // Libellé
-                        line.append(tmp[0].toString().trim());
-                        line.append('\t');
-
-                        // Debit
-                        Long debit = new Long(tmp[4].toString().trim());
-                        line.append(GestionDevise.currencyToString(debit.longValue()));
-                        line.append('\t');
-                        // Credit
-                        Long credit = new Long(tmp[5].toString().trim());
-                        line.append(GestionDevise.currencyToString(credit.longValue()));
-                        line.append('\t');
-                        line.append('E');
-
-                        int z = 7;
-                        final boolean containsCodeClient = tableEcriture.contains("CODE_CLIENT");
-                        if (containsCodeClient) {
-                            // Code Client
-                            String codeClient = "";
-                            if (tmp[z] != null) {
-                                codeClient = tmp[z].toString().trim();
-                            }
-                            line.append('\t');
-                            line.append(codeClient);
-                            z++;
+                @SuppressWarnings("unchecked")
+                final List<Object[]> l = (List<Object[]>) base.getDataSource().execute(sel.asString(), new ArrayListHandler());
+                if (l != null && l.size() > 0) {
+                    // Write file
+                    final boolean containsCodeClient = tableEcriture.contains("CODE_CLIENT");
+                    File f = writeFileToDisk(l, containsCodeClient);
+                    if (f != null) {
+                        // Store export date
+                        final DBRoot root = Configuration.getInstance().getRoot();
+                        final SQLTable tableEcr = root.findTable("ECRITURE");
+                        UpdateBuilder update = new UpdateBuilder(tableEcr);
+                        final SQLField field = tableEcr.getField("DATE_EXPORT");
+                        update.set("DATE_EXPORT", field.getType().toString(new Date()));
+                        if (!boxExport.isSelected()) {
+                            Where wJ = new Where(tableEcriture.getField("DATE_EXPORT"), "IS", (Object) null);
+                            w = w.and(wJ);
                         }
+                        update.setWhere(w);
+                        final String req2 = update.asString();
+                        root.getDBSystemRoot().getDataSource().execute(req2);
+                        // Notify
+                        JOptionPane.showMessageDialog(this, "L'export des " + l.size() + " écritures est terminé.\nLe fichier créé est " + f.getAbsolutePath());
 
-                        // Piece
-                        line.append('\t');
-                        line.append(tmp[z].toString().trim());
-
-                        line.append('\r');
-                        line.append('\n');
-                        bufOut.write(line.toString().getBytes());
+                        // Close frame
+                        ((JFrame) SwingUtilities.getRoot(this)).dispose();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "Impossible de créer le fichier d'export");
                     }
+
+                } else {
+                    JOptionPane.showMessageDialog(this, "Aucune écriture trouvée. La période est-elle correcte?");
                 }
-
-                bufOut.close();
-
-                DBRoot root = Configuration.getInstance().getRoot();
-                SQLTable tableEcr = root.findTable("ECRITURE");
-                UpdateBuilder update = new UpdateBuilder(tableEcr);
-
-                SQLField field = tableEcr.getField("DATE_EXPORT");
-                update.set("DATE_EXPORT", field.getType().toString(toDay));
-                if (!boxExport.isSelected()) {
-                    Where wJ = new Where(tableEcriture.getField("DATE_EXPORT"), "IS", (Object) null);
-                    w = w.and(wJ);
-                }
-                update.setWhere(w);
-                String req2 = update.asString();
-                System.err.println(req2);
-                root.getDBSystemRoot().getDataSource().execute(req2);
-
             } catch (FileNotFoundException ex) {
-                ex.printStackTrace();
+                JOptionPane.showMessageDialog(this, "Création du fichier impossible : " + ex.getMessage());
             } catch (IOException ex) {
-                ex.printStackTrace();
+                ExceptionHandler.handle("Erreur d'export", ex);
             }
         }
-        ((JFrame) SwingUtilities.getRoot(this)).dispose();
+
+    }
+
+    private File writeFileToDisk(List<Object[]> l, boolean containsCodeClient) throws FileNotFoundException, IOException {
+        final DateFormat format = new SimpleDateFormat("ddMMyyyy_HHMMSS");
+
+        final File selectedFile = fileChooser.getSelectedFile();
+        if (selectedFile == null) {
+            throw new IllegalStateException("Dossier sélectionné incorrect");
+        }
+        if (!selectedFile.isDirectory()) {
+            throw new IllegalStateException("Vous n'avez pas sélectionné un dossier");
+        }
+        if (!selectedFile.canWrite()) {
+            throw new IllegalStateException("Vous n'avez pas les droits pour écrire dans le dossier " + selectedFile.getAbsolutePath());
+        }
+        final File fOut = new File(selectedFile, "ExportOpenConcerto_" + format.format(new Date()) + ".txt");
+        final BufferedOutputStream bufOut = new BufferedOutputStream(new FileOutputStream(fOut.getAbsolutePath()));
+
+        final int size = l.size();
+        for (int i = 0; i < size; i++) {
+
+            // Ligne à insérer dans le fichier
+            StringBuffer line = new StringBuffer();
+
+            Object[] tmp = l.get(i);
+
+            // Date
+            Date d = (Date) tmp[3];
+            line.append(dateFormat.format(d));
+            line.append('\t');
+            // Jrnl
+            line.append(tmp[6].toString().trim());
+            line.append('\t');
+            // N° Cpt
+            String cpt = tmp[2].toString().trim();
+            line.append(cpt);
+            line.append('\t');
+
+            // ?
+            line.append('\t');
+
+            // Libellé
+            line.append(tmp[0].toString().trim());
+            line.append('\t');
+
+            // Debit
+            Long debit = new Long(tmp[4].toString().trim());
+            line.append(GestionDevise.currencyToString(debit.longValue()));
+            line.append('\t');
+            // Credit
+            Long credit = new Long(tmp[5].toString().trim());
+            line.append(GestionDevise.currencyToString(credit.longValue()));
+            line.append('\t');
+            line.append('E');
+
+            int z = 7;
+
+            if (containsCodeClient) {
+                // Code Client
+                String codeClient = "";
+                if (tmp[z] != null) {
+                    codeClient = tmp[z].toString().trim();
+                }
+                line.append('\t');
+                line.append(codeClient);
+                z++;
+            }
+
+            // Piece
+            line.append('\t');
+            line.append(tmp[z].toString().trim());
+
+            line.append('\r');
+            line.append('\n');
+            bufOut.write(line.toString().getBytes());
+        }
+
+        bufOut.close();
+        return fOut;
     }
 }

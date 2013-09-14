@@ -15,17 +15,26 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.sales.product.ui.FamilleArticlePanel;
 import org.openconcerto.erp.panel.ITreeSelection;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.FieldPath;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.BaseSQLTableModelColumn;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.SQLTableModelColumn;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.PanelFrame;
+import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.Tuple2;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -34,6 +43,11 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -61,9 +75,52 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
         // Renderer pour les devises
         // frame.getPanel().getListe().getJTable().setDefaultRenderer(Long.class, new
         // DeviseNiceTableCellRenderer());
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement(this.sqlTableArticle);
-        IListe liste = new IListe(elt.createTableSource(getWhere(panelFam)));
+        final SQLElement elt = Configuration.getInstance().getDirectory().getElement(this.sqlTableArticle);
+        final SQLTableModelSourceOnline createTableSource = elt.createTableSource(getWhere(panelFam));
+        createTableSource.getColumns().add(new BaseSQLTableModelColumn("Valeur HT du stock", Double.class) {
+
+            Double zero = new Double(0D);
+
+            @Override
+            protected Object show_(SQLRowAccessor r) {
+
+                SQLRowAccessor stock = r.getForeign("ID_STOCK");
+                if (stock == null || stock.isUndefined()) {
+                    return zero;
+                } else {
+                    float qte = stock.getFloat("QTE_REEL");
+                    BigDecimal ha = r.getBigDecimal("PA_HT");
+
+                    BigDecimal total = ha.multiply(new BigDecimal(qte), MathContext.DECIMAL128);
+                    if (total.signum() == 1) {
+                        return total;
+                    } else {
+                        return BigDecimal.ZERO;
+                    }
+                }
+            }
+
+            @Override
+            public Set<FieldPath> getPaths() {
+                final SQLTable table = elt.getTable();
+                Path p = new Path(table);
+                Path p2 = new Path(table);
+                p2.add(table.getField("ID_STOCK"));
+                return CollectionUtils.createSet(new FieldPath(p, "PA_HT"), new FieldPath(p2, "QTE_REEL"));
+            }
+        });
+        IListe liste = new IListe(createTableSource);
         final ListeAddPanel panel = new ListeAddPanel(elt, liste);
+
+        List<Tuple2<? extends SQLTableModelColumn, IListTotalPanel.Type>> fields = new ArrayList<Tuple2<? extends SQLTableModelColumn, IListTotalPanel.Type>>(1);
+        fields.add(Tuple2.create(liste.getSource().getColumn(liste.getSource().getColumns().size() - 1), IListTotalPanel.Type.SOMME));
+        IListTotalPanel total = new IListTotalPanel(liste, fields, null, "Total");
+        GridBagConstraints c2 = new DefaultGridBagConstraints();
+        c2.gridy = 4;
+        c2.anchor = GridBagConstraints.EAST;
+        c2.weightx = 0;
+        c2.fill = GridBagConstraints.NONE;
+        panel.add(total, c2);
 
         JSplitPane pane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JScrollPane(panelFam), panel);
         JPanel panelAll = new JPanel(new GridBagLayout());

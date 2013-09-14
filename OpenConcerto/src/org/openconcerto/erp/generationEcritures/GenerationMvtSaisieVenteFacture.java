@@ -18,7 +18,6 @@ import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.erp.generationEcritures.provider.AccountingRecordsProvider;
 import org.openconcerto.erp.generationEcritures.provider.AccountingRecordsProviderManager;
-import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -28,7 +27,6 @@ import org.openconcerto.utils.ExceptionHandler;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.sql.SQLException;
 import java.util.Date;
 import java.util.Map;
 
@@ -45,7 +43,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
     public static final Integer journal = Integer.valueOf(JournalSQLElement.VENTES);
     private int idSaisieVenteFacture;
     private static final SQLTable saisieVFTable = base.getTable("SAISIE_VENTE_FACTURE");
-    private static final SQLTable taxeTable = base.getTable("TAXE");
     private static final SQLTable mvtTable = base.getTable("MOUVEMENT");
     private static final SQLTable ecrTable = base.getTable("ECRITURE");
     private static final SQLTable tablePrefCompte = base.getTable("PREFS_COMPTE");
@@ -58,7 +55,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
      * @param idMvt id du mouvement qui est dejà associé à la facture
      */
     public GenerationMvtSaisieVenteFacture(int idSaisieVenteFacture, int idMvt) {
-
         System.err.println("********* init GeneRation");
         this.idMvt = idMvt;
         this.idSaisieVenteFacture = idSaisieVenteFacture;
@@ -71,13 +67,10 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
      * @param idSaisieVenteFacture
      */
     public GenerationMvtSaisieVenteFacture(int idSaisieVenteFacture) {
-
-        this.idMvt = 1;
-        this.idSaisieVenteFacture = idSaisieVenteFacture;
-        new Thread(GenerationMvtSaisieVenteFacture.this).start();
+        this(idSaisieVenteFacture, 1);
     }
 
-    private void genereMouvement() throws IllegalArgumentException {
+    private void genereMouvement() throws Exception {
 
         SQLRow saisieRow = GenerationMvtSaisieVenteFacture.saisieVFTable.getRow(this.idSaisieVenteFacture);
         SQLRow clientRow = saisieRow.getForeignRow("ID_CLIENT");
@@ -86,9 +79,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
         PrixTTC prixTTC = new PrixTTC(((Long) saisieRow.getObject("T_TTC")).longValue());
         // Total des acomptes déjà versés sur la facture
         long montantAcompteTTC = 0;
-        PrixHT prixTVA = new PrixHT(((Long) saisieRow.getObject("T_TVA")).longValue());
-        PrixHT prixHT = new PrixHT(((Long) saisieRow.getObject("T_HT")).longValue());
-        PrixHT prixService = new PrixHT(((Long) saisieRow.getObject("T_SERVICE")).longValue());
 
         int idCompteClient = clientRow.getInt("ID_COMPTE_PCE");
 
@@ -105,7 +95,6 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
         provider.putLabel(saisieRow, this.mEcritures);
 
         this.mEcritures.put("DATE", this.date);
-
         this.mEcritures.put("ID_JOURNAL", GenerationMvtSaisieVenteFacture.journal);
         this.mEcritures.put("ID_MOUVEMENT", Integer.valueOf(1));
 
@@ -118,11 +107,7 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
             this.mEcritures.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
             SQLRowValues rowValsPiece = mvtTable.getRow(idMvt).getForeign("ID_PIECE").asRowValues();
             provider.putPieceLabel(saisieRow, rowValsPiece);
-            try {
-                rowValsPiece.update();
-            } catch (SQLException exn) {
-                exn.printStackTrace();
-            }
+            rowValsPiece.update();
         }
 
         SQLTable tableEchantillon = null;
@@ -162,11 +147,7 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
             if (idCompteClient <= 1) {
                 idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
                 if (idCompteClient <= 1) {
-                    try {
-                        idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
                 }
             }
             this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteClient));
@@ -243,6 +224,13 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
             // }
             // }
         }
+
+        {
+            SQLRowValues valSasieVF = new SQLRowValues(GenerationMvtSaisieVenteFacture.saisieVFTable);
+            valSasieVF.put("DATE_REGLEMENT", null);
+            valSasieVF.update(this.idSaisieVenteFacture);
+        }
+
             // Génération du reglement
             SQLRow modeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
             final SQLRow typeRegRow = modeRegl.getForeignRow("ID_TYPE_REGLEMENT");
@@ -262,25 +250,18 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
         SQLRowValues valSasieVF = new SQLRowValues(GenerationMvtSaisieVenteFacture.saisieVFTable);
         valSasieVF.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
 
-        try {
-            if (valSasieVF.getInvalid() == null) {
-
-                valSasieVF.update(this.idSaisieVenteFacture);
-            }
-        } catch (SQLException e) {
-            System.err.println("Erreur à l'insertion dans la table " + valSasieVF.getTable().getName() + " : " + e);
-            e.printStackTrace();
+        if (valSasieVF.getInvalid() == null) {
+            valSasieVF.update(this.idSaisieVenteFacture);
         }
+
     }
 
     public void run() {
         try {
-            System.err.println("****Start genere Mouvement");
             genereMouvement();
-            System.err.println("****End genere Mouvement");
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
+
         }
     }
 }

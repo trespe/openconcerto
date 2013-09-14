@@ -19,10 +19,9 @@ import org.openconcerto.sql.State;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.view.list.ITableModel;
+import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.state.WindowStateManager;
 
-import java.awt.DisplayMode;
-import java.awt.GraphicsEnvironment;
 import java.awt.GridLayout;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
@@ -42,6 +41,8 @@ import javax.swing.event.TableModelListener;
  */
 public class IListFrame extends JFrame {
 
+    public static final String SHORT_TITLE = "org.openconcerto.listframe.shortTitle";
+
     // state-EditFrame/cpi-window.xml
     static public final File getConfigFile(final SQLElement elem, final Class<? extends JFrame> c) {
         return getConfigFile(elem, null, c);
@@ -53,10 +54,13 @@ public class IListFrame extends JFrame {
     }
 
     static private final File getConfigFile(final SQLElement elem, final SQLComponent comp, final Class<? extends JFrame> c) {
+        final Configuration conf = Configuration.getInstance();
+        if (conf == null)
+            return null;
         // no getSimpleName() since for inner classes this is empty
         final String compName = comp == null ? "" : "-" + comp.getClass().getName();
         final String filename = FILENAME_ESCAPER.escape(elem.getPluralName() + compName) + "-window.xml";
-        return new File(Configuration.getInstance().getConfDir(), "state-" + c.getSimpleName() + File.separator + filename);
+        return new File(conf.getConfDir(), "state-" + c.getSimpleName() + File.separator + filename);
     }
 
     private final IListPanel panel;
@@ -102,7 +106,7 @@ public class IListFrame extends JFrame {
     protected void setTitle(boolean displayRowCount, boolean displayItemCount) {
         String title;
         if (this.title == null) {
-            final String prefix = Boolean.getBoolean("org.openconcerto.listframe.shortTitle") ? "" : "Liste des ";
+            final String prefix = Boolean.getBoolean(SHORT_TITLE) ? "" : "Liste des ";
             title = prefix + this.panel.getElement().getPluralName();
         } else
             title = this.title;
@@ -148,32 +152,14 @@ public class IListFrame extends JFrame {
         this.setTitle();
         this.getContentPane().setLayout(new GridLayout());
         this.getContentPane().add(this.panel);
-        this.setBounds();
+        FrameUtil.setBounds(this);
         final File file;
         if (this.getPanel().getSQLComponent() != null)
             file = getConfigFile(this.getPanel().getSQLComponent(), this.getClass());
         else
             file = getConfigFile(this.getPanel().getElement(), this.getClass());
-        new WindowStateManager(this, file).loadState();
-    }
-
-    final protected void setBounds() {
-        // TODO use getMaximiumWindowBounds
-        final GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        final DisplayMode dm = ge.getDefaultScreenDevice().getDisplayMode();
-
-        final int topOffset = 50;
-        if (dm == null) {
-            // happen sometimes in NX
-            this.setLocation(0, 0);
-            this.setSize(640, 480);
-        } else if (dm.getWidth() <= 800 || dm.getHeight() <= 600) {
-            this.setLocation(0, topOffset);
-            this.setSize(dm.getWidth(), dm.getHeight() - topOffset);
-        } else {
-            this.setLocation(10, topOffset);
-            this.setSize(dm.getWidth() - 50, dm.getHeight() - 20 - topOffset);
-        }
+        if (file != null)
+            new WindowStateManager(this, file).loadState();
     }
 
     public final IListPanel getPanel() {

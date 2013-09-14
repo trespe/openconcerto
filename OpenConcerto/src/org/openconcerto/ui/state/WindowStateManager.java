@@ -15,6 +15,7 @@
 
 import org.openconcerto.ui.ScreenUtils;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.i18n.TM;
 
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
@@ -76,7 +77,7 @@ public class WindowStateManager extends ListenerXMLStateManager<Window, WindowLi
         try {
             saveState();
         } catch (IOException exn) {
-            ExceptionHandler.handle(this.getSrc().isDisplayable() ? this.getSrc() : null, "Impossible de sauvegarder la position de la fenêtre.", exn);
+            ExceptionHandler.handle(this.getSrc().isDisplayable() ? this.getSrc() : null, TM.tr("saveWindowState"), exn);
         }
     }
 

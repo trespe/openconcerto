@@ -169,7 +169,7 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     protected String setNullable(SQLField f, boolean b) {
-        return SQLSelect.quote("ALTER COLUMN %n " + (b ? "DROP" : "SET") + " NOT NULL", f);
+        return "ALTER COLUMN " + f.getQuotedName() + " " + (b ? "DROP" : "SET") + " NOT NULL";
     }
 
     @Override
@@ -180,7 +180,7 @@ class SQLSyntaxPG extends SQLSyntax {
         final String newType;
         if (toAlter.contains(Properties.TYPE)) {
             newType = type;
-            res.add(SQLSelect.quote("ALTER COLUMN %n TYPE " + newType, f));
+            res.add("ALTER COLUMN " + f.getQuotedName() + " TYPE " + newType);
         } else
             newType = getType(f);
         if (toAlter.contains(Properties.DEFAULT))
@@ -190,12 +190,12 @@ class SQLSyntaxPG extends SQLSyntax {
 
     @Override
     public String getDropRoot(String name) {
-        return SQLSelect.quote("DROP SCHEMA IF EXISTS %i CASCADE ;", name);
+        return "DROP SCHEMA IF EXISTS " + SQLBase.quoteIdentifier(name) + " CASCADE ;";
     }
 
     @Override
     public String getCreateRoot(String name) {
-        return SQLSelect.quote("CREATE SCHEMA %i ;", name);
+        return "CREATE SCHEMA " + SQLBase.quoteIdentifier(name) + " ;";
     }
 
     @Override
@@ -484,7 +484,7 @@ class SQLSyntaxPG extends SQLSyntax {
 
     @Override
     public String getDropTrigger(Trigger t) {
-        return SQLBase.quoteStd("DROP TRIGGER %i on %f", t.getName(), t.getTable());
+        return "DROP TRIGGER " + SQLBase.quoteIdentifier(t.getName()) + " on " + t.getTable().getSQLName().quote();
     }
 
     @Override

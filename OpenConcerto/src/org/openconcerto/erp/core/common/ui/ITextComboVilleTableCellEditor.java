@@ -13,7 +13,10 @@
  
  package org.openconcerto.erp.core.common.ui;
 
+import org.openconcerto.map.model.Ville;
 import org.openconcerto.map.ui.ITextComboVilleViewer;
+import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.view.list.RowValuesTable;
 
 import java.awt.Component;
 import java.awt.event.KeyListener;
@@ -23,7 +26,6 @@ import java.util.EventObject;
 import javax.swing.AbstractCellEditor;
 import javax.swing.JTable;
 import javax.swing.table.TableCellEditor;
-
 
 public class ITextComboVilleTableCellEditor extends AbstractCellEditor implements TableCellEditor {
 
@@ -55,7 +57,12 @@ public class ITextComboVilleTableCellEditor extends AbstractCellEditor implement
 
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
         // System.err.println("SQLTextComboEditor.getTableCellEditorComponent()");
-        this.comboBox.setValue(value.toString());
+        RowValuesTable rowValuesTable = ((RowValuesTable) table);
+        SQLRowValues rowVals = rowValuesTable.getRowValuesTableModel().getRowValuesAt(row);
+        String v = rowVals.getString("VILLE");
+        String code = rowVals.getString("CODE_POSTAL");
+        Ville ville = Ville.getVilleFromVilleEtCode(v + " (" + code + ")");
+        this.comboBox.setValue(ville);
         this.comboBox.grabFocus();
         return this.comboBox;
     }

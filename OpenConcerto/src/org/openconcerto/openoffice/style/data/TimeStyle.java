@@ -27,7 +27,6 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 
-import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.Duration;
 
 import org.jdom.Element;
@@ -99,7 +98,7 @@ public class TimeStyle extends DataStyle {
                         minutes = d.getMinutes();
                     sb.append(formatInt(minutes, elem));
                 } else if (elem.getName().equals("seconds")) {
-                    final BigDecimal seconds = (BigDecimal) d.getField(DatatypeConstants.SECONDS);
+                    final BigDecimal seconds = TimeUtils.getSeconds(d);
                     final int secondsIntPart;
                     if (truncate && getElement().getChild("hours", numberNS) == null && getElement().getChild("minutes", numberNS) == null)
                         secondsIntPart = seconds.intValue() % 60;

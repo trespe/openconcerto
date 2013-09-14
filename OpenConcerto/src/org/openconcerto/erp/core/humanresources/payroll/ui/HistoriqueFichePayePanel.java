@@ -100,7 +100,7 @@ public class HistoriqueFichePayePanel extends JPanel {
 
         // Liste à selectionner
 
-        this.jListPanel = new JListSQLTablePanel(JListSQLTablePanel.createComboRequest(e.getTable(), true), "Tous");
+        this.jListPanel = new JListSQLTablePanel(JListSQLTablePanel.createComboRequest(e, true), "Tous");
 
         // IListe
         final SQLTableModelSourceOnline src = eltFiche.getTableSource(true);

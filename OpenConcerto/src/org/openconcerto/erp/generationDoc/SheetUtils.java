@@ -17,6 +17,7 @@ import org.openconcerto.erp.preferences.GenerationDocGlobalPreferencePanel;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.FileUtils;
 
 import java.awt.Graphics2D;
 import java.io.File;
@@ -46,6 +47,10 @@ public class SheetUtils {
         return convertToOldFile(root, fileName, pathDest, fDest, ".ods");
     }
 
+    public static File convertToOldFile(DBRoot root, String fileName, File pathDest, File fDest, String extension) {
+       return convertToOldFile(root, fileName, pathDest, fDest, extension, true);
+    }
+
     /**
      * Déplace le fichier, si il existe, dans le répertoire.
      * 
@@ -54,7 +59,7 @@ public class SheetUtils {
      * @param fDest
      * @return
      */
-    public static File convertToOldFile(DBRoot root, String fileName, File pathDest, File fDest, String extension) {
+    public static File convertToOldFile(DBRoot root, String fileName, File pathDest, File fDest, String extension, boolean move) {
         SQLPreferences prefs = new SQLPreferences(root);
         if (prefs.getBoolean(GenerationDocGlobalPreferencePanel.HISTORIQUE, true) && fDest.exists()) {
             int i = 0;
@@ -68,22 +73,31 @@ public class SheetUtils {
             }
             File fTmp = new File(pathDest, fileName + extension);
 
-            if (!fTmp.renameTo(fDest)) {
-                final File finalFile = fDest;
-                System.err.println("Unable to rename:" + fTmp.getAbsolutePath());
-                System.err.println("To:" + fDest.getAbsolutePath());
-                SwingUtilities.invokeLater(new Runnable() {
-                    public void run() {
-                        try {
+            if (move) {
+                if (!fTmp.renameTo(fDest)) {
+                    final File finalFile = fDest;
+                    System.err.println("Unable to rename:" + fTmp.getAbsolutePath());
+                    System.err.println("To:" + fDest.getAbsolutePath());
+                    SwingUtilities.invokeLater(new Runnable() {
+                        public void run() {
+                            try {
 
-                            JOptionPane.showMessageDialog(null, "Le fichier " + finalFile.getCanonicalPath()
-                                    + " n'a pu être créé. \n Impossible de déplacer le fichier existant dans l'historique.\n Vérifier que le document n'est pas déjà ouvert.");
-                        } catch (IOException e) {
-                            e.printStackTrace();
+                                JOptionPane.showMessageDialog(null, "Le fichier " + finalFile.getCanonicalPath()
+                                        + " n'a pu être créé. \n Impossible de déplacer le fichier existant dans l'historique.\n Vérifier que le document n'est pas déjà ouvert.");
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
                         }
-                    }
-                });
-                return fTmp;
+                    });
+                    return fTmp;
+                }
+            } else {
+                try {
+                    FileUtils.copyFile(fTmp, fDest);
+                } catch (IOException exn) {
+                    // TODO Bloc catch auto-généré
+                    ExceptionHandler.handle("Une erreur est survenue lors de la copie du fichier.", exn);
+                }
             }
             fDest = new File(pathDest, fileName + extension);
         }

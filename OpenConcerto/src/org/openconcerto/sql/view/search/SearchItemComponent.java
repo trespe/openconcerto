@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.view.search;
 
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.view.search.TextSearchSpec.Mode;
 import org.openconcerto.utils.CollectionMap;
@@ -27,6 +28,8 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.HierarchyEvent;
+import java.awt.event.HierarchyListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.util.ArrayList;
@@ -50,10 +53,13 @@ import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.text.BadLocationException;
 
+import net.jcip.annotations.Immutable;
+
 public class SearchItemComponent extends JPanel {
-    private static final String TOUT = "Tout";
+    private static final Column TOUT = new Column(TM.tr("all"), null, -1);
     private static final Mode[] MODES = { Mode.CONTAINS, Mode.CONTAINS_STRICT, Mode.LESS_THAN, Mode.EQUALS, Mode.EQUALS_STRICT, Mode.GREATER_THAN };
 
+    @Immutable
     protected static final class Column {
         private final String label, id;
         private final int index;
@@ -85,7 +91,7 @@ public class SearchItemComponent extends JPanel {
     private JTextField textFieldRecherche = new JTextField(10);
     private final JComboBox comboColonnePourRecherche;
     private final JComboBox searchMode;
-    private JCheckBox invertSearch = new JCheckBox("inverser");
+    private JCheckBox invertSearch = new JCheckBox(TM.tr("toReverse"));
     private JButton buttonAdd = new JButton("+");
     private JButton buttonRemove = new JButton();
     final SearchListComponent list;
@@ -96,9 +102,12 @@ public class SearchItemComponent extends JPanel {
         this.list = list;
         this.setOpaque(false);
         // Initialisation de l'interface graphique
-        this.searchMode = new JComboBox(new String[] { "Contient", "Contient exactement", "Est inférieur à", "Est égal à", "Est exactement égal à", "Est supérieur à", "Est vide" });
-        final ListComboBoxModel comboModel = new ListComboBoxModel();
+        this.searchMode = new JComboBox(new String[] { TM.tr("contains"), TM.tr("contains.exactly"), TM.tr("isLessThan"), TM.tr("isEqualTo"), TM.tr("isExactlyEqualTo"), TM.tr("isGreaterThan"),
+                TM.tr("isEmpty") });
+        final ListComboBoxModel comboModel = new ListComboBoxModel(Arrays.asList(TOUT));
         comboModel.setSelectOnAdd(false);
+        // allow getColIndex() and thus getSearchItem() to work from now on
+        assert comboModel.getSelectedItem() != null;
         this.comboColonnePourRecherche = new JComboBox(comboModel);
         uiInit();
     }
@@ -201,18 +210,31 @@ public class SearchItemComponent extends JPanel {
                 updateSearchList();
             }
         };
-        fillColumnCombo(listener);
-        selectAllColumnsItem();
         this.searchMode.addItemListener(listener);
 
-        this.list.getTableModel().addTableModelListener(new TableModelListener() {
+        final TableModelListener tableModelL = new TableModelListener() {
             @Override
             public void tableChanged(TableModelEvent e) {
                 if (e.getColumn() == TableModelEvent.ALL_COLUMNS && e.getFirstRow() == TableModelEvent.HEADER_ROW) {
                     columnsChanged(listener);
                 }
             }
+        };
+        // allow the TableModel to die
+        this.addHierarchyListener(new HierarchyListener() {
+            public void hierarchyChanged(HierarchyEvent e) {
+                if ((e.getChangeFlags() & HierarchyEvent.DISPLAYABILITY_CHANGED) != 0) {
+                    if (e.getChanged().isDisplayable()) {
+                        columnsChanged(listener);
+                        SearchItemComponent.this.list.getTableModel().addTableModelListener(tableModelL);
+                    } else {
+                        SearchItemComponent.this.list.getTableModel().removeTableModelListener(tableModelL);
+                    }
+                }
+            }
         });
+        // that way the TableModelListener will get added automatically
+        assert !this.isDisplayable();
     }
 
     private void selectAllColumnsItem() {
@@ -231,7 +253,7 @@ public class SearchItemComponent extends JPanel {
         // use column index as columns names are not unique
         final SortedMap<String, Integer> map = solve(names, indexes);
         final List<Column> cols = new ArrayList<Column>(columnCount);
-        cols.add(new Column(TOUT, null, -1));
+        cols.add(TOUT);
         for (final Entry<String, Integer> e : map.entrySet()) {
             final int colIndex = e.getValue().intValue();
             final String[] colNames = names[colIndex];

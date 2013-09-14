@@ -18,6 +18,7 @@ import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
+import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureItemSQLElement;
 import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonItemSQLElement;
 import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonSQLElement;
@@ -26,7 +27,6 @@ import org.openconcerto.erp.core.sales.shipment.ui.BonDeLivraisonItemTable;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.panel.PanelOOSQLComponent;
-import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -42,16 +42,14 @@ import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
-import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
-import org.openconcerto.ui.preferences.DefaultProps;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.GestionDevise;
 
 import java.awt.Color;
 import java.awt.GridBagConstraints;
@@ -70,12 +68,9 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.event.TableModelEvent;
-import javax.swing.event.TableModelListener;
 
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
@@ -93,6 +88,11 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
     public BonDeLivraisonSQLComponent() {
         super(Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON"));
+    }
+
+    @Override
+    protected RowValuesTable getRowValuesTable() {
+        return this.tableBonItem.getRowValuesTable();
     }
 
     @Override
@@ -267,11 +267,12 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
             c.weightx = 1;
             this.add(boxTarif, c);
             this.addView(boxTarif, "ID_TARIF");
-            boxTarif.addValueListener(new PropertyChangeListener() {
+            boxTarif.addModelListener("wantedID", new PropertyChangeListener() {
 
                 @Override
                 public void propertyChange(PropertyChangeEvent evt) {
-                    tableBonItem.setTarif(boxTarif.getSelectedRow(), false);
+                    SQLRow selectedRow = boxTarif.getRequest().getPrimaryTable().getRow(boxTarif.getWantedID());
+                    tableBonItem.setTarif(selectedRow, !isFilling());
                 }
             });
         }
@@ -317,79 +318,20 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         c.anchor = GridBagConstraints.EAST;
         c.gridwidth = 1;
         c.fill = GridBagConstraints.NONE;
-
-        DefaultProps props = DefaultNXProps.getInstance();
-        Boolean b = props.getBooleanValue("ArticleShowPoids");
-        if (b) {
-            JPanel panelPoids = new JPanel();
-            final JLabel labelPoids = new JLabel(getLabelFor("TOTAL_POIDS"));
-            panelPoids.add(labelPoids);
-            this.textPoidsTotal.setEnabled(false);
-            this.textPoidsTotal.setHorizontalAlignment(JTextField.RIGHT);
-            this.textPoidsTotal.setDisabledTextColor(Color.BLACK);
-            panelPoids.add(this.textPoidsTotal);
-
-            this.textPoidsTotal.setVisible(b);
-            labelPoids.setVisible(b);
-            DefaultGridBagConstraints.lockMinimumSize(panelPoids);
-            this.add(panelPoids, c);
-        }
+        this.addSQLObject(this.textPoidsTotal, "TOTAL_POIDS");
+        this.addRequiredSQLObject(this.textTotalHT, "TOTAL_HT");
+        this.addRequiredSQLObject(this.textTotalTVA, "TOTAL_TVA");
+        this.addRequiredSQLObject(this.textTotalTTC, "TOTAL_TTC");
+        TotalPanel panelTotal = new TotalPanel(tableBonItem, textTotalHT, textTotalTVA, textTotalTTC, new DeviseField(), new DeviseField(), new DeviseField(), new DeviseField(), new DeviseField(),
+                textPoidsTotal, null);
         c.gridx = 2;
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.weightx = 0;
         c.weighty = 0;
         c.anchor = GridBagConstraints.EAST;
         c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(panelTotal, c);
 
-        final GridBagConstraints cTotalPan = new DefaultGridBagConstraints();
-
-        JPanel panelTotalHT = new JPanel();
-        panelTotalHT.setLayout(new GridBagLayout());
-        cTotalPan.gridx = 0;
-        cTotalPan.anchor = GridBagConstraints.WEST;
-        cTotalPan.weightx = 0;
-        final JLabelBold labelTotalHT = new JLabelBold(getLabelFor("TOTAL_HT"));
-        panelTotalHT.add(labelTotalHT, cTotalPan);
-        cTotalPan.anchor = GridBagConstraints.EAST;
-        cTotalPan.gridx++;
-        cTotalPan.weightx = 1;
-        textTotalHT.setFont(labelTotalHT.getFont());
-        panelTotalHT.add(this.textTotalHT, cTotalPan);
-        this.add(panelTotalHT, c);
-
-        JPanel panelTotalTVA = new JPanel();
-        panelTotalTVA.setLayout(new GridBagLayout());
-        cTotalPan.gridx = 0;
-        cTotalPan.anchor = GridBagConstraints.WEST;
-        cTotalPan.weightx = 0;
-        panelTotalTVA.add(new JLabelBold(getLabelFor("TOTAL_TVA")), cTotalPan);
-        cTotalPan.anchor = GridBagConstraints.EAST;
-        cTotalPan.gridx++;
-        cTotalPan.weightx = 1;
-        panelTotalTVA.add(this.textTotalTVA, cTotalPan);
-        c.gridy++;
-        this.add(panelTotalTVA, c);
-
-        JPanel panelTotalTTC = new JPanel();
-        panelTotalTTC.setLayout(new GridBagLayout());
-        cTotalPan.gridx = 0;
-        cTotalPan.anchor = GridBagConstraints.WEST;
-        cTotalPan.gridwidth = GridBagConstraints.REMAINDER;
-        cTotalPan.fill = GridBagConstraints.BOTH;
-
-        panelTotalTTC.add(new JSeparator(), cTotalPan);
-        cTotalPan.gridwidth = 1;
-        cTotalPan.fill = GridBagConstraints.HORIZONTAL;
-        cTotalPan.weightx = 0;
-        cTotalPan.gridy++;
-        panelTotalTTC.add(new JLabelBold(getLabelFor("TOTAL_TTC")), cTotalPan);
-        cTotalPan.anchor = GridBagConstraints.EAST;
-        cTotalPan.gridx++;
-        cTotalPan.weightx = 1;
-        textTotalTTC.setFont(labelTotalHT.getFont());
-        panelTotalTTC.add(this.textTotalTTC, cTotalPan);
-        c.gridy++;
-        this.add(panelTotalTTC, c);
         c.anchor = GridBagConstraints.WEST;
 
         /*******************************************************************************************
@@ -437,27 +379,9 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         this.addSQLObject(this.textNom, "NOM");
         this.addSQLObject(this.selectCommande, "ID_COMMANDE_CLIENT");
         this.addRequiredSQLObject(this.textNumeroUnique, "NUMERO");
-        this.addSQLObject(this.textPoidsTotal, "TOTAL_POIDS");
-        this.addRequiredSQLObject(this.textTotalHT, "TOTAL_HT");
-        this.addRequiredSQLObject(this.textTotalTVA, "TOTAL_TVA");
-        this.addRequiredSQLObject(this.textTotalTTC, "TOTAL_TTC");
+
         this.addRequiredSQLObject(this.comboClient, "ID_CLIENT");
 
-        this.tableBonItem.getModel().addTableModelListener(new TableModelListener() {
-            public void tableChanged(TableModelEvent e) {
-
-                int columnIndexHT = BonDeLivraisonSQLComponent.this.tableBonItem.getModel().getColumnIndexForElement(BonDeLivraisonSQLComponent.this.tableBonItem.getPrixTotalHTElement());
-                int columnIndexTTC = BonDeLivraisonSQLComponent.this.tableBonItem.getModel().getColumnIndexForElement(BonDeLivraisonSQLComponent.this.tableBonItem.getPrixTotalTTCElement());
-                int columnIndexPoids = BonDeLivraisonSQLComponent.this.tableBonItem.getModel().getColumnIndexForElement(BonDeLivraisonSQLComponent.this.tableBonItem.getPoidsTotalElement());
-
-                if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() == columnIndexHT || e.getColumn() == columnIndexTTC) {
-                    updateTotal();
-                }
-                if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() == columnIndexPoids) {
-                    BonDeLivraisonSQLComponent.this.textPoidsTotal.setText(String.valueOf(Math.round(BonDeLivraisonSQLComponent.this.tableBonItem.getPoidsTotal() * 1000) / 1000.0));
-                }
-            }
-        });
         // Doit etre locké a la fin
         DefaultGridBagConstraints.lockMinimumSize(comboClient);
 
@@ -506,7 +430,11 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
             if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
 
-                updateStock(idBon);
+                try {
+                    updateStock(idBon);
+                } catch (SQLException e) {
+                    throw new IllegalStateException(e);
+                }
             }
             // updateQte(idBon);
         } else {
@@ -538,10 +466,6 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
             super.select(vals);
             rVals.remove("ID_CLIENT");
             super.select(rVals);
-        }
-
-        if (r != null) {
-            this.tableBonItem.insertFrom("ID_BON_DE_LIVRAISON", r.getID());
         }
     }
 
@@ -586,102 +510,22 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
                     }
                 }
             }
-            updateStock(getSelectedID());
+            try {
+                updateStock(getSelectedID());
+            } catch (SQLException e) {
+                throw new IllegalStateException(e);
+            }
         }
 
-    }
-
-    private void updateTotal() {
-        RowValuesTableModel model = this.tableBonItem.getModel();
-
-        long totalHT = 0;
-        long totalTTC = 0;
-        int columnIndexHT = model.getColumnIndexForElement(this.tableBonItem.getPrixTotalHTElement());
-        int columnIndexTTC = model.getColumnIndexForElement(this.tableBonItem.getPrixTotalTTCElement());
-
-        // columnIndexHT = model.getColumnIndexForElement(getTable().get);
-        for (int i = 0; i < model.getRowCount(); i++) {
-            Number nHT = (Number) model.getValueAt(i, columnIndexHT);
-            totalHT += nHT.longValue();
-
-            Number nTTC = (Number) model.getValueAt(i, columnIndexTTC);
-            totalTTC += nTTC.longValue();
-        }
-
-        this.textTotalHT.setText(GestionDevise.currencyToString(totalHT));
-        this.textTotalTVA.setText(GestionDevise.currencyToString(totalTTC - totalHT));
-        this.textTotalTTC.setText(GestionDevise.currencyToString(totalTTC));
-    }
-
-    /**
-     * Chargement des éléments d'une commande dans la table
-     * 
-     * @param idCommande
-     * 
-     */
-    public void loadCommande(int idCommande) {
-
-        SQLElement commande = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
-        SQLElement commandeElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT_ELEMENT");
-
-        if (idCommande > 1) {
-            SQLInjector injector = SQLInjector.getInjector(commande.getTable(), this.getTable());
-            SQLRow rowCmd = commande.getTable().getRow(idCommande);
-            SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(idCommande);
-            String string = rowCmd.getString("NOM");
-            createRowValuesFrom.put("NOM", string + (string.trim().length() == 0 ? "" : ",") + rowCmd.getString("NUMERO"));
-            this.select(createRowValuesFrom);
-        }
-
-        loadItem(this.tableBonItem, commande, idCommande, commandeElt);
-    }
-
-    /**
-     * Chargement des éléments d'une facture dans la table
-     * 
-     * @param idFacture
-     * 
-     */
-    public void loadFacture(int idFacture) {
-
-        SQLElement facture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-        SQLElement factureElt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
-
-        if (idFacture > 1) {
-            SQLInjector injector = SQLInjector.getInjector(facture.getTable(), this.getTable());
-            SQLRow rowFact = facture.getTable().getRow(idFacture);
-            SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(idFacture);
-            String string = rowFact.getString("NOM");
-            createRowValuesFrom.put("NOM", string + (string.trim().length() == 0 ? "" : ",") + rowFact.getString("NUMERO"));
-            this.select(createRowValuesFrom);
-        }
-
-        loadItem(this.tableBonItem, facture, idFacture, factureElt);
-
-    }
-
-    /**
-     * Chargement des éléments d'une facture dans la table
-     * 
-     * @param idSaisieVenteFacture
-     * 
-     */
-    public void loadFactureItem(int idSaisieVenteFacture) {
-        SQLElement facture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-        SQLElement factureElt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
-        loadItem(this.tableBonItem, facture, idSaisieVenteFacture, factureElt);
-        for (int i = 0; i < this.tableBonItem.getRowValuesTable().getRowCount(); i++) {
-            SQLRowValues rowVals = this.tableBonItem.getRowValuesTable().getRowValuesTableModel().getRowValuesAt(i);
-            this.tableBonItem.getRowValuesTable().getRowValuesTableModel().putValue(rowVals.getObject("QTE"), i, "QTE_LIVREE");
-        }
     }
 
     /***********************************************************************************************
      * Mise à jour des quantités livrées dans les élements de facture
      * 
      * @param idBon id du bon de livraison
+     * @throws SQLException
      */
-    public void updateQte(int idBon) {
+    public void updateQte(int idBon) throws SQLException {
 
         SQLTable tableFactureElem = new SaisieVenteFactureItemSQLElement().getTable();
         SQLSelect selBonItem = new SQLSelect(getTable().getBase());
@@ -695,16 +539,13 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
         final List<Object[]> myListBonItem = (List<Object[]>) obBonItem;
         final int size = myListBonItem.size();
-        try {
-            for (int i = 0; i < size; i++) {
-                final Object[] objTmp = myListBonItem.get(i);
-                final SQLRow rowFactElem = tableFactureElem.getRow(((Number) objTmp[0]).intValue());
-                final SQLRowValues rowVals = new SQLRowValues(tableFactureElem);
-                rowVals.put("QTE_LIVREE", Integer.valueOf(rowFactElem.getInt("QTE_LIVREE") + ((Number) objTmp[1]).intValue()));
-                rowVals.update(rowFactElem.getID());
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
+
+        for (int i = 0; i < size; i++) {
+            final Object[] objTmp = myListBonItem.get(i);
+            final SQLRow rowFactElem = tableFactureElem.getRow(((Number) objTmp[0]).intValue());
+            final SQLRowValues rowVals = new SQLRowValues(tableFactureElem);
+            rowVals.put("QTE_LIVREE", Integer.valueOf(rowFactElem.getInt("QTE_LIVREE") + ((Number) objTmp[1]).intValue()));
+            rowVals.update(rowFactElem.getID());
         }
 
     }
@@ -713,8 +554,9 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
      * Mise à jour des quantités livrées dans les élements de facture
      * 
      * @param idBon id du bon de livraison
+     * @throws SQLException
      */
-    public void cancelUpdateQte(int idBon) {
+    public void cancelUpdateQte(int idBon) throws SQLException {
 
         SQLTable tableFactureElem = new SaisieVenteFactureItemSQLElement().getTable();
         SQLSelect selBonItem = new SQLSelect(getTable().getBase());
@@ -728,16 +570,13 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
         final List<Object[]> myListBonItem = (List<Object[]>) obBonItem;
         final int size = myListBonItem.size();
-        try {
-            for (int i = 0; i < size; i++) {
-                final Object[] objTmp = myListBonItem.get(i);
-                final SQLRow rowFactElem = tableFactureElem.getRow(((Number) objTmp[0]).intValue());
-                final SQLRowValues rowVals = new SQLRowValues(tableFactureElem);
-                rowVals.put("QTE_LIVREE", Integer.valueOf(((Number) objTmp[1]).intValue() - rowFactElem.getInt("QTE_LIVREE")));
-                rowVals.update(rowFactElem.getID());
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
+
+        for (int i = 0; i < size; i++) {
+            final Object[] objTmp = myListBonItem.get(i);
+            final SQLRow rowFactElem = tableFactureElem.getRow(((Number) objTmp[0]).intValue());
+            final SQLRowValues rowVals = new SQLRowValues(tableFactureElem);
+            rowVals.put("QTE_LIVREE", Integer.valueOf(((Number) objTmp[1]).intValue() - rowFactElem.getInt("QTE_LIVREE")));
+            rowVals.update(rowFactElem.getID());
         }
 
     }
@@ -748,8 +587,10 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
     /**
      * Mise à jour des stocks pour chaque article composant la facture
+     * 
+     * @throws SQLException
      */
-    private void updateStock(int id) {
+    private void updateStock(int id) throws SQLException {
 
         SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
         if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {

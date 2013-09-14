@@ -13,11 +13,11 @@
  
  /*
  * Créé le 28 mai 2005
- * 
  */
 package org.openconcerto.sql.navigator;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
@@ -36,6 +36,8 @@ public class ElementsSQLBrowserColumn extends SQLBrowserColumn<SQLElement, Eleme
     public ElementsSQLBrowserColumn(SQLElement parent, List<SQLElement> elements) {
         super(new ElementsSQLListModel(elements), false);
         this.parent = parent;
+        // uiInit() eventually needs this.parent (in getHeaderName())
+        this.uiInit();
     }
 
     protected int getSelectionMode() {
@@ -68,7 +70,7 @@ public class ElementsSQLBrowserColumn extends SQLBrowserColumn<SQLElement, Eleme
         if (this.parent == null) {
             res = "Selection";
         } else {
-            final String name = "Contenu des " + this.parent.getPluralName();
+            final String name = TM.getInstance().trM("browserCol.content", "element", this.parent.getName());
             // Mets la 1ere lettre en majuscule
             res = name.substring(0, 1).toUpperCase() + name.substring(1);
         }

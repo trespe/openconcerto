@@ -18,7 +18,7 @@ import org.openconcerto.sql.model.SQLInjector;
 
 public class CommandeBlEltSQLInjector extends SQLInjector {
     public CommandeBlEltSQLInjector(final DBRoot root) {
-        super(root, "COMMANDE_CLIENT_ELEMENT", "BON_DE_LIVRAISON_ELEMENT");
+        super(root, "COMMANDE_CLIENT_ELEMENT", "BON_DE_LIVRAISON_ELEMENT", false);
         createDefaultMap();
         mapDefaultValues(getDestination().getField("QTE_LIVREE"), Integer.valueOf(0));
     }

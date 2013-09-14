@@ -19,8 +19,7 @@ import org.openconcerto.sql.model.SQLTable;
 
 public class EcheanceEncaisseSQLInjector extends SQLInjector {
     public EcheanceEncaisseSQLInjector(final DBRoot root) {
-        super(root, "ECHEANCE_CLIENT", "ENCAISSER_MONTANT_ELEMENT");
-
+        super(root, "ECHEANCE_CLIENT", "ENCAISSER_MONTANT_ELEMENT", false);
         final SQLTable tableEch = getSource();
         final SQLTable tableEnc = getDestination();
         map(tableEch.getField("ID"), tableEnc.getField("ID_ECHEANCE_CLIENT"));

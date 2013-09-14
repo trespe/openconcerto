@@ -80,6 +80,9 @@ public abstract class SQLComponent extends JPanel implements ValidObject {
     private IFactory<SQLRowValues> defaults;
 
     protected SQLComponent(SQLElement element) {
+        if (element == null) {
+            throw new IllegalArgumentException("null element");
+        }
         // Doit être opaque sinon bug avec L&F Nimbus
         this.setOpaque(true);
         this.parent = null;

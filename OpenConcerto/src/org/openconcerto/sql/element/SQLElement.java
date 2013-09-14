@@ -13,8 +13,10 @@
  
  package org.openconcerto.sql.element;
 
+import static org.openconcerto.sql.TM.getTM;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.model.DBStructureItemNotFound;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLFieldsSet;
@@ -44,13 +46,16 @@ import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.ExceptionUtils;
-import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cache.CacheResult;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.change.ListChangeIndex;
 import org.openconcerto.utils.change.ListChangeRecorder;
+import org.openconcerto.utils.i18n.Grammar;
+import org.openconcerto.utils.i18n.Grammar_fr;
+import org.openconcerto.utils.i18n.NounClass;
+import org.openconcerto.utils.i18n.Phrase;
 
 import java.awt.Component;
 import java.lang.reflect.Constructor;
@@ -74,6 +79,8 @@ import javax.swing.JComponent;
 import javax.swing.JOptionPane;
 import javax.swing.text.JTextComponent;
 
+import net.jcip.annotations.GuardedBy;
+
 import org.apache.commons.collections.MapIterator;
 import org.apache.commons.collections.MultiMap;
 import org.apache.commons.collections.iterators.EntrySetMapIterator;
@@ -89,6 +96,26 @@ public abstract class SQLElement {
     static final private Set<String> computingFF = Collections.unmodifiableSet(new HashSet<String>());
     static final private Set<SQLField> computingRF = Collections.unmodifiableSet(new HashSet<SQLField>());
 
+    private static Phrase createPhrase(String singular, String plural) {
+        final NounClass nounClass;
+        final String base;
+        if (singular.startsWith("une ")) {
+            nounClass = NounClass.FEMININE;
+            base = singular.substring(4);
+        } else if (singular.startsWith("un ")) {
+            nounClass = NounClass.MASCULINE;
+            base = singular.substring(3);
+        } else {
+            nounClass = null;
+            base = singular;
+        }
+        final Phrase res = new Phrase(Grammar_fr.getInstance(), base, nounClass);
+        if (nounClass != null)
+            res.putVariant(Grammar.INDEFINITE_ARTICLE_SINGULAR, singular);
+        res.putVariant(Grammar.PLURAL, plural);
+        return res;
+    }
+
     // from the most loss of information to the least.
     public static enum ReferenceAction {
         /** If a referenced row is archived, empty the foreign field */
@@ -100,14 +127,19 @@ public abstract class SQLElement {
     }
 
     static final public String DEFAULT_COMP_ID = "default component code";
+    /**
+     * If this value is passed to the constructor, {@link #createCode()} will only be called the
+     * first time {@link #getCode()} is. This allow the method to use objects passed to the
+     * constructor of a subclass.
+     */
+    static final public String DEFERRED_CODE = new String("deferred code");
 
-    // must contain the article "a stone" / "an elephant"
-    private final String singular;
-    // no article "stones" / "elephants"
-    private final String plural;
+    private SQLElementDirectory directory;
+    private String l18nPkgName;
+    private Phrase name;
     private final SQLTable primaryTable;
     // used as a key in SQLElementDirectory so it should be immutable
-    private final String code;
+    private String code;
     private ComboSQLRequest combo;
     private ListSQLRequest list;
     private SQLTableModelSourceOnline tableSrc;
@@ -128,20 +160,30 @@ public abstract class SQLElement {
 
     private final Map<String, JComponent> additionalFields;
     private final List<SQLTableModelColumn> additionalListCols;
+    @GuardedBy("this")
     private List<String> mdPath;
 
+    @Deprecated
     public SQLElement(String singular, String plural, SQLTable primaryTable) {
-        this(singular, plural, primaryTable, null);
+        this(primaryTable, createPhrase(singular, plural));
     }
 
-    public SQLElement(String singular, String plural, SQLTable primaryTable, final String code) {
+    public SQLElement(SQLTable primaryTable) {
+        this(primaryTable, null);
+    }
+
+    public SQLElement(final SQLTable primaryTable, final Phrase name) {
+        this(primaryTable, name, null);
+    }
+
+    public SQLElement(final SQLTable primaryTable, final Phrase name, final String code) {
         super();
-        this.singular = singular;
-        this.plural = plural;
         if (primaryTable == null) {
-            throw new DBStructureItemNotFound("table is null for " + this);
+            throw new DBStructureItemNotFound("table is null for " + this.getClass());
         }
         this.primaryTable = primaryTable;
+        this.l18nPkgName = null;
+        this.setDefaultName(name);
         this.code = code == null ? createCode() : code;
         this.combo = null;
         this.list = null;
@@ -184,13 +226,17 @@ public abstract class SQLElement {
         this.otherRF = null;
     }
 
+    protected synchronized final boolean areRelationshipsInited() {
+        return this.sharedFF != null;
+    }
+
     private void checkSelfCall(boolean check, final String methodName) {
         assert check : this + " " + methodName + "() is calling itself, and thus the caller will only see a partial state";
     }
 
     private synchronized void initFF() {
         checkSelfCall(this.sharedFF != computingFF, "initFF");
-        if (this.sharedFF != null)
+        if (areRelationshipsInited())
             return;
         this.sharedFF = computingFF;
 
@@ -316,6 +362,22 @@ public abstract class SQLElement {
         this.childRF = tmpChildRF;
     }
 
+    final void setDirectory(final SQLElementDirectory directory) {
+        // since this method should only be called at the end of SQLElementDirectory.addSQLElement()
+        assert directory.getElement(this.getTable()) == this;
+        synchronized (this) {
+            if (this.directory != directory) {
+                if (this.areRelationshipsInited())
+                    this.resetRelationships();
+                this.directory = directory;
+            }
+        }
+    }
+
+    protected final SQLElementDirectory getDirectory() {
+        return this.directory;
+    }
+
     final SQLElement getElement(SQLTable table) {
         final SQLElement res = getElementLenient(table);
         if (res == null)
@@ -324,7 +386,9 @@ public abstract class SQLElement {
     }
 
     final SQLElement getElementLenient(SQLTable table) {
-        return Configuration.getInstance().getDirectory().getElement(table);
+        synchronized (this) {
+            return this.getDirectory().getElement(table);
+        }
     }
 
     public final SQLElement getForeignElement(String foreignField) {
@@ -339,12 +403,56 @@ public abstract class SQLElement {
         return this.getTable().getBase().getGraph().getForeignTable(this.getTable().getField(foreignField));
     }
 
+    public final synchronized String getL18nPackageName() {
+        return this.l18nPkgName;
+    }
+
+    public final void setL18nPackageName(Class<?> clazz) {
+        this.setL18nPackageName(clazz.getPackage().getName());
+    }
+
+    public final synchronized void setL18nPackageName(String name) {
+        this.l18nPkgName = name;
+    }
+
+    /**
+     * Set the default name, used if no translations could be found.
+     * 
+     * @param name the default name, if <code>null</code> the {@link #getTable() table} name will be
+     *        used.
+     */
+    public final synchronized void setDefaultName(Phrase name) {
+        this.name = name != null ? name : Phrase.getInvariant(getTable().getName());
+    }
+
+    /**
+     * The default name.
+     * 
+     * @return the default name, never <code>null</code>.
+     */
+    public final synchronized Phrase getDefaultName() {
+        return this.name;
+    }
+
+    /**
+     * The name of this element in the current locale.
+     * 
+     * @return the name of this, {@link #getDefaultName()} if there's no {@link #getDirectory()
+     *         directory} or if it hasn't a name for this.
+     * @see SQLElementDirectory#getName(SQLElement)
+     */
+    public final Phrase getName() {
+        final SQLElementDirectory dir = this.getDirectory();
+        final Phrase res = dir == null ? null : dir.getName(this);
+        return res == null ? this.getDefaultName() : res;
+    }
+
     public String getPluralName() {
-        return this.plural;
+        return this.getName().getVariant(Grammar.PLURAL);
     }
 
     public String getSingularName() {
-        return this.singular;
+        return this.getName().getVariant(Grammar.INDEFINITE_ARTICLE_SINGULAR);
     }
 
     public CollectionMap<String, String> getShowAs() {
@@ -372,7 +480,7 @@ public abstract class SQLElement {
 
     private final SQLCache<SQLRowAccessor, Object> getModelCache() {
         if (this.modelCache == null)
-            this.modelCache = new SQLCache<SQLRowAccessor, Object>(60, -1, "modelObjects of " + this.getSingularName());
+            this.modelCache = new SQLCache<SQLRowAccessor, Object>(60, -1, "modelObjects of " + this.getCode());
         return this.modelCache;
     }
 
@@ -626,7 +734,13 @@ public abstract class SQLElement {
         return this.primaryTable;
     }
 
-    public final String getCode() {
+    public synchronized final String getCode() {
+        if (this.code == DEFERRED_CODE) {
+            final String createCode = this.createCode();
+            if (createCode == DEFERRED_CODE)
+                throw new IllegalStateException("createCode() returned DEFERRED_CODE");
+            this.code = createCode;
+        }
         return this.code;
     }
 
@@ -886,7 +1000,10 @@ public abstract class SQLElement {
         return new ComboSQLRequest(this.getTable(), this.getComboFields());
     }
 
-    abstract protected List<String> getComboFields();
+    // not all elements need to be displayed in combos so don't make this method abstract
+    protected List<String> getComboFields() {
+        return this.getListFields();
+    }
 
     public final synchronized ListSQLRequest getListRequest() {
         if (this.list == null) {
@@ -1194,7 +1311,7 @@ public abstract class SQLElement {
         this.check(row);
 
         final SQLRowValues copy = new SQLRowValues(this.getTable());
-        copy.loadAllSafe(row);
+        this.loadAllSafe(copy, row);
 
         for (final String privateName : this.getPrivateForeignFields()) {
             final SQLElement privateElement = this.getPrivateElement(privateName);
@@ -1214,6 +1331,23 @@ public abstract class SQLElement {
         }
 
         return copy;
+    }
+
+    /**
+     * Load all values that can be safely copied (shared by multiple rows). This means all values
+     * except private, primary, order and archive.
+     * 
+     * @param vals the row to modify.
+     * @param row the row to be loaded.
+     */
+    public final void loadAllSafe(final SQLRowValues vals, final SQLRow row) {
+        check(vals);
+        check(row);
+        vals.setAll(row.getAllValues());
+        vals.load(row, this.getNormalForeignFields());
+        if (this.getParentForeignField() != null)
+            vals.put(this.getParentForeignField(), row.getObject(this.getParentForeignField()));
+        vals.load(row, this.getSharedForeignFields());
     }
 
     // *** getRows
@@ -1430,25 +1564,32 @@ public abstract class SQLElement {
         return new SQLElementRowR(this, row).equals(new SQLElementRowR(this, row2));
     }
 
+    @Override
     public final boolean equals(Object obj) {
         if (obj instanceof SQLElement) {
             final SQLElement o = (SQLElement) obj;
-            final boolean parentEq = CompareUtils.equals(this.getParentForeignField(), o.getParentForeignField());
-            return this.getTable().equals(o.getTable()) && this.getSharedForeignFields().equals(o.getSharedForeignFields()) && parentEq
-                    && this.getPrivateForeignFields().equals(o.getPrivateForeignFields()) && this.getChildrenReferentFields().equals(o.getChildrenReferentFields());
-            // MAYBE also check getPrivateElement(String foreignField);
-        } else
+            // don't need to compare SQLField computed by initFF() & initRF() since they're function
+            // of this.table (and by extension its graph) & this.directory
+            final boolean parentEq = CompareUtils.equals(this.getParentFFName(), o.getParentFFName());
+            return this.getTable().equals(o.getTable()) && CompareUtils.equals(this.getDirectory(), o.getDirectory()) && parentEq && this.getPrivateFields().equals(o.getPrivateFields())
+                    && this.getChildren().equals(o.getChildren());
+        } else {
             return false;
+        }
     }
 
-    public final int hashCode() {
-        // ne pas mettre getParent car des fois null
-        return this.getTable().hashCode() + this.getSharedForeignFields().hashCode() + this.getPrivateForeignFields().hashCode();
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + this.primaryTable.hashCode();
+        result = prime * result + ((this.directory == null) ? 0 : this.directory.hashCode());
+        return result;
     }
 
     @Override
     public String toString() {
-        return this.getClass().getName() + " '" + this.plural + "'";
+        return this.getClass().getName() + " " + this.getTable().getSQLName();
     }
 
     // *** gui
@@ -1512,19 +1653,23 @@ public abstract class SQLElement {
      */
     protected abstract SQLComponent createComponent();
 
-    public final void addToMDPath(String mdVariant) {
-        final LinkedList<String> newL = new LinkedList<String>(this.mdPath);
-        newL.addFirst(mdVariant);
-        this.mdPath = Collections.unmodifiableList(newL);
+    public final void addToMDPath(final String mdVariant) {
+        if (mdVariant == null)
+            throw new NullPointerException();
+        synchronized (this) {
+            final LinkedList<String> newL = new LinkedList<String>(this.mdPath);
+            newL.addFirst(mdVariant);
+            this.mdPath = Collections.unmodifiableList(newL);
+        }
     }
 
-    public final void removeFromMDPath(String mdVariant) {
+    public synchronized final void removeFromMDPath(final String mdVariant) {
         final LinkedList<String> newL = new LinkedList<String>(this.mdPath);
         if (newL.remove(mdVariant))
             this.mdPath = Collections.unmodifiableList(newL);
     }
 
-    public final List<String> getMDPath() {
+    public synchronized final List<String> getMDPath() {
         return this.mdPath;
     }
 
@@ -1578,39 +1723,41 @@ public abstract class SQLElement {
      */
     public boolean askArchive(final Component comp, final Collection<? extends Number> ids) {
         boolean shouldArchive = false;
-        if (ids.isEmpty())
+        final int rowCount = ids.size();
+        if (rowCount == 0)
             return true;
-        final boolean plural = ids.size() > 1;
-        final String lines = plural ? "ces " + ids.size() + " lignes" : "cette ligne";
         try {
             if (!UserRightsManager.getCurrentUserRights().canDelete(getTable()))
                 throw new SQLException("forbidden");
             final TreesOfSQLRows trees = TreesOfSQLRows.createFromIDs(this, ids);
             final CollectionMap<SQLTable, SQLRowAccessor> descs = trees.getDescendantsByTable();
             final SortedMap<SQLField, Integer> externRefs = trees.getExternReferencesCount();
-            if (descs.size() + externRefs.size() > 0) {
-                String msg = "";
-                if (descs.size() > 0)
-                    msg = StringUtils.firstUpThenLow(lines) + (plural ? " sont utilisées" : " est utilisée") + " par : \n" + toString(descs);
-                if (externRefs.size() > 0) {
-                    msg += descs.size() > 0 ? "\n\nDe plus les" : "Les";
-                    msg += " liens suivant vont être IRREMEDIABLEMENT détruit :\n" + toStringExtern(externRefs);
-                }
-
-                int i = askSerious(comp, msg + "\n\nVoulez vous effacer " + lines + " ainsi que toutes les lignes liées ?", "Confirmation d'effacement");
+            final String confirmDelete = getTM().trA("sqlElement.confirmDelete");
+            final Map<String, Object> map = new HashMap<String, Object>();
+            map.put("rowCount", rowCount);
+            final int descsSize = descs.size();
+            final int externsSize = externRefs.size();
+            if (descsSize + externsSize > 0) {
+                final String descsS = descsSize > 0 ? toString(descs) : null;
+                final String externsS = externsSize > 0 ? toStringExtern(externRefs) : null;
+                map.put("descsSize", descsSize);
+                map.put("descs", descsS);
+                map.put("externsSize", externsSize);
+                map.put("externs", externsS);
+                map.put("times", "once");
+                int i = askSerious(comp, getTM().trM("sqlElement.deleteRef.details", map) + getTM().trM("sqlElement.deleteRef", map), confirmDelete);
                 if (i == JOptionPane.YES_OPTION) {
-                    msg = "";
-                    if (externRefs.size() > 0)
-                        msg = "Les liens suivant vont être IRREMEDIABLEMENT détruit, ils ne pourront pas être 'désarchivés' :\n" + toStringExtern(externRefs) + "\n\n";
-                    i = askSerious(comp, msg + "Voulez vous VRAIMENT effacer " + lines + " ainsi que toutes les lignes liées ?", "Confirmation d'effacement");
+                    map.put("times", "twice");
+                    final String msg = externsSize > 0 ? getTM().trM("sqlElement.deleteRef.details2", map) : "";
+                    i = askSerious(comp, msg + getTM().trM("sqlElement.deleteRef", map), confirmDelete);
                     if (i == JOptionPane.YES_OPTION) {
                         shouldArchive = true;
                     } else {
-                        JOptionPane.showMessageDialog(comp, "Aucune ligne effacée.", "Information", JOptionPane.INFORMATION_MESSAGE);
+                        JOptionPane.showMessageDialog(comp, getTM().trA("sqlElement.noLinesDeleted"), getTM().trA("sqlElement.noLinesDeletedTitle"), JOptionPane.INFORMATION_MESSAGE);
                     }
                 }
             } else {
-                int i = askSerious(comp, "Voulez vous effacer " + lines + " ?", "Confirmation d'effacement");
+                int i = askSerious(comp, getTM().trM("sqlElement.deleteNoRef", map), confirmDelete);
                 if (i == JOptionPane.YES_OPTION) {
                     shouldArchive = true;
                 }
@@ -1621,7 +1768,7 @@ public abstract class SQLElement {
             } else
                 return false;
         } catch (SQLException e) {
-            ExceptionHandler.handle(comp, "Impossible d'archiver " + this + " IDs " + ids, e);
+            ExceptionHandler.handle(comp, TM.tr("sqlElement.archiveError", this, ids), e);
             return false;
         }
     }
@@ -1640,24 +1787,23 @@ public abstract class SQLElement {
     }
 
     private static final String elemToString(int count, SQLElement elem) {
-        // don't use count for 1 as the article is in singularName
-        return "- " + (count == 1 ? elem.getSingularName() : count + " " + elem.getPluralName());
+        return "- " + elem.getName().getNumeralVariant(count, Grammar.INDEFINITE_NUMERAL);
     }
 
     // traduire TRANSFO.ID_ELEMENT_TABLEAU_PRI -> {TRANSFO[5], TRANSFO[12]}
     // en 2 transformateurs vont perdre leurs champs 'Circuit primaire'
     private final String toStringExtern(SortedMap<SQLField, Integer> externRef) {
         final List<String> l = new ArrayList<String>();
+        final Map<String, Object> map = new HashMap<String, Object>(4);
         for (final Map.Entry<SQLField, Integer> entry : externRef.entrySet()) {
             final SQLField foreignKey = entry.getKey();
             final int count = entry.getValue();
-            final String end;
             final String label = Configuration.getTranslator(foreignKey.getTable()).getLabelFor(foreignKey);
-            if (count > 1)
-                end = " vont perdre leurs champs '" + label + "'";
-            else
-                end = " va perdre son champ '" + label + "'";
-            l.add(elemToString(count, getElement(foreignKey.getTable())) + end);
+            final SQLElement elem = getElement(foreignKey.getTable());
+            map.put("elementName", elem.getName());
+            map.put("count", count);
+            map.put("linkName", label);
+            l.add(getTM().trM("sqlElement.linksWillBeCut", map));
         }
         return CollectionUtils.join(l, "\n");
     }

@@ -14,6 +14,7 @@
  package org.openconcerto.erp.storage;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.Log;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.sync.SyncClient;
 
@@ -51,7 +52,7 @@ public class CloudStorageEngine implements StorageEngine {
             final SyncClient client = new SyncClient("https://" + config.getStorageServer());
             client.setVerifyHost(false);
             StreamUtils.copy(inStream, localFile);
-            System.out.println("CloudStorageEngine: send file:" + localFile.getCanonicalPath() + " to " + remotePath + " " + title);
+            Log.get().info("Sending file:" + localFile.getCanonicalPath() + " to " + remotePath + " " + title + " size:" + localFile.length());
             client.sendFile(localFile, remotePath, title, config.getToken());
         } catch (Exception e) {
             throw new IOException(e);

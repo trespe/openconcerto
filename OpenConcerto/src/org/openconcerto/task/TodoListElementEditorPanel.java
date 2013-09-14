@@ -21,7 +21,6 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.text.SimpleDateFormat;
 
 import javax.swing.JButton;
 import javax.swing.JLabel;
@@ -33,7 +32,6 @@ import javax.swing.SwingUtilities;
 
 public class TodoListElementEditorPanel extends JPanel {
     private transient TodoListElement element;
-    final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd/MM/yyyy à HH:mm");
 
     TodoListElementEditorPanel(TodoListElement e) {
         this.element = e;
@@ -47,7 +45,7 @@ public class TodoListElementEditorPanel extends JPanel {
         c.gridx = 0;
         c.gridy = 0;
         c.weightx = 0;
-        JLabel l = new JLabel("Résumé:");
+        JLabel l = new JLabel(TM.tr("summary"));
         this.add(l, c);
         //
         c.gridx++;
@@ -90,10 +88,10 @@ public class TodoListElementEditorPanel extends JPanel {
         c.gridwidth = 2;
         c.insets = new Insets(2, 2, 2, 2);
         c.fill = GridBagConstraints.HORIZONTAL;
-        JLabel label = new JLabel("A réaliser pour le " + simpleDateFormat.format(e.getExpectedDate()) + " par " + UserManager.getInstance().getUser(e.getUserId()).getFullName());
+        JLabel label = new JLabel(TM.getTM().trM("todoBefore", "date", e.getExpectedDate(), "user", UserManager.getInstance().getUser(e.getUserId()).getFullName()));
         this.add(label, c);
         // Ligne 4 =====================================
-        JButton bOk = new JButton("Ok");
+        JButton bOk = new JButton(TM.tr("ok"));
         bOk.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent ev) {
@@ -103,7 +101,7 @@ public class TodoListElementEditorPanel extends JPanel {
                 SwingUtilities.getWindowAncestor(TodoListElementEditorPanel.this).dispose();
             }
         });
-        JButton bAnnuler = new JButton("Annuler");
+        JButton bAnnuler = new JButton(TM.tr("cancel"));
         bAnnuler.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent ev) {

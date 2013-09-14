@@ -18,8 +18,8 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.finance.accounting.ui.ListeGestCommEltPanel;
-import org.openconcerto.erp.core.sales.invoice.report.ListeFactureXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.ui.DateEnvoiRenderer;
+import org.openconcerto.erp.core.sales.invoice.ui.DateReglementRenderer;
 import org.openconcerto.erp.core.sales.invoice.ui.ListeFactureRenderer;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
@@ -32,20 +32,17 @@ import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
-import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 
 import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
-import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
 import javax.swing.Action;
 import javax.swing.BorderFactory;
-import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -106,11 +103,10 @@ public class ListeSaisieVenteFactureAction extends CreateFrameAbstractAction {
                 @Override
                 public void executeChecked(TableColumn columnDateReglement) {
                     columnDateReglement.setCellEditor(new org.openconcerto.ui.table.TimestampTableCellEditor());
-                    columnDateReglement.setCellRenderer(new DateEnvoiRenderer());
+                    columnDateReglement.setCellRenderer(new DateReglementRenderer());
                 }
             });
         this.listeAddPanel = new ListeGestCommEltPanel(eltFacture, new IListe(src)) {
-
 
             @Override
             protected GridBagConstraints createConstraints() {

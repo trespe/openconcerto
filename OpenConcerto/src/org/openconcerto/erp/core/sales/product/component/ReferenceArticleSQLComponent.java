@@ -38,7 +38,6 @@ import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
-import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.preferences.DefaultProps;
 import org.openconcerto.utils.text.SimpleDocumentListener;
@@ -73,21 +72,22 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     private JTextField textPVHT, textPVTTC, textPAHT;
     private JTextField textMetrique1VT, textMetrique1HA;
 
-    final JCheckBox boxService = new JCheckBox(getLabelFor("SERVICE"));
-    final JCheckBox checkObs = new JCheckBox(getLabelFor("OBSOLETE"));
+    private final JCheckBox boxService = new JCheckBox(getLabelFor("SERVICE"));
+    private final JCheckBox checkObs = new JCheckBox(getLabelFor("OBSOLETE"));
     private JTextField textNom, textCode;
     private JTextField textPoids;
     private JTextField textValMetrique1, textValMetrique2, textValMetrique3;
     private DocumentListener htDocListener, ttcDocListener, detailsListener;
-    PropertyChangeListener propertyChangeListener;
+    private PropertyChangeListener propertyChangeListener;
     private PropertyChangeListener taxeListener;
-    final ElementComboBox comboSelTaxe = new ElementComboBox(false, 10);
-    final ElementComboBox comboSelModeVente = new ElementComboBox(false, 25);
+    private final ElementComboBox comboSelTaxe = new ElementComboBox(false, 10);
+    private final ElementComboBox comboSelModeVente = new ElementComboBox(false, 25);
     private JLabel labelMetriqueHA1 = new JLabel(getLabelFor("PRIX_METRIQUE_HA_1"), SwingConstants.RIGHT);
     private JLabel labelMetriqueVT1 = new JLabel(getLabelFor("PRIX_METRIQUE_VT_1"), SwingConstants.RIGHT);
 
-    ArticleDesignationTable tableDes = new ArticleDesignationTable();
-    ArticleTarifTable tableTarifVente = new ArticleTarifTable(this);
+    private ArticleDesignationTable tableDes = new ArticleDesignationTable();
+    private ArticleTarifTable tableTarifVente = new ArticleTarifTable(this);
+    private final JTextField textMarge = new JTextField(15);
 
     private DocumentListener pieceHAArticle = new DocumentListener() {
 
@@ -120,8 +120,6 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
     };
 
-    final JTextField textMarge = new JTextField(15);
-
     private DocumentListener listenerMargeTextMarge = new SimpleDocumentListener() {
         @Override
         public void update(DocumentEvent e) {
@@ -142,7 +140,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
                 BigDecimal ha = new BigDecimal(ReferenceArticleSQLComponent.this.textPAHT.getText());
 
                 if (vt != null && ha != null) {
-                    if (!vt.equals(BigDecimal.ZERO) && !ha.equals(BigDecimal.ZERO)) {
+                    if (vt.signum() != 0 && ha.signum() != 0) {
                         BigDecimal margeHT = vt.subtract(ha);
 
                         BigDecimal value;
@@ -183,15 +181,11 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
             BigDecimal ha = new BigDecimal(this.textPAHT.getText());
             if (ha != null && this.textMarge.getText().trim().length() > 0) {
-                // final String replaceAll =
-                // this.textMarge.getText().replaceAll(
-                // ",", ".");
-                // double d = Double.parseDouble(replaceAll.replaceAll(" ",
-                // ""));
+
                 BigDecimal d = new BigDecimal(this.textMarge.getText());
                 if (DefaultNXProps.getInstance().getBooleanValue(TotalPanel.MARGE_MARQUE, false)) {
                     final BigDecimal e = BigDecimal.ONE.subtract(d.divide(BigDecimal.valueOf(100), MathContext.DECIMAL128));
-                    if (e.equals(BigDecimal.ZERO)) {
+                    if (e.signum() == 0) {
                         this.textPVHT.setText("0");
                     } else {
                         this.textPVHT.setText(ha.divide(e, MathContext.DECIMAL128).setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
@@ -210,8 +204,6 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
     @Override
     public void select(SQLRowAccessor r) {
-        // TODO Auto-generated method stub
-
         super.select(r);
         if (r != null && r.getID() > getTable().getUndefinedID()) {
             this.checkObs.setVisible(true);
@@ -537,17 +529,8 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                // TODO Raccord de méthode auto-généré
                 fieldQteMin.setEnabled(boxStock.isSelected());
                 fieldQteAchat.setEnabled(boxStock.isSelected());
-            }
-        });
-
-        boxStock.addActionListener(new ActionListener() {
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                // TODO Raccord de méthode auto-généré
             }
         });
 
@@ -831,7 +814,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             @Override
             public void update(DocumentEvent e) {
 
-                if (fieldHAD.getText().trim().length() > 0) {
+                if (!isFilling() && fieldHAD.getText().trim().length() > 0) {
 
                     BigDecimal ha = new BigDecimal(fieldHAD.getText());
 
@@ -971,7 +954,6 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
             @Override
             public void update(DocumentEvent e) {
-                // TODO Auto-generated method stub
                 updatePiece();
             }
 
@@ -980,7 +962,6 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.taxeListener = new PropertyChangeListener() {
 
             public void propertyChange(PropertyChangeEvent evt) {
-
                 if (ReferenceArticleSQLComponent.this.textPVHT.getText().trim().length() > 0) {
                     setTextTTC();
                 } else {
@@ -1003,13 +984,9 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     }
 
     private void setListenerModeVenteActive(boolean b) {
-
         if (b) {
-
             this.comboSelModeVente.addValueListener(this.propertyChangeListener);
-
         } else {
-
             this.comboSelModeVente.removePropertyChangeListener(this.propertyChangeListener);
         }
     }
@@ -1162,7 +1139,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             this.labelMetriqueVT1.setText("Prix de vente HT au kilo");
             break;
         case -1:
-            break;
+            // No break need to enable the listener
         default:
             this.labelMetriqueHA1.setEnabled(false);
             this.labelMetriqueVT1.setEnabled(false);
@@ -1203,40 +1180,18 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         rowVals.put("PA_HT", BigDecimal.ZERO);
         rowVals.put("POIDS", Float.valueOf(0));
 
-        // SQLTable tableTarif = getTable().getTable("TARIF");
-        // SQLTable tableArticleTarif = getTable().getTable("ARTICLE_TARIF");
-        // SQLSelect sel = new SQLSelect(getTable().getBase());
-        // sel.addSelectStar(tableTarif);
-        // this.table.getRowValuesTable().getRowValuesTableModel().clearRows();
-        // System.err.println(sel.asString());
-        // List<SQLRow> rows = (List<SQLRow>)
-        // Configuration.getInstance().getBase().getDataSource().execute(sel.asString(),
-        // SQLRowListRSH.createFromSelect(sel));
-        // for (SQLRow sqlRow : rows) {
-        // SQLRowValues rowVals2 = new SQLRowValues(tableArticleTarif);
-        // rowVals2.put("PRIX_REVENTE_HT", Long.valueOf(0));
-        // rowVals2.put("PRIX_FINAL_TTC", Long.valueOf(0));
-        // rowVals2.put("ID_TARIF", sqlRow.getID());
-        // this.table.getRowValuesTable().getRowValuesTableModel().addRow(rowVals2);
-        // }
-
         return rowVals;
     }
 
     private void setTextHT() {
         this.textPVHT.getDocument().removeDocumentListener(this.htDocListener);
-
         String textTTC = this.textPVTTC.getText().trim();
         if (textTTC.length() > 0) {
             BigDecimal ttc = new BigDecimal(textTTC);
             int id = this.comboSelTaxe.getSelectedId();
             if (id > 1) {
-
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
-
-                // float taux = (TaxeCache.getCache().getTauxFromId(id)) /
-                // 100.0F;
                 this.textPVHT.setText(ttc.divide(BigDecimal.valueOf(taux).add(BigDecimal.ONE), MathContext.DECIMAL128)
                         .setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
 
@@ -1254,12 +1209,8 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             BigDecimal ht = new BigDecimal(textHT);
             int id = this.comboSelTaxe.getSelectedId();
             if (id > 1) {
-
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
-
-                // float taux = (TaxeCache.getCache().getTauxFromId(id)) /
-                // 100.0F;
                 this.textPVTTC.setText(ht.multiply(BigDecimal.valueOf(taux).add(BigDecimal.ONE), MathContext.DECIMAL128)
                         .setScale(getTable().getField("PV_TTC").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
 
@@ -1273,16 +1224,11 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
      */
     private void updatePiece() {
         if (this.comboSelModeVente.getSelectedId() > 1 && this.comboSelModeVente.getSelectedId() != ReferenceArticleSQLElement.A_LA_PIECE) {
-
             SQLRowValues rowVals = getDetailsRowValues();
-
             float poidsTot = ReferenceArticleSQLElement.getPoidsFromDetails(rowVals);
             this.textPoids.setText(String.valueOf(poidsTot));
-
             this.textPAHT.setText(ReferenceArticleSQLElement.getPrixHAFromDetails(rowVals).setScale(getTable().getField("PA_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
-
             this.textPVHT.setText(ReferenceArticleSQLElement.getPrixVTFromDetails(rowVals).setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
-
             this.tableTarifVente.fireModification();
         }
     }
@@ -1292,8 +1238,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     }
 
     public SQLRowValues getDetailsRowValues() {
-        SQLRowValues rowVals = new SQLRowValues(getTable());
-
+        final SQLRowValues rowVals = new SQLRowValues(getTable());
         String textHA = this.textMetrique1HA.getText();
         rowVals.put("PRIX_METRIQUE_HA_1", textHA.trim().length() == 0 ? BigDecimal.ZERO : new BigDecimal(textHA));
 

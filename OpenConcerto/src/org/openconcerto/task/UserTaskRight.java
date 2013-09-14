@@ -15,7 +15,6 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.DBSystemRoot;
-import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
@@ -24,15 +23,13 @@ import org.openconcerto.sql.users.User;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Vector;
 
 import org.apache.commons.dbutils.ResultSetHandler;
 
 public class UserTaskRight {
-    private static Map<User, List<UserTaskRight>> cache = new HashMap<User, List<UserTaskRight>>();
+
     private int idUser;
     private int idToUser;
     private boolean canRead;
@@ -54,73 +51,95 @@ public class UserTaskRight {
     }
 
     public boolean canModify() {
-        return canModify;
+        return this.canModify;
     }
 
     public boolean canRead() {
-        return canRead;
+        return this.canRead;
     }
 
     public boolean canValidate() {
-        return canValidate;
+        return this.canValidate;
     }
 
     public boolean canAdd() {
-        return canAdd;
+        return this.canAdd;
     }
 
     public int getIdToUser() {
-        return idToUser;
+        return this.idToUser;
     }
 
     public int getIdUser() {
-        return idUser;
-    }
-
-    public static void clearCache() {
-        cache.clear();
+        return this.idUser;
     }
 
     public static List<UserTaskRight> getUserTaskRight(final User selectedUser) {
-        List<UserTaskRight> result = cache.get(selectedUser);
-        if (result == null) {
-            final DBSystemRoot systemRoot = Configuration.getInstance().getSystemRoot();
-            final SQLTable rightsT = systemRoot.findTable("TACHE_RIGHTS", true);
-            final SQLField userF = rightsT.getField("ID_USER_COMMON");
-            final SQLTable userT = rightsT.getForeignTable(userF.getName());
-            final SQLSelect sel = new SQLSelect(systemRoot, false);
-            sel.addSelectStar(rightsT);
-            sel.setWhere(new Where(userF, "=", selectedUser.getId()));
-            String req = sel.toString();
+        final DBSystemRoot systemRoot = Configuration.getInstance().getSystemRoot();
+        final SQLTable rightsT = systemRoot.findTable("TACHE_RIGHTS", true);
+        final SQLField userF = rightsT.getField("ID_USER_COMMON");
+        final SQLSelect sel = new SQLSelect(systemRoot, false);
+        sel.addSelectStar(rightsT);
+        sel.setWhere(new Where(userF, "=", selectedUser.getId()));
 
-            final SQLDataSource dataSource = Configuration.getInstance().getBase().getDataSource();
-            @SuppressWarnings("unchecked")
-            final List<UserTaskRight> l = (List<UserTaskRight>) dataSource.execute(req, new ResultSetHandler() {
+        @SuppressWarnings("unchecked")
+        final List<UserTaskRight> l = (List<UserTaskRight>) systemRoot.getDataSource().execute(sel.toString(), new UTR_RSH(selectedUser, userF));
+        return l;
+    }
 
-                public Object handle(ResultSet rs) throws SQLException {
-                    List<UserTaskRight> list = new Vector<UserTaskRight>();
-                    // always add all rights for self
-                    list.add(new UserTaskRight(selectedUser.getId(), selectedUser.getId(), true, true, true, true));
-                    while (rs.next()) {
-                        int idUser = rs.getInt(userF.getName());
-                        assert idUser == selectedUser.getId();
-                        int idToUser = rs.getInt("ID_USER_COMMON_TO");
-                        boolean canRead = rs.getBoolean("READ");
-                        boolean canModify = rs.getBoolean("MODIFY");
-                        boolean canWrite = rs.getBoolean("ADD");
-                        boolean canValidate = rs.getBoolean("VALIDATE");
+    private static final class UTR_RSH implements ResultSetHandler {
+        private final User selectedUser;
+        private final SQLField userFF;
+        private final int userTUndef;
 
-                        // could happen when deleting users ; self already handled above
-                        if (idToUser != userT.getUndefinedID() && idToUser != idUser)
-                            list.add(new UserTaskRight(idUser, idToUser, canRead, canModify, canWrite, canValidate));
-                    }
-                    return list;
-                }
-            });
-            cache.put(selectedUser, l);
-            result = l;
+        private UTR_RSH(final User selectedUser, final SQLField userFF) {
+            this.selectedUser = selectedUser;
+            this.userFF = userFF;
+            this.userTUndef = userFF.getForeignTable().getUndefinedID();
         }
-        return result;
+
+        @Override
+        public Object handle(ResultSet rs) throws SQLException {
+            List<UserTaskRight> list = new Vector<UserTaskRight>();
+            // always add all rights for self
+            list.add(new UserTaskRight(this.selectedUser.getId(), this.selectedUser.getId(), true, true, true, true));
+            while (rs.next()) {
+                int idUser = rs.getInt(this.userFF.getName());
+                assert idUser == this.selectedUser.getId();
+                int idToUser = rs.getInt("ID_USER_COMMON_TO");
+                boolean canRead = rs.getBoolean("READ");
+                boolean canModify = rs.getBoolean("MODIFY");
+                boolean canWrite = rs.getBoolean("ADD");
+                boolean canValidate = rs.getBoolean("VALIDATE");
+
+                // could happen when deleting users ; self already handled above
+                if (idToUser != this.userTUndef && idToUser != idUser)
+                    list.add(new UserTaskRight(idUser, idToUser, canRead, canModify, canWrite, canValidate));
+            }
+            return list;
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + this.selectedUser.hashCode();
+            result = prime * result + this.userFF.hashCode();
+            return result;
+        }
+
+        // needed for SQLDataSource cache
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            final UTR_RSH other = (UTR_RSH) obj;
+            return this.selectedUser.equals(other.selectedUser) && this.userFF.equals(other.userFF);
+        }
     }
 
     @Override

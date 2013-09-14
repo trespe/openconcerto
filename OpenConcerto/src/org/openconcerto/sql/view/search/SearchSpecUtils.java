@@ -32,4 +32,16 @@ public class SearchSpecUtils {
         return result;
     }
 
+    static public final <T> T filterOne(final T obj, final SearchSpec search) {
+        if (obj == null)
+            return null;
+
+        final T result;
+        if (search == null || search.isEmpty() || search.match(obj))
+            result = obj;
+        else {
+            result = null;
+        }
+        return result;
+    }
 }

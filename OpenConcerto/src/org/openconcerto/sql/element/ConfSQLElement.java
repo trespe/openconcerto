@@ -24,16 +24,31 @@ import java.util.List;
  */
 public class ConfSQLElement extends SQLElement {
 
+    @Deprecated
     public ConfSQLElement(String tableName, String singular, String plural) {
         this(Configuration.getInstance(), tableName, singular, plural);
     }
 
+    @Deprecated
     public ConfSQLElement(Configuration conf, String tableName, String singular, String plural) {
         this(conf.getRoot().findTable(tableName), singular, plural);
     }
 
+    @Deprecated
     public ConfSQLElement(SQLTable table, String singular, String plural) {
         super(singular, plural, table);
+    }
+
+    public ConfSQLElement(String tableName) {
+        this(Configuration.getInstance(), tableName);
+    }
+
+    public ConfSQLElement(Configuration conf, String tableName) {
+        this(conf.getRoot().findTable(tableName));
+    }
+
+    public ConfSQLElement(SQLTable table) {
+        super(table);
     }
 
     @Override

@@ -29,6 +29,7 @@ import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.erp.preferences.ImpressionGestCommPreferencePanel;
 import org.openconcerto.erp.preferences.ModeReglementDefautPrefPanel;
 import org.openconcerto.erp.preferences.NumerotationPreferencePanel;
+import org.openconcerto.erp.preferences.PayeGlobalPreferencePanel;
 import org.openconcerto.erp.preferences.SauvegardeEnLignePreferencePanel;
 import org.openconcerto.erp.preferences.SauvegardeFichierPreferencePanel;
 import org.openconcerto.erp.preferences.SocietePreferencePanel;
@@ -87,6 +88,8 @@ public class ComptaPrefTreeNode extends DefaultMutableTreeNode {
         nReglement.add(nCompteVenteRegl);
 
         nsGlobale.add(nReglement);
+
+        nsGlobale.add(new PrefTreeNode(PayeGlobalPreferencePanel.class, "Paye", new String[] { "paye", "csg" }));
 
         // Gestion des articles
         final PrefTreeNode nGestionArticle = new PrefTreeNode(GestionArticlePreferencePanel.class, "Gestion des articles", new String[] { "articles", "gestion", "longueur", "largeur", "poids" });

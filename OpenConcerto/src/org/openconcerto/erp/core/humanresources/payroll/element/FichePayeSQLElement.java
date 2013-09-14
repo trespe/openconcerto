@@ -24,10 +24,13 @@ import org.openconcerto.erp.model.RubriquePayeTree;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.element.TreesOfSQLRows;
 import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSystem;
@@ -37,6 +40,7 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.GridBagConstraints;
@@ -49,9 +53,9 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.Iterator;
 import java.util.List;
 
 import javax.swing.AbstractAction;
@@ -67,8 +71,6 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
 import javax.swing.tree.TreePath;
-
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class FichePayeSQLElement extends ComptaSQLConfElement {
 
@@ -93,10 +95,6 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         return l;
     }
 
-    /*
-     * protected List getPrivateFields() { final List l = new ArrayList(); l.add("ID_CUMULS_PAYE");
-     * return l; }
-     */
     /*
      * (non-Javadoc)
      * 
@@ -362,19 +360,26 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
                 // Listeners
                 this.buttonGenCompta.addActionListener(new ActionListener() {
                     public void actionPerformed(ActionEvent e) {
-                        int[] i = new int[1];
-                        i[0] = getSelectedID();
+                        try {
+                            int[] i = new int[1];
+                            i[0] = getSelectedID();
 
-                        SQLRow rowMois = getTable().getBase().getTable("MOIS").getRow(selMois.getSelectedId());
+                            SQLRow rowMois = getTable().getBase().getTable("MOIS").getRow(selMois.getSelectedId());
 
-                        new GenerationMvtFichePaye(i, rowMois.getString("NOM"), textAnnee.getText());
+                            new GenerationMvtFichePaye(i, rowMois.getString("NOM"), textAnnee.getText());
+                        } catch (Exception ex) {
+                            ExceptionHandler.handle("Erreur de génération des mouvements", ex);
+                        }
                     }
                 });
 
                 this.buttonValider.addActionListener(new ActionListener() {
                     public void actionPerformed(ActionEvent e) {
-                        System.err.println("Validation de la fiche de paye");
-                        validationFiche();
+                        try {
+                            validationFiche();
+                        } catch (SQLException e1) {
+                            ExceptionHandler.handle("Error while updating pay slip", e1);
+                        }
                     }
                 });
 
@@ -613,7 +618,7 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
                 this.dateAu.setEnabled(b);
             }
 
-            private void validationFiche() {
+            private void validationFiche() throws SQLException {
 
                 this.update();
                 FichePayeSQLElement.validationFiche(this.getSelectedID());
@@ -640,7 +645,6 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
 
     @Override
     protected void archive(TreesOfSQLRows trees, boolean cutLinks) throws SQLException {
-        // TODO Auto-generated method stub
         super.archive(trees, cutLinks);
         for (SQLRow row : trees.getRows()) {
             if (row != null && row.getID() > 1) {
@@ -703,8 +707,9 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
      * Validation de la fiche de paye en cours pour un salarié
      * 
      * @param id id de la fiche à valider
+     * @throws SQLException
      */
-    public static synchronized void validationFiche(int id) {
+    public static synchronized void validationFiche(int id) throws SQLException {
         final int oldID = id;
 
         SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
@@ -774,7 +779,7 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
                 try {
-                    // System.err.println("Update Salarie");
+                    // FIXME: Ouch: sql in swing!
                     rowValsSal.update(rowSal.getID());
 
                     rowValsNewFiche.update();
@@ -784,38 +789,25 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
             }
         });
         // On recupere la liste des elements de la fiche de paye
-        SQLSelect selAllElt = new SQLSelect(tableFiche.getBase());
-        selAllElt.addSelect(tableFicheElt.getField("ID"));
+        SQLSelect selAllElt = new SQLSelect();
+        selAllElt.addSelect(tableFicheElt.getKey());
         selAllElt.addSelect(tableFicheElt.getField("POSITION"));
+        selAllElt.addSelect(tableFicheElt.getField("SOURCE"));
+        selAllElt.addSelect(tableFicheElt.getField("IDSOURCE"));
         selAllElt.setWhere(tableFicheElt.getField("ID_FICHE_PAYE"), "=", oldID);
-        // selAllElt.setArchivedPolicy(SQLSelect.BOTH);
         selAllElt.setDistinct(true);
-        selAllElt.addRawOrder("\"FICHE_PAYE_ELEMENT\".\"POSITION\"");
-        String req = selAllElt.asString();
-        // System.err.println(req);
-        Object[] ob = ((ArrayList) base.getDataSource().execute(req, new ArrayListHandler())).toArray();
+        selAllElt.addFieldOrder(tableFicheElt.getField("POSITION"));
 
-        // System.err.println("Copie de " + ob.length + " éléments");
-        for (int i = 0; i < ob.length; i++) {
-            Object[] tmp = (Object[]) ob[i];
-
-            SQLRow rowTmpElt = tableFicheElt.getRow(Integer.parseInt(tmp[0].toString()));
-
+        for (final SQLRow rowTmpElt : SQLRowListRSH.execute(selAllElt)) {
             String source = rowTmpElt.getString("SOURCE");
             int idSource = rowTmpElt.getInt("IDSOURCE");
             int pos = rowTmpElt.getInt("POSITION");
-
             SQLRowValues rowValsTmp = new SQLRowValues(tableFicheElt);
             rowValsTmp.put("SOURCE", source);
             rowValsTmp.put("IDSOURCE", idSource);
             rowValsTmp.put("POSITION", pos);
             rowValsTmp.put("ID_FICHE_PAYE", rowValsNewFiche.getID());
-
-            try {
-                rowValsTmp.commit();
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+            rowValsTmp.commit();
         }
 
         // on effectue le cumul
@@ -838,18 +830,15 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         rowValsCumul.put("NET_A_PAYER_C", new Float(netAPayer));
         rowValsCumul.put("CSG_C", new Float(cgs));
 
-        try {
-            SQLRow r = rowValsCumul.insert();
-            rowValsCumul.put("ID", r.getID());
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        SQLRow r = rowValsCumul.insert();
+        rowValsCumul.put("ID", r.getID());
 
         // System.err.println("Mis a jour de la fiche de paye");
         rowValsSal.put("ID_CUMULS_PAYE", rowValsCumul.getID());
 
         SwingUtilities.invokeLater(new Runnable() {
             public void run() {
+                // FIXME: Ouch: sql in swing!
                 try {
                     rowValsSal.update(rowFiche.getInt("ID_SALARIE"));
                 } catch (SQLException e1) {
@@ -883,7 +872,7 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         rowValsCumulsConges.put("RESTANT", new Float(congeRestant));
 
         SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
+            public void run() { // FIXME: Ouch: sql in swing!
                 try {
                     rowValsCumulsConges.update(rowCumulConge.getID());
                     rowValsNewFiche.put("CONGES_ACQUIS", new Float(rowSalInfosPaye.getFloat("CONGES_PAYES")));
@@ -897,7 +886,7 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         rowValsOldFiche.put("VALIDE", Boolean.TRUE);
 
         SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
+            public void run() { // FIXME: Ouch: sql in swing!
                 try {
                     rowValsOldFiche.update(rowFiche.getID());
                 } catch (SQLException e) {
@@ -907,15 +896,11 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         });
         // Remise à 0 des variables sal
         final SQLRowValues rowVals = new SQLRowValues(tableVariableSal);
-
-        for (Iterator i = tableVariableSal.getContentFields().iterator(); i.hasNext();) {
-
-            String field = i.next().toString().trim();
-            field = field.substring(field.indexOf('.') + 1, field.length() - 1);
-            rowVals.put(field, new Float(0));
+        for (final SQLField field : tableVariableSal.getContentFields()) {
+            rowVals.put(field.getName(), Float.valueOf(0));
         }
         SwingUtilities.invokeLater(new Runnable() {
-            public void run() {
+            public void run() { // FIXME: Ouch: sql in swing!
                 try {
                     rowVals.update(rowVarSal.getID());
                 } catch (SQLException e) {
@@ -955,58 +940,28 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
     }
 
     // stocke les éléments validés (cumuls congés, paye, ...)
-    private static void stockValidValues(final int id) {
+    private static void stockValidValues(final int id) throws SQLException {
+        final ComptaPropsConfiguration conf = ComptaPropsConfiguration.getInstanceCompta();
+        final SQLElementDirectory dir = conf.getDirectory();
+        final SQLTable tableFiche = conf.getRootSociete().getTable("FICHE_PAYE");
+        final SQLRow rowFiche = tableFiche.getRow(id);
+        final SQLRow rowSal = rowFiche.getForeignRow("ID_SALARIE");
 
-        SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-        SQLTable tableSal = base.getTable("SALARIE");
-        SQLTable tableCumulConge = base.getTable("CUMULS_CONGES");
-        SQLTable tableVariableSal = base.getTable("VARIABLE_SALARIE");
-        SQLTable tableReglPaye = base.getTable("REGLEMENT_PAYE");
-        SQLTable tableCumuls = base.getTable("CUMULS_PAYE");
-        SQLTable tableFiche = base.getTable("FICHE_PAYE");
-        SQLTable tableContrat = base.getTable("CONTRAT_SALARIE");
-        SQLTable tableInfos = base.getTable("INFOS_SALARIE_PAYE");
-
-        SQLRow rowFiche = tableFiche.getRow(id);
-        SQLRowValues rowValsFiche = new SQLRowValues(tableFiche);
-
-        SQLRow rowSal = tableSal.getRow(rowFiche.getInt("ID_SALARIE"));
-
-        // On stocke les cumuls des conges dans la fiche
-        SQLRowValues rowValsCumulsCongesFiche = new SQLRowValues(tableCumulConge);
-        rowValsCumulsCongesFiche.loadAllSafe(tableCumulConge.getRow(rowSal.getInt("ID_CUMULS_CONGES")));
-
-        // On stocke les cumuls de paye dans la fiche
-        SQLRowValues rowValsCumulsPayeFiche = new SQLRowValues(tableCumuls);
-        rowValsCumulsPayeFiche.loadAllSafe(tableCumuls.getRow(rowSal.getInt("ID_CUMULS_PAYE")));
-
-        // On stocke les cumuls de paye dans la fiche
-        SQLRowValues rowValsVarSalFiche = new SQLRowValues(tableVariableSal);
-        rowValsVarSalFiche.loadAllSafe(tableVariableSal.getRow(rowSal.getInt("ID_VARIABLE_SALARIE")));
-
-        // On stocke le mode de reglement
-        SQLRowValues rowValsReglPaye = new SQLRowValues(tableReglPaye);
-        rowValsReglPaye.loadAllSafe(tableReglPaye.getRow(rowSal.getInt("ID_REGLEMENT_PAYE")));
-
-        try {
-            SQLRow rVarSal = rowValsVarSalFiche.insert();
-            SQLRow rCumulsCong = rowValsCumulsCongesFiche.insert();
-            SQLRow rCumulPaye = rowValsCumulsPayeFiche.insert();
-            SQLRow rReglPaye = rowValsReglPaye.insert();
-            SQLRow rInfosSalPaye = tableInfos.getRow(rowSal.getInt("ID_INFOS_SALARIE_PAYE"));
-            SQLRow rContrat = tableContrat.getRow(rInfosSalPaye.getInt("ID_CONTRAT_SALARIE"));
-
-            rowValsFiche.put("ID_VARIABLE_SALARIE", rVarSal.getID());
-            rowValsFiche.put("ID_CUMULS_CONGES", rCumulsCong.getID());
-            rowValsFiche.put("ID_CUMULS_PAYE", rCumulPaye.getID());
-            rowValsFiche.put("ID_REGLEMENT_PAYE", rReglPaye.getID());
-            rowValsFiche.put("NATURE_EMPLOI", rContrat.getString("NATURE"));
-            rowValsFiche.put("ID_IDCC", rInfosSalPaye.getInt("ID_IDCC"));
-
-            rowValsFiche.update(id);
-        } catch (SQLException e) {
-            e.printStackTrace();
+        final SQLRowValues rowValsFiche = new SQLRowValues(tableFiche);
+        for (final String fk : Arrays.asList("ID_VARIABLE_SALARIE", "ID_CUMULS_CONGES", "ID_CUMULS_PAYE", "ID_REGLEMENT_PAYE")) {
+            final SQLRow fRow = rowSal.getForeignRow(fk);
+            final SQLRowValues copy = dir.getElement(fRow.getTable()).createCopy(fRow, null);
+            // make sure the copy will be inserted by the update()
+            assert copy.getIDNumber() == null;
+            rowValsFiche.put(fk, copy);
         }
+
+        final SQLRow rInfosSalPaye = rowSal.getForeignRow("ID_INFOS_SALARIE_PAYE");
+        final SQLRow rContrat = rInfosSalPaye.getForeignRow("ID_CONTRAT_SALARIE");
+        rowValsFiche.put("NATURE_EMPLOI", rContrat.getString("NATURE"));
+        rowValsFiche.put("ID_IDCC", rInfosSalPaye.getInt("ID_IDCC"));
+        rowValsFiche.update(id);
+
     }
 
     // FIXME retirer les rubriques non imprime ou pas dans de la periode de la fiche validee ??

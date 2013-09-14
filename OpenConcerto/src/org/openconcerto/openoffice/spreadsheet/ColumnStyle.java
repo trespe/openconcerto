@@ -52,12 +52,21 @@ public class ColumnStyle extends StyleStyle {
     }
 
     public final Float getWidth() {
-        final BigDecimal res = this.getTableColumnProperties().getWidth(TableStyle.DEFAULT_UNIT);
+        final BigDecimal res = this.getWidth(TableStyle.DEFAULT_UNIT);
         return res == null ? null : res.floatValue();
     }
 
+    public final BigDecimal getWidth(final LengthUnit unit) {
+        return this.getTableColumnProperties().getWidth(unit);
+    }
+
     void setWidth(float f) {
-        getFormattingProperties().setAttribute("column-width", f + TableStyle.DEFAULT_UNIT.getSymbol(), this.getSTYLE());
+        this.setWidth(f, TableStyle.DEFAULT_UNIT);
+    }
+
+    // not public, use Table.setColumnCount() or Table.createColumnStyle()
+    void setWidth(final Number amount, final LengthUnit unit) {
+        this.getTableColumnProperties().setAttributeValue(amount == null ? null : unit.format(amount), "column-width");
         // optional, so no need to recompute it
         rmRelWidth();
     }

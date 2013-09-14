@@ -19,13 +19,9 @@ import org.openconcerto.sql.model.SQLTable;
 
 public class DevisCommandeFournisseurSQLInjector extends SQLInjector {
     public DevisCommandeFournisseurSQLInjector(final DBRoot root) {
-        super(root, "DEVIS", "COMMANDE");
-
+        super(root, "DEVIS", "COMMANDE", true);
         final SQLTable tableDevis = getSource();
         final SQLTable tableCommande = getDestination();
-        // map(tableDevis.getField("PORT_HT"), tableCommande.getField("PORT_HT"));
-        // map(tableDevis.getField("REMISE_HT"), tableCommande.getField("REMISE_HT"));
-
         mapDefaultValues(tableCommande.getField("SOURCE"), tableDevis.getName());
         map(tableDevis.getKey(), tableCommande.getField("IDSOURCE"));
     }

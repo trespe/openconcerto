@@ -17,6 +17,7 @@ import static org.openconcerto.ui.component.ComboLockedMode.ITEMS_LOCKED;
 import static org.openconcerto.ui.component.ComboLockedMode.LOCKED;
 import static org.openconcerto.ui.component.ComboLockedMode.UNLOCKED;
 import org.openconcerto.laf.LAFUtils;
+import org.openconcerto.ui.TM;
 import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.component.MutableListCombo;
@@ -35,6 +36,7 @@ import org.openconcerto.utils.model.DefaultIMutableListModel;
 import org.openconcerto.utils.model.IListModel;
 import org.openconcerto.utils.model.IMutableListModel;
 import org.openconcerto.utils.model.ListComboBoxModel;
+import org.openconcerto.utils.model.NewSelection;
 import org.openconcerto.utils.model.Reloadable;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
@@ -199,7 +201,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         this.itemsByOriginalItem = new HashMap<T, ISearchableComboItem<T>>();
         this.model = new DefaultIMutableListModel<ISearchableComboItem<T>>();
         this.getModel().setSelectOnAdd(false);
-        this.getModel().setSelectOnRm(false);
+        this.setOnRemovingOrReplacingSelection(NewSelection.NONE);
         this.getModel().addListDataListener(new ListDataListener() {
 
             public void contentsChanged(final ListDataEvent e) {
@@ -386,6 +388,10 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         return this.model;
     }
 
+    public final void setOnRemovingOrReplacingSelection(NewSelection newSel) {
+        this.getModel().setOnRemovingOrReplacingSelection(newSel);
+    }
+
     private final JLabel getLabel() {
         return this.label;
     }
@@ -471,7 +477,8 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                             mutable.addElement(newItem);
                         }
                     } else {
-                        JOptionPane.showMessageDialog(ISearchableCombo.this, ISearchableCombo.this.parsedValidState.getValidationText(), "Impossible d'ajouter le texte", JOptionPane.ERROR_MESSAGE);
+                        JOptionPane.showMessageDialog(ISearchableCombo.this, ISearchableCombo.this.parsedValidState.getValidationText(), TM.tr("searchableCombo.cannotAdd.title"),
+                                JOptionPane.ERROR_MESSAGE);
                     }
                 }
 

@@ -42,29 +42,6 @@ public class Map2033A extends Thread {
     private Date dateDebut, dateFin;
     SommeCompte sommeCompte;
 
-    private static String getVille(final String name) {
-
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-            SwingUtilities.invokeLater(new Runnable() {
-                public void run() {
-                    JOptionPane.showMessageDialog(null, "La ville " + "\"" + name + "\"" + " est introuvable! Veuillez corriger l'erreur!");
-                }
-            });
-            return null;
-        }
-        return ville.getName();
-    }
-
-    private static String getVilleCP(String name) {
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-
-            return null;
-        }
-        return ville.getCodepostal();
-    }
-
     // TODO if value = 0.0 ne pas mettre -0.0
 
     public void run() {
@@ -76,7 +53,7 @@ public class Map2033A extends Thread {
         this.m.put("NOM", rowSociete.getString("TYPE") + " " + rowSociete.getString("NOM"));
         SQLRow rowAdresse = Configuration.getInstance().getBase().getTable("ADRESSE_COMMON").getRow(rowSociete.getInt("ID_ADRESSE_COMMON"));
 
-        String ville = getVille(rowAdresse.getString("VILLE"));
+        String ville = rowAdresse.getString("VILLE");
         final Object cedex = rowAdresse.getObject("CEDEX");
         final boolean hasCedex = rowAdresse.getBoolean("HAS_CEDEX");
 
@@ -86,7 +63,7 @@ public class Map2033A extends Thread {
                 ville += " " + cedex.toString().trim();
             }
         }
-        this.m.put("ADRESSE", rowAdresse.getString("RUE") + ", " + getVilleCP(rowAdresse.getString("VILLE")) + " " + ville);
+        this.m.put("ADRESSE", rowAdresse.getString("RUE") + ", " + rowAdresse.getString("CODE_POSTAL") + " " + ville);
         this.m.put("SIRET", rowSociete.getString("NUM_SIRET"));
         this.m.put("APE", rowSociete.getString("NUM_APE"));
         this.m.put("DUREE1", "");
@@ -662,49 +639,35 @@ public class Map2033A extends Thread {
         // S156=-161-163-164-169-512(C)-514(C)-517(C)-5186-519-58(C)-165-166...168+16881+16883-17-426
         /*
          * float v156 = -this.sommeCompte.soldeCompte(160, 161, true) -
-         * this.sommeCompte.soldeCompte(163, 167, true) -
-         * this.sommeCompte.soldeCompte(1680, 1681, true) -
-         * this.sommeCompte.sommeCompteFils("1685") -
-         * this.sommeCompte.sommeCompteFils("1687") -
-         * this.sommeCompte.soldeCompte(16880, 16881, true) -
-         * this.sommeCompte.soldeCompte(16883, 16888, true) -
-         * this.sommeCompte.sommeCompteFils("17") +
-         * this.sommeCompte.soldeCompteCrediteur(260, 260, true) -
-         * this.sommeCompte.sommeCompteFils("269") -
-         * this.sommeCompte.sommeCompteFils("279") -
-         * this.sommeCompte.soldeCompte(404, 405, true) -
-         * this.sommeCompte.sommeCompteFils("4084") +
-         * this.sommeCompte.soldeCompteCrediteur(420, 420, true) -
-         * this.sommeCompte.soldeCompte(421, 422, true) -
-         * this.sommeCompte.sommeCompteFils("424") -
+         * this.sommeCompte.soldeCompte(163, 167, true) - this.sommeCompte.soldeCompte(1680, 1681,
+         * true) - this.sommeCompte.sommeCompteFils("1685") -
+         * this.sommeCompte.sommeCompteFils("1687") - this.sommeCompte.soldeCompte(16880, 16881,
+         * true) - this.sommeCompte.soldeCompte(16883, 16888, true) -
+         * this.sommeCompte.sommeCompteFils("17") + this.sommeCompte.soldeCompteCrediteur(260, 260,
+         * true) - this.sommeCompte.sommeCompteFils("269") - this.sommeCompte.sommeCompteFils("279")
+         * - this.sommeCompte.soldeCompte(404, 405, true) - this.sommeCompte.sommeCompteFils("4084")
+         * + this.sommeCompte.soldeCompteCrediteur(420, 420, true) -
+         * this.sommeCompte.soldeCompte(421, 422, true) - this.sommeCompte.sommeCompteFils("424") -
          * this.sommeCompte.soldeCompte(426, 427, true) +
          * this.sommeCompte.soldeCompteCrediteur(4280, 4280, true) -
-         * this.sommeCompte.sommeCompteFils("4282") -
-         * this.sommeCompte.sommeCompteFils("4284") -
-         * this.sommeCompte.sommeCompteFils("4286") +
-         * this.sommeCompte.soldeCompteCrediteur(430, 430, true) -
-         * this.sommeCompte.sommeCompteFils("431") -
-         * this.sommeCompte.sommeCompteFils("437") +
-         * this.sommeCompte.soldeCompteCrediteur(4380, 4380, true) -
-         * this.sommeCompte.sommeCompteFils("4386") +
+         * this.sommeCompte.sommeCompteFils("4282") - this.sommeCompte.sommeCompteFils("4284") -
+         * this.sommeCompte.sommeCompteFils("4286") + this.sommeCompte.soldeCompteCrediteur(430,
+         * 430, true) - this.sommeCompte.sommeCompteFils("431") -
+         * this.sommeCompte.sommeCompteFils("437") + this.sommeCompte.soldeCompteCrediteur(4380,
+         * 4380, true) - this.sommeCompte.sommeCompteFils("4386") +
          * this.sommeCompte.soldeCompteCrediteur(440, 440, true) -
-         * this.sommeCompte.sommeCompteFils("442") +
-         * this.sommeCompte.soldeCompteCrediteur(443, 444, true) +
-         * this.sommeCompte.soldeCompteCrediteur(4450, 4450, true) -
-         * this.sommeCompte.sommeCompteFils("4455") -
-         * this.sommeCompte.sommeCompteFils("4457") +
+         * this.sommeCompte.sommeCompteFils("442") + this.sommeCompte.soldeCompteCrediteur(443, 444,
+         * true) + this.sommeCompte.soldeCompteCrediteur(4450, 4450, true) -
+         * this.sommeCompte.sommeCompteFils("4455") - this.sommeCompte.sommeCompteFils("4457") +
          * this.sommeCompte.soldeCompteCrediteur(44580, 44580, true) -
-         * this.sommeCompte.sommeCompteFils("44584") -
-         * this.sommeCompte.sommeCompteFils("44587") -
+         * this.sommeCompte.sommeCompteFils("44584") - this.sommeCompte.sommeCompteFils("44587") -
          * this.sommeCompte.soldeCompte(446, 447, true) +
          * this.sommeCompte.soldeCompteCrediteur(4480, 4480, true) -
-         * this.sommeCompte.sommeCompteFils("4486") +
-         * this.sommeCompte.soldeCompteCrediteur(450, 451, true) +
-         * this.sommeCompte.soldeCompteCrediteur(456, 456, true) +
+         * this.sommeCompte.sommeCompteFils("4486") + this.sommeCompte.soldeCompteCrediteur(450,
+         * 451, true) + this.sommeCompte.soldeCompteCrediteur(456, 456, true) +
          * this.sommeCompte.soldeCompteCrediteur(458, 458, true) -
-         * this.sommeCompte.sommeCompteFils("519") +
-         * this.sommeCompte.soldeCompteCrediteur(510, 512, true) +
-         * this.sommeCompte.soldeCompteCrediteur(514, 517, true) +
+         * this.sommeCompte.sommeCompteFils("519") + this.sommeCompte.soldeCompteCrediteur(510, 512,
+         * true) + this.sommeCompte.soldeCompteCrediteur(514, 517, true) +
          * this.sommeCompte.soldeCompteCrediteur(5180, 5180, true) -
          * this.sommeCompte.sommeCompteFils("5186") ;
          */
@@ -778,46 +741,38 @@ public class Map2033A extends Thread {
          * float v172 = -this.sommeCompte.sommeCompteFils("4190") -
          * this.sommeCompte.soldeCompte(4196, 4198, true) +
          * this.sommeCompte.soldeCompteCrediteur(455, 455, true) -
-         * this.sommeCompte.sommeCompteFils("457") +
-         * this.sommeCompte.soldeCompteCrediteur(460, 460, true) -
-         * this.sommeCompte.sommeCompteFils("464") +
+         * this.sommeCompte.sommeCompteFils("457") + this.sommeCompte.soldeCompteCrediteur(460, 460,
+         * true) - this.sommeCompte.sommeCompteFils("464") +
          * this.sommeCompte.soldeCompteCrediteur(467, 467, true) +
          * this.sommeCompte.soldeCompteCrediteur(4680, 4680, true) -
-         * this.sommeCompte.sommeCompteFils("4686") +
-         * this.sommeCompte.soldeCompteCrediteur(471, 475, true) +
-         * this.sommeCompte.soldeCompteCrediteur(478, 478, true) +
+         * this.sommeCompte.sommeCompteFils("4686") + this.sommeCompte.soldeCompteCrediteur(471,
+         * 475, true) + this.sommeCompte.soldeCompteCrediteur(478, 478, true) +
          * this.sommeCompte.soldeCompteCrediteur(500, 500, true) -
          * this.sommeCompte.sommeCompteFils("509");
          */
         /*
-         * S172=-421(C) -422(C) -424(C) -427(C) -4282(C) -4284(C) -4286(C)
-         * -43(C) +4387(C) -442(C) -443(C) -451(C)...455 // -4563 -4564 -4567
-         * -457 -458(C) -444(C) -4451(C) -4455(C) -4456(C) -4457(C) +44581
-         * +44582 -44584(C) -44587(C) -446(C) -447(C) -448(C)...4482 -4486(C)
-         * -269 -279 -41(C)...411 -41A(C)...41Z -4196 -4197 -4198 -464 -467(C)
-         * -4686(C) -47(C)...475 -478(C) -509
+         * S172=-421(C) -422(C) -424(C) -427(C) -4282(C) -4284(C) -4286(C) -43(C) +4387(C) -442(C)
+         * -443(C) -451(C)...455 // -4563 -4564 -4567 -457 -458(C) -444(C) -4451(C) -4455(C)
+         * -4456(C) -4457(C) +44581 +44582 -44584(C) -44587(C) -446(C) -447(C) -448(C)...4482
+         * -4486(C) -269 -279 -41(C)...411 -41A(C)...41Z -4196 -4197 -4198 -464 -467(C) -4686(C)
+         * -47(C)...475 -478(C) -509
          */
         /*
          * float v172 = -this.sommeCompte.sommeCompteFils("269") -
-         * this.sommeCompte.sommeCompteFils("279") -
-         * this.sommeCompte.soldeCompteCrediteur(404, 407, false) -
-         * this.sommeCompte.soldeCompteCrediteur(4084, 4087, false) -
+         * this.sommeCompte.sommeCompteFils("279") - this.sommeCompte.soldeCompteCrediteur(404, 407,
+         * false) - this.sommeCompte.soldeCompteCrediteur(4084, 4087, false) -
          * this.sommeCompte.soldeCompteCrediteur(410, 418, false) -
-         * this.sommeCompte.soldeCompte(4196, 4199, false) -
-         * this.sommeCompte.soldeCompte(420, 424, false) -
-         * this.sommeCompte.soldeCompte(4260, 4286, false) -
+         * this.sommeCompte.soldeCompte(4196, 4199, false) - this.sommeCompte.soldeCompte(420, 424,
+         * false) - this.sommeCompte.soldeCompte(4260, 4286, false) -
          * this.sommeCompte.soldeCompteCrediteur(430, 449, false) -
          * this.sommeCompte.soldeCompteCrediteur(450, 453, false) -
-         * this.sommeCompte.sommeCompteFils("454") -
-         * this.sommeCompte.soldeCompteCrediteur(455, 457, false) -
-         * this.sommeCompte.soldeCompteCrediteur(458, 459, false) -
-         * this.sommeCompte.sommeCompteFils("464") -
-         * this.sommeCompte.sommeCompteFils("467") -
+         * this.sommeCompte.sommeCompteFils("454") - this.sommeCompte.soldeCompteCrediteur(455, 457,
+         * false) - this.sommeCompte.soldeCompteCrediteur(458, 459, false) -
+         * this.sommeCompte.sommeCompteFils("464") - this.sommeCompte.sommeCompteFils("467") -
          * this.sommeCompte.soldeCompte(4680, 4686, false) -
          * this.sommeCompte.soldeCompteCrediteur(470, 476, false) -
-         * this.sommeCompte.sommeCompteFils("477") -
-         * this.sommeCompte.soldeCompteCrediteur(478, 479, false) -
-         * this.sommeCompte.sommeCompteFils("509");
+         * this.sommeCompte.sommeCompteFils("477") - this.sommeCompte.soldeCompteCrediteur(478, 479,
+         * false) - this.sommeCompte.sommeCompteFils("509");
          */
 
         long v172 = this.sommeCompte.soldeCompteCrediteur(411, 411, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(421, 421, true, this.dateDebut, this.dateFin)

@@ -111,21 +111,6 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
                 focusChanged(hasFocus);
             }
         };
-        this.uiInit();
-        this.list.setCellRenderer(new DefaultListCellRenderer() {
-            @SuppressWarnings("unchecked")
-            public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
-                final JLabel comp = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
-                render(comp, (T) value);
-                return comp;
-            }
-
-        });
-        this.list.addKeyListener(new KeyAdapter() {
-            public void keyPressed(KeyEvent e) {
-                navigate(e);
-            }
-        });
     }
 
     abstract protected String getHeaderName();
@@ -165,7 +150,7 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
         this.list.requestFocusInWindow();
     }
 
-    private void uiInit() {
+    protected final void uiInit() {
         UIManager.put("List.background", Color.WHITE);
         // UIManager.put("List.selectionBackground", new Color(100, 100, 120));
         UIManager.put("List.selectionForeground", Color.WHITE);
@@ -196,7 +181,14 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
 
         this.list = new JList(this.getModel());
         this.list.setSelectionModel(new ReSelectionModel());
-        // this.list.setCellRenderer(new ListCellRenderDecorated());
+        this.list.setCellRenderer(new DefaultListCellRenderer() {
+            @SuppressWarnings("unchecked")
+            public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                final JLabel comp = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                render(comp, (T) value);
+                return comp;
+            }
+        });
         this.list.setFont(fontText);
         this.list.setSelectionMode(this.getSelectionMode());
         JScrollPane scrollPane = new JScrollPane(this.list);
@@ -229,6 +221,12 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
                 }
             }
         });
+        this.list.addKeyListener(new KeyAdapter() {
+            public void keyPressed(KeyEvent e) {
+                navigate(e);
+            }
+        });
+
         this.getModel().addPropertyChangeListener(new PropertyChangeListener() {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {

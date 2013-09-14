@@ -30,7 +30,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Date;
 
-
 public class GenerationReglementVente extends GenerationEcritures {
 
     // Journal Caisse
@@ -39,7 +38,7 @@ public class GenerationReglementVente extends GenerationEcritures {
     private static final SQLTable tableMouvement = base.getTable("MOUVEMENT");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
-    public GenerationReglementVente(int idEncaisseRegl) {
+    public GenerationReglementVente(int idEncaisseRegl) throws Exception {
 
         SQLRow encaisseMontantRow = base.getTable("ENCAISSER_MONTANT").getRow(idEncaisseRegl);
 
@@ -88,7 +87,6 @@ public class GenerationReglementVente extends GenerationEcritures {
                     SQLRow rowMvt = tableMouvement.getRow(echeanceRow.getInt("ID_MOUVEMENT"));
                     this.idMvt = getNewMouvement("ENCAISSER_MONTANT", idEncaisseRegl, rowMvt.getID(), rowMvt.getInt("ID_PIECE"));
                 } else {
-
                     this.idMvt = getNewMouvement("ENCAISSER_MONTANT", idEncaisseRegl, 1, "");
                 }
 
@@ -96,36 +94,25 @@ public class GenerationReglementVente extends GenerationEcritures {
                 if (idCompteClient <= 1) {
                     idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
                     if (idCompteClient <= 1) {
-                        try {
-                            idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                        idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
                     }
                 }
-                try {
-                    this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteClient));
-                    this.mEcritures.put("DEBIT", Long.valueOf(0));
-                    this.mEcritures.put("CREDIT", Long.valueOf(prixTTC.getLongValue()));
-                    ajoutEcriture();
 
-                    // compte de reglement, caisse, cheque, ...
-                    int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
-                    if (idCompteRegl <= 1) {
-                        try {
-                            idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                    this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteRegl));
-                    this.mEcritures.put("DEBIT", Long.valueOf(prixTTC.getLongValue()));
-                    this.mEcritures.put("CREDIT", Long.valueOf(0));
-                    ajoutEcriture();
-                } catch (IllegalArgumentException e) {
-                    ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-                    e.printStackTrace();
+                this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteClient));
+                this.mEcritures.put("DEBIT", Long.valueOf(0));
+                this.mEcritures.put("CREDIT", Long.valueOf(prixTTC.getLongValue()));
+                ajoutEcriture();
+
+                // compte de reglement, caisse, cheque, ...
+                int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
+                if (idCompteRegl <= 1) {
+                    idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
                 }
+                this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteRegl));
+                this.mEcritures.put("DEBIT", Long.valueOf(prixTTC.getLongValue()));
+                this.mEcritures.put("CREDIT", Long.valueOf(0));
+                ajoutEcriture();
+
             }
         } else {
 
@@ -154,23 +141,20 @@ public class GenerationReglementVente extends GenerationEcritures {
                     valEcheance.put("ID_CLIENT", Integer.valueOf(echeanceRow.getInt("ID_CLIENT")));
                 }
 
-                try {
-                    if (valEcheance.getInvalid() == null) {
+                if (valEcheance.getInvalid() == null) {
 
-                        // ajout de l'ecriture
-                        SQLRow row = valEcheance.insert();
-                        SQLRowValues rowVals = new SQLRowValues(tableMouvement);
-                        rowVals.put("IDSOURCE", row.getID());
-                        rowVals.update(this.idMvt);
-                    }
-                } catch (SQLException e) {
-                    System.err.println("Error insert in Table " + valEcheance.getTable().getName());
+                    // ajout de l'ecriture
+                    SQLRow row = valEcheance.insert();
+                    SQLRowValues rowVals = new SQLRowValues(tableMouvement);
+                    rowVals.put("IDSOURCE", row.getID());
+                    rowVals.update(this.idMvt);
                 }
+
             }
         }
     }
 
-    private void setDateReglement(int idEncaisseRegl, int idEchCli, Date d) {
+    private void setDateReglement(int idEncaisseRegl, int idEchCli, Date d) throws SQLException {
 
         if (idEchCli > 1) {
 
@@ -190,19 +174,15 @@ public class GenerationReglementVente extends GenerationEcritures {
                     // On fixe la date du paiement
                     SQLRowValues rowValsUpdateVF = saisieRow.createEmptyUpdateRow();
                     rowValsUpdateVF.put("DATE_REGLEMENT", new Timestamp(d.getTime()));
-                    try {
-                        rowValsUpdateVF.update();
-                    } catch (SQLException e1) {
-                        // TODO Auto-generated catch block
-                        e1.printStackTrace();
-                    }
+                    rowValsUpdateVF.update();
+
                 }
             }
         }
 
     }
 
-    private void paiementCheque(Date dateEch, int idEncaisseRegl) {
+    private void paiementCheque(Date dateEch, int idEncaisseRegl) throws SQLException {
 
         SQLRow encaisseMontantRow = base.getTable("ENCAISSER_MONTANT").getRow(idEncaisseRegl);
 
@@ -223,18 +203,13 @@ public class GenerationReglementVente extends GenerationEcritures {
         valCheque.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
         valCheque.put("MONTANT", Long.valueOf(prixTTC.getLongValue()));
 
-        try {
-            if (valCheque.getInvalid() == null) {
-
-                // ajout de l'ecriture
-                SQLRow row = valCheque.insert();
-                SQLRowValues rowVals = new SQLRowValues(tableMouvement);
-                rowVals.put("IDSOURCE", row.getID());
-                rowVals.update(this.idMvt);
-            }
-        } catch (SQLException e) {
-            System.err.println("Error insert in Table " + valCheque.getTable().getName());
-            ExceptionHandler.handle("Erreur lors de la création du chéque.");
+        if (valCheque.getInvalid() == null) {
+            // ajout de l'ecriture
+            SQLRow row = valCheque.insert();
+            SQLRowValues rowVals = new SQLRowValues(tableMouvement);
+            rowVals.put("IDSOURCE", row.getID());
+            rowVals.update(this.idMvt);
         }
+
     }
 }

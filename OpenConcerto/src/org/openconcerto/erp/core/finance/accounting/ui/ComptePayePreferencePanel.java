@@ -19,6 +19,7 @@ import org.openconcerto.erp.model.ISQLCompteSelector;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -162,32 +163,26 @@ public class ComptePayePreferencePanel extends DefaultPreferencePanel {
     private void setValues() {
 
         try {
-            // Acompte
-            int value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_ACOMPTE");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("PayeAcompte");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteAcompte.setValue(value);
 
-            // Reglement acompte
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_ACOMPTE_REGL");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("PayeReglementAcompte");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteAcompteReglement.setValue(value);
-
-            // Remuneration du personel
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_PAYE");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("PayeRemunerationPersonnel");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteRemunPers.setValue(value);
+            setComboValues(selCompteAcompte, "ID_COMPTE_PCE_ACOMPTE", "PayeAcompte");
+            setComboValues(selCompteAcompteReglement, "ID_COMPTE_PCE_ACOMPTE_REGL", "PayeReglementAcompte");
+            setComboValues(selCompteRemunPers, "ID_COMPTE_PCE_PAYE", "PayeRemunerationPersonnel");
         } catch (Exception e) {
             // TODO Auto-generated catch block
             e.printStackTrace();
         }
     }
+
+    private void setComboValues(ISQLCompteSelector combo, String field, String defaultName) {
+        int value = 1;
+        SQLRowAccessor row = this.rowPrefCompteVals.getForeign(field);
+        if (row == null || row.isUndefined()) {
+            String compte = ComptePCESQLElement.getComptePceDefault(defaultName);
+            value = ComptePCESQLElement.getId(compte);
+        } else {
+            value = row.getID();
+        }
+        combo.setValue(value);
+    }
+
 }

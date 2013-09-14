@@ -220,6 +220,10 @@ public abstract class SQLRowAccessor implements SQLData {
         return (foreignElement == null) ? null : foreignElement.getModelObject(this);
     }
 
+    public final BigDecimal getOrder() {
+        return (BigDecimal) this.getObject(this.getTable().getOrderField().getName());
+    }
+
     public final Calendar getCreationDate() {
         final SQLField f = getTable().getCreationDateField();
         return f == null ? null : this.getDate(f.getName());

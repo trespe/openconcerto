@@ -13,12 +13,14 @@
  
  package org.openconcerto.ui.component;
 
+import org.openconcerto.ui.coreanimation.Pulseable;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.checks.EmptyChangeSupport;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.MutableValueObject;
 
+import java.awt.Component;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseListener;
@@ -44,7 +46,7 @@ import javax.swing.JRadioButton;
  * @author Sylvain CUAZ
  * @param <V> type of value
  */
-public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, EmptyObj {
+public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, EmptyObj, Pulseable {
 
     public static final class JStringRadioButtons extends JRadioButtons<String> {
         public JStringRadioButtons(final Collection<String> choices) {
@@ -176,6 +178,11 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
         }
     }
 
+    @Override
+    public Collection<? extends Component> getPulseComponents() {
+        return this.choices.values();
+    }
+
     // ** valueObject
 
     /**
@@ -222,6 +229,11 @@ public class JRadioButtons<V> extends JPanel implements MutableValueObject<V>, E
 
     public void addEmptyListener(EmptyListener l) {
         this.emptySupp.addEmptyListener(l);
+    }
+
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.emptySupp.removeEmptyListener(l);
     }
 
     // ** mouseListeners

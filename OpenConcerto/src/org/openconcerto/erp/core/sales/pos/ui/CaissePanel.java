@@ -23,7 +23,6 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Color;
-import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -160,45 +159,6 @@ public class CaissePanel extends JPanel implements CaisseListener {
             }
         }
 
-    }
-
-    private void fillExampleArticle() {
-        //
-        Categorie c1 = new Categorie("Carte postales", true);
-        Categorie s1 = new Categorie("Baie de Somme");
-        c1.add(s1);
-        Categorie s2 = new Categorie("Villes");
-        c1.add(s2);
-
-        Categorie c2 = new Categorie("Livres", true);
-
-        Categorie s2_1 = new Categorie("Livre Baie");
-        c2.add(s2_1);
-        Categorie s2_2 = new Categorie("Livre Abbeville");
-        c2.add(s2_2);
-
-        for (int i = 0; i < 100; i++) {
-            final Article al = new Article(s2_2, "ILM" + i, 1);
-            al.setPriceInCents(new BigDecimal(5000));
-            al.setBarCode("INFORMATIQUE " + i);
-        }
-        final Article a = new Article(s1, "012345678901234567890123456789", 1);
-        a.setPriceInCents(new BigDecimal(106));
-        final Article b = new Article(s1, "St Valery", 1);
-        b.setBarCode("ST VALERY");
-        b.setPriceInCents(new BigDecimal(300));
-        final Article cc = new Article(s1, "Cayeux", 1);
-        cc.setPriceInCents(new BigDecimal(300));
-        final Article v1 = new Article(s2, "Abbeville", 1);
-        v1.setPriceInCents(new BigDecimal(106));
-        final Article v2 = new Article(s2, "Amiens", 1);
-        v2.setPriceInCents(new BigDecimal(300));
-        final Article v3 = new Article(s2, "Rue", 1);
-        v3.setPriceInCents(new BigDecimal(300));
-        this.controler.addArticle(a);
-        this.controler.addArticle(a);
-        this.controler.addArticle(b);
-        this.controler.addArticle(cc);
     }
 
     @Override

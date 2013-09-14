@@ -13,6 +13,7 @@
  
  package org.openconcerto.task;
 
+import static org.openconcerto.task.TM.getTM;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -54,7 +55,6 @@ import java.awt.event.MouseListener;
 import java.net.URL;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -117,7 +117,6 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
     private TimestampTableCellEditor timestampTableCellEditorDone;
     private final Vector<User> users = new Vector<User>();
     final ReloadPanel reloadPanel = new ReloadPanel();
-    final SimpleDateFormat simpleDateFormat = new SimpleDateFormat("dd/MM/yyyy à HH:mm");
     TableSorter sorter;
 
     public TodoListPanel() {
@@ -140,8 +139,6 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         this.iconEditor = new IconTableCellRenderer(l);
         this.iconRenderer = new IconTableCellRenderer(l);
 
-        // t = new JTable(new Object[][]{{new Boolean("true"),"a","b","c"},{new
-        // Boolean("false"),"d","e","f"}},new String[]{"a","u","!","Nom"});
         final User currentUser = UserManager.getInstance().getCurrentUser();
         this.model = new TodoListModel(currentUser);
         this.sorter = new TableSorter(this.model);
@@ -163,9 +160,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                     } else {
                         r = "";
                     }
-                    r += "Assigné par " + UserManager.getInstance().getUser(task.getCreatorId()).getFullName() + "\n";
-
-                    r += "Le " + TodoListPanel.this.simpleDateFormat.format(task.getDate());
+                    r += getTM().trM("assignedBy", "user", UserManager.getInstance().getUser(task.getCreatorId()).getFullName(), "date", task.getDate());
                 }
 
                 return r;
@@ -176,16 +171,15 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
 
         this.model.setTable(this.t);
 
-        this.comboUser = new JMenu("Afficher les tâches assignées à...");
+        this.comboUser = new JMenu(TM.tr("showTaskAssignedTo"));
         initViewableUsers(currentUser);
 
         // L'utilisateur courant doit voir ses taches + toutes les taches dont il a les droits
         this.model.addIdListenerSilently(Integer.valueOf(currentUser.getId()));
 
-        for (int i = 0; i < this.users.size(); i++) {
-
+        final int size = this.users.size();
+        for (int i = 0; i < size; i++) {
             Integer id = Integer.valueOf((this.users.get(i)).getId());
-
             if (this.model.listenToId(id)) {
                 ((JCheckBoxMenuItem) this.comboUser.getMenuComponent(i)).setState(true);
             } else {
@@ -193,10 +187,10 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
             }
         }
 
-        this.addButton = new JButton("Ajouter une tâche");
-        this.removeButton = new JButton("Effacer");
+        this.addButton = new JButton(TM.tr("addTask"));
+        this.removeButton = new JButton();
         this.removeButton.setOpaque(false);
-        this.removeButton.setEnabled(false);
+        updateDeleteBtn();
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
         c.insets = new Insets(2, 2, 1, 2);
@@ -207,7 +201,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         c.weighty = 0;
         c.gridwidth = 6;
         // SEP
-        TitledSeparator sep = new TitledSeparator(currentUser.getFirstName() + " " + currentUser.getName().toUpperCase() + "      Tâches en cours...");
+        TitledSeparator sep = new TitledSeparator(currentUser.getFirstName() + " " + currentUser.getName().toUpperCase());
         this.add(sep, c);
 
         c.gridwidth = 1;
@@ -220,25 +214,24 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
 
         c.anchor = GridBagConstraints.EAST;
         c.gridx++;
-        JMenuBar b = new JMenuBar();
+        final JMenuBar b = new JMenuBar();
         b.setOpaque(false);
         b.setBorderPainted(false);
         b.add(this.comboUser);
         // Pour que le menu ne disparaisse pas quand on rapetisse trop la fenetre en bas
         b.setMinimumSize(b.getPreferredSize());
-
         this.add(b, c);
 
         c.gridx++;
         c.weightx = 1;
-        this.detailCheckBox = new JCheckBox("Affichage détaillé");
+        this.detailCheckBox = new JCheckBox(TM.tr("showDetails"));
         this.detailCheckBox.setOpaque(false);
         this.detailCheckBox.setSelected(false);
         this.add(this.detailCheckBox, c);
 
         //
         c.gridx++;
-        this.hideOldCheckBox = new JCheckBox("Masquer l'historique");
+        this.hideOldCheckBox = new JCheckBox(TM.tr("hideHistory"));
         this.hideOldCheckBox.setOpaque(false);
         this.hideOldCheckBox.setSelected(true);
         this.add(this.hideOldCheckBox, c);
@@ -348,22 +341,9 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
      */
     private void initListeners() {
         this.t.getSelectionModel().addListSelectionListener(new ListSelectionListener() {
+            @Override
             public void valueChanged(ListSelectionEvent e) {
-
-                // if(!e.getValueIsAdjusting()){
-                int nbRows = TodoListPanel.this.t.getSelectedRows().length;
-                if (nbRows == 0) {
-                    TodoListPanel.this.removeButton.setEnabled(false);
-                    TodoListPanel.this.removeButton.setText("Effacer les tâches sélectionnées");
-                } else if (nbRows == 1) {
-                    TodoListPanel.this.removeButton.setEnabled(true);
-                    TodoListPanel.this.removeButton.setText("Effacer la tâche sélectionnée");
-                } else {
-                    TodoListPanel.this.removeButton.setEnabled(true);
-                    TodoListPanel.this.removeButton.setText("Effacer les " + nbRows + " tâches sélectionnées");
-                }
-                // }
-
+                updateDeleteBtn();
             }
         });
         this.removeButton.addActionListener(new ActionListener() {
@@ -491,7 +471,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                 if (e.getX() > textField.getWidth() - 19) {
                     TodoListElement l = getTaskAt(SwingUtilities.convertPoint(e.getComponent(), e.getPoint(), TodoListPanel.this.t));
                     TodoListPanel.this.t.editingCanceled(new ChangeEvent(this));
-                    JFrame f = new JFrame("Détail");
+                    JFrame f = new JFrame(TM.tr("details"));
                     f.setContentPane(new TodoListElementEditorPanel(l));
                     f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
                     f.setSize(500, 200);
@@ -536,7 +516,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         // Better look
         this.t.setShowHorizontalLines(false);
         this.t.setGridColor(new Color(230, 230, 230));
-        this.t.setRowHeight(this.t.getRowHeight() + 4);
+        this.t.setRowHeight(new JTextField(" ").getPreferredSize().height + 4);
         AlternateTableCellRenderer.UTILS.setAllColumns(this.t);
         this.t.repaint();
 
@@ -603,7 +583,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                         }
                     }
                 };
-                act.putValue(Action.NAME, "Avancer d'un jour");
+                act.putValue(Action.NAME, TM.tr("moveOneDay"));
                 res.add(act);
 
                 // Marquer comme réalisé
@@ -617,7 +597,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                         }
                     }
                 };
-                act.putValue(Action.NAME, "Marquer comme réalisé");
+                act.putValue(Action.NAME, TM.tr("markDone"));
                 res.add(act);
 
                 // Suppression
@@ -627,7 +607,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                         table.repaint();
                     }
                 };
-                act.putValue(Action.NAME, "Supprimer");
+                act.putValue(Action.NAME, TM.tr("delete"));
                 res.add(act);
 
                 final TodoListElement element = TodoListPanel.this.model.getTaskAtRow(modelIndex);
@@ -703,6 +683,12 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         int row = this.t.rowAtPoint(p);
         TodoListElement task = this.model.getTaskAtRow(TodoListPanel.this.sorter.modelIndex(row));
         return task;
+    }
+
+    protected void updateDeleteBtn() {
+        final int nbRows = this.t.getSelectedRows().length;
+        this.removeButton.setEnabled(nbRows > 0);
+        this.removeButton.setText(getTM().trM("deleteSelectedTasks", "count", nbRows));
     }
 }
 

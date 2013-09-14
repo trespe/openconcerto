@@ -19,6 +19,7 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 
 public class PrixUnitaireRemiseProvider extends UserInitialsValueProvider {
 
@@ -26,14 +27,17 @@ public class PrixUnitaireRemiseProvider extends UserInitialsValueProvider {
     public Object getValue(SpreadSheetCellValueContext context) {
         SQLRowAccessor row = context.getRow();
         final BigDecimal pv = row.getBigDecimal("PV_HT");
-        final BigDecimal remise = (BigDecimal) row.getObject("POURCENT_REMISE");
+        BigDecimal remise = (BigDecimal) row.getObject("POURCENT_REMISE");
+        if (remise == null) {
+            remise = BigDecimal.ZERO;
+        }
         BigDecimal acompte = BigDecimal.ONE;
-        if (row.getTable().contains("POURCENT_ACOMPTE")) {
+        if (row.getTable().contains("POURCENT_ACOMPTE") && row.getObject("POURCENT_ACOMPTE") != null) {
             acompte = ((BigDecimal) row.getObject("POURCENT_ACOMPTE")).movePointLeft(2);
         }
         BigDecimal result = BigDecimal.ONE.subtract(remise.movePointLeft(2)).multiply(pv, MathContext.DECIMAL128).multiply(acompte, MathContext.DECIMAL128);
 
-        return result;
+        return result.setScale(2, RoundingMode.HALF_UP);
     }
 
     public static void register() {

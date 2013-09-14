@@ -136,7 +136,7 @@ class SQLSyntaxMS extends SQLSyntax {
     }
 
     protected String setNullable(SQLField f, boolean b) {
-        return SQLSelect.quote("ALTER COLUMN %n SET " + (b ? "" : "NOT") + " NULL", f);
+        return "ALTER COLUMN " + f.getQuotedName() + " SET " + (b ? "" : "NOT") + " NULL";
     }
 
     // FIXME
@@ -147,7 +147,7 @@ class SQLSyntaxMS extends SQLSyntax {
             // MAYBE implement AlterTableAlterColumn.CHANGE_ONLY_TYPE
             final String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, type);
             final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
-            res.add(SQLSelect.quote("ALTER COLUMN %n " + getFieldDecl(type, newDef, newNullable), f));
+            res.add("ALTER COLUMN " + f.getQuotedName() + " " + getFieldDecl(type, newDef, newNullable));
         } else {
             if (toAlter.contains(Properties.NULLABLE))
                 res.add(this.setNullable(f, nullable));
@@ -161,12 +161,12 @@ class SQLSyntaxMS extends SQLSyntax {
     public String getDropRoot(String name) {
         // FIXME
         // http://ranjithk.com/2010/01/31/script-to-drop-all-objects-of-a-schema/
-        return SQLSelect.quote("exec CleanUpSchema %s, 'w' ;", name);
+        return "exec CleanUpSchema " + SQLBase.quoteStringStd(name) + ", 'w' ;";
     }
 
     @Override
     public String getCreateRoot(String name) {
-        return SQLSelect.quote("CREATE SCHEMA %i ;", name);
+        return "CREATE SCHEMA " + SQLBase.quoteIdentifier(name) + " ;";
     }
 
     @Override
@@ -289,7 +289,7 @@ class SQLSyntaxMS extends SQLSyntax {
 
     @Override
     public String getDropTrigger(Trigger t) {
-        return SQLBase.quoteStd("DROP TRIGGER %i", new SQLName(t.getTable().getSchema().getName(), t.getName()));
+        return "DROP TRIGGER " + new SQLName(t.getTable().getSchema().getName(), t.getName()).quote();
     }
 
     @Override

@@ -22,12 +22,8 @@ import org.openconcerto.ql.LabelCreator;
 import org.openconcerto.ql.QLPrinter;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
-import org.openconcerto.sql.model.SQLBase;
-import org.openconcerto.sql.model.SQLField;
-import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
@@ -37,13 +33,10 @@ import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Font;
 import java.awt.event.ActionEvent;
-import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import javax.swing.AbstractAction;
-import javax.swing.SwingUtilities;
 
 public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
@@ -60,20 +53,17 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
                         c.setLeftMargin(10);
                         c.setTopMargin(10);
                         c.setDefaultFont(new Font("Verdana", Font.PLAIN, 50));
-
                         c.addLineBold(row.getString("NOM"));
                         final SQLRowAccessor foreignRow = row.getForeign("ID_ADRESSE");
                         final String string = foreignRow.getString("RUE");
                         String[] s = string.split("\n");
                         for (String string2 : s) {
-                            System.err.println(string2);
                             c.addLineNormal(string2);
                         }
 
                         Ville v = Ville.getVilleFromVilleEtCode(foreignRow.getString("VILLE"));
                         c.addLineNormal(v.getCodepostal() + " " + v.getName());
 
-                        System.err.println("\"" + property + "\"");
                         final QLPrinter prt = new QLPrinter(property);
                         try {
                             prt.print(c.getImage());
@@ -122,14 +112,8 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
             l.add("CODE");
-            // l.add("FORME_JURIDIQUE");
         l.add("NOM");
-        if (getTable().getFieldsName().contains("LOCALISATION")) {
-            l.add("LOCALISATION");
-        }
-
         l.add("RESPONSABLE");
-
         l.add("ID_ADRESSE");
         l.add("TEL");
         l.add("FAX");
@@ -139,9 +123,6 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
             l.add("ID_COMPTE_PCE");
             l.add("ID_MODE_REGLEMENT");
         l.add("INFOS");
-        if (getTable().contains("GRAND_COMPTE"))
-            l.add("GRAND_COMPTE");
-
         return l;
     }
 
@@ -159,7 +140,6 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
     protected List<String> getComboFields() {
         final List<String> l = new ArrayList<String>();
-        // l.add("FORME_JURIDIQUE");
         l.add("NOM");
         if (getTable().getFieldsName().contains("LOCALISATION")) {
             l.add("LOCALISATION");

@@ -30,17 +30,34 @@ public class SQLTableEvent {
 
     public enum Mode {
         /**
-         * A row was inserted in the db
+         * A row was inserted in the DB
          */
-        ROW_ADDED,
+        ROW_ADDED {
+            @Override
+            public Mode opposite() {
+                return ROW_DELETED;
+            }
+        },
         /**
-         * A row was deleted in the db
+         * A row was deleted in the DB
          */
-        ROW_DELETED,
+        ROW_DELETED {
+            @Override
+            public Mode opposite() {
+                return ROW_ADDED;
+            }
+        },
         /**
          * Some columns of a row were updated
          */
-        ROW_UPDATED
+        ROW_UPDATED {
+            @Override
+            public Mode opposite() {
+                return this;
+            }
+        };
+
+        public abstract Mode opposite();
     }
 
     private final SQLTable table;
@@ -94,6 +111,10 @@ public class SQLTableEvent {
                 this.fields.add(this.getTable().getField(fieldName));
             }
         }
+    }
+
+    final SQLTableEvent opposite() {
+        return new SQLTableEvent(this.table, this.row == null ? null : new SQLRow(this.table, this.row.getID()), this.mode.opposite(), this.fieldNames);
     }
 
     public final List<SQLField> getFields() {

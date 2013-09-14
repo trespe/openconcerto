@@ -13,12 +13,15 @@
  
  package org.openconcerto.erp.generationDoc;
 
+import org.openconcerto.erp.config.Log;
+
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Logger;
 
 public class TemplateManager {
     private static TemplateManager instance = new TemplateManager();
@@ -134,22 +137,20 @@ public class TemplateManager {
     }
 
     public void dump() {
-        System.out.println(this.getClass().getCanonicalName());
-        System.out.println("Default provider: " + this.defautProvider);
-        System.out.println("Templates:");
+        final Logger l = Log.get();
+        l.config(this.getClass().getCanonicalName() + " Default provider: " + this.defautProvider);
         for (String templateId : this.knownTemplateIds) {
             try {
                 InputStream stream = this.getTemplate(templateId);
                 if (stream == null) {
-                    System.out.println(rightAlign("'" + templateId + "'") + " : stream missing");
+                    l.warning(rightAlign("'" + templateId + "'") + " : stream missing");
                 } else {
-                    System.out.println(rightAlign("'" + templateId + "'") + " : ok");
+                    l.config(rightAlign("'" + templateId + "'") + " : ok");
                 }
             } catch (Exception e) {
-                System.out.println(rightAlign("'" + templateId + "'") + ": stream error");
+                l.warning(rightAlign("'" + templateId + "'") + ": stream error");
             }
         }
-
     }
 
     private String rightAlign(String s) {

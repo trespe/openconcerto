@@ -14,7 +14,8 @@
  package org.openconcerto.ui.coreanimation;
 
 import java.awt.Component;
+import java.util.Collection;
 
 public interface Pulseable {
-    public Component getPulseComponent();
+    public Collection<? extends Component> getPulseComponents();
 }

@@ -31,22 +31,33 @@ import java.util.List;
 
 public abstract class BaseFillSQLRequest extends BaseSQLRequest {
 
+    private static boolean DEFAULT_SELECT_LOCK = true;
+
     /**
      * Whether to use "FOR SHARE" in list requests (preventing roles with just SELECT right from
      * seeing the list).
      */
-    public static final boolean lockSelect = !Boolean.getBoolean("org.openconcerto.sql.noSelectLock");
+    public static final boolean getDefaultLockSelect() {
+        return DEFAULT_SELECT_LOCK;
+    }
+
+    public static final void setDefaultLockSelect(final boolean b) {
+        DEFAULT_SELECT_LOCK = b;
+    }
 
     static public void setupForeign(final SQLRowValuesListFetcher fetcher) {
         // include rows having NULL (not undefined ID) foreign keys
         fetcher.setFullOnly(false);
         // treat the same way tables with or without undefined ID
         fetcher.setIncludeForeignUndef(false);
+        // be predictable
+        fetcher.setReferentsOrdered(true, true);
     }
 
     private final SQLTable primaryTable;
     private Where where;
     private ITransformer<SQLSelect, SQLSelect> selTransf;
+    private boolean lockSelect;
 
     private SQLRowValues graph;
     private SQLRowValues graphToFetch;
@@ -60,6 +71,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         this.primaryTable = primaryTable;
         this.where = w;
         this.selTransf = null;
+        this.lockSelect = getDefaultLockSelect();
         this.graph = null;
         this.graphToFetch = null;
     }
@@ -69,6 +81,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         this.primaryTable = req.getPrimaryTable();
         this.where = req.where;
         this.selTransf = req.selTransf;
+        this.lockSelect = req.lockSelect;
         // TODO copy
         // use methods since they're both lazy
         this.graph = req.getGraph();
@@ -138,6 +151,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
     protected final SQLRowValuesListFetcher setupFetcher(final SQLRowValuesListFetcher fetcher, final Where w) {
         final String tableName = getPrimaryTable().getName();
         setupForeign(fetcher);
+        fetcher.setOrder(getOrder());
         final ITransformer<SQLSelect, SQLSelect> origSelTransf = fetcher.getSelTransf();
         fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
             @Override
@@ -145,11 +159,8 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
                 if (origSelTransf != null)
                     sel = origSelTransf.transformChecked(sel);
                 sel = transformSelect(sel);
-                if (lockSelect)
+                if (isLockSelect())
                     sel.addWaitPreviousWriteTXTable(tableName);
-                for (final Path orderP : getOrder()) {
-                    sel.addOrder(sel.assurePath(tableName, orderP), false);
-                }
                 return sel.andWhere(getWhere()).andWhere(w);
             }
         });
@@ -167,6 +178,14 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
 
     public final Where getWhere() {
         return this.where;
+    }
+
+    public final void setLockSelect(boolean lockSelect) {
+        this.lockSelect = lockSelect;
+    }
+
+    public final boolean isLockSelect() {
+        return this.lockSelect;
     }
 
     @Override

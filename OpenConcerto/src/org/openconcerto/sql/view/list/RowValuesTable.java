@@ -260,8 +260,14 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
         this.repaint();
     }
 
+    public void insertFrom(SQLRowAccessor rowVals) {
+        this.model.insertFrom(rowVals);
+        this.revalidate();
+        this.repaint();
+    }
+
     public void insertFrom(String field, SQLRowValues rowVals) {
-        this.model.insertFrom(field, rowVals);
+        this.model.insertFrom(rowVals);
         this.revalidate();
         this.repaint();
     }
@@ -394,6 +400,11 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
     }
 
     @Override
+    public void removeEmptyListener(EmptyListener l) {
+
+    }
+
+    @Override
     public boolean isEmpty() {
         return false;
     }
@@ -414,7 +425,12 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
             return ValidState.getTrueInstance();
         } else {
             final SQLFieldTranslator trans = Configuration.getInstance().getTranslator();
-            final String text = "au moins " + this.model.getSQLElement().getSingularName() + " n'a pas le champ requis \"" + trans.getLabelFor(this.model.getRequiredField()) + "\" rempli";
+            String fields = "(";
+            for (SQLField field : this.model.getRequiredsField()) {
+                fields += trans.getLabelFor(field) + ",";
+            }
+            fields += ")";
+            final String text = "au moins " + this.model.getSQLElement().getSingularName() + " n'a pas le(s) champ(s) requis \"" + fields + "\" rempli(s)";
             return new ValidState(false, text);
         }
     }

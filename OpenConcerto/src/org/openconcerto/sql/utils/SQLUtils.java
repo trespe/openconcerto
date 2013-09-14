@@ -29,7 +29,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
+import org.apache.commons.dbcp.DelegatingConnection;
 import org.apache.commons.dbutils.ResultSetHandler;
+
+import com.mysql.jdbc.ConnectionProperties;
 
 public class SQLUtils {
 
@@ -285,7 +288,8 @@ public class SQLUtils {
             throw new IllegalArgumentException("Size mismatch " + queries + " / " + handlers);
         final List<Object> results = new ArrayList<Object>(size);
 
-        if (sysRoot.getServer().getSQLSystem().isMultipleResultSetsSupported()) {
+        final SQLSystem system = sysRoot.getServer().getSQLSystem();
+        if (system.isMultipleResultSetsSupported()) {
             final long timeMs = System.currentTimeMillis();
             final long time = System.nanoTime();
             final long afterCache = time;
@@ -302,6 +306,14 @@ public class SQLUtils {
                 @Override
                 public Object handle(SQLDataSource ds) throws SQLException {
                     final Connection conn = ds.getConnection();
+
+                    if (system == SQLSystem.MYSQL) {
+                        final ConnectionProperties connectionProperties = (ConnectionProperties) ((DelegatingConnection) conn).getInnermostDelegate();
+                        if (!connectionProperties.getAllowMultiQueries()) {
+                            throw new IllegalStateException("Multi queries not allowed and the setting can only be set before connecting");
+                        }
+                    }
+
                     final long afterQueryInfo = System.nanoTime();
                     final long afterExecute, afterHandle;
                     final Statement stmt = conn.createStatement();

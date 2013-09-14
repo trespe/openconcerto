@@ -16,6 +16,7 @@
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLTable.ListenerAndConfig;
 import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
@@ -97,7 +98,7 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
                     m.put(comboSelectionItem.getId(), comboSelectionItem);
                 }
                 cacheMap.put(KeyTableCellRenderer.this.el, m);
-                KeyTableCellRenderer.this.el.getTable().addPremierTableModifiedListener(new SQLTableModifiedListener() {
+                KeyTableCellRenderer.this.el.getTable().addPremierTableModifiedListener(new ListenerAndConfig(new SQLTableModifiedListener() {
                     @Override
                     public void tableModified(SQLTableEvent evt) {
                         final int id = evt.getId();
@@ -106,7 +107,7 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
                         else
                             m.put(id, KeyTableCellRenderer.this.el.getComboRequest().getComboItem(id));
                     }
-                });
+                }, true));
 
                 KeyTableCellRenderer.this.isLoading = false;
 

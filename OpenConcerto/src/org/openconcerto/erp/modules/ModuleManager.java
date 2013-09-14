@@ -15,8 +15,9 @@
 
 import org.openconcerto.erp.config.Log;
 import org.openconcerto.erp.config.MainFrame;
+import org.openconcerto.erp.config.MenuAndActions;
+import org.openconcerto.erp.config.MenuManager;
 import org.openconcerto.sql.Configuration;
-
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
@@ -36,6 +37,7 @@ import org.openconcerto.sql.utils.DropTable;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.ui.SwingThreadUtils;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
@@ -45,6 +47,7 @@ import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.IdentityHashSet;
 import org.openconcerto.utils.cc.IdentitySet;
+import org.openconcerto.utils.i18n.TranslationManager;
 
 import java.io.File;
 import java.io.FileFilter;
@@ -64,15 +67,16 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.prefs.Preferences;
 
-import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
 
 import net.jcip.annotations.GuardedBy;
@@ -274,7 +278,7 @@ public class ModuleManager {
      * 
      * @return null if no associated factory
      * */
-    private ModuleFactory getFactory(final String id) {
+    public ModuleFactory getFactory(final String id) {
         final ModuleFactory res;
         synchronized (this.factories) {
             res = this.factories.get(id);
@@ -404,7 +408,7 @@ public class ModuleManager {
         final Set<String> notStarted = modules.get1();
         if (notStarted.size() > 0) {
             for (String id : notStarted) {
-                System.err.println("ModuleManager: cannot start required module: " + id);
+                System.err.println("ModuleManager: cannot register required module: " + id);
             }
             throw new Exception("Impossible de créer les modules requis: " + notStarted);
         }
@@ -595,7 +599,7 @@ public class ModuleManager {
     private void installOnServer(final Collection<AbstractModule> modules) throws Exception {
         final List<ModuleReference> dbInstalledModules = getRemoteInstalledModules();
         for (final AbstractModule module : modules) {
-
+            Log.get().info("Installing on server:" + module.getName());
             assert !isModuleRunning(module.getFactory().getID());
             assert Thread.holdsLock(this);
             final ModuleFactory factory = module.getFactory();
@@ -622,6 +626,14 @@ public class ModuleManager {
                             // configure DB install
                             module.install(ctxt);
                             // install in DB
+                            final List<String> sqlQueries = ctxt.getSQL();
+                            if (sqlQueries.size() == 0) {
+                                L.info(fId + " installation: no sql query to execute");
+                            }
+                            for (String query : sqlQueries) {
+                                L.info(fId + " installation: " + query);
+                            }
+
                             ctxt.execute();
                             remoteModuleManager.updateModuleFields(factory.getReference(), ctxt);
                             return null;
@@ -736,7 +748,7 @@ public class ModuleManager {
                         // don't let elements be replaced (it's tricky to restore in unregister())
                         if (beforeElements.containsKey(elem.getTable())) {
                             L.warning("Trying to replace element for " + elem.getTable() + " with " + elem);
-                            dir.addSQLElement(beforeElements.get(elem.getTable()));
+                            // dir.addSQLElement(beforeElements.get(elem.getTable()));
                         } else {
                             elements.add(elem);
                         }
@@ -747,13 +759,15 @@ public class ModuleManager {
         }
     }
 
-    private void setupComponents(final AbstractModule module, Set<String> alreadyCreatedTables, Set<SQLName> alreadyCreatedItems) throws SQLException {
+    private void setupComponents(final AbstractModule module, final Set<String> alreadyCreatedTables, Set<SQLName> alreadyCreatedItems, final MenuAndActions ma) throws SQLException {
         assert SwingUtilities.isEventDispatchThread();
         final String id = module.getFactory().getID();
         if (!this.modulesComponents.containsKey(id)) {
             final SQLElementDirectory dir = getDirectory();
             final ComponentsContext ctxt = new ComponentsContext(dir, getRoot(), alreadyCreatedTables, alreadyCreatedItems);
             module.setupComponents(ctxt);
+            TranslationManager.getInstance().addTranslationStreamFromClass(module.getClass());
+            this.setupMenu(module, ma);
             this.modulesComponents.put(id, ctxt);
         }
     }
@@ -788,7 +802,17 @@ public class ModuleManager {
      */
     public final void startPreviouslyRunningModules() throws Exception {
         final List<String> ids = Arrays.asList(getRunningIDsPrefs().keys());
-        startModules(ids);
+        final List<String> idsToStart = new ArrayList<String>();
+        for (String id : ids) {
+            if (this.isModuleInstalledLocally(id)) {
+                idsToStart.add(id);
+            } else {
+                L.severe("Module " + id + " is was previously running but is not installed locally. Removing it from autostart sequence.");
+                getRunningIDsPrefs().remove(id);
+            }
+        }
+
+        startModules(idsToStart);
     }
 
     public final boolean startModule(final String id) throws Exception {
@@ -863,7 +887,13 @@ public class ModuleManager {
             final Collection<AbstractModule> toStart = modules.values();
 
             register(toStart);
-
+            final FutureTask<MenuAndActions> menuAndActions = new FutureTask<MenuAndActions>(new Callable<MenuAndActions>() {
+                @Override
+                public MenuAndActions call() throws Exception {
+                    return MenuManager.getInstance().copyMenuAndActions();
+                }
+            });
+            SwingThreadUtils.invoke(menuAndActions);
             for (final AbstractModule module : toStart) {
                 final ModuleFactory f = module.getFactory();
                 final String id = f.getID();
@@ -874,14 +904,14 @@ public class ModuleManager {
 
                     // execute right away if possible, allowing the caller to handle any exceptions
                     if (SwingUtilities.isEventDispatchThread()) {
-                        startModule(module, remoteModuleManager.getCreatedTables(id), remoteModuleManager.getCreatedItems(id));
+                        startModule(module, remoteModuleManager.getCreatedTables(id), remoteModuleManager.getCreatedItems(id), menuAndActions.get());
                     } else {
                         // keep the for outside to avoid halting the EDT too long
                         SwingUtilities.invokeLater(new Runnable() {
                             @Override
                             public void run() {
                                 try {
-                                    startModule(module, remoteModuleManager.getCreatedTables(id), remoteModuleManager.getCreatedItems(id));
+                                    startModule(module, remoteModuleManager.getCreatedTables(id), remoteModuleManager.getCreatedItems(id), menuAndActions.get());
                                 } catch (Exception e) {
                                     ExceptionHandler.handle(MainFrame.getInstance(), "Unable to start " + f, e);
                                 }
@@ -900,6 +930,16 @@ public class ModuleManager {
                 for (final String requiredID : f.getRequiredIDs())
                     this.dependencyGraph.addEdge(f, this.runningModules.get(requiredID).getFactory());
             }
+            SwingThreadUtils.invoke(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        MenuManager.getInstance().setMenuAndActions(menuAndActions.get());
+                    } catch (Exception e) {
+                        ExceptionHandler.handle(MainFrame.getInstance(), "Unable to update menu", e);
+                    }
+                }
+            });
         }
 
         // remove dependencies
@@ -940,14 +980,19 @@ public class ModuleManager {
         }
     }
 
-    private final void startModule(final AbstractModule module, Set<String> alreadyCreatedTables, Set<SQLName> alreadyCreatedItems) throws Exception {
+    private final void startModule(final AbstractModule module, Set<String> alreadyCreatedTables, Set<SQLName> alreadyCreatedItems, final MenuAndActions menuAndActions) throws Exception {
         assert SwingUtilities.isEventDispatchThread();
         if (alreadyCreatedTables == null)
             throw new IllegalArgumentException("null created tables");
         if (alreadyCreatedItems == null)
             throw new IllegalArgumentException("null created items");
-        this.setupComponents(module, alreadyCreatedTables, alreadyCreatedItems);
+        this.setupComponents(module, alreadyCreatedTables, alreadyCreatedItems, menuAndActions);
+
         module.start();
+    }
+
+    private final void setupMenu(final AbstractModule module, final MenuAndActions menuAndActions) {
+        module.setupMenu(new MenuContext(menuAndActions, module.getFactory().getID(), getDirectory(), getRoot()));
     }
 
     public synchronized final boolean isModuleRunning(final String id) {
@@ -1012,6 +1057,20 @@ public class ModuleManager {
         } catch (Exception e) {
             throw new IllegalStateException("Couldn't stop module " + m, e);
         }
+        // we can't undo what the module has done, so just start from the base menu and re-apply all
+        // modifications
+        final MenuAndActions menuAndActions = MenuManager.getInstance().createBaseMenuAndActions();
+        final ArrayList<AbstractModule> modules = new ArrayList<AbstractModule>(this.runningModules.values());
+        SwingThreadUtils.invoke(new Runnable() {
+            @Override
+            public void run() {
+                for (final AbstractModule m : modules) {
+                    setupMenu(m, menuAndActions);
+                }
+                MenuManager.getInstance().setMenuAndActions(menuAndActions);
+            }
+        });
+
         // perhaps record which element this module modified in start()
         final String mdVariant = getMDVariant(f);
         for (final SQLElement elem : this.getDirectory().getElements()) {
@@ -1051,15 +1110,20 @@ public class ModuleManager {
                     e.getKey().removeAdditionalField(fieldName);
             for (final Entry<SQLElement, Collection<RowAction>> e : ctxt.getRowActions().entrySet())
                 e.getKey().getRowActions().removeAll(e.getValue());
-            for (final JMenuItem mi : ctxt.getMenuItems())
-                MainFrame.getInstance().removeMenuItem(mi);
+            TranslationManager.getInstance().removeTranslationStreamFromClass(module.getClass());
+            // can't undo so menu is reset in stopModule()
         }
     }
 
     // modules needing us are the ones currently started + the ones installed in the database
     // that need one of our fields
     private synchronized final Collection<String> getDependentModules(final String id) throws Exception {
-        final Set<String> depModules = new HashSet<String>(remoteModuleManager.getDBDependentModules(id));
+        final List<String> dbDependentModules = remoteModuleManager.getDBDependentModules(id);
+        final Set<String> depModules = new HashSet<String>();
+        if (dbDependentModules != null) {
+            depModules.addAll(dbDependentModules);
+        }
+
         final AbstractModule runningModule = this.runningModules.get(id);
         if (runningModule != null) {
             for (final DirectedEdge<ModuleFactory> e : new ArrayList<DirectedEdge<ModuleFactory>>(this.dependencyGraph.incomingEdgesOf(runningModule.getFactory()))) {
@@ -1172,6 +1236,8 @@ public class ModuleManager {
     private void uninstallUnsafe(Collection<String> ids, final boolean force, final boolean localOnly) throws SQLException, Exception {
         List<ModuleReference> dbrefs = getRemoteInstalledModules();
         for (final String id : ids) {
+            // For removal from prefs (can occur if stop failed)
+            getRunningIDsPrefs().remove(id);
 
             final ModuleFactory moduleFactory = getFactory(id);
             if (!force) {
@@ -1350,6 +1416,9 @@ public class ModuleManager {
         List<AbstractModule> modules = new ArrayList<AbstractModule>();
         for (ModuleReference moduleReference : refs) {
             ModuleFactory m = this.getFactory(moduleReference.getId());
+            if (m == null) {
+                throw new IllegalStateException("No factory for module :" + moduleReference.getId());
+            }
             AbstractModule module = m.createModule(alreadyCreated);
             modules.add(module);
         }

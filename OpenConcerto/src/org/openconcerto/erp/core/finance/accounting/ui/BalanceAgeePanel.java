@@ -25,9 +25,9 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Calendar;
-import java.util.concurrent.ExecutionException;
 
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 
@@ -52,6 +52,13 @@ public class BalanceAgeePanel extends JPanel {
         this.add(dateFin, c);
 
         c.gridy++;
+        c.gridx = 0;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        final JCheckBox boxExcludeEcr = new JCheckBox("Exclure les écritures de clotures");
+        boxExcludeEcr.setSelected(true);
+        this.add(boxExcludeEcr, c);
+
+        c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.anchor = GridBagConstraints.EAST;
         c.fill = GridBagConstraints.NONE;
@@ -63,7 +70,7 @@ public class BalanceAgeePanel extends JPanel {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                BalanceAgeeListeSheetXML l = new BalanceAgeeListeSheetXML(dateDeb.getDate(), dateFin.getDate());
+                BalanceAgeeListeSheetXML l = new BalanceAgeeListeSheetXML(dateDeb.getDate(), dateFin.getDate(), boxExcludeEcr.isSelected());
 
                 try {
                     l.createDocument();

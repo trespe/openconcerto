@@ -13,13 +13,18 @@
  
  package org.openconcerto.erp.injector;
 
+import java.math.BigDecimal;
+import java.util.Collection;
+
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLInjector;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 
 public class FactureAvoirSQLInjector extends SQLInjector {
     public FactureAvoirSQLInjector(final DBRoot root) {
-        super(root, "SAISIE_VENTE_FACTURE", "AVOIR_CLIENT");
+        super(root, "SAISIE_VENTE_FACTURE", "AVOIR_CLIENT", true);
         final SQLTable tableFacture = getSource();
         final SQLTable tableAvoir = getDestination();
         map(tableFacture.getField("ID_CLIENT"), tableAvoir.getField("ID_CLIENT"));
@@ -28,6 +33,29 @@ public class FactureAvoirSQLInjector extends SQLInjector {
         map(tableFacture.getField("REMISE_HT"), tableAvoir.getField("REMISE_HT"));
         map(tableFacture.getField("PORT_HT"), tableAvoir.getField("PORT_HT"));
         map(tableFacture.getField("NUMERO"), tableAvoir.getField("NOM"));
-        // map(tableFacture.getField("INFOS"), tableAvoir.getField("INFOS"));
+
+    }
+
+    @Override
+    protected void merge(SQLRowAccessor srcRow, SQLRowValues rowVals) {
+        super.merge(srcRow, rowVals);
+
+        // Merge elements
+        final SQLTable tableElementSource = getSource().getTable("SAISIE_VENTE_FACTURE_ELEMENT");
+        final SQLTable tableElementDestination = getSource().getTable("AVOIR_CLIENT_ELEMENT");
+        final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+
+        if (myListItem.size() != 0) {
+            final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);
+            for (SQLRowAccessor rowElt : myListItem) {
+                final SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(rowElt.asRow());
+                if (createRowValuesFrom.getTable().getFieldsName().contains("POURCENT_ACOMPTE")) {
+                    if (createRowValuesFrom.getObject("POURCENT_ACOMPTE") == null) {
+                        createRowValuesFrom.put("POURCENT_ACOMPTE", new BigDecimal(100.0));
+                    }
+                }
+                createRowValuesFrom.put("ID_AVOIR_CLIENT", rowVals);
+            }
+        }
     }
 }

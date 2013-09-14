@@ -64,6 +64,7 @@ public abstract class OOXML implements Comparable<OOXML> {
     private static final Map<String, XML_OD> instancesODByVersion = new HashMap<String, XML_OD>();
     private static final List<OOXML> values;
     private static OOXML defaultInstance;
+    private static final Pattern WHITE_SPACE_TO_ENCODE = Pattern.compile("\n|\t| {2,}");
 
     static {
         register(new XML_OD_1_0());
@@ -210,6 +211,29 @@ public abstract class OOXML implements Comparable<OOXML> {
      */
     public abstract String[] getFontDecls();
 
+    /**
+     * Return the top-level script element in the content.
+     * 
+     * @return the top-level script element name.
+     */
+    public abstract String getOfficeScripts();
+
+    /**
+     * The name of the elements where scripts are defined.
+     * 
+     * @return the name of the children of {@link #getOfficeScripts()} defining scripts.
+     */
+    public abstract String getOfficeScript();
+
+    /**
+     * The name of the element where event listeners are defined.
+     * 
+     * @return the name of the child of {@link #getOfficeScripts()} defining event listeners.
+     */
+    public abstract String getOfficeEventListeners();
+
+    public abstract String getEventListener();
+
     public final Element getLineBreak() {
         return new Element("line-break", getVersion().getTEXT());
     }
@@ -269,7 +293,7 @@ public abstract class OOXML implements Comparable<OOXML> {
 
     public final List<Content> encodeWSasList(final String s) {
         final List<Content> res = new ArrayList<Content>();
-        final Matcher m = Pattern.compile("\n|\t| {2,}").matcher(s);
+        final Matcher m = WHITE_SPACE_TO_ENCODE.matcher(s);
         int last = 0;
         while (m.find()) {
             res.add(new Text(s.substring(last, m.start())));
@@ -474,6 +498,26 @@ public abstract class OOXML implements Comparable<OOXML> {
         }
 
         @Override
+        public String getOfficeScripts() {
+            return "script";
+        }
+
+        @Override
+        public String getOfficeScript() {
+            return "script-data";
+        }
+
+        @Override
+        public String getOfficeEventListeners() {
+            return "events";
+        }
+
+        @Override
+        public String getEventListener() {
+            return "event";
+        }
+
+        @Override
         public String[] getFontDecls() {
             return new String[] { "font-decls", "style:font-decl" };
         }
@@ -524,6 +568,26 @@ public abstract class OOXML implements Comparable<OOXML> {
                 throw new IllegalStateException("relaxNG schemas pb", e);
             }
             return schema == null ? null : new Validator.JAXPValidator(doc, schema);
+        }
+
+        @Override
+        public String getOfficeScripts() {
+            return "scripts";
+        }
+
+        @Override
+        public String getOfficeScript() {
+            return "script";
+        }
+
+        @Override
+        public String getOfficeEventListeners() {
+            return "event-listeners";
+        }
+
+        @Override
+        public String getEventListener() {
+            return "event-listener";
         }
 
         @Override

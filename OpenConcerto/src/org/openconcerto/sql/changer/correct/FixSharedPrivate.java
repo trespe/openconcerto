@@ -16,6 +16,7 @@
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.changer.Changer;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
@@ -40,16 +41,34 @@ import java.util.List;
  */
 public class FixSharedPrivate extends Changer<SQLTable> {
 
+    private final SQLElementDirectory dir;
+
     public FixSharedPrivate(DBSystemRoot b) {
-        super(b);
+        this(b, null);
     }
 
+    public FixSharedPrivate(DBSystemRoot b, final SQLElementDirectory dir) {
+        super(b);
+        if (dir == null) {
+            if (Configuration.getInstance() == null)
+                throw new IllegalStateException("no conf");
+            this.dir = Configuration.getInstance().getDirectory();
+            if (this.dir == null)
+                throw new IllegalStateException("no directory in conf");
+        } else {
+            this.dir = dir;
+        }
+        assert this.dir != null;
+    }
+
+    public final SQLElementDirectory getDir() {
+        return this.dir;
+    }
+    
     @Override
     protected void changeImpl(final SQLTable t) throws SQLException {
         getStream().print(t);
-        if (Configuration.getInstance() == null || Configuration.getInstance().getDirectory() == null)
-            throw new IllegalStateException("no directory");
-        final SQLElement elem = Configuration.getInstance().getDirectory().getElement(t);
+        final SQLElement elem = this.getDir().getElement(t);
         if (elem == null) {
             getStream().println(" : no element");
             return;
@@ -66,7 +85,7 @@ public class FixSharedPrivate extends Changer<SQLTable> {
             // where q.ID != 1
             // GROUP BY q.ID
             // HAVING count(q.ID) > 1;
-            final SQLSelect sel = new SQLSelect(t.getBase());
+            final SQLSelect sel = new SQLSelect();
             sel.setArchivedPolicy(ArchiveMode.BOTH);
             sel.addSelect(privateTable.getKey());
             sel.addBackwardJoin("INNER", "m", t.getField(pff), null);
@@ -85,7 +104,7 @@ public class FixSharedPrivate extends Changer<SQLTable> {
                     public Object create() throws SQLException {
                         // for each private pointed by more than one parent
                         for (final Number privateID : privateIDs) {
-                            final SQLSelect fixSel = new SQLSelect(t.getBase());
+                            final SQLSelect fixSel = new SQLSelect();
                             fixSel.setArchivedPolicy(ArchiveMode.BOTH);
                             fixSel.addSelect(t.getKey());
                             if (archF != null)

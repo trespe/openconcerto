@@ -71,8 +71,8 @@ public class CourrierClientSheet extends AbstractJOOReportsSheet {
             m.put("clientNom", rowAdresseClient.getString("DEST"));
             m.put("clientAdresse", rowAdresseClient.getString("RUE"));
 
-            m.put("codePostal", getVilleCP(rowAdresseClient.getString("VILLE")));
-            String villeCli = getVille(rowAdresseClient.getString("VILLE"));
+            m.put("codePostal", rowAdresseClient.getString("CODE_POSTAL"));
+            String villeCli = rowAdresseClient.getString("VILLE");
             final Object cedexCli = rowAdresseClient.getObject("CEDEX");
             final boolean hasCedexCli = rowAdresseClient.getBoolean("HAS_CEDEX");
 

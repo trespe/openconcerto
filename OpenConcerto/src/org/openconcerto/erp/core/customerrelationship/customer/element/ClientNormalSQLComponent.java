@@ -657,7 +657,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         this.checkAdrLivraison.setSelected(idAdrL == 1);
         this.checkAdrFacturation.setSelected(idAdrF == 1);
         if (r != null) {
-            this.table.insertFrom("ID_CLIENT", r.getID());
+            this.table.insertFrom("ID_CLIENT", r.asRowValues());
             this.adresseTable.insertFrom("ID_CLIENT", r.getID());
             this.defaultContactRowVals.put("TEL_DIRECT", r.getString("TEL"));
             this.defaultContactRowVals.put("FAX", r.getString("FAX"));

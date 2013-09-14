@@ -18,6 +18,7 @@ import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.UISQLComponent;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.utils.CollectionMap;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -44,11 +45,22 @@ public class CommandeClientElementSQLElement extends ComptaSQLConfElement {
 
     protected List<String> getComboFields() {
         final List<String> l = new ArrayList<String>();
-        l.add("CODE");
+        if (getTable().contains("ID_ARTICLE")) {
+            l.add("ID_ARTICLE");
+        }
         l.add("NOM");
-        l.add("PA_HT");
         l.add("PV_HT");
         return l;
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        final CollectionMap<String, String> res = new CollectionMap<String, String>();
+        if (getTable().contains("ID_ARTICLE")) {
+            res.put("ID_ARTICLE", "ID_FAMILLE_ARTICLE");
+        }
+        res.put(null, "NOM");
+        return res;
     }
 
     /*

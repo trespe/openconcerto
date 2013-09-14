@@ -74,21 +74,22 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
 
         // TODO Obligation de choisir un compte correct
         final List<SQLTableElement> list = new Vector<SQLTableElement>();
-        this.tableElementNumeroCompte = new SQLTableElement(elt.getTable().getField("NUMERO"));
+        final SQLTable tableElement = elt.getTable();
+        this.tableElementNumeroCompte = new SQLTableElement(tableElement.getField("NUMERO"));
         list.add(this.tableElementNumeroCompte);
 
-        final SQLTableElement tableElementNomCompte = new SQLTableElement(elt.getTable().getField("NOM"));
+        final SQLTableElement tableElementNomCompte = new SQLTableElement(tableElement.getField("NOM"));
         list.add(tableElementNomCompte);
 
-        final SQLTableElement tableElementNomEcriture = new SQLTableElement(elt.getTable().getField("NOM_ECRITURE"));
+        final SQLTableElement tableElementNomEcriture = new SQLTableElement(tableElement.getField("NOM_ECRITURE"));
         list.add(tableElementNomEcriture);
 
-        this.debit = new SQLTableElement(elt.getTable().getField("DEBIT"), Long.class, this.deviseCellEditor);
+        this.debit = new SQLTableElement(tableElement.getField("DEBIT"), Long.class, this.deviseCellEditor);
         list.add(this.debit);
-        this.credit = new SQLTableElement(elt.getTable().getField("CREDIT"), Long.class, this.deviseCellEditor);
+        this.credit = new SQLTableElement(tableElement.getField("CREDIT"), Long.class, this.deviseCellEditor);
         list.add(this.credit);
 
-        final RowValuesTableModel model = new RowValuesTableModel(elt, list, elt.getTable().getField("NUMERO"), true, defaultRowVals) {
+        final RowValuesTableModel model = new RowValuesTableModel(elt, list, tableElement.getField("NUMERO"), true, defaultRowVals) {
             @Override
             public void setValueAt(final Object aValue, final int rowIndex, final int columnIndex) {
                 super.setValueAt(aValue, rowIndex, columnIndex);
@@ -172,7 +173,7 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
      */
     private void loadEcriture(final SQLRow ecrRow, final boolean contrePasser) {
 
-        final SQLRow compteRow = new ComptePCESQLElement().getTable().getRow(ecrRow.getInt("ID_COMPTE_PCE"));
+        final SQLRow compteRow = ecrRow.getForeignRow("ID_COMPTE_PCE");
         final Map<String, Object> m = new HashMap<String, Object>();
 
         m.put("NUMERO", compteRow.getString("NUMERO"));
@@ -267,35 +268,21 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
     private long getContrepartie() {
         long totalCred = 0;
         long totalDeb = 0;
-        long totalCredWithNoValid = 0;
-        long totalDebWithNoValid = 0;
-
         final RowValuesTableModel model = this.table.getRowValuesTableModel();
         final int creditIndex = model.getColumnIndexForElement(getCreditElement());
         final int debitIndex = model.getColumnIndexForElement(getDebitElement());
         for (int i = 0; i < this.table.getRowCount(); i++) {
-            long totalLine = 0;
-            final boolean b = model.isRowValid(i);
-            final Long fTc = (Long) model.getValueAt(i, creditIndex);
-            final Long fTd = (Long) model.getValueAt(i, debitIndex);
-
-            if (fTc != null) {
-                if (b) {
+            if (model.isRowValid(i)) {
+                final Long fTc = (Long) model.getValueAt(i, creditIndex);
+                if (fTc != null) {
                     totalCred += fTc.longValue();
                 }
-                totalCredWithNoValid += fTc.longValue();
-                totalLine += fTc.longValue();
-            }
-
-            if (fTd != null) {
-                if (b) {
+                final Long fTd = (Long) model.getValueAt(i, debitIndex);
+                if (fTd != null) {
                     totalDeb += fTd.longValue();
                 }
-                totalDebWithNoValid += fTd.longValue();
-                totalLine += fTd.longValue();
             }
         }
-
         return totalDeb - totalCred;
     }
 
@@ -306,6 +293,20 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
         } else {
             return 0;
         }
+    }
+
+    public void fillEmptyEntryLabel(String previousText, String text) {
+        if (text == null)
+            return;
+        RowValuesTableModel model = table.getRowValuesTableModel();
+        int size = model.getRowCount();
+        for (int i = 0; i < size; i++) {
+            SQLRowValues r = model.getRowValuesAt(i);
+            if (r.getString("NOM_ECRITURE") == null || r.getString("NOM_ECRITURE").trim().isEmpty() || r.getString("NOM_ECRITURE").trim().equals(previousText)) {
+                r.put("NOM_ECRITURE", text);
+            }
+        }
+        model.fireTableDataChanged();
     }
 
     public void mousePressed(final MouseEvent e) {
@@ -347,4 +348,5 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
 
     public void mouseExited(final MouseEvent e) {
     }
+
 }

@@ -15,6 +15,8 @@
 
 import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.StyleProperties;
+import org.openconcerto.openoffice.StyleStyle;
+import org.openconcerto.openoffice.StyledNode;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +34,10 @@ public class SideStyleProperties extends StyleProperties {
 
     public SideStyleProperties(Style style, final String propPrefix) {
         super(style, propPrefix);
+    }
+
+    public <S extends StyleStyle> SideStyleProperties(S style, final String propPrefix, StyledNode<S, ?> styledNode) {
+        super(style, propPrefix, styledNode);
     }
 
     public final String getBorder(final Side s) {

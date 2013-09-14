@@ -38,6 +38,7 @@ import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.beans.PropertyChangeListener;
+import java.util.Arrays;
 import java.util.List;
 
 import javax.swing.ComboBoxEditor;
@@ -56,6 +57,12 @@ import javax.swing.text.JTextComponent;
  * @author Sylvain CUAZ
  */
 public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextComponent {
+
+    /**
+     * System property, if <code>true</code> buttons children will not be focusable (allowing
+     * quicker tab navigation).
+     */
+    public static final String SIMPLE_TRAVERSAL = "org.openconcerto.ui.simpleTraversal";
 
     private static final String DEFAULTVALUE = "";
 
@@ -134,7 +141,7 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
             });
         }
 
-        if (Boolean.getBoolean("org.openconcerto.ui.simpleTraversal"))
+        if (Boolean.getBoolean(SIMPLE_TRAVERSAL))
             for (final Component child : this.getComponents()) {
                 if (child instanceof JButton || child instanceof Button)
                     child.setFocusable(false);
@@ -161,6 +168,14 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
 
     public final boolean hasCache() {
         return this.cache != null;
+    }
+
+    public final void initCache(String... values) {
+        this.initCache(Arrays.asList(values));
+    }
+
+    public final void initCache(List<String> values) {
+        this.initCache(new ImmutableITextComboCache(values));
     }
 
     public final void initCache(ITextComboCache cache) {

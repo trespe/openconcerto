@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.element;
 
+import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLType;
 import org.openconcerto.sql.request.RowItemDesc;
@@ -49,21 +50,17 @@ public class GroupSQLComponent extends BaseSQLComponent {
 
     private final Group group;
     private final int columns = 2;
-    private final boolean forceViewOnly = true;
     private final Map<String, JComponent> labels = new HashMap<String, JComponent>();
     private final Map<String, JComponent> editors = new HashMap<String, JComponent>();
 
     public GroupSQLComponent(final SQLElement element, final Group group) {
         super(element);
         this.group = group;
-
     }
 
     @Override
     protected void addViews() {
-        this.group.dumpOneColumn();
         this.setLayout(new GridBagLayout());
-        this.group.sort();
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.NONE;
         layout(this.group, 0, 0, 0, c);
@@ -72,26 +69,34 @@ public class GroupSQLComponent extends BaseSQLComponent {
     public void layout(final Item currentItem, final Integer order, int x, final int level, final GridBagConstraints c) {
         final String id = currentItem.getId();
         final LayoutHints size = currentItem.getLocalHint();
+        if (!size.isVisible()) {
+            return;
+        }
+
         if (size.isSeparated()) {
             x = 0;
             c.gridx = 0;
             c.gridy++;
         }
         if (currentItem instanceof Group) {
-            Group currentGroup = (Group) currentItem;
+            final Group currentGroup = (Group) currentItem;
             final int stop = currentGroup.getSize();
+            if (size.showLabel() && getLabel(id) != null) {
+                x = 0;
+                c.gridy++;
+                c.fill = GridBagConstraints.HORIZONTAL;
+                c.gridx = 0;
+                c.weightx = 1;
+                c.gridwidth = 4;
+                this.add(getLabel(id), c);
+                c.gridy++;
+            }
             for (int i = 0; i < stop; i++) {
                 final Item subGroup = currentGroup.getItem(i);
                 final Integer subGroupOrder = currentGroup.getOrder(i);
-
                 layout(subGroup, subGroupOrder, x, level + 1, c);
-
             }
-
         } else {
-            System.out.print(" (" + x + ")");
-
-            System.out.print(order + " " + id + "[" + size + "]");
             c.gridwidth = 1;
             if (size.showLabel()) {
                 c.weightx = 0;
@@ -136,7 +141,11 @@ public class GroupSQLComponent extends BaseSQLComponent {
                     c.gridwidth = this.columns * 2 - 1;
                 }
             } else {
-                c.gridwidth = 1;
+                if (size.showLabel() && !size.isSeparated()) {
+                    c.gridwidth = 1;
+                } else {
+                    c.gridwidth = 2;
+                }
             }
             if (c.gridx % 2 == 1) {
                 c.weightx = 1;
@@ -145,7 +154,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
             try {
                 this.addView(editor, id);
             } catch (final Exception e) {
-                System.err.println(e.getMessage());
+                Log.get().warning(e.getMessage());
             }
 
             if (size.largeWidth()) {
@@ -168,9 +177,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
     }
 
     public JComponent createEditor(final String id) {
-
         if (id.startsWith("(") && id.endsWith(")*")) {
-
             try {
                 final String table = id.substring(1, id.length() - 2).trim();
                 final String idEditor = GlobalMapper.getInstance().getIds(table).get(0) + ".editor";
@@ -180,7 +187,6 @@ public class GroupSQLComponent extends BaseSQLComponent {
             } catch (final Exception e) {
                 e.printStackTrace();
             }
-
         }
 
         final SQLField field = this.getTable().getFieldRaw(id);
@@ -198,11 +204,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
             jLabel.setToolTipText(t);
             return jLabel;
         }
-        // if (/* this.getMode().equals(Mode.VIEW) || */forceViewOnly) {
-        // final JLabel jLabel = new JLabel();
-        // jLabel.setForeground(Color.gray);
-        // return jLabel;
-        // }
+
         final SQLType type = field.getType();
 
         final JComponent comp;
@@ -233,7 +235,6 @@ public class GroupSQLComponent extends BaseSQLComponent {
         }
 
         return comp;
-
     }
 
     protected JComponent createLabel(final String id) {

@@ -30,6 +30,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Component;
 import java.awt.GridBagConstraints;
@@ -189,11 +190,15 @@ public class CloturePanel extends JPanel {
         this.valider.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
 
-                clotureExercice();
-                // show OK works fine
-                Component comp = SwingUtilities.getRoot(CloturePanel.this);
-                JOptionPane.showMessageDialog(CloturePanel.this, "Exercice clôturé", "Fin de la clôture", JOptionPane.INFORMATION_MESSAGE);
-                ((JFrame) comp).dispose();
+                try {
+                    clotureExercice();
+                    // show OK works fine
+                    Component comp = SwingUtilities.getRoot(CloturePanel.this);
+                    JOptionPane.showMessageDialog(CloturePanel.this, "Exercice clôturé", "Fin de la clôture", JOptionPane.INFORMATION_MESSAGE);
+                    ((JFrame) comp).dispose();
+                } catch (Exception ex) {
+                    ExceptionHandler.handle("Erreur lors de la clôture", ex);
+                }
             }
         });
 
@@ -224,7 +229,7 @@ public class CloturePanel extends JPanel {
 
     private final SQLTable tablePrefCompte = this.base.getTable("PREFS_COMPTE");
 
-    private void clotureExercice() {
+    private void clotureExercice() throws SQLException {
 
         SQLRow rowPrefCompte = this.tablePrefCompte.getRow(2);
         int id_Compte_Bilan_Ouverture = rowPrefCompte.getInt("ID_COMPTE_PCE_BILAN_O");
@@ -369,7 +374,7 @@ public class CloturePanel extends JPanel {
         this.opEnCours.setText("Etat: clôture termninée");
     }
 
-    private void soldeCompte(boolean compteBilan) {
+    private void soldeCompte(boolean compteBilan) throws SQLException {
 
         String typeCompte;
         int compteDest;

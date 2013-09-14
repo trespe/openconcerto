@@ -24,6 +24,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -96,13 +97,15 @@ public class ClotureMensuellePayePanel extends JPanel {
         c.gridy++;
         this.add(boxCompta, c);
 
-        JButton buttonClot = new JButton("Cloturer");
+        JButton buttonClot = new JButton("Clôturer");
         JButton buttonFermer = new JButton("Fermer");
 
         JPanel panelButton = new JPanel();
         panelButton.add(buttonClot);
         panelButton.add(buttonFermer);
-
+        c.anchor = GridBagConstraints.SOUTHEAST;
+        c.fill = GridBagConstraints.NONE;
+        c.weighty = 1;
         c.gridy++;
         this.add(panelButton, c);
 
@@ -114,81 +117,86 @@ public class ClotureMensuellePayePanel extends JPanel {
 
         buttonClot.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
+                try {
+                    // if (selMois.getSelectedId() <= 1 || textAnnee.getText().trim().length() == 0)
+                    // {
+                    // return;
+                    // }
+                    // Valider les fiches non validés des salariés actifs
+                    if (boxValid.isSelected()) {
+                        SQLSelect selFiche = new SQLSelect(ClotureMensuellePayePanel.this.base);
+                        SQLTable tableFiche = ClotureMensuellePayePanel.this.base.getTable("FICHE_PAYE");
+                        SQLTable tableSalarie = ClotureMensuellePayePanel.this.base.getTable("SALARIE");
+                        SQLTable tableInfosSal = ClotureMensuellePayePanel.this.base.getTable("INFOS_SALARIE_PAYE");
+                        selFiche.addSelect(tableFiche.getField("ID"));
 
-                // if (selMois.getSelectedId() <= 1 || textAnnee.getText().trim().length() == 0) {
-                // return;
-                // }
-                // Valider les fiches non validés des salariés actifs
-                if (boxValid.isSelected()) {
+                        selFiche.setWhere(new Where(tableFiche.getField("VALIDE"), "=", Boolean.FALSE));
+                        selFiche.andWhere(new Where(tableFiche.getField("ID_MOIS"), "=", selMois.getSelectedId()));
+                        selFiche.andWhere(new Where(tableFiche.getField("ANNEE"), "=", new Integer(textAnnee.getText())));
+                        selFiche.andWhere(new Where(tableSalarie.getField("ID"), "=", tableFiche.getField("ID_SALARIE")));
+                        selFiche.andWhere(new Where(tableInfosSal.getField("ID"), "=", tableSalarie.getField("ID_INFOS_SALARIE_PAYE")));
+
+                        // FIXME ne pas valider les fiches d'un employé renvoyé
+
+                        // Where w2 = new Where(tableInfosSal.getField("DATE_SORTIE"), "IS",
+                        // "NULL");
+                        Calendar cal = Calendar.getInstance();
+                        cal.set(Calendar.DATE, 1);
+                        cal.set(Calendar.MONTH, selMois.getSelectedId() - 2);
+                        cal.set(Calendar.YEAR, Integer.parseInt(textAnnee.getText()));
+                        cal.set(Calendar.DATE, cal.getActualMaximum(Calendar.DATE));
+
+                        Where w = new Where(tableInfosSal.getField("DATE_SORTIE"), "<=", cal.getTime());
+                        w = w.or(new Where(tableInfosSal.getField("DATE_SORTIE"), "=", (Object) null));
+                        selFiche.andWhere(w);
+                        String req = selFiche.asString();
+                        System.err.println(req);
+                        List l = (List) ClotureMensuellePayePanel.this.base.getDataSource().execute(req, new ArrayListHandler());
+
+                        for (int i = 0; i < l.size(); i++) {
+
+                            Object[] tmp = (Object[]) l.get(i);
+                            SQLRow rowFicheTmp = tableFiche.getRow(Integer.parseInt(tmp[0].toString()));
+                            System.err.println(rowFicheTmp);
+                            FichePayeSQLElement.validationFiche(rowFicheTmp.getID());
+                        }
+                    }
+
+                    // cloture du mois et generation compta
+
                     SQLSelect selFiche = new SQLSelect(ClotureMensuellePayePanel.this.base);
                     SQLTable tableFiche = ClotureMensuellePayePanel.this.base.getTable("FICHE_PAYE");
-                    SQLTable tableSalarie = ClotureMensuellePayePanel.this.base.getTable("SALARIE");
-                    SQLTable tableInfosSal = ClotureMensuellePayePanel.this.base.getTable("INFOS_SALARIE_PAYE");
+                    SQLTable tableMois = ClotureMensuellePayePanel.this.base.getTable("MOIS");
                     selFiche.addSelect(tableFiche.getField("ID"));
 
-                    selFiche.setWhere(new Where(tableFiche.getField("VALIDE"), "=", Boolean.FALSE));
+                    selFiche.setWhere(new Where(tableFiche.getField("VALIDE"), "=", Boolean.TRUE));
                     selFiche.andWhere(new Where(tableFiche.getField("ID_MOIS"), "=", selMois.getSelectedId()));
                     selFiche.andWhere(new Where(tableFiche.getField("ANNEE"), "=", new Integer(textAnnee.getText())));
-                    selFiche.andWhere(new Where(tableSalarie.getField("ID"), "=", tableFiche.getField("ID_SALARIE")));
-                    selFiche.andWhere(new Where(tableInfosSal.getField("ID"), "=", tableSalarie.getField("ID_INFOS_SALARIE_PAYE")));
 
-                    // FIXME ne pas valider les fiches d'un employé renvoyé
-
-                    // Where w2 = new Where(tableInfosSal.getField("DATE_SORTIE"), "IS", "NULL");
-                    Calendar cal = Calendar.getInstance();
-                    cal.set(Calendar.DATE, 1);
-                    cal.set(Calendar.MONTH, selMois.getSelectedId() - 2);
-                    cal.set(Calendar.YEAR, Integer.parseInt(textAnnee.getText()));
-                    cal.set(Calendar.DATE, cal.getActualMaximum(Calendar.DATE));
-
-                    Where w = new Where(tableInfosSal.getField("DATE_SORTIE"), "<=", cal.getTime());
-                    w = w.or(new Where(tableInfosSal.getField("DATE_SORTIE"), "=", (Object) null));
-                    selFiche.andWhere(w);
                     String req = selFiche.asString();
-                    System.err.println(req);
+
                     List l = (List) ClotureMensuellePayePanel.this.base.getDataSource().execute(req, new ArrayListHandler());
 
-                    for (int i = 0; i < l.size(); i++) {
+                    if (l != null && l.size() > 0) {
+                        int[] idS = new int[l.size()];
+                        SQLRow rowMois = tableMois.getRow(selMois.getSelectedId());
 
-                        Object[] tmp = (Object[]) l.get(i);
-                        SQLRow rowFicheTmp = tableFiche.getRow(Integer.parseInt(tmp[0].toString()));
-                        System.err.println(rowFicheTmp);
-                        FichePayeSQLElement.validationFiche(rowFicheTmp.getID());
+                        for (int i = 0; i < l.size(); i++) {
+
+                            Object[] tmp = (Object[]) l.get(i);
+                            idS[i] = Integer.parseInt(tmp[0].toString());
+                            SQLRow rowFiche = tableFiche.getRow(idS[i]);
+                            FichePayeSQLElement.clotureMensuelle(selMois.getSelectedId(), Integer.parseInt(textAnnee.getText()), rowFiche.getInt("ID_SALARIE"));
+                        }
+                        if (boxCompta.isSelected()) {
+                            new GenerationMvtFichePaye(idS, rowMois.getString("NOM"), textAnnee.getText());
+                        }
                     }
+                    System.err.println("ClotureMensuellePayePanel.ClotureMensuellePayePanel().new ActionListener() {...}.actionPerformed()");
+                    JOptionPane.showMessageDialog(null, "Clôture terminée");
+                } catch (Exception ex) {
+                    ExceptionHandler.handle("Unable to complete operation", ex);
                 }
-
-                // cloture du mois et generation compta
-
-                SQLSelect selFiche = new SQLSelect(ClotureMensuellePayePanel.this.base);
-                SQLTable tableFiche = ClotureMensuellePayePanel.this.base.getTable("FICHE_PAYE");
-                SQLTable tableMois = ClotureMensuellePayePanel.this.base.getTable("MOIS");
-                selFiche.addSelect(tableFiche.getField("ID"));
-
-                selFiche.setWhere(new Where(tableFiche.getField("VALIDE"), "=", Boolean.TRUE));
-                selFiche.andWhere(new Where(tableFiche.getField("ID_MOIS"), "=", selMois.getSelectedId()));
-                selFiche.andWhere(new Where(tableFiche.getField("ANNEE"), "=", new Integer(textAnnee.getText())));
-
-                String req = selFiche.asString();
-
-                List l = (List) ClotureMensuellePayePanel.this.base.getDataSource().execute(req, new ArrayListHandler());
-
-                if (l != null && l.size() > 0) {
-                    int[] idS = new int[l.size()];
-                    SQLRow rowMois = tableMois.getRow(selMois.getSelectedId());
-
-                    for (int i = 0; i < l.size(); i++) {
-
-                        Object[] tmp = (Object[]) l.get(i);
-                        idS[i] = Integer.parseInt(tmp[0].toString());
-                        SQLRow rowFiche = tableFiche.getRow(idS[i]);
-                        FichePayeSQLElement.clotureMensuelle(selMois.getSelectedId(), Integer.parseInt(textAnnee.getText()), rowFiche.getInt("ID_SALARIE"));
-                    }
-                    if (boxCompta.isSelected()) {
-                        new GenerationMvtFichePaye(idS, rowMois.getString("NOM"), textAnnee.getText());
-                    }
-                }
-                System.err.println("ClotureMensuellePayePanel.ClotureMensuellePayePanel().new ActionListener() {...}.actionPerformed()");
-                JOptionPane.showMessageDialog(null, "Clôture terminée");
             }
         });
     }

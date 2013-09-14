@@ -15,9 +15,12 @@
 
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValues.CreateMode;
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.model.graph.Step;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.sql.view.list.LineListener;
 import org.openconcerto.sql.view.list.ListAccess;
@@ -26,6 +29,7 @@ import org.openconcerto.sql.view.search.SearchSpec;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.IFutureTask;
 import org.openconcerto.utils.RTInterruptedException;
+import org.openconcerto.utils.RecursionType;
 import org.openconcerto.utils.SleepingQueue;
 import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
@@ -48,6 +52,19 @@ public final class SearchQueue extends SleepingQueue {
      */
     public static boolean isSearch(FutureTask<?> f) {
         return (f instanceof IFutureTask) && ((IFutureTask<?>) f).getRunnable() instanceof SearchRunnable;
+    }
+
+    /**
+     * The last referent step of the passed path.
+     * 
+     * @param p a path.
+     * @return the name of the field of the last referent step, <code>null</code> if it doesn't
+     *         exist.
+     */
+    public static String getLastReferentField(final Path p) {
+        final Step lastStep = p.length() == 0 ? null : p.getStep(-1);
+        final boolean lastIsForeign = lastStep == null || lastStep.getDirection() == Direction.FOREIGN;
+        return lastIsForeign ? null : lastStep.getSingleField().getName();
     }
 
     private final ITableModel model;
@@ -81,23 +98,22 @@ public final class SearchQueue extends SleepingQueue {
     /**
      * The lines and their path affected by a change of the passed row.
      * 
-     * @param t the table that has changed.
-     * @param id the id that has changed.
+     * @param r the row that has changed.
      * @return the refreshed lines and their changed paths.
      */
-    public CollectionMap<ListSQLLine, Path> getAffectedLines(final SQLTable t, final int id) {
-        return this.execGetAffected(t, id, new CollectionMap<ListSQLLine, Path>(), true);
+    public CollectionMap<ListSQLLine, Path> getAffectedLines(final SQLRow r) {
+        return this.execGetAffected(r, new CollectionMap<ListSQLLine, Path>(), true);
     }
 
-    public CollectionMap<Path, ListSQLLine> getAffectedPaths(final SQLTable t, final int id) {
-        return this.execGetAffected(t, id, new CollectionMap<Path, ListSQLLine>(), false);
+    public CollectionMap<Path, ListSQLLine> getAffectedPaths(final SQLRow r) {
+        return this.execGetAffected(r, new CollectionMap<Path, ListSQLLine>(), false);
     }
 
-    private <K, V> CollectionMap<K, V> execGetAffected(final SQLTable t, final int id, final CollectionMap<K, V> res, final boolean byLine) {
+    private <K, V> CollectionMap<K, V> execGetAffected(final SQLRow r, final CollectionMap<K, V> res, final boolean byLine) {
         return this.execute(new Callable<CollectionMap<K, V>>() {
             @Override
             public CollectionMap<K, V> call() throws Exception {
-                return getAffected(t, id, res, byLine);
+                return getAffected(r, res, byLine);
             }
         });
     }
@@ -120,13 +136,15 @@ public final class SearchQueue extends SleepingQueue {
     }
 
     // must be called from within this queue, as this method use fullList
-    private <K, V> CollectionMap<K, V> getAffected(final SQLTable t, final int id, CollectionMap<K, V> res, boolean byLine) {
+    private <K, V> CollectionMap<K, V> getAffected(final SQLRow r, CollectionMap<K, V> res, boolean byLine) {
+        final SQLTable t = r.getTable();
+        final int id = r.getID();
         if (id < SQLRow.MIN_VALID_ID)
             throw new IllegalArgumentException("invalid ID: " + id);
         if (!this.fullList.isEmpty()) {
             final SQLRowValues proto = this.getModel().getLinesSource().getParent().getMaxGraph();
             final List<Path> pathsToT = new ArrayList<Path>();
-            proto.walkGraph(pathsToT, new ITransformer<State<List<Path>>, List<Path>>() {
+            proto.getGraph().walk(proto, pathsToT, new ITransformer<State<List<Path>>, List<Path>>() {
                 @Override
                 public List<Path> transformChecked(State<List<Path>> input) {
                     if (input.getCurrent().getTable() == t) {
@@ -134,12 +152,28 @@ public final class SearchQueue extends SleepingQueue {
                     }
                     return input.getAcc();
                 }
-            });
+            }, RecursionType.BREADTH_FIRST, null);
             for (final Path p : pathsToT) {
+                final String lastReferentField = getLastReferentField(p);
                 for (final ListSQLLine line : this.fullList) {
-                    final SQLRowValues current = line.getRow().followPath(p);
-                    // works for rowValues w/o any ID
-                    if (current != null && current.getID() == id) {
+                    boolean put = false;
+                    for (final SQLRowValues current : line.getRow().followPath(p, CreateMode.CREATE_NONE, false)) {
+                        // works for rowValues w/o any ID
+                        if (current != null && current.getID() == id) {
+                            put = true;
+                        }
+                    }
+                    // if the modified row isn't in the existing line, it might still affect it if
+                    // it's a referent row insertion
+                    if (!put && lastReferentField != null && r.exists()) {
+                        final int foreignID = r.getInt(lastReferentField);
+                        for (final SQLRowValues current : line.getRow().followPath(p.minusLast(), CreateMode.CREATE_NONE, false)) {
+                            if (current.getID() == foreignID) {
+                                put = true;
+                            }
+                        }
+                    }
+                    if (put) {
                         // add to the list of paths that have been refreshed
                         if (byLine)
                             res.put(line, p);

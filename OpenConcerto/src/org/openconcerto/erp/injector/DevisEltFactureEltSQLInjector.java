@@ -23,16 +23,9 @@ import java.math.BigDecimal;
 
 public class DevisEltFactureEltSQLInjector extends SQLInjector {
     public DevisEltFactureEltSQLInjector(final DBRoot root) {
-        super(root, "DEVIS_ELEMENT", "SAISIE_VENTE_FACTURE_ELEMENT");
+        super(root, "DEVIS_ELEMENT", "SAISIE_VENTE_FACTURE_ELEMENT", false);
         createDefaultMap();
-
         final SQLTable tableFacture = getDestination();
         mapDefaultValues(tableFacture.getField("POURCENT_ACOMPTE"), new BigDecimal(100.0D));
-        mapDefaultValues(tableFacture.getField("MONTANT_INITIAL"), Long.valueOf(0));
-        mapDefaultValues(tableFacture.getField("INDICE_0"), Long.valueOf(0));
-        mapDefaultValues(tableFacture.getField("INDICE_N"), Long.valueOf(0));
-        mapDefaultValues(tableFacture.getField("TARIF_Q18_HT"), Long.valueOf(0));
-        mapDefaultValues(tableFacture.getField("Q18"), Boolean.FALSE);
-        mapDefaultValues(tableFacture.getField("MONTANT_REVISABLE"), Boolean.FALSE);
     }
 }

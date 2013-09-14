@@ -24,6 +24,7 @@ import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.UpdateBuilder;
+import org.openconcerto.utils.convertor.NumberConvertor;
 
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -49,7 +50,26 @@ public abstract class ReOrder {
     }
 
     static public ReOrder create(final SQLTable t, final int first, final int count) {
-        return create(t, new Some(t, first, count));
+        return create(t, BigDecimal.valueOf(first), true, count, null);
+    }
+
+    /**
+     * Create a {@link ReOrder} for some rows of the passed table.
+     * 
+     * @param t which table to reorder.
+     * @param first the first order to change.
+     * @param inclusive <code>true</code> if the row with the order <code>first</code> must be
+     *        changed.
+     * @param count the number of orders (not rows) to change.
+     * @param newFirst the order the row with the order <code>first</code> will have after the
+     *        change.
+     * @return a new instance.
+     * @throws IllegalArgumentException if <code>count</code> is negative or if
+     *         <code>newFirst</code> isn't between <code>first</code> and <code>first + count</code>
+     *         .
+     */
+    static public ReOrder create(final SQLTable t, final BigDecimal first, final boolean inclusive, final int count, final BigDecimal newFirst) {
+        return create(t, new Some(t, first, inclusive, count, newFirst == null ? first : newFirst));
     }
 
     static private ReOrder create(final SQLTable t, final Spec spec) {
@@ -82,6 +102,10 @@ public abstract class ReOrder {
         return this.spec.getFirstToReorder();
     }
 
+    protected final boolean isFirstToReorderInclusive() {
+        return this.spec.isFirstToReorderInclusive();
+    }
+
     protected final BigDecimal getFirstOrderValue() {
         return this.spec.getFirst();
     }
@@ -95,17 +119,13 @@ public abstract class ReOrder {
         return this.spec.getWhere(f);
     }
 
-    protected final String getInc() {
-        return this.spec.getInc();
-    }
-
-    public abstract List<String> getSQL(Connection conn) throws SQLException;
+    public abstract List<String> getSQL(Connection conn, BigDecimal inc) throws SQLException;
 
     // MAYBE return affected IDs
-    public final void exec() throws SQLException {
+    public final boolean exec() throws SQLException {
         final UpdateBuilder updateUndef = new UpdateBuilder(this.t).set(this.t.getOrderField().getName(), MIN_ORDER.toPlainString());
         updateUndef.setWhere(new Where(this.t.getKey(), "=", this.t.getUndefinedID()));
-        SQLUtils.executeAtomic(this.t.getBase().getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
+        return (Boolean) SQLUtils.executeAtomic(this.t.getBase().getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
             @Override
             public Object handle(SQLDataSource ds) throws SQLException, SQLException {
                 final Connection conn = ds.getConnection();
@@ -114,12 +134,18 @@ public abstract class ReOrder {
                     // reorder all, undef must be at 0
                     stmt.execute(updateUndef.asString());
                 }
-                for (final String s : getSQL(conn)) {
+                stmt.execute("SELECT " + ReOrder.this.spec.getInc());
+                final BigDecimal inc = NumberConvertor.toBigDecimal((Number) SQLDataSource.SCALAR_HANDLER.handle(stmt.getResultSet()));
+                // needed since the cast in getInc() rounds so if the real increment is 0.006 it
+                // might get rounded to 0.01 and thus the last rows will overlap non moved rows
+                if (inc.compareTo(ReOrder.this.t.getOrderULP().scaleByPowerOfTen(1)) < 0)
+                    return false;
+                for (final String s : getSQL(conn, inc)) {
                     stmt.execute(s);
                 }
                 // MAYBE fire only changed IDs
                 ReOrder.this.t.fireTableModified(-1, Collections.singletonList(ReOrder.this.t.getOrderField().getName()));
-                return null;
+                return true;
             }
         });
     }
@@ -130,28 +156,35 @@ public abstract class ReOrder {
 
         private final SQLTable t;
         private final BigDecimal firstToReorder;
+        private final boolean firstToReorderInclusive;
         private final BigDecimal first;
         private final BigDecimal lastToReorder;
 
-        public Some(final SQLTable t, final int first, final int count) {
+        public Some(final SQLTable t, final BigDecimal first, final boolean inclusive, final int count, final BigDecimal newFirst) {
             this.t = t;
             if (count <= 0)
                 throw new IllegalArgumentException("Negative Count : " + count);
+            if (first.compareTo(newFirst) > 0)
+                throw new IllegalArgumentException("New first before first : " + first + " > " + newFirst);
+            final BigDecimal originalLastToReorder = first.add(BigDecimal.valueOf(count));
+            if (newFirst.compareTo(originalLastToReorder) >= 0)
+                throw new IllegalArgumentException("New first after last to reorder : " + newFirst + " >= " + originalLastToReorder);
             // the row with MIN_ORDER cannot be displayed since no row can be moved before it
             // so don't change it
-            if (BigDecimal.valueOf(first).compareTo(MIN_ORDER) <= 0) {
-                this.firstToReorder = MIN_ORDER.add(t.getOrderULP());
+            if (first.compareTo(MIN_ORDER) <= 0) {
+                this.firstToReorder = MIN_ORDER;
+                this.firstToReorderInclusive = false;
                 // make some room before the first non MIN_ORDER row so that another on can came
                 // before it
-                this.first = MIN_ORDER.add(DISTANCE);
+                this.first = MIN_ORDER.add(DISTANCE).max(newFirst);
+                // try to keep asked value
+                this.lastToReorder = originalLastToReorder.compareTo(this.first) > 0 ? originalLastToReorder : this.first.add(BigDecimal.valueOf(count));
             } else {
-                this.firstToReorder = BigDecimal.valueOf(first);
-                this.first = this.firstToReorder;
+                this.firstToReorder = first;
+                this.firstToReorderInclusive = inclusive;
+                this.first = newFirst;
+                this.lastToReorder = originalLastToReorder;
             }
-            final BigDecimal simpleLastToReorder = this.firstToReorder.add(BigDecimal.valueOf(count));
-            // needed since first can be different than firstToReorder
-            this.lastToReorder = simpleLastToReorder.compareTo(this.first) > 0 ? simpleLastToReorder : this.first.add(DISTANCE.movePointRight(1));
-            // OK since DISTANCE is a lot greater than the ULP of ORDRE
             assert this.getFirstToReorder().compareTo(this.getFirst()) <= 0 && this.getFirst().compareTo(this.getLast()) < 0 && this.getLast().compareTo(this.getLastToReorder()) <= 0;
         }
 
@@ -161,7 +194,7 @@ public abstract class ReOrder {
             final SQLSyntax syntax = SQLSyntax.get(this.t.getServer().getSQLSystem());
 
             // last order of the whole table
-            final SQLSelect selTableLast = new SQLSelect(this.t.getBase(), true);
+            final SQLSelect selTableLast = new SQLSelect(true);
             selTableLast.addSelect(oF, "MAX");
 
             // cast inc to order type to avoid truncation error
@@ -180,12 +213,17 @@ public abstract class ReOrder {
                 order = this.t.getOrderField();
             else if (order.getField() != this.t.getOrderField())
                 throw new IllegalArgumentException();
-            return new Where(order, this.getFirstToReorder(), this.getLastToReorder());
+            return new Where(order, this.getFirstToReorder(), this.firstToReorderInclusive, this.getLastToReorder(), true);
         }
 
         @Override
         public final BigDecimal getFirstToReorder() {
             return this.firstToReorder;
+        }
+
+        @Override
+        public boolean isFirstToReorderInclusive() {
+            return this.firstToReorderInclusive;
         }
 
         private final BigDecimal getLastToReorder() {
@@ -219,6 +257,11 @@ public abstract class ReOrder {
         }
 
         @Override
+        public boolean isFirstToReorderInclusive() {
+            return true;
+        }
+
+        @Override
         public BigDecimal getFirst() {
             return getFirstToReorder();
         }
@@ -231,6 +274,8 @@ public abstract class ReOrder {
 
         // before reorder
         BigDecimal getFirstToReorder();
+
+        boolean isFirstToReorderInclusive();
 
         // the first order value after reorder
         BigDecimal getFirst();

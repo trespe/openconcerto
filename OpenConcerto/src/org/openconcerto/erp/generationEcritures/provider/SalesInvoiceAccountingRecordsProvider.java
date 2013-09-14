@@ -13,7 +13,9 @@
  
  package org.openconcerto.erp.generationEcritures.provider;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.generationEcritures.GenerationMvtSaisieVenteFacture;
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 
@@ -23,18 +25,20 @@ public class SalesInvoiceAccountingRecordsProvider implements AccountingRecordsP
 
     @Override
     public void putPieceLabel(SQLRowAccessor rowSource, SQLRowValues rowValsPiece) {
-        rowValsPiece.put("NOM", rowSource.getString("NUMERO"));
+            rowValsPiece.put("NOM", rowSource.getString("NUMERO"));
     }
 
     @Override
     public void putLabel(SQLRowAccessor rowSource, Map<String, Object> values) {
         String nom = "";
-        Boolean acompte = rowSource.getBoolean("ACOMPTE");
-        if (acompte != null && acompte) {
-            nom = "Fact. acompte client" + rowSource.getObject("NUMERO").toString();
-        } else {
-            nom = "Fact. vente " + rowSource.getObject("NUMERO").toString();
-        }
+
+
+            Boolean acompte = rowSource.getBoolean("ACOMPTE");
+            if (acompte != null && acompte) {
+                nom = "Fact. acompte client" + rowSource.getObject("NUMERO").toString();
+            } else {
+                nom = "Fact. vente " + rowSource.getObject("NUMERO").toString();
+            }
         values.put("NOM", nom);
     }
 

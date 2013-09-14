@@ -13,9 +13,9 @@
  
  package org.openconcerto.task.ui;
 
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableEvent;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.users.User;
 import org.openconcerto.sql.users.UserManager;
 
@@ -23,11 +23,33 @@ import java.util.List;
 
 import javax.swing.DefaultListModel;
 
-public class UserListModel extends DefaultListModel implements SQLTableListener {
+public class UserListModel extends DefaultListModel {
+    private final SQLTableModifiedListener l;
+    private SQLTable t;
 
     public UserListModel() {
-        this.reload();
-        Configuration.getInstance().getBase().getTable("USER_COMMON").addTableListener(this);
+        this.l = new SQLTableModifiedListener() {
+            @Override
+            public void tableModified(SQLTableEvent evt) {
+                clearAndReload();
+            }
+        };
+        this.t = null;
+    }
+
+    public final void start() {
+        if (this.t == null) {
+            this.t = UserManager.getInstance().getTable();
+            this.t.addTableModifiedListener(this.l);
+            this.l.tableModified(null);
+        }
+    }
+
+    public final void stop() {
+        if (this.t != null) {
+            this.t.removeTableModifiedListener(this.l);
+            this.t = null;
+        }
     }
 
     /**
@@ -41,20 +63,8 @@ public class UserListModel extends DefaultListModel implements SQLTableListener 
         }
     }
 
-    private void clearAndReload() {
+    public final void clearAndReload() {
         this.clear();
         this.reload();
-    }
-
-    public void rowAdded(SQLTable table, int id) {
-        this.clearAndReload();
-    }
-
-    public void rowDeleted(SQLTable table, int id) {
-        this.clearAndReload();
-    }
-
-    public void rowModified(SQLTable table, int id) {
-        this.clearAndReload();
     }
 }

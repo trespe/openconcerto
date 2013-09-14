@@ -27,6 +27,8 @@ import java.util.Date;
 import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
 
+import org.openconcerto.ui.table.TableCellRendererUtils;
+
 public class EtatDevisRenderer extends DefaultTableCellRenderer {
 
     public final static Color couleurBeige = new Color(253, 243, 204);
@@ -39,15 +41,13 @@ public class EtatDevisRenderer extends DefaultTableCellRenderer {
 
     @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-
         super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-
+        TableCellRendererUtils.setColors(this, table, isSelected);
         if (table.getColumnClass(column) == Long.class || table.getColumnClass(column) == BigInteger.class) {
             if (value.getClass() == Long.class || value.getClass() == BigInteger.class) {
                 this.setText(GestionDevise.currencyToString(((Long) value).longValue()));
             }
         } else {
-
             if (value != null && (table.getColumnClass(column) == Date.class || table.getColumnClass(column) == java.sql.Date.class)) {
                 this.setText(dateFormat.format((Date) value));
             }
@@ -73,7 +73,6 @@ public class EtatDevisRenderer extends DefaultTableCellRenderer {
     }
 
     protected int getEtat(SQLRowValues rowElt) {
-        // TODO Raccord de méthode auto-généré
         return rowElt.getInt("ID_ETAT_DEVIS");
     }
 

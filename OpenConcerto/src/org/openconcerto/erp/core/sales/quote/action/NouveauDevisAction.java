@@ -15,21 +15,27 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.utils.StringUtils;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
 
 public class NouveauDevisAction extends CreateFrameAbstractAction {
 
+    final SQLElement element = Configuration.getInstance().getDirectory().getElement("DEVIS");
+
     public NouveauDevisAction() {
         super();
-        this.putValue(Action.NAME, "Devis");
+
+        final String pluralName = this.element.getPluralName();
+        this.putValue(Action.NAME, StringUtils.firstUpThenLow(pluralName));
     }
 
     @Override
     public JFrame createFrame() {
-        return new EditFrame(Configuration.getInstance().getDirectory().getElement("DEVIS"));
+        return new EditFrame(this.element);
     }
 
 }

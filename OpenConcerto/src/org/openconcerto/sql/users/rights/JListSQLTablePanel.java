@@ -13,8 +13,8 @@
  
  package org.openconcerto.sql.users.rights;
 
-import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.TM;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.ComboSQLRequest;
@@ -27,8 +27,6 @@ import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.JList;
@@ -76,9 +74,8 @@ public class JListSQLTablePanel extends JPanel {
         }
     };
 
-    public static ComboSQLRequest createComboRequest(final SQLTable table, boolean withUndef) {
-
-        ComboSQLRequest request = Configuration.getInstance().getDirectory().getElement(table).getComboRequest(true);
+    public static ComboSQLRequest createComboRequest(final SQLElement element, boolean withUndef) {
+        final ComboSQLRequest request = element.getComboRequest(true);
         request.setFieldSeparator(" ");
         if (withUndef) {
             // add undefined
@@ -88,7 +85,7 @@ public class JListSQLTablePanel extends JPanel {
                 public SQLSelect transformChecked(SQLSelect input) {
                     if (trans != null)
                         input = trans.transformChecked(input);
-                    input.setExcludeUndefined(false, table);
+                    input.setExcludeUndefined(false, request.getPrimaryTable());
                     return input;
                 }
             });
@@ -132,7 +129,7 @@ public class JListSQLTablePanel extends JPanel {
         c.weighty = 0;
         c.gridy++;
         c.fill = GridBagConstraints.HORIZONTAL;
-        this.add(new JLabel("Rechercher"), c);
+        this.add(new JLabel(TM.tr("search")), c);
 
         // Filtre
         c.gridx++;

@@ -83,10 +83,17 @@ public class EmptyValueWrapper<T> implements ValueWrapper<T>, EmptyObj {
         this.vw.resetValue();
     }
 
+    @Override
     public void addEmptyListener(EmptyListener l) {
         this.eo.addEmptyListener(l);
     }
 
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.eo.removeEmptyListener(l);
+    }
+
+    @Override
     public boolean isEmpty() {
         return this.eo.isEmpty();
     }

@@ -16,8 +16,8 @@
 import org.openconcerto.ui.group.Group;
 import org.openconcerto.utils.i18n.TranslationManager;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 
 import javax.swing.Action;
 
@@ -28,25 +28,59 @@ public class MenuManager {
         return instance;
     }
 
-    private Group group = new Group("menu.main");
-    private Map<String, Action> actions = new HashMap<String, Action>();
+    private MenuAndActions menuAndActions;
+    private Group group;
+    private final PropertyChangeSupport supp = new PropertyChangeSupport(this);
 
-
-    public Group getGroup() {
-        return group;
+    {
+        this.setMenuAndActions(this.createBaseMenuAndActions());
+        assert this.group != null;
     }
 
+    public final Group getGroup() {
+        return this.group;
+    }
+
+    // MAYBE remove : only use setMenuAndActions()
     public void registerAction(String id, Action a) {
-        actions.put(id, a);
+        this.menuAndActions.putAction(a, id, true);
+        this.supp.firePropertyChange("actions", null, null);
     }
 
     public Action getActionForId(String id) {
-        return this.actions.get(id);
+        return this.menuAndActions.getAction(id);
     }
 
     public String getLabelForId(String id) {
         return TranslationManager.getInstance().getTranslationForMenu(id);
     }
 
+    public final MenuAndActions createBaseMenuAndActions() {
+        return (Gestion.isMinimalMode() ? new MinimalMenuConfiguration() : new DefaultMenuConfiguration()).createMenuAndActions();
+    }
 
+    public final MenuAndActions copyMenuAndActions() {
+        return this.menuAndActions.copy();
+    }
+
+    public synchronized void setMenuAndActions(MenuAndActions menuAndActions) {
+        this.menuAndActions = menuAndActions.copy();
+        this.supp.firePropertyChange("menuAndActions", null, null);
+        this.supp.firePropertyChange("actions", null, null);
+
+        if (!this.menuAndActions.getGroup().equalsDesc(this.group)) {
+            final Group oldGroup = this.group;
+            this.group = this.menuAndActions.getGroup();
+            this.group.freeze();
+            this.supp.firePropertyChange("group", oldGroup, this.getGroup());
+        }
+    }
+
+    public final void addPropertyChangeListener(final PropertyChangeListener listener) {
+        this.supp.addPropertyChangeListener(listener);
+    }
+
+    public final void removePropertyChangeListener(final PropertyChangeListener listener) {
+        this.supp.removePropertyChangeListener(listener);
+    }
 }

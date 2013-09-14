@@ -13,14 +13,14 @@
  
  package org.openconcerto.sql.sqlobject;
 
-import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.RIVPanel;
+import org.openconcerto.sql.element.SQLComponentItem;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.request.SQLForeignRowItemView;
 import org.openconcerto.sql.request.SQLRowItemView;
-import org.openconcerto.sql.sqlobject.itemview.RowItemViewComponent;
 import org.openconcerto.sql.view.search.SearchSpec;
 import org.openconcerto.ui.FontUtils;
 import org.openconcerto.ui.component.ComboLockedMode;
@@ -34,10 +34,11 @@ import org.openconcerto.utils.checks.EmptyChangeSupport;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.ValidListener;
+import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
+import org.openconcerto.utils.model.NewSelection;
 
-import java.awt.Component;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.HierarchyEvent;
@@ -45,6 +46,7 @@ import java.awt.event.HierarchyListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 
 import javax.accessibility.Accessible;
@@ -68,7 +70,7 @@ import javax.swing.text.JTextComponent;
  * @author Sylvain CUAZ
  * @see #uiInit(ComboSQLRequest)
  */
-public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView, ValueWrapper<Integer>, EmptyObj, TextComponent, Pulseable, RowItemViewComponent {
+public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView, ValueWrapper<Integer>, EmptyObj, TextComponent, Pulseable, SQLComponentItem {
 
     public static final String UNDEFINED_STRING = "----- ??? -----";
 
@@ -121,6 +123,9 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
             this.stringStuff = "123456789012345678901234567890";
 
         this.combo = new ISearchableCombo<IComboSelectionItem>(ComboLockedMode.LOCKED, 1, this.stringStuff.length());
+        // it's this.req which handles the selection so the graphical combo should never pick a new
+        // selection by itself
+        this.combo.setOnRemovingOrReplacingSelection(NewSelection.NO);
         // ComboSQLRequest return items with children at the start (e.g. Room <| Building <| Site)
         this.combo.setForceDisplayStart(true);
         this.combo.setIncludeEmpty(addUndefined);
@@ -147,12 +152,14 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     }
 
     @Override
-    public void init(SQLRowItemView v) {
-        final SQLTable foreignTable = v.getField().getDBSystemRoot().getGraph().getForeignTable(v.getField());
-        if (!this.hasModel())
-            this.uiInit(Configuration.getInstance().getDirectory().getElement(foreignTable).getComboRequest());
-        else if (this.getRequest().getPrimaryTable() != foreignTable)
-            throw new IllegalArgumentException("Tables are different " + getRequest().getPrimaryTable().getSQLName() + " != " + foreignTable.getSQLName());
+    public void added(RIVPanel sqlComp, SQLRowItemView v) {
+        final SQLTable foreignTable = v.getField().getForeignTable();
+        if (!this.hasModel()) {
+            this.uiInit(sqlComp.getDirectory().getElement(foreignTable).getComboRequest());
+        } else {
+            if (this.getRequest().getPrimaryTable() != foreignTable)
+                throw new IllegalArgumentException("Tables are different " + getRequest().getPrimaryTable().getSQLName() + " != " + foreignTable.getSQLName());
+        }
     }
 
     /**
@@ -186,6 +193,18 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
                 modelValueChanged();
+            }
+        });
+        this.req.addListener("wantedID", new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                SQLRequestComboBox.this.supp.fireValueChange();
+            }
+        });
+        this.req.addEmptyListener(new EmptyListener() {
+            @Override
+            public void emptyChange(EmptyObj src, boolean newValue) {
+                SQLRequestComboBox.this.emptySupp.fireEmptyChange(newValue);
             }
         });
 
@@ -245,6 +264,13 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
 
         // getValidSate() depends on this.req
         this.supp.fireValidChange();
+        // and on this.combo.getValidState()
+        this.combo.addValidListener(new ValidListener() {
+            @Override
+            public void validChange(ValidObject src, ValidState newValue) {
+                SQLRequestComboBox.this.supp.fireValidChange();
+            }
+        });
 
         this.uiLayout();
 
@@ -403,9 +429,9 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     }
 
     private final void comboValueChanged() {
+        // since we used NewSelection.NO for this.combo it never generates spurious events
+        // i.e. this method is only called by user action
         this.req.setValue(this.combo.getValue());
-        this.supp.fireValueChange();
-        this.emptySupp.fireEmptyChange(this.isEmpty());
     }
 
     /**
@@ -458,12 +484,19 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         return this.getClass().getName() + " " + this.req;
     }
 
+    @Override
     public final boolean isEmpty() {
         return this.req == null || this.req.isEmpty();
     }
 
+    @Override
     public final void addEmptyListener(EmptyListener l) {
         this.emptySupp.addEmptyListener(l);
+    }
+
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.emptySupp.removeEmptyListener(l);
     }
 
     public final void addValueListener(PropertyChangeListener l) {
@@ -495,7 +528,6 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
 
     @Override
     public ValidState getValidState() {
-        // OK, since we fire every time the combo does (see our ctor)
         // we are valid if we can return a value and getValue() needs this.req
         return ValidState.getNoReasonInstance(hasModel()).and(this.combo.getValidState());
     }
@@ -535,8 +567,9 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         return this.combo.getTextComp();
     }
 
-    public Component getPulseComponent() {
-        return this.combo;
+    @Override
+    public Collection<JComponent> getPulseComponents() {
+        return Arrays.<JComponent> asList(this.combo);
     }
 
     // *** search

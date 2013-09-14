@@ -14,11 +14,10 @@
  package org.openconcerto.erp.core.supplychain.order.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
+import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
 import org.openconcerto.erp.generationDoc.gestcomm.CommandeXmlSheet;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
@@ -49,7 +48,7 @@ public class ListeDesCommandesAction extends CreateFrameAbstractAction {
                 // Transfert vers BR
                 PredicateRowAction bonAction = new PredicateRowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent e) {
-                        transfertBonReceptionClient(IListe.get(e).getSelectedRow());
+                        TransfertBaseSQLComponent.openTransfertFrame(IListe.get(e).copySelectedRows(), "BON_RECEPTION");
                     }
                 }, false, "supplychain.order.create.receipt");
 
@@ -62,16 +61,6 @@ public class ListeDesCommandesAction extends CreateFrameAbstractAction {
         }.getRowActions());
 
         return frame;
-    }
-
-    /**
-     * Transfert en BR
-     * 
-     * @param row
-     */
-    private void transfertBonReceptionClient(SQLRow row) {
-        CommandeSQLElement elt = (CommandeSQLElement) Configuration.getInstance().getDirectory().getElement("COMMANDE");
-        elt.transfertBR(row.getID());
     }
 
 }

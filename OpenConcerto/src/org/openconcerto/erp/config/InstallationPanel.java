@@ -19,28 +19,28 @@ import org.openconcerto.erp.modules.ModuleReference;
 import org.openconcerto.sql.changer.convert.AddFK;
 import org.openconcerto.sql.changer.correct.CorrectOrder;
 import org.openconcerto.sql.changer.correct.FixSerial;
+import org.openconcerto.sql.model.AliasedTable;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLField.Properties;
+import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.model.graph.DatabaseGraph;
-import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.SQLKey;
 import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.sql.utils.ChangeTable;
-import org.openconcerto.sql.utils.DropTable;
 import org.openconcerto.sql.utils.ReOrder;
 import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.sql.utils.SQLUtils;
@@ -48,6 +48,8 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -132,6 +134,10 @@ public class InstallationPanel extends JPanel {
                             updateVariablePaye(table, "PART_PAT_GarantieMP", 38.98);
 
                             updateSocieteTable(conf.getRoot());
+                            updateVille(conf.getRoot().getTable("ADRESSE"));
+
+                            // Vérification des droits existants
+                            checkRights(conf.getRoot());
 
                             if (!table.getDBRoot().contains("DEVISE")) {
                                 System.out.println("InstallationPanel.InstallationPanel() ADD DEVISE");
@@ -158,7 +164,28 @@ public class InstallationPanel extends JPanel {
                                     throw new IllegalStateException("Erreur lors de la création de la table DEVISE", ex);
                                 }
                             }
+                            if (!table.getDBRoot().contains("COMPANY_ACCESS")) {
+                                System.out.println("InstallationPanel.InstallationPanel() ADD COMPANY_ACCESS");
+                                try {
+                                    SQLUtils.executeAtomic(ds, new SQLUtils.SQLFactory<Object>() {
+                                        @Override
+                                        public Object create() throws SQLException {
+                                            final SQLCreateTable createCompanyAccess = new SQLCreateTable(table.getDBRoot(), "COMPANY_ACCESS");
 
+                                            createCompanyAccess.addForeignColumn("USER_COMMON");
+                                            createCompanyAccess.addForeignColumn("SOCIETE_COMMON");
+                                            createCompanyAccess.addColumn("ALLOW_LOGIN", "BOOLEAN", "true", false);
+                                            ds.execute(createCompanyAccess.asString());
+                                            insertUndef(createCompanyAccess);
+                                            conf.getRoot().getSchema().updateVersion();
+
+                                            return null;
+                                        }
+                                    });
+                                } catch (Exception ex) {
+                                    throw new IllegalStateException("Erreur lors de la création de la table DEVISE", ex);
+                                }
+                            }
                             if (!table.getDBRoot().contains("TYPE_MODELE")) {
                                 System.out.println("InstallationPanel.InstallationPanel() ADD TYPE_MODELE");
                                 try {
@@ -255,6 +282,7 @@ public class InstallationPanel extends JPanel {
                                 if (DEBUG_FK) {
                                     findBadForeignKey(root);
                                 }
+
                                 if (childName.equalsIgnoreCase("Common")) {
                                     updateCommon(root);
                                 } else if (childName.startsWith(conf.getAppName()) || childName.equalsIgnoreCase("Default")) {
@@ -270,6 +298,7 @@ public class InstallationPanel extends JPanel {
                                             }
                                             updateToV1Dot2(root);
                                             updateToV1Dot3(root);
+                                            updateVille(root.getTable("ADRESSE"));
                                             return null;
                                         }
                                     });
@@ -548,9 +577,45 @@ public class InstallationPanel extends JPanel {
         this.add(comp, c);
     }
 
+    private void addForeignKeyFactureOnEcheance(DBRoot root) {
+
+        final SQLTable tableEch = root.getTable("ECHEANCE_CLIENT");
+        if (!tableEch.contains("ID_SAISIE_VENTE_FACTURE")) {
+            final SQLTable tableFacture = root.getTable("SAISIE_VENTE_FACTURE");
+            final SQLTable tableMvt = root.getTable("MOUVEMENT");
+            String query = "no query";
+            try {
+                final SQLDataSource dataSource = root.getDBSystemRoot().getDataSource();
+                final AlterTable alterEcheance = new AlterTable(tableEch);
+                alterEcheance.addForeignColumn("ID_SAISIE_VENTE_FACTURE", tableFacture);
+                dataSource.execute(alterEcheance.asString());
+                tableEch.getSchema().updateVersion();
+                tableEch.fetchFields();
+                if (root.getServer().getSQLSystem().equals(SQLSystem.POSTGRESQL)) {
+                    final UpdateBuilder build = new UpdateBuilder(tableEch);
+                    final AliasedTable refM1 = new AliasedTable(tableMvt, "m1");
+                    final AliasedTable refM2 = new AliasedTable(tableMvt, "m2");
+                    build.set("ID_SAISIE_VENTE_FACTURE", refM2.getField("IDSOURCE").getFieldRef());
+                    build.addTable(refM1);
+                    build.addTable(refM2);
+                    Where w = new Where(refM1.getField("ID_MOUVEMENT_PERE"), "=", refM2.getKey());
+                    w = w.and(new Where(refM1.getKey(), "=", build.getTable().getField("ID_MOUVEMENT")));
+                    w = w.and(new Where(refM2.getField("SOURCE"), "=", tableFacture.getName()));
+                    build.setWhere(w);
+                    query = build.asString();
+                    dataSource.execute(query);
+                }
+            } catch (SQLException ex) {
+                Log.get().severe("Error on query :" + query);
+                throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table ECHEANCE_CLIENT", ex);
+            }
+        }
+    }
+
     private void fixUnboundedNumeric(DBRoot root) throws SQLException {
 
         final List<AlterTable> alters = new ArrayList<AlterTable>();
+        final List<UpdateBuilder> builds = new ArrayList<UpdateBuilder>();
         {
             SQLTable tableAvoir = root.getTable("AVOIR_CLIENT_ELEMENT");
             final AlterTable alter = new AlterTable(tableAvoir);
@@ -558,12 +623,22 @@ public class InstallationPanel extends JPanel {
             if (fieldAcompteAvoir.getType().getSize() > 500) {
                 final String fName = fieldAcompteAvoir.getName();
                 alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "100", false);
+
+                UpdateBuilder build = new UpdateBuilder(tableAvoir);
+                build.set(fieldAcompteAvoir.getName(), "100");
+                build.setWhere(new Where(fieldAcompteAvoir, "=", (Object) null));
+                builds.add(build);
             }
 
             SQLField fieldRemiseAvoir = tableAvoir.getField("POURCENT_REMISE");
             if (fieldRemiseAvoir.getType().getSize() > 500) {
                 final String fName = fieldRemiseAvoir.getName();
                 alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "0", false);
+
+                UpdateBuilder build = new UpdateBuilder(tableAvoir);
+                build.set(fieldRemiseAvoir.getName(), "0");
+                build.setWhere(new Where(fieldRemiseAvoir, "=", (Object) null));
+                builds.add(build);
             }
 
             if (!alter.isEmpty())
@@ -577,12 +652,22 @@ public class InstallationPanel extends JPanel {
             if (fieldAcompteFacture.getType().getSize() > 500) {
                 final String fName = fieldAcompteFacture.getName();
                 alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "100", false);
+
+                UpdateBuilder build = new UpdateBuilder(tableFacture);
+                build.set(fieldAcompteFacture.getName(), "100");
+                build.setWhere(new Where(fieldAcompteFacture, "=", (Object) null));
+                builds.add(build);
             }
 
             SQLField fieldRemiseFacture = tableFacture.getField("POURCENT_REMISE");
             if (fieldRemiseFacture.getType().getSize() > 500) {
                 final String fName = fieldRemiseFacture.getName();
                 alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "0", false);
+
+                UpdateBuilder build = new UpdateBuilder(tableFacture);
+                build.set(fieldRemiseFacture.getName(), "0");
+                build.setWhere(new Where(fieldRemiseFacture, "=", (Object) null));
+                builds.add(build);
             }
 
             if (tableFacture.getFieldsName().contains("REPARTITION_POURCENT")) {
@@ -590,6 +675,11 @@ public class InstallationPanel extends JPanel {
                 if (fieldRepFacture.getType().getSize() > 500) {
                     final String fName = fieldRepFacture.getName();
                     alter.alterColumn(fName, EnumSet.allOf(Properties.class), "numeric(6,2)", "0", false);
+
+                    UpdateBuilder build = new UpdateBuilder(tableFacture);
+                    build.set(fieldRepFacture.getName(), "0");
+                    build.setWhere(new Where(fieldRepFacture, "=", (Object) null));
+                    builds.add(build);
                 }
             }
 
@@ -599,6 +689,11 @@ public class InstallationPanel extends JPanel {
         }
         if (alters.size() > 0) {
             final SQLDataSource ds = root.getDBSystemRoot().getDataSource();
+
+            for (UpdateBuilder updateBuilder : builds) {
+                ds.execute(updateBuilder.asString());
+            }
+
             for (final String sql : ChangeTable.cat(alters, root.getName())) {
                 ds.execute(sql);
             }
@@ -609,10 +704,17 @@ public class InstallationPanel extends JPanel {
     private void fixUnboundedVarchar(DBRoot root) throws SQLException {
         final Set<String> namesSet = CollectionUtils.createSet("NOM", "PRENOM", "SURNOM", "LOGIN", "PASSWORD");
         final List<AlterTable> alters = new ArrayList<AlterTable>();
+        final List<UpdateBuilder> builds = new ArrayList<UpdateBuilder>();
         for (final SQLTable t : root.getTables()) {
             final AlterTable alter = new AlterTable(t);
             for (final SQLField f : t.getFields()) {
                 if (f.getType().getType() == Types.VARCHAR && f.getType().getSize() == Integer.MAX_VALUE) {
+
+                    UpdateBuilder build = new UpdateBuilder(t);
+                    build.set(f.getName(), "''");
+                    build.setWhere(new Where(f, "=", (Object) null));
+                    builds.add(build);
+
                     final String fName = f.getName();
                     final int size;
                     if (namesSet.contains(fName))
@@ -635,6 +737,11 @@ public class InstallationPanel extends JPanel {
         }
         if (alters.size() > 0) {
             final SQLDataSource ds = root.getDBSystemRoot().getDataSource();
+
+            for (UpdateBuilder build : builds) {
+                ds.execute(build.asString());
+            }
+
             for (final String sql : ChangeTable.cat(alters, root.getName())) {
                 ds.execute(sql);
             }
@@ -645,6 +752,34 @@ public class InstallationPanel extends JPanel {
 
     private void updateToV1Dot3(final DBRoot root) throws SQLException {
         final SQLDataSource ds = root.getDBSystemRoot().getDataSource();
+
+        addForeignKeyFactureOnEcheance(root);
+
+        // Numérotation client
+        {
+            SQLTable tableNum = root.getTable("NUMEROTATION_AUTO");
+            boolean alterNum = false;
+            AlterTable t = new AlterTable(tableNum);
+            if (!tableNum.getFieldsName().contains("CLIENT_START")) {
+                t.addColumn("CLIENT_START", "integer DEFAULT 0");
+                alterNum = true;
+            }
+            if (!tableNum.getFieldsName().contains("CLIENT_FORMAT")) {
+                t.addVarCharColumn("CLIENT_FORMAT", 48);
+                alterNum = true;
+            }
+
+            if (alterNum) {
+                try {
+                    ds.execute(t.asString());
+                    tableNum.getSchema().updateVersion();
+                    tableNum.fetchFields();
+                } catch (SQLException ex) {
+                    throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table NUMEROTATION_AUTO", ex);
+                }
+            }
+        }
+
         // Article
         {
             SQLTable tableProduct = root.getTable("ARTICLE");
@@ -758,6 +893,51 @@ public class InstallationPanel extends JPanel {
         SQLTable.setUndefID(root.getSchema(), "TARIF", 1);
 
         SQLTable.setUndefID(root.getSchema(), "UNITE_VENTE", 1);
+
+        // Create transfer tables
+        ComptaPropsConfiguration.setSocieteSQLInjector(root);
+        SQLInjector.createTransferTables(root);
+        // Move transfer info to SAISIE_VENTE_FACTURE
+        convertTransfer(root, Arrays.asList("COMMANDE_CLIENT", "DEVIS", "BON_DE_LIVRAISON"), "SAISIE_VENTE_FACTURE");
+
+    }
+
+    private void convertTransfer(DBRoot root, List<String> tablesSrc, String tableDest) throws SQLException {
+        final SQLTable tableDestination = root.getTable(tableDest);
+        if (tableDestination.contains("SOURCE") && tableDestination.contains("IDSOURCE")) {
+            for (String tableSrc : tablesSrc) {
+                convertTransfer(root.getTable(tableSrc), tableDestination);
+            }
+            final AlterTable alter = new AlterTable(tableDestination);
+            alter.dropColumn("SOURCE");
+            alter.dropColumn("IDSOURCE");
+            final String req = alter.asString();
+            root.getDBSystemRoot().getDataSource().execute(req);
+            root.refetchTable(tableDest);
+        }
+    }
+
+    private void convertTransfer(final SQLTable tableSource, final SQLTable tableDest) throws SQLException {
+        SQLInjector inj = SQLInjector.getInjector(tableSource, tableDest);
+        final SQLRowValues vals = new SQLRowValues(tableDest);
+        vals.putNulls("SOURCE", "IDSOURCE");
+        final SQLRowValuesListFetcher fetcher = new SQLRowValuesListFetcher(vals);
+        fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
+
+            @Override
+            public SQLSelect transformChecked(SQLSelect input) {
+                Where w = new Where(tableDest.getField("SOURCE"), "=", tableSource.getName());
+                w = w.and(new Where(tableDest.getField("IDSOURCE"), "!=", tableSource.getUndefinedIDNumber()));
+                // remove archive idsource
+                w = w.and(new Where(tableDest.getField("IDSOURCE"), "=", tableSource.getKey()));
+                input.setWhere(w);
+                return input;
+            }
+        });
+        List<SQLRowValues> rows = fetcher.fetch();
+        for (SQLRowValues sqlRowValues : rows) {
+            inj.addTransfert(sqlRowValues.getInt("IDSOURCE"), sqlRowValues.getID());
+        }
     }
 
     private void addInfoField(final DBRoot root, final SQLDataSource ds, String tableName) {
@@ -1577,13 +1757,20 @@ public class InstallationPanel extends JPanel {
     private void patchFieldElt1Dot3(SQLTable table, DBRoot root) {
 
         List<String> cols = Arrays.asList("PV_HT", "PA_DEVISE_T", "T_PV_HT", "T_PA_TTC", "T_PA_HT", "PA_HT", "T_PV_TTC", "PRIX_METRIQUE_HA_2", "PRIX_METRIQUE_HA_1", "PRIX_METRIQUE_HA_3",
-                "PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_1", "PRIX_METRIQUE_VT_3", "MARGE_HT", "PA_DEVISE", "PV_U_DEVISE", "PV_T_DEVISE", "PV_TTC");
+                "PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_1", "MONTANT_HT", "MONTANT_INITIAL", "PRIX_METRIQUE_VT_3", "MARGE_HT", "PA_DEVISE", "PV_U_DEVISE", "PV_T_DEVISE", "PV_TTC", "TARIF_Q18_HT",
+                "T_PRIX_FINAL_TTC", "PRIX_FINAL_TTC", "PV_UNIT_HT");
 
-        if (table.getField("PV_HT").getType().getDecimalDigits() == 0) {
+        if ((table.contains("PV_HT") && table.getField("PV_HT").getType().getDecimalDigits() == 0) || (table.contains("PV_UNIT_HT") && table.getField("PV_UNIT_HT").getType().getDecimalDigits() == 0)) {
             AlterTable t = new AlterTable(table);
             UpdateBuilder builder = new UpdateBuilder(table);
+            List<UpdateBuilder> builds = new ArrayList<UpdateBuilder>();
             for (String field : cols) {
                 if (table.contains(field)) {
+                    UpdateBuilder builderNonNull = new UpdateBuilder(table);
+                    builderNonNull.set(field, "0");
+                    builderNonNull.setWhere(new Where(table.getField(field), "=", (Object) null));
+                    builds.add(builderNonNull);
+
                     builder.set(field, table.getField(field).getSQLName().getRest().quote() + "/100");
                     if (field.contains("TTC")) {
                         t.alterColumn(field, EnumSet.allOf(Properties.class), "numeric(16,2)", "0", false);
@@ -1594,6 +1781,11 @@ public class InstallationPanel extends JPanel {
             }
 
             try {
+
+                for (UpdateBuilder updateBuilder : builds) {
+                    table.getBase().getDataSource().execute(updateBuilder.asString());
+                }
+
                 table.getBase().getDataSource().execute(t.asString());
                 table.getSchema().updateVersion();
                 table.fetchFields();
@@ -1889,26 +2081,7 @@ public class InstallationPanel extends JPanel {
             // Suppression des champs 1.0
             System.out.println("InstallationPanel.InstallationPanel() UPDATE FROM 1.0 " + root);
             final List<ChangeTable<?>> changes = new ArrayList<ChangeTable<?>>();
-            List<String> tablesToRemove = new ArrayList<String>();
-            tablesToRemove.add("AFFAIRE");
-            tablesToRemove.add("AFFAIRE_ELEMENT");
-            tablesToRemove.add("RAPPORT");
-            tablesToRemove.add("CODE_MISSION");
-            tablesToRemove.add("FICHE_RENDEZ_VOUS");
-            tablesToRemove.add("NATURE_MISSION");
-            tablesToRemove.add("AVIS_INTERVENTION");
-            tablesToRemove.add("POURCENT_CCIP");
-            tablesToRemove.add("SECRETAIRE");
-            tablesToRemove.add("FICHE_RENDEZ_VOUS_ELEMENT");
-            tablesToRemove.add("POURCENT_SERVICE");
-            tablesToRemove.add("PROPOSITION");
-            tablesToRemove.add("PROPOSITION_ELEMENT");
-            tablesToRemove.add("POLE_PRODUIT");
-            tablesToRemove.add("BANQUE_POLE_PRODUIT");
-            tablesToRemove.add("AFFACTURAGE");
-            tablesToRemove.add("SECTEUR_ACTIVITE");
 
-            //
             final ModuleManager instance = new ModuleManager();
             instance.setRoot(root);
             final List<ModuleReference> refs = instance.getRemoteInstalledModules();
@@ -1918,21 +2091,6 @@ public class InstallationPanel extends JPanel {
                 allUsedTable.addAll(tableNames);
             }
             System.out.println("Tables used by modules:" + allUsedTable);
-            final DatabaseGraph graph = sysRoot.getGraph();
-            for (String tableName : tablesToRemove) {
-                if (!allUsedTable.contains(tableName) && root.contains(tableName)) {
-
-                    final SQLTable table = root.getTable(tableName);
-                    for (final Link link : graph.getReferentLinks(table)) {
-                        if (!(link.getSource().getDBRoot() == root && tablesToRemove.contains(link.getSource().getName()))) {
-                            final AlterTable alter = new AlterTable(link.getSource());
-                            alter.dropForeignColumns(link);
-                            changes.add(alter);
-                        }
-                    }
-                    changes.add(new DropTable(table));
-                }
-            }
 
             final List<String> alterRequests = ChangeTable.cat(changes, root.getName());
             try {
@@ -1955,6 +2113,53 @@ public class InstallationPanel extends JPanel {
             root.getSchema().updateVersion();
             root.refetch();
         }
+    }
+
+    private void checkRights(DBRoot root) throws SQLException {
+        SQLTable table = root.getTable("RIGHT");
+        SQLSelect sel = new SQLSelect();
+        sel.addSelect(table.getKey());
+        sel.addSelect(table.getField("CODE"));
+        List<SQLRow> rows = SQLRowListRSH.execute(sel);
+        Set<String> codes = new HashSet<String>();
+        for (SQLRow row : rows) {
+            codes.add(row.getString("CODE"));
+        }
+
+        if (!codes.contains("UPDATE_ROW")) {
+            SQLRowValues rowVals = new SQLRowValues(table);
+            rowVals.put("CODE", "UPDATE_ROW");
+            rowVals.put("NOM", "Modification d'une ligne");
+            String desc = "Autorise un utilisateur à modifier les éléments de la table spécifiée en objet.";
+            rowVals.put("DESCRIPTION", desc);
+            rowVals.commit();
+        }
+        if (!codes.contains("DELETE_ROW")) {
+            SQLRowValues rowVals = new SQLRowValues(table);
+            rowVals.put("CODE", "DELETE_ROW");
+            rowVals.put("NOM", "Suppression d'une ligne");
+            String desc = "Autorise un utilisateur à supprimer les éléments de la table spécifiée en objet.";
+            rowVals.put("DESCRIPTION", desc);
+            rowVals.commit();
+        }
+        if (!codes.contains("INSERT_ROW")) {
+            SQLRowValues rowVals = new SQLRowValues(table);
+            rowVals.put("CODE", "INSERT_ROW");
+            rowVals.put("NOM", "Ajout d'une ligne");
+            String desc = "Autorise un utilisateur à ajouter un élément dans la table spécifiée en objet.";
+            rowVals.put("DESCRIPTION", desc);
+            rowVals.commit();
+        }
+        // FIXME Probleme avec la property canSaveInList voir canSave() in IListPanel
+        // if (!codes.contains("SAVE_ROW")) {
+        // SQLRowValues rowVals = new SQLRowValues(table);
+        // rowVals.put("CODE", "SAVE_ROW");
+        // rowVals.put("NOM", "Export des listes");
+        // String desc =
+        // "Autorise un utilisateur à exporter le contenu des listes via le bouton représentant une disquette.";
+        // rowVals.put("DESCRIPTION", desc);
+        // rowVals.commit();
+        // }
     }
 
     private void findBadForeignKey(DBRoot root) {
@@ -2058,33 +2263,44 @@ public class InstallationPanel extends JPanel {
 
     private void updateCommon(DBRoot root) throws SQLException {
 
-        // rm ID 43 - 47 de SOCIETE_COMMON
-        final SQLTable tableSociete = root.getTable("SOCIETE_COMMON");
-        String req3 = "DELETE FROM " + tableSociete.getSQLName().quote() + " WHERE ";
-        req3 += new Where(tableSociete.getKey(), 43, 47).getClause();
-        root.getDBSystemRoot().getDataSource().execute(req3);
+        if (ProductInfo.getInstance().getName().equalsIgnoreCase("OpenConcerto")) {
 
-        // rm ID 3 à 49 de EXERCICE_COMMON
-        final SQLTable tableExercice = root.getTable("EXERCICE_COMMON");
-        String req1a = "DELETE FROM " + tableExercice.getSQLName().quote() + " WHERE ";
-        req1a += new Where(tableExercice.getKey(), 3, 49).getClause();
-        root.getDBSystemRoot().getDataSource().execute(req1a);
-        // et 53-57
-        root.getDBSystemRoot().getDataSource().execute(req1a);
-        String req1b = "DELETE FROM " + tableExercice.getSQLName().quote() + " WHERE ";
-        req1b += new Where(tableExercice.getKey(), 53, 57).getClause();
-        root.getDBSystemRoot().getDataSource().execute(req1b);
-        //
+            final SQLTable tableExercice = root.getTable("EXERCICE_COMMON");
+            String reqUp = "UPDATE " + tableExercice.getSQLName().quote() + " SET \"ID_SOCIETE_COMMON\"=1 WHERE ";
+            reqUp += new Where(tableExercice.getKey(), 3, 49).getClause();
+            root.getDBSystemRoot().getDataSource().execute(reqUp);
 
-        // TACHE_COMMON, ID_USER_COMMON_*=0 -> 1
-        for (final String f : Arrays.asList("ID_USER_COMMON_TO", "ID_USER_COMMON_CREATE", "ID_USER_COMMON_ASSIGN_BY")) {
-            final SQLTable tableTache = root.getTable("TACHE_COMMON");
-            final UpdateBuilder updateBuilder = new UpdateBuilder(tableTache);
-            updateBuilder.set(f, "1").setWhere(new Where(tableTache.getField(f), "=", 0));
-            String req2 = updateBuilder.asString();
-            root.getDBSystemRoot().getDataSource().execute(req2);
+            String reqUp2 = "UPDATE " + tableExercice.getSQLName().quote() + " SET \"ID_SOCIETE_COMMON\"=1 WHERE ";
+            reqUp2 += new Where(tableExercice.getKey(), 53, 57).getClause();
+            root.getDBSystemRoot().getDataSource().execute(reqUp2);
+
+            // rm ID 43 - 47 de SOCIETE_COMMON
+            final SQLTable tableSociete = root.getTable("SOCIETE_COMMON");
+            String req3 = "DELETE FROM " + tableSociete.getSQLName().quote() + " WHERE ";
+            req3 += new Where(tableSociete.getKey(), 43, 47).getClause();
+            root.getDBSystemRoot().getDataSource().execute(req3);
+
+            // rm ID 3 à 49 de EXERCICE_COMMON
+
+            String req1a = "DELETE FROM " + tableExercice.getSQLName().quote() + " WHERE ";
+            req1a += new Where(tableExercice.getKey(), 3, 49).getClause();
+            root.getDBSystemRoot().getDataSource().execute(req1a);
+            // et 53-57
+            root.getDBSystemRoot().getDataSource().execute(req1a);
+            String req1b = "DELETE FROM " + tableExercice.getSQLName().quote() + " WHERE ";
+            req1b += new Where(tableExercice.getKey(), 53, 57).getClause();
+            root.getDBSystemRoot().getDataSource().execute(req1b);
+            //
+
+            // TACHE_COMMON, ID_USER_COMMON_*=0 -> 1
+            for (final String f : Arrays.asList("ID_USER_COMMON_TO", "ID_USER_COMMON_CREATE", "ID_USER_COMMON_ASSIGN_BY")) {
+                final SQLTable tableTache = root.getTable("TACHE_COMMON");
+                final UpdateBuilder updateBuilder = new UpdateBuilder(tableTache);
+                updateBuilder.set(f, "1").setWhere(new Where(tableTache.getField(f), "=", 0));
+                String req2 = updateBuilder.asString();
+                root.getDBSystemRoot().getDataSource().execute(req2);
+            }
         }
-
         // FK
         new AddFK(root.getDBSystemRoot()).changeAll(root);
     }
@@ -2093,6 +2309,7 @@ public class InstallationPanel extends JPanel {
         SQLTable table = root.findTable("SOCIETE_COMMON");
         boolean alter = false;
         AlterTable t = new AlterTable(table);
+
         if (!table.getFieldsName().contains("RCS")) {
             t.addVarCharColumn("RCS", 256);
             alter = true;
@@ -2113,6 +2330,25 @@ public class InstallationPanel extends JPanel {
             }
         }
 
+    }
+
+    private void updateVille(SQLTable tableAdresse) throws SQLException {
+
+        if (tableAdresse != null && tableAdresse.getField("CODE_POSTAL").getType().getJavaType() == Integer.class) {
+            String reqRemoveField = "ALTER TABLE " + tableAdresse.getSQLName().quote() + " DROP COLUMN \"CODE_POSTAL\"";
+            tableAdresse.getBase().getDataSource().execute(reqRemoveField);
+            tableAdresse.getSchema().updateVersion();
+            tableAdresse.fetchFields();
+
+            String reqAddVarCharField = "ALTER TABLE " + tableAdresse.getSQLName().quote() + " ADD COLUMN \"CODE_POSTAL\" character varying(256) DEFAULT ''::character varying";
+            tableAdresse.getBase().getDataSource().execute(reqAddVarCharField);
+            tableAdresse.getSchema().updateVersion();
+            tableAdresse.fetchFields();
+
+            String req = "UPDATE " + tableAdresse.getSQLName().quote() + " SET \"VILLE\"= trim (both ' ' from substring(\"VILLE\" from 0 for (position('(' in \"VILLE\")))) ";
+            req += ", \"CODE_POSTAL\"=substring(\"VILLE\" from (position('(' in \"VILLE\")+1) for length(\"VILLE\")-position('(' in \"VILLE\")-1) WHERE \"VILLE\" LIKE '% (%)'";
+            tableAdresse.getDBRoot().getDBSystemRoot().getDataSource().execute(req);
+        }
     }
 
     private void updateVariablePaye(SQLTable table, String var, double value) throws SQLException {

@@ -36,6 +36,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
@@ -55,6 +56,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.List;
 
@@ -368,27 +370,37 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
 
     public int insert(SQLRow order) {
 
-        int idBon = getSelectedID();
+        int idBon = SQLRow.NONEXISTANT_ID;
         // on verifie qu'un bon du meme numero n'a pas été inséré entre temps
         if (this.textNumeroUnique.checkValidation()) {
             idBon = super.insert(order);
-            this.tableBonItem.updateField("ID_BON_RECEPTION", idBon);
-
-            // incrémentation du numéro auto
-            if (NumerotationAutoSQLElement.getNextNumero(BonReceptionSQLElement.class).equalsIgnoreCase(this.textNumeroUnique.getText().trim())) {
-                SQLRowValues rowVals = new SQLRowValues(this.tableNum);
-                int val = this.tableNum.getRow(2).getInt("BON_R_START");
-                val++;
-                rowVals.put("BON_R_START", new Integer(val));
-
-                try {
+            try {
+                this.tableBonItem.updateField("ID_BON_RECEPTION", idBon);
+                // incrémentation du numéro auto
+                if (NumerotationAutoSQLElement.getNextNumero(BonReceptionSQLElement.class).equalsIgnoreCase(this.textNumeroUnique.getText().trim())) {
+                    SQLRowValues rowVals = new SQLRowValues(this.tableNum);
+                    int val = this.tableNum.getRow(2).getInt("BON_R_START");
+                    val++;
+                    rowVals.put("BON_R_START", new Integer(val));
                     rowVals.update(2);
-                } catch (SQLException e) {
-                    e.printStackTrace();
                 }
+                calculPHaPondere(idBon);
+
+                final int idBonFinal = idBon;
+                ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        try {
+                            updateStock(idBonFinal);
+                        } catch (Exception e) {
+                            ExceptionHandler.handle("Update error", e);
+                        }
+                    }
+                });
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
             }
-            calculPHaPondere(idBon);
-            updateStock(idBon);
         } else {
             ExceptionHandler.handle("Impossible d'ajouter, numéro de bon de livraison existant.");
             Object root = SwingUtilities.getRoot(this);
@@ -402,14 +414,16 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
     }
 
     @Override
+    protected RowValuesTable getRowValuesTable() {
+        return this.tableBonItem.getRowValuesTable();
+    }
+
+    @Override
     public void select(SQLRowAccessor r) {
         if (r != null) {
             this.textNumeroUnique.setIdSelected(r.getID());
         }
         super.select(r);
-        if (r != null) {
-            this.tableBonItem.insertFrom("ID_BON_RECEPTION", r.getID());
-        }
     }
 
     @Override
@@ -425,33 +439,41 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
             return;
         } else {
 
-            // On efface les anciens mouvements de stocks
-            SQLRow row = getTable().getRow(getSelectedID());
-            SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-            SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
-            sel.addSelect(eltMvtStock.getTable().getField("ID"));
-            Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
-            Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
-            sel.setWhere(w.and(w2));
-
-            List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
-            if (l != null) {
-                for (int i = 0; i < l.size(); i++) {
-                    Object[] tmp = (Object[]) l.get(i);
-                    try {
-                        eltMvtStock.archive(((Number) tmp[0]).intValue());
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-
             // Mise à jour de l'élément
             super.update();
             this.tableBonItem.updateField("ID_BON_RECEPTION", getSelectedID());
+            final int id = getSelectedID();
+            ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
-            // Mise à jour du stock
-            updateStock(getSelectedID());
+                @Override
+                public void run() {
+                    try {
+                        // On efface les anciens mouvements de stocks
+                        SQLRow row = getTable().getRow(id);
+                        SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+                        SQLSelect sel = new SQLSelect();
+                        sel.addSelect(eltMvtStock.getTable().getField("ID"));
+                        Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+                        Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+                        sel.setWhere(w.and(w2));
+
+                        List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+                        if (l != null) {
+                            for (int i = 0; i < l.size(); i++) {
+                                Object[] tmp = (Object[]) l.get(i);
+
+                                eltMvtStock.archive(((Number) tmp[0]).intValue());
+
+                            }
+                        }
+                        // Mise à jour du stock
+                        updateStock(id);
+                    } catch (Exception e) {
+                        ExceptionHandler.handle("Update error", e);
+                    }
+                }
+            });
+
         }
     }
 
@@ -465,11 +487,10 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
 
         // columnIndexHT = model.getColumnIndexForElement(getTable().get);
         for (int i = 0; i < model.getRowCount(); i++) {
-            Number nHT = (Number) model.getValueAt(i, columnIndexHT);
-            totalHT += nHT.longValue();
-
-            Number nTTC = (Number) model.getValueAt(i, columnIndexTTC);
-            totalTTC += nTTC.longValue();
+            BigDecimal nHT = (BigDecimal) model.getValueAt(i, columnIndexHT);
+            totalHT += nHT.movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValue();
+            BigDecimal nTTC = (BigDecimal) model.getValueAt(i, columnIndexTTC);
+            totalTTC += nTTC.movePointRight(2).setScale(0, RoundingMode.HALF_UP).longValue();
         }
 
         this.textTotalHT.setText(GestionDevise.currencyToString(totalHT));
@@ -478,30 +499,12 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
     }
 
     /**
-     * Création d'un bon de réception à partir d'une commande
-     * 
-     * @param idCommande
-     * 
-     */
-    public void loadCommande(int idCommande) {
-
-        SQLElement commande = Configuration.getInstance().getDirectory().getElement("COMMANDE");
-        SQLElement commandeElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT");
-
-        if (idCommande > 1) {
-            SQLInjector injector = SQLInjector.getInjector(commande.getTable(), this.getTable());
-            this.select(injector.createRowValuesFrom(idCommande));
-        }
-
-        loadItem(this.tableBonItem, commande, idCommande, commandeElt);
-    }
-
-    /**
      * Calcul du prix d'achat pondéré pour chacun des articles du bon de reception
      * 
      * @param id id du bon de reception
+     * @throws SQLException
      */
-    private void calculPHaPondere(int id) {
+    private void calculPHaPondere(int id) throws SQLException {
         SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
         SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement(sqlTableArticle);
         SQLElement eltStock = Configuration.getInstance().getDirectory().getElement("STOCK");
@@ -533,15 +536,10 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
                         BigDecimal totalHARecue = qteRecue.multiply(prixHACmd, MathContext.DECIMAL128);
                         BigDecimal totalHAStock = qteStock.multiply(prixHA, MathContext.DECIMAL128);
                         BigDecimal totalQte = qteRecue.add(qteStock);
-                        BigDecimal prixHaPond = totalHARecue.add(totalHAStock).divide(totalQte);
+                        BigDecimal prixHaPond = totalHARecue.add(totalHAStock).divide(totalQte, MathContext.DECIMAL128);
                         SQLRowValues rowValsArticle = rowArticle.createEmptyUpdateRow();
                         rowValsArticle.put("PRIX_METRIQUE_HA_1", prixHaPond);
-                        try {
-                            rowValsArticle.commit();
-                        } catch (SQLException e) {
-                            // TODO Auto-generated catch block
-                            e.printStackTrace();
-                        }
+                        rowValsArticle.commit();
                     }
                 }
             }
@@ -555,13 +553,17 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
 
     /**
      * Mise à jour des stocks pour chaque article composant du bon
+     * 
+     * @throws SQLException
      */
-    private void updateStock(int id) {
+    private void updateStock(int id) throws SQLException {
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("This method must be called outside of EDT");
+        }
         MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
         mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("BON_RECEPTION_ELEMENT"), new StockLabel() {
             @Override
             public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
-
                 return getLibelleStock(rowOrigin, rowElt);
             }
         }, true);

@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
+import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.order.component.CommandeClientSQLComponent;
@@ -56,8 +57,11 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public static final String TABLENAME = "DEVIS";
 
     public DevisSQLElement() {
-        super(TABLENAME, "un devis", "devis");
+        this("un devis", "devis");
+    }
 
+    public DevisSQLElement(String singular, String plural) {
+        super(TABLENAME, singular, plural);
         getRowActions().addAll(getDevisRowActions());
     }
 
@@ -183,8 +187,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public RowAction getDevis2FactureAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
-                elt.transfertFacture(IListe.get(e).getSelectedRow().getID());
+                TransfertBaseSQLComponent.openTransfertFrame(IListe.get(e).copySelectedRows(), "SAISIE_VENTE_FACTURE");
             }
         }, true, "sales.quote.create.invoice") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
@@ -201,7 +204,16 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public RowAction getDevis2CmdFournAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                transfertCommande(IListe.get(e).getSelectedRow());
+                final SQLRow selectedRow = IListe.get(e).getSelectedRow();
+                ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        transfertCommande(selectedRow);
+
+                    }
+                });
+
             }
         }, false, "sales.quote.create.supplier.order") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
@@ -218,8 +230,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public RowAction getDevis2CmdCliAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
-                elt.transfertCommandeClient(IListe.get(e).getSelectedRow().getID());
+                TransfertBaseSQLComponent.openTransfertFrame(IListe.get(e).copySelectedRows(), "COMMANDE_CLIENT");
             }
         }, true, "sales.quote.create.customer.order") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {

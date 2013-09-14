@@ -88,6 +88,7 @@ public class AvoirClientSQLElement extends ComptaSQLConfElement {
             protected void customizeToFetch(SQLRowValues graphToFetch) {
                 super.customizeToFetch(graphToFetch);
                 graphToFetch.put("A_DEDUIRE", null);
+                graphToFetch.put("MOTIF", null);
             }
         };
     }

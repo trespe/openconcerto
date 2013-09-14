@@ -36,7 +36,7 @@ public final class UserExit {
                 f.dispose();
         }
         // this is last to exit
-        if (last != null)
+        if (last != null && last.isDisplayable())
             last.dispose();
     }
 
@@ -69,7 +69,7 @@ public final class UserExit {
     }
 
     public final void ask() {
-        final int res = JOptionPane.showConfirmDialog(this.comp, "Voulez-vous vraiment quitter ?", "Quitter", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
+        final int res = JOptionPane.showConfirmDialog(this.comp, TM.tr("userExit.question"), TM.tr("userExit.title"), JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE);
         if (res == JOptionPane.YES_OPTION) {
             this.r.run();
         }

@@ -14,8 +14,8 @@
  package org.openconcerto.erp.generationEcritures;
 
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
-import org.openconcerto.utils.ExceptionHandler;
 
+import java.sql.SQLException;
 import java.util.Date;
 
 public class GenerationMvtVirement extends GenerationEcritures {
@@ -34,17 +34,14 @@ public class GenerationMvtVirement extends GenerationEcritures {
      * @param label
      */
     public GenerationMvtVirement(int id_compte_depart, int id_compte_arrive, long debit, long credit, String label) {
-
         this(id_compte_depart, id_compte_arrive, debit, credit, label, new Date());
     }
 
     public GenerationMvtVirement(int id_compte_depart, int id_compte_arrive, long debit, long credit, String label, Date d) {
-
         this(id_compte_depart, id_compte_arrive, debit, credit, label, d, JournalSQLElement.BANQUES, label);
     }
 
     public GenerationMvtVirement(int id_compte_depart, int id_compte_arrive, long debit, long credit, String label, Date d, int idJournal, String labelPiece) {
-
         this.id_compte_depart = id_compte_depart;
         this.id_compte_arrive = id_compte_arrive;
         this.id_journal = idJournal;
@@ -79,7 +76,7 @@ public class GenerationMvtVirement extends GenerationEcritures {
         this.clearMvt = clearMvt;
     }
 
-    public int genereMouvement() {
+    public int genereMouvement() throws SQLException {
 
         // iniatilisation des valeurs de la map
         this.mEcritures.put("DATE", this.date);
@@ -98,22 +95,18 @@ public class GenerationMvtVirement extends GenerationEcritures {
         this.mEcritures.put("ID_MOUVEMENT", this.idMvt);
 
         // generation des ecritures + maj des totaux du compte associe
-        try {
-            // compte Départ
-            this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(this.id_compte_depart));
-            this.mEcritures.put("DEBIT", Long.valueOf(this.debit));
-            this.mEcritures.put("CREDIT", Long.valueOf(this.credit));
-            ajoutEcriture();
 
-            // compte arrivé
-            this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(this.id_compte_arrive));
-            this.mEcritures.put("DEBIT", Long.valueOf(this.credit));
-            this.mEcritures.put("CREDIT", Long.valueOf(this.debit));
-            ajoutEcriture();
-        } catch (IllegalArgumentException e) {
-            ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
-        }
+        // compte Départ
+        this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(this.id_compte_depart));
+        this.mEcritures.put("DEBIT", Long.valueOf(this.debit));
+        this.mEcritures.put("CREDIT", Long.valueOf(this.credit));
+        ajoutEcriture();
+
+        // compte arrivé
+        this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(this.id_compte_arrive));
+        this.mEcritures.put("DEBIT", Long.valueOf(this.credit));
+        this.mEcritures.put("CREDIT", Long.valueOf(this.debit));
+        ajoutEcriture();
 
         return this.idMvt;
     }

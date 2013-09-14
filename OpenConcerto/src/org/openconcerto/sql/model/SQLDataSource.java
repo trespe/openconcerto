@@ -27,6 +27,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
@@ -45,12 +46,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 
-import javax.sql.DataSource;
-
 import net.jcip.annotations.GuardedBy;
 import net.jcip.annotations.ThreadSafe;
 
+import org.apache.commons.dbcp.AbandonedConfig;
 import org.apache.commons.dbcp.BasicDataSource;
+import org.apache.commons.dbcp.ConnectionFactory;
+import org.apache.commons.dbcp.PoolableConnection;
+import org.apache.commons.dbcp.PoolableConnectionFactory;
+import org.apache.commons.dbcp.PoolingConnection;
 import org.apache.commons.dbcp.PoolingDataSource;
 import org.apache.commons.dbcp.SQLNestedException;
 import org.apache.commons.dbutils.BasicRowProcessor;
@@ -61,6 +65,9 @@ import org.apache.commons.dbutils.handlers.ArrayListHandler;
 import org.apache.commons.dbutils.handlers.MapHandler;
 import org.apache.commons.dbutils.handlers.MapListHandler;
 import org.apache.commons.dbutils.handlers.ScalarHandler;
+import org.apache.commons.pool.KeyedObjectPool;
+import org.apache.commons.pool.KeyedObjectPoolFactory;
+import org.apache.commons.pool.ObjectPool;
 import org.apache.commons.pool.impl.GenericObjectPool;
 import org.postgresql.util.GT;
 import org.postgresql.util.PSQLException;
@@ -171,6 +178,9 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     private String initialShema;
     // which Connection have the right default schema
     @GuardedBy("this")
+    private final Map<Connection, Object> schemaUptodate;
+    // which Connection aren't invalidated
+    @GuardedBy("this")
     private final Map<Connection, Object> uptodate;
 
     private volatile int retryWait;
@@ -178,6 +188,13 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     private boolean blockWhenExhausted;
     @GuardedBy("this")
     private long softMinEvictableIdleTimeMillis;
+
+    @GuardedBy("this")
+    private int txIsolation;
+    @GuardedBy("this")
+    private Integer dbTxIsolation;
+    @GuardedBy("this")
+    private boolean checkOnceDBTxIsolation;
 
     private final ReentrantLock testLock = new ReentrantLock();
 
@@ -201,6 +218,10 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
 
         if (this.server.getSQLSystem() == SQLSystem.MYSQL) {
             this.addConnectionProperty("transformedBitIsBoolean", "true");
+            // by default allowMultiQueries, since it's more convenient (i.e. pass String around
+            // instead of List<String>) and faster (less trips to the server, allow
+            // SQLUtils.executeMultiple())
+            this.addConnectionProperty("allowMultiQueries", "true");
         } else if (this.server.getSQLSystem() == SQLSystem.H2) {
             this.addConnectionProperty("CACHE_SIZE", "32000");
         }
@@ -246,10 +267,21 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     private synchronized void updateCache() {
         if (this.cache != null)
             this.cache.clear();
-        if (this.cacheEnabled && this.tables.size() > 0)
-            this.cache = new SQLCache<List<?>, Object>(30, 30, "results of " + this.getClass().getSimpleName());
+        this.cache = createCache(this);
+        for (final HandlersStack s : this.handlers.values()) {
+            s.updateCache();
+        }
+    }
+
+    synchronized SQLCache<List<?>, Object> createCache(final Object o) {
+        final SQLCache<List<?>, Object> res;
+        if (this.isCacheEnabled() && this.tables.size() > 0)
+            // the general cache should wait for transactions to end, but the cache of transactions
+            // must not.
+            res = new SQLCache<List<?>, Object>(30, 30, "results of " + o.getClass().getSimpleName(), o == this);
         else
-            this.cache = null;
+            res = null;
+        return res;
     }
 
     /**
@@ -266,6 +298,10 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         }
     }
 
+    public final synchronized boolean isCacheEnabled() {
+        return this.cacheEnabled;
+    }
+
     /* pour le clonage */
     private SQLDataSource(SQLServer server) {
         this.server = server;
@@ -273,6 +309,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         this.handlers = new Hashtable<Thread, HandlersStack>();
         // weak, since this is only a hint to avoid initializing the connection
         // on each borrowal
+        this.schemaUptodate = new WeakHashMap<Connection, Object>();
         this.uptodate = new WeakHashMap<Connection, Object>();
         this.initialShemaSet = false;
         this.initialShema = null;
@@ -296,6 +333,14 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         // kill idle connections after 30 minutes (even if it means re-creating some new ones
         // immediately afterwards to ensure minIdle connections)
         this.setMinEvictableIdleTimeMillis(TimeUnit.MINUTES.toMillis(30));
+
+        // the default of many systems
+        this.txIsolation = Connection.TRANSACTION_READ_COMMITTED;
+        // by definition unknown without a connection
+        this.dbTxIsolation = null;
+        // it's rare that DB configuration changes, and it's expensive to add a trip to the server
+        // for each new connection
+        this.checkOnceDBTxIsolation = true;
 
         // see #createDataSource() for properties not supported by this class
         this.tables = Collections.emptySet();
@@ -431,7 +476,12 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         final IResultSetHandler irsh = rsh instanceof IResultSetHandler ? (IResultSetHandler) rsh : null;
         final SQLCache<List<?>, Object> cache;
         synchronized (this) {
-            cache = this.cache;
+            // transactions are isolated from one another, so their caches should be too
+            final HandlersStack handlersStack = getHandlersStack();
+            if (handlersStack != null && handlersStack.getCache() != null)
+                cache = handlersStack.getCache();
+            else
+                cache = this.cache;
         }
         final List<Object> key = cache != null && query.startsWith("SELECT") ? Arrays.asList(new Object[] { query, rsh }) : null;
         if (key != null && (irsh == null || irsh.readCache())) {
@@ -482,8 +532,6 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 if (key != null) {
                     synchronized (this) {
                         putInCache(cache, irsh, key, result, true);
-                        if (this.cache != cache)
-                            putInCache(this.cache, irsh, key, result, false);
                     }
                 }
                 info.releaseConnection();
@@ -690,7 +738,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     public final <T, X extends Exception> T useConnection(ConnectionHandler<T, X> handler) throws SQLException, X {
         final HandlersStack h;
         if (!this.handlingConnection()) {
-            h = new HandlersStack(this.getNewConnection(), handler);
+            h = new HandlersStack(this, this.getNewConnection(), handler);
             this.handlers.put(Thread.currentThread(), h);
         } else if (handler.canRestoreState()) {
             h = this.getHandlersStack().push(handler);
@@ -962,11 +1010,12 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      * All connections obtained with {@link #getConnection()} will be closed immediately, but
      * threads in {@link #useConnection(ConnectionHandler)} will get to keep them. After the last
      * thread returns from {@link #useConnection(ConnectionHandler)} there won't be any connection
-     * left open. This instance won't be permanently closed, it can be reused later.
+     * left open. This instance will be permanently closed, it cannot be reused later.
      * 
      * @throws SQLException if a database error occurs
      */
     public synchronized void close() throws SQLException {
+        @SuppressWarnings("rawtypes")
         final GenericObjectPool pool = this.connectionPool;
         super.close();
         // super close and unset our pool, but we need to keep it
@@ -993,10 +1042,6 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             this.cache.clear();
     }
 
-    public final synchronized boolean isClosed() {
-        return this.dataSource == null;
-    }
-
     /**
      * Retourne la connection à cette source de donnée.
      * 
@@ -1006,10 +1051,17 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      * @see #handlingConnection()
      */
     public final Connection getConnection() {
-        final HandlersStack res = this.handlers.get(Thread.currentThread());
+        final HandlersStack res = this.getHandlersStack();
         if (res == null)
             throw new IllegalStateException("useConnection() wasn't called");
         return res.getConnection();
+    }
+
+    public final TransactionPoint getTransactionPoint() {
+        final HandlersStack handlersStack = this.getHandlersStack();
+        if (handlersStack == null)
+            return null;
+        return handlersStack.getLastTxPoint();
     }
 
     /**
@@ -1069,15 +1121,19 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         boolean setSchema = false;
         String schemaToSet = null;
         synchronized (this) {
-            if (!this.uptodate.containsKey(res)) {
+            if (!this.schemaUptodate.containsKey(res)) {
                 if (this.initialShemaSet) {
                     setSchema = true;
                     schemaToSet = this.initialShema;
                 }
                 // safe to put before setSchema() since res cannot be passed to
                 // release/closeConnection()
-                this.uptodate.put(res, null);
+                this.schemaUptodate.put(res, null);
             }
+            // a connection from the pool is up to date since we close all idle connections in
+            // invalidateAllConnections() and borrowed ones are closed before they return to the
+            // pool
+            this.uptodate.put(res, null);
         }
         // warmup the connection (executing a bogus simple query, like "SELECT 1") could help but in
         // general doesn't since we often do getDS().execute() and thus our warm up thread will run
@@ -1143,41 +1199,213 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         }
     }
 
+    /**
+     * Whether the database defaut transaction isolation is check only once for this instance. If
+     * <code>false</code>, every new connection will have its
+     * {@link Connection#setTransactionIsolation(int) isolation set}. If <code>true</code> the
+     * isolation will only be set if the {@link #setInitialTransactionIsolation(int) requested one}
+     * differs from the DB one. In other words, if you want to optimize DB access, the DB
+     * configuration must match the datasource configuration.
+     * 
+     * @param checkOnce <code>true</code> to check only once the DB transaction isolation.
+     */
+    public synchronized final void setTransactionIsolationCheckedOnce(final boolean checkOnce) {
+        this.checkOnceDBTxIsolation = checkOnce;
+        this.dbTxIsolation = null;
+    }
+
+    public synchronized final boolean isTransactionIsolationCheckedOnce() {
+        return this.checkOnceDBTxIsolation;
+    }
+
+    // don't use setDefaultTransactionIsolation() in super since it makes extra requests each time a
+    // connection is borrowed
+    public final void setInitialTransactionIsolation(int level) {
+        if (level != Connection.TRANSACTION_READ_UNCOMMITTED && level != Connection.TRANSACTION_READ_COMMITTED && level != Connection.TRANSACTION_REPEATABLE_READ
+                && level != Connection.TRANSACTION_SERIALIZABLE)
+            throw new IllegalArgumentException("Invalid value :" + level);
+        synchronized (this) {
+            if (this.txIsolation != level) {
+                this.txIsolation = level;
+                // perhaps do like setInitialSchema() : i.e. call setTransactionIsolation() on
+                // existing connections
+                this.invalidateAllConnections(false);
+            }
+        }
+    }
+
+    public synchronized final int getInitialTransactionIsolation() {
+        return this.txIsolation;
+    }
+
+    public synchronized final Integer getDBTransactionIsolation() {
+        return this.dbTxIsolation;
+    }
+
+    final synchronized void setTransactionIsolation(Connection conn) throws SQLException {
+        if (this.dbTxIsolation == null) {
+            this.dbTxIsolation = conn.getTransactionIsolation();
+            assert this.dbTxIsolation != null;
+        }
+        // no need to try to change the level if the DB doesn't support transactions
+        if (this.dbTxIsolation != Connection.TRANSACTION_NONE && (!this.checkOnceDBTxIsolation || this.dbTxIsolation != this.txIsolation)) {
+            // if not check once, it's the desired action, so don't log
+            if (this.checkOnceDBTxIsolation)
+                Log.get().config("Setting transaction isolation to " + this.txIsolation);
+            conn.setTransactionIsolation(this.txIsolation);
+        }
+    }
+
+    // allow to know transaction states
+    private final class TransactionPoolableConnection extends PoolableConnection {
+        // perhaps call getAutoCommit() once to have the initial value
+        @GuardedBy("this")
+        private boolean autoCommit = true;
+
+        private TransactionPoolableConnection(Connection conn, @SuppressWarnings("rawtypes") ObjectPool pool, AbandonedConfig config) {
+            super(conn, pool, config);
+        }
+
+        private HandlersStack getNonNullHandlersStack() throws SQLException {
+            final HandlersStack res = getHandlersStack();
+            if (res == null)
+                throw new SQLException("Unsafe transaction, call useConnection() or SQLUtils.executeAtomic()");
+            return res;
+        }
+
+        @Override
+        public synchronized void setAutoCommit(boolean autoCommit) throws SQLException {
+            if (this.autoCommit != autoCommit) {
+                // don't call setAutoCommit() if no stack
+                final HandlersStack handlersStack = getNonNullHandlersStack();
+                super.setAutoCommit(autoCommit);
+                this.autoCommit = autoCommit;
+                if (this.autoCommit)
+                    // some delegates of the super implementation might have already called our
+                    // commit(), but in this case, the following commit will be a no-op
+                    handlersStack.commit();
+                else
+                    handlersStack.addTxPoint(new TransactionPoint(this));
+            }
+        }
+
+        @Override
+        public synchronized void commit() throws SQLException {
+            super.commit();
+            final HandlersStack handlersStack = getNonNullHandlersStack();
+            handlersStack.commit();
+            handlersStack.addTxPoint(new TransactionPoint(this));
+        }
+
+        @Override
+        public synchronized void rollback() throws SQLException {
+            super.rollback();
+            final HandlersStack handlersStack = getNonNullHandlersStack();
+            handlersStack.rollback();
+            assert !this.autoCommit;
+            handlersStack.addTxPoint(new TransactionPoint(this));
+        }
+
+        @Override
+        public synchronized Savepoint setSavepoint() throws SQLException {
+            // don't call setSavepoint() if no stack
+            final HandlersStack handlersStack = getNonNullHandlersStack();
+            final Savepoint res = super.setSavepoint();
+            handlersStack.addTxPoint(new TransactionPoint(this, res, false));
+            return res;
+        }
+
+        @Override
+        public synchronized Savepoint setSavepoint(String name) throws SQLException {
+            // don't call setSavepoint() if no stack
+            final HandlersStack handlersStack = getNonNullHandlersStack();
+            final Savepoint res = super.setSavepoint(name);
+            handlersStack.addTxPoint(new TransactionPoint(this, res, true));
+            return res;
+        }
+
+        @Override
+        public synchronized void rollback(Savepoint savepoint) throws SQLException {
+            super.rollback(savepoint);
+            getNonNullHandlersStack().rollback(savepoint);
+        }
+
+        @Override
+        public synchronized void releaseSavepoint(Savepoint savepoint) throws SQLException {
+            // don't bother merging TransactionPoint
+            super.releaseSavepoint(savepoint);
+        }
+    }
+
     @Override
-    protected synchronized DataSource createDataSource() throws SQLException {
-        if (isClosed()) {
-            // initialize lotta things
-            super.createDataSource();
-            // methods not defined in superclass and thus not called in super.createDataSource()
-            this.connectionPool.setLifo(true);
-            this.setBlockWhenExhausted(this.blockWhenExhausted);
-            this.connectionPool.setSoftMinEvictableIdleTimeMillis(this.softMinEvictableIdleTimeMillis);
-            // PoolingDataSource returns a PoolGuardConnectionWrapper that complicates a lot of
-            // things for nothing, so overload to simply return an object of the pool
-            this.dataSource = new PoolingDataSource(this.connectionPool) {
-
+    protected void createPoolableConnectionFactory(ConnectionFactory driverConnectionFactory, @SuppressWarnings("rawtypes") KeyedObjectPoolFactory statementPoolFactory, AbandonedConfig configuration)
+            throws SQLException {
+        PoolableConnectionFactory connectionFactory = null;
+        try {
+            connectionFactory = new PoolableConnectionFactory(driverConnectionFactory, this.connectionPool, statementPoolFactory, this.validationQuery, this.validationQueryTimeout,
+                    this.connectionInitSqls, this.defaultReadOnly, this.defaultAutoCommit, this.defaultTransactionIsolation, this.defaultCatalog, configuration) {
                 @Override
-                public Connection getConnection() throws SQLException {
-                    try {
-                        return (Connection) this._pool.borrowObject();
-                    } catch (SQLException e) {
-                        throw e;
-                    } catch (NoSuchElementException e) {
-                        throw new SQLNestedException("Cannot get a connection, pool exhausted", e);
-                    } catch (RuntimeException e) {
-                        throw e;
-                    } catch (Exception e) {
-                        throw new SQLNestedException("Cannot get a connection, general error", e);
+                public Object makeObject() throws Exception {
+                    Connection conn = this._connFactory.createConnection();
+                    if (conn == null) {
+                        throw new IllegalStateException("Connection factory returned null from createConnection");
                     }
-                }
-
-                @Override
-                public Connection getConnection(String username, String password) throws SQLException {
-                    throw new UnsupportedOperationException();
+                    initializeConnection(conn);
+                    setTransactionIsolation(conn);
+                    if (null != this._stmtPoolFactory) {
+                        @SuppressWarnings("rawtypes")
+                        KeyedObjectPool stmtpool = this._stmtPoolFactory.createPool();
+                        conn = new PoolingConnection(conn, stmtpool);
+                        stmtpool.setFactory((PoolingConnection) conn);
+                    }
+                    return new TransactionPoolableConnection(conn, this._pool, this._config);
                 }
             };
+            validateConnectionFactory(connectionFactory);
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SQLException("Cannot create PoolableConnectionFactory", e);
         }
-        return this.dataSource;
+    }
+
+    @Override
+    protected void createConnectionPool() {
+        super.createConnectionPool();
+        // methods not defined in superclass and thus not called in super
+        this.connectionPool.setLifo(true);
+        this.setBlockWhenExhausted(this.blockWhenExhausted);
+        this.connectionPool.setSoftMinEvictableIdleTimeMillis(this.softMinEvictableIdleTimeMillis);
+    }
+
+    @Override
+    protected void createDataSourceInstance() throws SQLException {
+        // PoolingDataSource returns a PoolGuardConnectionWrapper that complicates a lot of
+        // things for nothing, so overload to simply return an object of the pool
+        this.dataSource = new PoolingDataSource(this.connectionPool) {
+
+            // we'll migrate to plain SQLException when our superclass does
+            @SuppressWarnings("deprecation")
+            @Override
+            public Connection getConnection() throws SQLException {
+                try {
+                    return (Connection) this._pool.borrowObject();
+                } catch (SQLException e) {
+                    throw e;
+                } catch (NoSuchElementException e) {
+                    throw new SQLNestedException("Cannot get a connection, pool exhausted", e);
+                } catch (RuntimeException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new SQLNestedException("Cannot get a connection, general error", e);
+                }
+            }
+
+            @Override
+            public Connection getConnection(String username, String password) throws SQLException {
+                throw new UnsupportedOperationException();
+            }
+        };
     }
 
     /**
@@ -1190,7 +1418,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             // if !this.initialShemaSet the out of date cannot be brought up to date
             final boolean unrecoverableOutOfDate;
             synchronized (this) {
-                unrecoverableOutOfDate = !this.initialShemaSet && !this.uptodate.containsKey(con);
+                unrecoverableOutOfDate = !this.uptodate.containsKey(con) || !this.initialShemaSet && !this.schemaUptodate.containsKey(con);
             }
             if (isClosed() || unrecoverableOutOfDate)
                 // if closed : don't fill the pool (which will have thrown an exception anyway)
@@ -1223,6 +1451,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         if (con != null) {
             synchronized (this) {
                 this.uptodate.remove(con);
+                this.schemaUptodate.remove(con);
             }
             try {
                 // ATTN this always does _numActive--, so we can't call it multiple times
@@ -1235,6 +1464,32 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             // the last connection is being returned
             if (this.isClosed() && this.getBorrowedConnectionCount() == 0) {
                 noConnectionIsOpen();
+            }
+        }
+    }
+
+    /**
+     * Invalidates all open connections. This immediately closes idle connections. Borrowed ones are
+     * marked as invalid, so that they are closed on return. In other words, after this method
+     * returns, no existing connection will be provided.
+     */
+    public final void invalidateAllConnections() {
+        this.invalidateAllConnections(false);
+    }
+
+    public final void invalidateAllConnections(final boolean preventIdleConnections) {
+        // usefull since Evictor of GenericObjectPool might call ensureMinIdle()
+        if (preventIdleConnections) {
+            this.setMinIdle(0);
+            this.setMaxIdle(0);
+        }
+        synchronized (this) {
+            // otherwise nothing to invalidate
+            if (this.connectionPool != null) {
+                // closes all idle connections
+                this.connectionPool.clear();
+                // borrowed connections will be closed on return
+                this.uptodate.clear();
             }
         }
     }
@@ -1287,14 +1542,14 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             synchronized (this) {
                 this.initialShemaSet = set;
                 this.initialShema = schemaName;
-                this.uptodate.clear();
+                this.schemaUptodate.clear();
                 if (!set)
                     // by definition we don't want to modify the connection,
                     // so empty the pool, that way new connections will be created
                     // the borrowed ones will be closed when returned
                     this.connectionPool.clear();
                 else
-                    this.uptodate.put(newConn, null);
+                    this.schemaUptodate.put(newConn, null);
             }
             this.returnConnection(newConn);
         }
@@ -1326,32 +1581,29 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                     q = null;
             } else
                 q = "USE " + schemaName;
-        } else if (this.getSystem() == SQLSystem.DERBY)
-            q = "SET SCHEMA \"" + schemaName + '"';
-        else if (this.getSystem() == SQLSystem.H2) {
+        } else if (this.getSystem() == SQLSystem.DERBY) {
+            q = "SET SCHEMA " + SQLBase.quoteIdentifier(schemaName);
+        } else if (this.getSystem() == SQLSystem.H2) {
             q = "SET SCHEMA " + SQLBase.quoteIdentifier(schemaName);
             // TODO use the line below, but for now it is only used after schema()
             // plus there's no function to read it back
             // q = "set SCHEMA_SEARCH_PATH " + SQLBase.quoteIdentifier(schemaName == null ? "" :
             // schemaName);
         } else if (this.getSystem() == SQLSystem.POSTGRESQL) {
-            final String schemasString;
             if (schemaName == null) {
-                schemasString = "''";
+                // SET cannot empty the path
+                q = "select set_config('search_path', '', false)";
             } else {
-                // ATTN does NOT work if a schema has " in its name
-                // current_schemas() instead of current_setting() since the former removes dups and
-                // returns an array
-                schemasString = SQLSelect.quote(" '\"' || array_to_string( cast (%s as name) || current_schemas(false) , '\", \"')||  '\"'", schemaName);
+                q = "set session search_path to " + SQLBase.quoteIdentifier(schemaName);
             }
-            q = "select set_config('search_path', " + schemasString + " , false)";
         } else if (this.getSystem() == SQLSystem.MSSQL) {
             if (schemaName == null)
                 throw new IllegalArgumentException("cannot unset default schema in " + this.getSystem());
             else
                 q = "alter user " + getUsername() + " with default_schema = " + SQLBase.quoteIdentifier(schemaName);
-        } else
+        } else {
             throw new UnsupportedOperationException();
+        }
 
         if (q != null)
             this.execute(q, null, true, c);

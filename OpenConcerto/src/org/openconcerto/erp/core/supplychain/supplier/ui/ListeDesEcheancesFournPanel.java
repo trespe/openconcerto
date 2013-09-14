@@ -14,9 +14,9 @@
  package org.openconcerto.erp.core.supplychain.supplier.ui;
 
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
-import org.openconcerto.erp.core.finance.payment.element.ReglerMontantSQLElement;
 import org.openconcerto.erp.core.supplychain.order.ui.ListPanelEcheancesFourn;
-import org.openconcerto.erp.core.supplychain.supplier.element.EcheanceFournisseurSQLElement;
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.view.EditFrame;
@@ -44,6 +44,7 @@ public class ListeDesEcheancesFournPanel extends JPanel implements TableModelLis
     private ListPanelEcheancesFourn panelEcheances;
     private EditFrame edit = null;
     private JButton regler;
+    private SQLElement eltRegler = Configuration.getInstance().getDirectory().getElement("REGLER_MONTANT");
 
     public ListeDesEcheancesFournPanel() {
         this.setLayout(new GridBagLayout());
@@ -75,11 +76,11 @@ public class ListeDesEcheancesFournPanel extends JPanel implements TableModelLis
             public void actionPerformed(ActionEvent e) {
 
                 if (ListeDesEcheancesFournPanel.this.edit == null) {
-                    ReglerMontantSQLElement regleElt = new ReglerMontantSQLElement();
-                    ListeDesEcheancesFournPanel.this.edit = new EditFrame(regleElt);
+
+                    ListeDesEcheancesFournPanel.this.edit = new EditFrame(eltRegler);
                 }
 
-                SQLRowValues rowVals = new SQLRowValues(new ReglerMontantSQLElement().getTable());
+                SQLRowValues rowVals = new SQLRowValues(eltRegler.getTable());
 
                 rowVals.put("ID_ECHEANCE_FOURNISSEUR", ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelectedId());
 
@@ -116,7 +117,7 @@ public class ListeDesEcheancesFournPanel extends JPanel implements TableModelLis
                 if (mE.getButton() == MouseEvent.BUTTON1) {
 
                     if (ListeDesEcheancesFournPanel.this.edit != null) {
-                        SQLRowValues rowVals = new SQLRowValues(new ReglerMontantSQLElement().getTable());
+                        SQLRowValues rowVals = new SQLRowValues(eltRegler.getTable());
 
                         int id = ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelectedId();
 
@@ -134,8 +135,7 @@ public class ListeDesEcheancesFournPanel extends JPanel implements TableModelLis
                     menuDroit.add(new AbstractAction("Voir la source") {
 
                         public void actionPerformed(ActionEvent e) {
-                            int id = ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelectedId();
-                            SQLRow row = new EcheanceFournisseurSQLElement().getTable().getRow(id);
+                            SQLRow row = ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelectedRow();
                             MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
                         }
                     });

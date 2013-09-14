@@ -18,6 +18,8 @@ import static org.openconcerto.sql.view.list.ITableModel.SleepState.HIBERNATING;
 import static org.openconcerto.sql.view.list.ITableModel.SleepState.SLEEPING;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLFieldsSet;
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.users.rights.TableAllRights;
@@ -71,7 +73,8 @@ public class ITableModel extends AbstractTableModel {
     }
 
     private static Timer autoHibernateTimer = null;
-    private static boolean defaultEditable = true;
+    // not editable since default editors are potentially not safe (no validation)
+    private static boolean defaultEditable = false;
 
     public static Timer getAutoHibernateTimer() {
         if (autoHibernateTimer == null)
@@ -239,6 +242,13 @@ public class ITableModel extends AbstractTableModel {
         this.updateQ.putUpdateAll();
     }
 
+    /**
+     * If there's a where not on the primary table, the list doesn't know which lines to refresh and
+     * it must reload all lines.
+     * 
+     * @param b <code>true</code> if the list shouldn't search for lines to refresh, but just reload
+     *        all of them.
+     */
     public final void setAlwaysUpdateAll(final boolean b) {
         this.getUpdateQ().setAlwaysUpdateAll(b);
     }
@@ -384,8 +394,6 @@ public class ITableModel extends AbstractTableModel {
     }
 
     private boolean hasRight(final SQLTableModelColumn col) {
-        if (!UserRightsManager.getInstance().isValid())
-            return true;
         final UserRights u = UserRightsManager.getCurrentUserRights();
         for (final SQLTable t : new SQLFieldsSet(col.getFields()).getTables()) {
             if (!TableAllRights.hasRight(u, TableAllRights.MODIFY_ROW_TABLE, t))
@@ -441,7 +449,7 @@ public class ITableModel extends AbstractTableModel {
      * @return all affected lines in the fullList (un-searched).
      */
     public CollectionMap<ListSQLLine, Path> getAffectedLines(final SQLTable t, final int id) {
-        return this.getSearchQueue().getAffectedLines(t, id);
+        return this.getSearchQueue().getAffectedLines(new SQLRow(t, id));
     }
 
     // *** search
@@ -468,19 +476,19 @@ public class ITableModel extends AbstractTableModel {
 
     // *** move
 
-    public void moveBy(final int rowID, final int inc) {
-        this.moveQ.move(rowID, inc);
+    public void moveBy(final List<? extends SQLRowAccessor> rows, final int inc) {
+        this.moveQ.move(rows, inc);
     }
 
     /**
-     * Compute the id of the row which is <code>inc</code> lines from rowID.
+     * Search the row which is <code>inc</code> lines from rowID.
      * 
      * @param rowID an ID of a row of this table.
      * @param inc the offset of visible lines.
-     * @return the destination ID or <code>null</code> if it's the same as <code>rowID</code> or
+     * @return the destination line or <code>null</code> if it's the same as <code>rowID</code> or
      *         <code>rowID</code> is inexistant.
      */
-    Integer getDestID(int rowID, int inc) {
+    ListSQLLine getDestLine(int rowID, int inc) {
         final int rowIndex = this.indexFromID(rowID);
         if (rowIndex < 0)
             return null;
@@ -492,7 +500,7 @@ public class ITableModel extends AbstractTableModel {
         else if (destIndex > max)
             destIndex = max;
         if (destIndex != rowIndex) {
-            return this.idFromIndex(destIndex);
+            return this.getRow(destIndex);
         } else
             return null;
     }

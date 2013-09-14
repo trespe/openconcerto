@@ -21,9 +21,8 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.request.SQLRowItemView;
+import org.openconcerto.utils.checks.EmptyChangeSupport;
 import org.openconcerto.utils.checks.EmptyListener;
-import org.openconcerto.utils.checks.EmptyObject;
-import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidState;
@@ -45,14 +44,13 @@ import javax.swing.JPanel;
 
 import org.apache.commons.collections.Closure;
 import org.apache.commons.collections.CollectionUtils;
-import org.apache.commons.collections.Predicate;
 
 /**
  * A SQLRowItemView that edits a list.
  * 
  * @author Sylvain CUAZ
  */
-public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
+public class ListSQLView extends JPanel implements SQLRowItemView {
 
     private final SQLComponent parent;
     private final String name;
@@ -60,7 +58,7 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
     private final List<ListItemSQLView> items;
 
     private final PropertyChangeSupport supp;
-    private final EmptyObjectHelper helper;
+    private final EmptyChangeSupport helper;
 
     private final JButton addBtn;
     private final JPanel itemsPanel;
@@ -89,11 +87,7 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
             }
         });
 
-        this.helper = new EmptyObjectHelper(this, new Predicate() {
-            public boolean evaluate(Object object) {
-                return ((List) object).isEmpty();
-            }
-        });
+        this.helper = new EmptyChangeSupport(this);
 
         this.addBtn = new JButton("Ajout");
         // for when an item is removed the following ones go up
@@ -152,6 +146,7 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
         this.itemsPanel.add(newItem, this.itemsConstraints);
         this.itemsConstraints.gridy++;
         this.supp.firePropertyChange("value", null, null);
+        this.helper.fireEmptyChange(this.isEmpty());
     }
 
     protected final void removeItem(ListItemSQLView viewToRemove) {
@@ -162,6 +157,7 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
         this.revalidate();
         this.getPool().removeItem(viewToRemove.getRowItemView());
         this.supp.firePropertyChange("value", null, null);
+        this.helper.fireEmptyChange(this.isEmpty());
     }
 
     public final SQLComponent getSQLParent() {
@@ -235,20 +231,19 @@ public class ListSQLView extends JPanel implements SQLRowItemView, EmptyObject {
         return this;
     }
 
+    @Override
     public boolean isEmpty() {
-        return this.helper.isEmpty();
+        return this.getPool().getItems().isEmpty();
     }
 
-    public Object getValue() throws IllegalStateException {
-        return this.helper.getValue();
-    }
-
-    public Object getUncheckedValue() {
-        return this.getPool().getItems();
-    }
-
+    @Override
     public void addEmptyListener(EmptyListener l) {
-        this.helper.addListener(l);
+        this.helper.addEmptyListener(l);
+    }
+
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.helper.removeEmptyListener(l);
     }
 
     public void addValueListener(PropertyChangeListener l) {

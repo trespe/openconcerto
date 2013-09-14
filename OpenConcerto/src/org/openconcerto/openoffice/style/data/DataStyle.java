@@ -29,8 +29,10 @@ import java.math.RoundingMode;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
@@ -43,17 +45,16 @@ import org.jdom.Namespace;
 // from section 16.27 in v1.2-cs01-part1
 public abstract class DataStyle extends Style {
     private static final int DEFAULT_GROUPING_SIZE = new DecimalFormat().getGroupingSize();
-    private static final int DEFAULT_DECIMAL_PLACES = 2;
+    public static final int DEFAULT_DECIMAL_PLACES = 10;
     private static final Pattern QUOTE_PATRN = Pattern.compile("'", Pattern.LITERAL);
     private static final Pattern EXP_PATTERN = Pattern.compile("E(\\d+)$");
 
     public static int getDecimalPlaces(final CellStyle defaultStyle) {
-        final int res;
-        if (defaultStyle != null && defaultStyle.getTableCellProperties().getDecimalPlaces() != null)
-            res = defaultStyle.getTableCellProperties().getDecimalPlaces().intValue();
-        else
-            res = DEFAULT_DECIMAL_PLACES;
-        return res;
+        if (defaultStyle != null) {
+            return defaultStyle.getTableCellProperties(null).getDecimalPlaces();
+        } else {
+            return DEFAULT_DECIMAL_PLACES;
+        }
     }
 
     public static void addStringLiteral(final StringBuilder formatSB, final String s) {
@@ -62,8 +63,21 @@ public abstract class DataStyle extends Style {
         formatSB.append('\'');
     }
 
+    public static final Set<Class<? extends DataStyle>> DATA_STYLES;
     private static final DataStyleDesc<?>[] DATA_STYLES_DESCS = new DataStyleDesc<?>[] { NumberStyle.DESC, PercentStyle.DESC, TextStyle.DESC, CurrencyStyle.DESC, DateStyle.DESC, TimeStyle.DESC,
             BooleanStyle.DESC };
+    static {
+        final Set<Class<? extends DataStyle>> l = new HashSet<Class<? extends DataStyle>>(DATA_STYLES_DESCS.length);
+        l.add(NumberStyle.class);
+        l.add(PercentStyle.class);
+        l.add(TextStyle.class);
+        l.add(CurrencyStyle.class);
+        l.add(DateStyle.class);
+        l.add(TimeStyle.class);
+        l.add(BooleanStyle.class);
+        DATA_STYLES = Collections.unmodifiableSet(l);
+        assert DATA_STYLES_DESCS.length == DATA_STYLES.size() : "Discrepancy between classes and descs";
+    }
 
     public static abstract class DataStyleDesc<S extends DataStyle> extends StyleDesc<S> {
 
@@ -205,15 +219,20 @@ public abstract class DataStyle extends Style {
             // see 19.343.2
             final Attribute decPlacesAttr = elem.getAttribute("decimal-places", numberNS);
             final int decPlaces;
-            if (decPlacesAttr != null)
+            final char decChar;
+            if (decPlacesAttr != null) {
+                decChar = '0';
                 decPlaces = Integer.parseInt(decPlacesAttr.getValue());
-            else
+            } else {
+                // default style specifies the maximum
+                decChar = '#';
                 decPlaces = getDecimalPlaces(defaultStyle);
+            }
 
             if (decPlaces > 0) {
                 numberSB.append('.');
                 for (int i = 0; i < decPlaces; i++)
-                    numberSB.append('0');
+                    numberSB.append(decChar);
             }
         }
 

@@ -26,7 +26,7 @@ public class N4DSAction extends AbstractAction {
 
     public N4DSAction() {
         super();
-        this.putValue(Action.NAME, "Déclaration N4DS");
+        this.putValue(Action.NAME, "Déclaration N4DS 2012");
 
     }
 

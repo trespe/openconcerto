@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -54,7 +55,7 @@ public class DepartementSQLElement extends ComptaSQLConfElement {
         return new BaseSQLComponent(this) {
             public void addViews() {
                 this.setLayout(new GridBagLayout());
-                GridBagConstraints c = new GridBagConstraints();
+                GridBagConstraints c = new DefaultGridBagConstraints();
                 c.gridx = GridBagConstraints.RELATIVE;
 
                 JTextField textNom = new JTextField();
@@ -63,8 +64,11 @@ public class DepartementSQLElement extends ComptaSQLConfElement {
                 JLabel labelCode = new JLabel(getLabelFor("NUMERO"));
 
                 this.add(labelCode, c);
+                c.weightx = 1;
                 this.add(textCode, c);
+                c.weightx = 0;
                 this.add(labelNom, c);
+                c.weightx = 1;
                 this.add(textNom, c);
 
                 c.gridy++;
@@ -72,13 +76,19 @@ public class DepartementSQLElement extends ComptaSQLConfElement {
                 JTextField textRegionAdmin = new JTextField();
                 JLabel labelChef = new JLabel(getLabelFor("CHEF_LIEU"));
                 JLabel labelRegionAdmin = new JLabel(getLabelFor("REGION_ADMIN"));
+                c.weightx = 0;
                 this.add(labelChef, c);
+                c.weightx = 1;
                 this.add(textChef, c);
+                c.weightx = 0;
                 this.add(labelRegionAdmin, c);
+                c.weightx = 1;
                 this.add(textRegionAdmin, c);
 
                 this.addSQLObject(textCode, "NUMERO");
                 this.addSQLObject(textNom, "NOM");
+                this.addSQLObject(textChef, "CHEF_LIEU");
+                this.addSQLObject(textRegionAdmin, "REGION_ADMIN");
             }
         };
     }

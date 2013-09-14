@@ -175,12 +175,7 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
         final DatabaseMetaData metaData = conn.getMetaData();
         // getColumns() only supports pattern (eg LIKE) so we must make multiple calls
         for (final String s : newSchemas.keySet()) {
-            final Set<String> tablesToRefresh = newSchemas.get(s);
-            assert tablesToRefresh != null : "Null should have been resolved in getNames()";
-            if (tablesToRefresh.isEmpty())
-                continue;
             final SQLSchema schema = getNewSchema(s);
-            final ResultSet rs = metaData.getColumns(this.getBase().getMDName(), s, getTablePattern(IncludeExclude.getNormalized(tablesToRefresh)), null);
 
             // always fetch version to record in tables since we might decide to use cache later
             String schemaVers = SQLSchema.getVersion(getBase(), s);
@@ -194,9 +189,19 @@ public class JDBCStructureSource extends StructureSource<SQLException> {
             if (this.getTablesToRefresh(s) == null)
                 schema.setFullyRefreshedVersion(schemaVers);
 
+            // ATTN don't continue the for till we called setFullyRefreshedVersion() : if we have an
+            // out-of-date schema, with all its tables up-to-date, and the database contains no new
+            // tables, tablesToRefresh will be empty. But we have to record that the schema is in
+            // fact up-to-date.
+            final Set<String> tablesToRefresh = newSchemas.get(s);
+            assert tablesToRefresh != null : "Null should have been resolved in getNames()";
+            if (tablesToRefresh.isEmpty())
+                continue;
+
             // handle tables becoming empty (possible in pg)
             final Set<SQLName> tablesWithColumns = new HashSet<SQLName>();
 
+            final ResultSet rs = metaData.getColumns(this.getBase().getMDName(), s, getTablePattern(IncludeExclude.getNormalized(tablesToRefresh)), null);
             boolean hasNext = rs.next();
             while (hasNext) {
                 final String schemaName = rs.getString("TABLE_SCHEM");

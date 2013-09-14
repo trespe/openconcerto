@@ -28,6 +28,7 @@ public class AdresseSQLElement extends ComptaSQLConfElement {
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
         l.add("RUE");
+        l.add("CODE_POSTAL");
         l.add("VILLE");
         return l;
     }
@@ -35,6 +36,7 @@ public class AdresseSQLElement extends ComptaSQLConfElement {
     protected List<String> getComboFields() {
         final List<String> l = new ArrayList<String>();
         l.add("RUE");
+        l.add("CODE_POSTAL");
         l.add("VILLE");
         return l;
     }

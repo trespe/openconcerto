@@ -33,6 +33,7 @@ import org.openconcerto.erp.generationEcritures.GenerationMvtTicketCaisse;
 import org.openconcerto.erp.generationEcritures.GenerationMvtVirement;
 import org.openconcerto.erp.generationEcritures.GenerationReglementVenteNG;
 import org.openconcerto.erp.model.PrixTTC;
+import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
@@ -132,7 +133,6 @@ public class Caisse {
         }
 
         try {
-            Document d = getDocument();
             UserManager.getInstance().setCurrentUser(getUserID());
             final ComptaPropsConfiguration comptaPropsConfiguration = ((ComptaPropsConfiguration) Configuration.getInstance());
             comptaPropsConfiguration.setUpSocieteDataBaseConnexion(getSocieteID());
@@ -153,7 +153,6 @@ public class Caisse {
                     SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
                     SQLElement eltEnc = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
                     SQLElement eltMode = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
-                    SQLElement eltTaxe = Configuration.getInstance().getDirectory().getElement("TAXE");
                     SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
                     for (Ticket ticket : tickets) {
                         SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
@@ -169,6 +168,10 @@ public class Caisse {
 
                             TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
 
+                            String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
+                            Boolean bServiceActive = Boolean.valueOf(val);
+                            calc.setServiceActive(bServiceActive != null && bServiceActive);
+
                             // Articles
                             for (Pair<Article, Integer> item : ticket.getArticles()) {
                                 SQLRowValues rowValsElt = new SQLRowValues(eltFact.getTable());
@@ -180,8 +183,7 @@ public class Caisse {
                                 BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
 
                                 final BigDecimal valueHT = article.getPriceHTInCents().multiply(new BigDecimal(nb), MathContext.DECIMAL128);
-                                // total = total.add(value);
-                                // totalHT = totalHT.add(valueHT);
+
                                 rowValsElt.put("T_PV_HT", valueHT);
                                 rowValsElt.put("T_PV_TTC", valueHT.multiply(tauxTVA, MathContext.DECIMAL128));
                                 rowValsElt.put("ID_TAXE", article.getIdTaxe());
@@ -235,36 +237,35 @@ public class Caisse {
                             final Integer idMvt;
                             try {
                                 idMvt = mvt.genereMouvement().call();
+
+                                SQLRowValues valTicket = rowFinal.asRowValues();
+                                valTicket.put("ID_MOUVEMENT", Integer.valueOf(idMvt));
+                                rowFinal = valTicket.update();
+
+                                // msie à jour du mouvement
+                                List<SQLRow> rowsEnc = rowFinal.getReferentRows(eltEnc.getTable());
+                                long totalEnc = 0;
+                                for (SQLRow sqlRow : rowsEnc) {
+                                    long montant = sqlRow.getLong("MONTANT");
+                                    PrixTTC ttc = new PrixTTC(montant);
+                                    totalEnc += montant;
+                                    new GenerationReglementVenteNG("Règlement " + sqlRow.getForeignRow("ID_MODE_REGLEMENT").getForeignRow("ID_TYPE_REGLEMENT").getString("NOM") + " Ticket "
+                                            + rowFinal.getString("NUMERO"), getClientCaisse(), ttc, sqlRow.getDate("DATE").getTime(), sqlRow.getForeignRow("ID_MODE_REGLEMENT"), rowFinal, rowFinal
+                                            .getForeignRow("ID_MOUVEMENT"), false);
+                                }
+                                if (totalEnc > longValueTotal) {
+                                    final SQLTable table = Configuration.getInstance().getDirectory().getElement("TYPE_REGLEMENT").getTable();
+                                    int idComptePceCaisse = table.getRow(TypeReglementSQLElement.ESPECE).getInt("ID_COMPTE_PCE_CLIENT");
+                                    if (idComptePceCaisse == table.getUndefinedID()) {
+                                        idComptePceCaisse = ComptePCESQLElement.getId(ComptePCESQLElement.getComptePceDefault("VenteEspece"));
+                                    }
+                                    new GenerationMvtVirement(idComptePceCaisse, getClientCaisse().getInt("ID_COMPTE_PCE"), 0, totalEnc - longValueTotal, "Rendu sur règlement " + " Ticket "
+                                            + rowFinal.getString("NUMERO"), new Date(), JournalSQLElement.CAISSES, " Ticket " + rowFinal.getString("NUMERO")).genereMouvement();
+                                }
                             } catch (Exception exn) {
                                 exn.printStackTrace();
                                 throw new SQLException(exn);
                             }
-
-                            SQLRowValues valTicket = rowFinal.asRowValues();
-                            valTicket.put("ID_MOUVEMENT", Integer.valueOf(idMvt));
-                            rowFinal = valTicket.update();
-
-                            // msie à jour du mouvement
-                            List<SQLRow> rowsEnc = rowFinal.getReferentRows(eltEnc.getTable());
-                            long totalEnc = 0;
-                            for (SQLRow sqlRow : rowsEnc) {
-                                long montant = sqlRow.getLong("MONTANT");
-                                PrixTTC ttc = new PrixTTC(montant);
-                                totalEnc += montant;
-                                new GenerationReglementVenteNG("Règlement " + sqlRow.getForeignRow("ID_MODE_REGLEMENT").getForeignRow("ID_TYPE_REGLEMENT").getString("NOM") + " Ticket "
-                                        + rowFinal.getString("NUMERO"), getClientCaisse(), ttc, sqlRow.getDate("DATE").getTime(), sqlRow.getForeignRow("ID_MODE_REGLEMENT"), rowFinal, rowFinal
-                                        .getForeignRow("ID_MOUVEMENT"), false);
-                            }
-                            if (totalEnc > longValueTotal) {
-                                final SQLTable table = Configuration.getInstance().getDirectory().getElement("TYPE_REGLEMENT").getTable();
-                                int idComptePceCaisse = table.getRow(TypeReglementSQLElement.ESPECE).getInt("ID_COMPTE_PCE_CLIENT");
-                                if (idComptePceCaisse == table.getUndefinedID()) {
-                                    idComptePceCaisse = ComptePCESQLElement.getId(ComptePCESQLElement.getComptePceDefault("VenteEspece"));
-                                }
-                                new GenerationMvtVirement(idComptePceCaisse, getClientCaisse().getInt("ID_COMPTE_PCE"), 0, totalEnc - longValueTotal, "Rendu sur règlement " + " Ticket "
-                                        + rowFinal.getString("NUMERO"), new Date(), JournalSQLElement.CAISSES, " Ticket " + rowFinal.getString("NUMERO")).genereMouvement();
-                            }
-
                             updateStock(rowFinal.getID());
 
                         }
@@ -290,7 +291,7 @@ public class Caisse {
     private static SQLRow getClientCaisse() throws SQLException {
         if (rowClient == null) {
             SQLElement elt = Configuration.getInstance().getDirectory().getElement("CLIENT");
-            SQLSelect sel = new SQLSelect(elt.getTable().getBase());
+            SQLSelect sel = new SQLSelect();
             sel.addSelectStar(elt.getTable());
             sel.setWhere(new Where(elt.getTable().getField("NOM"), "=", "Caisse OpenConcerto"));
             List<SQLRow> l = (List<SQLRow>) elt.getTable().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
@@ -325,7 +326,7 @@ public class Caisse {
 
     }
 
-    private static void updateStock(int id) {
+    private static void updateStock(int id) throws SQLException {
 
         final SQLElement elt = Configuration.getInstance().getDirectory().getElement("TICKET_CAISSE");
         final SQLElement eltArticleFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");

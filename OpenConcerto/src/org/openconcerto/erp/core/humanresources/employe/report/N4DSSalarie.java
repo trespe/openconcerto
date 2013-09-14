@@ -29,6 +29,7 @@ import java.text.DecimalFormatSymbols;
 import java.text.Normalizer;
 import java.text.Normalizer.Form;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -41,6 +42,9 @@ public class N4DSSalarie {
     private static DateFormat format = new SimpleDateFormat("ddMMyyyy");
     private ComptaPropsConfiguration conf = ((ComptaPropsConfiguration) Configuration.getInstance());
     private N4DS n4ds;
+
+    Date d = new Date(112, 0, 1);
+    Date d2 = new Date(112, 11, 31);
 
     DecimalFormat decimalFormat = new DecimalFormat("0.00");
 
@@ -57,8 +61,75 @@ public class N4DSSalarie {
         writeS30(row);
         writeS41(row, rowSociete);
         writeS44(row);
+        writeS45(row);
         writeS48(row);
         writeS65(row);
+    }
+
+    private void writeS45(final SQLRow rowSalarie) throws IOException {
+        // // FIXME
+        // n4ds.write("S44.G01.00.001", "07");
+        // n4ds.write("S44.G01.00.002", "1100");
+
+        // FIXME Régimes complémentaires
+
+        SQLRow rowInfos = rowSalarie.getForeignRow("ID_INFOS_SALARIE_PAYE");
+        SQLRow rowEtatCivil = rowSalarie.getForeignRow("ID_ETAT_CIVIL");
+        SQLRow siutationFam = rowEtatCivil.getForeign("ID_SITUATION_FAMILIALE");
+
+        // Date arrivée dans l'entreprise
+        final Calendar dateArrivee = rowInfos.getDate("DATE_ARRIVE");
+        n4ds.write("S45.G01.00.001.001", dateFormat.format(dateArrivee.getTime()));
+
+        // Code situation familiale
+        n4ds.write("S45.G01.00.002", siutationFam.getString("CODE"));
+
+        // Nombre d'enfant à charge
+        n4ds.write("S45.G01.00.006", rowEtatCivil.getString("NB_ENFANTS"));
+
+        // Ancienneté dans l'entreprise
+        n4ds.write("S45.G01.05.001.001", "01");
+        // Code unité mensuelle
+        n4ds.write("S45.G01.05.001.002", "02");
+        // Ancienneté
+        int monthArrive = dateArrivee.get(Calendar.MONTH);
+        int yearArrive = dateArrivee.get(Calendar.YEAR);
+        int month = this.d2.getMonth();
+        int year = this.d2.getYear() + 1900;
+        int diff;
+        if (month > monthArrive) {
+            diff = (year - yearArrive) * 12 + month - monthArrive;
+        } else {
+            diff = (year - yearArrive - 1) * 12 + (month) + (12 - monthArrive);
+        }
+        n4ds.write("S45.G01.05.002", String.valueOf(diff));
+
+        SQLRow rowContrat = rowInfos.getForeignRow("ID_CONTRAT_SALARIE");
+        if (rowContrat.getString("CODE_IRC_RETRAITE") != null && rowContrat.getString("CODE_IRC_RETRAITE").trim().length() > 0) {
+            // Mederic "G022"
+            n4ds.write("S45.G05.00.001", rowContrat.getString("NUMERO_RATTACHEMENT_RETRAITE"));
+            // 200339139001002
+            n4ds.write("S45.G05.00.005", rowContrat.getString("CODE_IRC_RETRAITE"));
+        }
+
+        // Période
+        n4ds.write("S45.G05.10.001", dateFormat.format(d));
+        // Code unité mensuelle
+        n4ds.write("S45.G05.10.002", dateFormat.format(d2));
+
+        // Base brute
+        final double baseBrute = getBaseBrute(rowSalarie);
+        n4ds.write("S45.G05.15.001.001", decimalFormat.format(baseBrute));
+        n4ds.write("S45.G05.15.002.001", decimalFormat.format(baseBrute));
+        // FIXME Tranche
+        n4ds.write("S45.G05.15.003.001", "0.00");
+        n4ds.write("S45.G05.15.004.001", "0.00");
+        n4ds.write("S45.G05.15.005.001", "0.00");
+        n4ds.write("S45.G05.15.006.001", "0.00");
+        n4ds.write("S45.G05.15.007.001", "0.00");
+        n4ds.write("S45.G05.15.008.001", "0.00");
+        n4ds.write("S45.G05.15.009.001", decimalFormat.format(baseBrute * 0.016));
+
     }
 
     private void writeS44(final SQLRow rowSalarie) throws IOException {
@@ -71,12 +142,6 @@ public class N4DSSalarie {
         // FIXME Régimes complémentaires
         SQLRow rowInfos = rowSalarie.getForeignRow("ID_INFOS_SALARIE_PAYE");
         SQLRow rowContrat = rowInfos.getForeignRow("ID_CONTRAT_SALARIE");
-        if (rowContrat.getString("CODE_IRC_RETRAITE") != null && rowContrat.getString("CODE_IRC_RETRAITE").trim().length() > 0) {
-            // Mederic "G022"
-            n4ds.write("S44.G03.05.001", rowContrat.getString("CODE_IRC_RETRAITE"));
-            // 200339139001002
-            n4ds.write("S44.G03.05.002", rowContrat.getString("NUMERO_RATTACHEMENT_RETRAITE"));
-        }
 
         // UGRR
         if (rowContrat.getString("CODE_IRC_UGRR") != null && rowContrat.getString("CODE_IRC_UGRR").trim().length() > 0 && rowContrat.getString("NUMERO_RATTACHEMENT_UGRR") != null
@@ -121,16 +186,17 @@ public class N4DSSalarie {
         n4ds.write("S48.G10.00.017", "01");
         final double baseBrute = getBaseBrute(rowSalarie);
         n4ds.write("S48.G10.00.018", decimalFormat.format(baseBrute));
-        n4ds.write("S48.G10.00.019", decimalFormat.format(baseBrute));
+        // Remove since N4DS v01x07
+        // n4ds.write("S48.G10.00.019", decimalFormat.format(baseBrute));
 
     }
 
     private void writeS65(SQLRow rowSalarie) throws IOException {
         final double baseBrute = getBaseBrute(rowSalarie);
 
-        if ((baseBrute / 12.0 / 151.6667) < (1.6 * 9.0)) {
-            double COEFF_FILLON = (0.281 / 0.6) * ((1.6 * 9 * 12 * 151.6667 / (rowSalarie.getForeign("ID_INFOS_SALARIE_PAYE").getFloat("SALAIRE_MOIS") * 12.0)) - 1.0);
-            n4ds.write("S65.G30.40.001", String.valueOf("9.00"));
+        if ((baseBrute / 12.0 / 151.6667) < (1.6 * 9.22)) {
+            double COEFF_FILLON = (0.281 / 0.6) * ((1.6 * 9.22 * 12 * 151.6667 / (rowSalarie.getForeign("ID_INFOS_SALARIE_PAYE").getFloat("SALAIRE_MOIS") * 12.0)) - 1.0);
+            n4ds.write("S65.G30.40.001", String.valueOf("9.22"));
             n4ds.write("S65.G30.40.002", decimalFormat.format(baseBrute));
             n4ds.write("S65.G30.40.003", decimalFormat.format(baseBrute * COEFF_FILLON));
         }
@@ -144,20 +210,22 @@ public class N4DSSalarie {
         n4ds.write("S65.G40.10.023.001", "01");
         n4ds.write("S65.G40.10.023.002", "98");
         n4ds.write("S65.G40.10.023.003", "98");
-        n4ds.write("S65.G40.10.023.004", "98");
+        n4ds.write("S65.G40.10.023.004", "03");
         n4ds.write("S65.G40.10.023.005", "98");
 
     }
 
+    DateFormat dateFormat = new SimpleDateFormat("ddMMyyyy");
+
     private void writeS41(SQLRow rowSalarie, SQLRow rowSociete) throws IOException {
 
         // FIXME Debut periode
-        n4ds.write("S40.G01.00.001", "01012011");
+        n4ds.write("S40.G01.00.001", dateFormat.format(d));
         // FIXME embauche, etc...
         n4ds.write("S40.G01.00.002.001", "097");
 
         // FIXME Fin periode
-        n4ds.write("S40.G01.00.003", "31122011");
+        n4ds.write("S40.G01.00.003", dateFormat.format(d2));
         // FIXME licenciement, etc...
         n4ds.write("S40.G01.00.004.001", "098");
 
@@ -209,8 +277,7 @@ public class N4DSSalarie {
         n4ds.write("S40.G10.05.012.003", "90");
 
         // FIXME code modalité d'activité
-        SQLRow rowStatutCat = rowContrat.getForeignRow("ID_CODE_STATUT_CATEGORIEL");
-        n4ds.write("S40.G10.05.013.004", rowStatutCat.getString("CODE"));
+        n4ds.write("S40.G10.05.013.004", "90");
 
         // FIXME code statut cat convention
         // SQLRow rowStatutCat = rowContrat.getForeignRow("ID_CODE_STATUT_CATEGORIEL");
@@ -218,6 +285,7 @@ public class N4DSSalarie {
         n4ds.write("S40.G10.05.015.001", rowCodeStatutConv.getString("CODE"));
 
         // Code statut cat agirc arrco
+        SQLRow rowStatutCat = rowContrat.getForeignRow("ID_CODE_STATUT_CATEGORIEL");
         n4ds.write("S40.G10.05.015.002", rowStatutCat.getString("CODE"));
 
         // Convention collective IDCC
@@ -291,11 +359,11 @@ public class N4DSSalarie {
         // Code régime obligatoire vieillesse
         n4ds.write("S40.G20.00.018.004", "200");
 
-        // TODO Code section accident travail
-        n4ds.write("S40.G25.00.025", rowInfos.getString("CODE_AT"));
+        // Code section accident travail
+        n4ds.write("S40.G25.00.025", rowInfos.getString("CODE_SECTION_AT"));
 
-        // TODO Code risque accident travail
-        n4ds.write("S40.G25.00.026", rowInfos.getString("CODE_SECTION_AT"));
+        // Code risque accident travail
+        n4ds.write("S40.G25.00.026", rowInfos.getString("CODE_AT"));
 
         // TODO Code bureau
         // n4ds.write( "S41.G01.00.027", "B");
@@ -359,8 +427,6 @@ public class N4DSSalarie {
         SQLElement eltRubriqueNet = this.conf.getDirectory().getElement("RUBRIQUE_NET");
         SQLSelect sel = new SQLSelect(rowSalarie.getTable().getBase());
         sel.addSelect(eltFichePayeElement.getTable().getKey());
-        Date d = new Date(111, 0, 1);
-        Date d2 = new Date(111, 11, 31);
         Where w = new Where(eltFichePaye.getTable().getField("DU"), d, d2);
         w = w.and(new Where(eltFichePaye.getTable().getField("VALIDE"), "=", Boolean.TRUE));
         w = w.and(new Where(eltFichePaye.getTable().getField("ID_SALARIE"), "=", rowSalarie.getID()));
@@ -388,10 +454,8 @@ public class N4DSSalarie {
     private double getBaseBrute(SQLRow rowSalarie) {
 
         SQLElement eltFichePaye = this.conf.getDirectory().getElement("FICHE_PAYE");
-        SQLSelect sel = new SQLSelect(rowSalarie.getTable().getBase());
+        SQLSelect sel = new SQLSelect();
         sel.addSelect(eltFichePaye.getTable().getKey());
-        Date d = new Date(111, 0, 1);
-        Date d2 = new Date(111, 11, 31);
         Where w = new Where(eltFichePaye.getTable().getField("DU"), d, d2);
         w = w.and(new Where(eltFichePaye.getTable().getField("VALIDE"), "=", Boolean.TRUE));
         w = w.and(new Where(eltFichePaye.getTable().getField("ID_SALARIE"), "=", rowSalarie.getID()));
@@ -411,10 +475,9 @@ public class N4DSSalarie {
     private double getNetImp(SQLRow rowSalarie) {
 
         SQLElement eltFichePaye = this.conf.getDirectory().getElement("FICHE_PAYE");
-        SQLSelect sel = new SQLSelect(rowSalarie.getTable().getBase());
+        SQLSelect sel = new SQLSelect();
         sel.addSelect(eltFichePaye.getTable().getKey());
-        Date d = new Date(111, 0, 1);
-        Date d2 = new Date(111, 11, 31);
+
         Where w = new Where(eltFichePaye.getTable().getField("DU"), d, d2);
         w = w.and(new Where(eltFichePaye.getTable().getField("VALIDE"), "=", Boolean.TRUE));
         w = w.and(new Where(eltFichePaye.getTable().getField("ID_SALARIE"), "=", rowSalarie.getID()));
@@ -433,10 +496,9 @@ public class N4DSSalarie {
     private double getCSG(SQLRow rowSalarie) {
 
         SQLElement eltFichePaye = this.conf.getDirectory().getElement("FICHE_PAYE");
-        SQLSelect sel = new SQLSelect(rowSalarie.getTable().getBase());
+        SQLSelect sel = new SQLSelect();
         sel.addSelect(eltFichePaye.getTable().getKey());
-        Date d = new Date(111, 0, 1);
-        Date d2 = new Date(111, 11, 31);
+
         Where w = new Where(eltFichePaye.getTable().getField("DU"), d, d2);
         w = w.and(new Where(eltFichePaye.getTable().getField("VALIDE"), "=", Boolean.TRUE));
         w = w.and(new Where(eltFichePaye.getTable().getField("ID_SALARIE"), "=", rowSalarie.getID()));
@@ -489,8 +551,6 @@ public class N4DSSalarie {
         SQLRow rowAdr = rowEtatCivil.getForeignRow("ID_ADRESSE");
         String voie = rowAdr.getString("RUE");
 
-        Ville ville = Ville.getVilleFromVilleEtCode(rowAdr.getString("VILLE"));
-
         // Complement adresse
         if (voie.contains("\n")) {
             String[] sVoies = voie.split("\n");
@@ -512,10 +572,10 @@ public class N4DSSalarie {
         n4ds.write("S30.G01.00.008.006", voie);
 
         // Code postal
-        n4ds.write("S30.G01.00.008.010", ville.getCodepostal());
+        n4ds.write("S30.G01.00.008.010", rowAdr.getString("CODE_POSTAL"));
 
         // Commune
-        String villeFormat = normalizeString2(ville.getName());
+        String villeFormat = normalizeString2(rowAdr.getString("VILLE"));
         n4ds.write("S30.G01.00.008.012", villeFormat);
 
         // Date de naissance

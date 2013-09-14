@@ -17,9 +17,9 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.erp.preferences.TemplateNXProps;
-import org.openconcerto.map.model.Ville;
 import org.openconcerto.odtemplate.Template;
 import org.openconcerto.odtemplate.engine.OGNLDataModel;
+import org.openconcerto.openoffice.ODSingleXMLDocument;
 import org.jopendocument.link.Component;
 import org.jopendocument.link.OOConnexion;
 import org.openconcerto.sql.Configuration;
@@ -38,7 +38,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
 public abstract class AbstractJOOReportsSheet {
     private static final String defaultLocationTemplate = SpreadSheetGenerator.defaultLocationTemplate;
@@ -60,6 +59,27 @@ public abstract class AbstractJOOReportsSheet {
 
     public String getFileName() {
         return getValidFileName(getName());
+    }
+
+    MetaDataSheet meta;
+
+    /**
+     * MetaData à inclure lors de la génération
+     * 
+     * @param meta
+     */
+    public void setMetaGeneration(MetaDataSheet meta) {
+        this.meta = meta;
+    }
+
+    /**
+     * MetaData à inclure lors de la génération
+     * 
+     * @param meta
+     */
+
+    public MetaDataSheet getMetaGeneration() {
+        return this.meta;
     }
 
     /**
@@ -136,7 +156,12 @@ public abstract class AbstractJOOReportsSheet {
                 OGNLDataModel model = new OGNLDataModel(createMap);
 
                 model.putAll(createMap);
-                template.createDocument(model).saveToPackageAs(fileOutOO);
+
+                final ODSingleXMLDocument createDocument = template.createDocument(model);
+                if (this.meta != null) {
+                    this.meta.applyTo(createDocument.getPackage().getMeta(true));
+                }
+                createDocument.saveToPackageAs(fileOutOO);
 
             }
 
@@ -159,7 +184,9 @@ public abstract class AbstractJOOReportsSheet {
                         map.put("Name", printer);
                         doc.printDocument(map);
                     }
-                    doc.close();
+                    if (!show) {
+                        doc.close();
+                    }
 
                 } catch (Exception e) {
                     e.printStackTrace();
@@ -320,26 +347,4 @@ public abstract class AbstractJOOReportsSheet {
 
     }
 
-    protected static String getVille(final String name) {
-
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-            SwingUtilities.invokeLater(new Runnable() {
-                public void run() {
-                    JOptionPane.showMessageDialog(null, "La ville " + "\"" + name + "\"" + " est introuvable! Veuillez corriger l'erreur!");
-                }
-            });
-            return null;
-        }
-        return ville.getName();
-    }
-
-    protected static String getVilleCP(String name) {
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-
-            return null;
-        }
-        return ville.getCodepostal();
-    }
 }

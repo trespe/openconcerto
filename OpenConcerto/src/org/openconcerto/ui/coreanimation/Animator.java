@@ -13,41 +13,62 @@
  
  package org.openconcerto.ui.coreanimation;
 
+import org.openconcerto.laf.LAFUtils;
 import org.openconcerto.ui.DisplayabilityListener;
 import org.openconcerto.ui.component.ComboComponent;
+import org.openconcerto.ui.component.ComboLockedMode;
+import org.openconcerto.ui.component.JRadioButtons.JStringRadioButtons;
+import org.openconcerto.ui.component.combo.ISearchableTextCombo;
 import org.openconcerto.ui.component.text.TextComponent;
+import org.openconcerto.utils.model.DefaultIListModel;
 
+import java.awt.BorderLayout;
 import java.awt.Component;
-import java.awt.FlowLayout;
+import java.awt.Container;
+import java.awt.event.ActionEvent;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 import java.util.WeakHashMap;
 
+import javax.swing.AbstractAction;
+import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import javax.swing.JRadioButton;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JToggleButton;
+import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.text.JTextComponent;
 
+import net.jcip.annotations.GuardedBy;
+
 public class Animator {
+
+    // avoid allocating a new array every pulse(), in EDT
     private Pulse[] tmpAnims = new Pulse[] {};
+    @GuardedBy("animators")
     private final Vector<Pulse> animators;
-    private Thread thread;
+    @GuardedBy("this")
+    private Thread thread = null;
+    @GuardedBy("this")
     private boolean isAnimating = true;
 
+    // all in EDT
     private final Map<Component, Pulse> activeComps;
     private final Map<Component, Object> managedComps;
     private final DisplayabilityListener displayabilityListener;
 
-    static final Animator instance = new Animator();
+    static private final Animator instance = new Animator();
 
     private Animator() {
         this.animators = new Vector<Pulse>();
@@ -66,7 +87,7 @@ public class Animator {
     }
 
     private void pulse() {
-        // no need to sync tmpAnims, only used by our thread
+        assert SwingUtilities.isEventDispatchThread();
         final int size;
         synchronized (this.animators) {
             size = this.animators.size();
@@ -105,12 +126,16 @@ public class Animator {
      * @param p the pulse to remove, can be <code>null</code>.
      * @return <code>true</code> if <code>p</code> was actually removed.
      */
-    public synchronized boolean remove(Pulse p) {
-        if (this.animators.remove(p)) {
-            p.resetState();
-            return true;
+    public boolean remove(Pulse p) {
+        assert SwingUtilities.isEventDispatchThread();
+        final boolean res;
+        synchronized (this.animators) {
+            res = this.animators.remove(p);
         }
-        return false;
+        if (res) {
+            p.resetState();
+        }
+        return res;
     }
 
     public void remove(Component c) {
@@ -118,6 +143,7 @@ public class Animator {
     }
 
     private void remove(Component c, boolean completely) {
+        assert SwingUtilities.isEventDispatchThread();
         remove(this.activeComps.remove(c));
         if (completely) {
             c.removeHierarchyListener(this.displayabilityListener);
@@ -126,6 +152,7 @@ public class Animator {
     }
 
     private void put(Component f, Pulse pulse) {
+        assert SwingUtilities.isEventDispatchThread();
         this.activeComps.put(f, pulse);
         this.add(pulse);
     }
@@ -133,18 +160,33 @@ public class Animator {
     public synchronized void add(Pulse p) {
         if (p == null)
             throw new NullPointerException("null Pulse");
-        // System.err.println(this.animators);
-        if (this.animators.contains(p)) {
-            return;
+        synchronized (this.animators) {
+            if (this.animators.contains(p)) {
+                return;
+            }
+            this.animators.add(p);
+            this.animators.notify();
         }
-        this.animators.add(p);
-        if (thread == null) {
-            thread = new Thread(new Runnable() {
+        if (this.thread == null) {
+            this.thread = new Thread(new Runnable() {
 
+                @Override
                 public void run() {
+                    final Runnable pulseRunnable = new Runnable() {
+                        @Override
+                        public void run() {
+                            pulse();
+                        }
+                    };
                     while (isAnimating()) {
                         try {
-                            pulse();
+                            // only call invokeLater() when necessary otherwise this prevents the
+                            // JVM from exiting (plus it slows down Swing for nothing)
+                            synchronized (Animator.this.animators) {
+                                while (Animator.this.animators.size() == 0)
+                                    Animator.this.animators.wait();
+                            }
+                            SwingUtilities.invokeLater(pulseRunnable);
                             Thread.sleep(100, 0);
                         } catch (Exception e) {
                             e.printStackTrace();
@@ -153,58 +195,10 @@ public class Animator {
                 };
 
             }, this.getClass().getSimpleName() + " pulse");
-            thread.setName("Background Animator");
-            thread.setDaemon(true);
-            thread.start();
+            this.thread.setName("Background Animator");
+            this.thread.setDaemon(true);
+            this.thread.start();
         }
-    }
-
-    /**
-     * @param args
-     */
-    public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        JFrame f = new JFrame();
-        f.getContentPane().setLayout(new FlowLayout());
-        f.getContentPane().add(new JLabel("Test"));
-        final JTextField textField = new JTextField(20);
-        Animator anim = Animator.getInstance();
-        anim.animate(textField);
-
-        f.getContentPane().add(textField);
-
-        final JCheckBox textField2 = new JCheckBox("Checkme");
-
-        anim.animate(textField2);
-        f.getContentPane().add(textField2);
-        //
-        final JRadioButton radio = new JRadioButton("Checkme");
-        anim.animate(radio);
-        f.getContentPane().add(radio);
-        //
-        final JComboBox combo = new JComboBox(new String[] { "Hello", "You" });
-        anim.animate(combo);
-        f.getContentPane().add(combo);
-        //
-        final JComboBox combo2 = new JComboBox(new String[] { "Hey", "You" });
-        combo2.setEditable(true);
-        anim.animate(combo2);
-        f.getContentPane().add(combo2);
-        //
-        final JTextArea tx = new JTextArea("eeeeeeeeee dds  ");
-        anim.animate(tx);
-        f.getContentPane().add(tx);
-        //
-        f.pack();
-        f.setLocation(10, 10);
-        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        textField.setText("bad");
-        f.setVisible(true);
     }
 
     public void animate(Component f, boolean animate) {
@@ -221,6 +215,7 @@ public class Animator {
      * @return <code>true</code> if <code>f</code> is animated.
      */
     public boolean animate(Component f) {
+        assert SwingUtilities.isEventDispatchThread();
         if (this.managedComps.containsKey(f))
             return this.activeComps.containsKey(f);
 
@@ -230,10 +225,13 @@ public class Animator {
     }
 
     private final boolean updateComp(Component f) {
+        assert SwingUtilities.isEventDispatchThread();
         boolean res = false;
         if (f.isDisplayable()) {
-            final Component pc = f instanceof Pulseable ? ((Pulseable) f).getPulseComponent() : f;
-            final Pulse p = this.createPulse(pc);
+            // FIXME f can be displayable but not yet initialized (e.g. radio buttons waiting an SQL
+            // request)
+            final Collection<? extends Component> pc = f instanceof Pulseable ? ((Pulseable) f).getPulseComponents() : Arrays.asList(f);
+            final Pulse p = this.createPulseFromList(pc);
             if (p != null) {
                 this.put(f, p);
                 res = true;
@@ -243,6 +241,16 @@ public class Animator {
             this.remove(f, false);
         }
         return res;
+    }
+
+    private Pulse createPulseFromList(final Collection<? extends Component> comps) {
+        final List<Pulse> l = new LinkedList<Pulse>();
+        for (final Component c : comps) {
+            final Pulse p = this.createPulse(c);
+            if (p != null)
+                l.add(p);
+        }
+        return l.size() == 0 ? null : new MultiPulse(l);
     }
 
     private Pulse createPulse(Component f) {
@@ -277,19 +285,95 @@ public class Animator {
     private final Pulse createComboPulse(JComboBox comp) {
         if (comp.isEditable()) {
             final JComponent editor = (JComponent) comp.getEditor().getEditorComponent();
-            // otherwise no background
-            editor.setOpaque(true);
-            return new JComponentBackGroundAnimator(editor);
+            // opaque otherwise no background (at least with the Windows l&f)
+            return new JComponentBackGroundAnimator(editor, true);
         } else {
-            return new JComponentBackGroundAnimator(comp);
+            return new JComponentForegroundAnimator(comp);
         }
     }
 
     public void resetState() {
-        synchronized (animators) {
-            for (Pulse t : animators) {
+        assert SwingUtilities.isEventDispatchThread();
+        synchronized (this.animators) {
+            for (Pulse t : this.animators) {
                 t.resetState();
             }
         }
+    }
+
+    static private class MultiPulse implements Pulse {
+
+        private final List<Pulse> l;
+
+        // private since l isn't copied
+        private MultiPulse(List<Pulse> l) {
+            super();
+            this.l = l;
+        }
+
+        @Override
+        public void pulse() {
+            for (final Pulse p : this.l)
+                p.pulse();
+        }
+
+        @Override
+        public void resetState() {
+            for (final Pulse p : this.l)
+                p.resetState();
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        LAFUtils.setLookAndFeel();
+        SwingUtilities.invokeLater(new Runnable() {
+            @Override
+            public void run() {
+                displayFrame();
+            }
+        });
+    }
+
+    static private void displayFrame() {
+        final Container comps = new JPanel();
+
+        comps.add(new JLabel("Test"));
+        comps.add(new JTextField("bad", 20));
+        comps.add(new JCheckBox("Checkme"));
+        comps.add(new JStringRadioButtons(Arrays.asList("Checkme", "Or else")));
+        comps.add(new JComboBox(new String[] { "Hello", "You" }));
+
+        final JComboBox comboEditable = new JComboBox(new String[] { "Hey", "You" });
+        comboEditable.setEditable(true);
+        comps.add(comboEditable);
+
+        final ISearchableTextCombo lockedSC = new ISearchableTextCombo(ComboLockedMode.LOCKED, 1, 12);
+        lockedSC.initCache(new DefaultIListModel<String>(Arrays.asList("Hey", "You")));
+        comps.add(lockedSC);
+
+        comps.add(new JTextArea("eeeeeeeeee dds  "));
+
+        final JPanel p = new JPanel(new BorderLayout());
+        p.add(new JLabel("Version : " + System.getProperty("java.version") + " ; L&F : " + UIManager.getLookAndFeel().getName()), BorderLayout.PAGE_START);
+        p.add(comps, BorderLayout.CENTER);
+        final Animator anim = Animator.getInstance();
+        p.add(new JButton(new AbstractAction("Start/Stop") {
+
+            private boolean animated = false;
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                this.animated = !this.animated;
+                for (final Component c : comps.getComponents())
+                    anim.animate(c, this.animated);
+            }
+        }), BorderLayout.PAGE_END);
+
+        final JFrame f = new JFrame();
+        f.setContentPane(p);
+        f.pack();
+        f.setLocation(10, 10);
+        f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        f.setVisible(true);
     }
 }

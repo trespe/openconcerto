@@ -20,6 +20,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.UpdateBuilder;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -31,7 +32,8 @@ final class ReOrderPostgreSQL extends ReOrder {
         super(t, spec);
     }
 
-    public List<String> getSQL(Connection conn) throws SQLException {
+    @Override
+    public List<String> getSQL(Connection conn, BigDecimal inc) throws SQLException {
         // see http://www.depesz.com/index.php/2007/08/17/rownum-anyone-cumulative-sum-in-one-query/
         // http://explainextended.com/2009/05/05/postgresql-row-numbers/
         // see http://www.postgresql.org/docs/8.4/interactive/functions-window.html
@@ -46,7 +48,7 @@ final class ReOrderPostgreSQL extends ReOrder {
         // FROM "test"."test"."OBSERVATION" "T"
         // WHERE "T"."ORDRE" between 12 and 25
         // ORDER BY "T"."ORDRE" ASC NULLS LAST, "T"."ID" ASC
-        final SQLSelect idsToReorder = new SQLSelect(this.t.getBase(), true);
+        final SQLSelect idsToReorder = new SQLSelect(true);
         idsToReorder.addFrom(this.t, alias);
         idsToReorder.addSelect(tID, null, "ID");
         idsToReorder.setWhere(this.getWhere(tOrder));
@@ -59,7 +61,7 @@ final class ReOrderPostgreSQL extends ReOrder {
         res.add("CREATE LOCAL TEMPORARY TABLE REORDER as select M.\"ID\", nextval('\"reorderSeq\"') as index from (\n" + idsToReorder.asString() + ") M;");
         res.add("DROP SEQUENCE \"reorderSeq\";");
 
-        res.add("create local temp table inc(val) as select " + getInc() + ";");
+        res.add("create local temp table inc(val) as select " + inc.toPlainString() + ";");
         // remove if using deferrable uniqueness constraints
         res.add(this.t.getBase().quote("UPDATE %f SET %n =  -%n " + this.getWhere(), this.t, oF, oF) + ";");
 

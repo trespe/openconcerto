@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.generationDoc.SheetInterface;
-import org.openconcerto.erp.generationDoc.SheetXml;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
@@ -23,9 +22,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.utils.Tuple2;
 
-import java.io.File;
 import java.text.DateFormat;
 import java.util.Date;
 import java.util.HashMap;
@@ -179,7 +176,7 @@ public class EtatChargesPayeSheet extends SheetInterface {
                 }
             } else {
                 rowVals = new SQLRowValues(tableFichePayeElement);
-                rowVals.loadAllSafe(rowFicheElt);
+                Configuration.getInstance().getDirectory().getElement(tableFichePayeElement).loadAllSafe(rowVals, rowFicheElt);
                 float montantPat, montantSal;
 
                 Object o = rowVals.getObject("MONTANT_PAT");

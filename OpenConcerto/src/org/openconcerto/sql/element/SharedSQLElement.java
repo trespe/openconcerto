@@ -23,11 +23,11 @@ import org.openconcerto.sql.model.SQLTable;
 public class SharedSQLElement extends ConfSQLElement {
 
     public SharedSQLElement(String tableName) {
-        super(tableName, tableName, tableName);
+        super(tableName);
     }
 
     public SharedSQLElement(SQLTable table) {
-        super(table, table.getName(), table.getName());
+        super(table);
     }
 
     @Override

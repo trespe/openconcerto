@@ -25,7 +25,7 @@ public class UserProps extends AbstractProps {
     private static final String PASSWORD = "Password";
     private static final String LAST_LOGIN = "LastLogin";
     private static final String LAST_SOCIETE = "LastSociete";
-    private static final String LANGUAGE = "Language";
+    public static final String LOCALE = "Language";
     private static UserProps instance;
 
     public void setLastLoginName(String login) {
@@ -68,7 +68,7 @@ public class UserProps extends AbstractProps {
     }
 
     public Locale getLocale() {
-        final String p = getProperty(UserProps.LANGUAGE);
+        final String p = getProperty(UserProps.LOCALE);
         if (p == null) {
             return Locale.getDefault();
         }
@@ -76,6 +76,6 @@ public class UserProps extends AbstractProps {
     }
 
     public void setLocale(Locale locale) {
-        setProperty(UserProps.LANGUAGE, locale.toString());
+        setProperty(UserProps.LOCALE, locale.toString());
     }
 }

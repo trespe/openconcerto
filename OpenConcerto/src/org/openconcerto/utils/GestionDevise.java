@@ -146,8 +146,15 @@ public class GestionDevise {
         return currencyToString(cents, true);
     }
 
-    public final static String currencyToString(BigDecimal currency) {
-        return DECIMAL_FORMAT.format(currency);
+    /**
+     * Format the amount with decimal formet ",##0.00"
+     * 
+     * @return null for null parameter
+     * */
+    public final static String currencyToString(BigDecimal amount) {
+        if (amount == null)
+            return null;
+        return DECIMAL_FORMAT.format(amount);
     }
 
     public final static String round(long cents) {
@@ -157,10 +164,13 @@ public class GestionDevise {
 
         final long truncated = cents / 100;
         final long rounded;
-        if (cents % 100 >= 50)
+        if (cents % 100 >= 50) {
             rounded = truncated + 1;
-        else
+        } else if (cents % 100 <= -50) {
+            rounded = truncated - 1;
+        } else {
             rounded = truncated;
+        }
         return String.valueOf(rounded);
     }
 
@@ -221,5 +231,12 @@ public class GestionDevise {
             s = "-" + s;
         }
         return s;
+    }
+
+    public static void main(String[] args) {
+        System.err.println(GestionDevise.round(-5155));
+        System.err.println(GestionDevise.round(-5145));
+        System.err.println(GestionDevise.round(5155));
+        System.err.println(GestionDevise.round(5145));
     }
 }

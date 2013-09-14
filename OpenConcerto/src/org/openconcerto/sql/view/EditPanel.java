@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.view;
 
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLComponent.Mode;
@@ -104,7 +105,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
     private JButton jButtonAnnuler;
     private final SQLComponent component;
 
-    private JCheckBox keepOpen = new JCheckBox("ne pas fermer la fenêtre");
+    private JCheckBox keepOpen = new JCheckBox(TM.tr("editPanel.keepOpen"));
 
     private final List<EditPanelListener> panelListeners = new Vector<EditPanelListener>();// EditPanelListener
     private JScrollPane p;
@@ -195,14 +196,14 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
                 this.setInnerBorder(null);
             }
         } catch (Exception ex) {
-            ExceptionHandler.handle("Erreur d'initialisation", ex);
+            ExceptionHandler.handle(TM.tr("init.error"), ex);
         }
     }
 
     private void updateBtns() {
-        updateBtn(this.jButtonAjouter, true, false, "d'ajouter", TableAllRights.ADD_ROW_TABLE);
-        updateBtn(this.jButtonModifier, true, true, "de modifier", TableAllRights.MODIFY_ROW_TABLE);
-        updateBtn(this.jButtonSupprimer, false, true, "de supprimer", TableAllRights.DELETE_ROW_TABLE);
+        updateBtn(this.jButtonAjouter, true, false, "noRightToAdd", TableAllRights.ADD_ROW_TABLE);
+        updateBtn(this.jButtonModifier, true, true, "noRightToModify", TableAllRights.MODIFY_ROW_TABLE);
+        updateBtn(this.jButtonSupprimer, false, true, "noRightToDel", TableAllRights.DELETE_ROW_TABLE);
     }
 
     private void updateBtn(final JButton b, final boolean needValid, final boolean needID, final String desc, final String code) {
@@ -211,9 +212,9 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
             final boolean idOK = this.getSQLComponent().getSelectedID() >= SQLRow.MIN_VALID_ID;
             final UserRights rights = UserRightsManager.getCurrentUserRights();
             if (!TableAllRights.hasRight(rights, code, getSQLComponent().getElement().getTable())) {
-                res = ValidState.createCached(false, "Vous n'avez pas le droit " + desc);
+                res = ValidState.createCached(false, TM.tr(desc));
             } else if (needID && !idOK)
-                res = ValidState.createCached(false, "cet élément n'existe pas");
+                res = ValidState.createCached(false, TM.tr("editPanel.inexistentElement"));
             else if (needValid && !this.valid.isValid())
                 res = this.valid;
             else
@@ -257,6 +258,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         this.p.getVerticalScrollBar().setUnitIncrement(9);
         this.p.setOpaque(false);
         this.p.getViewport().setOpaque(false);
+        this.p.setViewportBorder(null);
         this.p.setMinimumSize(new Dimension(60, 60));
 
         container.add(this.p, c);
@@ -294,7 +296,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
             c.fill = GridBagConstraints.NONE;
             c.gridx = 2;
             c.anchor = GridBagConstraints.EAST;
-            this.jButtonAjouter = new JButton("Ajouter");
+            this.jButtonAjouter = new JButton(TM.tr("add"));
             container.add(this.jButtonAjouter, c);
             // Listeners
             this.jButtonAjouter.addActionListener(this);
@@ -318,11 +320,11 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         } else if (this.mode == MODIFICATION) {
             c.gridx = 1;
             c.anchor = GridBagConstraints.EAST;
-            this.jButtonModifier = new JButton("Enregistrer les modifications");
+            this.jButtonModifier = new JButton(TM.tr("saveModifications"));
             container.add(this.jButtonModifier, c);
             c.weightx = 0;
             c.gridx = 2;
-            this.jButtonSupprimer = new JButton("Supprimer");
+            this.jButtonSupprimer = new JButton(TM.tr("remove"));
             container.add(this.jButtonSupprimer, c);
             // Listeners
             this.jButtonModifier.addActionListener(this);
@@ -332,9 +334,9 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         c.gridx = 3;
         c.anchor = GridBagConstraints.EAST;
         if (this.mode == READONLY)
-            this.jButtonAnnuler = new JButton("Fermer");
+            this.jButtonAnnuler = new JButton(TM.tr("close"));
         else
-            this.jButtonAnnuler = new JButton("Annuler");
+            this.jButtonAnnuler = new JButton(TM.tr("cancel"));
         container.add(this.jButtonAnnuler, c);
         // Listeners
         this.jButtonAnnuler.addActionListener(this);
@@ -392,19 +394,19 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
             try {
                 this.fireCancelled();// this.dispose();
             } catch (Throwable ex) {
-                ExceptionHandler.handle("Erreur pendant l'annulation", ex);
+                ExceptionHandler.handle(TM.tr("editPanel.cancelError"), ex);
             }
         } else if (e.getSource() == this.jButtonModifier) {
             try {
                 modifier();
             } catch (Throwable ex) {
-                ExceptionHandler.handle("Erreur pendant la modification", ex);
+                ExceptionHandler.handle(TM.tr("editPanel.modifyError"), ex);
             }
         } else if (e.getSource() == this.jButtonAjouter) {
             try {
                 ajouter();
             } catch (Throwable ex) {
-                ExceptionHandler.handle("Erreur pendant l'ajout", ex);
+                ExceptionHandler.handle(TM.tr("editPanel.addError"), ex);
             }
         } else if (e.getSource() == this.jButtonSupprimer) {
             try {
@@ -413,15 +415,11 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
                     // this.dispose(); // on ferme la fenetre
                 }
             } catch (Throwable ex) {
-                ExceptionHandler.handle("Erreur pendant la suppression", ex);
+                ExceptionHandler.handle(TM.tr("editPanel.deleteError"), ex);
             }
         }
-
     }
 
-    /**
-     * 
-     */
     public void modifier() {
         this.component.update();
         this.fireModified();
@@ -510,12 +508,12 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
             res = null;
         else {
             final String c = cause == null ? "" : cause.trim();
-            String validationText = "Les champs de saisie ne sont pas remplis correctement.\n\nVous ne pouvez enregistrer les modifications car";
+            String validationText = TM.tr("editPanel.invalidContent");
             if (c.length() > 0)
                 validationText += "\n" + c;
             else
-                validationText += " elles ne sont pas valides";
-            res = "<html>" + validationText.replaceAll("\n", "<br>") + "</html>";
+                validationText += TM.tr("editPanel.invalidContent.unknownReason");
+            res = "<html>" + validationText.replace("\n", "<br>") + "</html>";
         }
         return res;
     }
@@ -525,7 +523,8 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
     }
 
     public void disableDelete() {
-        this.jButtonSupprimer.setVisible(false);
+        if (this.jButtonSupprimer != null)
+            this.jButtonSupprimer.setVisible(false);
     }
 
     public void resetValue() {

@@ -40,6 +40,7 @@ import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.ui.AutoHideListener;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
@@ -247,7 +248,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
                 panelAdrSpec.add(new JLabel("Adresse", SwingConstants.RIGHT), cAdr);
                 final SQLRequestComboBox boxAdr = new SQLRequestComboBox(true);
                 boxAdr.uiInit(Configuration.getInstance().getDirectory().getElement(getTable().getTable("ADRESSE")).getComboRequest(true));
-                boxClient.addValueListener(new PropertyChangeListener() {
+                boxClient.addModelListener("wantedID", new PropertyChangeListener() {
 
                     @Override
                     public void propertyChange(PropertyChangeEvent evt) {
@@ -764,8 +765,9 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         return rowVals;
     }
 
-    public CommandeItemTable getRowValuesTable() {
-        return this.table;
+    @Override
+    public RowValuesTable getRowValuesTable() {
+        return this.table.getRowValuesTable();
     }
 
     /**

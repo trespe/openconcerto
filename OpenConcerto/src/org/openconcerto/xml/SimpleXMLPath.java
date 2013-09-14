@@ -28,7 +28,8 @@ import org.jdom.filter.Filter;
 import org.jdom.xpath.XPath;
 
 /**
- * Like an {@link XPath} with less features but a greater speed.
+ * Like an {@link XPath} with less features but a greater speed. Thread-safe if its {@link Step
+ * steps} are.
  * 
  * @author Sylvain CUAZ
  * 
@@ -37,24 +38,19 @@ import org.jdom.xpath.XPath;
 public final class SimpleXMLPath<T> {
 
     public static <T> SimpleXMLPath<T> create(final List<Step<?>> steps, final Step<T> lastStep) {
-        final SimpleXMLPath<T> res = new SimpleXMLPath<T>(lastStep);
-        for (final Step<?> s : steps)
-            res.add(s);
-        return res;
+        return new SimpleXMLPath<T>(Collections.unmodifiableList(new ArrayList<Step<?>>(steps)), lastStep);
     }
 
     public static <T> SimpleXMLPath<T> create(final Step<T> lastStep) {
-        return new SimpleXMLPath<T>(lastStep);
+        return new SimpleXMLPath<T>(Collections.<Step<?>> emptyList(), lastStep);
     }
 
     public static <T> SimpleXMLPath<T> create(final Step<?> first, final Step<T> lastStep) {
-        final SimpleXMLPath<T> res = new SimpleXMLPath<T>(lastStep);
-        res.add(first);
-        return res;
+        return new SimpleXMLPath<T>(Collections.<Step<?>> singletonList(first), lastStep);
     }
 
     public static <T> SimpleXMLPath<T> create(final Step<?> first, final Step<?> second, final Step<T> lastStep) {
-        return create(Arrays.<Step<?>> asList(first, second), lastStep);
+        return new SimpleXMLPath<T>(Arrays.<Step<?>> asList(first, second), lastStep);
     }
 
     /**
@@ -84,18 +80,10 @@ public final class SimpleXMLPath<T> {
     private final List<Step<?>> items;
     private final Step<T> lastItem;
 
-    private SimpleXMLPath(Step<T> lastStep) {
+    // private since we don't copy steps
+    private SimpleXMLPath(final List<Step<?>> steps, Step<T> lastStep) {
         this.lastItem = lastStep;
-        this.items = new ArrayList<Step<?>>();
-    }
-
-    public final SimpleXMLPath<T> add(final String name) {
-        return this.add(Step.createElementStep(name, null, null));
-    }
-
-    public final SimpleXMLPath<T> add(Step<?> step) {
-        this.items.add(step);
-        return this;
+        this.items = steps;
     }
 
     // return Element or Attribute
@@ -124,7 +112,11 @@ public final class SimpleXMLPath<T> {
     }
 
     public final List<T> selectNodes(final Object n) {
-        List<?> currentNodes = Collections.singletonList(n);
+        return this.selectNodes(Collections.singletonList(n));
+    }
+
+    public final List<T> selectNodes(final List<?> nodes) {
+        List<?> currentNodes = nodes;
         final int stop = this.items.size();
         for (int i = 0; i < stop; i++) {
             final Step<?> currentStep = this.items.get(i);

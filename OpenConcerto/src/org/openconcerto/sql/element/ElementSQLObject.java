@@ -16,15 +16,13 @@
  */
 package org.openconcerto.sql.element;
 
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.SQLForeignRowItemView;
+import org.openconcerto.utils.checks.EmptyChangeSupport;
 import org.openconcerto.utils.checks.EmptyListener;
-import org.openconcerto.utils.checks.EmptyObject;
-import org.openconcerto.utils.checks.EmptyObjectHelper;
 import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
@@ -33,9 +31,6 @@ import org.openconcerto.utils.checks.ValidState;
 import java.awt.Component;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
-import java.util.Set;
-
-import org.apache.commons.collections.Predicate;
 
 /**
  * A SQLObject editing a private foreignKey. It handles the creation, deletion and updating of the
@@ -43,7 +38,7 @@ import org.apache.commons.collections.Predicate;
  * 
  * @author Sylvain CUAZ
  */
-public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObject, SQLForeignRowItemView {
+public abstract class ElementSQLObject extends BaseSQLObject implements SQLForeignRowItemView {
 
     protected boolean required;
     private final SQLComponent parent;
@@ -53,7 +48,7 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
 
     private final PropertyChangeSupport supp;
     private final ValidChangeSupport validSupp;
-    private EmptyObjectHelper helper;
+    private EmptyChangeSupport helper;
 
     /**
      * Create a new instance.
@@ -62,8 +57,10 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
      * @param comp the component to edit, eg OBSERVATION.
      */
     public ElementSQLObject(SQLComponent parent, SQLComponent comp) {
+        // MAYBE remove firePropertyChange() in ValidListener and listen to every item of comp
         this.supp = new PropertyChangeSupport(this);
         this.validSupp = new ValidChangeSupport(this);
+        this.helper = new EmptyChangeSupport(this);
         this.parent = parent;
         this.comp = comp;
         this.required = false;
@@ -132,6 +129,7 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
             else
                 this.setCreatePanel();
 
+            this.helper.fireEmptyChange(this.isEmpty());
             fireValidChange();
             this.supp.firePropertyChange("value", null, null);
         }
@@ -139,15 +137,6 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
 
     public final boolean isCreated() {
         return this.created;
-    }
-
-    public void init(String sqlName, Set<SQLField> fields) {
-        super.init(sqlName, fields);
-        this.helper = new EmptyObjectHelper(this, new Predicate() {
-            public boolean evaluate(Object object) {
-                return !getSQLChild().isInited() || !getSQLChild().getValidState().isValid();
-            }
-        });
     }
 
     public void setValue(SQLRowAccessor r) {
@@ -195,29 +184,19 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
         this.setValue((SQLRowAccessor) null);
     }
 
-    /*
-     * (non-Javadoc)
-     * 
-     * @see org.openconcerto.sql.SQLObject#getStringValue()
-     */
-    public String getStringValue() {
-        return this.getUncheckedValue().toString();
-    }
-
-    public Object getValue() {
-        return this.helper.getValue();
-    }
-
-    public Object getUncheckedValue() {
-        return new Integer(getCurrentID());
-    }
-
+    @Override
     public boolean isEmpty() {
-        return this.helper.isEmpty();
+        return !this.isCreated();
     }
 
+    @Override
     public void addEmptyListener(EmptyListener l) {
-        this.helper.addListener(l);
+        this.helper.addEmptyListener(l);
+    }
+
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.helper.removeEmptyListener(l);
     }
 
     public final void addValueListener(PropertyChangeListener l) {
@@ -276,7 +255,7 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
     public ValidState getValidState() {
         final ValidState res;
         if (isCreated()) {
-            res = this.comp.getValidState();
+            res = this.getSQLChild().getValidState();
         } else {
             res = ValidState.getTrueInstance();
         }
@@ -316,7 +295,7 @@ public abstract class ElementSQLObject extends BaseSQLObject implements EmptyObj
     }
 
     private void fillRowValues(SQLRowValues vals) {
-        vals.put(this.getField().getName(), this.getCurrentID() == SQLRow.NONEXISTANT_ID ? SQLRowValues.SQL_EMPTY_LINK : this.getUncheckedValue());
+        vals.put(this.getField().getName(), this.getCurrentID() == SQLRow.NONEXISTANT_ID ? SQLRowValues.SQL_EMPTY_LINK : this.getCurrentID());
     }
 
     public void show(SQLRowAccessor r) {

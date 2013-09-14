@@ -73,14 +73,16 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
 
     public ListeDesDevisAction() {
         super();
-        this.putValue(Action.NAME, "Liste des devis");
+        final String pluralName = this.element.getPluralName();
+        this.putValue(Action.NAME, "Liste des " + pluralName);
     }
 
     IListFrame frame = null;
     final DevisSQLElement element = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
 
     public JFrame createFrame() {
-            final PanelFrame frame2 = new PanelFrame(new ListeDesDevisPanel(), "Liste des devis");
+            final String pluralName = this.element.getPluralName();
+            final PanelFrame frame2 = new PanelFrame(new ListeDesDevisPanel(), "Liste des " + pluralName);
             return frame2;
     }
 

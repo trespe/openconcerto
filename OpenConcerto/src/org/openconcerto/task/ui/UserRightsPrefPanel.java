@@ -17,9 +17,11 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.users.User;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.ui.DisplayabilityListener;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.state.WindowStateManager;
 
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -53,7 +55,17 @@ public class UserRightsPrefPanel extends JPanel implements ListSelectionListener
         c.fill = GridBagConstraints.BOTH;
         c.insets = new Insets(0, 0, 0, 0);
         // Liste des utilisateurs
-        l = new JList(new UserListModel());
+        final UserListModel dataModel = new UserListModel();
+        this.addHierarchyListener(new DisplayabilityListener() {
+            @Override
+            protected void displayabilityChanged(Component c) {
+                if (c.isDisplayable())
+                    dataModel.start();
+                else
+                    dataModel.stop();
+            }
+        });
+        l = new JList(dataModel);
         l.setCellRenderer(new UserListCellRenderer());
         l.setBorder(null);
         final JScrollPane scrollPane = new JScrollPane(l);
@@ -65,11 +77,11 @@ public class UserRightsPrefPanel extends JPanel implements ListSelectionListener
         c.gridx++;
         JSeparator sep = new JSeparator(JSeparator.VERTICAL);
         this.add(sep, c);
-        // 
+        //
         c.weightx = 1;
         detail = new UserRightPanelDetail();
         this.add(detail, c);
-        // 
+        //
         c.weighty = 0;
         c.gridx = 0;
         c.gridy++;

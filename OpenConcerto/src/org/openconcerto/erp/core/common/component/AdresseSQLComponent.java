@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.common.component;
 
+import org.openconcerto.erp.core.common.ui.VilleRowItemView;
 import org.openconcerto.map.ui.ITextComboVilleViewer;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -103,7 +104,7 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         this.add(pays, c);
 
         this.addSQLObject(textRue, "RUE");
-        this.addView(textVille, "VILLE", REQ);
+        this.addView(new VilleRowItemView(textVille), "CODE_POSTAL,VILLE", REQ);
         this.addView(cedex, "CEDEX");
         this.addView(destinataire, "DEST");
 

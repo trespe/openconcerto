@@ -67,6 +67,7 @@ import org.jgrapht.util.*;
  * @author Barak Naveh
  * @since Jul 24, 2003
  */
+@SuppressWarnings("unqualified-field-access")
 public abstract class AbstractBaseGraph<V, E>
     extends AbstractGraph<V, E>
     implements Graph<V, E>,

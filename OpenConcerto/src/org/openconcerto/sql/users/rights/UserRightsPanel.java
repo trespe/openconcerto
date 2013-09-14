@@ -13,6 +13,10 @@
  
  package org.openconcerto.sql.users.rights;
 
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.TM;
+import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ListSQLRequest;
@@ -25,7 +29,6 @@ import org.openconcerto.utils.cc.IClosure;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
-import java.util.Arrays;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -41,16 +44,21 @@ public class UserRightsPanel extends JPanel {
     private final ListeModifyPanel modifPanel;
 
     public UserRightsPanel() {
+        this(Configuration.getInstance().getDirectory());
+    }
+
+    public UserRightsPanel(final SQLElementDirectory dir) {
         super(new GridBagLayout());
 
         // init the list before adding it, otherwise we see the first refresh from all lines to just
         // these of undef
         // instantiate our own element to be safe
-        this.modifPanel = new ListeModifyPanel(new UserRightSQLElement());
+        this.modifPanel = new ListeModifyPanel(dir.getElement(UserRightSQLElement.class));
         this.modifPanel.setSearchFullMode(false);
         final SQLTable table = this.getTable().getForeignTable("ID_USER_COMMON");
 
-        this.list = new JListSQLTablePanel(JListSQLTablePanel.createComboRequest(table, true), "Droits par défaut");
+        final SQLElement usersElem = dir.getElement(table);
+        this.list = new JListSQLTablePanel(JListSQLTablePanel.createComboRequest(usersElem, true), TM.tr("rightsPanel.defaultRights"));
         // only superusers can see superusers (that's how we prevent the setting of superuser
         // rights)
         if (!UserRightsManager.getCurrentUserRights().isSuperUser())
@@ -75,7 +83,7 @@ public class UserRightsPanel extends JPanel {
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.weightx = 1;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        listePanel.add(new JLabel("Liste des utilisateurs"), c);
+        listePanel.add(new JLabel(TM.getInstance().trM("element.list", "element", usersElem.getName())), c);
 
         c.weightx = 1;
         c.weighty = 1;
@@ -87,7 +95,7 @@ public class UserRightsPanel extends JPanel {
         JPanel panelDroits = new JPanel(new GridBagLayout());
         GridBagConstraints c2 = new DefaultGridBagConstraints();
         c2.gridwidth = GridBagConstraints.REMAINDER;
-        panelDroits.add(new JLabel("Droits"), c2);
+        panelDroits.add(new JLabel(TM.tr("rights")), c2);
         c2.gridy++;
         c2.weightx = 1;
         c2.weighty = 0.7;

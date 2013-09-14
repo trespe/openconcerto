@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.erp.config.Log;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
@@ -39,7 +40,6 @@ import java.util.Set;
  * @author Sylvain
  */
 public final class DBContext {
-
 
     private final ModuleVersion localVersion;
     private final ModuleVersion lastInstalledVersion;
@@ -68,7 +68,6 @@ public final class DBContext {
         this.dm = new ArrayList<IClosure<? super DBRoot>>();
     }
 
-
     public final ModuleVersion getLocalVersion() {
         return this.localVersion;
     }
@@ -89,22 +88,25 @@ public final class DBContext {
         return (Set<SQLField>) this.fields.getNonNull(tableName);
     }
 
-    private final List<String> getSQL() {
+    final List<String> getSQL() {
         return ChangeTable.cat(this.changeTables, this.root.getName());
     }
 
     final void execute() throws SQLException {
+        Log.get().info("executing database changes");
         final List<String> sql = this.getSQL();
         // refetch() is costly
         if (sql.size() > 0) {
-            for (final String s : sql)
+            for (final String s : sql) {
+                Log.get().info("executing " + s);
                 getRoot().getDBSystemRoot().getDataSource().execute(s);
-
+            }
             // perhaps add a Map parameter to getCreateTable() for the undefined row
             // for now OK to not use an undefined row since we can't modify List/ComboSQLRequet
-            for (final String addedTable : getAddedTables())
+            for (final String addedTable : getAddedTables()) {
+                Log.get().info("setting null undefined for table " + addedTable);
                 SQLTable.setUndefID(getRoot().getSchema(), addedTable, null);
-
+            }
             // always updateVersion() after setUndefID(), see DBRoot.createTables()
             getRoot().getSchema().updateVersion();
             getRoot().refetch();

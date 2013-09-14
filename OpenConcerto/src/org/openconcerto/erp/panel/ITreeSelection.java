@@ -29,9 +29,9 @@ import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.SwingWorker2;
+import org.openconcerto.utils.checks.EmptyChangeSupport;
 import org.openconcerto.utils.checks.EmptyListener;
-import org.openconcerto.utils.checks.EmptyObject;
-import org.openconcerto.utils.checks.EmptyObjectHelper;
+import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidState;
 
@@ -57,10 +57,8 @@ import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 
-import org.apache.commons.collections.Predicate;
-
 // TODO Drag'n drop des nodes
-public class ITreeSelection extends JTree implements MouseListener, EmptyObject, ValueWrapper<Integer>, RowItemViewComponent {
+public class ITreeSelection extends JTree implements MouseListener, EmptyObj, ValueWrapper<Integer>, RowItemViewComponent {
 
     private SQLElement element;
 
@@ -71,7 +69,7 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
     private Map<Integer, ITreeSelectionNode> mapNode = new HashMap<Integer, ITreeSelectionNode>();
 
     protected static final int EMPTY_ID = SQLRow.MIN_VALID_ID - 1;
-    private EmptyObjectHelper helper;
+    private final EmptyChangeSupport helper;
     private final PropertyChangeSupport supp;
 
     public ITreeSelection() {
@@ -91,11 +89,13 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         this.element = element;
 
         this.supp = new PropertyChangeSupport(this);
+        this.helper = new EmptyChangeSupport(this);
 
         // Value changed
         this.addTreeSelectionListener(new TreeSelectionListener() {
             public void valueChanged(TreeSelectionEvent e) {
-                ITreeSelection.this.supp.firePropertyChange("value", null, getUncheckedValue());
+                ITreeSelection.this.supp.firePropertyChange("value", null, getValue());
+                ITreeSelection.this.helper.fireEmptyChange(isEmpty());
             }
         });
 
@@ -235,8 +235,14 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         this.setValue(1);
     }
 
+    @Override
     public void addEmptyListener(EmptyListener l) {
-        this.helper.addListener(l);
+        this.helper.addEmptyListener(l);
+    }
+
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.helper.removeEmptyListener(l);
     }
 
     public void addValueListener(PropertyChangeListener l) {
@@ -248,8 +254,7 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         this.supp.removePropertyChangeListener(l);
     }
 
-    public Integer getUncheckedValue() {
-
+    public Integer getValue() {
         int id = 1;
         TreePath path = this.getSelectionPath();
 
@@ -264,12 +269,9 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         return id;
     }
 
-    public Integer getValue() throws IllegalStateException {
-        return ((Number) this.helper.getValue()).intValue();
-    }
-
+    @Override
     public boolean isEmpty() {
-        return this.helper.isEmpty();
+        return this.getValue().intValue() <= EMPTY_ID;
     }
 
     public void addValidListener(ValidListener l) {
@@ -296,12 +298,6 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObject,
         }
         // else
         // element = this.element;
-        this.helper = new EmptyObjectHelper(this, new Predicate() {
-            public boolean evaluate(Object object) {
-                final Integer val = ((Number) object).intValue();
-                return val.intValue() <= EMPTY_ID;
-            }
-        });
         initTree();
     }
 

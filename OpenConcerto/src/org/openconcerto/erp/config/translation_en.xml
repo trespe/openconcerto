@@ -32,9 +32,9 @@
 	<menu id="stock.io.create" label="Stock" />
 
 	<!-- List -->
-	<menu id="menu.list" label="Mamagement" />
+	<menu id="menu.list" label="Management" />
 	<menu id="menu.list.customer" label="CRM" />
-	<menu id="customer.list" label="Customer" />
+	<menu id="customer.list" label="Customers" />
 	<menu id="contact.list" label="Contacts" />
 	<menu id="customer.history" label="Customer history" />
 	<menu id="customer.quote.list" label="Quotes" />
@@ -57,7 +57,7 @@
 	<menu id="customer.credit.list" label="Credits" />
 	<menu id="menu.list.supplier" label="Supplier" />
 	<menu id="supplier.list" label="Suppliers" />
-	<menu id="supplier.contact.list" label="Supplier contacta" />
+	<menu id="supplier.contact.list" label="Supplier contacts" />
 	<menu id="supplier.history" label="Supplier history" />
 	<menu id="supplier.order.list" label="Supplier orders" />
 	<menu id="supplier.receipt.list" label="Supplier receipts" />
@@ -74,7 +74,7 @@
 	<menu id="menu.accounting" label="Accounting" />
 	<menu id="accounting.balance" label="Balance" />
 	<menu id="accounting.client.balance" label="Customer balance" />
-	<menu id="accounting.analytical.result" label="Anatycal result" />
+	<menu id="accounting.analytical.result" label="Analytical result" />
 	<menu id="accounting.ledger" label="Ledger" />
 	<menu id="accounting.general.ledger" label="General ledger" />
 	<menu id="accounting.entries.ledger" label="Ledger entries" />

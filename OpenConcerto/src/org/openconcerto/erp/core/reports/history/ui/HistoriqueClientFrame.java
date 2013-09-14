@@ -68,7 +68,8 @@ public class HistoriqueClientFrame {
         Where wNotRegle = new Where(tableEch.getField("REGLE"), "=", Boolean.FALSE);
         wNotRegle = wNotRegle.and(new Where(tableEch.getField("REG_COMPTA"), "=", Boolean.FALSE));
 
-        this.listPanel = new ListeHistoriquePanel("Clients", JListSQLTablePanel.createComboRequest(b.getTable("CLIENT"), true), mapList, bilanPanel, map, wNotRegle);
+        this.listPanel = new ListeHistoriquePanel("Clients", JListSQLTablePanel.createComboRequest(Configuration.getInstance().getDirectory().getElement(b.getTable("CLIENT")), true), mapList,
+                bilanPanel, map, wNotRegle);
         this.listPanel.addListenerTable(new TableModelListener() {
             public void tableChanged(TableModelEvent arg0) {
                 bilanPanel.updateRelance(HistoriqueClientFrame.this.listPanel.getListId("RELANCE"));

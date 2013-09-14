@@ -77,10 +77,16 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
         this.getWrapper().resetValue();
     }
 
-    @SuppressWarnings("unchecked")
     public void show(SQLRowAccessor r) {
-        if (r.getFields().contains(this.getField().getName()))
-            this.getWrapper().setValue((T) r.getObject(this.getField().getName()));
+        if (r.getFields().contains(this.getField().getName())) {
+            @SuppressWarnings("unchecked")
+            final T object = (T) r.getObject(this.getField().getName());
+            try {
+                this.getWrapper().setValue(object);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("Cannot set value of  " + this.getWrapper() + " to " + object + " (from " + this.getField() + ")", e);
+            }
+        }
     }
 
     public void update(SQLRowValues vals) {
@@ -98,12 +104,19 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
 
     // *** emptyObj
 
+    @Override
     public final boolean isEmpty() {
         return this.helper.isEmpty();
     }
 
+    @Override
     public final void addEmptyListener(EmptyListener l) {
         this.helper.addEmptyListener(l);
+    }
+
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.helper.removeEmptyListener(l);
     }
 
     // *** validObj

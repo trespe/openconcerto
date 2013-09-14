@@ -17,14 +17,18 @@ import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidState;
+import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Component;
 import java.beans.PropertyChangeListener;
+import java.text.ParseException;
 import java.util.Calendar;
 import java.util.Date;
 
 import javax.swing.JButton;
 import javax.swing.JComponent;
+import javax.swing.JFormattedTextField.AbstractFormatter;
+import javax.swing.event.DocumentEvent;
 import javax.swing.text.JTextComponent;
 
 import org.jdesktop.swingx.JXDatePicker;
@@ -60,9 +64,46 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         final JXMonthView monthView = new JXMonthView();
         monthView.setFirstDayOfWeek(Calendar.getInstance().getFirstDayOfWeek());
         monthView.setTraversable(true);
+
+        // Fire sur chaque modification
+        this.getEditor().getDocument().addDocumentListener(new SimpleDocumentListener() {
+
+            @Override
+            public void update(DocumentEvent e) {
+
+                AbstractFormatter format = getEditor().getFormatter();
+                Date d;
+                if (getEditor().getText().trim().length() > 0) {
+                    try {
+                        d = (Date) format.stringToValue(getEditor().getText());
+                    } catch (ParseException e1) {
+                        d = null;
+                    }
+                    uncheckedValue = d;
+                    if (uncheckedValue == null || !uncheckedValue.equals(d)) {
+                        getEditor().firePropertyChange("value", true, false);
+                    }
+                } else {
+                    uncheckedValue = null;
+                }
+            }
+        });
+
         this.setMonthView(monthView);
 
         this.resetValue();
+
+    }
+
+    Date uncheckedValue = null;
+
+    public Date getUncheckedValue() {
+        return uncheckedValue;
+    }
+
+    @Override
+    public Date getDate() {
+        return getUncheckedValue();
     }
 
     @Override
@@ -70,8 +111,10 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         super.updateUI();
         // can't change BasicDatePickerUI behavior, so do it here
         for (final Component child : this.getComponents()) {
-            if (child instanceof JButton)
+            if (child instanceof JButton) {
                 ((JComponent) child).setOpaque(false);
+                ((JButton) child).setContentAreaFilled(false);
+            }
         }
     }
 

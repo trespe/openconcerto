@@ -103,7 +103,11 @@ public class ListeFactureRenderer extends TableCellRendererDecorator {
                         int njour = (foreignRow.getObject("LENJOUR") == null) ? 0 : foreignRow.getInt("LENJOUR");
 
                         if (ajours == 0 && njour == 0) {
-                            label.setText("Comptant");
+                            if (foreignRow.getObject("COMPTANT") != null && !foreignRow.getBoolean("COMPTANT")) {
+                                label.setText("Date de facture");
+                            } else {
+                                label.setText("Comptant");
+                            }
                         } else {
                             StringBuffer s = new StringBuffer();
                             if (ajours != 0) {

@@ -28,7 +28,7 @@ import org.jdom.Element;
 public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> {
 
     static final String ELEMENT_NAME = "style";
-    static final String ELEMENT_DEFAULT_NAME = "default-style";
+    public static final String ELEMENT_DEFAULT_NAME = "default-style";
 
     static String getFamily(final Element styleElem) {
         assert styleElem.getName().equals(ELEMENT_NAME) || styleElem.getName().equals(ELEMENT_DEFAULT_NAME);
@@ -42,6 +42,7 @@ public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> 
                 return toClone.create(pkg, e);
             }
         };
+        res.setElementNS(version.getNS(toClone.getElementNS().getPrefix()));
         res.getRefElementsMap().putAll(toClone.getRefElementsMap());
         res.getMultiRefElementsMap().putAll(toClone.getMultiRefElementsMap());
         return res;
@@ -76,7 +77,7 @@ public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> 
     public final S findDefaultStyle(final ODPackage pkg) {
         return this.getDefaultStyle(pkg, false);
     }
-    
+
     public final S getDefaultStyle(final ODPackage pkg, final boolean create) {
         final Element styleElem = pkg.getDefaultStyle(this, create);
         return styleElem == null ? null : this.create(pkg, styleElem);
@@ -86,5 +87,10 @@ public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> 
         final Element res = new Element(StyleStyleDesc.ELEMENT_DEFAULT_NAME, getElementNS());
         this.initStyle(res);
         return res;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + " family = " + this.getFamily();
     }
 }

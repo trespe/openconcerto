@@ -19,16 +19,13 @@ import org.openconcerto.sql.model.SQLTable;
 
 public class CommandeFactureAchatSQLInjector extends SQLInjector {
     public CommandeFactureAchatSQLInjector(final DBRoot root) {
-        super(root, "COMMANDE", "SAISIE_ACHAT");
-
+        super(root, "COMMANDE", "SAISIE_ACHAT", true);
         final SQLTable tableCommande = getSource();
         final SQLTable tableAchat = getDestination();
         map(tableCommande.getField("ID_FOURNISSEUR"), tableAchat.getField("ID_FOURNISSEUR"));
         map(tableCommande.getField("NOM"), tableAchat.getField("NOM"));
         map(tableCommande.getField("INFOS"), tableAchat.getField("INFOS"));
         map(tableCommande.getField("NUMERO"), tableAchat.getField("NUMERO_COMMANDE"));
-        map(tableCommande.getField("ID"), tableAchat.getField("IDSOURCE"));
-        mapDefaultValues(tableAchat.getField("SOURCE"), tableCommande.getName());
         map(tableCommande.getField("T_TTC"), tableAchat.getField("MONTANT_TTC"));
         map(tableCommande.getField("T_HT"), tableAchat.getField("MONTANT_HT"));
         map(tableCommande.getField("T_TVA"), tableAchat.getField("MONTANT_TVA"));

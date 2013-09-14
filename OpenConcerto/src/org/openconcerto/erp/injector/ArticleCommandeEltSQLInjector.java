@@ -11,29 +11,24 @@
  * When distributing the software, include this License Header Notice in each file.
  */
  
- /*
- * Créé le 26 juil. 2011
- */
-package org.openconcerto.erp.injector;
+ package org.openconcerto.erp.injector;
 
-import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLTable;
 
 public class ArticleCommandeEltSQLInjector extends SQLInjector {
-    private static final SQLTable articleTable = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("ARTICLE");
-    private static final SQLTable commandeEltTable = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT").getTable();
 
     public ArticleCommandeEltSQLInjector(final DBRoot root) {
-        super(articleTable, commandeEltTable);
+        super(root.getTable("ARTICLE"), root.getTable("COMMANDE_ELEMENT"), false);
+        final SQLTable tableArticle = getSource();
+        final SQLTable tableCommandeElement = getDestination();
         createDefaultMap();
-        if (commandeEltTable.contains("ID_ARTICLE")) {
-            map(articleTable.getKey(), commandeEltTable.getField("ID_ARTICLE"));
+        if (tableCommandeElement.contains("ID_ARTICLE")) {
+            map(tableArticle.getKey(), tableCommandeElement.getField("ID_ARTICLE"));
         }
-        if (articleTable.getFieldsName().contains("ID_DEVISE")) {
-            remove(articleTable.getField("ID_DEVISE"), commandeEltTable.getField("ID_DEVISE"));
+        if (tableArticle.contains("ID_DEVISE")) {
+            remove(tableArticle.getField("ID_DEVISE"), tableCommandeElement.getField("ID_DEVISE"));
         }
     }
 }

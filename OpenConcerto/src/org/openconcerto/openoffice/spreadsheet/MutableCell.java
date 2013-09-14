@@ -19,12 +19,16 @@ import org.openconcerto.openoffice.ODFrame;
 import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.openoffice.StyleDesc;
+import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ByteArrayProducer;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ImageProducer;
+import org.openconcerto.openoffice.spreadsheet.CellStyle.StyleTableCellProperties;
 import org.openconcerto.openoffice.style.data.BooleanStyle;
 import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.openoffice.style.data.DateStyle;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.TimeUtils;
+import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
 
 import java.awt.Color;
@@ -41,7 +45,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.logging.Level;
 
-import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.Duration;
 
 import org.jdom.Attribute;
@@ -65,21 +68,21 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
     static private final NumberFormat TextPCurrencyFormat = DecimalFormat.getCurrencyInstance();
 
     static public String formatNumber(Number n, final CellStyle defaultStyle) {
-        return formatNumber(TextPFloatFormat, n, defaultStyle, false);
+        return formatNumber(TextPFloatFormat, n, defaultStyle);
     }
 
     static public String formatPercent(Number n, final CellStyle defaultStyle) {
-        return formatNumber(TextPPercentFormat, n, defaultStyle, true);
+        return formatNumber(TextPPercentFormat, n, defaultStyle);
     }
 
     static public String formatCurrency(Number n, final CellStyle defaultStyle) {
-        return formatNumber(TextPCurrencyFormat, n, defaultStyle, true);
+        return formatNumber(TextPCurrencyFormat, n, defaultStyle);
     }
 
-    static private String formatNumber(NumberFormat format, Number n, final CellStyle defaultStyle, boolean forceFraction) {
+    static private String formatNumber(NumberFormat format, Number n, final CellStyle defaultStyle) {
         synchronized (format) {
             final int decPlaces = DataStyle.getDecimalPlaces(defaultStyle);
-            format.setMinimumFractionDigits(forceFraction ? decPlaces : 0);
+            format.setMinimumFractionDigits(0);
             format.setMaximumFractionDigits(decPlaces);
             return format.format(n);
         }
@@ -112,23 +115,36 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
     // *** setValue
 
     private void setValueAttributes(ODValueType type, Object val) {
-        final Attribute valueTypeAttr = this.getElement().getAttribute("value-type", getValueNS());
+        final Namespace valueNS = getValueNS();
+        final Attribute valueTypeAttr = this.getElement().getAttribute("value-type", valueNS);
         // e.g. DATE
         final ODValueType currentType = valueTypeAttr == null ? null : ODValueType.get(valueTypeAttr.getValue());
-        // remove old value attribute (assume Element is valid, otherwise we would need to remove
-        // all possible value attributes)
-        if (currentType != null && !currentType.equals(type)) {
-            // e.g. @date-value
-            this.getElement().removeAttribute(currentType.getValueAttribute(), getValueNS());
-        }
 
         if (type == null) {
             if (valueTypeAttr != null) {
                 valueTypeAttr.detach();
             }
         } else {
-            this.getElement().setAttribute("value-type", type.getName(), getValueNS());
-            this.getElement().setAttribute(type.getValueAttribute(), type.format(val), getValueNS());
+            if (!type.equals(currentType)) {
+                if (valueTypeAttr != null) {
+                    valueTypeAttr.setValue(type.getName());
+                } else {
+                    // create an instance of Attribute to avoid a getAttribute() in the simpler
+                    // setAttribute()
+                    this.getElement().setAttribute(new Attribute("value-type", type.getName(), valueNS));
+                }
+            }
+        }
+
+        // remove old value attribute (assume Element is valid, otherwise we would need to remove
+        // all possible value attributes)
+        if (currentType != null && (!currentType.equals(type) || type == ODValueType.STRING)) {
+            // e.g. @date-value
+            this.getElement().removeAttribute(currentType.getValueAttribute(), valueNS);
+        }
+        // Like LO, do not generate string-value
+        if (type != null && type != ODValueType.STRING) {
+            this.getElement().setAttribute(type.getValueAttribute(), type.format(val), valueNS);
         }
     }
 
@@ -143,7 +159,7 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
             // try to reuse the first text:p to keep style
             final Element child = this.getElement().getChild("p", getNS().getTEXT());
             final Element t = child != null ? child : new Element("p", getNS().getTEXT());
-            t.setContent(OOXML.get(this.getODDocument().getFormatVersion()).encodeWSasList(value));
+            t.setContent(OOXML.get(this.getODDocument().getFormatVersion(), false).encodeWSasList(value));
 
             this.getElement().setContent(t);
         }
@@ -223,8 +239,7 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
             } else if (vt == ODValueType.TIME) {
                 if (obj instanceof Duration) {
                     final Duration normalized = getODDocument().getEpoch().normalizeToHours((Duration) obj);
-                    text = "" + normalized.getHours() + ':' + TextPMinuteSecondFormat.format(normalized.getMinutes()) + ':'
-                            + TextPMinuteSecondFormat.format(normalized.getField(DatatypeConstants.SECONDS));
+                    text = "" + normalized.getHours() + ':' + TextPMinuteSecondFormat.format(normalized.getMinutes()) + ':' + TextPMinuteSecondFormat.format(TimeUtils.getSeconds(normalized));
                 } else {
                     text = TextPTimeFormat.format(((Calendar) obj).getTime());
                 }
@@ -278,7 +293,7 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
 
     private final Tuple3<DataStyle, ODValueType, Object> getDataStyleAndValue(Object obj, ODValueType valueType, boolean onlyCast) {
         final CellStyle s = this.getStyle();
-        return s != null ? getStyle().getDataStyle(obj, valueType, onlyCast) : null;
+        return s != null ? s.getDataStyle(obj, valueType, onlyCast) : null;
     }
 
     protected final CellStyle getDefaultStyle() {
@@ -300,6 +315,61 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
             } else if (obj instanceof Element) {
                 replaceContentBy((Element) obj, oldValue, newValue);
             }
+        }
+    }
+
+    /**
+     * Set the raw value of the formula attribute.
+     * 
+     * @param formula the raw value, e.g. "of:sum(A1:A2)".
+     */
+    public final void setRawFormula(final String formula) {
+        // from 19.642 table:formula of OpenDocument-v1.2 : Whenever the initial text of a formula
+        // has the appearance of an NCName followed by ":", an OpenDocument producer shall provide a
+        // valid namespace prefix in order to eliminate any ambiguity.
+        final String nsPrefix = getFormulaNSPrefix(formula).get0();
+        if (nsPrefix != null && this.getElement().getNamespace(nsPrefix) == null) {
+            throw new IllegalArgumentException("Unknown namespace prefix : " + nsPrefix);
+        }
+        this.setFormulaNoCheck(formula);
+    }
+
+    private final void setFormulaNoCheck(final String formula) {
+        this.getElement().setAttribute("formula", formula, getTABLE());
+    }
+
+    public final void setFormulaAndNamespace(final Tuple2<Namespace, String> formula) {
+        this.setFormulaAndNamespace(formula.get0(), formula.get1());
+    }
+
+    public final void setFormula(final String formula) {
+        this.setFormulaAndNamespace(null, formula);
+    }
+
+    public final void setFormulaAndNamespace(final Namespace ns, final String formula) {
+        if (getODDocument().getVersion() == XMLVersion.OOo) {
+            if (ns != null)
+                throw new IllegalArgumentException("Namespaces not supported by this version : " + ns);
+            this.setFormulaNoCheck(formula);
+        } else if (ns == null) {
+            final String nsPrefix = getFormulaNSPrefix(formula).get0();
+            if (nsPrefix != null) {
+                // eliminate ambiguity
+                final Namespace defaultNS = getDefaultFormulaNS();
+                // prevent infinite recursion
+                if (defaultNS == null)
+                    throw new IllegalStateException("Cannot resolve ambiguity, formula appears to begin with " + nsPrefix + " and no default namespace found");
+                this.setFormulaAndNamespace(defaultNS, formula);
+            } else {
+                this.setFormulaNoCheck(formula);
+            }
+        } else {
+            final Namespace existingNS = this.getElement().getNamespace(ns.getPrefix());
+            if (existingNS == null)
+                this.getElement().getDocument().getRootElement().addNamespaceDeclaration(ns);
+            else if (!existingNS.equals(ns))
+                throw new IllegalStateException("Namespace conflict : " + existingNS + " != " + ns);
+            this.setFormulaNoCheck(ns.getPrefix() + ':' + formula);
         }
     }
 
@@ -381,6 +451,10 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
         return this.getRow().getSheet().getStyleNameAt(this.getX(), this.getY());
     }
 
+    public final StyleTableCellProperties getTableCellProperties() {
+        return this.getRow().getSheet().getTableCellPropertiesAt(this.getX(), this.getY());
+    }
+
     public void setImage(final File pic) throws IOException {
         this.setImage(pic, false);
     }
@@ -413,6 +487,6 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
     }
 
     public final void setBackgroundColor(final Color color) {
-        this.getPrivateStyle().getTableCellProperties().setBackgroundColor(color);
+        this.getPrivateStyle().getTableCellProperties(this).setBackgroundColor(color);
     }
 }

@@ -42,7 +42,6 @@ public class OOXMLCache {
         int i = row.getInt(field.getName());
 
         if (c != null && c.get(i) != null) {
-            System.err.println("get foreign row From Cache ");
             return c.get(i);
         } else {
 

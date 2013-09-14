@@ -28,14 +28,18 @@ import java.util.ResourceBundle.Control;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
 
+@ThreadSafe
 public class TranslationManager {
     private static final Locale FALLBACK_LOCALE = Locale.ENGLISH;
 
-    public static final Control CONTROL = new I18nUtils.SameLanguageControl() {
+    private static final Control CONTROL = new I18nUtils.SameLanguageControl() {
         @Override
         public Locale getFallbackLocale(String baseName, Locale locale) {
             if (!locale.equals(FALLBACK_LOCALE))
@@ -44,6 +48,10 @@ public class TranslationManager {
         }
     };
 
+    public static final Control getControl() {
+        return CONTROL;
+    }
+
     private static final String BASENAME = "translation";
     private static final TranslationManager instance = new TranslationManager();
 
@@ -51,29 +59,54 @@ public class TranslationManager {
         return instance;
     }
 
+    @GuardedBy("classes")
+    private final List<Class<?>> classes;
+    @GuardedBy("classes")
     private Locale locale;
+
+    private final Object trMutex = new String("translations mutex");
+    @GuardedBy("trMutex")
     private Map<String, String> menuTranslation;
+    @GuardedBy("trMutex")
     private Map<String, String> itemTranslation;
+    @GuardedBy("trMutex")
     private Map<String, String> actionTranslation;
 
-    private final List<Class<?>> classes = new ArrayList<Class<?>>();
-
     private TranslationManager() {
+        this.classes = new ArrayList<Class<?>>();
     }
 
-    public synchronized void addTranslationStreamFromClass(Class<?> c) {
-        this.classes.add(c);
-        if (this.locale != null) {
-            loadTranslation(this.locale, c);
+    public void addTranslationStreamFromClass(Class<?> c) {
+        synchronized (this.classes) {
+            this.classes.add(c);
+            if (this.getLocale() != null) {
+                loadTranslation(this.getLocale(), c);
+            }
         }
     }
 
-    public synchronized void setLocale(Locale l) {
+    public void removeTranslationStreamFromClass(Class<?> c) {
+        synchronized (this.classes) {
+            if (this.classes.remove(c) && this.getLocale() != null) {
+                loadAllTranslation();
+            }
+        }
+    }
+
+    public final Locale getLocale() {
+        synchronized (this.classes) {
+            return this.locale;
+        }
+    }
+
+    public final void setLocale(Locale l) {
         if (l == null)
             throw new NullPointerException("null Locale");
-        if (!l.equals(this.locale)) {
-            this.locale = l;
-            loadAllTranslation();
+        synchronized (this.classes) {
+            if (!l.equals(this.locale)) {
+                this.locale = l;
+                loadAllTranslation();
+            }
         }
     }
 
@@ -87,45 +120,59 @@ public class TranslationManager {
     // Menus
 
     public String getTranslationForMenu(String id) {
-        return this.menuTranslation.get(id);
+        synchronized (this.trMutex) {
+            return this.menuTranslation.get(id);
+        }
     }
 
     public void setTranslationForMenu(String id, String label) {
         checkNulls(id, label);
-        this.menuTranslation.put(id, label);
+        synchronized (this.trMutex) {
+            this.menuTranslation.put(id, label);
+        }
     }
 
     // Items
 
     public String getTranslationForItem(String id) {
-        return this.itemTranslation.get(id);
+        synchronized (this.trMutex) {
+            return this.itemTranslation.get(id);
+        }
     }
 
     public void setTranslationForItem(String id, String label) {
         checkNulls(id, label);
-        this.itemTranslation.put(id, label);
+        synchronized (this.trMutex) {
+            this.itemTranslation.put(id, label);
+        }
     }
 
     // Actions
 
     public String getTranslationForAction(String id) {
-        return this.actionTranslation.get(id);
+        synchronized (this.trMutex) {
+            return this.actionTranslation.get(id);
+        }
     }
 
     public void setTranslationForAction(String id, String label) {
         checkNulls(id, label);
-        this.actionTranslation.put(id, label);
+        synchronized (this.trMutex) {
+            this.actionTranslation.put(id, label);
+        }
     }
 
     private void loadAllTranslation() {
-        this.menuTranslation = new HashMap<String, String>();
-        this.itemTranslation = new HashMap<String, String>();
-        this.actionTranslation = new HashMap<String, String>();
-        if (this.classes.size() == 0) {
-            Log.get().warning("TranslationManager has no resources to load (" + this.locale + ")");
-        }
-        for (Class<?> c : this.classes) {
-            loadTranslation(this.locale, c);
+        synchronized (this.trMutex) {
+            this.menuTranslation = new HashMap<String, String>();
+            this.itemTranslation = new HashMap<String, String>();
+            this.actionTranslation = new HashMap<String, String>();
+            if (this.classes.size() == 0) {
+                Log.get().warning("TranslationManager has no resources to load (" + this.getLocale() + ")");
+            }
+            for (Class<?> c : this.classes) {
+                loadTranslation(this.getLocale(), c);
+            }
         }
     }
 

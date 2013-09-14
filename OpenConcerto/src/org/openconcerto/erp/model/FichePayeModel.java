@@ -17,6 +17,7 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.SQLJavaEditor;
 import org.openconcerto.erp.core.humanresources.payroll.element.PeriodeValiditeSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.VariablePayeSQLElement;
+import org.openconcerto.erp.preferences.PayeGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
@@ -24,6 +25,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
 
 import java.sql.SQLException;
 import java.util.Date;
@@ -64,6 +66,8 @@ public class FichePayeModel extends AbstractTableModel {
     private float salBrut, cotPat, cotSal, netImp, netAPayer, csg;
     private Map<Integer, String> mapField;
 
+    private final double tauxCSG;
+
     public FichePayeModel(int idFiche) {
 
         System.err.println("NEW FICHE PAYE MODEL");
@@ -103,6 +107,9 @@ public class FichePayeModel extends AbstractTableModel {
         this.mapField.put(new Integer(6), "MONTANT_PAT");
         this.mapField.put(new Integer(7), "IMPRESSION");
         this.mapField.put(new Integer(8), "IN_PERIODE");
+
+        SQLPreferences prefs = new SQLPreferences(tableFichePaye.getTable().getDBRoot());
+        this.tauxCSG = prefs.getDouble(PayeGlobalPreferencePanel.ASSIETTE_CSG, 0.9825D);
 
         // loadElement();
         // methodeTmp();
@@ -145,7 +152,7 @@ public class FichePayeModel extends AbstractTableModel {
         this.javaEdit.setSalarieID(rowFiche.getInt("ID_SALARIE"));
 
         // éléments de la fiche de paye
-        SQLSelect selAllIDFicheElt = new SQLSelect(base);
+        SQLSelect selAllIDFicheElt = new SQLSelect();
 
         selAllIDFicheElt.addSelect(tableFichePayeElt.getField("ID"));
         selAllIDFicheElt.addSelect(tableFichePayeElt.getField("POSITION"));
@@ -340,7 +347,7 @@ public class FichePayeModel extends AbstractTableModel {
         // this.vectRubrique = new Vector();
 
         // Listes des rubriques du profil
-        SQLSelect selAllIDProfilElt = new SQLSelect(Configuration.getInstance().getBase());
+        SQLSelect selAllIDProfilElt = new SQLSelect();
 
         selAllIDProfilElt.addSelect(tableProfilElt.getField("ID"));
         selAllIDProfilElt.addSelect(tableProfilElt.getField("POSITION"));
@@ -621,7 +628,7 @@ public class FichePayeModel extends AbstractTableModel {
         rowValsFiche.put("NET_A_PAYER", Float.valueOf(this.netAPayer + this.salBrut));
         rowValsFiche.put("COT_SAL", Float.valueOf(this.cotSal));
         rowValsFiche.put("COT_PAT", Float.valueOf(this.cotPat));
-        rowValsFiche.put("CSG", Float.valueOf((this.salBrut + this.csg) * 0.97F));
+        rowValsFiche.put("CSG", Float.valueOf((this.salBrut + this.csg) * (float) this.tauxCSG));
 
         try {
             rowValsFiche.update(this.idFiche);

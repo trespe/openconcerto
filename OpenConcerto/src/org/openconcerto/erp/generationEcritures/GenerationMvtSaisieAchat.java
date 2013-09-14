@@ -15,6 +15,8 @@
 
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
+import org.openconcerto.erp.generationEcritures.provider.AccountingRecordsProvider;
+import org.openconcerto.erp.generationEcritures.provider.AccountingRecordsProviderManager;
 import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.model.SQLRow;
@@ -22,11 +24,11 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.ExceptionHandler;
 
-import java.sql.SQLException;
 import java.util.Date;
 
-
 public class GenerationMvtSaisieAchat extends GenerationEcritures implements Runnable {
+
+    public static final String ID = "accounting.records.supply.order";
 
     private int idSaisieAchat;
     private static final String source = "SAISIE_ACHAT";
@@ -50,7 +52,7 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
         (new Thread(GenerationMvtSaisieAchat.this)).start();
     }
 
-    public void genereMouvement() throws IllegalArgumentException {
+    public void genereMouvement() throws Exception {
 
         SQLRow saisieRow = tableSaisieAchat.getRow(this.idSaisieAchat);
         // SQLRow taxeRow = base.getTable("TAXE").getRow(saisieRow.getInt("ID_TAXE"));
@@ -61,7 +63,9 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
         this.date = (Date) saisieRow.getObject("DATE");
         this.nom = "Achat : " + rowFournisseur.getString("NOM") + " Facture : " + saisieRow.getObject("NUMERO_FACTURE").toString() + " " + saisieRow.getObject("NOM").toString();
         this.mEcritures.put("DATE", this.date);
-        this.mEcritures.put("NOM", this.nom);
+        AccountingRecordsProvider provider = AccountingRecordsProviderManager.get(ID);
+        provider.putLabel(saisieRow, this.mEcritures);
+
         this.mEcritures.put("ID_JOURNAL", GenerationMvtSaisieAchat.journal);
         this.mEcritures.put("ID_MOUVEMENT", new Integer(1));
 
@@ -72,17 +76,14 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
 
         // on calcule le nouveau numero de mouvement
         if (this.idMvt == 1) {
-            getNewMouvement(GenerationMvtSaisieAchat.source, this.idSaisieAchat, 1, " Saisie Achat " + saisieRow.getObject("NUMERO_FACTURE").toString());
+            SQLRowValues rowValsPiece = new SQLRowValues(pieceTable);
+            provider.putPieceLabel(saisieRow, rowValsPiece);
+            getNewMouvement(GenerationMvtSaisieAchat.source, this.idSaisieAchat, 1, rowValsPiece);
         } else {
-            SQLRow rowMvt = tableMvt.getRow(this.idMvt);
-            SQLRowValues rowPiece = rowMvt.getForeignRow("ID_PIECE").createEmptyUpdateRow();
-            rowPiece.put("NOM", " Saisie Achat " + saisieRow.getObject("NUMERO_FACTURE").toString());
-            try {
-                rowPiece.update();
-            } catch (SQLException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+            SQLRowValues rowValsPiece = pieceTable.getTable("MOUVEMENT").getRow(idMvt).getForeign("ID_PIECE").asRowValues();
+            provider.putPieceLabel(saisieRow, rowValsPiece);
+            rowValsPiece.update();
+
             this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
         }
 
@@ -94,11 +95,7 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
         if (idCompteAchat <= 1) {
             idCompteAchat = rowPrefsCompte.getInt("ID_COMPTE_PCE_ACHAT");
             if (idCompteAchat <= 1) {
-                try {
-                    idCompteAchat = ComptePCESQLElement.getIdComptePceDefault("Achats");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idCompteAchat = ComptePCESQLElement.getIdComptePceDefault("Achats");
             }
         }
         this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteAchat));
@@ -112,20 +109,12 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
             if (saisieRow.getBoolean("IMMO")) {
                 idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_IMMO");
                 if (idCompteTVA <= 1) {
-                    try {
-                        idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVAImmo");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVAImmo");
                 }
             } else {
                 idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_ACHAT");
                 if (idCompteTVA <= 1) {
-                    try {
-                        idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVADeductible");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVADeductible");
                 }
             }
             this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteTVA));
@@ -136,11 +125,7 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
             if (rowFournisseur.getBoolean("UE")) {
                 int idCompteTVAIntra = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_INTRA");
                 if (idCompteTVAIntra <= 1) {
-                    try {
-                        idCompteTVAIntra = ComptePCESQLElement.getIdComptePceDefault("TVAIntraComm");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idCompteTVAIntra = ComptePCESQLElement.getIdComptePceDefault("TVAIntraComm");
                 }
                 this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteTVAIntra));
                 this.mEcritures.put("DEBIT", new Long(0));
@@ -155,11 +140,7 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
         if (idCompteFourn <= 1) {
             idCompteFourn = rowPrefsCompte.getInt("ID_COMPTE_PCE_FOURNISSEUR");
             if (idCompteFourn <= 1) {
-                try {
-                    idCompteFourn = ComptePCESQLElement.getIdComptePceDefault("Fournisseurs");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idCompteFourn = ComptePCESQLElement.getIdComptePceDefault("Fournisseurs");
             }
         }
         this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteFourn));
@@ -176,23 +157,19 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
         // Mise à jour de la clef etrangere mouvement sur la saisie achat
         SQLRowValues valEcriture = new SQLRowValues(tableSaisieAchat);
         valEcriture.put("ID_MOUVEMENT", new Integer(this.idMvt));
-        try {
-            if (valEcriture.getInvalid() == null) {
-                // ajout de l'ecriture
-                valEcriture.update(this.idSaisieAchat);
-            }
-        } catch (SQLException e) {
-            System.err.println("Erreur à l'insertion dans la table " + tableSaisieAchat.getName() + " : " + e);
-            e.printStackTrace();
+
+        if (valEcriture.getInvalid() == null) {
+            // ajout de l'ecriture
+            valEcriture.update(this.idSaisieAchat);
         }
+
     }
 
     public void run() {
         try {
             genereMouvement();
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
         }
     }
 }

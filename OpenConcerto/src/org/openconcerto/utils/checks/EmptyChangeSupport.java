@@ -49,4 +49,7 @@ public final class EmptyChangeSupport {
         this.listeners.add(l);
     }
 
+    public void removeEmptyListener(EmptyListener l) {
+        this.listeners.remove(l);
+    }
 }

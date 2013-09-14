@@ -13,21 +13,46 @@
  
  package org.openconcerto.erp.injector;
 
+import java.math.BigDecimal;
+import java.util.Collection;
+
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLInjector;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 
 public class CommandeBlSQLInjector extends SQLInjector {
     public CommandeBlSQLInjector(final DBRoot root) {
-        super(root, "COMMANDE_CLIENT", "BON_DE_LIVRAISON");
-
+        super(root, "COMMANDE_CLIENT", "BON_DE_LIVRAISON", true);
         final SQLTable tableCmd = getSource();
         final SQLTable tableBl = getDestination();
-        // map(tableDevis.getField("PORT_HT"), tableCommande.getField("PORT_HT"));
-        // map(tableDevis.getField("REMISE_HT"), tableCommande.getField("REMISE_HT"));
         map(tableCmd.getField("ID_CLIENT"), tableBl.getField("ID_CLIENT"));
         map(tableCmd.getField("ID"), tableBl.getField("ID_COMMANDE_CLIENT"));
         map(tableCmd.getField("NOM"), tableBl.getField("NOM"));
         map(tableCmd.getField("INFOS"), tableBl.getField("INFOS"));
+    }
+
+    @Override
+    protected void merge(SQLRowAccessor srcRow, SQLRowValues rowVals) {
+        super.merge(srcRow, rowVals);
+
+        // Merge elements
+        final SQLTable tableElementSource = getSource().getTable("COMMANDE_CLIENT_ELEMENT");
+        final SQLTable tableElementDestination = getSource().getTable("BON_DE_LIVRAISON_ELEMENT");
+        final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+
+        if (myListItem.size() != 0) {
+            final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);
+            for (SQLRowAccessor rowElt : myListItem) {
+                final SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(rowElt.asRow());
+                if (createRowValuesFrom.getTable().getFieldsName().contains("POURCENT_ACOMPTE")) {
+                    if (createRowValuesFrom.getObject("POURCENT_ACOMPTE") == null) {
+                        createRowValuesFrom.put("POURCENT_ACOMPTE", new BigDecimal(100.0));
+                    }
+                }
+                createRowValuesFrom.put("ID_BON_DE_LIVRAISON", rowVals);
+            }
+        }
     }
 }

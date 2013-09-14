@@ -14,6 +14,8 @@
  package org.openconcerto.erp.core.customerrelationship.customer.ui;
 
 import org.openconcerto.erp.core.common.ui.ITextComboVilleTableCellEditor;
+import org.openconcerto.erp.core.common.ui.VilleTableCellRenderer;
+import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -67,7 +69,22 @@ public class AdresseClientItemTable extends JPanel {
         list.add(this.rue);
 
         // Ville
-        this.ville = new SQLTableElement(e.getTable().getField("VILLE"), String.class, new ITextComboVilleTableCellEditor());
+        this.ville = new SQLTableElement(e.getTable().getField("VILLE"), Ville.class, new ITextComboVilleTableCellEditor()) {
+            @Override
+            public void setValueFrom(SQLRowValues row, Object value) {
+
+                if (value != null) {
+                    Ville v = (Ville) value;
+                    row.put("CODE_POSTAL", v.getCodepostal());
+                    row.put("VILLE", v.getName());
+                } else {
+                    row.put("CODE_POSTAL", "");
+                    row.put("VILLE", "");
+                }
+                fireModification(row);
+            }
+        };
+        this.ville.setRenderer(new VilleTableCellRenderer());
         list.add(this.ville);
 
         // has cedex

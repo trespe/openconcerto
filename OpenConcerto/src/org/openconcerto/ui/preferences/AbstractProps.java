@@ -13,8 +13,12 @@
  
  package org.openconcerto.ui.preferences;
 
+import org.openconcerto.ui.Log;
+import org.openconcerto.ui.TM;
 import org.openconcerto.utils.FileUtils;
 
+import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -27,14 +31,27 @@ import javax.swing.JOptionPane;
 
 public abstract class AbstractProps {
 
-    protected final Properties props = new Properties();
+    private final Properties props = new Properties();
+    private final PropertyChangeSupport propSupp = new PropertyChangeSupport(this);
 
     protected AbstractProps() {
         load();
     }
 
-    public Properties getProps() {
-        return this.props;
+    public final void addListener(final PropertyChangeListener l) {
+        this.propSupp.addPropertyChangeListener(l);
+    }
+
+    public final void addListener(final String name, final PropertyChangeListener l) {
+        this.propSupp.addPropertyChangeListener(name, l);
+    }
+
+    public final void removeListener(PropertyChangeListener l) {
+        this.propSupp.removePropertyChangeListener(l);
+    }
+
+    public final void removeListener(final String name, final PropertyChangeListener l) {
+        this.propSupp.removePropertyChangeListener(name, l);
     }
 
     protected abstract String getPropsFileName();
@@ -123,13 +140,14 @@ public abstract class AbstractProps {
             this.props.remove(fullKey);
         else
             this.props.setProperty(fullKey, value);
+        this.propSupp.firePropertyChange(fullKey, null, value);
     }
 
     public void load() {
         final File file = new File(getPropsFileName());
-        System.out.println("Loading properties from " + file.getAbsolutePath());
+        Log.get().config("Loading properties from " + file.getAbsolutePath() + " for " + this);
         if (!file.exists()) {
-            System.out.println("Warning: " + file.getAbsolutePath() + " does not exist");
+            Log.get().info(file.getAbsolutePath() + " does not exist for " + this);
             return;
         }
         BufferedInputStream bufferedInputStream = null;
@@ -137,8 +155,9 @@ public abstract class AbstractProps {
             final FileInputStream fileInputStream = new FileInputStream(file);
             bufferedInputStream = new BufferedInputStream(fileInputStream);
             this.props.load(bufferedInputStream);
+            this.propSupp.firePropertyChange(null, null, null);
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(null, "Impossible de lire le fichier de configuration:\n" + file.getAbsolutePath());
+            JOptionPane.showMessageDialog(null, TM.tr("abstractProps.cannotRead", file.getAbsolutePath()));
             e.printStackTrace();
         } finally {
             if (bufferedInputStream != null) {
@@ -160,7 +179,7 @@ public abstract class AbstractProps {
             bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
             this.props.store(bufferedOutputStream, "");
         } catch (IOException e) {
-            JOptionPane.showMessageDialog(null, "Impossible d'enregistrer le fichier de configuration:\n" + file.getAbsolutePath());
+            JOptionPane.showMessageDialog(null, TM.tr("abstractProps.cannotWrite", file.getAbsolutePath()));
             e.printStackTrace();
         } finally {
             if (bufferedOutputStream != null) {

@@ -359,9 +359,13 @@ public class SyncClient {
         if (localFileHash == null) {
             localFileHash = HashWriter.getHash(localFile);
         }
-
-        sendDelta(localFile, remotePath, remoteName, moves, rangesOk.getUnusedRanges(), localFileHash, token);
-
+        try {
+            sendDelta(localFile, remotePath, remoteName, moves, rangesOk.getUnusedRanges(), localFileHash, token);
+        } catch (Exception e) {
+            System.err.println("Unable to send delta: " + localFile.getAbsolutePath() + " to " + remoteName + " " + moves);
+            rangesOk.dump();
+            throw e;
+        }
     }
 
     private void sendDelta(File localFile, String remotePath, String remoteName, MoveOperationList moves, List<Range> rangesToSend, byte[] localFileHash, String token) throws IOException {

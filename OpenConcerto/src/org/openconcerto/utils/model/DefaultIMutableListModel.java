@@ -40,7 +40,7 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
 
     private T selectedObject;
     private boolean selectOnAdd;
-    private boolean selectOnRm;
+    private NewSelection selectOnRm, selectOnReplace;
 
     /**
      * Constructs an empty model.
@@ -56,7 +56,7 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
     public DefaultIMutableListModel(Collection<? extends T> v) {
         super(v);
         this.selectOnAdd = true;
-        this.selectOnRm = false;
+        this.setOnRemovingOrReplacingSelection(null);
 
         if (getSize() > 0 && this.isSelectOnAdd()) {
             this.selectedObject = getElementAt(0);
@@ -128,15 +128,9 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
     public void removeElementsAt(final int from, final int to) {
         final CollectionChangeEventCreator c = createCreator();
         final int selectedIndex = this.objects.indexOf(this.getSelectedItem());
-        if (selectedIndex >= from && selectedIndex <= to) {
-            if (!this.isSelectOnRm()) {
-                setSelectedItem(null);
-            } else if (from == 0) {
-                // is this a removeAll
-                setSelectedItem(getSize() == to + 1 ? null : getElementAt(to + 1));
-            } else {
-                setSelectedItem(getElementAt(from - 1));
-            }
+        final NewSelection onRm = this.getOnRemovingSelection();
+        if (selectedIndex >= from && selectedIndex <= to && onRm != NewSelection.NO) {
+            setSelectedItem(onRm.getNewSelection(this, selectedIndex, from, to, Collections.<T> emptyList()));
         }
 
         // sublist exclusive
@@ -170,13 +164,9 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
             this.objects.addAll(index0, l);
         }
         // if there was a selection and now not anymore
-        if (setSelection && selectedIndex >= 0 && this.objects.indexOf(this.getSelectedItem()) < 0) {
-            final int size = getSize();
-            if (!this.isSelectOnRm() || size == 0) {
-                setSelectedItem(null);
-            } else {
-                setSelectedItem(selectedIndex < size ? getElementAt(selectedIndex) : getElementAt(size - 1));
-            }
+        final NewSelection onReplace = this.getOnReplacingSelection();
+        if (setSelection && onReplace != NewSelection.NO && selectedIndex >= 0 && this.objects.indexOf(this.getSelectedItem()) < 0) {
+            setSelectedItem(onReplace.getNewSelection(this, selectedIndex, index0, index1, l.size()));
         }
         this.fireContentsChanged(index0, index1, c);
     }
@@ -215,7 +205,9 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
     public void removeAll(Collection<? extends T> items) {
         final SortedSet<Integer> indexes = new TreeSet<Integer>();
         for (final T item : items) {
-            indexes.add(this.objects.indexOf(item));
+            final int index = this.objects.indexOf(item);
+            if (index >= 0)
+                indexes.add(index);
         }
         for (final int[] interval : CollectionUtils.aggregate(indexes)) {
             removeElementsAt(interval[0], interval[1]);
@@ -286,18 +278,45 @@ public class DefaultIMutableListModel<T> extends DefaultIListModel<T> implements
         this.selectOnAdd = selectOnAdd;
     }
 
-    public final boolean isSelectOnRm() {
+    public final NewSelection getOnRemovingSelection() {
         return this.selectOnRm;
     }
 
+    public final NewSelection getOnReplacingSelection() {
+        return this.selectOnReplace;
+    }
+
+    public final void setOnRemovingOrReplacingSelection(NewSelection newSel) {
+        if (newSel == null) {
+            // like DefaultComboBoxModel
+            this.setOnRemovingSelection(NewSelection.DIFFERENT_INDEX);
+            // seems the safest
+            this.setOnReplacingSelection(NewSelection.NONE);
+        } else {
+            this.setOnRemovingSelection(newSel);
+            this.setOnReplacingSelection(newSel);
+        }
+    }
+
     /**
-     * Sets whether the removal of the selected item will select the closest item left, or if the
-     * selection will be empty.
+     * Sets how to change the selection if it's removed by {@link #removeElementsAt(int, int)}.
      * 
-     * @param selectOnRm <code>true</code> to select the closest, <code>false</code> to empty the
-     *        selection.
+     * @param selectOnRm how to change the selection.
      */
-    public final void setSelectOnRm(boolean selectOnRm) {
+    public final void setOnRemovingSelection(NewSelection selectOnRm) {
+        if (selectOnRm == null)
+            throw new NullPointerException();
         this.selectOnRm = selectOnRm;
+    }
+
+    /**
+     * Sets how to change the selection if it's removed by {@link #replace(int, int, Collection)}.
+     * 
+     * @param newSel how to change the selection.
+     */
+    public final void setOnReplacingSelection(NewSelection newSel) {
+        if (newSel == null)
+            throw new NullPointerException();
+        this.selectOnReplace = newSel;
     }
 }

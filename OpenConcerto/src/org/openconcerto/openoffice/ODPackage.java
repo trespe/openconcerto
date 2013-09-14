@@ -49,6 +49,8 @@ import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -79,6 +81,26 @@ public class ODPackage {
     static final String MIMETYPE_ENTRY = "mimetype";
     /** Normally mimetype contains only ASCII characters */
     static final Charset MIMETYPE_ENC = Charset.forName("UTF-8");
+
+    private static String PAGE_COUNT = null;
+
+    /**
+     * Allow to specify a fixed number of pages for all text documents. This provides a workaround
+     * for LibreOffice 4.0.x on Ubuntu which takes a long time to open documents without statistics.
+     * E.g. 40s for 35 pages but only 4s if the page count is 500 pages.
+     * 
+     * @param count page count, negative means remove.
+     */
+    public static final synchronized void setPageCount(final int count) {
+        if (count < 0)
+            PAGE_COUNT = null;
+        else
+            PAGE_COUNT = String.valueOf(count);
+    }
+
+    public static final synchronized String getPageCount() {
+        return PAGE_COUNT;
+    }
 
     // not a constant since XMLOutputter isn't thread-safe
     static final XMLOutputter createOutputter() {
@@ -191,7 +213,8 @@ public class ODPackage {
      * @return <code>true</code> if <code>name</code> is a standard file, eg <code>true</code>.
      */
     public static final boolean isStandardFile(final String name) {
-        return name.equals(MIMETYPE_ENTRY) || subdocNames.contains(name) || name.startsWith("Thumbnails") || name.startsWith("META-INF") || name.startsWith("Configurations");
+        return name.equals(MIMETYPE_ENTRY) || subdocNames.contains(name) || name.startsWith("Thumbnails") || name.startsWith("META-INF") || name.startsWith("Configurations")
+                || name.equals("layout-cache") || name.equals("manifest.rdf") || name.startsWith(Library.DIR_NAME) || name.startsWith(Library.DIALOG_DIR_NAME);
     }
 
     /**
@@ -325,7 +348,7 @@ public class ODPackage {
         return v;
     }
 
-    static private <T> void checkVersion(final Class<T> clazz, final String s, final T actual, final T required) {
+    static private <T> void checkVersion(final Class<T> clazz, final String s, final String entry, final T actual, final T required) {
         if (actual != null && required != null) {
             final boolean ok;
             if (actual instanceof ContentTypeVersioned) {
@@ -335,7 +358,7 @@ public class ODPackage {
                 ok = actual.equals(required);
             }
             if (!ok)
-                throw new IllegalArgumentException("Cannot change " + s + " from " + required + " to " + actual);
+                throw new IllegalArgumentException(entry + " would change " + s + " from " + required + " to " + actual);
         }
     }
 
@@ -394,12 +417,18 @@ public class ODPackage {
                 final Map<String, String> manifestEntries = Manifest.parse(new ByteArrayInputStream(m));
                 for (final Map.Entry<String, String> e : manifestEntries.entrySet()) {
                     final String path = e.getKey();
+                    final String type = e.getValue();
                     final ODPackageEntry entry = this.files.get(path);
                     // eg directory
-                    if (entry == null)
-                        this.files.put(path, new ODPackageEntry(path, e.getValue(), null));
-                    else
-                        entry.setType(e.getValue());
+                    if (entry == null) {
+                        this.files.put(path, new ODPackageEntry(path, type, null));
+                        // subdocs are already parsed to ODXMLDocument
+                    } else if (type.equals(FileUtils.XML_TYPE) && entry.getData() instanceof byte[]) {
+                        final Document doc = OOUtils.getBuilder().build(new ByteArrayInputStream((byte[]) entry.getData()));
+                        this.putFile(path, doc, type, entry.isCompressed());
+                    } else {
+                        entry.setType(type);
+                    }
                 }
             } catch (JDOMException e) {
                 throw new IllegalArgumentException("bad manifest " + new String(m), e);
@@ -414,20 +443,9 @@ public class ODPackage {
 
     public ODPackage(ODPackage o) {
         this();
-        // ATTN this works because, all files are read upfront
         for (final String name : o.getEntries()) {
             final ODPackageEntry entry = o.getEntry(name);
-            final Object data = entry.getData();
-            final Object myData;
-            if (data instanceof byte[])
-                // assume byte[] are immutable
-                myData = data;
-            else if (data instanceof ODSingleXMLDocument) {
-                myData = new ODSingleXMLDocument((ODSingleXMLDocument) data, this);
-            } else {
-                myData = CopyUtils.copy(data);
-            }
-            this.putFile(name, myData, entry.getType(), entry.isCompressed());
+            this.putCopy(entry);
         }
         this.type = o.type;
         this.version = o.version;
@@ -486,9 +504,9 @@ public class ODPackage {
     private final void setTypeAndVersion(final ContentTypeVersioned ct, final XMLFormatVersion fv, final String entry) {
         final Tuple3<XMLVersion, ContentTypeVersioned, XMLFormatVersion> requiredByPkg = this.getRequired(entry);
         if (requiredByPkg != null) {
-            checkVersion(XMLVersion.class, "version", getVersion(fv, ct), requiredByPkg.get0());
-            checkVersion(ContentTypeVersioned.class, "type", ct, requiredByPkg.get1());
-            checkVersion(XMLFormatVersion.class, "format version", fv, requiredByPkg.get2());
+            checkVersion(XMLVersion.class, "version", entry, getVersion(fv, ct), requiredByPkg.get0());
+            checkVersion(ContentTypeVersioned.class, "type", entry, ct, requiredByPkg.get1());
+            checkVersion(XMLFormatVersion.class, "format version", entry, fv, requiredByPkg.get2());
         }
 
         // since we're adding "entry" never set attributes to null
@@ -685,6 +703,117 @@ public class ODPackage {
     }
 
     /**
+     * Parse BASIC libraries in this package.
+     * 
+     * @return the BASIC libraries by name.
+     */
+    public final Map<String, Library> readBasicLibraries() {
+        if (this.isSingle())
+            return ((ODSingleXMLDocument) this.getContent()).readBasicLibraries();
+
+        // TODO read DIALOG_LIBRARY_LIST_FILENAME (to support Library with only dialogs)
+        final Document doc = (Document) this.getData(Library.DIR_NAME + "/" + Library.LIBRARY_LIST_FILENAME);
+        if (doc == null)
+            return Collections.emptyMap();
+        @SuppressWarnings("unchecked")
+        final List<Element> librariesElems = doc.getRootElement().getChildren();
+        final Map<String, Library> res = new HashMap<String, Library>(librariesElems.size());
+        for (final Element libraryElem : librariesElems) {
+            final Library lib = Library.fromPackage(libraryElem, this);
+            if (res.put(lib.getName(), lib) != null)
+                throw new IllegalStateException("Duplicate library named " + lib.getName());
+        }
+        return res;
+    }
+
+    /**
+     * Add the passed libraries to this package. Passed libraries with the same content as existing
+     * ones are ignored.
+     * 
+     * @param libraries what to add.
+     * @return the actually added libraries.
+     * @throws IllegalArgumentException if <code>libraries</code> contains duplicates or if it
+     *         cannot be merged into this.
+     * @see Library#canBeMerged(Library)
+     */
+    public final Set<String> addBasicLibraries(final Collection<? extends Library> libraries) {
+        return this.addBasicLibraries(Library.toMap(libraries));
+    }
+
+    public final Set<String> addBasicLibraries(final ODPackage pkg) {
+        if (pkg == this)
+            return Collections.emptySet();
+        return this.addBasicLibraries(pkg.readBasicLibraries());
+    }
+
+    private final Set<String> addBasicLibraries(final Map<String, Library> oLibraries) {
+        if (oLibraries.size() == 0)
+            return Collections.emptySet();
+        if (this.isSingle())
+            return ((ODSingleXMLDocument) this.getContent()).addBasicLibraries(oLibraries);
+
+        final Map<String, Library> thisLibraries = this.readBasicLibraries();
+        // check that the libraries to add which are already in us can be merged (no elements
+        // conflict)
+        Library.canBeMerged(thisLibraries, oLibraries);
+
+        // merge
+        for (final Library oLib : oLibraries.values()) {
+            // can be null
+            final Library thisLib = thisLibraries.get(oLib.getName());
+            oLib.mergeModules(this, thisLib);
+            oLib.mergeDialogs(this, thisLib);
+        }
+
+        final Set<String> newLibs = new HashSet<String>(oLibraries.keySet());
+        newLibs.removeAll(thisLibraries.keySet());
+        return newLibs;
+    }
+
+    /**
+     * Remove the passed libraries.
+     * 
+     * @param libraries which libraries to remove.
+     * @return the actually removed libraries.
+     */
+    public final Set<String> removeBasicLibraries(final Collection<String> libraries) {
+        if (libraries.size() == 0)
+            return Collections.emptySet();
+        if (this.isSingle())
+            return ((ODSingleXMLDocument) this.getContent()).removeBasicLibraries(libraries);
+
+        final Set<String> res = new HashSet<String>();
+        for (final String libToRm : libraries) {
+            if (Library.removeFromPackage(this, libToRm))
+                res.add(libToRm);
+        }
+        return res;
+    }
+
+    /**
+     * Parse events for the whole document.
+     * 
+     * @return event listeners by event name.
+     */
+    public final Map<String, EventListener> readEventListeners() {
+        final OOXML xml = getFormatVersion().getXML();
+        final Element scriptsElem = this.getContent().getChild(xml.getOfficeScripts(), false);
+        final Element eventListeners = scriptsElem == null ? null : scriptsElem.getChild(xml.getOfficeEventListeners(), getVersion().getOFFICE());
+        if (eventListeners == null)
+            return Collections.emptyMap();
+
+        final Map<String, EventListener> res = new HashMap<String, EventListener>();
+        final Namespace scriptNS = getVersion().getNS("script");
+        @SuppressWarnings("unchecked")
+        final List<Element> listeners = eventListeners.getChildren(xml.getEventListener(), scriptNS);
+        for (final Element listener : listeners) {
+            final EventListener l = new EventListener(listener);
+            res.put(l.getName(), l);
+        }
+        return res;
+    }
+
+    /**
      * Return an XML document.
      * 
      * @param xmlEntry the filename, eg "styles.xml".
@@ -716,7 +845,7 @@ public class ODPackage {
      * @param desc the family, eg <code>StyleStyleDesc&lt;ParagraphStyle&gt;</code>.
      * @param name the name, eg "P1".
      * @return the corresponding XML element.
-     * @see ODXMLDocument#getStyle(StyleDesc, String)
+     * @see ODXMLDocument#getStyle(StyleDesc, String, Document)
      */
     public final Element getStyle(final Document referent, final StyleDesc<?> desc, final String name) {
         // avoid searching in content then styles if it cannot be found
@@ -724,17 +853,26 @@ public class ODPackage {
             return null;
 
         String refSubDoc = null;
+        ODXMLDocument refXMLFile = null;
         final String[] stylesContainer = new String[] { CONTENT.getZipEntry(), STYLES.getZipEntry() };
-        for (final String subDoc : stylesContainer)
-            if (this.getDocument(subDoc) == referent)
+        for (final String subDoc : stylesContainer) {
+            final ODXMLDocument xmlFile = this.getXMLFile(subDoc);
+            if (xmlFile != null && xmlFile.getDocument() == referent) {
                 refSubDoc = subDoc;
+                refXMLFile = xmlFile;
+                break;
+            }
+        }
         if (refSubDoc == null)
             throw new IllegalArgumentException("neither in content nor styles : " + referent);
 
-        Element res = this.getXMLFile(refSubDoc).getStyle(desc, name);
+        Element res = refXMLFile.getStyle(desc, name, referent);
         // if it isn't in content.xml it might be in styles.xml
-        if (res == null && refSubDoc.equals(stylesContainer[0]) && this.getXMLFile(stylesContainer[1]) != null)
-            res = this.getXMLFile(stylesContainer[1]).getStyle(desc, name);
+        if (res == null && refSubDoc.equals(stylesContainer[0])) {
+            final ODXMLDocument stylesXMLFile = this.getXMLFile(stylesContainer[1]);
+            if (stylesXMLFile != null)
+                res = stylesXMLFile.getStyle(desc, name, referent);
+        }
         return res;
     }
 
@@ -861,6 +999,8 @@ public class ODPackage {
             checkEntryForDocument(entry);
             this.updateTypeAndVersion(entry, oodoc);
             myData = oodoc;
+        } else if (data instanceof Document) {
+            myData = data;
         } else if (!(data instanceof byte[])) {
             throw new IllegalArgumentException("should be byte[] for " + entry + ": " + data);
         } else {
@@ -879,6 +1019,25 @@ public class ODPackage {
             throw new IllegalArgumentException("Cannot change content or styles with existing ODDocument");
     }
 
+    public final void putCopy(final ODPackageEntry entry) {
+        this.putCopy(entry, entry.getName());
+    }
+
+    public final void putCopy(final ODPackageEntry entry, final String entryName) {
+        // ATTN this works because, all files are read upfront
+        final Object data = entry.getData();
+        final Object myData;
+        if (data instanceof byte[]) {
+            // assume byte[] are immutable
+            myData = data;
+        } else if (data instanceof ODSingleXMLDocument) {
+            myData = new ODSingleXMLDocument((ODSingleXMLDocument) data, this);
+        } else {
+            myData = CopyUtils.copy(data);
+        }
+        this.putFile(entryName, myData, entry.getType(), entry.isCompressed());
+    }
+
     public void rmFile(String entry) {
         this.checkEntryForDocument(entry);
         this.files.remove(entry);
@@ -887,6 +1046,11 @@ public class ODPackage {
             this.type = required == null ? null : required.get1();
             this.version = required == null ? null : required.get2();
         }
+    }
+
+    public final void rmFiles(Collection<String> entries) {
+        for (final String entry : entries)
+            this.rmFile(entry);
     }
 
     public void clear() {
@@ -969,6 +1133,12 @@ public class ODPackage {
         else
             generator = productInfo.getName() + "/" + productInfo.getVersion();
         this.getMeta(true).setGenerator(generator);
+        // we could update almost all statistics (table count, paragraph count, ...) but the most
+        // important one for opening times is page count
+        this.getMeta().removeMetaChild("document-statistic");
+        final String pageCount = getPageCount();
+        if (pageCount != null && getContentType() != null && ContentType.TEXT.equals(getContentType().getType()))
+            this.getMeta().getMetaChild("document-statistic").setAttribute("page-count", pageCount, getVersion().getMETA());
 
         final Zip z = new Zip(out);
 
@@ -988,6 +1158,10 @@ public class ODPackage {
                 if (val instanceof ODXMLDocument) {
                     final OutputStream o = z.createEntry(name);
                     outputter.output(((ODXMLDocument) val).getDocument(), o);
+                    o.close();
+                } else if (val instanceof Document) {
+                    final OutputStream o = z.createEntry(name);
+                    outputter.output((Document) val, o);
                     o.close();
                 } else {
                     z.zip(name, (byte[]) val, entry.isCompressed());

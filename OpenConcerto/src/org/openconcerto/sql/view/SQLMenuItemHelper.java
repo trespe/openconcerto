@@ -19,6 +19,7 @@ import org.openconcerto.utils.cc.IClosure;
 import java.awt.event.ActionEvent;
 
 import javax.swing.AbstractAction;
+import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
@@ -158,6 +159,7 @@ public class SQLMenuItemHelper {
             this.elem = elem;
             this.frame = null;
             this.cacheFrame = true;
+            this.putValue(Action.ACTION_COMMAND_KEY, getClass().getName() + " with " + getElem().getCode());
         }
 
         public final void setCacheFrame(boolean cacheFrame) {

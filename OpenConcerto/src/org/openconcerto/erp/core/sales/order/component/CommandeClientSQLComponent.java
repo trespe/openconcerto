@@ -38,6 +38,7 @@ import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
@@ -81,8 +82,8 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         super(Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT"));
     }
 
-    public CommandeClientItemTable getRowValuesTable() {
-        return this.table;
+    public RowValuesTable getRowValuesTable() {
+        return this.table.getRowValuesTable();
     }
 
     public void addViews() {
@@ -231,11 +232,12 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
             c.weightx = 1;
             this.add(boxTarif, c);
             this.addView(boxTarif, "ID_TARIF");
-            boxTarif.addValueListener(new PropertyChangeListener() {
+            boxTarif.addModelListener("wantedID", new PropertyChangeListener() {
 
                 @Override
                 public void propertyChange(PropertyChangeEvent evt) {
-                    table.setTarif(boxTarif.getSelectedRow(), false);
+                    SQLRow selectedRow = boxTarif.getRequest().getPrimaryTable().getRow(boxTarif.getWantedID());
+                    table.setTarif(selectedRow, false);
                 }
             });
         }

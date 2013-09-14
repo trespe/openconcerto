@@ -19,6 +19,7 @@ import org.openconcerto.sql.element.SQLElementDirectory.DirectoryListener;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBStructureItem;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.FieldMapper;
 import org.openconcerto.sql.model.HierarchyLevel;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
@@ -27,7 +28,9 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLServer;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.request.SQLFieldTranslator;
+import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.LogUtils;
@@ -36,6 +39,7 @@ import org.openconcerto.utils.NetUtils;
 import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.i18n.TranslationManager;
 
 import java.io.BufferedOutputStream;
 import java.io.ByteArrayOutputStream;
@@ -58,8 +62,11 @@ import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.ListIterator;
+import java.util.Locale;
 import java.util.Map.Entry;
 import java.util.Properties;
+import java.util.ResourceBundle.Control;
 import java.util.Set;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
@@ -153,6 +160,7 @@ public class PropsConfiguration extends Configuration {
     private SQLServer server;
     private DBSystemRoot sysRoot;
     private DBRoot root;
+    private UserRightsManager urMngr;
     // rest
     private ProductInfo productInfo;
     private ShowAs showAs;
@@ -176,6 +184,7 @@ public class PropsConfiguration extends Configuration {
     // SSL
     private Session conn;
     private boolean isUsingSSH;
+    private FieldMapper fieldMapper;
 
     public PropsConfiguration() throws IOException {
         this(new File("fwk_SQL.properties"), DEFAULTS);
@@ -210,6 +219,8 @@ public class PropsConfiguration extends Configuration {
         if (this.server != null) {
             this.server.destroy();
         }
+        if (this.urMngr != null)
+            UserRightsManager.clearInstanceIfSame(this.urMngr);
         if (this.directoryListener != null)
             this.directory.removeListener(this.directoryListener);
     }
@@ -306,6 +317,11 @@ public class PropsConfiguration extends Configuration {
             return this.getSystemRoot().getRoot(getRootName());
         else
             throw new NullPointerException("no rootname");
+    }
+
+    // return null, if none desired
+    protected UserRightsManager createUserRightsManager(final DBRoot root) {
+        return UserRightsManager.setInstanceIfNone(root);
     }
 
     public String getRootName() {
@@ -445,6 +461,7 @@ public class PropsConfiguration extends Configuration {
             this.conn.setConfig(config);
             // wait no more than 6 seconds for TCP connection
             this.conn.connect(6000);
+            afterSSLConnect(this.conn);
 
             isAuthenticated = true;
         } catch (final Exception e) {
@@ -452,6 +469,9 @@ public class PropsConfiguration extends Configuration {
         }
         if (!isAuthenticated)
             throw new IllegalStateException("Authentication failed.");
+    }
+
+    protected void afterSSLConnect(Session conn) {
     }
 
     public String getSSLUserName() {
@@ -512,7 +532,9 @@ public class PropsConfiguration extends Configuration {
     protected void initDS(final SQLDataSource ds) {
         ds.setCacheEnabled(true);
         // supported by postgreSQL from 9.1-901, see also Connection#setClientInfo
-        ds.addConnectionProperty("ApplicationName", getAppID());
+        final String appID = getAppID();
+        if (appID != null)
+            ds.addConnectionProperty("ApplicationName", appID);
         propIterate(new IClosure<String>() {
             @Override
             public void executeChecked(final String propName) {
@@ -625,21 +647,21 @@ public class PropsConfiguration extends Configuration {
                 }
                 System.setErr(new PrintStream(new BufferedOutputStream(err, 128), true));
                 System.setOut(new PrintStream(new BufferedOutputStream(out, 128), true));
-            } catch (final IOException e) {
-                throw new IllegalStateException("unable to write to log file", e);
-            }
-            // Takes about 350ms so run it async
-            new Thread(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        FileUtils.ln(logFile, new File(logDir, "last.log"));
-                    } catch (final IOException e) {
-                        // the link is not important
-                        e.printStackTrace();
+                // Takes about 350ms so run it async
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            FileUtils.ln(logFile, new File(logDir, "last.log"));
+                        } catch (final IOException e) {
+                            // the link is not important
+                            e.printStackTrace();
+                        }
                     }
-                }
-            }).start();
+                }).start();
+            } catch (final Exception e) {
+                ExceptionHandler.handle("Redirection des sorties standards impossible", e);
+            }
         } else {
             System.out.println("Standard streams not redirected to file");
         }
@@ -658,7 +680,7 @@ public class PropsConfiguration extends Configuration {
             final FileHandler fh = new FileHandler(logFile.getPath(), 5 * 1024 * 1024, 2, true);
             fh.setFormatter(new SimpleFormatter());
             Logger.getLogger("").addHandler(fh);
-        } catch (final IOException e) {
+        } catch (final Exception e) {
             ExceptionHandler.handle("Enregistrement du Logger désactivé", e);
         }
 
@@ -722,7 +744,7 @@ public class PropsConfiguration extends Configuration {
 
     // items will be passed to #getStream(String)
     protected List<String> getMappings() {
-        return Arrays.asList("mapping.xml", "mapping-" + this.getProperty("customer") + ".xml");
+        return Arrays.asList("mapping", "mapping-" + this.getProperty("customer"));
     }
 
     protected SQLFieldTranslator createTranslator() {
@@ -730,14 +752,39 @@ public class PropsConfiguration extends Configuration {
         if (mappings.size() == 0)
             throw new IllegalStateException("empty mappings");
 
-        final SQLFieldTranslator trns = new SQLFieldTranslator(this.getRoot(), PropsConfiguration.class.getResourceAsStream("mapping.xml"), this.getDirectory());
-        for (final String m : mappings) {
-            // do not force to have one mapping for each client
-            final InputStream in = this.getStream(m);
-            if (in != null)
-                trns.load(this.getRoot(), in);
+        final SQLFieldTranslator trns = new SQLFieldTranslator(this.getRoot(), null, this.getDirectory());
+        // perhaps listen to UserProps (as in TM)
+        return loadTranslations(trns, this.getRoot(), mappings);
+    }
+
+    protected final SQLFieldTranslator loadTranslations(final SQLFieldTranslator trns, final DBRoot root, final List<String> mappings) {
+        final Locale locale = TM.getInstance().getTranslationsLocale();
+        final Control cntrl = TranslationManager.getControl();
+        boolean found = false;
+        // better to have a translation in the correct language than a translation for the correct
+        // customer in the wrong language
+        final String fakeBaseName = "";
+        for (Locale targetLocale = locale; targetLocale != null && !found; targetLocale = cntrl.getFallbackLocale(fakeBaseName, targetLocale)) {
+            final List<Locale> langs = cntrl.getCandidateLocales(fakeBaseName, targetLocale);
+            // SQLFieldTranslator overwrite, so we need to load from general to specific
+            final ListIterator<Locale> listIterator = CollectionUtils.getListIterator(langs, true);
+            while (listIterator.hasNext()) {
+                final Locale lang = listIterator.next();
+                found |= loadTranslations(trns, PropsConfiguration.class.getResourceAsStream(cntrl.toBundleName("mapping", lang) + ".xml"), root);
+                for (final String m : mappings) {
+                    found |= loadTranslations(trns, this.getStream(cntrl.toBundleName(m, lang) + ".xml"), root);
+                }
+            }
         }
         return trns;
+    }
+
+    private final boolean loadTranslations(final SQLFieldTranslator trns, final InputStream in, final DBRoot root) {
+        final boolean res = in != null;
+        // do not force to have one mapping for each client and each locale
+        if (res)
+            trns.load(root, in);
+        return res;
     }
 
     protected File createWD() {
@@ -891,7 +938,11 @@ public class PropsConfiguration extends Configuration {
 
     @Override
     public final String getAppName() {
-        return this.getProductInfo().getName();
+        final ProductInfo productInfo = this.getProductInfo();
+        if (productInfo != null)
+            return productInfo.getName();
+        else
+            return this.getProperty("app.name");
     }
 
     @Override
@@ -917,6 +968,8 @@ public class PropsConfiguration extends Configuration {
 
     private final void setRoot(final DBRoot root) {
         this.root = root;
+        // be sure to try to set a manager to avoid giving all permissions to everyone
+        this.urMngr = createUserRightsManager(root);
     }
 
     private final void setShowAs(final ShowAs showAs) {
@@ -933,5 +986,13 @@ public class PropsConfiguration extends Configuration {
 
     private final void setWD(final File dir) {
         this.wd = dir;
+    }
+
+    public FieldMapper getFieldMapper() {
+        return fieldMapper;
+    }
+
+    public void setFieldMapper(FieldMapper fieldMapper) {
+        this.fieldMapper = fieldMapper;
     }
 }

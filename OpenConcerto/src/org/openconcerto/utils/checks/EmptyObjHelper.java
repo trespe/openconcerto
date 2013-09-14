@@ -43,4 +43,7 @@ public final class EmptyObjHelper {
         this.supp.addEmptyListener(l);
     }
 
+    public void removeEmptyListener(EmptyListener l) {
+        this.supp.removeEmptyListener(l);
+    }
 }

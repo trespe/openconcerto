@@ -195,6 +195,7 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
             }
 
             cache.put(cacheKey, result, this.getTables());
+
             return result;
         } catch (RuntimeException exn) {
             // don't use finally, otherwise we'll do both put() and rmRunning()
@@ -237,7 +238,7 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         if (this.undefLabel != null && rs.getID() == getPrimaryTable().getUndefinedID())
             desc = this.undefLabel;
         else
-            desc = CollectionUtils.join(this.exp.expandGroupBy(this.getFields()), SEP_CHILD, new ITransformer<Tuple2<Path, List<FieldPath>>, Object>() {
+            desc = CollectionUtils.join(this.getShowAs().expandGroupBy(this.getFields()), SEP_CHILD, new ITransformer<Tuple2<Path, List<FieldPath>>, Object>() {
                 public Object transformChecked(Tuple2<Path, List<FieldPath>> ancestorFields) {
                     final List<String> filtered = CollectionUtils.transformAndFilter(ancestorFields.get1(), new ITransformer<FieldPath, String>() {
                         // no need to keep this Transformer in an attribute

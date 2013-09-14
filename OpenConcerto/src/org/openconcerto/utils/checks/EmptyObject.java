@@ -13,7 +13,6 @@
  
  /*
  * Créé le 3 févr. 2005
- *  
  */
 package org.openconcerto.utils.checks;
 
@@ -23,6 +22,7 @@ import java.beans.PropertyChangeListener;
  * Un objet pouvant être vide ou non.
  * 
  * @author Sylvain CUAZ
+ * @deprecated use {@link EmptyObj}
  */
 public interface EmptyObject extends EmptyObj {
 

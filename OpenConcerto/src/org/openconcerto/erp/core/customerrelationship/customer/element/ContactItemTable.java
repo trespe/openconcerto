@@ -79,7 +79,7 @@ public class ContactItemTable extends JPanel {
 
         final RowValuesTableModel model = new RowValuesTableModel(elt, list, elt.getTable().getField("NOM"), false, defaultRow);
 
-        this.table = new RowValuesTable(model, new File(Configuration.getInstance().getConfDir() + "Table" + File.separator + "Table_Contact.xml"));
+        this.table = new RowValuesTable(model, new File(Configuration.getInstance().getConfDir(), "Table" + File.separator + "Table_Contact.xml"));
         ToolTipManager.sharedInstance().unregisterComponent(this.table);
         ToolTipManager.sharedInstance().unregisterComponent(this.table.getTableHeader());
         this.comp = new RowValuesTableControlPanel(this.table);
@@ -94,17 +94,18 @@ public class ContactItemTable extends JPanel {
     }
 
     public void updateField(String field, int id) {
-
         this.table.updateField(field, id);
     }
 
-    public void insertFrom(String field, int id) {
+    public void insertFrom(String field, SQLRowValues row) {
+        this.table.insertFrom(field, row);
+    }
 
+    public void insertFrom(String field, int id) {
         this.table.insertFrom(field, id);
     }
 
     public RowValuesTableModel getModel() {
-
         return this.table.getRowValuesTableModel();
     }
 

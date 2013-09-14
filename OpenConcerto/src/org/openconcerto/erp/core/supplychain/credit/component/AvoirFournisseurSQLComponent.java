@@ -36,6 +36,8 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
+import org.openconcerto.ui.component.ITextArea;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -49,6 +51,7 @@ import java.util.Date;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
@@ -252,6 +255,26 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
         // c.weighty = 0;
         // this.add(panelBottom, c);
         // Filler
+
+        c.gridheight = 1;
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        this.add(new JLabel(getLabelFor("INFOS")), c);
+
+        c.gridy++;
+        c.fill = GridBagConstraints.BOTH;
+        c.weighty = 1;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        ITextArea infos = new ITextArea(4, 4);
+        infos.setBorder(null);
+        JScrollPane scrollPane = new JScrollPane(infos);
+        DefaultGridBagConstraints.lockMinimumSize(scrollPane);
+        this.add(scrollPane, c);
+        if (getTable().contains("INFOS")) {
+            this.addSQLObject(infos, "INFOS");
+        }
+
         JPanel p = new JPanel();
 
         p.setOpaque(false);
@@ -282,28 +305,25 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
         int id = getSelectedID();
 
         id = super.insert(order);
+        try {
+            final SQLTable tableNum = this.getTable().getBase().getTable("NUMEROTATION_AUTO");
+            final SQLRow row = getTable().getRow(id);
 
-        final SQLTable tableNum = this.getTable().getBase().getTable("NUMEROTATION_AUTO");
-        final SQLRow row = getTable().getRow(id);
-
-        // incrémentation du numéro auto
-        if (NumerotationAutoSQLElement.getNextNumero(AvoirFournisseurSQLElement.class, row.getDate("DATE").getTime()).equalsIgnoreCase(this.textNumero.getText().trim())) {
-            SQLRowValues rowVals = new SQLRowValues(tableNum);
-            int val = tableNum.getRow(2).getInt("AVOIR_F_START");
-            val++;
-            rowVals.put("AVOIR_F_START", Integer.valueOf(val));
-
-            try {
+            // incrémentation du numéro auto
+            if (NumerotationAutoSQLElement.getNextNumero(AvoirFournisseurSQLElement.class, row.getDate("DATE").getTime()).equalsIgnoreCase(this.textNumero.getText().trim())) {
+                SQLRowValues rowVals = new SQLRowValues(tableNum);
+                int val = tableNum.getRow(2).getInt("AVOIR_F_START");
+                val++;
+                rowVals.put("AVOIR_F_START", Integer.valueOf(val));
                 rowVals.update(2);
-            } catch (SQLException e) {
 
-                e.printStackTrace();
             }
+
+            GenerationMvtAvoirFournisseur gen = new GenerationMvtAvoirFournisseur(id);
+            gen.genereMouvement();
+        } catch (Exception e) {
+            ExceptionHandler.handle("Erreur d'insertion", e);
         }
-
-        GenerationMvtAvoirFournisseur gen = new GenerationMvtAvoirFournisseur(id);
-        gen.genereMouvement();
-
         return id;
     }
 
@@ -326,18 +346,20 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
     @Override
     public void update() {
         super.update();
+        try {
+            SQLRow row = getTable().getRow(getSelectedID());
 
-        SQLRow row = getTable().getRow(getSelectedID());
+            int idMvt = row.getInt("ID_MOUVEMENT");
 
-        int idMvt = row.getInt("ID_MOUVEMENT");
+            // on supprime tout ce qui est lié à la facture d'avoir
+            EcritureSQLElement eltEcr = (EcritureSQLElement) Configuration.getInstance().getDirectory().getElement("ECRITURE");
+            eltEcr.archiveMouvementProfondeur(idMvt, false);
 
-        // on supprime tout ce qui est lié à la facture d'avoir
-        System.err.println("Archivage des fils");
-        EcritureSQLElement eltEcr = (EcritureSQLElement) Configuration.getInstance().getDirectory().getElement("ECRITURE");
-        eltEcr.archiveMouvementProfondeur(idMvt, false);
-
-        GenerationMvtAvoirFournisseur gen = new GenerationMvtAvoirFournisseur(getSelectedID(), idMvt);
-        gen.genereMouvement();
+            GenerationMvtAvoirFournisseur gen = new GenerationMvtAvoirFournisseur(getSelectedID(), idMvt);
+            gen.genereMouvement();
+        } catch (Exception e) {
+            ExceptionHandler.handle("Erreur Archivage des fils", e);
+        }
     }
 
     public void actionPerformed(ActionEvent e) {

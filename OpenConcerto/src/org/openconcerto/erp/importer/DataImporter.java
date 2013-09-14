@@ -440,22 +440,24 @@ public class DataImporter {
             }
 
             final String fieldName = valueConverter.getFieldName();
-            if (valueConverter.getField().getTable().equals(table)) {
-                newValues.put(fieldName, objectToInsert);
-            } else {
+            if (objectToInsert != null || !valueConverter.isIgnoringEmptyValue()) {
+                if (valueConverter.getField().getTable().equals(table)) {
+                    newValues.put(fieldName, objectToInsert);
+                } else {
 
-                final SQLField sqlField = foreignMap.get(valueConverter);
+                    final SQLField sqlField = foreignMap.get(valueConverter);
 
-                final Object value = newValues.get(sqlField.getName());
-                if (value == null || value instanceof SQLRowValues) {
-                    SQLRowValues fRowValues = (SQLRowValues) value;
-                    if (fRowValues == null) {
-                        fRowValues = new SQLRowValues(valueConverter.getField().getTable());
-                        newValues.put(sqlField.getName(), fRowValues);
+                    final Object value = newValues.get(sqlField.getName());
+                    if (value == null || value instanceof SQLRowValues) {
+                        SQLRowValues fRowValues = (SQLRowValues) value;
+                        if (fRowValues == null) {
+                            fRowValues = new SQLRowValues(valueConverter.getField().getTable());
+                            newValues.put(sqlField.getName(), fRowValues);
+                        }
+                        fRowValues.put(valueConverter.getField().getName(), objectToInsert);
                     }
-                    fRowValues.put(valueConverter.getField().getName(), objectToInsert);
-                }
 
+                }
             }
         }
         if (existingRow == null) {

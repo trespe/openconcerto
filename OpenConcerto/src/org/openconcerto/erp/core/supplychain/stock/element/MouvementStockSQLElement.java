@@ -23,6 +23,7 @@ import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.element.TreesOfSQLRows;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
@@ -39,10 +40,13 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.EditPanel.EditMode;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
+import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.preferences.DefaultProps;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
 
+import java.math.BigDecimal;
+import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,8 +54,6 @@ import java.util.List;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class MouvementStockSQLElement extends ComptaSQLConfElement {
 
@@ -90,6 +92,14 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
         updateStock(Arrays.asList(row.getID()), true);
     }
 
+    @Override
+    protected void archive(TreesOfSQLRows trees, boolean cutLinks) throws SQLException {
+        super.archive(trees, cutLinks);
+        for (SQLRow row : trees.getRows()) {
+            updateStock(Arrays.asList(row.getID()), true);
+        }
+    }
+
     // public CollectionMap<SQLRow, List<SQLRowValues>> updateStock(List<Integer> ids) {
     // return updateStock(ids, false);
     // }
@@ -103,12 +113,15 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
      * @param eltTable SQLTable des éléments de la pièce (ex : element du BL)
      * @param label label pour les mouvements de stocks
      * @param entry true si c'est une entrée de stock
+     * @throws SQLException
      * 
      */
-    public void createMouvement(SQLRow rowOrigin, SQLTable eltTable, StockLabel label, boolean entry) {
-
+    public void createMouvement(final SQLRow rowOrigin, SQLTable eltTable, StockLabel label, boolean entry) throws SQLException {
+        // TODO: if (SwingUtilities.isEventDispatchThread()) {
+        // throw new IllegalStateException("This method must be called outside of EDT");
+        // }
         // On récupére les articles qui composent la piéce
-        SQLSelect selEltfact = new SQLSelect(rowOrigin.getTable().getBase());
+        SQLSelect selEltfact = new SQLSelect();
         selEltfact.addSelectStar(eltTable);
         selEltfact.setWhere(new Where((SQLField) eltTable.getForeignKeys(rowOrigin.getTable()).toArray()[0], "=", rowOrigin.getID()));
 
@@ -122,8 +135,6 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
             List<Integer> l = new ArrayList<Integer>();
             for (SQLRow rowElt : lElt) {
                 SQLRow rowArticleAssocie = (rowElt.getTable().contains("ID_ARTICLE") ? rowElt.getForeign("ID_ARTICLE") : null);
-
-                int idArticle;
 
                 // Si on a bien sélectionné un article ou qu'il y a un code de saisi
                 if ((rowArticleAssocie != null && !rowArticleAssocie.isUndefined()) || rowElt.getString("CODE").trim().length() > 0) {
@@ -139,56 +150,73 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                             }
                         }
                         // rowArticle.loadAllSafe(rowEltFact);
+                        int idArticle;
                         if (modeAvance)
                             idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, createArticle);
                         else {
                             idArticle = ReferenceArticleSQLElement.getIdForCN(rowArticle, createArticle);
                         }
+                        // Fix row without article id
                         if (idArticle > 0 && idArticle != sqlTableArticle.getUndefinedID()) {
                             SQLRowValues rowVals = rowElt.asRowValues();
                             rowVals.put("ID_ARTICLE", idArticle);
-                            try {
-                                rowVals.update();
-                            } catch (SQLException exn) {
-                                // TODO Bloc catch auto-généré
-                                exn.printStackTrace();
-                            }
+                            rowVals.update();
                         }
-                    } else {
-                        idArticle = rowArticleAssocie.getID();
+                        rowArticleAssocie = rowElt.getTable().getTable("ARTICLE").getRow(idArticle);
                     }
+
+                    // FIXME Voir avec Guillaume Article déjà créé sans gestion de stock??
+                    // if (rowArticleAssocie.getBoolean("GESTION_STOCK")) {
 
                     // on crée un mouvement de stock pour chacun des articles
                     SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
                     SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
+
+                    final int qte = rowElt.getInt("QTE");
+                    final BigDecimal qteUV = rowElt.getBigDecimal("QTE_UNITAIRE");
+                    double qteFinal = qteUV.multiply(new BigDecimal(qte), MathContext.DECIMAL128).doubleValue();
                     if (entry) {
-                        rowVals.put("QTE", (rowElt.getInt("QTE")));
+                        rowVals.put("QTE", qteFinal);
                     } else {
-                        rowVals.put("QTE", -(rowElt.getInt("QTE")));
+                        rowVals.put("QTE", -qteFinal);
                     }
+
                     rowVals.put("NOM", label.getLabel(rowOrigin, rowElt));
                     rowVals.put("IDSOURCE", rowOrigin.getID());
                     rowVals.put("SOURCE", rowOrigin.getTable().getName());
-                    rowVals.put("ID_ARTICLE", idArticle);
+                    rowVals.put("ID_ARTICLE", rowArticleAssocie.getID());
                     rowVals.put("DATE", rowOrigin.getObject("DATE"));
-                    try {
-                        SQLRow row = rowVals.insert();
-                        l.add(row.getID());
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
+                    SQLRow row = rowVals.insert();
+                    l.add(row.getID());
+
+                    // }
                 }
             }
-            CollectionMap<SQLRow, List<SQLRowValues>> map = updateStock(l, false);
+            final CollectionMap<SQLRow, List<SQLRowValues>> map = updateStock(l, false);
             if (map.keySet().size() > 0 && !rowOrigin.getTable().getName().equalsIgnoreCase("TICKET_CAISSE")) {
                 if (!rowOrigin.getTable().contains("ID_TARIF")) {
                     System.err.println("Attention la table " + rowOrigin.getTable().getName()
                             + " ne contient pas le champ ID_TARIF. La création automatique d'une commande fournisseur est donc impossible!");
                     Thread.dumpStack();
                 } else {
-                    if (JOptionPane.showConfirmDialog(null, "Certains articles sont en dessous du stock minimum.\n Voulez créer une commande?") == JOptionPane.YES_OPTION) {
-                        MouvementStockSQLElement.createCommandeF(map, rowOrigin.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"));
-                    }
+                    SwingUtilities.invokeLater(new Runnable() {
+
+                        @Override
+                        public void run() {
+                            if (JOptionPane.showConfirmDialog(null, "Certains articles sont en dessous du stock minimum.\n Voulez créer une commande?") == JOptionPane.YES_OPTION) {
+                                ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
+
+                                    @Override
+                                    public void run() {
+                                        MouvementStockSQLElement.createCommandeF(map, rowOrigin.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"));
+                                    }
+                                });
+
+                            }
+
+                        }
+                    });
+
                 }
             }
         }
@@ -201,6 +229,9 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
      * @param archive
      */
     public CollectionMap<SQLRow, List<SQLRowValues>> updateStock(List<Integer> ids, boolean archive) {
+        // FIXME: if (SwingUtilities.isEventDispatchThread()) {
+        // throw new IllegalStateException("This method must be called outside of EDT");
+        // }
         CollectionMap<SQLRow, List<SQLRowValues>> map = new CollectionMap<SQLRow, List<SQLRowValues>>();
         SQLTable tableCmdElt = Configuration.getInstance().getBase().getTable("COMMANDE_ELEMENT");
         for (Integer id : ids) {
@@ -213,6 +244,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
             SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement(sqlTableArticle);
             SQLElement eltStock = Configuration.getInstance().getDirectory().getElement("STOCK");
             final SQLRow rowArticle = rowMvtStock.getForeignRow("ID_ARTICLE");
+
             SQLRow rowStock = rowArticle.getForeignRow(("ID_STOCK"));
 
             float qte = rowStock.getFloat("QTE_REEL");
@@ -244,7 +276,6 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
             } catch (SQLException e) {
 
                 ExceptionHandler.handle("Erreur lors de la mise à jour du stock pour l'article " + rowArticle.getString("CODE"));
-                e.printStackTrace();
             }
 
             DefaultProps props = DefaultNXProps.getInstance();
@@ -256,7 +287,12 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                 SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
                 SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticle));
                 rowValsElt.put("ID_STYLE", 2);
-                rowValsElt.put("QTE", Math.round(rowArticle.getInt("QTE_MIN") - qteNvlle));
+                final SQLRow unite = rowArticle.getForeign("ID_UNITE_VENTE");
+                if (unite.isUndefined() || unite.getBoolean("A_LA_PIECE")) {
+                    rowValsElt.put("QTE", Math.round(rowArticle.getInt("QTE_MIN") - qteNvlle));
+                } else {
+                    rowValsElt.put("QTE_UNITAIRE", new BigDecimal(rowArticle.getInt("QTE_MIN") - qteNvlle));
+                }
                 rowValsElt.put("ID_TAXE", rowValsElt.getObject("ID_TAXE"));
                 rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
                 rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
@@ -265,6 +301,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                 map.put(rowArticle.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
 
             }
+
         }
         return map;
     }
@@ -274,29 +311,31 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
     }
 
     public static void createCommandeF(final CollectionMap<SQLRow, List<SQLRowValues>> col, final SQLRow rowDevise, final String ref) {
-
+        if (SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("This method must be called outside of EDT");
+        }
         if (col.keySet().size() > 0) {
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
 
-                    final SQLElement commande = Configuration.getInstance().getDirectory().getElement("COMMANDE");
-                    for (SQLRow fournisseur : col.keySet()) {
+            final SQLElement commande = Configuration.getInstance().getDirectory().getElement("COMMANDE");
+            for (final SQLRow fournisseur : col.keySet()) {
 
-                        // On regarde si il existe une commande en cours existante
-                        final SQLSelect sel = new SQLSelect(commande.getTable().getBase());
-                        sel.addSelectStar(commande.getTable());
-                        Where w = new Where(commande.getTable().getField("EN_COURS"), "=", Boolean.TRUE);
-                        w = w.and(new Where(commande.getTable().getField("ID_FOURNISSEUR"), "=", fournisseur.getID()));
-                        sel.setWhere(w);
+                // On regarde si il existe une commande en cours existante
+                final SQLSelect sel = new SQLSelect();
+                sel.addSelectStar(commande.getTable());
+                Where w = new Where(commande.getTable().getField("EN_COURS"), "=", Boolean.TRUE);
+                w = w.and(new Where(commande.getTable().getField("ID_FOURNISSEUR"), "=", fournisseur.getID()));
+                sel.setWhere(w);
 
-                        final List<SQLRow> rowsCmd = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
+                final List<SQLRow> rowsCmd = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
 
+                SwingUtilities.invokeLater(new Runnable() {
+
+                    @Override
+                    public void run() {
                         SQLRow commandeExistante = null;
                         if (rowsCmd != null && rowsCmd.size() > 0) {
                             commandeExistante = rowsCmd.get(0);
                         }
-
                         EditFrame frame;
                         CommandeSQLComponent cmp;
 
@@ -324,10 +363,10 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                             }
                             rowVals.put("NOM", ref);
                             cmp.select(rowVals);
-                            cmp.getRowValuesTable().getRowValuesTable().getRowValuesTableModel().clearRows();
+                            cmp.getRowValuesTable().getRowValuesTableModel().clearRows();
                         }
 
-                        final RowValuesTableModel model = cmp.getRowValuesTable().getRowValuesTable().getRowValuesTableModel();
+                        final RowValuesTableModel model = cmp.getRowValuesTable().getRowValuesTableModel();
                         for (SQLRowValues rowValsElt : (List<SQLRowValues>) col.get(fournisseur)) {
                             SQLRowValues rowValsMatch = null;
                             int index = 0;
@@ -349,31 +388,43 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                         }
 
                         frame.pack();
-                        frame.setVisible(true);
+                        FrameUtil.show(frame);
+
                     }
-                }
-            });
+                });
+
+            }
+
         }
 
     }
 
-    public static final void showSource(int id) {
-        final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-        final SQLTable tableMvt = base.getTable("MOUVEMENT_STOCK");
-        final String stringTableSource = tableMvt.getRow(id).getString("SOURCE");
-        final EditFrame f;
+    public static final void showSource(final int id) {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("This method must be called from EDT");
+        }
         if (id != 1) {
-            // Si une source est associée on l'affiche en readonly
-            if (stringTableSource.trim().length() != 0 && tableMvt.getRow(id).getInt("IDSOURCE") != 1) {
-                f = new EditFrame(Configuration.getInstance().getDirectory().getElement(stringTableSource), EditPanel.READONLY);
-                f.selectionId(tableMvt.getRow(id).getInt("IDSOURCE"));
-            } else {
-                // Sinon on affiche le mouvement de stock
-                f = new EditFrame(Configuration.getInstance().getDirectory().getElement(tableMvt), EditPanel.READONLY);
-                f.selectionId(id);
-            }
-            f.pack();
-            f.setVisible(true);
+            final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
+            final SQLTable tableMvt = base.getTable("MOUVEMENT_STOCK");
+            final String stringTableSource = tableMvt.getRow(id).getString("SOURCE");
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+
+                    final EditFrame f;
+                    // Si une source est associée on l'affiche en readonly
+                    if (stringTableSource.trim().length() != 0 && tableMvt.getRow(id).getInt("IDSOURCE") != 1) {
+                        f = new EditFrame(Configuration.getInstance().getDirectory().getElement(stringTableSource), EditPanel.READONLY);
+                        f.selectionId(tableMvt.getRow(id).getInt("IDSOURCE"));
+                    } else {
+                        // Sinon on affiche le mouvement de stock
+                        f = new EditFrame(Configuration.getInstance().getDirectory().getElement(tableMvt), EditPanel.READONLY);
+                        f.selectionId(id);
+                    }
+                    f.pack();
+                    FrameUtil.show(f);
+
+                }
+            });
         } else {
             System.err.println("Aucun mouvement associé, impossible de modifier ou d'accéder à la source de cette ecriture!");
         }

@@ -59,9 +59,9 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         map.put("SocieteType", rowSoc.getString("TYPE"));
         map.put("SocieteNom", rowSoc.getString("NOM"));
         map.put("SocieteAdresse", rowSocAdresse.getString("RUE"));
-        map.put("SocieteCodePostal", getVilleCP(rowSocAdresse.getString("VILLE")));
+        map.put("SocieteCodePostal", rowSocAdresse.getString("CODE_POSTAL"));
 
-        String ville = getVille(rowSocAdresse.getString("VILLE"));
+        String ville = rowSocAdresse.getString("VILLE");
         final Object cedex = rowSocAdresse.getObject("CEDEX");
         final boolean hasCedex = rowSocAdresse.getBoolean("HAS_CEDEX");
 
@@ -88,8 +88,8 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         map.put("ClientType", rowClient.getString("FORME_JURIDIQUE"));
         map.put("ClientNom", rowClient.getString("NOM"));
         map.put("ClientAdresse", rowAdresse.getString("RUE"));
-        map.put("ClientCodePostal", getVilleCP(rowAdresse.getString("VILLE")));
-        String villeCli = getVille(rowAdresse.getString("VILLE"));
+        map.put("ClientCodePostal", rowAdresse.getString("CODE_POSTAL"));
+        String villeCli = rowAdresse.getString("VILLE");
         final Object cedexCli = rowAdresse.getObject("CEDEX");
         final boolean hasCedexCli = rowAdresse.getBoolean("HAS_CEDEX");
 
@@ -108,6 +108,7 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         map.put("RelanceNumero", this.rowRelance.getString("NUMERO"));
 
         SQLRow rowFacture = this.rowRelance.getForeignRow("ID_SAISIE_VENTE_FACTURE");
+
 
         // Infos facture
         Long lTotal = (Long) rowFacture.getObject("T_TTC");

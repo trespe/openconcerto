@@ -32,10 +32,10 @@ public class MoveAfterItemModifier extends HierarchyModifier {
     @Override
     public void applyOn(Group g) {
         // Remove Item from parent
-        Item i = g.getItemFromId(getItemId());
+        Item i = g.getDescFromID(getItemId());
         i.getParent().remove(getItemId());
         // New parent
-        Group p = g.getItemFromId(afterId).getParent();
+        Group p = g.getDescFromID(afterId).getParent();
         int index1 = p.getIndex(afterId);
         Integer order1 = p.getOrder(index1);
         Integer order2 = order1 + 200;
@@ -43,7 +43,6 @@ public class MoveAfterItemModifier extends HierarchyModifier {
             order2 = p.getOrder(index1 + 1);
         }
         p.add(i, (order1 + order2) / 2);
-        p.sortSubGroup();
     }
 
     @Override

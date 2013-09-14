@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.preferences;
 
+import org.openconcerto.laf.WindowsLookAndFeelFix;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.table.AlternateTableCellRenderer;
 import org.openconcerto.ui.warning.JLabelWarning;
@@ -197,7 +198,7 @@ public class UIPreferencePanel extends DefaultLocalPreferencePanel {
         try {
             if (this.comboLook.getSelectedIndex() == 0) {
                 properties.setProperty(UI_LOOK, "system");
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                useSystemLF();
             } else {
                 properties.setProperty(UI_LOOK, "nimbus");
                 useNimbusLF();
@@ -252,17 +253,25 @@ public class UIPreferencePanel extends DefaultLocalPreferencePanel {
             final String nimbusClassName = getNimbusClassName();
 
             if (look != null && look.equals("system")) {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                useSystemLF();
             } else if (look != null && look.equals("nimbus")) {
                 useNimbusLF();
             } else if (nimbusClassName == null || !System.getProperty("os.name", "??").toLowerCase().contains("linux")) {
-                UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                useSystemLF();
             } else {
                 useNimbusLF();
             }
 
         } catch (Exception e) {
             ExceptionHandler.handle("Unable to restore UI preferences", e);
+        }
+    }
+
+    private static void useSystemLF() throws ClassNotFoundException, InstantiationException, IllegalAccessException, UnsupportedLookAndFeelException {
+        if (!System.getProperty("os.name", "??").toLowerCase().contains("windows")) {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } else {
+            UIManager.setLookAndFeel(new WindowsLookAndFeelFix());
         }
     }
 }

@@ -20,7 +20,7 @@ import java.util.Comparator;
  * 
  * @author Sylvain
  */
-public class OrderComparator implements Comparator<SQLRow> {
+public class OrderComparator implements Comparator<SQLRowAccessor> {
 
     public static final OrderComparator INSTANCE = new OrderComparator();
 
@@ -29,7 +29,7 @@ public class OrderComparator implements Comparator<SQLRow> {
     }
 
     @Override
-    public int compare(SQLRow r1, SQLRow r2) {
+    public int compare(SQLRowAccessor r1, SQLRowAccessor r2) {
         // handle two nulls (but the next line throws an exception if only one is null)
         // MAYBE NULLS FIRST/LAST
         if (r1 == r2)

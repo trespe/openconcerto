@@ -19,7 +19,6 @@ import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElemen
 import org.openconcerto.erp.core.sales.product.ui.ArticleRowValuesRenderer;
 import org.openconcerto.erp.core.sales.product.ui.QteMultipleRowValuesRenderer;
 import org.openconcerto.erp.core.sales.product.ui.QteUnitRowValuesRenderer;
-import org.openconcerto.erp.model.PrixHT;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
@@ -76,11 +75,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
     private SQLTable tableArticleTarif = Configuration.getInstance().getBase().getTable("ARTICLE_TARIF");
     private SQLTable tableArticle = Configuration.getInstance().getBase().getTable("ARTICLE");
-    private SQLTable tableTarif = Configuration.getInstance().getBase().getTable("TARIF");
 
-    /**
-     * 
-     */
     protected void init() {
 
         SQLPreferences prefs = SQLPreferences.getMemCached(getSQLElement().getTable().getDBRoot());
@@ -192,14 +187,12 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         }
 
         // Prix d'achat HT de la métrique 1
-        final SQLTableElement tableElement_PrixMetrique1_AchatHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_HA_1"), BigDecimal.class);
-        // @Override
-        // public boolean isCellEditable(SQLRowValues vals) {
-        // // TODO Raccord de méthode auto-généré
-        // return !(selectArticle && !createAuto);
-        // }
-        // };
-        // tableElement_PrixMetrique1_AchatHT.setRenderer(new DeviseNiceTableCellRenderer());
+        final SQLTableElement tableElement_PrixMetrique1_AchatHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_HA_1"), BigDecimal.class) {
+            protected Object getDefaultNullValue() {
+                return BigDecimal.ZERO;
+            }
+        };
+        tableElement_PrixMetrique1_AchatHT.setRenderer(new DeviseTableCellRenderer());
         list.add(tableElement_PrixMetrique1_AchatHT);
 
         SQLTableElement eltDevise = null;
@@ -211,23 +204,19 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
             // Prix vente devise
             eltUnitDevise = new SQLTableElement(e.getTable().getField("PV_U_DEVISE"), BigDecimal.class);
+            eltUnitDevise.setRenderer(new DeviseTableCellRenderer());
             list.add(eltUnitDevise);
         }
         // Prix de vente HT de la métrique 1
-        // final DeviseCellEditor editorPVHT = new DeviseCellEditor();
-        // editorPVHT.setConvertToTTCEnable(true);
+
         SQLField field = e.getTable().getField("PRIX_METRIQUE_VT_1");
-        final DeviseNumericCellEditor editorPVHT = new DeviseNumericCellEditor(field);
-        editorPVHT.setConvertToTTCEnable(true);
+        final DeviseNumericHTConvertorCellEditor editorPVHT = new DeviseNumericHTConvertorCellEditor(field);
 
         final SQLTableElement tableElement_PrixMetrique1_VenteHT = new SQLTableElement(field, BigDecimal.class, editorPVHT);
+        tableElement_PrixMetrique1_VenteHT.setRenderer(new DeviseTableCellRenderer());
         list.add(tableElement_PrixMetrique1_VenteHT);
 
         // // Prix d'achat HT de la métrique 1
-        // final SQLTableElement tableElement_PrixMetrique1_AchatHT = new
-        // SQLTableElement(e.getTable().getField("PRIX_METRIQUE_HA_1"), Long.class, new
-        // DeviseCellEditor());
-        // list.add(tableElement_PrixMetrique1_AchatHT);
 
         SQLTableElement qteU = new SQLTableElement(e.getTable().getField("QTE_UNITAIRE"), BigDecimal.class) {
             @Override
@@ -277,11 +266,24 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         list.add(tableElement_ModeVente);
 
         // // Prix d'achat unitaire HT
-        this.ha = new SQLTableElement(e.getTable().getField("PA_HT"), BigDecimal.class);
+
+        final SQLField prixAchatHTField = e.getTable().getField("PA_HT");
+        final DeviseNumericCellEditor editorPAchatHT = new DeviseNumericCellEditor(prixAchatHTField);
+        this.ha = new SQLTableElement(e.getTable().getField("PA_HT"), BigDecimal.class, editorPAchatHT) {
+            protected Object getDefaultNullValue() {
+                return BigDecimal.ZERO;
+            }
+        };
+        this.ha = new SQLTableElement(prixAchatHTField, BigDecimal.class, editorPAchatHT);
+        this.ha.setRenderer(new DeviseTableCellRenderer());
+
         list.add(this.ha);
 
         // Prix de vente unitaire HT
-        final SQLTableElement tableElement_PrixVente_HT = new SQLTableElement(e.getTable().getField("PV_HT"), BigDecimal.class);
+        final SQLField prixVenteHTField = e.getTable().getField("PV_HT");
+        final DeviseNumericCellEditor editorPVenteHT = new DeviseNumericCellEditor(prixAchatHTField);
+        final SQLTableElement tableElement_PrixVente_HT = new SQLTableElement(prixVenteHTField, BigDecimal.class, editorPVenteHT);
+        tableElement_PrixVente_HT.setRenderer(new DeviseTableCellRenderer());
         list.add(tableElement_PrixVente_HT);
 
         // TVA
@@ -304,13 +306,16 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         }
 
         this.totalHT = new SQLTableElement(e.getTable().getField("T_PV_HT"), BigDecimal.class);
+        this.totalHT.setRenderer(new DeviseTableCellRenderer());
         this.totalHT.setEditable(false);
         if (e.getTable().getFieldsName().contains("POURCENT_ACOMPTE")) {
             SQLTableElement tableElementAcompte = new SQLTableElement(e.getTable().getField("POURCENT_ACOMPTE"));
             list.add(tableElementAcompte);
             tableElementAcompte.addModificationListener(this.totalHT);
         }
-        SQLTableElement tableElementRemise = new SQLTableElement(e.getTable().getField("POURCENT_REMISE"));
+
+        final SQLField field2 = e.getTable().getField("POURCENT_REMISE");
+        SQLTableElement tableElementRemise = new SQLTableElement(field2);
         list.add(tableElementRemise);
 
         SQLTableElement tableElementRG = null;
@@ -321,12 +326,14 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
         // Total HT
         this.totalHA = new SQLTableElement(e.getTable().getField("T_PA_HT"), BigDecimal.class);
+        this.totalHA.setRenderer(new DeviseTableCellRenderer());
         this.totalHA.setEditable(false);
         list.add(this.totalHA);
 
         if (DefaultNXProps.getInstance().getBooleanValue(ARTICLE_SHOW_DEVISE, false)) {
             // Total HT
             this.tableElementTotalDevise = new SQLTableElement(e.getTable().getField("PV_T_DEVISE"), BigDecimal.class);
+            this.tableElementTotalDevise.setRenderer(new DeviseTableCellRenderer());
             list.add(tableElementTotalDevise);
         }
 
@@ -334,6 +341,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         if (e.getTable().getFieldsName().contains("MARGE_HT")) {
 
             final SQLTableElement marge = new SQLTableElement(e.getTable().getField("MARGE_HT"), BigDecimal.class);
+            marge.setRenderer(new DeviseTableCellRenderer());
             marge.setEditable(false);
             list.add(marge);
             this.totalHT.addModificationListener(marge);
@@ -353,7 +361,6 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                         vt = vt.multiply(lA, MathContext.DECIMAL128).movePointLeft(2);
                     }
 
-                    // Long r = Long.valueOf(vt - ha);
                     return vt.subtract(ha).setScale(marge.getDecimalDigits(), RoundingMode.HALF_UP);
                 }
 
@@ -384,7 +391,6 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                         vt = vt.multiply(lA, MathContext.DECIMAL128).movePointLeft(2);
                     }
 
-                    // Long r = Long.valueOf(vt - ha);
                     return vt.subtract(ha).setScale(marge.getDecimalDigits(), RoundingMode.HALF_UP);
                 }
 
@@ -393,13 +399,14 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         }
 
         // Total HT
-        // this.totalHT.setRenderer(new DeviseNiceTableCellRenderer());
+
         this.totalHT.setEditable(false);
         list.add(this.totalHT);
         // Total TTC
         // FIXME add a modifier -> T_TTC modify P_VT_METRIQUE_1 + fix CellDynamicModifier not fire
         // if value not changed
         this.tableElementTotalTTC = new SQLTableElement(e.getTable().getField("T_PV_TTC"), BigDecimal.class);
+        this.tableElementTotalTTC.setRenderer(new DeviseTableCellRenderer());
         this.tableElementTotalTTC.setEditable(false);
         list.add(this.tableElementTotalTTC);
 
@@ -571,7 +578,7 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
                 BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
                 BigDecimal f = (BigDecimal) row.getObject("PA_HT");
-                BigDecimal r = b.multiply(new BigDecimal(f.longValue() * qte), MathContext.DECIMAL128).setScale(6, BigDecimal.ROUND_HALF_UP);
+                BigDecimal r = b.multiply(new BigDecimal(qte), MathContext.DECIMAL128).multiply(f, MathContext.DECIMAL128).setScale(6, BigDecimal.ROUND_HALF_UP);
                 return r.setScale(totalHA.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
             }
         });
@@ -599,15 +606,14 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
             });
         }
         // Calcul automatique du total TTC
-        // tableElement_Quantite.addModificationListener(tableElement_TotalTTC);
-        // tableElement_PrixVente_HT.addModificationListener(tableElement_TotalTTC);
+
         this.totalHT.addModificationListener(this.tableElementTotalTTC);
         this.tableElementTVA.addModificationListener(this.tableElementTotalTTC);
         this.tableElementTotalTTC.setModifier(new CellDynamicModifier() {
             @Override
             public Object computeValueFrom(SQLRowValues row) {
 
-                BigDecimal f = (BigDecimal) row.getObject("T_PV_HT");
+                BigDecimal ht = (BigDecimal) row.getObject("T_PV_HT");
                 int idTaux = Integer.parseInt(row.getObject("ID_TAXE").toString());
 
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(idTaux);
@@ -624,12 +630,12 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
                     }
                 }
 
-                // PrixHT pHT = new PrixHT(f.longValue());
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
-                // editorPVHT.setTaxe(resultTaux);
-                // Long r = Long.valueOf(pHT.calculLongTTC(taux / 100f));
-                BigDecimal r = f.multiply(BigDecimal.valueOf(taux).movePointLeft(2).add(BigDecimal.ONE), MathContext.DECIMAL128);
-                return r.setScale(tableElementTotalTTC.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
+                editorPVHT.setTaxe(taux);
+
+                BigDecimal r = ht.multiply(BigDecimal.valueOf(taux).movePointLeft(2).add(BigDecimal.ONE), MathContext.DECIMAL128);
+                final BigDecimal resultTTC = r.setScale(tableElementTotalTTC.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
+                return resultTTC;
             }
 
         });
@@ -778,10 +784,9 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
         return null;
     }
 
-    private Object tarifCompletion(SQLRowAccessor row, String field) {
+    protected Object tarifCompletion(SQLRowAccessor row, String field) {
 
-        if (getTarif() != null && getTarif().getID() > tableTarif.getUndefinedID()) {
-            // SQLRow rowTarifSelect = tableTarif.getRow(getTarif());
+        if (getTarif() != null && !getTarif().isUndefined()) {
             Collection<? extends SQLRowAccessor> rows = row.getReferentRows(tableArticleTarif);
 
             SQLRowAccessor rowTarif = null;
@@ -833,27 +838,24 @@ public abstract class AbstractVenteArticleItemTable extends AbstractArticleItemT
 
     @Override
     public void setTarif(SQLRowAccessor rowValuesTarif, boolean ask) {
-        // TODO Raccord de méthode auto-généré
         if (rowValuesTarif == null || getTarif() == null || rowValuesTarif.getID() != getTarif().getID()) {
             super.setTarif(rowValuesTarif, ask);
-            if (ask && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
+            if (ask && getRowValuesTable().getRowCount() > 0 && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client sur les lignes déjà présentes?") == JOptionPane.YES_OPTION) {
                 int nbRows = this.table.getRowCount();
                 for (int i = 0; i < nbRows; i++) {
                     SQLRowValues rowVals = getRowValuesTable().getRowValuesTableModel().getRowValuesAt(i);
 
                     // on récupére l'article qui lui correspond
-
                     SQLRowValues rowValsArticle = new SQLRowValues(tableArticle);
                     for (SQLField field : tableArticle.getFields()) {
                         if (rowVals.getTable().getFieldsName().contains(field.getName())) {
                             rowValsArticle.put(field.getName(), rowVals.getObject(field.getName()));
                         }
                     }
-                    // rowArticle.loadAllSafe(rowEltFact);
 
                     int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowValsArticle, true);
                     SQLRow rowArticle = tableArticle.getRow(idArticle);
-                    // SQLRowAccessor rowArticle = rowVals.getForeign("ID_ARTICLE");
+
                     Collection<? extends SQLRowAccessor> rows = rowArticle.getReferentRows(tableArticleTarif);
                     boolean tarifFind = false;
                     if (getTarif() != null) {

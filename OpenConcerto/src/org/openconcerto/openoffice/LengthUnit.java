@@ -81,8 +81,12 @@ public enum LengthUnit {
         }
     }
 
-    public final String format(final BigDecimal d) {
-        return d.toPlainString() + getSymbol();
+    public final String format(final Number n) {
+        if (n == null)
+            throw new NullPointerException();
+        // don't use exponents
+        final String s = n instanceof BigDecimal ? ((BigDecimal) n).toPlainString() : n.toString();
+        return s + getSymbol();
     }
 
     public static final LengthUnit fromSymbol(final String s) {

@@ -17,28 +17,31 @@ import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.ExceptionHandler;
 
 import java.util.Date;
-
 
 public class GenerationMvtReglementAvoirChequeClient extends GenerationEcritures {
 
     private long montant;
-
     private static final SQLTable tablePrefCompte = base.getTable("PREFS_COMPTE");
-    // private static final SQLTable tableMouvement = base.getTable("MOUVEMENT");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
     private int idCheque;
 
-    public void genere() {
+    public GenerationMvtReglementAvoirChequeClient(int idMvt, long montant, Date d, int idCheque) {
+        this.montant = montant;
+        this.date = d;
+        this.idMvt = idMvt;
+        this.idCheque = idCheque;
+    }
+
+    public void genere() throws Exception {
 
         System.err.println("generation du reglement par cheque");
         SQLRow chequeAvoirRow = base.getTable("CHEQUE_AVOIR_CLIENT").getRow(this.idCheque);
         SQLRow clientRow = base.getTable("CLIENT").getRow(chequeAvoirRow.getInt("ID_CLIENT"));
 
-        // iniatilisation des valeurs de la map
-        // this.date = new Date();
+        // initialisation des valeurs de la map
+
         this.nom = "Reglement avoir client par chéque";
         this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
         this.mEcritures.put("NOM", this.nom);
@@ -50,48 +53,25 @@ public class GenerationMvtReglementAvoirChequeClient extends GenerationEcritures
         if (idCompteClient <= 1) {
             idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
             if (idCompteClient <= 1) {
-                try {
-                    idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
             }
         }
 
-        try {
-            this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteClient));
-            this.mEcritures.put("DEBIT", new Long(this.montant));
-            this.mEcritures.put("CREDIT", new Long(0));
-            ajoutEcriture();
+        this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteClient));
+        this.mEcritures.put("DEBIT", new Long(this.montant));
+        this.mEcritures.put("CREDIT", new Long(0));
+        ajoutEcriture();
 
-            // compte de reglement cheque, ...
-            int idPce = base.getTable("TYPE_REGLEMENT").getRow(2).getInt("ID_COMPTE_PCE_CLIENT");
-            if (idPce <= 1) {
-                try {
-                    idPce = ComptePCESQLElement.getIdComptePceDefault("VenteCheque");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-            this.mEcritures.put("ID_COMPTE_PCE", new Integer(idPce));
-            this.mEcritures.put("DEBIT", new Long(0));
-            this.mEcritures.put("CREDIT", new Long(this.montant));
-            ajoutEcriture();
-
-        } catch (IllegalArgumentException e) {
-            ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
+        // compte de reglement cheque, ...
+        int idPce = base.getTable("TYPE_REGLEMENT").getRow(2).getInt("ID_COMPTE_PCE_CLIENT");
+        if (idPce <= 1) {
+            idPce = ComptePCESQLElement.getIdComptePceDefault("VenteCheque");
         }
+        this.mEcritures.put("ID_COMPTE_PCE", new Integer(idPce));
+        this.mEcritures.put("DEBIT", new Long(0));
+        this.mEcritures.put("CREDIT", new Long(this.montant));
+        ajoutEcriture();
+
     }
 
-    public GenerationMvtReglementAvoirChequeClient(int idMvt, long montant, Date d, int idCheque) {
-
-        // SQLRow rowMvtPere = tableMouvement.getRow(idMvt);
-        // this.idMvt = getNewMouvement("CHEQUE_A_ENCAISSER", idCheque, idMvt,
-        // rowMvtPere.getInt("ID_PIECE"));
-        this.montant = montant;
-        this.date = d;
-        this.idMvt = idMvt;
-        this.idCheque = idCheque;
-    }
 }

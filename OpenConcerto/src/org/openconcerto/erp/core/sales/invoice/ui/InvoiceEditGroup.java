@@ -19,28 +19,28 @@ import org.openconcerto.ui.group.LayoutHints;
 public class InvoiceEditGroup extends Group {
 
     public InvoiceEditGroup() {
-        super("sales.invoice.edit");
+        super("sales.invoice");
         final Group g = new Group("sales.invoice.identifier");
-        g.addItem("NUMERO");
-        g.addItem("DATE");
-        g.addItem("NOM", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
-        g.addItem("ID_COMMERCIAL");
+        g.addItem("sales.invoice.number");
+        g.addItem("sales.invoice.date");
+        g.addItem("sales.invoice.label", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        g.addItem("sales.invoice.saleman");
         this.add(g);
 
         final Group gCustomer = new Group("sales.invoice.customer");
-        gCustomer.addItem("ID_CLIENT", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        gCustomer.addItem("sales.invoice.customer", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
         add(gCustomer);
 
         final Group gAddress = new Group("sales.invoice.address");
-        gAddress.addItem("ID_ADRESSE");
+        gAddress.addItem("sales.invoice.address.alternative");
         add(gAddress);
 
-        final Group gElements = new Group("sales.invoice.elements");
-        gElements.addItem("(SAISIE_VENTE_FACTURE_ELEMENT)*", LayoutHints.DEFAULT_LIST_HINTS);
+        final Group gElements = new Group("sales.invoice.items");
+        gElements.addItem("sales.invoice.items.list", LayoutHints.DEFAULT_LIST_HINTS);
         add(gElements);
 
         final Group gInfos = new Group("sales.invoice.info");
-        gInfos.addItem("INFOS", new LayoutHints(true, false, true, true, true, false));
+        gInfos.addItem("sales.invoice.info.general", LayoutHints.DEFAULT_VERY_LARGE_TEXT_HINTS);
         add(gInfos);
 
     }

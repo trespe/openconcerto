@@ -13,7 +13,6 @@
  
  package org.openconcerto.sql.users.rights;
 
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLRow;
@@ -36,35 +35,102 @@ import org.openconcerto.utils.cc.IFactory;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import net.jcip.annotations.GuardedBy;
+
 public class UserRightsManager {
 
+    public static final String USER_RIGHT_TABLE = UserRightSQLElement.TABLE_NAME;
+    public static final String SUPERUSER_FIELD = "SUPERUSER";
+    /**
+     * Only administrators can see user rights.
+     */
+    public static final String ADMIN_FIELD = "ADMIN";
     private static UserRightsManager instance;
     private static final CollectionMap<String, Tuple2<String, Boolean>> SUPERUSER_RIGHTS = CollectionMap.singleton(null, Tuple2.create((String) null, true));
     private static final CollectionMap<String, Tuple2<String, Boolean>> NO_RIGHTS = CollectionMap.singleton(null, Tuple2.create((String) null, false));
+    public static final List<MacroRight> DEFAULT_MACRO_RIGHTS = Collections.synchronizedList(new ArrayList<MacroRight>());
+    static {
+        DEFAULT_MACRO_RIGHTS.add(new LockAdminUserRight());
+        DEFAULT_MACRO_RIGHTS.add(new TableAllRights(true));
+        DEFAULT_MACRO_RIGHTS.add(new TableAllRights(false));
+    }
+
+    /**
+     * Call setInstance() if none exists.
+     * 
+     * @param conf where to find the table.
+     * @return the instance created, <code>null</code> if an instance already existed or if no table
+     *         could be found.
+     * @see #clearInstanceIfSame(UserRightsManager)
+     */
+    public synchronized static UserRightsManager setInstanceIfNone(final DBRoot root) {
+        if (instance != null) {
+            return null;
+        } else {
+            return setInstanceFromRoot(root);
+        }
+    }
+
+    /**
+     * Call setInstance(null) if the instance is the same as the parameter.
+     * 
+     * @param urMngr a manager.
+     * @return <code>true</code> if the instance was cleared.
+     */
+    public synchronized static boolean clearInstanceIfSame(final UserRightsManager urMngr) {
+        if (instance == urMngr) {
+            setInstance(null);
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    /**
+     * Set the instance using the table in the passed root.
+     * 
+     * @param root the root where the rights should be.
+     * @return the new instance, <code>null</code> if <code>root</code> does not contain the
+     *         {@value #USER_RIGHT_TABLE} table.
+     */
+    public static UserRightsManager setInstanceFromRoot(final DBRoot root) {
+        // do not require rights, one can check the result to see if it's not null
+        return setInstance(root.findTable(USER_RIGHT_TABLE, false));
+    }
+
+    /**
+     * Set the instance.
+     * 
+     * @param t the table, <code>null</code> to remove.
+     * @return the new instance, <code>null</code> if t was.
+     */
+    public synchronized static UserRightsManager setInstance(final SQLTable t) {
+        final SQLTable currentTable = instance == null ? null : instance.getTable();
+        if (currentTable != t) {
+            if (instance != null) {
+                instance.destroy();
+            }
+            instance = t == null ? null : new UserRightsManager(t);
+        }
+        return getInstance();
+    }
 
     public synchronized static UserRightsManager getInstance() {
-        if (instance == null) {
-            instance = new UserRightsManager();
-        }
         return instance;
     }
 
     public static final UserRights getCurrentUserRights() {
         final UserManager mngr = UserManager.getInstance();
         // if right table doesn't exist, give access to everything
-        if (!getInstance().isValid())
-            return new UserRights(SQLRow.NONEXISTANT_ID) {
-                @Override
-                public boolean haveRight(final String code, final String object, final Equalizer<? super String> objectMatcher) {
-                    return true;
-                }
-            };
+        if (getInstance() == null)
+            return UserRights.ALLOW_ALL;
         // else if there are rights (and thus users) but no user is defined, use the default rights
         else if (mngr.getCurrentUser() == null)
             return new UserRights(mngr.getTable().getUndefinedID());
@@ -76,15 +142,25 @@ public class UserRightsManager {
     private final Map<String, MacroRight> macroRights;
     // {user -> {code -> [<object, bool>]}}
     private final Map<Integer, CollectionMap<String, Tuple2<String, Boolean>>> rights;
-    private SQLTable table;
+    private final SQLTable table;
+    @GuardedBy("this")
+    private SQLTableModifiedListener tableL;
     private final CollectionMap<Integer, RightTuple> javaRights;
 
-    private UserRightsManager() {
+    private UserRightsManager(final SQLTable t) {
+        if (t == null)
+            throw new NullPointerException("Missing table");
         this.macroRights = new HashMap<String, MacroRight>();
         this.rights = new HashMap<Integer, CollectionMap<String, Tuple2<String, Boolean>>>();
         this.javaRights = new CollectionMap<Integer, RightTuple>();
-        // lazy init, so as to not require a conf
-        this.table = null;
+        this.table = t;
+        this.tableL = new SQLTableModifiedListener() {
+            @Override
+            public void tableModified(final SQLTableEvent evt) {
+                rightsInvalid();
+            }
+        };
+        this.table.addTableModifiedListener(this.tableL);
         defaultRegister();
     }
 
@@ -92,9 +168,11 @@ public class UserRightsManager {
      * enregistre les instances gérants les droits
      */
     private void defaultRegister() {
-        register(new LockAdminUserRight());
-        register(new TableAllRights(true));
-        register(new TableAllRights(false));
+        synchronized (DEFAULT_MACRO_RIGHTS) {
+            for (final MacroRight macroRight : DEFAULT_MACRO_RIGHTS) {
+                register(macroRight);
+            }
+        }
     }
 
     /**
@@ -117,22 +195,19 @@ public class UserRightsManager {
         this.rightsInvalid();
     }
 
-    public final boolean isValid() {
-        return this.getTable() != null;
+    public synchronized final boolean isValid() {
+        return this.tableL != null;
+    }
+
+    public synchronized final void destroy() {
+        if (this.isValid()) {
+            this.getTable().removeTableModifiedListener(this.tableL);
+            this.tableL = null;
+        }
+        assert !this.isValid();
     }
 
     public final SQLTable getTable() {
-        if (this.table == null) {
-            this.table = Configuration.getInstance().getRoot().findTable("USER_RIGHT");
-            if (this.table != null) {
-                this.table.addTableModifiedListener(new SQLTableModifiedListener() {
-                    @Override
-                    public void tableModified(final SQLTableEvent evt) {
-                        rightsInvalid();
-                    }
-                });
-            }
-        }
         return this.table;
     }
 
@@ -264,7 +339,7 @@ public class UserRightsManager {
     private final CollectionMap<String, Tuple2<String, Boolean>> loadRightsForUser(final int userID) {
         try {
             final SQLRow userRow = this.getTable().getForeignTable("ID_USER_COMMON").getRow(userID);
-            if (userRow != null && userRow.getBoolean("SUPERUSER"))
+            if (userRow != null && userRow.getBoolean(SUPERUSER_FIELD))
                 return SUPERUSER_RIGHTS;
 
             final CollectionMap<String, Tuple2<String, Boolean>> res = new CollectionMap<String, Tuple2<String, Boolean>>(ArrayList.class);
@@ -272,7 +347,7 @@ public class UserRightsManager {
             // only superuser can modify RIGHTs
             expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE_MODIF, this.getTable().getForeignTable("ID_RIGHT"), false));
             // only admin can modify or see USER_RIGHTs
-            expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE, this.getTable(), userRow != null && userRow.getBoolean("ADMIN")));
+            expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE, this.getTable(), userRow != null && userRow.getBoolean(ADMIN_FIELD)));
 
             // java rights have priority over SQL rights
             for (final RightTuple t : this.javaRights.getNonNull(userID)) {

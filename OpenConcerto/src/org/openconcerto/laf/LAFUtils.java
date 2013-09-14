@@ -26,6 +26,7 @@ import javax.swing.JTextField;
 import javax.swing.LookAndFeel;
 import javax.swing.UIDefaults;
 import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
 
 /**
  * Various methods about look and feels.
@@ -33,6 +34,20 @@ import javax.swing.UIManager;
  * @author Sylvain
  */
 public class LAFUtils {
+
+    /**
+     * Boolean system property.
+     * 
+     * @see #setLookAndFeel()
+     */
+    public static final String LAF_CROSSPLATFORM = "laf.crossplatform";
+
+    /**
+     * Boolean system property.
+     * 
+     * @see #fixLookAndFeel(String)
+     */
+    public static final String LAF_DONT_FIX = "laf.dontFix";
 
     private static LookAndFeel SYSTEM_LAF = null;
     // cache defaults, since after looking at the javadoc, it seems it should not be called often
@@ -103,4 +118,54 @@ public class LAFUtils {
         return res;
     }
 
+    /**
+     * Set the look and feel. UIManager default look and feel is the cross platform one, you can
+     * override this behavior by setting the <code>swing.defaultlaf</code> system property but to do
+     * that you must know the exact name of the look and feel : you can't just specify
+     * "SystemLookAndFeel". The class used for the look and feel is chosen in the following manner:
+     * <ol>
+     * <li>If the system property <code>swing.defaultlaf</code> is {@code non-null}, use its value.</li>
+     * <li>If the system property {@value #LAF_CROSSPLATFORM} is {@code false}, use
+     * {@link UIManager#getSystemLookAndFeelClassName()}.</li>
+     * <li>Else use {@link UIManager#getCrossPlatformLookAndFeelClassName()} which can be overridden
+     * by setting the <code>swing.crossplatformlaf</code> system property.</li>
+     * </ol>
+     * I.e. if no property is defined, you get the system look and feel.
+     * 
+     * @throws IllegalAccessException if the class or initializer isn't accessible
+     * @throws InstantiationException if a new instance of the class couldn't be created
+     * @throws ClassNotFoundException if the <code>LookAndFeel</code> class could not be found
+     * @throws ClassCastException if {@code className} does not identify a class that extends
+     *         {@code LookAndFeel}
+     * @throws UnsupportedLookAndFeelException if {@link LookAndFeel#isSupportedLookAndFeel()} is
+     *         false.
+     */
+    static public final void setLookAndFeel() throws ClassNotFoundException, ClassCastException, InstantiationException, IllegalAccessException, UnsupportedLookAndFeelException {
+        final String defaultLAF = System.getProperty("swing.defaultlaf");
+        if (defaultLAF == null) {
+            final String laf;
+            if (Boolean.getBoolean(LAF_CROSSPLATFORM))
+                laf = UIManager.getCrossPlatformLookAndFeelClassName();
+            else
+                laf = UIManager.getSystemLookAndFeelClassName();
+            UIManager.setLookAndFeel(fixLookAndFeel(laf));
+        } else {
+            // same rule than UIManager
+            assert UIManager.getLookAndFeel().getClass().getName().equals(defaultLAF);
+        }
+    }
+
+    /**
+     * Attempt to replace a look and feel with one less buggy.
+     * 
+     * @param laf the look and feel to replace.
+     * @return an equivalent look and feel, or <code>laf</code> if {@value #LAF_DONT_FIX} is
+     *         <code>true</code>.
+     */
+    static public final String fixLookAndFeel(final String laf) {
+        if (!Boolean.getBoolean(LAF_DONT_FIX) && laf.equals("com.sun.java.swing.plaf.windows.WindowsLookAndFeel")) {
+            return WindowsLookAndFeelFix.class.getName();
+        }
+        return laf;
+    }
 }

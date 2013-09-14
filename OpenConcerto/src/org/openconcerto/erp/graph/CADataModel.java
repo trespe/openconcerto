@@ -19,7 +19,6 @@ import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.RTInterruptedException;
 
 import java.util.Calendar;
@@ -78,7 +77,7 @@ public class CADataModel extends DataModel1D {
                         final SQLElementDirectory directory = Configuration.getInstance().getDirectory();
                         SQLTable tableEcr = directory.getElement("ECRITURE").getTable();
                         SQLTable tableCpt = directory.getElement("COMPTE_PCE").getTable();
-                        SQLSelect sel = new SQLSelect(tableEcr.getBase());
+                        SQLSelect sel = new SQLSelect();
                         sel.addSelect(tableEcr.getField("DEBIT"), "SUM");
                         sel.addSelect(tableEcr.getField("CREDIT"), "SUM");
                         Where w = new Where(tableEcr.getField("DATE"), d1, d2);
@@ -100,14 +99,6 @@ public class CADataModel extends DataModel1D {
 
                         final float value = vCA / 100;
 
-                        if (value > chart.getHigherRange().floatValue()) {
-                            long euros = (long) value;
-                            String currencyToString = GestionDevise.currencyToString(euros * 100, true);
-                            chart.getLeftAxis().getLabels().get(2).setLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €");
-                            currencyToString = GestionDevise.currencyToString(euros * 100 / 2, true);
-                            chart.getLeftAxis().getLabels().get(1).setLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €");
-                            chart.setHigherRange(value);
-                        }
                         if (((int) value) != 0) {
                             CADataModel.this.setValueAt(i, value);
                             fireDataModelChanged();
@@ -136,4 +127,5 @@ public class CADataModel extends DataModel1D {
     public int getYear() {
         return year;
     }
+
 }

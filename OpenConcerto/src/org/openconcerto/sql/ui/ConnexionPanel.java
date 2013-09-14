@@ -13,7 +13,9 @@
  
  package org.openconcerto.sql.ui;
 
+import static org.openconcerto.sql.TM.getTM;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.preferences.UserProps;
@@ -21,6 +23,8 @@ import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.IComboModel;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
+import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.ReloadPanel;
 import org.openconcerto.ui.valuewrapper.EmptyValueWrapper;
@@ -118,12 +122,12 @@ public class ConnexionPanel extends JPanel implements ActionListener {
     private final ReloadPanel reloadPanel;
     private boolean isConnecting = false;
     private String connectionAllowed;
-    private final JCheckBox saveCheckBox = new JCheckBox("Mémoriser le mot de passe");
-    private final JButton buttonConnect = new JButton("Connexion");
-    private String adminLogin = "Administrateur";
-    private final JLabel loginLabel = new JLabel("Identifiant");
-    private final JLabel passwordLabel = new JLabel("Mot de passe");
-    private final JLabel companyLabel = new JLabel("Société");
+    private final JCheckBox saveCheckBox = new JCheckBox(getTM().translate("loginPanel.storePass"));
+    private final JButton buttonConnect = new JButton(getTM().translate("loginPanel.loginAction"));
+    private String adminLogin = getTM().translate("loginPanel.adminLogin");
+    private final JLabel loginLabel = new JLabel(getTM().translate("loginPanel.loginLabel"));
+    private final JLabel passwordLabel = new JLabel(getTM().translate("loginPanel.passLabel"));
+    private final JLabel companyLabel = new JLabel(getTM().translate("loginPanel.companyLabel"));
     private String localeBaseName = null;
     private final List<Locale> localesToDisplay = new ArrayList<Locale>();
     private final JButton langButton = new JButton(Locale.ROOT.getLanguage());
@@ -357,6 +361,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         this.localeBaseName = baseName;
         this.localesToDisplay.addAll(toDisplay);
         this.setUILanguage(UserProps.getInstance().getLocale());
+        TM.getInstance();
     }
 
     private void checkValidity() {
@@ -441,17 +446,18 @@ public class ConnexionPanel extends JPanel implements ActionListener {
     }
 
     private void connect() {
+        final String userName = this.textLogin.getValue();
         final Tuple2<String, String> loginRes;
         // if the user has not typed anything and there was a stored pass
         if (this.clearPassword == null)
-            loginRes = this.login.connectEnc(this.textLogin.getValue(), this.encryptedPassword);
+            loginRes = this.login.connectEnc(userName, this.encryptedPassword);
         else
             // handle legacy passwords
-            loginRes = this.login.connectClear(this.textLogin.getValue(), this.clearPassword, "\"" + this.clearPassword + "\"");
+            loginRes = this.login.connectClear(userName, this.clearPassword, "\"" + this.clearPassword + "\"");
 
         if (loginRes.get0() == null) {
             // --->Connexion
-            UserProps.getInstance().setLastLoginName(this.textLogin.getValue());
+            UserProps.getInstance().setLastLoginName(userName);
             if (this.societeSelector) {
                 UserProps.getInstance().setLastSocieteID(this.comboSociete.getSelectedId());
             }
@@ -461,22 +467,26 @@ public class ConnexionPanel extends JPanel implements ActionListener {
                 UserProps.getInstance().setEncryptedStoredPassword(null);
             UserProps.getInstance().store();
 
+            // Preload right to avoid request in AWT later
+            if (UserRightsManager.getInstance() != null)
+                UserRightsManager.getInstance().preloadRightsForUserId(UserManager.getUserID());
+
             // Fermeture des frames et execution du Runnable
             this.r.run();
             // only dispose the panel after r has run so that there's always something on screen for
             // the user to see
             SwingUtilities.getWindowAncestor(this).dispose();
         } else {
-            unlockUIOnError(loginRes.get0());
+            unlockUIOnError(loginRes.get0(), userName);
         }
     }
 
-    private void unlockUIOnError(final String error) {
+    private void unlockUIOnError(final String error, final String userName) {
         SwingUtilities.invokeLater(new Runnable() {
             @Override
             public void run() {
                 ConnexionPanel.this.reloadPanel.setMode(ReloadPanel.MODE_BLINK);
-                JOptionPane.showMessageDialog(ConnexionPanel.this, error);
+                JOptionPane.showMessageDialog(ConnexionPanel.this, TM.getTM().translate("loginPanel." + error, userName));
                 // Guillaume wants this for the Nego
                 if (Login.UNKNOWN_USER.equals(error))
                     ConnexionPanel.this.textLogin.setValue(ConnexionPanel.this.adminLogin);
@@ -490,7 +500,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
     }
 
     protected void setUILanguage(Locale locale) {
-        final ResourceBundle bundle = ResourceBundle.getBundle(this.localeBaseName, locale, TranslationManager.CONTROL);
+        final ResourceBundle bundle = ResourceBundle.getBundle(this.localeBaseName, locale, TranslationManager.getControl());
         this.adminLogin = bundle.getString("adminLogin");
         this.loginLabel.setText(bundle.getString("loginLabel"));
         this.passwordLabel.setText(bundle.getString("passwordLabel"));

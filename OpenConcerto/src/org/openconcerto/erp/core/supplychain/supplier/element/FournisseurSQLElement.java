@@ -54,7 +54,7 @@ public class FournisseurSQLElement extends ComptaSQLConfElement {
             @Override
             protected void customizeToFetch(SQLRowValues graphToFetch) {
                 super.customizeToFetch(graphToFetch);
-                graphToFetch.grow("ID_MODE_REGLEMENT").put("AJOURS", null).put("LENJOUR", null);
+                graphToFetch.grow("ID_MODE_REGLEMENT").putNulls("AJOURS", "LENJOUR", "DATE_FACTURE", "COMPTANT");
             }
         };
     }

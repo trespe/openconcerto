@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
+import java.util.regex.Pattern;
 
 public final class FileUtils {
 
@@ -867,10 +868,11 @@ public final class FileUtils {
         }
     }
 
+    public static final String XML_TYPE = "text/xml";
     private static final Map<String, String> ext2mime;
     static {
         ext2mime = new HashMap<String, String>();
-        ext2mime.put(".xml", "text/xml");
+        ext2mime.put(".xml", XML_TYPE);
         ext2mime.put(".jpg", "image/jpeg");
         ext2mime.put(".png", "image/png");
         ext2mime.put(".tiff", "image/tiff");
@@ -911,11 +913,40 @@ public final class FileUtils {
      * An escaper suitable for producing valid filenames.
      */
     public static final Escaper FILENAME_ESCAPER = new StringUtils.Escaper('\'', 'Q');
+
+    static private final Pattern CONTROL_PATTERN = Pattern.compile("[\\p{IsCc}\\p{IsCf}]+");
+    static private final Pattern WS_PATTERN = Pattern.compile("\\p{javaWhitespace}+");
+    static private final Pattern INVALID_CHARS_PATTERN;
+
     static {
         // from windows explorer
+        // http://msdn.microsoft.com/en-us/library/windows/desktop/aa365247(v=vs.85).aspx
+        // Naming Files, Paths, and Namespaces
+        // on Mac only '/' and ':', on Linux only '/'
         FILENAME_ESCAPER.add('"', 'D').add(':', 'C').add('/', 'S').add('\\', 'A');
         FILENAME_ESCAPER.add('<', 'L').add('>', 'G').add('*', 'R').add('|', 'P').add('?', 'M');
         INVALID_CHARS = FILENAME_ESCAPER.getEscapedChars();
+        INVALID_CHARS_PATTERN = Pattern.compile("[" + CollectionUtils.join(INVALID_CHARS, "") + "]");
+    }
+
+    /**
+     * Sanitize a name. Remove control characters, trim, and replace {@link #INVALID_CHARS} by '_'.
+     * 
+     * @param name an arbitrary name.
+     * @return a name suitable for any file system.
+     */
+    static public final String sanitize(String name) {
+        // remove all control and format characters
+        name = CONTROL_PATTERN.matcher(name).replaceAll("");
+        // only use spaces
+        name = WS_PATTERN.matcher(name).replaceAll(" ");
+        // leading and trailing spaces are hard to see (and illegal in Explorer)
+        name = name.trim();
+
+        // replace all invalid characters with _
+        name = INVALID_CHARS_PATTERN.matcher(name).replaceAll("_");
+
+        return name;
     }
 
     public static final FileFilter DIR_FILTER = new FileFilter() {

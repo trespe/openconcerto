@@ -13,6 +13,8 @@
  
  package org.openconcerto.ui.preferences;
 
+import org.openconcerto.ui.TM;
+
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -35,7 +37,7 @@ public class PreferenceFrame extends JFrame {
 
     public PreferenceFrame(DefaultMutableTreeNode root) {
         super();
-        this.setTitle("Préférences du logiciel");
+        this.setTitle(TM.tr("prefs.title"));
         Toolkit.getDefaultToolkit().setDynamicLayout(true);
 
         this.getContentPane().setLayout(new GridBagLayout());
@@ -70,7 +72,7 @@ public class PreferenceFrame extends JFrame {
         this.getContentPane().add(new JSeparator(JSeparator.HORIZONTAL), c);
 
         JPanel p1 = new JPanel();
-        JButton buttonClose = new JButton("Fermer");
+        JButton buttonClose = new JButton(TM.tr("toClose"));
         p1.setOpaque(true);
         p1.add(buttonClose);
 
@@ -104,11 +106,10 @@ public class PreferenceFrame extends JFrame {
     private void doOnClose() {
         PreferencePanel currentPanel = this.mainPrefPanel.getCurrentPanel();
         if (currentPanel.isModified()) {
-            if (JOptionPane.showConfirmDialog(null, "Appliquer les modifications?", "Modifications", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+            if (JOptionPane.showConfirmDialog(null, TM.tr("prefs.applyModif"), TM.tr("prefs.applyModif.title"), JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                 currentPanel.apply();
             }
         }
-
     }
 
 }

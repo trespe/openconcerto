@@ -29,6 +29,8 @@ import org.openconcerto.utils.cache.ICache;
  */
 public final class SQLCache<K, V> extends ICache<K, V, SQLData> {
 
+    private final boolean clearAfterTx;
+
     public SQLCache() {
         this(60);
     }
@@ -50,7 +52,14 @@ public final class SQLCache<K, V> extends ICache<K, V, SQLData> {
      * @throws IllegalArgumentException if size is 0.
      */
     public SQLCache(int delay, int size, final String name) {
+        // clearAfterTx = true : READ_COMMITTED but even for the current transaction. To use cache
+        // inside a transaction, another instance must be used (as in SQLDataSource).
+        this(delay, size, name, true);
+    }
+
+    public SQLCache(int delay, int size, final String name, final boolean clearAfterTx) {
         super(delay, size, name);
+        this.clearAfterTx = clearAfterTx;
         this.setWatcherFactory(new CacheWatcherFactory<K, SQLData>() {
             public SQLCacheWatcher<K> createWatcher(ICache<K, ?, SQLData> cache, SQLData o) {
                 final SQLCache<K, ?> c = (SQLCache<K, ?>) cache;
@@ -59,4 +68,7 @@ public final class SQLCache<K, V> extends ICache<K, V, SQLData> {
         });
     }
 
+    public final boolean isClearedAfterTransaction() {
+        return this.clearAfterTx;
+    }
 }

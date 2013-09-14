@@ -92,7 +92,7 @@ class SQLSyntaxH2 extends SQLSyntax {
     }
 
     protected String setNullable(SQLField f, boolean b) {
-        return SQLSelect.quote("ALTER COLUMN %n SET " + (b ? "" : "NOT") + " NULL", f);
+        return "ALTER COLUMN " + f.getQuotedName() + " SET " + (b ? "" : "NOT") + " NULL";
     }
 
     @Override
@@ -102,7 +102,7 @@ class SQLSyntaxH2 extends SQLSyntax {
             // MAYBE implement AlterTableAlterColumn.CHANGE_ONLY_TYPE
             final String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, type);
             final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
-            res.add(SQLSelect.quote("ALTER COLUMN %n " + getFieldDecl(type, newDef, newNullable), f));
+            res.add("ALTER COLUMN " + f.getQuotedName() + " " + getFieldDecl(type, newDef, newNullable));
         } else {
             if (toAlter.contains(Properties.DEFAULT))
                 res.add(this.setDefault(f, defaultVal));
@@ -116,12 +116,12 @@ class SQLSyntaxH2 extends SQLSyntax {
 
     @Override
     public String getDropRoot(String name) {
-        return SQLSelect.quote("DROP SCHEMA IF EXISTS %i ;", name);
+        return "DROP SCHEMA IF EXISTS " + SQLBase.quoteIdentifier(name) + " ;";
     }
 
     @Override
     public String getCreateRoot(String name) {
-        return SQLSelect.quote("CREATE SCHEMA %i ;", name);
+        return "CREATE SCHEMA " + SQLBase.quoteIdentifier(name) + " ;";
     }
 
     @Override
@@ -144,14 +144,16 @@ class SQLSyntaxH2 extends SQLSyntax {
     @Override
     public void _loadData(final File f, final SQLTable t) {
         checkServerLocalhost(t);
-        t.getDBSystemRoot().getDataSource().execute(SQLSelect.quote("insert into %f select * from CSVREAD(%s, NULL, 'UTF8', ',', '\"', '\\', '\\N') ;", t, f.getAbsolutePath()));
+        final String quotedPath = t.getBase().quoteString(f.getAbsolutePath());
+        t.getDBSystemRoot().getDataSource().execute("insert into " + t.getSQLName().quote() + " select * from CSVREAD(" + quotedPath + ", NULL, 'UTF8', ',', '\"', '\\', '\\N') ;");
     }
 
     @Override
     protected void _storeData(final SQLTable t, final File f) {
         checkServerLocalhost(t);
-        final SQLSelect sel = SQLSyntaxPG.selectAll(t);
-        t.getBase().getDataSource().execute(SQLSelect.quote("CALL CSVWRITE(%s, %s, 'UTF8', ',', '\"', '\\', '\\N', '\n');", f.getAbsolutePath(), sel.asString()));
+        final String quotedPath = t.getBase().quoteString(f.getAbsolutePath());
+        final String quotedSel = t.getBase().quoteString(SQLSyntaxPG.selectAll(t).asString());
+        t.getBase().getDataSource().execute("CALL CSVWRITE(" + quotedPath + ", " + quotedSel + ", 'UTF8', ',', '\"', '\\', '\\N', '\n');");
     }
 
     @Override
@@ -256,6 +258,6 @@ class SQLSyntaxH2 extends SQLSyntax {
 
     @Override
     public String getDropTrigger(Trigger t) {
-        return SQLBase.quoteStd("DROP TRIGGER %i", new SQLName(t.getTable().getSchema().getName(), t.getName()));
+        return "DROP TRIGGER " + new SQLName(t.getTable().getSchema().getName(), t.getName()).quote();
     }
 }

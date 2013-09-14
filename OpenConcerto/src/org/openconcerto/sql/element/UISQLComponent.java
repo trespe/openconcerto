@@ -16,6 +16,7 @@
  */
 package org.openconcerto.sql.element;
 
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.request.RowItemDesc;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.ui.FormLayouter;
@@ -76,9 +77,7 @@ public abstract class UISQLComponent extends BaseSQLComponent {
 
     protected void addToUI(final SQLRowItemView obj, String where) {
         final RowItemDesc rivDesc = getRIVDesc(obj.getSQLName());
-        String desc = rivDesc.getLabel();
-        if (this.getRequired().contains(obj))
-            desc += REQ_SUFFIX;
+        final String desc = getLabel(obj.getSQLName(), rivDesc);
         if (where == null)
             where = this.getDefaultWhere(obj);
         final JComponent added;
@@ -98,7 +97,7 @@ public abstract class UISQLComponent extends BaseSQLComponent {
         this.labels.put(obj.getSQLName(), added);
         updateUI(obj.getSQLName(), rivDesc);
         final JPopupMenu menu = new JPopupMenu();
-        menu.add(new AbstractAction("Modifier la documentation") {
+        menu.add(new AbstractAction(TM.tr("sqlComp.modifyDoc")) {
             @Override
             public void actionPerformed(ActionEvent e) {
                 final DocumentationEditorFrame frame = new DocumentationEditorFrame(UISQLComponent.this, obj.getSQLName());
@@ -112,6 +111,12 @@ public abstract class UISQLComponent extends BaseSQLComponent {
                 return e.isControlDown() ? menu : null;
             }
         });
+    }
+
+    @Override
+    protected String getLabel(final String itemName, final RowItemDesc desc) {
+        final String res = super.getLabel(itemName, desc);
+        return this.getRequiredNames().contains(itemName) ? res + REQ_SUFFIX : res;
     }
 
     @Override

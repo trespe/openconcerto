@@ -113,6 +113,8 @@ public final class ODEpoch {
     public final Duration normalizeToHours(final Duration dur) {
         final Duration durationInDays = normalizeToDays(dur);
         final BigInteger days = (BigInteger) durationInDays.getField(DatatypeConstants.DAYS);
+        if (days == null || days.equals(BigInteger.ZERO))
+            return durationInDays;
         final BigInteger hours = ((BigInteger) durationInDays.getField(DatatypeConstants.HOURS)).add(days.multiply(BigInteger.valueOf(24)));
         return TimeUtils.getTypeFactory().newDuration(days.signum() >= 0, BigInteger.ZERO, BigInteger.ZERO, BigInteger.ZERO, hours, (BigInteger) durationInDays.getField(DatatypeConstants.MINUTES),
                 (BigDecimal) durationInDays.getField(DatatypeConstants.SECONDS));

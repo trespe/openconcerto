@@ -13,19 +13,34 @@
  
  package org.openconcerto.sql.users.rights;
 
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.UISQLComponent;
+import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.i18n.I18nUtils;
 
 import java.util.Arrays;
 import java.util.List;
 
 public class RightSQLElement extends ConfSQLElement {
 
+    public static final String TABLE_NAME = "RIGHT";
+
+    static public SQLCreateTable getCreateTable(final DBRoot root) {
+        final SQLCreateTable res = new SQLCreateTable(root, TABLE_NAME);
+        res.addVarCharColumn("CODE", 128);
+        res.addVarCharColumn("NOM", 256);
+        res.addVarCharColumn("DESCRIPTION", 500);
+        return res;
+    }
+
     public RightSQLElement() {
-        super("RIGHT", "un droit", "droits");
+        super(TABLE_NAME);
+        this.setL18nPackageName(I18nUtils.getPackageName(TM.class));
     }
 
     @Override

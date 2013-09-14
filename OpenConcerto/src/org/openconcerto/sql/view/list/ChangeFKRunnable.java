@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.view.list;
 
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.utils.CollectionMap;
 
@@ -24,15 +25,15 @@ final class ChangeFKRunnable extends AbstractUpdateOneRunnable {
     private final Path p;
 
     /**
-     * Change the foreign key at the end of the passed path to point to <code>id</code>.
-     * Furthermore it fetch the new id from the db and updates all other lines that are affected.
+     * Change the foreign key at the end of the passed path to point to <code>id</code>. Furthermore
+     * it fetch the new id from the DB and updates all other lines that are affected.
      * 
      * @param l the line having a foreign key changed.
-     * @param p the path to the foreign key, eg RECEPTEUR.ID_OBSERVATION.ID_TENSION.
+     * @param p the path to the foreign key, e.g. RECEPTEUR.ID_OBSERVATION.ID_TENSION.
      * @param id the new id.
      */
     public ChangeFKRunnable(ListSQLLine l, Path p, int id) {
-        super(l.getSrc().getModel(), p.getLast(), id);
+        super(l.getSrc().getModel(), new SQLRow(p.getLast(), id));
         this.l = l;
         this.p = p;
     }

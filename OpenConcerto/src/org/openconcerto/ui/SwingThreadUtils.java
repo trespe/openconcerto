@@ -15,6 +15,7 @@
 
 import java.awt.Component;
 
+import javax.swing.Action;
 import javax.swing.JPopupMenu;
 import javax.swing.SwingUtilities;
 
@@ -47,5 +48,30 @@ public class SwingThreadUtils {
             }
         }
         return c.cast(component);
+    }
+
+    /**
+     * Tries to find an ID for the passed action from its {@link Action#getValue(String) properties}
+     * . First use {@link Action#ACTION_COMMAND_KEY} then {@link Action#NAME}.
+     * 
+     * @param a an action.
+     * @return the ID or <code>null</code> if none found.
+     * @see #setActionID(Action, String)
+     */
+    public static final String getActionID(final Action a) {
+        Object actionID = a.getValue(Action.ACTION_COMMAND_KEY);
+        if (actionID == null)
+            actionID = a.getValue(Action.NAME);
+        return actionID == null ? null : actionID.toString();
+    }
+
+    /**
+     * Make sure that {@link #getActionID(Action)} returns the passed string.
+     * 
+     * @param a an action.
+     * @param id a string to be stored in {@link Action#ACTION_COMMAND_KEY}.
+     */
+    public static final void setActionID(final Action a, final String id) {
+        a.putValue(Action.ACTION_COMMAND_KEY, id);
     }
 }

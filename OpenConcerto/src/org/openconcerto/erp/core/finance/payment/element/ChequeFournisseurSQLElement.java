@@ -37,9 +37,11 @@ public class ChequeFournisseurSQLElement extends ComptaSQLConfElement {
 
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
-
-        l.add("MONTANT");
         l.add("ID_FOURNISSEUR");
+        l.add("ETS");
+        l.add("NUMERO");
+        l.add("DATE");
+        l.add("MONTANT");
         l.add("DATE_ACHAT");
         l.add("DATE_DECAISSE");
         l.add("DECAISSE");
