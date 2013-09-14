@@ -52,7 +52,9 @@ public final class XMLFormatVersion {
 
     public static XMLFormatVersion get(Element root) {
         final XMLVersion version = XMLVersion.getVersion(root);
-        return get(version, root.getAttributeValue("version", version.getOFFICE()));
+        // only 1.0 and 1.1 have the attribute optional (e.g. Microsoft Office 2007 and 2010 support
+        // 1.1 and omit it)
+        return get(version, root.getAttributeValue("version", version.getOFFICE(), "1.1"));
     }
 
     public static XMLFormatVersion get(XMLVersion xmlVersion, String officeVersion) {

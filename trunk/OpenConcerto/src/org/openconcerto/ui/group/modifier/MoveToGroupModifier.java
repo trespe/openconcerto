@@ -31,7 +31,7 @@ public class MoveToGroupModifier extends ItemGroupModifier {
 
     @Override
     public void applyOn(Group g) {
-        Item i = g.getItemFromId(getItemId());
+        Item i = g.getDescFromID(getItemId());
         i.getParent().remove(getItemId());
         dest.add(i);
     }

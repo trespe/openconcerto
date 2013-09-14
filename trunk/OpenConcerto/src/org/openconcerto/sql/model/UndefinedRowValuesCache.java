@@ -13,6 +13,8 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.request.MultipleSQLSelectExecutor;
 import org.openconcerto.utils.ExceptionHandler;
 
@@ -35,6 +37,10 @@ public class UndefinedRowValuesCache {
 
     private final Map<SQLTable, SQLRowValues> map = new HashMap<SQLTable, SQLRowValues>();
 
+    private final SQLElementDirectory getDirectory() {
+        return Configuration.getInstance().getDirectory();
+    }
+
     public SQLRowValues getDefaultRowValues(final SQLTable t) {
         SQLRowValues rv = this.map.get(t);
         if (rv == null) {
@@ -42,7 +48,7 @@ public class UndefinedRowValuesCache {
             final SQLRow undefRow = t.getRow(t.getUndefinedID());
             if (undefRow == null)
                 throw new IllegalStateException(t.getSQLName() + " doesn't contain undef ID " + t.getUndefinedID());
-            rv.loadAllSafe(undefRow);
+            getDirectory().getElement(t).loadAllSafe(rv, undefRow);
             this.map.put(t, rv);
         }
         return rv;
@@ -72,7 +78,7 @@ public class UndefinedRowValuesCache {
                 final List<SQLRow> rows = l.get(i);
                 if (rows.size() > 0) {
                     final SQLRowValues rv = new SQLRowValues(sqlTable);
-                    rv.loadAllSafe(rows.get(0));
+                    getDirectory().getElement(sqlTable).loadAllSafe(rv, rows.get(0));
                     this.map.put(sqlTable, rv);
                 } else {
                     System.err.println("Warning: no undefined row in table: " + sqlTable.getName() + " id: " + sqlTable.getUndefinedID());

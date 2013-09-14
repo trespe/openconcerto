@@ -69,6 +69,15 @@ public class TableStyle extends StyleStyle {
             super(style, style.getFamily());
         }
 
+        public final Boolean isDisplayed() {
+            final String val = this.getAttributeValue("display", this.getEnclosingStyle().getNS().getTABLE());
+            return val == null ? null : Boolean.valueOf(val);
+        }
+
+        public final void setDisplayed(Boolean b) {
+            this.setAttributeValue(b, "display", this.getEnclosingStyle().getNS().getTABLE());
+        }
+
         public final String getRawMargin(final Side s) {
             return getSideAttribute(s, "margin", this.getNS("fo"));
         }

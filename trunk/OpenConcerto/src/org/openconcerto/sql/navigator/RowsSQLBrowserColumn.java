@@ -13,7 +13,6 @@
  
  /*
  * Créé le 21 mai 2005
- * 
  */
 package org.openconcerto.sql.navigator;
 
@@ -52,6 +51,7 @@ public class RowsSQLBrowserColumn extends SQLBrowserColumn<SQLRow, RowsSQLListMo
     public RowsSQLBrowserColumn(SQLElement element, boolean searchable) {
         super(new RowsSQLListModel(element), searchable);
         this.children = new ArrayList<SQLField>();
+        this.uiInit();
         this.state = ListSelectionState.manage(this.list.getSelectionModel(), new ListStateModel(this.getModel()));
     }
 

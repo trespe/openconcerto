@@ -16,6 +16,7 @@
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,15 +33,16 @@ final class ReOrderMySQL extends ReOrder {
     // SET @o := 3 - @inc ;
     // UPDATE ADRESSE SET ORDRE = ( @o := @o +@inc ) where ORDRE < 0 ORDER BY ORDRE DESC;
 
-    public List<String> getSQL(Connection conn) {
+    @Override
+    public List<String> getSQL(Connection conn, BigDecimal inc) {
         final SQLField oF = this.t.getOrderField();
 
         final List<String> res = new ArrayList<String>();
-        res.add("SELECT " + getInc() + " into @inc");
+        res.add("SELECT " + inc.toPlainString() + " into @inc");
         res.add(this.t.getBase().quote("UPDATE %f SET %n =  -%n " + this.getWhere(), this.t, oF, oF));
         // on commence à 0
         res.add("SET @o := " + this.getFirstOrderValue() + "- @inc");
-        res.add(getLoop(oF, "<= -" + this.getFirstToReorder(), oF, "DESC"));
+        res.add(getLoop(oF, (this.isFirstToReorderInclusive() ? "<=" : "<") + this.getFirstToReorder().negate().toPlainString(), oF, "DESC"));
         if (this.isAll()) {
             res.add(getLoop(oF, "is null", this.t.getKey(), "ASC"));
         }

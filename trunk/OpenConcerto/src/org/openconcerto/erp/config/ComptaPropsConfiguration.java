@@ -103,9 +103,10 @@ import org.openconcerto.erp.core.sales.credit.element.AvoirClientSQLElement;
 import org.openconcerto.erp.core.sales.invoice.element.EcheanceClientSQLElement;
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureItemSQLElement;
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
-import org.openconcerto.erp.core.sales.invoice.ui.SaisieVenteFactureItemTable;
+import org.openconcerto.erp.core.sales.invoice.element.TransferInvoiceSQLElement;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientElementSQLElement;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
+import org.openconcerto.erp.core.sales.order.element.TransferCustomerOrderSQLElement;
 import org.openconcerto.erp.core.sales.pos.element.CaisseTicketSQLElement;
 import org.openconcerto.erp.core.sales.pos.element.SaisieVenteComptoirSQLElement;
 import org.openconcerto.erp.core.sales.pos.element.TicketCaisseSQLElement;
@@ -121,15 +122,20 @@ import org.openconcerto.erp.core.sales.product.element.UniteVenteArticleSQLEleme
 import org.openconcerto.erp.core.sales.quote.element.DevisItemSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
 import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
+import org.openconcerto.erp.core.sales.quote.element.TransferQuoteSQLElement;
 import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonItemSQLElement;
 import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonSQLElement;
+import org.openconcerto.erp.core.sales.shipment.element.TransferShipmentSQLElement;
 import org.openconcerto.erp.core.supplychain.credit.element.AvoirFournisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeElementSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.SaisieAchatSQLElement;
+import org.openconcerto.erp.core.supplychain.order.element.TransferPurchaseSQLElement;
+import org.openconcerto.erp.core.supplychain.order.element.TransferSupplierOrderSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionElementSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.CodeFournisseurSQLElement;
+import org.openconcerto.erp.core.supplychain.receipt.element.TransferReceiptSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.StockSQLElement;
 import org.openconcerto.erp.core.supplychain.supplier.element.EcheanceFournisseurSQLElement;
@@ -141,12 +147,16 @@ import org.openconcerto.erp.generationDoc.provider.AdresseRueClientValueProvider
 import org.openconcerto.erp.generationDoc.provider.AdresseVilleCPClientValueProvider;
 import org.openconcerto.erp.generationDoc.provider.AdresseVilleClientValueProvider;
 import org.openconcerto.erp.generationDoc.provider.AdresseVilleNomClientValueProvider;
+import org.openconcerto.erp.generationDoc.provider.ModeDeReglementDetailsProvider;
 import org.openconcerto.erp.generationDoc.provider.PrixUnitaireRemiseProvider;
 import org.openconcerto.erp.generationDoc.provider.QteTotalProvider;
+import org.openconcerto.erp.generationDoc.provider.RefClientValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCreateInitialsValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCurrentInitialsValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserModifyInitialsValueProvider;
+import org.openconcerto.erp.generationEcritures.provider.SalesCreditAccountingRecordsProvider;
 import org.openconcerto.erp.generationEcritures.provider.SalesInvoiceAccountingRecordsProvider;
+import org.openconcerto.erp.generationEcritures.provider.SupplyOrderAccountingRecordsProvider;
 import org.openconcerto.erp.injector.AchatAvoirSQLInjector;
 import org.openconcerto.erp.injector.ArticleCommandeEltSQLInjector;
 import org.openconcerto.erp.injector.BonFactureSQLInjector;
@@ -167,25 +177,21 @@ import org.openconcerto.erp.injector.FactureBonSQLInjector;
 import org.openconcerto.erp.injector.FactureCommandeSQLInjector;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.TemplateNXProps;
-import org.openconcerto.erp.rights.ComptaTotalUserRight;
 import org.openconcerto.erp.storage.CloudStorageEngine;
 import org.openconcerto.erp.storage.StorageEngines;
 import org.jopendocument.link.OOConnexion;
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.ShowAs;
-import org.openconcerto.sql.element.GlobalMapper;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.element.SharedSQLElement;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.FieldMapper;
 import org.openconcerto.sql.model.LoadingListener;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLServer;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.request.SQLFieldTranslator;
-import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.task.TacheActionManager;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
 import org.openconcerto.utils.DesktopEnvironment;
@@ -330,6 +336,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     private final boolean inWebstart;
     private final boolean isServerless;
     private boolean isOnCloud;
+    private FieldMapper fieldMapper;
 
     ComptaPropsConfiguration(Properties props, final boolean inWebstart) {
         super(props, productInfo);
@@ -400,11 +407,12 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         this.setupLogging("logs");
         registerAccountingProvider();
         registerCellValueProvider();
-        UserRightsManager.getInstance().register(new ComptaTotalUserRight());
     }
 
     private void registerAccountingProvider() {
         SalesInvoiceAccountingRecordsProvider.register();
+        SalesCreditAccountingRecordsProvider.register();
+        SupplyOrderAccountingRecordsProvider.register();
     }
 
     private void registerCellValueProvider() {
@@ -418,6 +426,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         AdresseVilleNomClientValueProvider.register();
         AdresseFullClientValueProvider.register();
         QteTotalProvider.register();
+        RefClientValueProvider.register();
+        ModeDeReglementDetailsProvider.register();
     }
 
     @Override
@@ -583,7 +593,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.show("RUBRIQUE_COTISATION", "CODE", "NOM");
         showAs.show("RUBRIQUE_NET", "CODE", "NOM");
         showAs.show("RUBRIQUE_BRUT", "CODE", "NOM");
-
         showAs.show("TYPE_RUBRIQUE_BRUT", "NOM");
         showAs.show("TYPE_RUBRIQUE_NET", "NOM");
 
@@ -602,7 +611,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     }
 
     private void setSocieteDirectory() {
-        SQLElementDirectory dir = Configuration.getInstance().getDirectory();
+        SQLElementDirectory dir = this.getDirectory();
         dir.addSQLElement(ArticleTarifSQLElement.class);
         dir.addSQLElement(ArticleDesignationSQLElement.class);
         dir.addSQLElement(ContactFournisseurSQLElement.class);
@@ -651,9 +660,11 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
         dir.addSQLElement(new BonDeLivraisonItemSQLElement());
         dir.addSQLElement(new BonDeLivraisonSQLElement());
+        dir.addSQLElement(new TransferShipmentSQLElement());
+
         dir.addSQLElement(new BonReceptionElementSQLElement());
         dir.addSQLElement(new BonReceptionSQLElement());
-
+        dir.addSQLElement(new TransferReceiptSQLElement());
         dir.addSQLElement(new ChequeAEncaisserSQLElement());
         dir.addSQLElement(new ChequeAvoirClientSQLElement());
         dir.addSQLElement(new ChequeFournisseurSQLElement());
@@ -663,7 +674,9 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new ClassementConventionnelSQLElement());
         dir.addSQLElement(CodeFournisseurSQLElement.class);
         dir.addSQLElement(new CommandeSQLElement());
+        dir.addSQLElement(new TransferSupplierOrderSQLElement());
         dir.addSQLElement(new CommandeElementSQLElement());
+        dir.addSQLElement(new TransferCustomerOrderSQLElement());
         dir.addSQLElement(new CommandeClientSQLElement());
         dir.addSQLElement(new CommandeClientElementSQLElement());
 
@@ -687,7 +700,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new CumulsPayeSQLElement());
 
         dir.addSQLElement(new DepartementSQLElement());
-        dir.addSQLElement(new DevisSQLElement());
+            dir.addSQLElement(new DevisSQLElement());
+        dir.addSQLElement(new TransferQuoteSQLElement());
         dir.addSQLElement(new DevisItemSQLElement());
 
         dir.addSQLElement(new EcheanceClientSQLElement());
@@ -740,9 +754,11 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(RepartitionAnalytiqueSQLElement.class);
 
         dir.addSQLElement(new SaisieAchatSQLElement());
+        dir.addSQLElement(new TransferPurchaseSQLElement());
         dir.addSQLElement(new SaisieKmSQLElement());
         dir.addSQLElement(new SaisieVenteComptoirSQLElement());
         dir.addSQLElement(new SaisieVenteFactureSQLElement());
+        dir.addSQLElement(new TransferInvoiceSQLElement());
             dir.addSQLElement(new SaisieVenteFactureItemSQLElement());
 
         dir.addSQLElement(SituationFamilialeSQLElement.class);
@@ -761,15 +777,14 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
         dir.addSQLElement(new VariableSalarieSQLElement());
         dir.addSQLElement(UniteVenteArticleSQLElement.class);
+
+        // check that all codes are unique
         Collection<SQLElement> elements = dir.getElements();
-        for (SQLElement sqlElement : elements) {
-            GlobalMapper.getInstance().map(sqlElement.getCode() + ".element", this);
-        }
         String s = "";
         for (SQLElement sqlElement : elements) {
             try {
                 SQLElement e = dir.getElementForCode(sqlElement.getCode());
-                if (e == null) {
+                if (e != sqlElement) {
                     s += "Error while retrieving element from code " + sqlElement.getCode() + "\n";
                 }
             } catch (Throwable e) {
@@ -777,13 +792,17 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             }
         }
         if (!s.trim().isEmpty()) {
-            JOptionPane.showMessageDialog(new JFrame(), s);
-            System.out.println(s);
+            ExceptionHandler.handle(s);
         }
     }
 
     private void setSocieteSQLInjector() {
         final DBRoot rootSociete = getRootSociete();
+        setSocieteSQLInjector(rootSociete);
+
+    }
+
+    public static void setSocieteSQLInjector(final DBRoot rootSociete) {
         new AchatAvoirSQLInjector(rootSociete);
         new ArticleCommandeEltSQLInjector(rootSociete);
         new CommandeCliCommandeSQLInjector(rootSociete);
@@ -802,7 +821,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         new EcheanceEncaisseSQLInjector(rootSociete);
         new BrFactureAchatSQLInjector(rootSociete);
         new DevisEltFactureEltSQLInjector(rootSociete);
-
     }
 
 
@@ -811,7 +829,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.setRoot(getRootSociete());
         showAs.show("ARTICLE", "NOM", "ID_FAMILLE_ARTICLE");
         showAs.show("ACTIVITE", "CODE_ACTIVITE");
-        showAs.show("ADRESSE", SQLRow.toList("RUE,VILLE"));
+        showAs.show("ADRESSE", SQLRow.toList("RUE,CODE_POSTAL,VILLE"));
         final DBRoot root = this.getRootSociete();
         showAs.show("AXE_ANALYTIQUE", "NOM");
 
@@ -880,8 +898,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.showField("REGLER_MONTANT.ID_MODE_REGLEMENT", listFieldModReglMontant);
         showAs.showField("ENCAISSER_MONTANT.ID_MODE_REGLEMENT", listFieldModReglMontant);
 
-        showAs.show("SAISIE_VENTE_FACTURE", SQLRow.toList("NUMERO"));
-
         List<String> listFieldFactureElt = new ArrayList<String>();
         listFieldFactureElt.add("NUMERO");
         listFieldFactureElt.add("DATE");
@@ -916,43 +932,22 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         closeSocieteConnexion();
         setSocieteDirectory();
         NumerotationAutoSQLElement.addListeners();
-        final SQLFieldTranslator trans = Configuration.getInstance().getTranslator();
-        trans.load(rootSociete, ComptaPropsConfiguration.class.getResourceAsStream("mappingCompta.xml"));
-        final InputStream in = ComptaPropsConfiguration.class.getResourceAsStream("mapping-" + customerName + ".xml");
-        if (in != null) {
-            trans.load(rootSociete, in);
-        }
+        loadTranslations(this.getTranslator(), rootSociete, Arrays.asList("mappingCompta", "mapping-" + customerName));
         setSocieteShowAs();
         setSocieteSQLInjector();
         setMapper();
-
-        String sfe = DefaultNXProps.getInstance().getStringProperty("ArticleSFE");
-        Boolean bSfe = Boolean.valueOf(sfe);
-        boolean isSFE = bSfe != null && bSfe.booleanValue();
-        if (isSFE) {
-            final InputStream inSFE = ComptaPropsConfiguration.class.getResourceAsStream("mapping-SFE.xml");
-            if (inSFE != null) {
-                trans.load(rootSociete, inSFE);
-            }
-        }
         TemplateNXProps.getInstance();
         // Prefetch undefined
         rootSociete.getTables().iterator().next().getUndefinedID();
     }
 
     private void setMapper() {
-        GlobalMapper mapper = GlobalMapper.getInstance();
-        mapper.map("customerrelationship.name", "Relation client");
-        mapper.map("customerrelationship.customer.list.table", "CLIENT");
-        mapper.map("customerrelationship.contact.list.table", "CONTACT");
-        mapper.map("accounting.name", "Comptabilité");
-        mapper.map("sales.name", "Gestion commerciale");
-        mapper.map("sales.invoice.name", "Factures client");
-        mapper.map("sales.invoice.list.table", "SAISIE_VENTE_FACTURE");
-        mapper.map("sales.quote.name", "Devis client");
-        mapper.map("sales.quote.list.table", "DEVIS");
-        mapper.map("sales.invoice.list.table.editor", SaisieVenteFactureItemTable.class);
-        mapper.dump();
+        fieldMapper = new FieldMapper(this.getRootSociete());
+        fieldMapper.addMapperStreamFromClass(Gestion.class);
+    }
+
+    public FieldMapper getFieldMapper() {
+        return fieldMapper;
     }
 
     private void closeSocieteConnexion() {
@@ -972,9 +967,16 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     protected SQLServer createServer() {
         InProgressFrame progress = new InProgressFrame();
         progress.show("Connexion à votre base de données en cours");
-        SQLServer server = super.createServer();
-        progress.dispose();
-        return server;
+        try {
+            SQLServer server = super.createServer();
+            return server;
+        } catch (Throwable e) {
+            ExceptionHandler.die("Impossible de se connecter à la base de données.\nVérifiez votre connexion.", e);
+            return null;
+        } finally {
+            progress.dispose();
+        }
+
     }
 
     public static ComptaPropsConfiguration getInstanceCompta() {

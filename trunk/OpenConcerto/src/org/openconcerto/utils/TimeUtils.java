@@ -18,6 +18,7 @@ import java.math.BigInteger;
 import java.util.Calendar;
 
 import javax.xml.datatype.DatatypeConfigurationException;
+import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
 
@@ -32,6 +33,19 @@ public class TimeUtils {
                 throw new IllegalStateException(e);
             }
         return typeFactory;
+    }
+
+    /**
+     * Get non-null seconds with the the correct class.
+     * 
+     * @param d a duration.
+     * @return the seconds, never <code>null</code>.
+     * @see Duration#getField(javax.xml.datatype.DatatypeConstants.Field)
+     * @see Duration#getMinutes()
+     */
+    static public final BigDecimal getSeconds(final Duration d) {
+        final BigDecimal res = (BigDecimal) d.getField(DatatypeConstants.SECONDS);
+        return res != null ? res : BigDecimal.ZERO;
     }
 
     /**

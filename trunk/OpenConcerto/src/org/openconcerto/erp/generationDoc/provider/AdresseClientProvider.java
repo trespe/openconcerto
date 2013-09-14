@@ -14,6 +14,7 @@
  package org.openconcerto.erp.generationDoc.provider;
 
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.generationDoc.SpreadSheetCellValueContext;
 import org.openconcerto.erp.generationDoc.SpreadSheetCellValueProvider;
 
@@ -48,7 +49,7 @@ public abstract class AdresseClientProvider implements SpreadSheetCellValueProvi
             return rAdr;
         }
 
-        return rCli.getForeign("ID_ADRESSE");
+            return rCli.getForeign("ID_ADRESSE");
 
     }
 

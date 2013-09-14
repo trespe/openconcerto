@@ -1,0 +1,42 @@
+/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ * 
+ * Copyright 2011 OpenConcerto, by ILM Informatique. All rights reserved.
+ * 
+ * The contents of this file are subject to the terms of the GNU General Public License Version 3
+ * only ("GPL"). You may not use this file except in compliance with the License. You can obtain a
+ * copy of the License at http://www.gnu.org/licenses/gpl-3.0.html See the License for the specific
+ * language governing permissions and limitations under the License.
+ * 
+ * When distributing the software, include this License Header Notice in each file.
+ */
+ 
+ package org.openconcerto.task.element;
+
+import org.openconcerto.sql.element.ConfSQLElement;
+import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.task.TM;
+import org.openconcerto.utils.i18n.I18nUtils;
+
+/**
+ * @author Sylvain CUAZ
+ */
+public abstract class TaskSQLElementBase extends ConfSQLElement {
+
+    {
+        this.setL18nPackageName(I18nUtils.getPackageName(TM.class));
+    }
+
+    public TaskSQLElementBase(final String tableName) {
+        super(tableName);
+    }
+
+    public TaskSQLElementBase(final SQLTable table) {
+        super(table);
+    }
+
+    @Override
+    protected String createCode() {
+        return this.getTable().getName();
+    }
+}

@@ -14,6 +14,7 @@
  package org.openconcerto.erp.graph;
 
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.GestionDevise;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -31,12 +32,14 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.JSpinner;
+import javax.swing.SwingUtilities;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
 import org.jopenchart.Axis;
 import org.jopenchart.AxisLabel;
 import org.jopenchart.ChartPanel;
+import org.jopenchart.DataModelListener;
 import org.jopenchart.barchart.VerticalGroupBarChart;
 
 public class GraphCAPanel extends JPanel implements ChangeListener {
@@ -46,6 +49,7 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
     private CADataModel model1;
     private CADataModel model2;
     private CADataModel model3;
+    private final VerticalGroupBarChart chart = new VerticalGroupBarChart();
 
     /**
      * Chiffres d'affaires, affichés en barres
@@ -81,7 +85,6 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
         axisX.addLabel(new AxisLabel("Novembre", 11));
         axisX.addLabel(new AxisLabel("Décembre", 12));
 
-        final VerticalGroupBarChart chart = new VerticalGroupBarChart();
         chart.setBottomAxis(axisX);
         chart.setLeftAxis(axisY);
         chart.setBarWidth(14);
@@ -98,6 +101,10 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
         chart.setLowerRange(0);
         chart.setHigherRange(1000);
         c.gridy++;
+
+        addLeftAxisUpdater(model1);
+        addLeftAxisUpdater(model2);
+        addLeftAxisUpdater(model3);
 
         final ChartPanel panel = new ChartPanel(chart) {
             @Override
@@ -143,6 +150,15 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
         s3.addChangeListener(this);
     }
 
+    private void addLeftAxisUpdater(final CADataModel model) {
+        model.addDataModelListener(new DataModelListener() {
+            @Override
+            public void dataChanged() {
+                updateLeftAxis(model.getMaxValue().floatValue());
+            }
+        });
+    }
+
     private Component createColorPanel(final Color color) {
         final JPanel p = new JPanel();
         p.setBorder(BorderFactory.createLineBorder(Color.WHITE));
@@ -171,5 +187,31 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
             model3.loadYear(s3.getValue());
         }
 
+    }
+
+    public float getHigherValue() {
+        float h = model1.getMaxValue().floatValue();
+        h = Math.max(h, model2.getMaxValue().floatValue());
+        h = Math.max(h, model3.getMaxValue().floatValue());
+        return h;
+    }
+
+    public void updateLeftAxis(final float maxValue) {
+        if (maxValue >= getHigherValue()) {
+            SwingUtilities.invokeLater(new Runnable() {
+
+                @Override
+                public void run() {
+                    long euros = (long) maxValue;
+                    chart.getLeftAxis().removeAllLabels();
+                    String currencyToString = GestionDevise.currencyToString(euros * 100, true);
+                    chart.getLeftAxis().addLabel(new AxisLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €", euros));
+                    currencyToString = GestionDevise.currencyToString(euros * 100 / 2, true);
+                    chart.getLeftAxis().addLabel(new AxisLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €", euros / 2));
+                    chart.setHigherRange(maxValue);
+                }
+            });
+
+        }
     }
 }

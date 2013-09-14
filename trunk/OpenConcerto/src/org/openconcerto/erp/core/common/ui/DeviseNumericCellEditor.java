@@ -17,22 +17,18 @@ import org.openconcerto.sql.model.SQLField;
 
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.event.ActionEvent;
 import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseListener;
 import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
+import java.text.DecimalFormat;
+import java.text.DecimalFormatSymbols;
 import java.util.EventObject;
 
-import javax.swing.AbstractAction;
 import javax.swing.AbstractCellEditor;
-import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.border.LineBorder;
@@ -43,12 +39,17 @@ import javax.swing.table.TableCellEditor;
  * long representant des cents
  * 
  */
-public class DeviseNumericCellEditor extends AbstractCellEditor implements TableCellEditor, MouseListener {
-    private JTextField textField = new JTextField();
-    private float taxe = 19.6F;
-    private int precision;
+public class DeviseNumericCellEditor extends AbstractCellEditor implements TableCellEditor {
+    protected JTextField textField = new JTextField();
+
+    protected int precision;
+    protected final DecimalFormat decimalFormat = new DecimalFormat("##,##0.00#######");
 
     public DeviseNumericCellEditor(SQLField field) {
+        final DecimalFormatSymbols symbol = DecimalFormatSymbols.getInstance();
+        symbol.setDecimalSeparator('.');
+        decimalFormat.setDecimalFormatSymbols(symbol);
+
         // Mimic JTable.GenericEditor behavior
         this.textField.setBorder(new LineBorder(Color.black));
         this.textField.setHorizontalAlignment(JTextField.RIGHT);
@@ -66,7 +67,6 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
                 int pointPosition = textField.getText().indexOf('.');
                 if (Character.isDigit(keychar)) {
                     if (pointPosition > -1) {
-                        // System.err.println("Text Selected :: " + textField.getSelectedText());
                         if (textField.getSelectedText() == null) {
                             if (textField.getCaretPosition() <= pointPosition) {
                                 return;
@@ -95,10 +95,23 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
         // on sélectionne tout lors de la selection
         textField.addFocusListener(new FocusAdapter() {
             public void focusGained(FocusEvent e) {
-
+                // Force lineborder to black (may be red if a wrong value was previously hit)
+                textField.setBorder(new LineBorder(Color.black));
                 textField.selectAll();
             }
         });
+    }
+
+    @Override
+    public boolean stopCellEditing() {
+        // Check if the value is correct (may be wrong if we use copy/paste)
+        try {
+            getCellEditorValue();
+        } catch (Exception e) {
+            this.textField.setBorder(new LineBorder(Color.RED));
+            return false;
+        }
+        return super.stopCellEditing();
     }
 
     public void addKeyListener(KeyListener l) {
@@ -106,7 +119,6 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
     }
 
     public boolean isCellEditable(EventObject e) {
-
         if (e instanceof MouseEvent) {
             return ((MouseEvent) e).getClickCount() >= 2;
         }
@@ -114,7 +126,6 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
     }
 
     public Object getCellEditorValue() {
-
         if (this.textField.getText().trim().length() > 0) {
             return new BigDecimal(this.textField.getText());
         } else {
@@ -122,69 +133,11 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
         }
     }
 
-    public void setConvertToTTCEnable(boolean b) {
-        if (b) {
-            this.textField.addMouseListener(this);
-        } else {
-            this.textField.removeMouseListener(this);
-        }
-    }
-
-    public void setTaxe(float d) {
-        this.taxe = d;
-    }
-
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-
-        // System.err.println("Devise cell editor get Component " + value);
-
         this.textField.setText((value == null ? "0" : ((BigDecimal) value).toString()));
         this.textField.selectAll();
         this.textField.grabFocus();
         return this.textField;
     }
 
-    public void mouseClicked(MouseEvent e) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void mouseEntered(MouseEvent e) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void mouseExited(MouseEvent e) {
-        // TODO Auto-generated method stub
-
-    }
-
-    public void mousePressed(MouseEvent e) {
-        // TODO Auto-generated method stub
-        if (textField.getText().trim().length() > 0 && e.getButton() == MouseEvent.BUTTON3) {
-            JPopupMenu menuDroit = new JPopupMenu();
-            menuDroit.add(new AbstractAction("Convertir en HT (TVA " + taxe + ")") {
-
-                public void actionPerformed(ActionEvent e) {
-
-                    String s = textField.getText().trim();
-                    if (s.length() > 0) {
-                        BigDecimal taux = new BigDecimal(taxe).movePointLeft(2).add(BigDecimal.ONE);
-                        BigDecimal prixTTC = new BigDecimal(s);
-                        BigDecimal divide = prixTTC.divide(taux, MathContext.DECIMAL128);
-                        divide = divide.setScale(precision, RoundingMode.HALF_UP);
-                        textField.setText(divide.toString());
-                    }
-                }
-            });
-            menuDroit.pack();
-            menuDroit.show(e.getComponent(), e.getPoint().x, e.getPoint().y);
-            menuDroit.setVisible(true);
-        }
-    }
-
-    public void mouseReleased(MouseEvent e) {
-        // TODO Auto-generated method stub
-
-    }
 }

@@ -21,6 +21,7 @@ import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
@@ -348,107 +349,45 @@ public class CompteGestCommPreferencePanel extends DefaultPreferencePanel {
     private void setValues() {
 
         try {
-            // Achats
-            int value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_ACHAT");
-            if (value <= 1) {
 
-                String compte = ComptePCESQLElement.getComptePceDefault("Achats");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteAchat.setValue(value);
-
-            // Achats intra
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_ACHAT_INTRA");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("AchatsIntra");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteAchatIntra.setValue(value);
-
-            // Ventes Produits
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_VENTE_PRODUIT");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("VentesProduits");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteVenteProduits.setValue(value);
-
-            // Ventes Services
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_VENTE_SERVICE");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("VentesServices");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteVenteService.setValue(value);
-
-            // Factor
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_FACTOR");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("Factor");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteFactor.setValue(value);
+            setComboValues(selCompteAchat, "ID_COMPTE_PCE_ACHAT", "Achats");
+            setComboValues(selCompteAchatIntra, "ID_COMPTE_PCE_ACHAT_INTRA", "AchatsIntra");
+            setComboValues(selCompteVenteProduits, "ID_COMPTE_PCE_VENTE_PRODUIT", "VentesProduits");
+            setComboValues(selCompteVenteService, "ID_COMPTE_PCE_VENTE_SERVICE", "VentesServices");
+            setComboValues(selCompteFactor, "ID_COMPTE_PCE_FACTOR", "Factor");
 
             // Journal Factor
-            value = this.rowPrefCompteVals.getInt("ID_JOURNAL_FACTOR");
+            int value = (this.rowPrefCompteVals.getObject("ID_JOURNAL_FACTOR") == null ? 1 : this.rowPrefCompteVals.getInt("ID_JOURNAL_FACTOR"));
             if (value <= 1) {
 
                 value = GenerationMvtSaisieVenteFacture.journal;
             }
             this.selJrnlFactor.setValue(value);
 
-            // Fournisseurs
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_FOURNISSEUR");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("Fournisseurs");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteFourn.setValue(value);
+            setComboValues(selCompteFourn, "ID_COMPTE_PCE_FOURNISSEUR", "Fournisseurs");
+            setComboValues(selCompteClient, "ID_COMPTE_PCE_CLIENT", "Clients");
 
-            // Client
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_CLIENT");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("Clients");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteClient.setValue(value);
-
-            // TVA Coll
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_TVA_VENTE");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("TVACollectee");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteTVACol.setValue(value);
-
-            // TVA Ded
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_TVA_ACHAT");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("TVADeductible");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteTVADed.setValue(value);
-
-            // TVA intracomm
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_TVA_INTRA");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("TVAIntraComm");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteTVAIntraComm.setValue(value);
-
-            // TVA immo
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_TVA_IMMO");
-            if (value <= 1) {
-                String compte = ComptePCESQLElement.getComptePceDefault("TVAImmo");
-                value = ComptePCESQLElement.getId(compte);
-            }
-            this.selCompteTVAImmo.setValue(value);
-
+            setComboValues(selCompteTVACol, "ID_COMPTE_PCE_TVA_VENTE", "TVACollectee");
+            setComboValues(selCompteTVADed, "ID_COMPTE_PCE_TVA_ACHAT", "TVADeductible");
+            setComboValues(selCompteTVAIntraComm, "ID_COMPTE_PCE_TVA_INTRA", "TVAIntraComm");
+            setComboValues(selCompteTVAImmo, "ID_COMPTE_PCE_TVA_IMMO", "TVAImmo");
             this.checkHideCompteClient.setSelected(Boolean.valueOf(DefaultNXProps.getInstance().getProperty("HideCompteClient")));
             this.checkHideCompteFacture.setSelected(Boolean.valueOf(DefaultNXProps.getInstance().getProperty("HideCompteFacture")));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
+    private void setComboValues(ISQLCompteSelector combo, String field, String defaultName) {
+        int value = 1;
+        SQLRowAccessor row = this.rowPrefCompteVals.getForeign(field);
+        if (row == null || row.isUndefined()) {
+            String compte = ComptePCESQLElement.getComptePceDefault(defaultName);
+            value = ComptePCESQLElement.getId(compte);
+        } else {
+            value = row.getID();
+        }
+        combo.setValue(value);
+    }
+
 }

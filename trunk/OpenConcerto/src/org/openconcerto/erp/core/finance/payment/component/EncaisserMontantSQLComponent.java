@@ -24,6 +24,7 @@ import org.openconcerto.erp.preferences.ModeReglementDefautPrefPanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.ElementSQLObject;
+import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
@@ -37,6 +38,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.warning.JLabelWarning;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
@@ -89,13 +91,6 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
         c.gridwidth = 1;
         c.gridy++;
         c.weighty = 0;
-        // // Echeance
-        // this.add(new JLabel("Echeance"), c);
-        //
-        // c.gridx++;
-        // c.weightx = 0;
-        // c.gridwidth = 3;
-        // this.add(this.comboEcheance, c);
 
         // Client
         final ElementComboBox comboClient = new ElementComboBox(true, 25);
@@ -180,7 +175,6 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
 
             @Override
             public void tableChanged(TableModelEvent e) {
-                // TODO Auto-generated method stub
                 final RowValuesTableModel model = table.getRowValuesTable().getRowValuesTableModel();
                 if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() == model.getColumnIndexForElement(table.getMontantElement())) {
 
@@ -196,32 +190,34 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
                     montant.setText(GestionDevise.currencyToString(total));
 
                     // Selection du mode de reglement
-                    if (rowCount >= 1) {
-                        final int idScr = MouvementSQLElement.getSourceId(model.getRowValuesAt(0).getInt("ID_MOUVEMENT_ECHEANCE"));
-                        SQLTable tableMvt = Configuration.getInstance().getDirectory().getElement("MOUVEMENT").getTable();
-                        if (idScr > 1) {
-                            SQLRow rowMvt = tableMvt.getRow(idScr);
-                            String source = rowMvt.getString("SOURCE");
-                            int idSource = rowMvt.getInt("IDSOURCE");
-                            SQLElement eltSource = Configuration.getInstance().getDirectory().getElement(source);
-                            if (eltSource != null) {
-                                SQLRow rowSource = eltSource.getTable().getRow(idSource);
+                    if (getMode() == SQLComponent.Mode.INSERTION) {
+                        if (rowCount >= 1) {
+                            final int idScr = MouvementSQLElement.getSourceId(model.getRowValuesAt(0).getInt("ID_MOUVEMENT_ECHEANCE"));
+                            SQLTable tableMvt = Configuration.getInstance().getDirectory().getElement("MOUVEMENT").getTable();
+                            if (idScr > 1) {
+                                SQLRow rowMvt = tableMvt.getRow(idScr);
+                                String source = rowMvt.getString("SOURCE");
+                                int idSource = rowMvt.getInt("IDSOURCE");
+                                SQLElement eltSource = Configuration.getInstance().getDirectory().getElement(source);
+                                if (eltSource != null) {
+                                    SQLRow rowSource = eltSource.getTable().getRow(idSource);
 
-                                if (rowSource != null) {
-                                    SQLRow rowModeRegl = rowSource.getForeignRow("ID_MODE_REGLEMENT");
-                                    if (rowModeRegl != null) {
-                                        System.err.println("Set mode de règlement");
-                                        int idTypeRegl = rowModeRegl.getInt("ID_TYPE_REGLEMENT");
-                                        SQLTable tableModeRegl = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT").getTable();
-                                        SQLRowValues rowVals = new SQLRowValues(tableModeRegl);
-                                        if (idTypeRegl > TypeReglementSQLElement.TRAITE) {
-                                            idTypeRegl = TypeReglementSQLElement.CHEQUE;
+                                    if (rowSource != null) {
+                                        SQLRow rowModeRegl = rowSource.getForeignRow("ID_MODE_REGLEMENT");
+                                        if (rowModeRegl != null) {
+                                            System.err.println("Set mode de règlement");
+                                            int idTypeRegl = rowModeRegl.getInt("ID_TYPE_REGLEMENT");
+                                            SQLTable tableModeRegl = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT").getTable();
+                                            SQLRowValues rowVals = new SQLRowValues(tableModeRegl);
+                                            if (idTypeRegl > TypeReglementSQLElement.TRAITE) {
+                                                idTypeRegl = TypeReglementSQLElement.CHEQUE;
+                                            }
+                                            rowVals.put("ID_TYPE_REGLEMENT", idTypeRegl);
+                                            rowVals.put("COMPTANT", Boolean.TRUE);
+                                            rowVals.put("AJOURS", 0);
+                                            rowVals.put("LENJOUR", 0);
+                                            eltModeRegl.setValue(rowVals);
                                         }
-                                        rowVals.put("ID_TYPE_REGLEMENT", idTypeRegl);
-                                        rowVals.put("COMPTANT", Boolean.TRUE);
-                                        rowVals.put("AJOURS", 0);
-                                        rowVals.put("LENJOUR", 0);
-                                        eltModeRegl.setValue(rowVals);
                                     }
                                 }
                             }
@@ -278,9 +274,7 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
 
     @Override
     public void select(SQLRowAccessor r) {
-
         super.select(r);
-
         if (r != null && r.getID() > 1) {
             this.table.insertFrom("ID_ENCAISSER_MONTANT", r.getID());
         }
@@ -290,37 +284,35 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
     public int insert(SQLRow order) {
 
         int id = super.insert(order);
-        this.table.updateField("ID_ENCAISSER_MONTANT", id);
+        try {
+            this.table.updateField("ID_ENCAISSER_MONTANT", id);
 
-        System.out.println("Génération des ecritures du reglement");
-        SQLRow row = getTable().getRow(id);
-        String s = row.getString("NOM");
-        SQLRow rowModeRegl = row.getForeignRow("ID_MODE_REGLEMENT");
-        SQLRow rowTypeRegl = rowModeRegl.getForeignRow("ID_TYPE_REGLEMENT");
-        String label = "Règlement vente " + ((s == null) ? "" : s) + " (" + rowTypeRegl.getString("NOM") + ")";
+            System.out.println("Génération des ecritures du reglement");
+            SQLRow row = getTable().getRow(id);
+            String s = row.getString("NOM");
+            SQLRow rowModeRegl = row.getForeignRow("ID_MODE_REGLEMENT");
+            SQLRow rowTypeRegl = rowModeRegl.getForeignRow("ID_TYPE_REGLEMENT");
+            String label = "Règlement vente " + ((s == null) ? "" : s) + " (" + rowTypeRegl.getString("NOM") + ")";
 
-        // Compte Client
-        SQLRow clientRow = row.getForeignRow("ID_CLIENT");
+            // Compte Client
+            SQLRow clientRow = row.getForeignRow("ID_CLIENT");
 
-        long montant = row.getLong("MONTANT");
-        PrixTTC ttc = new PrixTTC(montant);
+            long montant = row.getLong("MONTANT");
+            PrixTTC ttc = new PrixTTC(montant);
 
-        List<SQLRow> l = row.getReferentRows(Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT_ELEMENT").getTable());
-        if (l.isEmpty()) {
-            JOptionPane.showMessageDialog(null, "Un problème a été rencontré lors de l'encaissement! \n Les écritures comptables non pu être générer!");
-            System.err.println("Liste des échéances vides pour l'encaissement ID " + id);
-            Thread.dumpStack();
-        }
-        new GenerationReglementVenteNG(label, clientRow, ttc, row.getDate("DATE").getTime(), rowModeRegl, row, l.get(0).getForeignRow("ID_MOUVEMENT_ECHEANCE"), false);
+            List<SQLRow> l = row.getReferentRows(Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT_ELEMENT").getTable());
+            if (l.isEmpty()) {
+                JOptionPane.showMessageDialog(null, "Un problème a été rencontré lors de l'encaissement! \n Les écritures comptables non pu être générer!");
+                System.err.println("Liste des échéances vides pour l'encaissement ID " + id);
+                Thread.dumpStack();
+            }
+            new GenerationReglementVenteNG(label, clientRow, ttc, row.getDate("DATE").getTime(), rowModeRegl, row, l.get(0).getForeignRow("ID_MOUVEMENT_ECHEANCE"), false);
 
-        // Mise a jour du montant de l'echeance
-        System.out.println("Mise à jour du montant de l'échéance");
+            // Mise a jour du montant de l'echeance
+            boolean supplement = false;
+            // On marque les echeances comme reglees
+            for (SQLRow sqlRow : l) {
 
-        boolean supplement = false;
-        // On marque les echeances comme reglees
-        for (SQLRow sqlRow : l) {
-
-            try {
                 final SQLRow rowEch = sqlRow.getForeignRow("ID_ECHEANCE_CLIENT");
                 SQLRowValues rowValsEch = rowEch.createEmptyUpdateRow();
                 if (sqlRow.getLong("MONTANT_REGLE") >= sqlRow.getLong("MONTANT_A_REGLER")) {
@@ -334,20 +326,18 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
                 rowValsEch.update();
                 // this.comboEcheance.rowDeleted(tableEch, rowEch.getID());
                 // getTable().fireTableModified(rowEch.getID());
-            } catch (SQLException e) {
-                e.printStackTrace();
             }
+            // si le montant réglé est supérieur, on crée une facture de complément
+            if (supplement) {
+                SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+                EditFrame f = new EditFrame(elt, EditFrame.CREATION);
+                SaisieVenteFactureSQLComponent comp = (SaisieVenteFactureSQLComponent) f.getSQLComponent();
+                comp.setComplement(true);
+                f.setVisible(true);
+            }
+        } catch (Exception e) {
+            ExceptionHandler.handle("Erreur lors de la génération des ecritures du reglement", e);
         }
-        // si le montant réglé est supérieur, on crée une facture de complément
-        if (supplement) {
-
-            SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-            EditFrame f = new EditFrame(elt, EditFrame.CREATION);
-            SaisieVenteFactureSQLComponent comp = (SaisieVenteFactureSQLComponent) f.getSQLComponent();
-            comp.setComplement(true);
-            f.setVisible(true);
-        }
-
         return id;
     }
 

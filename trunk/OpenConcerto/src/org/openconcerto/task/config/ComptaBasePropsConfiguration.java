@@ -29,6 +29,7 @@ import org.openconcerto.sql.users.rights.UserRightSQLElement;
 import org.openconcerto.task.element.TaskRightSQLElement;
 import org.openconcerto.task.element.TaskSQLElement;
 import org.openconcerto.utils.DesktopEnvironment;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.LogUtils;
 import org.openconcerto.utils.ProductInfo;
 
@@ -39,6 +40,8 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Properties;
+
+import com.jcraft.jsch.Session;
 
 public abstract class ComptaBasePropsConfiguration extends PropsConfiguration {
 
@@ -86,6 +89,7 @@ public abstract class ComptaBasePropsConfiguration extends PropsConfiguration {
     private int idSociete = SQLRow.NONEXISTANT_ID;
     private SQLRow rowSociete = null;
     private DBRoot baseSociete;
+    private Thread sslThread = null;
 
     {
         // * logs
@@ -103,6 +107,45 @@ public abstract class ComptaBasePropsConfiguration extends PropsConfiguration {
         this.setProperty("systemRoot.rootPath", name + "_Common");
     }
 
+
+    @Override
+    protected void afterSSLConnect(final Session conn) {
+        if (conn.isConnected()) {
+            final Thread t = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    while (true) {
+                        try {
+                            Thread.sleep(1000);
+                            if (!conn.isConnected()) {
+                                ExceptionHandler.die("Liaison sécurisée déconnectée!\nVérifiez votre connexion internet et relancez le logiciel.");
+                                break;
+                            }
+                        } catch (InterruptedException e) {
+                            // used by destroy()
+                            break;
+                        }
+                    }
+                }
+            });
+            t.setDaemon(true);
+            t.setName("SSL connection watcher");
+            t.start();
+            assert this.sslThread == null;
+            this.sslThread = t;
+        } else {
+            ExceptionHandler.die("Impossible d'établir la liaison sécurisée!\nVérifiez votre connexion internet et relancez le logiciel.");
+        }
+    }
+
+    @Override
+    public void destroy() {
+        if (this.sslThread != null) {
+            this.sslThread.interrupt();
+            this.sslThread = null;
+        }
+        super.destroy();
+    }
 
     // use Configuration directory if it exists
     @Override

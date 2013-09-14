@@ -377,4 +377,21 @@ public class StringUtils {
         }
         return r;
     }
+
+    public static String trim(final String s, final boolean leading) {
+        // from String.trim()
+        int end = s.length();
+        int st = 0;
+
+        if (leading) {
+            while ((st < end) && (s.charAt(st) <= ' ')) {
+                st++;
+            }
+        } else {
+            while ((st < end) && (s.charAt(end - 1) <= ' ')) {
+                end--;
+            }
+        }
+        return ((st > 0) || (end < s.length())) ? s.substring(st, end) : s;
+    }
 }

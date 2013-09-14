@@ -78,7 +78,7 @@ public class EncaisseMontantTable extends JPanel {
         this.montantRegle.setRenderer(new DeviseNiceTableCellRenderer());
         list.add(this.montantRegle);
 
-        this.model = new RowValuesTableModel(e, list, e.getTable().getField("MONTANT_REGLE"));
+        this.model = new RowValuesTableModel(e, list, e.getTable().getField("MONTANT_REGLE"), false);
 
         this.table = new RowValuesTable(this.model, null, true);
         ToolTipManager.sharedInstance().unregisterComponent(this.table);

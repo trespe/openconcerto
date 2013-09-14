@@ -19,15 +19,17 @@ import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.panel.PostgreSQLFrame;
 import org.openconcerto.erp.panel.UserExitPanel;
 import org.openconcerto.erp.preferences.UIPreferencePanel;
+import org.openconcerto.erp.rights.ComptaTotalUserRight;
 import org.openconcerto.ftp.updater.UpdateManager;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.PropsConfiguration;
-import org.openconcerto.sql.State;
+import org.openconcerto.sql.RemoteShell;
 import org.openconcerto.sql.element.UISQLComponent;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRequestLog;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.FrameUtil;
@@ -53,6 +55,12 @@ import java.io.InputStreamReader;
 import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.URL;
+import java.security.AllPermission;
+import java.security.Permission;
+import java.security.PermissionCollection;
+import java.security.Policy;
+import java.security.ProtectionDomain;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -101,10 +109,72 @@ public class Gestion {
         return Boolean.getBoolean(MINIMAL_PROP);
     }
 
-    /**
-     * @param args
-     */
-    // -Dorg.openconcerto.sql.sqlCombo.selectSoleItem=true
+    static private final PermissionCollection ALL_PERMS;
+    static {
+        final AllPermission allPermission = new AllPermission();
+        ALL_PERMS = allPermission.newPermissionCollection();
+        ALL_PERMS.add(allPermission);
+        ALL_PERMS.setReadOnly();
+    }
+
+    // install a security manager so that we can restrict modules permissions
+    private static void initSecurity() {
+        // extensions (like sunjce_provider) need all permissions
+        final String[] extDirs = System.getProperty("java.ext.dirs").split(File.pathSeparator);
+        final List<String> canonExtDirs = new ArrayList<String>(extDirs.length);
+        for (final String extDir : extDirs) {
+            try {
+                canonExtDirs.add(new File(extDir).getCanonicalPath());
+            } catch (IOException e) {
+                System.err.println("Couldn't add extension dir : " + extDir);
+                e.printStackTrace();
+            }
+        }
+
+        // our class loader gets all permission
+        final ClassLoader mainLoader = Gestion.class.getClassLoader();
+        Policy.setPolicy(new Policy() {
+            private boolean isExt(ProtectionDomain domain) {
+                final URL location = domain.getCodeSource().getLocation();
+                if ("file".equals(location.getProtocol())) {
+                    try {
+                        final String canonPath = new File(location.toURI()).getCanonicalPath();
+                        for (final String canonExtDir : canonExtDirs) {
+                            if (canonPath.startsWith(canonExtDir))
+                                return true;
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+                return false;
+            }
+
+            @Override
+            public PermissionCollection getPermissions(ProtectionDomain domain) {
+                if (domain != null && (domain.getClassLoader() == mainLoader || isExt(domain))) {
+                    return ALL_PERMS;
+                } else {
+                    return super.getPermissions(domain);
+                }
+            }
+
+            // have to overload since our superclass caches the permissions of the protection domain
+            // of this instance in initPolicy()
+            @Override
+            public boolean implies(ProtectionDomain domain, Permission permission) {
+                if (domain != null && domain.getClassLoader() == mainLoader) {
+                    return true;
+                } else {
+                    // super caches results (avoid calling expensive isExt())
+                    return super.implies(domain, permission);
+                }
+            }
+        });
+
+        System.setSecurityManager(new SecurityManager());
+    }
+
     public static void main(String[] args) {
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
 
@@ -142,10 +212,10 @@ public class Gestion {
         if (System.getProperty("org.openconcerto.oo.useODSViewer") == null) {
             System.setProperty("org.openconcerto.oo.useODSViewer", "true");
         }
+        // Workaround for JRE 7 bug: http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=7075600
+        System.setProperty("java.util.Arrays.useLegacyMergeSort", "true");
 
-        if (System.getProperty(State.DEAF) == null) {
-            System.setProperty(State.DEAF, "true");
-        }
+        RemoteShell.startDefaultInstance();
         IListe.setForceAlternateCellRenderer(true);
         ITableModel.setDefaultEditable(false);
 
@@ -196,6 +266,7 @@ public class Gestion {
         Toolkit.getDefaultToolkit().setDynamicLayout(true);
 
         ComboSQLRequest.setDefaultFieldSeparator(" ");
+        UserRightsManager.DEFAULT_MACRO_RIGHTS.add(new ComptaTotalUserRight());
 
         long t4 = System.currentTimeMillis();
         System.out.println("Ip:" + conf.getServerIp());
@@ -206,8 +277,8 @@ public class Gestion {
             }
         }
         try {
-            // ensure consistent state
-            conf.getSystemRoot().getGraph();
+            // test DB connection
+            conf.getSystemRoot();
             // Prefetch undefined
             conf.getRoot().getTables().iterator().next().getUndefinedID();
         } catch (Exception e) {

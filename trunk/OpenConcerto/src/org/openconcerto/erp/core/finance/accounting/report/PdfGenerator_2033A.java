@@ -15,12 +15,8 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.preferences.TemplateNXProps;
-import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
-
-import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
 public class PdfGenerator_2033A extends PdfGenerator {
 
@@ -33,29 +29,6 @@ public class PdfGenerator_2033A extends PdfGenerator {
 
     }
 
-    private static String getVille(final String name) {
-
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-            SwingUtilities.invokeLater(new Runnable() {
-                public void run() {
-                    JOptionPane.showMessageDialog(null, "La ville " + "\"" + name + "\"" + " est introuvable! Veuillez corriger l'erreur!");
-                }
-            });
-            return null;
-        }
-        return ville.getName();
-    }
-
-    private static String getVilleCP(String name) {
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-
-            return null;
-        }
-        return ville.getCodepostal();
-    }
-
     public void generate() {
         setFontBold(14);
 
@@ -65,7 +38,7 @@ public class PdfGenerator_2033A extends PdfGenerator {
         setFontRoman(12);
 
         SQLRow rowAdresse = Configuration.getInstance().getBase().getTable("ADRESSE_COMMON").getRow(rowSociete.getInt("ID_ADRESSE_COMMON"));
-        String ville = getVille(rowAdresse.getString("VILLE"));
+        String ville = rowAdresse.getString("VILLE");
         final Object cedex = rowAdresse.getObject("CEDEX");
         final boolean hasCedex = rowAdresse.getBoolean("HAS_CEDEX");
 
@@ -76,7 +49,7 @@ public class PdfGenerator_2033A extends PdfGenerator {
             }
         }
 
-        final String adresse = rowAdresse.getString("RUE") + ", " + getVilleCP(rowAdresse.getString("VILLE")) + " " + ville;
+        final String adresse = rowAdresse.getString("RUE") + ", " + rowAdresse.getString("CODE_POSTAL") + " " + ville;
         System.err.println(adresse);
         addText("ADRESSE", adresse, 120, 794 - 18);
 

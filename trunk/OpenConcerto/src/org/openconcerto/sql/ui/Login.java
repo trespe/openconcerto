@@ -22,7 +22,6 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.users.UserManager;
-import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.utils.Base64;
 import org.openconcerto.utils.CollectionUtils;
@@ -46,7 +45,9 @@ public class Login {
     /**
      * A reason returned by {@link #connectClear(String, String)}.
      */
-    public static final String UNKNOWN_USER = "Utilisateur inconnu";
+    public static final String UNKNOWN_USER = "unknownUser";
+    public static final String MORE_THAN_ONE_USER = "multipleUser";
+    public static final String WRONG_PASSWORD = "wrongPass";
     private final DBRoot root;
     private final SQLTable userT;
 
@@ -112,9 +113,9 @@ public class Login {
                 final String pass = passwords.get(i);
                 encPass = this.connect(userRow, pass, encoded);
             }
-            res = Tuple2.create(encPass == null ? "Mot de passe erronné" : null, encPass);
+            res = Tuple2.create(encPass == null ? WRONG_PASSWORD : null, encPass);
         } else if (users.size() > 1) {
-            res = Tuple2.create("Plusieurs utilisateurs nommés " + login, null);
+            res = Tuple2.create(MORE_THAN_ONE_USER, null);
         } else {
             assert users.size() == 0;
             res = Tuple2.create(UNKNOWN_USER, null);
@@ -130,7 +131,7 @@ public class Login {
     }
 
     private final List<SQLRow> findUser(final String login) {
-        final SQLSelect selUser = new SQLSelect(this.userT.getBase());
+        final SQLSelect selUser = new SQLSelect();
         selUser.addSelect(this.userT.getField("ID"));
         selUser.addSelect(this.userT.getField("PASSWORD"));
 
@@ -153,8 +154,6 @@ public class Login {
         if (dbPass == null || dbPass.equals(encPass) || dbPass.equals(encodePassword(""))) {
             // --->Connexion
             UserManager.getInstance().setCurrentUser(userRow.getID());
-            // Preload right to avoid request in AWT later
-            UserRightsManager.getInstance().preloadRightsForUserId(userRow.getID());
             // Authentification OK
             res = encPass;
             assert res != null;

@@ -349,8 +349,32 @@ public class SQLRow extends SQLRowAccessor {
         return this.getValues().get(field);
     }
 
-    public BigDecimal getOrder() {
-        return (BigDecimal) this.getObject(this.getTable().getOrderField().getName());
+    public final SQLRow getRow(boolean after) {
+        final SQLTable t = this.getTable();
+        final BigDecimal destOrder = this.getOrder();
+        final int diff = (!after) ? -1 : 1;
+
+        final SQLSelect sel = new SQLSelect();
+        // undefined must not move
+        sel.setExcludeUndefined(true);
+        // unique index prend aussi en compte les archivés
+        sel.setArchivedPolicy(SQLSelect.BOTH);
+        sel.addSelect(t.getKey());
+        sel.addSelect(t.getOrderField());
+        if (t.isArchivable())
+            sel.addSelect(t.getArchiveField());
+        sel.setWhere(new Where(t.getOrderField(), diff < 0 ? "<" : ">", destOrder));
+        sel.addFieldOrder(t.getOrderField(), diff < 0 ? Order.desc() : Order.asc());
+        sel.setLimit(1);
+
+        final SQLDataSource ds = t.getBase().getDataSource();
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> otherMap = ds.execute1(sel.asString());
+        if (otherMap != null) {
+            return new SQLRow(t, otherMap);
+        } else {
+            return null;
+        }
     }
 
     /**
@@ -360,27 +384,10 @@ public class SQLRow extends SQLRowAccessor {
      * @return a free order, or <code>null</code> if there's no room left.
      */
     public final BigDecimal getOrder(boolean after) {
-        final SQLTable t = this.getTable();
         final BigDecimal destOrder = this.getOrder();
-        final int diff = (!after) ? -1 : 1;
-
-        final SQLSelect sel = new SQLSelect(t.getBase());
-        // undefined must not move
-        sel.setExcludeUndefined(true);
-        // unique index prend aussi en compte les archivés
-        sel.setArchivedPolicy(SQLSelect.BOTH);
-        sel.addSelect(t.getKey());
-        sel.addSelect(t.getOrderField());
-        sel.setWhere(new Where(t.getOrderField(), diff < 0 ? "<" : ">", destOrder));
-        sel.addFieldOrder(t.getOrderField(), diff < 0 ? Order.desc() : Order.asc());
-        sel.setLimit(1);
-
+        final SQLRow otherRow = this.getRow(after);
         final BigDecimal otherOrder;
-        final SQLDataSource ds = t.getBase().getDataSource();
-        @SuppressWarnings("unchecked")
-        final Map<String, Object> otherMap = ds.execute1(sel.asString());
-        if (otherMap != null) {
-            final SQLRow otherRow = new SQLRow(t, otherMap);
+        if (otherRow != null) {
             otherOrder = otherRow.getOrder();
         } else if (after) {
             // dernière ligne de la table

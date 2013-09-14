@@ -49,8 +49,8 @@ public class NouvelHistoriqueListeFournAction extends CreateFrameAbstractAction 
         mapList.put("Chèques émis", Arrays.asList("CHEQUE_FOURNISSEUR"));
 
         final HistoriqueFournBilanPanel panelBilan = new HistoriqueFournBilanPanel();
-        final ListeHistoriquePanel listHistoriquePanel = new ListeHistoriquePanel("Fournisseurs", JListSQLTablePanel.createComboRequest(b.getTable("FOURNISSEUR"), true), mapList, panelBilan, null,
-                null);
+        final ListeHistoriquePanel listHistoriquePanel = new ListeHistoriquePanel("Fournisseurs", JListSQLTablePanel.createComboRequest(
+                Configuration.getInstance().getDirectory().getElement(b.getTable("FOURNISSEUR")), true), mapList, panelBilan, null, null);
 
         listHistoriquePanel.addListSelectionListener(new ListSelectionListener() {
             public void valueChanged(ListSelectionEvent e) {

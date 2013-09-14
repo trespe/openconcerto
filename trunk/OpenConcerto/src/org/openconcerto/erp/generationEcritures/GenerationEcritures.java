@@ -15,28 +15,22 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.TotalCalculator;
-import org.openconcerto.erp.core.common.ui.TotalCalculator;
-import org.openconcerto.erp.model.PrixHT;
-import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
+import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.swing.SwingUtilities;
 
@@ -146,49 +140,11 @@ public class GenerationEcritures {
 
         try {
             if (valEcriture.getInvalid() == null) {
-
                 // ajout de l'ecriture
-
                 SQLRow ecritureRow = valEcriture.insert();
-                // System.err.println("Ecriture ajoutée");
-
-                // mise à jour des totaux du compte
-                // SQLRowValues valCompte = new SQLRowValues(GenerationEcritures.compteTable);
-                //
-                // SQLRow compteRow =
-                // GenerationEcritures.compteTable.getRow(ecritureRow.getInt("ID_COMPTE_PCE"));
-                //
-                // long debitTotal = compteRow.getLong("TOTAL_DEBIT");
-                // long creditTotal = compteRow.getLong("TOTAL_CREDIT");
-                //
-                // debitTotal += ecritureRow.getLong("DEBIT");
-                // creditTotal += ecritureRow.getLong("CREDIT");
-                //
-                // valCompte.put("TOTAL_DEBIT", Long.valueOf(debitTotal));
-                // valCompte.put("TOTAL_CREDIT", Long.valueOf(creditTotal));
-                //
-                // try {
-                // valCompte.update(compteRow.getID());
-
                 return ecritureRow.getID();
-
-                // } catch (SQLException e) {
-                // // throw ExceptionHandler.handle(null, "Erreur modification " +
-                // // this.compteTable.getName(), e);
-                // System.err.println("Error to update Table " +
-                // GenerationEcritures.compteTable.getName() + " Values -> " + valCompte);
-                // SwingUtilities.invokeLater(new Runnable() {
-                // public void run() {
-                // ExceptionHandler.handle("Erreur lors de la mise à jour du solde des comptes.");
-                // }
-                // });
-                // e.printStackTrace();
-                // }
             } else {
                 System.err.println("GenerationEcritures.java :: Error in values for insert in table " + GenerationEcritures.ecritureTable.getName() + " : " + valEcriture.toString());
-
-                // ExceptionHandler.handle("Erreur lors de la génération des écritures données
-                // incorrectes. " + valEcriture);
                 throw new IllegalArgumentException("Erreur lors de la génération des écritures données incorrectes. " + valEcriture);
             }
         } catch (SQLException e) {
@@ -313,30 +269,27 @@ public class GenerationEcritures {
      * @param idPere
      * @param nomPiece
      * @return id d'un nouveau mouvement
+     * @throws SQLException
      */
-    synchronized public int getNewMouvement(String source, int idSource, int idPere, SQLRowValues rowValsPiece) {
+    synchronized public int getNewMouvement(String source, int idSource, int idPere, SQLRowValues rowValsPiece) throws SQLException {
+        SQLRow rowPiece = rowValsPiece.insert();
+        return getNewMouvement(source, idSource, idPere, rowPiece.getID());
 
-        SQLRow rowPiece;
-        try {
-            rowPiece = rowValsPiece.insert();
-
-            return getNewMouvement(source, idSource, idPere, rowPiece.getID());
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return 1;
     }
 
-    synchronized public int getNewMouvement(String source, int idSource, int idPere, String nomPiece) {
+    synchronized public int getNewMouvement(String source, int idSource, int idPere, String nomPiece) throws SQLException {
 
         SQLRowValues rowValsPiece = new SQLRowValues(pieceTable);
         rowValsPiece.put("NOM", nomPiece);
         return getNewMouvement(source, idSource, idPere, rowValsPiece);
     }
 
-    protected TotalCalculator getValuesFromElement(SQLRow row, SQLTable foreign, BigDecimal portHT, SQLRowAccessor rowTVAPort, SQLTable tableEchantillon) {
+    protected TotalCalculator getValuesFromElement(SQLRow row, SQLTable foreign, BigDecimal portHT, SQLRow rowTVAPort, SQLTable tableEchantillon) {
 
         TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
+        String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
+        Boolean bServiceActive = Boolean.valueOf(val);
+        calc.setServiceActive(bServiceActive != null && bServiceActive);
         long remise = 0;
         BigDecimal totalAvtRemise = BigDecimal.ZERO;
         if (row.getTable().contains("REMISE_HT")) {
@@ -377,99 +330,11 @@ public class GenerationEcritures {
             SQLRowValues rowValsPort = new SQLRowValues(foreign);
             rowValsPort.put("T_PV_HT", portHT);
             rowValsPort.put("QTE", 1);
-            rowValsPort.put("ID_TAXE", rowTVAPort);
+            rowValsPort.put("ID_TAXE", rowTVAPort.getIDNumber());
             calc.addLine(rowValsPort, null, 1, false);
         }
         calc.checkResult();
         return calc;
-    }
-
-    // FIXME à supprimer et remplacer la methode utiliser pour tickets caisse
-    protected Map<Integer, Long> getMultiTVAFromRow(SQLRow row, SQLTable foreign, boolean vente, PrixHT totalHt, long remiseHT) {
-
-        List<SQLRow> rows = row.getReferentRows(foreign);
-
-        SQLPreferences prefs = new SQLPreferences(row.getTable().getDBRoot());
-        final boolean tvaLine = prefs.getBoolean(GestionArticleGlobalPreferencePanel.TVA_LINE, false);
-
-        if (tvaLine) {
-            Map<Integer, Long> map = new HashMap<Integer, Long>();
-            for (SQLRow sqlRow : rows) {
-                SQLRow taxe = sqlRow.getForeignRow("ID_TAXE");
-                long val = sqlRow.getLong("T_PV_TTC") - sqlRow.getLong("T_PV_HT");
-                Long l = map.get(taxe.getInt("ID_COMPTE_PCE_COLLECTE"));
-                if (l == null) {
-                    map.put(taxe.getInt("ID_COMPTE_PCE_COLLECTE"), Long.valueOf(val));
-                } else {
-                    map.put(taxe.getInt("ID_COMPTE_PCE_COLLECTE"), Long.valueOf(val + l));
-                }
-            }
-            return map;
-        }
-
-        // Total HT par TVA
-        Map<SQLRow, Long> mapTaxeHT = new HashMap<SQLRow, Long>();
-        for (SQLRow sqlRow : rows) {
-            SQLRow taxe = sqlRow.getForeignRow("ID_TAXE");
-            long val = sqlRow.getLong("T_PV_HT");
-            Long l = mapTaxeHT.get(taxe);
-            if (l == null) {
-                mapTaxeHT.put(taxe, Long.valueOf(val));
-            } else {
-                mapTaxeHT.put(taxe, Long.valueOf(val + l));
-            }
-        }
-
-        if (row.getTable().contains("ID_TAXE_PORT")) {
-            long port = row.getLong("PORT_HT");
-            if (port > 0) {
-                SQLRow taxePort = row.getForeignRow("ID_TAXE_PORT");
-                if (taxePort != null && !taxePort.isUndefined()) {
-
-                    // Total TVA
-                    if (mapTaxeHT.get(taxePort) == null) {
-                        mapTaxeHT.put(taxePort, port);
-                    } else {
-                        Long l = mapTaxeHT.get(taxePort);
-                        mapTaxeHT.put(taxePort, l + port);
-                    }
-                }
-            }
-        }
-        // Déduction de la remise pour la TVA
-        long totalHTAvantRemise = totalHt.getLongValue() + remiseHT;
-        long remiseToApply = remiseHT;
-        if (remiseToApply > 0) {
-            Set<SQLRow> setHtTVA = mapTaxeHT.keySet();
-            int i = 0;
-            for (SQLRow rowA : mapTaxeHT.keySet()) {
-                Long ht = mapTaxeHT.get(rowA);
-                i++;
-                if (i == setHtTVA.size()) {
-                    mapTaxeHT.put(rowA, ht - remiseToApply);
-                } else {
-                    // Prorata
-                    long r = new BigDecimal(ht).divide(new BigDecimal(totalHTAvantRemise), MathContext.DECIMAL128).multiply(new BigDecimal(remiseHT)).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
-                    mapTaxeHT.put(rowA, ht - r);
-                    remiseToApply -= r;
-                }
-            }
-        }
-
-        Map<Integer, Long> map = new HashMap<Integer, Long>();
-        for (SQLRow sqlRow : mapTaxeHT.keySet()) {
-            BigDecimal d = new BigDecimal(sqlRow.getFloat("TAUX"));
-            BigDecimal result = d.multiply(new BigDecimal(mapTaxeHT.get(sqlRow)), MathContext.DECIMAL128).movePointLeft(2);
-            int compte;
-            if (vente) {
-                compte = sqlRow.getInt("ID_COMPTE_PCE_COLLECTE");
-            } else {
-                compte = sqlRow.getInt("ID_COMPTE_PCE_DED");
-            }
-            map.put(compte, result.setScale(0, BigDecimal.ROUND_HALF_UP).longValue());
-        }
-
-        return map;
     }
 
     /**
@@ -480,33 +345,22 @@ public class GenerationEcritures {
      * @param idPere
      * @param idPiece
      * @return id d'un nouveau mouvement
+     * @throws SQLException
      */
-    synchronized public int getNewMouvement(String source, int idSource, int idPere, int idPiece) {
+    synchronized public int getNewMouvement(String source, int idSource, int idPere, int idPiece) throws SQLException {
 
         SQLTable mouvementTable = base.getTable("MOUVEMENT");
 
         // on calcule le nouveau numero de mouvement
-        SQLSelect selNumMvt = new SQLSelect(base);
-        selNumMvt.addSelect(mouvementTable.getField("NUMERO"));
+        SQLSelect selNumMvt = new SQLSelect();
+        selNumMvt.addSelect(mouvementTable.getField("NUMERO"), "MAX");
 
         String reqNumMvt = selNumMvt.asString();
-        Object obNumMvt = base.getDataSource().execute(reqNumMvt, new ArrayListHandler());
-
-        List myListNumMvt = (List) obNumMvt;
+        Object obNumMvt = base.getDataSource().executeScalar(reqNumMvt);
 
         int numMvt = 1;
-
-        if (myListNumMvt.size() != 0) {
-
-            for (int i = 0; i < myListNumMvt.size(); i++) {
-                Object[] objTmp = (Object[]) myListNumMvt.get(i);
-
-                int tmp = Integer.parseInt(objTmp[0].toString());
-
-                if (numMvt < tmp) {
-                    numMvt = tmp;
-                }
-            }
+        if (obNumMvt != null) {
+            numMvt = Integer.parseInt(obNumMvt.toString());
         }
         numMvt++;
 
@@ -521,17 +375,12 @@ public class GenerationEcritures {
 
         SQLRowValues val = new SQLRowValues(mouvementTable, m);
 
-        try {
-            if (val.getInvalid() == null) {
-                SQLRow row = val.insert();
-                this.idMvt = row.getID();
-                this.mEcritures.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
-            } else {
-                System.err.println("Error in values for insert in table " + val.getTable().getName() + " : " + val.toString());
-            }
-        } catch (SQLException e) {
-            System.err.println("Error insert row in " + val.getTable().getName());
-            e.printStackTrace();
+        if (val.getInvalid() == null) {
+            SQLRow row = val.insert();
+            this.idMvt = row.getID();
+            this.mEcritures.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
+        } else {
+            throw new IllegalStateException("Error in values for insert in table " + val.getTable().getName() + " : " + val.toString());
         }
 
         System.err.println("Numero de mouvement généré : " + numMvt);

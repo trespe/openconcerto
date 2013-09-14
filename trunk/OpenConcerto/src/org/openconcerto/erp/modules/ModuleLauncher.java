@@ -14,6 +14,7 @@
  package org.openconcerto.erp.modules;
 
 import org.openconcerto.erp.config.Gestion;
+import org.openconcerto.erp.modules.ModulePackager.ModuleFiles;
 import org.openconcerto.utils.FileUtils;
 
 import java.io.File;
@@ -38,22 +39,16 @@ public class ModuleLauncher {
      */
     public static final String MODULE_PROPS_FILE_PROP = "module.propsFile";
 
+    static ModuleFiles createModuleFiles(String moduleDirPath) throws IOException {
+        return new ModuleFiles(new File(moduleDirPath), System.getProperty(MODULE_PROPS_FILE_PROP));
+    }
+
     public static void main(String[] args) throws IOException {
-        final File moduleDir = new File(System.getProperty(MODULE_DIR_PROP));
-        final File propsFile = new File(moduleDir, System.getProperty(MODULE_PROPS_FILE_PROP, "module.properties"));
+        final ModuleFiles moduleFiles = createModuleFiles(System.getProperty(MODULE_DIR_PROP));
         final boolean launchFromPackage = !Boolean.getBoolean("module.fromProject");
-        final File classes = new File(moduleDir, "bin");
 
         // always update dist/ to avoid out of date problems
-        final File distDir = new File(moduleDir, "dist");
-        FileUtils.mkdir_p(distDir);
-        final ModulePackager pkger = new ModulePackager(propsFile, classes);
-        final File libDir = new File(moduleDir, "lib");
-        if (libDir.exists()) {
-            pkger.setSkipDuplicateFiles(true);
-            pkger.addJarsFromDir(libDir);
-        }
-        final File jar = pkger.writeToDir(distDir);
+        final File jar = ModulePackager.createDist(moduleFiles);
         // to avoid out of date modules from OpenConcerto (e.g. when launching this module, the jars
         // of MODULES_DIR are used for dependencies)
         FileUtils.mkdir_p(Gestion.MODULES_DIR);
@@ -63,11 +58,11 @@ public class ModuleLauncher {
         if (launchFromPackage) {
             factory = new JarModuleFactory(jar);
         } else {
-            factory = new RuntimeModuleFactory(propsFile);
+            factory = new RuntimeModuleFactory(moduleFiles.getPropertiesFile());
             try {
                 Class.forName(factory.getMainClass());
             } catch (ClassNotFoundException e) {
-                throw new IllegalStateException("Module classes are not in the classpath (they should be in " + classes + ")", e);
+                throw new IllegalStateException("Module classes are not in the classpath (they should be in " + moduleFiles.getClassesDir() + ")", e);
             }
         }
 

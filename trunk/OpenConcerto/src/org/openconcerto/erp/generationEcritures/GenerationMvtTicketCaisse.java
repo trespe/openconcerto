@@ -15,9 +15,6 @@
 
 import org.openconcerto.erp.core.common.ui.TotalCalculator;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
-import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
-import org.openconcerto.erp.model.PrixHT;
-import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
@@ -30,9 +27,8 @@ import java.util.concurrent.Callable;
 public class GenerationMvtTicketCaisse extends GenerationEcritures {
 
     private static final String source = "TICKET_CAISSE";
-    public static final Integer journal = Integer.valueOf(JournalSQLElement.VENTES);
+
     private final SQLRow rowTicket;
-    private static final SQLTable ticketTable = base.getTable("TICKET_CAISSE");
     private static final SQLTable tablePrefCompte = base.getTable("PREFS_COMPTE");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
@@ -56,10 +52,7 @@ public class GenerationMvtTicketCaisse extends GenerationEcritures {
      * @param idSaisieVenteFacture
      */
     public GenerationMvtTicketCaisse(SQLRow ticket) {
-
-        System.err.println("********* init GeneRation");
-        this.idMvt = 1;
-        this.rowTicket = ticket;
+        this(ticket, 1);
     }
 
     public Callable<Integer> genereMouvement() {
@@ -69,11 +62,6 @@ public class GenerationMvtTicketCaisse extends GenerationEcritures {
                 SQLRow clientRow = GenerationMvtTicketCaisse.this.rowTicket.getForeignRow("ID_CLIENT");
 
                 int idCompteClient = clientRow.getInt("ID_COMPTE_PCE");
-
-                // Calcul des montants
-                PrixTTC prixTTC = new PrixTTC(((Long) GenerationMvtTicketCaisse.this.rowTicket.getObject("TOTAL_TTC")).longValue());
-                PrixHT prixTVA = new PrixHT(((Long) GenerationMvtTicketCaisse.this.rowTicket.getObject("TOTAL_TVA")).longValue());
-                PrixHT prixHT = new PrixHT(((Long) GenerationMvtTicketCaisse.this.rowTicket.getObject("TOTAL_HT")).longValue());
 
                 // iniatilisation des valeurs de la map
                 GenerationMvtTicketCaisse.this.date = GenerationMvtTicketCaisse.this.rowTicket.getDate("DATE").getTime();

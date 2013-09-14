@@ -41,6 +41,7 @@ import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
@@ -134,6 +135,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
             private final JLabel labelWarning = new JLabelWarning("le montant du service ne peut pas dépasser le total HT!");
             private ValidState validState = ValidState.getTrueInstance();
+            // FIXME: use w
             private Where w;
             private DocumentListener docTTCListen;
             private PropertyChangeListener propertyChangeListener = new PropertyChangeListener() {
@@ -719,36 +721,36 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 final int id = super.insert(order);
                 // on verifie si le produit est à commander
                 if (this.checkCommande.isSelected()) {
-
                     createCommande(id);
                 }
 
-                SQLRow rowVC = getTable().getRow(id);
-                // Mise à jour des stocks
-                SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-                SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
-                rowVals.put("QTE", -1);
-                rowVals.put("NOM", "Saisie vente comptoir");
-                rowVals.put("IDSOURCE", id);
-                rowVals.put("SOURCE", getTable().getName());
-                rowVals.put("ID_ARTICLE", rowVC.getInt("ID_ARTICLE"));
-                rowVals.put("DATE", rowVC.getObject("DATE"));
-                try {
-                    SQLRow row = rowVals.insert();
-                    CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
-                            Arrays.asList(row.getID()), false);
-                    MouvementStockSQLElement.createCommandeF(map, null);
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
+                Configuration.getInstance().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
-                // if ((!this.comboAvoir.isEmpty()) && (this.comboAvoir.getSelectedId() > 1)) {
-                // GenerationMvtAvoirClient gen = new
-                // GenerationMvtAvoirClient(this.comboAvoir.getSelectedId());
-                // gen.genereMouvement();
-                // }
+                    @Override
+                    public void run() {
 
-                new GenerationMvtSaisieVenteComptoir(id);
+                        final SQLRow rowVC = getTable().getRow(id);
+                        // Mise à jour des stocks
+                        final SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+                        final SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
+                        rowVals.put("QTE", -1);
+                        rowVals.put("NOM", "Saisie vente comptoir");
+                        rowVals.put("IDSOURCE", id);
+                        rowVals.put("SOURCE", getTable().getName());
+                        rowVals.put("ID_ARTICLE", rowVC.getInt("ID_ARTICLE"));
+                        rowVals.put("DATE", rowVC.getObject("DATE"));
+
+                        try {
+                            final SQLRow row = rowVals.insert();
+                            CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
+                                    Arrays.asList(row.getID()), false);
+                            MouvementStockSQLElement.createCommandeF(map, null);
+                            new GenerationMvtSaisieVenteComptoir(id);
+                        } catch (SQLException e) {
+                            ExceptionHandler.handle("Erreur lors de la création des mouvements", e);
+                        }
+                    }
+                });
 
                 return id;
             }

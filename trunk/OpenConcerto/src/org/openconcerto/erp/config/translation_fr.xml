@@ -150,7 +150,16 @@
 	<menu id="menu.help" label="Aide" />
 	<menu id="information" label="Informations" />
 	<menu id="tips" label="Astuces" />
+
+
 	<!-- Quote -->
+	<item id="sales.quote.number" label="Numéro" />
+	<item id="sales.quote.date" label="Date" />
+	<item id="sales.quote.label" label="Référence" />
+	<item id="sales.quote.customer" label="Client" />
+	<item id="sales.quote.saleman" label="Commercial" />
+	<item id="sales.quote.address.alternative" label="Adresse alternative" />
+	<item id="sales.quote.info.general" label="Informations complémentaires" />
 	<action id="sales.quote.accept" label="Marquer comme accepté" />
 	<action id="sales.quote.refuse" label="Marquer comme refusé" />
 	<action id="sales.quote.create.invoice" label="Transfert vers facture" />
@@ -167,6 +176,13 @@
 	<action id="financing.accouning.entries.match" label="Lettrer" />
 	<action id="financing.accouning.entries.unmatch" label="Délettrer" />
 	<!-- Invoice -->
+	<item id="sales.invoice.number" label="Numéro" />
+	<item id="sales.invoice.date" label="Date" />
+	<item id="sales.invoice.label" label="Référence" />
+	<item id="sales.invoice.customer" label="Client" />
+	<item id="sales.invoice.saleman" label="Commercial" />
+	<item id="sales.invoice.address.alternative" label="Adresse alternative" />
+	<item id="sales.invoice.info.general" label="Informations complémentaires" />
 	<action id="sales.invoice.purchase.update" label="Mettre à jour le total achat" />
 	<action id="sales.invoice.comment.add" label="Ajouter un commentaire" />
 	<action id="sales.invoice.create.delivery" label="Transférer en bon de livraison" />
@@ -194,6 +210,5 @@
 	<action id="sales.order.create.deliverynote" label="Transfert vers bon de livraison" />
 	<action id="sales.order.create.invoice" label="Transfert vers facture" />
 	<action id="sales.order.create.supplier.order" label="Transfert vers commande fournisseur" />
-
 
 </translation>

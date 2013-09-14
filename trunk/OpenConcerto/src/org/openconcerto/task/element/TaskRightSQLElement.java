@@ -14,15 +14,14 @@
  package org.openconcerto.task.element;
 
 import static java.util.Arrays.asList;
-import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.SQLComponent;
 
 import java.util.List;
 
-public class TaskRightSQLElement extends ConfSQLElement {
+public class TaskRightSQLElement extends TaskSQLElementBase {
 
     public TaskRightSQLElement() {
-        super("TACHE_RIGHTS", "un droit pour les tâches", "droits utilisateurs pour les tâches");
+        super("TACHE_RIGHTS");
     }
 
     @Override

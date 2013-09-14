@@ -227,7 +227,7 @@ public abstract class SQLSyntax {
         final String onUpdate = updateRule == null ? "" : " ON UPDATE " + getRuleSQL(updateRule);
         final String onDelete = deleteRule == null ? "" : " ON DELETE " + getRuleSQL(deleteRule);
         // a prefix for the constraint name, since in psql constraints are db wide not table wide
-        return SQLSelect.quote("CONSTRAINT %i FOREIGN KEY ( " + quoteIdentifiers(fk) + " ) REFERENCES %i ", constraintPrefix + join(fk, "__") + "_fkey", refTable) + "( "
+        return "CONSTRAINT " + SQLBase.quoteIdentifier(constraintPrefix + join(fk, "__") + "_fkey") + " FOREIGN KEY ( " + quoteIdentifiers(fk) + " ) REFERENCES " + refTable.quote() + " ( "
         // don't put ON DELETE CASCADE since it's dangerous, plus MS SQL only supports 1 fk with
         // cascade : http://support.microsoft.com/kb/321843/en-us
                 + quoteIdentifiers(referencedFields) + " )" + onUpdate + onDelete;
@@ -625,9 +625,9 @@ public abstract class SQLSyntax {
      */
     protected final String setDefault(SQLField field, String defaut) {
         if (defaut == null)
-            return SQLSelect.quote("ALTER %n DROP DEFAULT", field);
+            return "ALTER " + field.getQuotedName() + " DROP DEFAULT";
         else
-            return SQLSelect.quote("ALTER COLUMN %n SET DEFAULT " + defaut, field);
+            return "ALTER COLUMN " + field.getQuotedName() + " SET DEFAULT " + defaut;
     }
 
     /**

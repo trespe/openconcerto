@@ -17,6 +17,7 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.product.component.ReferenceArticleSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -25,6 +26,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.preferences.SQLPreferences;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -78,6 +80,11 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
     protected List<String> getComboFields() {
         final List<String> l = new ArrayList<String>();
         l.add("CODE");
+        SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+        if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.SHOW_PRODUCT_BAR_CODE, false)) {
+            l.add("CODE_BARRE");
+        }
+
         l.add("NOM");
         return l;
     }

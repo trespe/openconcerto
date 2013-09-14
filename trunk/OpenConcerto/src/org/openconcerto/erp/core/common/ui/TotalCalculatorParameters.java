@@ -13,7 +13,8 @@
  
  package org.openconcerto.erp.core.common.ui;
 
-import org.openconcerto.sql.Configuration;
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
@@ -34,10 +35,10 @@ public class TotalCalculatorParameters {
     private long remiseHT;
     private BigDecimal portHT;
     private SQLRowAccessor tvaPort;
+    private Map<Integer, SQLRowAccessor> mapArticle = new HashMap<Integer, SQLRowAccessor>();
 
     public TotalCalculatorParameters(List<? extends SQLRowAccessor> values) {
         this.values = values;
-        this.remiseHT = 0;
         this.portHT = BigDecimal.ZERO;
     }
 
@@ -77,46 +78,44 @@ public class TotalCalculatorParameters {
         return tvaPort;
     }
 
-    private Map<Integer, SQLRowAccessor> mapArticle = new HashMap<Integer, SQLRowAccessor>();
-
-    final SQLTable articleTable = Configuration.getInstance().getRoot().findTable("ARTICLE");
-    final SQLTable compteTable = Configuration.getInstance().getRoot().findTable("COMPTE_PCE");
-    final SQLTable familleArticleTable = Configuration.getInstance().getRoot().findTable("FAMILLE_ARTICLE");
-
     public void fetchArticle() {
         final List<Integer> l = new ArrayList<Integer>(values.size());
         for (SQLRowAccessor r : values) {
             l.add(r.getID());
         }
-        SQLRowValues rowVals = new SQLRowValues(articleTable);
-        SQLRowValues rowValsF = new SQLRowValues(familleArticleTable);
-        rowValsF.put("NOM", null);
-        rowValsF.put("ID", null);
-        SQLRowValues rowValsC1 = new SQLRowValues(compteTable);
+        final DBRoot root = ComptaPropsConfiguration.getInstanceCompta().getRootSociete();
+        final SQLTable articleTable = root.getTable("ARTICLE");
+        final SQLTable compteTable = root.getTable("COMPTE_PCE");
+        final SQLTable familleArticleTable = root.getTable("FAMILLE_ARTICLE");
+
+        final SQLRowValues rowValsC1 = new SQLRowValues(compteTable);
         rowValsC1.put("NUMERO", null);
         rowValsC1.put("ID", null);
-        SQLRowValues rowValsC2 = new SQLRowValues(compteTable);
+
+        final SQLRowValues rowValsC2 = new SQLRowValues(compteTable);
         rowValsC2.put("NUMERO", null);
         rowValsC2.put("ID", null);
 
-        rowVals.put("ID", null);
+        final SQLRowValues rowValsF = new SQLRowValues(familleArticleTable);
+        rowValsF.put("NOM", null);
+        rowValsF.put("ID", null);
         rowValsF.put("ID_COMPTE_PCE", rowValsC2);
+
+        final SQLRowValues rowVals = new SQLRowValues(articleTable);
+        rowVals.put("ID", null);
         rowVals.put("ID_FAMILLE_ARTICLE", rowValsF);
         rowVals.put("ID_COMPTE_PCE", rowValsC1);
 
-        SQLRowValuesListFetcher fetch = SQLRowValuesListFetcher.create(rowVals);
+        final SQLRowValuesListFetcher fetch = SQLRowValuesListFetcher.create(rowVals);
         fetch.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
-
             @Override
             public SQLSelect transformChecked(SQLSelect input) {
-
                 input.andWhere(new Where(articleTable.getKey(), l));
                 return input;
             }
         });
-        System.err.println(fetch.getReq().asString());
-        List<SQLRowValues> rowValsList = fetch.fetch();
 
+        final List<SQLRowValues> rowValsList = fetch.fetch();
         for (SQLRowValues sqlRowValues : rowValsList) {
             mapArticle.put(sqlRowValues.getID(), sqlRowValues);
         }

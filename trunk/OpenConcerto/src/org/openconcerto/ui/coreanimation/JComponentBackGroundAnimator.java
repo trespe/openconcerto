@@ -19,27 +19,36 @@ import javax.swing.JComponent;
 
 public class JComponentBackGroundAnimator extends JComponentAnimator implements Pulse {
 
-    public JComponentBackGroundAnimator(JComponent f) {
-        super(f);
-        // don't use getBackground() as sometimes it returns incorrect values
-        // (eg editor of JComboBox on WinXP)
-        // this.bgColor = f.getBackground();
+    static private final Color[] COLORS = new Color[a.length];
+    static {
+        for (int i = 0; i < a.length; i++) {
+            COLORS[i] = new Color(255, 255 - (a[i] / 30), 255 - (a[i] / 5));
+        }
     }
 
-    public void pulse() {
-        if (wait > 0) {
-            if (wait > 4) {
-                wait = -1;
-            }
-            wait++;
+    private final Color bgColor;
+    private final Boolean opaque;
+
+    public JComponentBackGroundAnimator(JComponent f) {
+        this(f, false);
+    }
+
+    public JComponentBackGroundAnimator(JComponent f, final boolean setOpaque) {
+        super(f);
+        // FIXME the background might not be what we expect, e.g. here the component is disabled and
+        // return grey, but in resetState() is enabled and should be white
+        this.bgColor = f.isBackgroundSet() ? f.getBackground() : null;
+        if (setOpaque) {
+            this.opaque = f.isOpaque();
+            f.setOpaque(true);
         } else {
-            chk.setBackground(yellowBG[i]);
-            i++;
-            if (i >= a.length) {
-                i = 0;
-                wait++;
-            }
+            this.opaque = null;
         }
+    }
+
+    @Override
+    protected void setColor(int i) {
+        this.chk.setBackground(COLORS[i]);
     }
 
     @Override
@@ -47,7 +56,10 @@ public class JComponentBackGroundAnimator extends JComponentAnimator implements 
         return "BGA:" + this.chk.getClass();
     }
 
+    @Override
     public void resetState() {
-        this.chk.setBackground(Color.WHITE);
+        this.chk.setBackground(this.bgColor);
+        if (this.opaque != null)
+            this.chk.setOpaque(this.opaque);
     }
 }

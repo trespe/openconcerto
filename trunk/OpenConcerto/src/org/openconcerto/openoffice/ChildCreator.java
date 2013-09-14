@@ -13,10 +13,14 @@
  
  package org.openconcerto.openoffice;
 
-import java.util.ArrayList;
+import org.openconcerto.utils.Tuple2;
+
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
+import java.util.Set;
 
 import org.jdom.Element;
 import org.jdom.Namespace;
@@ -28,14 +32,84 @@ import org.jdom.Namespace;
  */
 public class ChildCreator {
 
-    private final Element content;
-    private final List<Element> elemsOrder;
+    /**
+     * Create a new instance to add children to <code>content</code>. This method accepts a list of
+     * set to be able to specify more than one element for the same index.
+     * 
+     * @param content the parent element where to create children.
+     * @param children the elements in the order they must appear inside <code>content</code>. One
+     *        <code>null</code> can be included, it matches any element.
+     * @return a new instance.
+     * @throws IllegalArgumentException if a child is specified more than once in
+     *         <code>children</code> or if a set is empty.
+     * @see #ChildCreator(Element, List)
+     */
+    static public ChildCreator createFromSets(final Element content, final List<Set<Element>> children) {
+        return new ChildCreator(content, indexListOfSet(children));
+    }
 
-    protected ChildCreator(final Element content, final List<Element> children) {
+    static private void put(final Map<Tuple2<Namespace, String>, Integer> res, final Tuple2<Namespace, String> t, final int index) {
+        if (res.put(t, index) != null)
+            throw new IllegalArgumentException("More than one " + t);
+    }
+
+    static private Map<Tuple2<Namespace, String>, Integer> indexListOfSet(final List<Set<Element>> children) {
+        final Map<Tuple2<Namespace, String>, Integer> res = new HashMap<Tuple2<Namespace, String>, Integer>();
+        final ListIterator<Set<Element>> iter = children.listIterator();
+        while (iter.hasNext()) {
+            final Set<Element> atIndex = iter.next();
+            if (atIndex == null) {
+                put(res, null, iter.previousIndex());
+            } else if (atIndex.size() == 0) {
+                throw new IllegalArgumentException("Empty set");
+            } else {
+                for (final Element child : atIndex)
+                    put(res, Tuple2.create(child.getNamespace(), child.getName()), iter.previousIndex());
+            }
+        }
+        return res;
+    }
+
+    static private Map<Tuple2<Namespace, String>, Integer> indexList(final List<Element> children) {
+        final Map<Tuple2<Namespace, String>, Integer> res = new HashMap<Tuple2<Namespace, String>, Integer>();
+        final ListIterator<Element> iter = children.listIterator();
+        while (iter.hasNext()) {
+            final Element child = iter.next();
+            if (child == null) {
+                put(res, null, iter.previousIndex());
+            } else {
+                put(res, Tuple2.create(child.getNamespace(), child.getName()), iter.previousIndex());
+            }
+        }
+        return res;
+    }
+
+    private final Element content;
+    private final Map<Tuple2<Namespace, String>, Integer> elemsOrder;
+
+    // private since we want to be sure that there's no gap in indexes, no null
+    // (also avoids us to copy the map)
+    private ChildCreator(final Element content, final Map<Tuple2<Namespace, String>, Integer> elemsOrder) {
         if (content == null)
             throw new NullPointerException("null content");
         this.content = content;
-        this.elemsOrder = new ArrayList<Element>(children);
+        this.elemsOrder = elemsOrder;
+        if (this.elemsOrder.get(null) == null)
+            this.elemsOrder.put(null, -1);
+    }
+
+    /**
+     * Create a new instance to add children to <code>content</code>.
+     * 
+     * @param content the parent element where to create children.
+     * @param children the elements in the order they must appear inside <code>content</code>. One
+     *        <code>null</code> can be included, it matches any element.
+     * @throws IllegalArgumentException if a child is specified more than once in
+     *         <code>children</code>.
+     * @see #createFromSets(Element, List)
+     */
+    public ChildCreator(Element content, final List<Element> children) {
+        this(content, indexList(children));
     }
 
     public ChildCreator(Element content, final Element... children) {
@@ -46,10 +120,6 @@ public class ChildCreator {
         return this.content;
     }
 
-    public final List<Element> getChildren() {
-        return this.elemsOrder;
-    }
-
     // *** children
 
     public final Element getChild(Namespace childNS, String childName) {
@@ -57,12 +127,16 @@ public class ChildCreator {
     }
 
     private final int indexOf(Namespace childNS, String childName) {
-        for (int i = 0; i < this.elemsOrder.size(); i++) {
-            final Element elem = this.elemsOrder.get(i);
-            if (elem.getNamespace().equals(childNS) && elem.getName().equals(childName))
-                return i;
-        }
-        return -1;
+        return indexOf(Tuple2.create(childNS, childName));
+    }
+
+    private final int indexOf(Tuple2<Namespace, String> child) {
+        final Integer res = this.elemsOrder.get(child);
+        if (res != null)
+            return res.intValue();
+        else
+            // null matches anything
+            return this.elemsOrder.get(null).intValue();
     }
 
     private final int indexOf(final Element elem) {
@@ -76,16 +150,13 @@ public class ChildCreator {
      * @return l'index ou il faut l'insérer (s'il est déjà présent son index actuel +1).
      * @throws IllegalArgumentException if childName is not in {@link #getChildren()}.
      */
-    @SuppressWarnings("unchecked")
     private final int findInsertIndex(Namespace childNS, String childName) {
         // eg 6, for "master-styles"
         final int idealIndex = indexOf(childNS, childName);
         if (idealIndex == -1)
             throw new IllegalArgumentException(childName + " is unknown.");
-        final Element existingChild = this.getChild(childNS, childName);
-        if (existingChild != null)
-            return this.getElement().getChildren().indexOf(existingChild) + 1;
         // eg [scripts, font-decls, styles, font-face-decls, automatic-styles, body]
+        @SuppressWarnings("unchecked")
         final List<Element> children = this.getElement().getChildren();
         final ListIterator<Element> iter = children.listIterator();
         while (iter.hasNext()) {
@@ -95,7 +166,7 @@ public class ChildCreator {
                 // eg return 5
                 return iter.previousIndex();
         }
-        return children.size();
+        return iter.nextIndex();
     }
 
     /**
@@ -107,6 +178,10 @@ public class ChildCreator {
     private final void insertChild(Element child) {
         // on ajoute au bon endroit
         this.getElement().getChildren().add(this.findInsertIndex(child.getNamespace(), child.getName()), child);
+    }
+
+    public final Element getChild(Element child, boolean create) {
+        return this.getChild(child.getNamespace(), child.getName(), create);
     }
 
     /**

@@ -92,10 +92,6 @@ public class Paragraph extends TextNode<ParagraphStyle> {
             return getStyle(condName);
     }
 
-    public final void setStyle(String styleName) {
-        getElement().setAttribute("style-name", styleName, getElement().getNamespace());
-    }
-
     public final void addContent(String text) {
         this.getElement().addContent(text);
     }

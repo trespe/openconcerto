@@ -454,7 +454,7 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
             SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
             SQLTable tableMvt = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("MOUVEMENT");
 
-            SQLSelect selectFils = new SQLSelect(base);
+            SQLSelect selectFils = new SQLSelect();
             selectFils.addSelect(tableMvt.getField("ID"));
             selectFils.setWhere(tableMvt.getField("ID_MOUVEMENT_PERE"), "=", idMvtPere);
 
@@ -500,21 +500,14 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
                     @Override
                     public Object create() throws SQLException {
                         // on recupere l'ensemble des ecritures associées au mouvement
-                        SQLSelect selEcritures = new SQLSelect(base);
+                        SQLSelect selEcritures = new SQLSelect();
                         selEcritures.addSelect(tableEcriture.getField("ID"));
                         selEcritures.setWhere(tableEcriture.getField("ID_MOUVEMENT"), "=", idMvt);
 
                         List l = (List) base.getDataSource().execute(selEcritures.asString(), new ArrayListHandler());
                         for (int i = 0; i < l.size(); i++) {
                             Object[] tmp = (Object[]) l.get(i);
-                            try {
-                                archiveEcriture(tableEcriture.getRow(Integer.parseInt(tmp[0].toString())));
-                            } catch (NumberFormatException e) {
-                                e.printStackTrace();
-                            } catch (SQLException e) {
-                                e.printStackTrace();
-                                ExceptionHandler.handle("Une erreur est survenue lors de la suppression de l'écritures [" + tmp[0] + "].", e);
-                            }
+                            archiveEcriture(tableEcriture.getRow(Integer.parseInt(tmp[0].toString())));
                         }
 
                         return null;
@@ -524,8 +517,8 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
                 try {
                     SQLUtils.executeAtomic(base.getDataSource(), sqlFactory);
                 } catch (SQLException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+
+                    ExceptionHandler.handle("Une erreur est survenue lors de la suppression des écritures.", e);
                 }
             }
 

@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.core.finance.accounting.ui;
 
+import org.openconcerto.ui.table.TableCellRendererUtils;
+
 import java.awt.Color;
 import java.awt.Component;
 
@@ -30,7 +32,7 @@ public class PlanComptableCellRenderer extends CompteCellRenderer {
     public Component getTableCellRendererComponent(final JTable table, final Object value, final boolean isSelected, final boolean hasFocus, final int row, final int column) {
 
         super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-
+        TableCellRendererUtils.setBackgroundColor(this, table, isSelected);
         if (!isSelected) {
             final String numeroCompte = table.getValueAt(row, this.colNumeroCompte).toString().trim();
 

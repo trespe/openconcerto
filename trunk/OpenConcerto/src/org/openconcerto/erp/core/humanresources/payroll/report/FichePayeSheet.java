@@ -208,7 +208,7 @@ public class FichePayeSheet extends SheetInterface {
         this.mCell.put("B1", rowSociete.getObject("TYPE") + " " + rowSociete.getObject("NOM"));
         SQLRow rowAdrSociete = tableAdresseCommon.getRow(rowSociete.getInt("ID_ADRESSE_COMMON"));
         this.mCell.put("B2", rowAdrSociete.getObject("RUE"));
-        this.mCell.put("B3", getVilleCP(rowAdrSociete.getString("VILLE")) + " " + getVille(rowAdrSociete.getString("VILLE")));
+        this.mCell.put("B3", rowAdrSociete.getString("CODE_POSTAL") + " " + rowAdrSociete.getString("VILLE"));
 
         this.mCell.put("D5", rowSociete.getObject("NUM_SIRET"));
         this.mCell.put("D6", rowSociete.getObject("NUM_APE"));
@@ -220,7 +220,7 @@ public class FichePayeSheet extends SheetInterface {
         this.mCell.put("G8", rowSal.getObject("NOM") + " " + rowSal.getObject("PRENOM"));
         SQLRow rowAdrSal = tableAdresse.getRow(rowEtatCivil.getInt("ID_ADRESSE"));
         this.mCell.put("G9", rowAdrSal.getObject("RUE"));
-        this.mCell.put("G11", getVilleCP(rowAdrSal.getString("VILLE")) + " " + getVille(rowAdrSal.getString("VILLE")));
+        this.mCell.put("G11", rowAdrSal.getString("CODE_POSTAL") + " " + rowAdrSal.getString("VILLE"));
 
         this.mCell.put("D13", rowEtatCivil.getObject("NUMERO_SS"));
 
@@ -434,29 +434,6 @@ public class FichePayeSheet extends SheetInterface {
         this.mCell.put("E62", new Float(cotSalCumul));
         this.mCell.put("F62", new Float(cotPatCumul));
         this.mCell.put("H62", new Float(netImpCumul));
-    }
-
-    private static String getVille(final String name) {
-
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-            SwingUtilities.invokeLater(new Runnable() {
-                public void run() {
-                    JOptionPane.showMessageDialog(null, "La ville " + "\"" + name + "\"" + " est introuvable! Veuillez corriger l'erreur!");
-                }
-            });
-            return null;
-        }
-        return ville.getName();
-    }
-
-    private static String getVilleCP(String name) {
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-
-            return null;
-        }
-        return ville.getCodepostal();
     }
 
 }

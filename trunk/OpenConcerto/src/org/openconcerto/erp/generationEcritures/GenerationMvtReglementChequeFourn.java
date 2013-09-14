@@ -17,10 +17,8 @@ import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.ExceptionHandler;
 
 import java.util.Date;
-
 
 public class GenerationMvtReglementChequeFourn extends GenerationEcritures {
 
@@ -29,60 +27,48 @@ public class GenerationMvtReglementChequeFourn extends GenerationEcritures {
     private static final SQLTable tableFourn = base.getTable("FOURNISSEUR");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
-    // private static final SQLTable tableMouvement = base.getTable("MOUVEMENT");
+    public GenerationMvtReglementChequeFourn(int idMvt, long montant, int idCheque, Date d) throws Exception {
 
-    public GenerationMvtReglementChequeFourn(int idMvt, long montant, int idCheque, Date d) {
+        this.idMvt = idMvt;
 
-        try {
-            // SQLRow rowMvtPere = tableMouvement.getRow(idMvt);
-            this.idMvt = idMvt;
+        System.out.println("génération des ecritures de règlement d'un cheque fournisseur");
+        SQLRow rowCheque = tableCheque.getRow(idCheque);
 
-            System.out.println("génération des ecritures de règlement d'un cheque fournisseur");
-            SQLRow rowCheque = tableCheque.getRow(idCheque);
+        this.date = d;
+        SQLRow rowFournisseur = tableFourn.getRow(rowCheque.getInt("ID_FOURNISSEUR"));
+        this.nom = "Reglement cheque " + rowFournisseur.getString("NOM");
+        this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
+        this.mEcritures.put("NOM", this.nom);
+        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+        this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
-            // iniatilisation des valeurs de la map
-            this.date = d;
-            SQLRow rowFournisseur = tableFourn.getRow(rowCheque.getInt("ID_FOURNISSEUR"));
-            this.nom = "Reglement cheque " + rowFournisseur.getString("NOM");
-            this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
-            this.mEcritures.put("NOM", this.nom);
-            this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
-            this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
+        // compte Fournisseurs
+        int idCompteFourn = rowFournisseur.getInt("ID_COMPTE_PCE");
 
-            // compte Fournisseurs
-            int idCompteFourn = rowFournisseur.getInt("ID_COMPTE_PCE");
-
+        if (idCompteFourn <= 1) {
+            idCompteFourn = rowPrefsCompte.getInt("ID_COMPTE_PCE_FOURNISSEUR");
             if (idCompteFourn <= 1) {
-                idCompteFourn = rowPrefsCompte.getInt("ID_COMPTE_PCE_FOURNISSEUR");
-                if (idCompteFourn <= 1) {
-                    try {
-                        idCompteFourn = ComptePCESQLElement.getIdComptePceDefault("Fournisseurs");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }
-            this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteFourn));
-            this.mEcritures.put("DEBIT", new Long(montant));
-            this.mEcritures.put("CREDIT", new Long(0));
-            ajoutEcriture();
 
-            int idPce = base.getTable("TYPE_REGLEMENT").getRow(2).getInt("ID_COMPTE_PCE_FOURN");
-            if (idPce <= 1) {
-                try {
-                    idPce = ComptePCESQLElement.getIdComptePceDefault("AchatCheque");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idCompteFourn = ComptePCESQLElement.getIdComptePceDefault("Fournisseurs");
+
             }
-            // compte de reglement cheque, ...
-            this.mEcritures.put("ID_COMPTE_PCE", new Integer(idPce));
-            this.mEcritures.put("DEBIT", new Long(0));
-            this.mEcritures.put("CREDIT", new Long(montant));
-            ajoutEcriture();
-        } catch (IllegalArgumentException e) {
-            ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
         }
+        this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteFourn));
+        this.mEcritures.put("DEBIT", new Long(montant));
+        this.mEcritures.put("CREDIT", new Long(0));
+        ajoutEcriture();
+
+        int idPce = base.getTable("TYPE_REGLEMENT").getRow(2).getInt("ID_COMPTE_PCE_FOURN");
+        if (idPce <= 1) {
+
+            idPce = ComptePCESQLElement.getIdComptePceDefault("AchatCheque");
+
+        }
+        // compte de reglement cheque, ...
+        this.mEcritures.put("ID_COMPTE_PCE", new Integer(idPce));
+        this.mEcritures.put("DEBIT", new Long(0));
+        this.mEcritures.put("CREDIT", new Long(montant));
+        ajoutEcriture();
+
     }
 }

@@ -16,7 +16,7 @@
 import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.erp.core.sales.pos.model.Ticket;
 import org.openconcerto.sql.PropsConfiguration;
-import org.openconcerto.sql.State;
+import org.openconcerto.sql.RemoteShell;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.utils.ClassPathLoader;
@@ -48,9 +48,7 @@ public class CaisseFrame extends JFrame {
         try {
             System.out.println("Lancement du module de caisse");
             ToolTipManager.sharedInstance().setInitialDelay(0);
-            if (System.getProperty(State.DEAF) == null) {
-                System.setProperty(State.DEAF, "true");
-            }
+            RemoteShell.startDefaultInstance();
 
             System.setProperty(PropsConfiguration.REDIRECT_TO_FILE, "true");
             System.setProperty(SQLBase.ALLOW_OBJECT_REMOVAL, "true");

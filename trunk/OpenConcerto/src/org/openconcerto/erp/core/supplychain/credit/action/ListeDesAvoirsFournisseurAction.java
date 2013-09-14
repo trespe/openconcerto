@@ -64,6 +64,7 @@ public class ListeDesAvoirsFournisseurAction extends CreateFrameAbstractAction {
         IListFilterDatePanel datePanel = new IListFilterDatePanel(panel.getListe(), element.getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
         c.gridy++;
         c.anchor = GridBagConstraints.CENTER;
+        datePanel.setFilterOnDefault();
         panel.add(datePanel, c);
 
         final IListFrame frame = new IListFrame(panel);

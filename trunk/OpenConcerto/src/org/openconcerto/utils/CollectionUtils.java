@@ -19,6 +19,8 @@ import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.cc.IdentityHashSet;
 import org.openconcerto.utils.cc.IdentitySet;
 
+import java.io.Serializable;
+import java.util.AbstractSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -28,8 +30,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.SortedMap;
@@ -702,11 +707,115 @@ public class CollectionUtils {
         return index >= 0 && index < l.size() ? l.get(index) : null;
     }
 
+    @SuppressWarnings("rawtypes")
+    private static final Iterator EMPTY_ITERATOR = new Iterator() {
+        @Override
+        public boolean hasNext() {
+            return false;
+        }
+
+        @Override
+        public Object next() {
+            throw new NoSuchElementException();
+        }
+
+        @Override
+        public void remove() {
+            throw new UnsupportedOperationException();
+        }
+    };
+
+    @SuppressWarnings("unchecked")
+    public static <T> Iterator<T> emptyIterator() {
+        return (Iterator<T>) EMPTY_ITERATOR;
+    }
+
+    public static <T> LinkedList<T> toLinkedList(final Iterator<T> iter) {
+        return addTo(iter, new LinkedList<T>());
+    }
+
+    public static <T> ArrayList<T> toArrayList(final Iterator<T> iter, final int estimatedSize) {
+        return addTo(iter, new ArrayList<T>(estimatedSize));
+    }
+
+    public static <T, C extends Collection<? super T>> C addTo(final Iterator<T> iter, final C c) {
+        while (iter.hasNext())
+            c.add(iter.next());
+        return c;
+    }
+
+    public static <T> ListIterator<T> getListIterator(final List<T> l, final boolean reversed) {
+        if (!reversed)
+            return l.listIterator();
+
+        return reverseListIterator(l.listIterator(l.size()));
+    }
+
+    public static <T> ListIterator<T> reverseListIterator(final ListIterator<T> listIter) {
+        if (listIter instanceof ReverseListIter)
+            return ((ReverseListIter<T>) listIter).listIter;
+        else
+            return new ReverseListIter<T>(listIter);
+    }
+
+    private static final class ReverseListIter<T> implements ListIterator<T> {
+        private final ListIterator<T> listIter;
+
+        private ReverseListIter(ListIterator<T> listIter) {
+            this.listIter = listIter;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return this.listIter.hasPrevious();
+        }
+
+        @Override
+        public T next() {
+            return this.listIter.previous();
+        }
+
+        @Override
+        public boolean hasPrevious() {
+            return this.listIter.hasNext();
+        }
+
+        @Override
+        public T previous() {
+            return this.listIter.next();
+        }
+
+        @Override
+        public int nextIndex() {
+            return this.listIter.previousIndex();
+        }
+
+        @Override
+        public int previousIndex() {
+            return this.listIter.nextIndex();
+        }
+
+        @Override
+        public void remove() {
+            this.listIter.remove();
+        }
+
+        @Override
+        public void set(T e) {
+            this.listIter.set(e);
+        }
+
+        @Override
+        public void add(T e) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
     public static <T> Set<T> createSet(T... items) {
         return new HashSet<T>(Arrays.asList(items));
     }
 
-    public static <T> Set<T> createIdentitySet(T... items) {
+    public static <T> IdentitySet<T> createIdentitySet(T... items) {
         return new IdentityHashSet<T>(Arrays.asList(items));
     }
 
@@ -721,6 +830,36 @@ public class CollectionUtils {
             return (Set<T>) items;
         else
             return new IdentityHashSet<T>(items);
+    }
+
+    @SuppressWarnings("rawtypes")
+    private static final IdentitySet EMPTY_SET = new EmptyIdentitySet();
+
+    @SuppressWarnings("unchecked")
+    public static <T> IdentitySet<T> emptyIdentitySet() {
+        return (IdentitySet<T>) EMPTY_SET;
+    }
+
+    private static final class EmptyIdentitySet extends AbstractSet<Object> implements IdentitySet<Object>, Serializable {
+        @Override
+        public Iterator<Object> iterator() {
+            return emptyIterator();
+        }
+
+        @Override
+        public int size() {
+            return 0;
+        }
+
+        @Override
+        public boolean contains(Object obj) {
+            return false;
+        }
+
+        // Preserves singleton property
+        private Object readResolve() {
+            return EMPTY_SET;
+        }
     }
 
     public static <K, V> Map<K, V> createMap(K key, V val, K key2, V val2) {

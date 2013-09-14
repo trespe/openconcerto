@@ -26,7 +26,6 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.StreamUtils;
 
 import java.awt.Point;
@@ -83,6 +82,10 @@ public class OOgenerationXML {
     }
 
     public synchronized File createDocument(String templateId, String typeTemplate, File outputDirectory, final String expectedFileName, SQLRow rowLanguage) {
+        return createDocument(templateId, typeTemplate, outputDirectory, expectedFileName, rowLanguage, null);
+    }
+
+    public synchronized File createDocument(String templateId, String typeTemplate, File outputDirectory, final String expectedFileName, SQLRow rowLanguage, MetaDataSheet meta) {
         final String langage = rowLanguage != null ? rowLanguage.getString("CHEMIN") : null;
 
         cacheStyle.clear();
@@ -161,6 +164,11 @@ public class OOgenerationXML {
             } catch (Exception e) {
                 ExceptionHandler.handle("Impossible de remplir le document " + templateId + " " + ((rowLanguage == null) ? "" : rowLanguage.getString("CHEMIN")), e);
             }
+
+            if (meta != null) {
+                meta.applyTo(spreadSheet.getPackage().getMeta(true));
+            }
+
             // Sauvegarde du fichier
             return saveSpreadSheet(spreadSheet, outputDirectory, expectedFileName, templateId, rowLanguage);
 
@@ -301,7 +309,6 @@ public class OOgenerationXML {
         int i = row.getInt(field.getName());
 
         if (c != null && c.get(i) != null) {
-            System.err.println("get foreign row From Cache ");
             return c.get(i);
         } else {
 
@@ -369,7 +376,6 @@ public class OOgenerationXML {
 
             }
 
-            Map<String, Integer> mapNbCel = new HashMap<String, Integer>();
             final boolean included = isIncluded(tableElement.getFilterId(), tableElement.getForeignTableWhere(), tableElement.getFilterId(), tableElement.getFieldWhere(), rowElt);
             if (included || tableElement.getTypeStyleWhere()) {
 
@@ -386,129 +392,53 @@ public class OOgenerationXML {
                     styleName = "Normal";
                 }
 
-                int nbCellule = 1;
-
                 String tmp;
                 if (styleName != null && tableElement.getListBlankLineStyle().contains(styleName)) {
                     tmp = null;
                 } else {
                     tmp = styleName;
                 }
+
+                // Blank Line Style
                 boolean first = true;
-
-                int tableLine = 1;
                 int toAdd = 0;
+                if (styleName != null && tableElement.getListBlankLineStyle().contains(styleName) && first) {
+                    toAdd++;
+                    currentLine++;
+                    first = false;
+                }
 
+                // Cache des valeurs
                 Map<Element, Object> mapValues = new HashMap<Element, Object>();
-                for (Element e : listElts) {
 
-                    OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId(),
-                            rowLanguage, numeroRef, this.rowRefCache);
-                    final Object value = tableField.getValue();
-
-                    mapValues.put(e, value);
-                    fill("A1", value, sheet, false, null, tmp, true, tableField.isMultilineAuto());
-                    final int fill = fill("A1", value, sheet, false, null, tmp, true, tableField.isMultilineAuto());
-                    if ((currentLine + fill) > (tableElement.getEndPageLine() * nbPage)) {
-                        currentLine = currentLineTmp + tableElement.getEndPageLine();
-                        // currentLine = nbPage * endLine + fisrtLine;
-                        currentLineTmp = currentLine;
-                        nbPage++;
-                    }
+                // Test si l'ensemble des donnees tient sur la page courante
+                Map<String, Integer> tmpMapNbCel = new HashMap<String, Integer>();
+                int tmpNbCellule = fillTableLine(sheet, mapStyle, true, rowLanguage, tableElement, currentLine, listElts, numeroRef, rowElt, tmpMapNbCel, styleName, mapValues);
+                for (String s : tmpMapNbCel.keySet()) {
+                    tmpNbCellule = Math.max(tmpNbCellule, tmpMapNbCel.get(s));
+                }
+                if ((currentLine + tmpNbCellule) > (tableElement.getEndPageLine() * nbPage)) {
+                    toAdd += (tableElement.getEndPageLine() * nbPage) - currentLine;
+                    currentLine = currentLineTmp + tableElement.getEndPageLine();
+                    currentLineTmp = currentLine;
+                    nbPage++;
                 }
 
-                // on remplit chaque cellule de la ligne
-                for (Element e : listElts) {
-
-                    OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId(),
-                            rowLanguage, numeroRef, this.rowRefCache);
-
-                    if (!test && styleName != null && tableElement.getListBlankLineStyle().contains(styleName) && first) {
-                        toAdd++;
-                        currentLine++;
-                        // nbCellule = Math.max(nbCellule, 2);
-                        first = false;
-                    }
-
-                    if (mapNbCel.get(e.getAttributeValue("location").trim()) != null) {
-                        nbCellule = mapNbCel.get(e.getAttributeValue("location").trim());
-                    } else {
-                        nbCellule = 1;
-                    }
-                    int line = tableField.getLine();
-                    if (tableField.getLine() > 1) {
-                        line = Math.max(nbCellule + ((tableLine == tableField.getLine()) ? 0 : 1), tableField.getLine());
-                    }
-                    tableLine = tableField.getLine();
-                    String loc = e.getAttributeValue("location").trim() + (currentLine + (line - 1));
-
-                    // Cellule pour un style défini
-                    List<String> listBlankStyle = tableField.getBlankStyle();
-
-                    // nbCellule = Math.max(nbCellule, tableField.getLine());
-
-                    if (styleName == null || !listBlankStyle.contains(styleName)) {
-
-                        try {
-                            Object value = mapValues.get(e);
-                            // if (value != null && value.toString().trim().length() > 0) {
-                            if (tableField.isNeeding2Lines() && tableField.getLine() == 1) {
-                                loc = e.getAttributeValue("location").trim() + (currentLine + 1);
-                                styleName = null;
-                            }
-                            final Point resolveHint = sheet.resolveHint(loc);
-                            if (test || sheet.isCellValid(resolveHint.x, resolveHint.y)) {
-
-                                String styleNameTmp = styleName;
-                                if (tableField.getStyle().trim().length() > 0) {
-                                    styleNameTmp = tableField.getStyle();
-                                }
-
-                                Map<Integer, String> mTmp = styleName == null ? null : mapStyle.get(styleNameTmp);
-                                String styleOO = null;
-                                if (mTmp != null) {
-
-                                    Object oTmp = mTmp.get(Integer.valueOf(resolveHint.x));
-                                    styleOO = oTmp == null ? null : oTmp.toString();
-                                }
-
-                                int tmpCelluleAffect = fill(test ? "A1" : loc, value, sheet, tableField.isTypeReplace(), null, styleOO, test, tableField.isMultilineAuto());
-                                // tmpCelluleAffect = Math.max(tmpCelluleAffect,
-                                // tableField.getLine());
-                                if (tableField.getLine() != 1 && (!tableField.isLineOption() || (value != null && value.toString().trim().length() > 0))) {
-                                    if (nbCellule >= tableField.getLine()) {
-                                        tmpCelluleAffect = tmpCelluleAffect + nbCellule;
-                                    } else {
-                                        tmpCelluleAffect += tableField.getLine() - 1;
-                                    }
-                                }
-
-                                if (tableField.isNeeding2Lines()) {
-                                    nbCellule = Math.max(nbCellule, 2);
-                                } else {
-                                    nbCellule = Math.max(nbCellule, tmpCelluleAffect);
-                                }
-                            } else {
-                                System.err.println("Cell not valid at " + loc);
-                            }
-                            // }
-                        } catch (IndexOutOfBoundsException indexOut) {
-                            System.err.println("Cell not valid at " + loc);
-                        }
-                    }
-                    mapNbCel.put(e.getAttributeValue("location").trim(), nbCellule);
-                }
+                // Remplissage reel des cellules
+                Map<String, Integer> mapNbCel = new HashMap<String, Integer>();
+                int nbCellule = fillTableLine(sheet, mapStyle, test, rowLanguage, tableElement, currentLine, listElts, numeroRef, rowElt, mapNbCel, styleName, mapValues);
 
                 for (String s : mapNbCel.keySet()) {
                     nbCellule = Math.max(nbCellule, mapNbCel.get(s));
                 }
-
                 currentLine += nbCellule;
                 nbCellules += (nbCellule + toAdd);
-
             }
         }
+
+        // Nb page entiere
         int d = nbCellules / (tableElement.getEndPageLine() - tableElement.getFirstLine());
+        // Nb cellule restant
         int r = nbCellules % (tableElement.getEndPageLine() - tableElement.getFirstLine());
 
         if (d == 0) {
@@ -524,6 +454,98 @@ public class OOgenerationXML {
             }
         }
         return d;
+    }
+
+    private int fillTableLine(Sheet sheet, Map<String, Map<Integer, String>> mapStyle, boolean test, SQLRow rowLanguage, OOXMLTableElement tableElement, int currentLine, List<Element> listElts,
+            int numeroRef, SQLRowAccessor rowElt, Map<String, Integer> mapNbCel, String styleName, Map<Element, Object> mapValues) {
+        int nbCellule = 1;
+        int tableLine = 1;
+        // on remplit chaque cellule de la ligne
+        for (Element e : listElts) {
+
+            OOXMLTableField tableField = new OOXMLTableField(e, rowElt, tableElement.getSQLElement(), rowElt.getID(), tableElement.getTypeStyleWhere() ? -1 : tableElement.getFilterId(), rowLanguage,
+                    numeroRef, this.rowRefCache);
+
+            if (mapNbCel.get(e.getAttributeValue("location").trim()) != null) {
+                nbCellule = mapNbCel.get(e.getAttributeValue("location").trim());
+            } else {
+                nbCellule = 1;
+            }
+            int line = tableField.getLine();
+            if (tableField.getLine() > 1) {
+                line = Math.max(nbCellule + ((tableLine == tableField.getLine()) ? 0 : 1), tableField.getLine());
+            }
+            tableLine = tableField.getLine();
+            String loc = e.getAttributeValue("location").trim() + (currentLine + (line - 1));
+
+            // Cellule pour un style défini
+            List<String> listBlankStyle = tableField.getBlankStyle();
+
+            // nbCellule = Math.max(nbCellule, tableField.getLine());
+
+            if (styleName == null || !listBlankStyle.contains(styleName)) {
+
+                try {
+                    Object value = mapValues.get(e);
+                    if (value == null) {
+                        value = tableField.getValue();
+                        mapValues.put(e, value);
+                    }
+                    // if (value != null && value.toString().trim().length() > 0) {
+                    if (tableField.isNeeding2Lines() && tableField.getLine() == 1) {
+                        loc = e.getAttributeValue("location").trim() + (currentLine + 1);
+                        styleName = null;
+                    }
+                    final Point resolveHint = sheet.resolveHint(loc);
+                    if (test || sheet.isCellValid(resolveHint.x, resolveHint.y)) {
+
+                        String styleNameTmp = styleName;
+                        if (tableField.getStyle().trim().length() > 0) {
+                            styleNameTmp = tableField.getStyle();
+                        }
+
+                        Map<Integer, String> mTmp = styleName == null ? null : mapStyle.get(styleNameTmp);
+                        String styleOO = null;
+                        if (mTmp != null) {
+
+                            Object oTmp = mTmp.get(Integer.valueOf(resolveHint.x));
+                            styleOO = oTmp == null ? null : oTmp.toString();
+                        }
+
+                        // Test pour ne pas supprimer le style sur la derniere cellule du
+                        // tableau et donc enlever la ligne de bas de tableau
+                        if (tableField.isLineOption() && value != null && value.toString().trim().length() == 0) {
+                            value = null;
+                            styleOO = null;
+                        }
+
+                        int tmpCelluleAffect = fill(test ? "A1" : loc, value, sheet, tableField.isTypeReplace(), null, styleOO, test, tableField.isMultilineAuto());
+                        // tmpCelluleAffect = Math.max(tmpCelluleAffect,
+                        // tableField.getLine());
+                        if (tableField.getLine() != 1 && (!tableField.isLineOption() || (value != null && value.toString().trim().length() > 0))) {
+                            if (nbCellule >= tableField.getLine()) {
+                                tmpCelluleAffect = tmpCelluleAffect + nbCellule;
+                            } else {
+                                tmpCelluleAffect += tableField.getLine() - 1;
+                            }
+                        }
+
+                        if (tableField.isNeeding2Lines()) {
+                            nbCellule = Math.max(nbCellule, 2);
+                        } else {
+                            nbCellule = Math.max(nbCellule, tmpCelluleAffect);
+                        }
+                    } else {
+                        System.err.println("Cell not valid at " + loc);
+                    }
+                    // }
+                } catch (IndexOutOfBoundsException indexOut) {
+                    System.err.println("Cell not valid at " + loc);
+                }
+            }
+            mapNbCel.put(e.getAttributeValue("location").trim(), nbCellule);
+        }
+        return nbCellule;
     }
 
     private void fillTaxe(Element tableau, Sheet sheet, Map<String, Map<Integer, String>> mapStyle, boolean test) {
@@ -668,6 +690,7 @@ public class OOgenerationXML {
                 }
                 nbCellule = values.length;
             } else {
+                nbCellule = 1;
                 if (!test) {
                     // application de la valeur
                     // System.err.println("Set cell value 2 " + value);

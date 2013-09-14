@@ -15,15 +15,18 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
-import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.User;
 import org.openconcerto.task.UserTaskRight;
+import org.openconcerto.ui.DisplayabilityListener;
+import org.openconcerto.utils.ExceptionHandler;
 
+import java.awt.Component;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -32,7 +35,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.SQLException;
 import java.util.List;
-import java.util.Map;
 
 import javax.swing.ImageIcon;
 import javax.swing.JLabel;
@@ -46,7 +48,7 @@ public class UserRightPanelDetail extends JPanel {
 
     JLabel labelDocumentation1 = new JLabel("");
     JLabel labelDocumentation2 = new JLabel("");
-    UserTaskRightListModel model = new UserTaskRightListModel();
+    UserListModel model = new UserListModel();
     UserTaskRightListCellRenderer cellRenderer1 = new UserTaskRightListCellRenderer(UserTaskRightListCellRenderer.READ);
     UserTaskRightListCellRenderer cellRenderer2 = new UserTaskRightListCellRenderer(UserTaskRightListCellRenderer.MODIFY);
     UserTaskRightListCellRenderer cellRenderer3 = new UserTaskRightListCellRenderer(UserTaskRightListCellRenderer.ADD);
@@ -154,6 +156,16 @@ public class UserRightPanelDetail extends JPanel {
         labelHelp.setIcon(new ImageIcon(this.getClass().getResource("toc_open.gif")));
         this.add(labelHelp, c);
 
+        this.addHierarchyListener(new DisplayabilityListener() {
+            @Override
+            protected void displayabilityChanged(Component c) {
+                if (c.isDisplayable())
+                    model.start();
+                else
+                    model.stop();
+            }
+        });
+
         setUser(null);
     }
 
@@ -174,45 +186,39 @@ public class UserRightPanelDetail extends JPanel {
     }
 
     protected void swapState(User user, User toUser, String field) {
-        System.out.println("Double clicked on " + toUser);
-
         final SQLBase defaultBase = Configuration.getInstance().getBase();
         final SQLTable tableTacheRights = defaultBase.getTable("TACHE_RIGHTS");
 
-        SQLRowValues rowV = new SQLRowValues(tableTacheRights);
-        rowV.put("ID_USER_COMMON", user.getId());
-        rowV.put("ID_USER_COMMON_TO", toUser.getId());
-        rowV.put(field, Boolean.TRUE);
-        SQLSelect sel = new SQLSelect(defaultBase);
+        final SQLSelect sel = new SQLSelect();
         sel.addSelectStar(tableTacheRights);
         Where where = new Where(tableTacheRights.getField("ID_USER_COMMON"), "=", user.getId());
         where = where.and(new Where(tableTacheRights.getField("ID_USER_COMMON_TO"), "=", toUser.getId()));
         sel.setWhere(where);
 
-        SQLDataSource dataSource = defaultBase.getDataSource();
-        final Map valuesMap = dataSource.execute1(sel.asString());
-        if (valuesMap != null) {
-            SQLRow row = new SQLRow(tableTacheRights, valuesMap);
-            rowV.loadAbsolutelyAll(row);
-            if (rowV.getObject(field).equals(Boolean.TRUE)) {
-                rowV.put(field, Boolean.FALSE);
-            } else {
-                rowV.put(field, Boolean.TRUE);
-            }
+        final List<SQLRow> rows = SQLRowListRSH.execute(sel);
+        final SQLRowValues rowV;
+        if (rows.size() == 0) {
+            rowV = new SQLRowValues(tableTacheRights);
+            rowV.put("ID_USER_COMMON", user.getId());
+            rowV.put("ID_USER_COMMON_TO", toUser.getId());
+            rowV.put(field, Boolean.TRUE);
+        } else if (rows.size() == 1) {
+            final SQLRow row = rows.get(0);
+            rowV = row.createEmptyUpdateRow();
+            rowV.put(field, !row.getBoolean(field));
+        } else {
+            throw new IllegalStateException("More than one row : " + rows);
         }
 
         try {
             rowV.commit();
+            setUser(this.selectedUser);
         } catch (SQLException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
+            ExceptionHandler.handle(this, "Impossible de changer la valeur", e1);
         }
-        model.clearAndReload();
-        setUser(this.selectedUser);
     }
 
     public void setUser(User selectedUser) {
-        // TODO Auto-generated method stub
         if (selectedUser == null) {
             labelDocumentation1.setText(" Veuillez sélectionner un utilisateur");
             labelDocumentation2.setText(" Pour cela, cliquez sur un nom de la liste de gauche");

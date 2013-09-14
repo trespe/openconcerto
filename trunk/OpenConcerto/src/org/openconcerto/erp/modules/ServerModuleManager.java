@@ -161,17 +161,23 @@ public class ServerModuleManager {
                 vals.put(TABLE_COLNAME, added).put(FIELD_COLNAME, null).insert();
                 final SQLTable t = ctxt.getRoot().findTable(added);
                 for (final SQLField field : t.getFields()) {
-                    vals.put(TABLE_COLNAME, added).put(FIELD_COLNAME, field.getName()).put(ISKEY_COLNAME, field.isKey()).insert();
+                    vals.put(TABLE_COLNAME, added);
+                    vals.put(FIELD_COLNAME, field.getName());
+                    vals.put(ISKEY_COLNAME, field.isKey());
+                    vals.insert();
                 }
                 vals.remove(ISKEY_COLNAME);
             }
             for (final SQLName added : ctxt.getAddedFieldsToExistingTables()) {
                 final SQLTable t = ctxt.getRoot().findTable(added.getItem(0));
                 final SQLField field = t.getField(added.getItem(1));
-                vals.put(TABLE_COLNAME, t.getName()).put(FIELD_COLNAME, field.getName()).put(ISKEY_COLNAME, field.isKey()).insert();
+                vals.put(TABLE_COLNAME, t.getName());
+                vals.put(FIELD_COLNAME, field.getName());
+                vals.put(ISKEY_COLNAME, field.isKey());
+                vals.insert();
             }
             vals.remove(ISKEY_COLNAME);
-            vals.insert();
+
         }
 
         // Always put true, even if getCreatedItems() is empty, since for now we can't be sure that

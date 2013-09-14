@@ -112,8 +112,9 @@ public class ListChangeRecorder<E> extends AbstractList<E> {
     }
 
     public boolean addAll(Collection<? extends E> c) {
+        final int size = this.size();
         final boolean res = this.delegate.addAll(c);
-        this.recipe.add(this.size() - 1, c);
+        this.recipe.add(size, c);
         return res;
     }
 

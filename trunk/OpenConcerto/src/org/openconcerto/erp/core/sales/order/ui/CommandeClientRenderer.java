@@ -26,6 +26,7 @@ import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.table.AlternateTableCellRenderer;
 import org.openconcerto.ui.table.TableCellRendererDecorator;
+import org.openconcerto.ui.table.TableCellRendererUtils;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -50,7 +51,7 @@ public class CommandeClientRenderer extends TableCellRendererDecorator {
 
         // Commande facturée directement
         final SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-        SQLSelect select = new SQLSelect(Configuration.getInstance().getBase());
+        SQLSelect select = new SQLSelect();
         select.addSelect(eltFact.getTable().getField("IDSOURCE"));
         Where w = new Where(eltFact.getTable().getField("SOURCE"), "=", "COMMANDE_CLIENT");
         select.setWhere(w);
@@ -82,7 +83,7 @@ public class CommandeClientRenderer extends TableCellRendererDecorator {
 
         // Transfert en BL
         final SQLElement eltBon = Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON");
-        SQLSelect selectBon = new SQLSelect(Configuration.getInstance().getBase());
+        SQLSelect selectBon = new SQLSelect();
         selectBon.addSelect(eltBon.getTable().getField("ID_COMMANDE_CLIENT"));
         Where wBon = new Where(eltBon.getTable().getField("ID_COMMANDE_CLIENT"), "!=", 1);
         selectBon.setWhere(wBon);
@@ -140,7 +141,7 @@ public class CommandeClientRenderer extends TableCellRendererDecorator {
         Component comp = this.getRenderer(table, column).getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
         AlternateTableCellRenderer.setBGColorMap((JComponent) comp, COLORS);
         final int rowID = ITableModel.getLine(table.getModel(), row).getID();
-
+        TableCellRendererUtils.setBackgroundColor(comp, table, isSelected);
         if (setFacture.contains(rowID)) {
             if (isSelected) {
                 comp.setBackground(DeviseNiceTableCellRenderer.couleurFactureDark);

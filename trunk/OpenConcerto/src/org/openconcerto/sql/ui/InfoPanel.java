@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.ui;
 
+import org.openconcerto.sql.TM;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.SystemInfoPanel;
 
@@ -33,17 +34,17 @@ public class InfoPanel extends JPanel {
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.weightx = 1;
         c.weighty = 1;
-        this.add(createTitle("Logiciel"), c);
+        this.add(createTitle("infoPanel.softwareTitle"), c);
         c.gridy++;
         this.add(new SoftwareInfoPanel(), c);
         c.gridy++;
-        this.add(createTitle("Informations système"), c);
+        this.add(createTitle("infoPanel.systemTitle"), c);
         c.gridy++;
         this.add(new SystemInfoPanel(), c);
     }
 
     private JLabel createTitle(final String text) {
-        final JLabel res = new JLabel(text);
+        final JLabel res = new JLabel(TM.tr(text));
         final Font font = res.getFont();
         res.setFont(font.deriveFont(font.getSize2D() * 1.2f).deriveFont(Font.BOLD));
         return res;

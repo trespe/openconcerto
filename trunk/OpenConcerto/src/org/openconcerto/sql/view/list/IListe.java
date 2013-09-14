@@ -17,6 +17,7 @@ import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLField;
@@ -85,7 +86,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.text.DateFormat;
 import java.text.Format;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Collection;
@@ -157,7 +157,6 @@ public final class IListe extends JPanel {
     }
 
     private static boolean FORCE_ALT_CELL_RENDERER = false;
-    private static final DateFormat MODIF_DATE_FORMAT = new SimpleDateFormat("'le' dd MMMM yyyy 'à' HH:mm:ss");
     static final String SEP = " ► ";
     public static final TableCellRenderer DATE_RENDERER = new FormatRenderer(DateFormat.getDateInstance(DateFormat.MEDIUM));
     public static final TableCellRenderer TIME_RENDERER = new FormatRenderer(DateFormat.getTimeInstance(DateFormat.SHORT));
@@ -286,10 +285,10 @@ public final class IListe extends JPanel {
 
                 final SQLRowValues row = ITableModel.getLine(this.getModel(), rowIndex).getRow();
 
-                final String create = getLine("Créée", row, getSource().getPrimaryTable().getCreationUserField(), getSource().getPrimaryTable().getCreationDateField());
+                final String create = getLine(true, row, getSource().getPrimaryTable().getCreationUserField(), getSource().getPrimaryTable().getCreationDateField());
                 if (create != null)
                     infoL.add(create);
-                final String modif = getLine("Modifiée", row, getSource().getPrimaryTable().getModifUserField(), getSource().getPrimaryTable().getModifDateField());
+                final String modif = getLine(false, row, getSource().getPrimaryTable().getModifUserField(), getSource().getPrimaryTable().getModifDateField());
                 if (modif != null)
                     infoL.add(modif);
 
@@ -302,20 +301,25 @@ public final class IListe extends JPanel {
                 return info;
             }
 
-            public String getLine(final String verb, final SQLRowValues row, final SQLField userF, final SQLField dateF) {
+            public String getLine(final boolean created, final SQLRowValues row, final SQLField userF, final SQLField dateF) {
                 final Calendar date = dateF == null ? null : row.getDate(dateF.getName());
                 final SQLRowAccessor user = userF == null || row.isForeignEmpty(userF.getName()) ? null : row.getForeign(userF.getName());
                 if (user == null && date == null)
                     return null;
 
-                String res = verb;
-                if (user != null)
-                    res += " par " + user.getString("PRENOM") + " " + user.getString("NOM");
+                final int userParam;
+                final String firstName, lastName;
+                if (user != null) {
+                    userParam = 1;
+                    firstName = user.getString("PRENOM");
+                    lastName = user.getString("NOM");
+                } else {
+                    userParam = 0;
+                    firstName = null;
+                    lastName = null;
+                }
 
-                if (date != null)
-                    res += " " + MODIF_DATE_FORMAT.format(date.getTime());
-
-                return res;
+                return TM.tr("ilist.metadata", created ? 1 : 0, userParam, firstName, lastName, date == null ? 0 : 1, date == null ? null : date.getTime());
             }
 
             @Override
@@ -603,7 +607,7 @@ public final class IListe extends JPanel {
             private final JPopupMenu popupMenu;
             {
                 this.popupMenu = new JPopupMenu();
-                this.popupMenu.add(new JCheckBoxMenuItem(new AbstractAction("Ajuster la largeur des colonnes") {
+                this.popupMenu.add(new JCheckBoxMenuItem(new AbstractAction(TM.tr("ilist.setColumnsWidth")) {
                     @Override
                     public void actionPerformed(ActionEvent e) {
                         toggleAutoAdjust();
@@ -880,7 +884,7 @@ public final class IListe extends JPanel {
     }
 
     public void deplacerDe(final int inc) {
-        this.getModel().moveBy(this.getSelectedId(), inc);
+        this.getModel().moveBy(this.getSelectedRows(), inc);
     }
 
     /**
@@ -927,16 +931,26 @@ public final class IListe extends JPanel {
     }
 
     public final List<SQLRowAccessor> getSelectedRows() {
+        return iterateSelectedRows(SQLRowAccessor.class);
+    }
+
+    public final List<SQLRowValues> copySelectedRows() {
+        return iterateSelectedRows(SQLRowValues.class);
+    }
+
+    private final <R extends SQLRowAccessor> List<R> iterateSelectedRows(final Class<R> clazz) {
         final ListSelectionModel selectionModel = this.getJTable().getSelectionModel();
         if (selectionModel.isSelectionEmpty())
             return Collections.emptyList();
 
         final int start = selectionModel.getMinSelectionIndex();
         final int stop = selectionModel.getMaxSelectionIndex();
-        final List<SQLRowAccessor> res = new ArrayList<SQLRowAccessor>();
+        final List<R> res = new ArrayList<R>();
         for (int i = start; i <= stop; i++) {
-            if (selectionModel.isSelectedIndex(i))
-                res.add(new SQLImmutableRowValues(this.getLine(i).getRow()));
+            if (selectionModel.isSelectedIndex(i)) {
+                final SQLRowValues internalRow = this.getLine(i).getRow();
+                res.add(clazz.cast(clazz == SQLRowValues.class ? internalRow.deepCopy() : new SQLImmutableRowValues(internalRow)));
+            }
         }
         return res;
     }
@@ -1165,7 +1179,10 @@ public final class IListe extends JPanel {
     }
 
     private void loadTableState() {
-        if (this.getConfigFile() != null)
+        // - if configFile changes setConfigFile() calls us
+        // - if the model changes, fireTableStructureChanged() is called and thus
+        // JTable.createDefaultColumnsFromModel() which calls us
+        if (this.getConfigFile() != null && this.getModel() != null)
             this.tableStateManager.loadState();
     }
 

@@ -35,6 +35,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.io.Reader;
 import java.io.Writer;
 import java.math.BigDecimal;
 import java.sql.Blob;
@@ -203,17 +204,17 @@ class SQLSyntaxMySQL extends SQLSyntax {
         if (!newNullable && newDef != null && newDef.trim().toUpperCase().equals("NULL"))
             newDef = null;
 
-        return Collections.singletonList(SQLSelect.quote("MODIFY COLUMN %n " + getFieldDecl(newType, newDef, newNullable), f));
+        return Collections.singletonList("MODIFY COLUMN " + f.getQuotedName() + " " + getFieldDecl(newType, newDef, newNullable));
     }
 
     @Override
     public String getDropRoot(String name) {
-        return SQLSelect.quote("DROP DATABASE IF EXISTS %i ;", name);
+        return "DROP DATABASE IF EXISTS " + SQLBase.quoteIdentifier(name) + " ;";
     }
 
     @Override
     public String getCreateRoot(String name) {
-        return SQLSelect.quote("CREATE DATABASE %i ;", name);
+        return "CREATE DATABASE " + SQLBase.quoteIdentifier(name) + " ;";
     }
 
     @Override
@@ -230,53 +231,26 @@ class SQLSyntaxMySQL extends SQLSyntax {
             // MySQL dumps strings in binary, so fields must be consistent otherwise the
             // file is invalid
             throw new IllegalArgumentException(t + " has more than on character set : " + charsets);
+        final SQLBase base = t.getBase();
         // if no string cols there should only be values within ASCII (eg dates, ints, etc)
         final String charset = charsets.size() == 0 ? "UTF8" : charsets.keySet().iterator().next();
         final String cols = CollectionUtils.join(t.getOrderedFields(), ",", new ITransformer<SQLField, String>() {
             @Override
             public String transformChecked(SQLField input) {
-                return SQLBase.quoteStringStd(input.getName());
+                return base.quoteString(input.getName());
             }
         });
         try {
             final File tmp = File.createTempFile(SQLSyntaxMySQL.class.getSimpleName() + "storeData", ".txt");
             // mysql cannot overwrite files
             tmp.delete();
-            final SQLSelect sel = new SQLSelect(t.getBase(), true).addSelectStar(t);
+            final SQLSelect sel = new SQLSelect(true).addSelectStar(t);
             // store the data in the temp file
-            t.getBase().getDataSource().execute(t.getBase().quote("SELECT " + cols + " UNION " + sel.asString() + " INTO OUTFILE %s " + getDATA_OPTIONS(t) + ";", tmp.getAbsolutePath()));
+            base.getDataSource().execute("SELECT " + cols + " UNION " + sel.asString() + " INTO OUTFILE " + base.quoteString(tmp.getAbsolutePath()) + " " + getDATA_OPTIONS(base) + ";");
             // then read it to remove superfluous escape char and convert to utf8
             final BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(tmp), charset));
             final Writer w = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), "UTF8"));
-            int count;
-            final char[] buf = new char[1000 * 1024];
-            int offset = 0;
-            final char[] wbuf = new char[buf.length];
-            boolean wasBackslash = false;
-            while ((count = r.read(buf, offset, buf.length - offset)) != -1) {
-                int wbufLength = 0;
-                for (int i = 0; i < count; i++) {
-                    final char c = buf[i];
-                    // MySQL escapes the field delimiter (which other systems do as well)
-                    // but also "LINES TERMINATED BY" which others don't understand
-                    if (wasBackslash && c == '\n')
-                        // overwrite the backslash
-                        wbuf[wbufLength - 1] = c;
-                    else
-                        wbuf[wbufLength++] = c;
-                    wasBackslash = c == '\\';
-                }
-                // the read buffer ends with a backslash
-                if (wasBackslash) {
-                    // restore state one char before
-                    wbufLength--;
-                    wasBackslash = wbuf[wbufLength - 1] == '\\';
-                    buf[0] = '\\';
-                    offset = 1;
-                } else
-                    offset = 0;
-                w.write(wbuf, 0, wbufLength);
-            }
+            normalizeData(r, w, 1000 * 1024);
             r.close();
             w.close();
             tmp.delete();
@@ -285,8 +259,43 @@ class SQLSyntaxMySQL extends SQLSyntax {
         }
     }
 
-    private static String getDATA_OPTIONS(DBStructureItem<?> i) {
-        return i.getAnc(SQLBase.class).quote("FIELDS TERMINATED BY ',' ENCLOSED BY '\"' ESCAPED BY %s LINES TERMINATED BY '\n' ", "\\");
+    // remove superfluous escape character
+    static void normalizeData(final Reader r, final Writer w, final int bufferSize) throws IOException {
+        int count;
+        final char[] buf = new char[bufferSize];
+        int offset = 0;
+        final char[] wbuf = new char[buf.length];
+        boolean wasBackslash = false;
+        while ((count = r.read(buf, offset, buf.length - offset)) != -1) {
+            int wbufLength = 0;
+            for (int i = 0; i < offset + count; i++) {
+                final char c = buf[i];
+                // MySQL escapes the field delimiter (which other systems do as well)
+                // but also "LINES TERMINATED BY" which others don't understand
+                if (wasBackslash && c == '\n')
+                    // overwrite the backslash
+                    wbuf[wbufLength - 1] = c;
+                else
+                    wbuf[wbufLength++] = c;
+                wasBackslash = c == '\\';
+            }
+            // the read buffer ends with a backslash, don't let it be written to w as we might
+            // want to remove it
+            if (wasBackslash) {
+                // restore state one char before
+                wbufLength--;
+                wasBackslash = wbuf[wbufLength - 1] == '\\';
+                buf[0] = '\\';
+                offset = 1;
+            } else {
+                offset = 0;
+            }
+            w.write(wbuf, 0, wbufLength);
+        }
+    }
+
+    private static String getDATA_OPTIONS(final SQLBase b) {
+        return "FIELDS TERMINATED BY ',' ENCLOSED BY '\"' ESCAPED BY " + b.quoteString("\\") + " LINES TERMINATED BY '\n' ";
     }
 
     @Override
@@ -310,7 +319,7 @@ class SQLSyntaxMySQL extends SQLSyntax {
                             throw new IllegalStateException("the database charset is not utf8 and this version doesn't support specifying another one : " + dbCharset);
                         }
                     }
-                    ds.execute(t.getBase().quote("LOAD DATA LOCAL INFILE %s INTO TABLE %f " + charsetClause + getDATA_OPTIONS(t) + " IGNORE 1 LINES;", f.getAbsolutePath(), t));
+                    ds.execute(t.getBase().quote("LOAD DATA LOCAL INFILE %s INTO TABLE %f ", f.getAbsolutePath(), t) + charsetClause + getDATA_OPTIONS(t.getBase()) + " IGNORE 1 LINES;");
                     return null;
                 }
             });
@@ -332,7 +341,6 @@ class SQLSyntaxMySQL extends SQLSyntax {
         else
             return "NOT (" + nullSafe + ")";
     }
-    
 
     @Override
     public String getFormatTimestamp(String sqlTS, boolean basic) {
@@ -450,7 +458,7 @@ class SQLSyntaxMySQL extends SQLSyntax {
 
     @Override
     public String getDropTrigger(Trigger t) {
-        return SQLBase.quoteStd("DROP TRIGGER %i", new SQLName(t.getTable().getSchema().getName(), t.getName()));
+        return "DROP TRIGGER " + new SQLName(t.getTable().getSchema().getName(), t.getName()).quote();
     }
 
     @Override

@@ -61,7 +61,7 @@ public class GestionPlanComptableEFrame extends JFrame {
 
             public void actionPerformed(ActionEvent e) {
                 if (GestionPlanComptableEFrame.this.edit == null) {
-                    GestionPlanComptableEFrame.this.edit = new EditFrame(new ComptePCESQLElement());
+                    GestionPlanComptableEFrame.this.edit = new EditFrame(Configuration.getInstance().getDirectory().getElement("COMPTE_PCE"));
                     GestionPlanComptableEFrame.this.edit.pack();
                 }
                 GestionPlanComptableEFrame.this.edit.setVisible(true);
@@ -79,7 +79,7 @@ public class GestionPlanComptableEFrame extends JFrame {
 
             public void actionPerformed(ActionEvent e) {
                 if (GestionPlanComptableEFrame.this.edit == null) {
-                    GestionPlanComptableEFrame.this.edit = new EditFrame(new ComptePCESQLElement());
+                    GestionPlanComptableEFrame.this.edit = new EditFrame(Configuration.getInstance().getDirectory().getElement("COMPTE_PCE"));
                     GestionPlanComptableEFrame.this.edit.pack();
                 }
                 GestionPlanComptableEFrame.this.edit.setVisible(true);

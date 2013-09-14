@@ -15,6 +15,8 @@
 
 import java.awt.Dimension;
 import java.awt.Frame;
+import java.awt.GraphicsEnvironment;
+import java.awt.Rectangle;
 import java.awt.Window;
 
 import javax.swing.UIManager;
@@ -46,4 +48,20 @@ public class FrameUtil {
         FrameUtil.show(frame);
     }
 
+    public static final void setBounds(Window w) {
+        w.setBounds(getWindowBounds());
+    }
+
+    public static final Rectangle getWindowBounds() {
+        final GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        final Rectangle dm = new Rectangle(ge.getMaximumWindowBounds());
+        // don't use ge.getDefaultScreenDevice().getDisplayMode(); sometimes null in NX
+        // see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6921661
+
+        // Always leave some space to see other windows (plus at least on Ubuntu with
+        // 1.6.0_24 dm is the screen size)
+        dm.grow(dm.getWidth() <= 800 ? -20 : -50, dm.getHeight() <= 600 ? -20 : -50);
+
+        return dm;
+    }
 }

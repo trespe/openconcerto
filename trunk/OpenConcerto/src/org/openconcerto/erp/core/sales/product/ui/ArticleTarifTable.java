@@ -13,11 +13,14 @@
  
  package org.openconcerto.erp.core.sales.product.ui;
 
+import org.openconcerto.erp.core.common.ui.DeviseNumericCellEditor;
+import org.openconcerto.erp.core.common.ui.DeviseNumericHTConvertorCellEditor;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.component.ReferenceArticleSQLComponent;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
@@ -86,11 +89,10 @@ public class ArticleTarifTable extends RowValuesTablePanel {
         this.tarif.setEditable(false);
         list.add(this.tarif);
 
-        // FIXME Create an editor with convert to ttc
         // Prix de vente HT de la métrique 1
-        // final DeviseCellEditor editorPVHT = new DeviseCellEditor();
-        // editorPVHT.setConvertToTTCEnable(true);
-        this.tableElement_PrixMetrique1_VenteHT = new SQLTableElement(e.getTable().getField("PRIX_METRIQUE_VT_1"), BigDecimal.class);
+        final SQLField field = e.getTable().getField("PRIX_METRIQUE_VT_1");
+        final DeviseNumericHTConvertorCellEditor editorPVHT = new DeviseNumericHTConvertorCellEditor(field);
+        this.tableElement_PrixMetrique1_VenteHT = new SQLTableElement(field, BigDecimal.class);
         list.add(tableElement_PrixMetrique1_VenteHT);
 
         // Devise
@@ -170,10 +172,10 @@ public class ArticleTarifTable extends RowValuesTablePanel {
                 }
 
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
-                // editorPVHT.setTaxe(resultTaux);
-                return pHT.multiply(BigDecimal.valueOf(taux).divide(BigDecimal.valueOf(100)).add(BigDecimal.ONE), MathContext.DECIMAL128);
-                // Long r = Long.valueOf(pHT.calculLongTTC(taux / 100f));
-                // return r;
+                editorPVHT.setTaxe(taux);
+                BigDecimal r = pHT.multiply(BigDecimal.valueOf(taux).divide(BigDecimal.valueOf(100)).add(BigDecimal.ONE), MathContext.DECIMAL128);
+                return r.setScale(tableElement_PrixVente_TTC.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
+
             }
 
         });

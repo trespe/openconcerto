@@ -82,7 +82,7 @@ public class TextStyle extends StyleStyle {
         }
 
         public final void setColor(Color color) {
-            this.getElement().setAttribute("color", OOUtils.encodeRGB(color), this.getNS("fo"));
+            this.setAttributeValue(color == null ? null : OOUtils.encodeRGB(color), "color", this.getNS("fo"));
         }
 
         public final String getFontName() {

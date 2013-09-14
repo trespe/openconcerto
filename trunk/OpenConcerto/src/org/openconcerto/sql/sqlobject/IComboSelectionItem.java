@@ -92,8 +92,9 @@ public class IComboSelectionItem implements VarDesc, Comparable<IComboSelectionI
         if (o instanceof IComboSelectionItem) {
             final IComboSelectionItem item = (IComboSelectionItem) o;
             // have to test also the label, otherwise when a row is modified (and obviously don't
-            // change id) Swing won't update it.
-            result = item.getId() == getId() && CompareUtils.equals(item.getLabel(), this.getLabel());
+            // change id) Swing won't update it. Likewise if the where change an item might only
+            // change flag.
+            result = item.getId() == getId() && item.getFlag() == getFlag() && CompareUtils.equals(item.getLabel(), this.getLabel());
         } else {
             result = false;
         }

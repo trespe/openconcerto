@@ -94,19 +94,14 @@ public class TodoListModel extends DefaultTableModel {
     }
 
     public void asynchronousFill() {
-
         final Thread thread = new Thread(new Runnable() {
-
+            @Override
             public void run() {
-                // System.err.println("asynchronousFill.run()");
                 synchronousFill();
-                // System.err.println("asynchronousFill.run() done");
             }
-
         });
         thread.setName("TodoListModel asynchronousFill");
         thread.start();
-
     }
 
     /**
@@ -120,8 +115,7 @@ public class TodoListModel extends DefaultTableModel {
                 fireModelStateChanged(ModelStateListener.STATE_RELOADING);
             }
         });
-        // System.out.println("TodoListModel.synchronousFill()" + new
-        // Timestamp(System.currentTimeMillis()));
+
         final Map<Integer, TodoListElement> newDataVector = new LinkedHashMap<Integer, TodoListElement>();
         try {
             fillFromDatabase(newDataVector);
@@ -144,8 +138,8 @@ public class TodoListModel extends DefaultTableModel {
         synchronized (this.dataVector) {
             oldSize = this.dataVector.size();
             for (int i = 0; i < oldSize; i++) {
-                TodoListElement elt = (TodoListElement) this.dataVector.get(i);
-                TodoListElement eltN = newDataVector.remove(elt.getRowValues().getID());
+                final TodoListElement elt = (TodoListElement) this.dataVector.get(i);
+                final TodoListElement eltN = newDataVector.remove(elt.getRowValues().getID());
                 if (eltN == null) {
                     rowsDeleted.add(elt);
                 } else {
@@ -315,15 +309,16 @@ public class TodoListModel extends DefaultTableModel {
             }
 
             if (this.dataVector.size() <= rowIndex) {
-                System.err.println("pb! taille:" + this.dataVector.size() + " i:" + rowIndex);
+                System.err.println("Size error :" + this.dataVector.size() + " i:" + rowIndex);
                 rowIndex = 0;
             }
-            TodoListElement task = (TodoListElement) this.dataVector.get(rowIndex);
+            final TodoListElement task = (TodoListElement) this.dataVector.get(rowIndex);
             if (task == null)
                 return false;
+            final int size = this.rights.size();
             if (columnIndex == 0)
                 // Validation
-                for (int i = 0; i < this.rights.size(); i++) {
+                for (int i = 0; i < size; i++) {
                     UserTaskRight right = this.rights.get(i);
                     if (right.getIdToUser() == task.getUserId() && right.canValidate()) {
                         return true;
@@ -334,7 +329,7 @@ public class TodoListModel extends DefaultTableModel {
                 return (task.getCreatorId().equals(UserManager.getInstance().getCurrentUser().getId()));
             } else {
                 // Modification
-                for (int i = 0; i < this.rights.size(); i++) {
+                for (int i = 0; i < size; i++) {
                     UserTaskRight right = this.rights.get(i);
                     // i.e. we can still modify tasks we created and assigned to another user, but
                     // we cannot change tasks assigned to us
@@ -375,7 +370,7 @@ public class TodoListModel extends DefaultTableModel {
     public Object getValueAt(int rowIndex, int columnIndex) {
         synchronized (this.dataVector) {
             if (this.dataVector.size() <= rowIndex) {
-                System.err.println("pb! taille:" + this.dataVector.size() + " i:" + rowIndex);
+                System.err.println("Size error :" + this.dataVector.size() + " i:" + rowIndex);
                 rowIndex = 0;
             }
             TodoListElement task = (TodoListElement) this.dataVector.get(rowIndex);
@@ -414,8 +409,6 @@ public class TodoListModel extends DefaultTableModel {
 
     public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
         synchronized (this.dataVector) {
-            // System.out.println("TodoListModel.setValueAt():" + aValue + "(" + rowIndex + "," +
-            // columnIndex + ")");
             if (rowIndex >= getRowCount()) {
                 // Cas de la perte de l'edition de la derniere ligne supprimee
                 return;
@@ -436,13 +429,11 @@ public class TodoListModel extends DefaultTableModel {
                 if (this.mode == EXTENDED_MODE) {
                     task.setDate((Timestamp) aValue);
                 }
-
                 task.setExpectedDate((Timestamp) aValue);
                 break;
             case 4:
                 if (this.mode == EXTENDED_MODE) {
                     task.setDoneDate((Timestamp) aValue);
-
                     break;
                 }
                 task.setUserId((Integer) aValue);
@@ -470,23 +461,23 @@ public class TodoListModel extends DefaultTableModel {
         case 1:
             return "";
         case 2:
-            return "A faire...";
+            return TM.tr("taskToDo");
         case 3:
             if (this.mode == EXTENDED_MODE) {
-                return "créé le";
+                return TM.tr("created");
             }
-            return "à faire pour le";
+            return TM.tr("todoBefore.col");
         case 4:
             if (this.mode == EXTENDED_MODE) {
-                return "fait le";
+                return TM.tr("completed");
             }
-            return "assignée à";
+            return TM.tr("assignedTo");
         case 5:
-            return "à faire pour le";
+            return TM.tr("todoBefore.col");
         case 6:
-            return "assignée à";
+            return TM.tr("assignedTo");
         default:
-            return "Oups!!!!!!!!!";
+            return "?????";
 
         }
     }
@@ -499,14 +490,12 @@ public class TodoListModel extends DefaultTableModel {
 
             @Override
             public Object doInBackground() {
-                SQLRowValues rowV = new SQLRowValues(Configuration.getInstance().getBase().getTable("TACHE_COMMON"));
-                Calendar cal = Calendar.getInstance();
-
+                final SQLRowValues rowV = new SQLRowValues(Configuration.getInstance().getBase().getTable("TACHE_COMMON"));
+                final Calendar cal = Calendar.getInstance();
                 rowV.put("DATE_ENTREE", new java.sql.Timestamp(cal.getTimeInMillis()));
                 cal.add(Calendar.HOUR_OF_DAY, 1);
                 rowV.put("DATE_EXP", new java.sql.Timestamp(cal.getTimeInMillis()));
                 cal.set(Calendar.YEAR, 2000);
-
                 cal.set(Calendar.DAY_OF_YEAR, 1);
                 cal.set(Calendar.HOUR_OF_DAY, 0);
                 cal.set(Calendar.MINUTE, 0);
@@ -547,13 +536,10 @@ public class TodoListModel extends DefaultTableModel {
 
     public boolean deleteTaskAtIndex(int index) {
         synchronized (this.dataVector) {
-
-            // System.out.println("TodoListModel.deleteTaskAtIndex(" + index + ")");
-            TodoListElement t = (TodoListElement) this.dataVector.get(index);
-            // System.out.println("Effacement de " + t);
+            final TodoListElement t = (TodoListElement) this.dataVector.get(index);
             final int currentUserId = UserManager.getInstance().getCurrentUser().getId();
             if (t.getCreatorId() != currentUserId) {
-                JOptionPane.showMessageDialog(this.table, "Vous n'êtes pas autorisé à effacer\n des tâches dont vous n'êtes pas l'auteur!");
+                JOptionPane.showMessageDialog(this.table, TM.tr("deleteForbidden"));
                 return false;
             }
             t.archive();
@@ -601,7 +587,8 @@ public class TodoListModel extends DefaultTableModel {
     }
 
     private void fireModelStateChanged(int state) {
-        for (int i = 0; i < this.stateListenerList.size(); i++) {
+        final int size = this.stateListenerList.size();
+        for (int i = 0; i < size; i++) {
             this.stateListenerList.get(i).stateChanged(state);
         }
     }

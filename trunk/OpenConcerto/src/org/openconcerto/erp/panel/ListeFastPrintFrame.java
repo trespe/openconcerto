@@ -171,7 +171,7 @@ public class ListeFastPrintFrame extends JFrame {
                             bSheet.createDocument();
                             bSheet.showPrintAndExportAsynchronous(false, false, true);
                         } catch (Exception e) {
-                            ExceptionHandler.handle("Erreur lors de l'impression du document " + bSheet.getGeneratedFile());
+                            ExceptionHandler.handle("Erreur lors de la création du document " + bSheet.getGeneratedFile());
                         }
                     }
 

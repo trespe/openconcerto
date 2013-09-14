@@ -29,18 +29,16 @@ public class AdresseFullClientValueProvider extends AdresseClientProvider {
     @Override
     public Object getValue(SpreadSheetCellValueContext context) {
         SQLRowAccessor r = getAdresse(context.getRow(), this.type);
-        Ville v = Ville.getVilleFromVilleEtCode(r.getString("VILLE"));
+
         String result = r.getString("RUE");
-        if (v != null) {
-            result += "\n" + v.getCodepostal();
-            result += " ";
-            result += v.getName();
-            if (r.getBoolean("HAS_CEDEX")) {
-                result += " Cedex";
-                String cedex = r.getString("CEDEX");
-                if (cedex != null && cedex.trim().length() > 0) {
-                    result += " " + cedex;
-                }
+        result += "\n" + r.getString("CODE_POSTAL");
+        result += " ";
+        result += r.getString("VILLE");
+        if (r.getBoolean("HAS_CEDEX")) {
+            result += " Cedex";
+            String cedex = r.getString("CEDEX");
+            if (cedex != null && cedex.trim().length() > 0) {
+                result += " " + cedex;
             }
         }
 

@@ -15,10 +15,16 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.PropsConfiguration;
+import org.openconcerto.sql.TM;
+import org.openconcerto.sql.users.User;
+import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.sql.users.rights.UserRights;
+import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.SystemInfoPanel;
 import org.openconcerto.ui.component.HTMLTextField;
 import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.utils.i18n.I18nUtils;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -32,6 +38,17 @@ import javax.swing.JPanel;
 public class SoftwareInfoPanel extends JPanel {
 
     public SoftwareInfoPanel() {
+        final FormLayouter l = new FormLayouter(this, 1);
+
+        final UserRightsManager userRightsManager = UserRightsManager.getInstance();
+        l.add(TM.tr("infoPanel.rights"), new JLabel(org.openconcerto.utils.i18n.TM.tr(I18nUtils.getYesNoKey(userRightsManager != null))));
+        final User user = UserManager.getUser();
+        if (user != null) {
+            final UserRights userRights = UserRightsManager.getCurrentUserRights();
+            final String userS = user.toString() + (userRights.isSuperUser() ? " (superuser)" : "");
+            l.add(org.openconcerto.utils.i18n.TM.tr("user"), new JLabel(userS));
+        }
+
         final Configuration conf = Configuration.getInstance();
         final PropsConfiguration propsConf;
         final ProductInfo productInfo;
@@ -43,22 +60,21 @@ public class SoftwareInfoPanel extends JPanel {
             productInfo = ProductInfo.getInstance();
         }
 
-        final FormLayouter l = new FormLayouter(this, 1);
         final String name, version;
         if (productInfo == null) {
-            name = "inconnu";
-            version = "inconnue";
+            name = TM.tr("infoPanel.noAppName");
+            version = TM.tr("infoPanel.noVersion");
         } else {
             name = productInfo.getName();
-            version = productInfo.getProperty(ProductInfo.VERSION, "inconnue");
+            version = productInfo.getProperty(ProductInfo.VERSION, TM.tr("infoPanel.noVersion"));
         }
-        l.add("Nom de l'application", new JLabel(name));
-        l.add("Version de l'application", new JLabel(version));
+        l.add(TM.tr("infoPanel.appName"), new JLabel(name));
+        l.add(TM.tr("infoPanel.version"), new JLabel(version));
         if (propsConf != null && propsConf.isUsingSSH()) {
-            l.add("Liaison sécurisée", new JLabel(propsConf.getWanHostAndPort()));
+            l.add(TM.tr("infoPanel.secureLink"), new JLabel(propsConf.getWanHostAndPort()));
         }
-        l.add("URL de base de données", new JLabel(conf.getSystemRoot().getDataSource().getUrl()));
-        final String logs = propsConf == null ? "" : " ; " + SystemInfoPanel.getLink("Journaux", propsConf.getLogDir().toURI());
-        l.add("Dossiers", new HTMLTextField(SystemInfoPanel.getLink("Documents", conf.getWD().toURI()) + logs));
+        l.add(TM.tr("infoPanel.dbURL"), new JLabel(conf.getSystemRoot().getDataSource().getUrl()));
+        final String logs = propsConf == null ? "" : " ; " + SystemInfoPanel.getLink(TM.tr("infoPanel.logs"), propsConf.getLogDir().toURI());
+        l.add(TM.tr("infoPanel.dirs"), new HTMLTextField(SystemInfoPanel.getLink(TM.tr("infoPanel.docs"), conf.getWD().toURI()) + logs));
     }
 }

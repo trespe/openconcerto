@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.generationDoc.SpreadSheetCellValueContext;
 import org.openconcerto.erp.generationDoc.SpreadSheetCellValueProviderManager;
-import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.model.SQLRowAccessor;
 
 public class AdresseVilleClientValueProvider extends AdresseClientProvider {
@@ -29,18 +28,16 @@ public class AdresseVilleClientValueProvider extends AdresseClientProvider {
     @Override
     public Object getValue(SpreadSheetCellValueContext context) {
         SQLRowAccessor r = getAdresse(context.getRow(), this.type);
-        Ville v = Ville.getVilleFromVilleEtCode(r.getString("VILLE"));
+
         String result = null;
-        if (v != null) {
-            result = v.getCodepostal();
-            result += " ";
-            result += v.getName();
-            if (r.getBoolean("HAS_CEDEX")) {
-                result += " Cedex";
-                String cedex = r.getString("CEDEX");
-                if (cedex != null && cedex.trim().length() > 0) {
-                    result += " " + cedex;
-                }
+        result = r.getString("CODE_POSTAL");
+        result += " ";
+        result += r.getString("VILLE");
+        if (r.getBoolean("HAS_CEDEX")) {
+            result += " Cedex";
+            String cedex = r.getString("CEDEX");
+            if (cedex != null && cedex.trim().length() > 0) {
+                result += " " + cedex;
             }
         }
 

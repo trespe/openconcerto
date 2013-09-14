@@ -151,7 +151,6 @@ public class SommeCompte {
         // String req = sel.asString() +
         // " GROUP BY \"COMPTE_PCE\".\"ID\",\"COMPTE_PCE\".\"NUMERO\" ORDER BY \"COMPTE_PCE\".\"NUMERO\"";
         String req = sel.asString();
-        System.out.println(req);
 
         Object ob = base.getDataSource().execute(req, new ArrayListHandler());
 
@@ -168,8 +167,6 @@ public class SommeCompte {
                 if (objTmp[1] != null) {
                     sommeCredit += ((Number) objTmp[1]).longValue();
                 }
-                // System.out.println("Compte " + objTmp[3].toString() + " solde " + (((Number)
-                // objTmp[0]).longValue() - ((Number) objTmp[1]).longValue()));
             }
         }
 
@@ -208,7 +205,7 @@ public class SommeCompte {
         sel.setWhere(w2.and(w4));
         addAnalytiqueJoin(sel);
         String req = sel.asString() + " GROUP BY \"COMPTE_PCE\".\"ID\",\"COMPTE_PCE\".\"NUMERO\" ORDER BY \"COMPTE_PCE\".\"NUMERO\"";
-        System.out.println(req);
+
         Object ob = base.getDataSource().execute(req, new ArrayListHandler());
 
         List myList = (List) ob;
@@ -224,11 +221,9 @@ public class SommeCompte {
             credit = ((Number) objTmp[1]).longValue();
             if ((debit - credit) > 0) {
                 solde += (debit - credit);
-                System.err.println("Compte :: " + objTmp[3].toString() + "  SOLDE DEBITEUR : " + (debit - credit) + " :: [" + numeroStart + " - " + numeroEnd + "]");
             }
         }
 
-        System.err.println("Compte :: [" + numeroStart + " - " + numeroEnd + "] solde : " + solde);
         return solde;
     } // MAYBE utiliser HAVING (credit - debit) > 0.0
 
@@ -269,7 +264,6 @@ public class SommeCompte {
         req += " GROUP BY \"COMPTE_PCE\".\"ID\",\"COMPTE_PCE\".\"NUMERO\" ORDER BY \"COMPTE_PCE\".\"NUMERO\"";
 
         Object ob = base.getDataSource().execute(req, new ArrayListHandler());
-        System.err.println(req);
         List myList = (List) ob;
 
         long debit = 0;
@@ -282,14 +276,10 @@ public class SommeCompte {
             debit = ((Number) objTmp[0]).longValue();
             credit = ((Number) objTmp[1]).longValue();
 
-            System.out.println("DEbit :: " + debit + " credit ::: " + credit);
             if ((credit - debit) > 0) {
                 solde += (credit - debit);
-                System.out.println("Compte :: " + objTmp[3].toString() + "  SOLDE CREDITEUR : " + (credit - debit));
             }
         }
-
-        // System.out.println("Compte " + );
 
         return solde;
     }

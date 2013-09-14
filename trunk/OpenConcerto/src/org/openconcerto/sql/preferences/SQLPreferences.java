@@ -13,15 +13,19 @@
  
  package org.openconcerto.sql.preferences;
 
+import org.openconcerto.sql.model.AliasedTable;
 import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.IResultSetHandler;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLSelectJoin;
 import org.openconcerto.sql.model.SQLSyntax;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.TablesMap;
@@ -30,10 +34,12 @@ import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.RTInterruptedException;
+import org.openconcerto.utils.Value;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -43,11 +49,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.StringTokenizer;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.prefs.AbstractPreferences;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
+
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
 
 import org.apache.commons.dbutils.ResultSetHandler;
 
@@ -56,7 +66,14 @@ import org.apache.commons.dbutils.ResultSetHandler;
  * 
  * @author Sylvain CUAZ
  */
+@ThreadSafe
 public class SQLPreferences extends AbstractPreferences {
+
+    private static final boolean GET_NODE_JAVA_RECURSION = false;
+
+    static private final String getJoinName(final int i) {
+        return "j" + i;
+    }
 
     private static final String PREF_NODE_TABLENAME = "PREF_NODE";
     private static final String PREF_VALUE_TABLENAME = "PREF_VALUE";
@@ -126,15 +143,24 @@ public class SQLPreferences extends AbstractPreferences {
         return res;
     }
 
+    // is called by methods holding this.lock, so it cannot try to acquire this.lock
+    private final Object nodeLock = new Object();
+
     private final SQLTable prefRT, prefWT;
     private final SQLTable nodeRT, nodeWT;
     private final MemoryRep rep;
+    // immutable
+    private final List<SQLPreferences> ancestors;
     // values from the DB
+    @GuardedBy("lock")
     private Map<String, String> values;
     // values changed in-memory (not yet committed)
+    @GuardedBy("lock")
     private final Map<String, String> changedValues;
     // values removed in-memory (not yet committed)
+    @GuardedBy("lock")
     private final Set<String> removedKeys;
+    @GuardedBy("nodeLock")
     private SQLRow node;
 
     // root node
@@ -167,10 +193,12 @@ public class SQLPreferences extends AbstractPreferences {
         this.nodeWT = nodeWT;
         this.rep = rep;
 
+        this.ancestors = Collections.unmodifiableList(this.findAncestors());
+
         this.values = null;
         this.changedValues = new HashMap<String, String>();
         this.removedKeys = new HashSet<String>();
-        this.node = null;
+        this.resetNode();
     }
 
     private final SQLTable getNodeRT() {
@@ -219,7 +247,14 @@ public class SQLPreferences extends AbstractPreferences {
         }
     }
 
-    private final LinkedList<SQLPreferences> getAncestors() {
+    private final boolean isRoot() {
+        return this.absolutePath().equals("/");
+    }
+
+    private final LinkedList<SQLPreferences> findAncestors() {
+        // parent() and node() take lock on root, so we have no way of finding our ancestor while we
+        // hold this.lock
+        assert !Thread.holdsLock(this.lock) : "Deadlock possible since we access parent()";
         final LinkedList<SQLPreferences> res = new LinkedList<SQLPreferences>();
         res.add(this);
         SQLPreferences current = this;
@@ -231,104 +266,241 @@ public class SQLPreferences extends AbstractPreferences {
         return res;
     }
 
-    public final SQLRow getNode() {
-        if (this.node == null) {
-            final SQLPreferences parent = (SQLPreferences) parent();
-            final Where parentW;
-            if (parent == null) {
-                parentW = Where.isNull(this.getNodeRT().getField("ID_PARENT"));
-            } else {
-                final SQLRow parentNode = parent.getNode();
-                parentW = parentNode == null ? null : new Where(this.getNodeRT().getField("ID_PARENT"), "=", parentNode.getID());
-            }
-            if (parentW == null) {
-                // our parent is not in the DB, we can't
-                this.node = null;
-            } else {
-                final SQLSelect sel = new SQLSelect().addSelectStar(this.getNodeRT());
-                sel.setWhere(parentW.and(new Where(this.getNodeRT().getField("NAME"), "=", name())));
-
-                @SuppressWarnings("unchecked")
-                final Map<String, ?> m = (Map<String, ?>) execute(sel.asString(), SQLDataSource.MAP_HANDLER);
-                this.node = m == null ? null : new SQLRow(this.getNodeRT(), m);
-            }
-        }
-        return this.node;
+    // ATTN per the superclass documentation, if the current thread holds this.lock it cannot ask it
+    // for an ancestor.
+    private final List<SQLPreferences> getAncestors() {
+        if (this.isRemoved())
+            throw new IllegalStateException("Node has been removed.");
+        // else our ancestors cannot be removed
+        return this.ancestors;
     }
 
-    private final SQLRow createThisNode() throws SQLException {
-        final SQLPreferences parent = (SQLPreferences) parent();
+    // makes sure the next time getNode() is called, it will fetch up to date data.
+    private final void resetNode() {
+        synchronized (this.nodeLock) {
+            this.node = null;
+        }
+    }
+
+    private final void setNode(final SQLRow r) {
+        synchronized (this.nodeLock) {
+            this.node = r;
+        }
+    }
+
+    public final SQLRow getNode() {
+        synchronized (this.nodeLock) {
+            if (this.node != null)
+                return this.node;
+            if (!GET_NODE_JAVA_RECURSION) {
+                try {
+                    final Value<SQLRow> res = this.getNodeFromRoot();
+                    if (res.hasValue()) {
+                        this.setNode(res.getValue());
+                        return res.getValue();
+                    }
+                } catch (SQLException e) {
+                    // we'll try the other way
+                    e.printStackTrace();
+                }
+            }
+        }
+        // in contrast to getNodeFromRoot() : fill in ancestor's nodes at the expense of one request
+        // per ancestor (note that we could change getNodeFromRoot() to return all rows from the
+        // root in one request)
+        final List<SQLPreferences> ancestors = getAncestors();
+        SQLRow currentNode = null;
+        for (final SQLPreferences ancestor : ancestors) {
+            currentNode = ancestor.getNode(currentNode);
+        }
+        return currentNode;
+    }
+
+    // go through the path in SQL rather than in Java objects.
+    // perhaps return all rows from the root to this
+    private final Value<SQLRow> getNodeFromRoot() throws SQLException {
+        final StringTokenizer tokenizer = new StringTokenizer(this.absolutePath(), "/");
+        final List<String> path = new ArrayList<String>();
+        while (tokenizer.hasMoreTokens()) {
+            path.add(tokenizer.nextToken());
+        }
+
+        final SQLBase base = getNodeRT().getSchema().getBase();
+        // don't bother with recursive CTE for trivial requests (further it doesn't support empty
+        // paths)
+        if (path.size() > 2 && base.getServer().getSQLSystem() == SQLSystem.POSTGRESQL) {
+            final int[] vers = base.getVersion();
+            if (vers[0] >= 9 || vers[0] == 8 && vers[1] >= 4) {
+                return Value.getSome(getNodeCTE(path, base));
+            }
+        }
+
+        return Value.getSome(getNodeJoins(path));
+    }
+
+    // perhaps do more than one query if path is long.
+    private SQLRow getNodeJoins(final List<String> path) {
+        final int size = path.size();
+        final SQLTable nodeT = getNodeRT();
+
+        final SQLSelect sel = new SQLSelect();
+        final AliasedTable rootT = new AliasedTable(nodeT, "root");
+        sel.addFrom(rootT);
+        String lastAlias = rootT.getAlias();
+        for (int i = 0; i < size; i++) {
+            final SQLSelectJoin join = sel.addBackwardJoin("INNER", getJoinName(i), nodeT.getField("ID_PARENT"), lastAlias);
+            join.setWhere(new Where(join.getJoinedTable().getField("NAME"), "=", path.get(i)));
+            lastAlias = join.getAlias();
+        }
+        sel.setWhere(Where.isNull(rootT.getField("ID_PARENT")));
+
+        sel.addSelectStar(size == 0 ? rootT : new AliasedTable(nodeT, getJoinName(size - 1)));
+
+        @SuppressWarnings("unchecked")
+        final List<Map<String, Object>> res = (List<Map<String, Object>>) execute(sel.asString(), SQLDataSource.MAP_LIST_HANDLER);
+        assert res.size() <= 1 : "Unique constraint not enforced";
+        if (res.size() == 0)
+            return null;
+        return new SQLRow(nodeT, res.get(0));
+    }
+
+    private final SQLRow getNodeCTE(final List<String> path, final SQLBase base) {
+        if (path.size() == 0)
+            throw new IllegalArgumentException("Empty path : use getNodeJoins()");
+        final List<List<String>> values = new ArrayList<List<String>>(path.size());
+        for (final String token : path) {
+            values.add(Arrays.asList(String.valueOf(values.size()), base.quoteString(token)));
+        }
+
+        final SQLTable nodeT = getNodeRT();
+        final StringBuilder sb = new StringBuilder(1024);
+        sb.append("with recursive path(idx, name) as (").append(SQLSyntax.get(base).getValues(values, 2)).append("),");
+        sb.append("\nt as (");
+
+        final SQLSelect selectRoot = new SQLSelect(true).addSelectStar(nodeT).addRawSelect("0", "depth").setWhere(Where.isNull(nodeT.getField("ID_PARENT")));
+        sb.append(selectRoot.asString()).append("\nUNION ALL\n");
+        sb.append(new SQLSelect(true).addSelectStar(nodeT).addRawSelect("\"depth\" + 1", "depth").asString());
+        sb.append("\nINNER JOIN t on t." + nodeT.getKey().getQuotedName() + " = " + nodeT.getField("ID_PARENT").getFieldRef());
+        sb.append("\nINNER JOIN path on path.idx = t.\"depth\" and path.name = ").append(nodeT.getField("NAME").getFieldRef());
+        sb.append("\n)");
+        sb.append("\nselect * from t where t.\"depth\" = (select max(idx)+1 from path)");
+
+        @SuppressWarnings("unchecked")
+        final Map<String, Object> map = (Map<String, Object>) execute(sb.toString(), SQLDataSource.MAP_HANDLER);
+        if (map == null)
+            return null;
+
+        map.keySet().retainAll(nodeT.getFieldsName());
+        return new SQLRow(nodeT, map);
+    }
+
+    private final SQLRow getNode(final SQLRow parentNode) {
+        synchronized (this.nodeLock) {
+            if (this.node == null) {
+                final Where parentW;
+                if (isRoot()) {
+                    parentW = Where.isNull(this.getNodeRT().getField("ID_PARENT"));
+                } else {
+                    parentW = parentNode == null ? null : new Where(this.getNodeRT().getField("ID_PARENT"), "=", parentNode.getID());
+                }
+                if (parentW == null) {
+                    // our parent is not in the DB, we can't
+                    this.setNode(null);
+                } else {
+                    final SQLSelect sel = new SQLSelect().addSelectStar(this.getNodeRT());
+                    sel.setWhere(parentW.and(new Where(this.getNodeRT().getField("NAME"), "=", name())));
+
+                    @SuppressWarnings("unchecked")
+                    final Map<String, ?> m = (Map<String, ?>) execute(sel.asString(), SQLDataSource.MAP_HANDLER);
+                    this.setNode(m == null ? null : new SQLRow(this.getNodeRT(), m));
+                }
+            }
+            return this.node;
+        }
+    }
+
+    private final boolean createThisNode(final SQLRow parentNode) throws SQLException {
+        assert isRoot() == (parentNode == null) : "Either the root has a parent or a node has null parent (which shouldn't happen since we're inserting rows)";
+
         final SQLRowValues insVals = new SQLRowValues(this.getNodeWT());
-        insVals.put("ID_PARENT", parent == null ? SQLRowValues.SQL_EMPTY_LINK : parent.node.getID());
+        insVals.put("ID_PARENT", parentNode == null ? SQLRowValues.SQL_EMPTY_LINK : parentNode.getID());
         insVals.put("NAME", name());
-        this.node = insVals.insert();
-        return this.node;
+        synchronized (this.nodeLock) {
+            // need to be up to date to avoid the insert failing
+            this.resetNode();
+            final boolean res = this.getNode(parentNode) == null;
+            if (res)
+                this.setNode(insVals.insert());
+            assert this.node != null;
+            return res;
+        }
     }
 
     private final boolean createNode() throws SQLException {
-        if (this.node == null) {
-            // to avoid deadlocks, do all the SELECT...
-            final Iterator<SQLPreferences> iter = getAncestors().iterator();
-            boolean rowExists = true;
-            SQLPreferences ancestor = null;
-            while (iter.hasNext() && rowExists) {
-                ancestor = iter.next();
-                rowExists = ancestor.getNode() != null;
+        final Iterator<SQLPreferences> iter = getAncestors().iterator();
+        boolean created = false;
+        SQLRow parentNode = null;
+        while (iter.hasNext()) {
+            final SQLPreferences ancestor = iter.next();
+            final boolean ancestorCreated;
+            synchronized (ancestor.nodeLock) {
+                ancestorCreated = ancestor.createThisNode(parentNode);
+                parentNode = ancestor.node;
             }
-            // ... then all the INSERT
-            // we used to insert the root node, which submitted a replicate, then select one of its
-            // children, thus waiting on the replicate. But it itself was waiting on our transaction
-            // since we inserted the root node before.
-            if (!rowExists) {
-                ancestor.createThisNode();
-                while (iter.hasNext()) {
-                    ancestor = iter.next();
-                    ancestor.createThisNode();
-                }
-                return true;
-            }
+            // since we take and release the lock at each iteration, if more than one thread
+            // executes this method then each ancestor node might get created by a different thread.
+            // I.e. the results of createThisNode might be [false, true, false, false, true].
+            created |= ancestorCreated;
         }
-        return false;
+        return created;
     }
 
     public final Map<String, String> getValues() {
-        if (this.values == null) {
-            this.values = new HashMap<String, String>();
-            final SQLRow node = getNode();
-            if (node != null) {
-                final SQLSelect sel = new SQLSelect().addSelectStar(this.getPrefRT());
-                sel.setWhere(new Where(this.getPrefRT().getField("ID_NODE"), "=", node.getID()));
+        synchronized (this.lock) {
+            if (this.values == null) {
+                this.values = new HashMap<String, String>();
+                final SQLRow node = getNode();
+                if (node != null) {
+                    final SQLSelect sel = new SQLSelect().addSelectStar(this.getPrefRT());
+                    sel.setWhere(new Where(this.getPrefRT().getField("ID_NODE"), "=", node.getID()));
 
-                @SuppressWarnings("unchecked")
-                final List<Map<String, Object>> l = (List<Map<String, Object>>) execute(sel.asString(), SQLDataSource.MAP_LIST_HANDLER);
-                for (final Map<String, Object> r : l) {
-                    this.values.put(r.get("NAME").toString(), r.get("VALUE").toString());
+                    @SuppressWarnings("unchecked")
+                    final List<Map<String, Object>> l = (List<Map<String, Object>>) execute(sel.asString(), SQLDataSource.MAP_LIST_HANDLER);
+                    for (final Map<String, Object> r : l) {
+                        this.values.put(r.get("NAME").toString(), r.get("VALUE").toString());
+                    }
                 }
             }
+            return this.values;
         }
-        return this.values;
     }
 
     @Override
     protected void putSpi(String key, String value) {
-        this.changedValues.put(key, value);
-        this.removedKeys.remove(key);
+        synchronized (this.lock) {
+            this.changedValues.put(key, value);
+            this.removedKeys.remove(key);
+        }
     }
 
     @Override
     protected void removeSpi(String key) {
-        this.removedKeys.add(key);
-        this.changedValues.remove(key);
+        synchronized (this.lock) {
+            this.removedKeys.add(key);
+            this.changedValues.remove(key);
+        }
     }
 
     @Override
     protected String getSpi(String key) {
-        if (this.removedKeys.contains(key))
-            return null;
-        else if (this.changedValues.containsKey(key))
-            return this.changedValues.get(key);
-        else
-            return this.getValues().get(key);
+        synchronized (this.lock) {
+            if (this.removedKeys.contains(key))
+                return null;
+            else if (this.changedValues.containsKey(key))
+                return this.changedValues.get(key);
+            else
+                return this.getValues().get(key);
+        }
     }
 
     // null means delete all
@@ -348,42 +520,45 @@ public class SQLPreferences extends AbstractPreferences {
 
     @Override
     protected void removeNodeSpi() throws BackingStoreException {
-        try {
-            final SQLRow node = this.getNode();
-            if (node != null) {
-                SQLUtils.executeAtomic(getWriteDS(), new ConnectionHandlerNoSetup<Object, SQLException>() {
-                    @Override
-                    public Object handle(SQLDataSource ds) throws SQLException {
-                        deleteValues(null);
-                        ds.execute("DELETE FROM " + getNodeWT().getSQLName().quote() + " where \"ID\" = " + node.getID());
-                        return null;
-                    }
-                });
-                replicate();
-                this.node = null;
+        synchronized (this.lock) {
+            try {
+                final SQLRow node = this.getNode();
+                if (node != null) {
+                    SQLUtils.executeAtomic(getWriteDS(), new ConnectionHandlerNoSetup<Object, SQLException>() {
+                        @Override
+                        public Object handle(SQLDataSource ds) throws SQLException {
+                            deleteValues(null);
+                            ds.execute("DELETE FROM " + getNodeWT().getSQLName().quote() + " where \"ID\" = " + node.getID());
+                            return null;
+                        }
+                    });
+                    replicate();
+                    this.resetNode();
+                }
+            } catch (Exception e) {
+                throw new BackingStoreException(e);
             }
-        } catch (Exception e) {
-            throw new BackingStoreException(e);
+            this.values = null;
+            this.removedKeys.clear();
+            this.changedValues.clear();
         }
-        assert this.node == null;
-        this.values = null;
-        this.removedKeys.clear();
-        this.changedValues.clear();
     }
 
     @Override
     protected String[] keysSpi() throws BackingStoreException {
         try {
-            final Set<String> committedKeys = this.getValues().keySet();
-            final Set<String> res;
-            if (this.removedKeys.isEmpty() && this.changedValues.isEmpty()) {
-                res = committedKeys;
-            } else {
-                res = new HashSet<String>(committedKeys);
-                res.removeAll(this.removedKeys);
-                res.addAll(this.changedValues.keySet());
+            synchronized (this.lock) {
+                final Set<String> committedKeys = this.getValues().keySet();
+                final Set<String> res;
+                if (this.removedKeys.isEmpty() && this.changedValues.isEmpty()) {
+                    res = committedKeys;
+                } else {
+                    res = new HashSet<String>(committedKeys);
+                    res.removeAll(this.removedKeys);
+                    res.addAll(this.changedValues.keySet());
+                }
+                return res.toArray(new String[res.size()]);
             }
-            return res.toArray(new String[res.size()]);
         } catch (Exception e) {
             throw new BackingStoreException(e);
         }
@@ -392,20 +567,22 @@ public class SQLPreferences extends AbstractPreferences {
     @Override
     protected String[] childrenNamesSpi() throws BackingStoreException {
         try {
-            final SQLRow node = this.getNode();
-            if (node == null) {
-                // OK since "This method need not return the names of any nodes already cached"
-                // so if we call pref.node("a/b/c") with no existing nodes this still works
-                return new String[0];
-            }
+            synchronized (this.lock) {
+                final SQLRow node = this.getNode();
+                if (node == null) {
+                    // OK since "This method need not return the names of any nodes already cached"
+                    // so if we call pref.node("a/b/c") with no existing nodes this still works
+                    return new String[0];
+                }
 
-            final int nodeID = node.getID();
-            final SQLSelect sel = new SQLSelect().addSelect(this.getNodeRT().getField("NAME"));
-            final Where w = new Where(this.getNodeRT().getField("ID_PARENT"), "=", nodeID);
-            sel.setWhere(w);
-            @SuppressWarnings("unchecked")
-            final List<String> names = (List<String>) execute(sel.asString(), SQLDataSource.COLUMN_LIST_HANDLER);
-            return names.toArray(new String[names.size()]);
+                final int nodeID = node.getID();
+                final SQLSelect sel = new SQLSelect().addSelect(this.getNodeRT().getField("NAME"));
+                final Where w = new Where(this.getNodeRT().getField("ID_PARENT"), "=", nodeID);
+                sel.setWhere(w);
+                @SuppressWarnings("unchecked")
+                final List<String> names = (List<String>) execute(sel.asString(), SQLDataSource.COLUMN_LIST_HANDLER);
+                return names.toArray(new String[names.size()]);
+            }
         } catch (Exception e) {
             throw new BackingStoreException(e);
         }
@@ -422,45 +599,76 @@ public class SQLPreferences extends AbstractPreferences {
         super.sync();
     }
 
+    // sync without flushing
+    public void reset() throws BackingStoreException {
+        this.replicate();
+        this.resetRec();
+    }
+
+    private final void resetRec() throws BackingStoreException {
+        synchronized (this.lock) {
+            for (final AbstractPreferences kid : this.cachedChildren()) {
+                ((SQLPreferences) kid).resetRec();
+            }
+            this.resetThis();
+        }
+    }
+
+    // per our superclass documentation we must reflect the change of the persistent store :
+    // - if some keys were changed, the next getValues() will fetch them ;
+    // - if our node was deleted, we have to call removeNode() otherwise our parent will still
+    // have us in kidCache and sync() will be called our cached kids.
+    // Don't call getValues() or childrenNamesSpi() here so that when asked they'll be the most
+    // up to date
+    private final void resetThis() throws BackingStoreException {
+        synchronized (this.lock) {
+            this.values = null;
+            this.removedKeys.clear();
+            this.changedValues.clear();
+            this.resetNode();
+            if (this.getNode() == null)
+                this.removeNode();
+        }
+    }
+
     @Override
     protected void syncSpi() throws BackingStoreException {
-        this.flushSpi();
-        // per our superclass documentation we must reflect the change of the persistent store :
-        // - if some keys were changed, the next getValues() will fetch them ;
-        // - if our node was deleted, we have to call removeNode() otherwise our parent will still
-        // have us in kidCache and sync() will be called our cached kids.
-        // Don't call getValues() or childrenNamesSpi() here so that when asked they'll be the most
-        // up to date
-        this.values = null;
-        this.node = null;
-        if (this.getNode() == null)
-            this.removeNode();
+        synchronized (this.lock) {
+            this.flushSpi();
+            this.resetThis();
+        }
     }
 
     @Override
     protected void flushSpi() throws BackingStoreException {
-        if (!this.nodeExists(""))
-            // values and node already removed in removeNodeSpi()
-            return;
-        try {
-            SQLUtils.executeAtomic(getWriteDS(), new ConnectionHandlerNoSetup<Object, SQLException>() {
-                @Override
-                public Object handle(SQLDataSource ds) throws SQLException {
-                    flushTxn();
-                    return null;
-                }
-            });
-        } catch (Exception e) {
-            throw new BackingStoreException(e);
+        synchronized (this.lock) {
+            if (!this.nodeExists(""))
+                // values and node already removed in removeNodeSpi()
+                return;
+            try {
+                SQLUtils.executeAtomic(getWriteDS(), new ConnectionHandlerNoSetup<Object, SQLException>() {
+                    @Override
+                    public Object handle(SQLDataSource ds) throws SQLException {
+                        flushTxn();
+                        return null;
+                    }
+                });
+            } catch (Exception e) {
+                throw new BackingStoreException(e);
+            }
         }
     }
 
     protected final void flushTxn() throws SQLException {
+        assert Thread.holdsLock(this.lock);
         // create node even if there's no values nor any children
         boolean masterChanged = createNode();
         if (this.removedKeys.size() > 0 || this.changedValues.size() > 0) {
             // also delete changed, so we can insert afterwards
             this.deleteValues(CollectionUtils.union(this.removedKeys, this.changedValues.keySet()));
+            // MAYBE remove and clear after transaction commit
+            if (this.values != null)
+                this.values.keySet().removeAll(this.removedKeys);
             this.removedKeys.clear();
 
             if (this.changedValues.size() > 0) {
@@ -468,6 +676,9 @@ public class SQLPreferences extends AbstractPreferences {
                 final List<String> insValues = new ArrayList<String>(this.changedValues.size());
                 for (final Entry<String, String> e : this.changedValues.entrySet()) {
                     insValues.add("(" + nodeID + ", " + this.getPrefWT().getBase().quoteString(e.getKey()) + ", " + this.getPrefWT().getBase().quoteString(e.getValue()) + ")");
+                    // MAYBE put after transaction commit
+                    if (this.values != null)
+                        this.values.put(e.getKey(), e.getValue());
                 }
 
                 SQLRowValues.insertCount(this.getPrefWT(), "(\"ID_NODE\", \"NAME\", \"VALUE\") VALUES" + CollectionUtils.join(insValues, ", "));

@@ -262,16 +262,20 @@ public class ReportGeneration<C extends GenerationCommon> {
                     // the document for <sub>
                     final ODSingleXMLDocument newDoc;
                     final String docID = subReportPart.getDocumentID();
-                    if (docID == null)
+                    if (docID == null) {
                         newDoc = currentDoc;
-                    else if (res.containsKey(docID)) {
+                    } else if (res.containsKey(docID)) {
                         newDoc = res.get(docID);
+                    } else if (subReportPart.isSinglePart()) {
+                        newDoc = null;
+                        res.put(docID, this.createTaskAndGenerate(((GeneratorReportPart) subReportPart.getChildren().iterator().next())));
                     } else {
                         newDoc = this.createEmptyDocument();
                         res.put(docID, newDoc);
                     }
                     // ajoute ses enfants
-                    s.push(Tuple2.create(subReportPart.getChildren().iterator(), newDoc));
+                    if (newDoc != null)
+                        s.push(Tuple2.create(subReportPart.getChildren().iterator(), newDoc));
                 } else if (part instanceof InsertReportPart) {
                     final GenThread thread = forked.get(part.getName());
                     if (thread == null)
@@ -337,6 +341,7 @@ public class ReportGeneration<C extends GenerationCommon> {
 
         this.getCommon().preProcessDocument(f);
 
+        assert f != null;
         return f;
     }
 

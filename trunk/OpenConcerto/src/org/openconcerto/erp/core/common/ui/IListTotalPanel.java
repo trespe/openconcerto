@@ -93,7 +93,7 @@ public class IListTotalPanel extends JPanel {
         c.gridx = GridBagConstraints.RELATIVE;
         c.weightx = 0;
         if (title != null && title.trim().length() > 0) {
-            TitledSeparator sep = new TitledSeparator(title);
+            JLabel sep = new JLabel(title);
             c.weightx = 1;
             c.gridwidth = GridBagConstraints.REMAINDER;
             this.add(sep, c);
@@ -103,7 +103,11 @@ public class IListTotalPanel extends JPanel {
         // Filtre
         for (Tuple2<? extends SQLTableModelColumn, Type> field2 : listField) {
             c.weightx = 0;
-            JLabelBold comp = new JLabelBold(field2.get0().getName());
+            final SQLTableModelColumn col = field2.get0();
+            if (col == null) {
+                throw new IllegalStateException("null SQLTableModelColumn in " + listField);
+            }
+            final JLabelBold comp = new JLabelBold(col.getName());
             comp.setHorizontalAlignment(SwingConstants.RIGHT);
             this.add(comp, c);
             JLabelBold textField = new JLabelBold("0");
@@ -111,6 +115,7 @@ public class IListTotalPanel extends JPanel {
             this.map.put(field2.get0(), textField);
             c.weightx = 1;
             this.add(textField, c);
+            c.weightx = 0;
             if (field2.get1() == Type.SOMME || field2.get1() == Type.MOYENNE_DEVISE) {
                 this.add(new JLabelBold("€"), c);
             } else if (field2.get1() == Type.MOYENNE_POURCENT || field2.get1() == Type.MOYENNE_MARGE) {

@@ -17,6 +17,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JComponentUtils;
+import org.openconcerto.sql.TM;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -85,7 +86,7 @@ public class RowValuesTableControlPanel extends JPanel {
         this.add(this.buttonBas, c);
         this.buttonBas.setEnabled(false);
 
-        this.buttonAjouter = new JButton("Ajouter une ligne");
+        this.buttonAjouter = new JButton(TM.tr("addNewLine"));
         this.buttonAjouter.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent event) {
                 RowValuesTableControlPanel.this.model.addNewRowAt(table.getRowCount());
@@ -95,7 +96,7 @@ public class RowValuesTableControlPanel extends JPanel {
         JComponentUtils.setMinimumWidth(this.buttonAjouter, 88);
         this.add(this.buttonAjouter, c);
 
-        this.buttonInserer = new JButton("Insérer une ligne");
+        this.buttonInserer = new JButton(TM.tr("insertNewLine"));
         this.buttonInserer.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent event) {
                 RowValuesTableControlPanel.this.model.addNewRowAt(table.getSelectedRow());
@@ -106,7 +107,7 @@ public class RowValuesTableControlPanel extends JPanel {
         JComponentUtils.setMinimumWidth(this.buttonInserer, 85);
         this.add(this.buttonInserer, c);
 
-        this.buttonClone = new JButton("Dupliquer une ligne");
+        this.buttonClone = new JButton(TM.tr("duplicateLine"));
         this.buttonClone.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent event) {
                 cloneLine(table.getSelectedRow());
@@ -117,7 +118,7 @@ public class RowValuesTableControlPanel extends JPanel {
         JComponentUtils.setMinimumWidth(this.buttonClone, 95);
         this.add(this.buttonClone, c);
 
-        this.buttonSuppr = new JButton("Supprimer la sélection");
+        this.buttonSuppr = new JButton(TM.tr("deleteLine"));
         this.buttonSuppr.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent event) {

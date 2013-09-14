@@ -50,7 +50,7 @@ public class BrowserStateManager extends ListenerXMLStateManager<SQLBrowser, Hie
                     try {
                         saveState();
                     } catch (IOException exn) {
-                        ExceptionHandler.handle(getSrc(), "Impossible de sauvegarder la taille des colonnes", exn);
+                        ExceptionHandler.handle(getSrc(), org.openconcerto.ui.TM.tr("saveColumnsWidth"), exn);
                     }
             }
         };

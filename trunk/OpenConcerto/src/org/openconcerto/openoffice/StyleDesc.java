@@ -48,6 +48,7 @@ public abstract class StyleDesc<S extends Style> {
                     return toClone.create(pkg, e);
                 }
             };
+            res.setElementNS(version.getNS(toClone.getElementNS().getPrefix()));
             res.getRefElementsMap().putAll(toClone.getRefElementsMap());
             res.getMultiRefElementsMap().putAll(toClone.getMultiRefElementsMap());
             return res;
@@ -290,5 +291,10 @@ public abstract class StyleDesc<S extends Style> {
     }
 
     protected void initStyle(final Element elem) {
+    }
+
+    @Override
+    public String toString() {
+        return this.getClass().getSimpleName() + " for " + this.getElementNS().getPrefix() + ":" + this.getElementName();
     }
 }

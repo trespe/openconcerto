@@ -40,7 +40,6 @@ import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ExecutionException;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -69,9 +68,8 @@ public class TotalPanel extends JPanel implements TableModelListener {
     private PropertyChangeSupport supp;
     private int columnIndexEchHT = -1;
     private int columnIndexEchTTC = -1;
-    SQLTableElement ha;
+    private SQLTableElement ha;
     private SQLRequestComboBox selPortTVA;
-    private TotalCalculator calc;
 
     AbstractArticleItemTable articleTable;
 
@@ -388,18 +386,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
     }
 
     public void tableChanged(TableModelEvent e) {
-        int columnIndexForElementHT = this.articleTable.getModel().getColumnIndexForElement(this.articleTable.getPrixTotalHTElement());
-        int columnIndexForElementTVA = this.articleTable.getModel().getColumnIndexForElement(this.articleTable.getTVAElement());
-        int columnIndexForElementDevise = this.articleTable.getModel().getColumnIndexForElement(this.articleTable.getTableElementTotalDevise());
-
-        int columnIndexForElementEchHT = -1;
-        int columnIndexForElementEchTTC = -1;
-
-        if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() == columnIndexForElementHT || e.getColumn() == columnIndexForElementTVA || e.getColumn() == columnIndexForElementEchHT
-                || e.getColumn() == columnIndexForElementEchTTC || e.getColumn() == columnIndexForElementDevise) {
-            // System.out.println(e);
-            updateTotal();
-        }
+        updateTotal();
     }
 
     private static String CLEAR = "";
@@ -478,11 +465,11 @@ public class TotalPanel extends JPanel implements TableModelListener {
         final SQLRow tvaPort = selPortTVA == null ? null : selPortTVA.getSelectedRow();
         final SQLRowValues rowValsPort;
         // TVA Port inclus
-        if (tvaPort != null && !valPortHT.equals(BigDecimal.ZERO) && !tvaPort.isUndefined()) {
+        if (tvaPort != null && valPortHT.signum() != 0 && !tvaPort.isUndefined()) {
             rowValsPort = new SQLRowValues(articleTable.getSQLElement().getTable());
             rowValsPort.put(articleTable.getPrixTotalHTElement().getField().getName(), valPortHT);
             rowValsPort.put("QTE", 1);
-            rowValsPort.put("ID_TAXE", tvaPort);
+            rowValsPort.put("ID_TAXE", tvaPort.getIDNumber());
         } else {
             rowValsPort = null;
         }
@@ -497,29 +484,25 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
                 params.fetchArticle();
 
-                if (calc == null) {
-                    SQLTableElement tableElementTotalDevise = articleTable.getTableElementTotalDevise();
-                    String fieldDevise = (tableElementTotalDevise == null ? null : tableElementTotalDevise.getField().getName());
+                SQLTableElement tableElementTotalDevise = articleTable.getTableElementTotalDevise();
+                String fieldDevise = (tableElementTotalDevise == null ? null : tableElementTotalDevise.getField().getName());
 
-                    SQLTableElement tableElementTotalHA = (articleTable.getPrebilanElement() == null) ? articleTable.getTotalHaElement() : articleTable.getPrebilanElement();
-                    String fieldHA = (tableElementTotalHA == null ? null : tableElementTotalHA.getField().getName());
-                    SQLTableElement tableElementTotalHT = articleTable.getPrixTotalHTElement();
-                    String fieldHT = (tableElementTotalHT == null ? null : tableElementTotalHT.getField().getName());
+                SQLTableElement tableElementTotalHA = (articleTable.getPrebilanElement() == null) ? articleTable.getTotalHaElement() : articleTable.getPrebilanElement();
+                String fieldHA = (tableElementTotalHA == null ? null : tableElementTotalHA.getField().getName());
+                SQLTableElement tableElementTotalHT = articleTable.getPrixTotalHTElement();
+                String fieldHT = (tableElementTotalHT == null ? null : tableElementTotalHT.getField().getName());
 
-                    calc = new TotalCalculator(fieldHA, fieldHT, fieldDevise);
-
-                }
-                calc.initValues();
+                final TotalCalculator calc = new TotalCalculator(fieldHA, fieldHT, fieldDevise);
                 calc.setSelectedRows(selectedRows);
 
                 // Calcul avant remise
                 final BigDecimal totalHTAvtremise;
 
+                final int size = list.size();
+                calc.setServiceActive(isServiceActive);
                 if (valRemiseHT != 0) {
-                    calc.setServiceActive(isServiceActive);
 
-                    for (int i = 0; i < list.size(); i++) {
-
+                    for (int i = 0; i < size; i++) {
                         SQLRowValues rowVals = list.get(i);
                         calc.addLine(rowVals, params.getMapArticle().get(rowVals.getInt("ID_ARTICLE")), i, false);
                     }
@@ -538,14 +521,17 @@ public class TotalPanel extends JPanel implements TableModelListener {
                 }
 
                 calc.initValues();
+                calc.setSelectedRows(selectedRows);
                 calc.setRemise(valRemiseHT, totalHTAvtremise);
 
 
                 // Total des elements
-                int rowCount = list.size();
+                int rowCount = size;
                 for (int i = 0; i < rowCount; i++) {
                     SQLRowValues values = list.get(i);
-                    calc.addLine(values, params.getMapArticle().get(values.getInt("ID_ARTICLE")), i, i == (rowCount - 1));
+
+                    Object id = values.getObject("ID_ARTICLE");
+                    calc.addLine(values, (id == null) ? null : params.getMapArticle().get(id), i, i == (rowCount - 1));
                 }
 
                 // TVA Port inclus
@@ -589,11 +575,13 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
                         BigDecimal m = BigDecimal.ZERO;
                         BigDecimal d = BigDecimal.ZERO;
-                        if (totalHA.compareTo(BigDecimal.ZERO) > 0) {
+                        if (totalHA.signum() != 0) {
                             // d = totalHT.subtract(valRemiseHT).subtract(totalHA);
                             d = totalHT.subtract(totalHA);
                             if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
-                                m = d.divide(totalHT, MathContext.DECIMAL128).movePointRight(2);
+                                if (totalHT.signum() != 0) {
+                                    m = d.divide(totalHT, MathContext.DECIMAL128).movePointRight(2);
+                                }
                             } else {
                                 m = d.divide(totalHA, MathContext.DECIMAL128).movePointRight(2);
                             }
@@ -631,9 +619,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
                     }
                     supp.firePropertyChange("value", null, null);
-                } catch (InterruptedException e1) {
-                    ExceptionHandler.handle("", e1);
-                } catch (ExecutionException e1) {
+                } catch (Exception e1) {
                     ExceptionHandler.handle("", e1);
                 }
             }

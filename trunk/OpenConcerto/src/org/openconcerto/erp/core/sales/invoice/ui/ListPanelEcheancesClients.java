@@ -29,10 +29,11 @@ import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSource;
 
 import java.awt.event.ActionEvent;
+import java.util.Calendar;
+import java.util.Date;
 
 import javax.swing.JButton;
 import javax.swing.JTable;
-import javax.swing.SwingUtilities;
 
 public class ListPanelEcheancesClients extends ListeAddPanel {
 
@@ -40,13 +41,19 @@ public class ListPanelEcheancesClients extends ListeAddPanel {
 
     private EditFrame editFrame;
     private boolean showRegCompta = false;
+    private boolean onlyOld = false;
 
     public ListPanelEcheancesClients() {
-        this(Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT"));
+        this(false);
     }
 
-    private ListPanelEcheancesClients(final SQLElement elem) {
+    public ListPanelEcheancesClients(boolean onlyOld) {
+        this(Configuration.getInstance().getDirectory().getElement("ECHEANCE_CLIENT"), onlyOld);
+    }
+
+    private ListPanelEcheancesClients(final SQLElement elem, boolean onlyOld) {
         super(elem, new IListe(elem.getTableSource(true)));
+        this.onlyOld = onlyOld;
         setListe();
     }
 
@@ -81,49 +88,49 @@ public class ListPanelEcheancesClients extends ListeAddPanel {
     }
 
     private void setListe() {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
+        // FIXME : remove queries from AWT
+        final SQLTable elementEchT = getListe().getSource().getPrimaryTable();
+        Where wNotRegle = new Where(elementEchT.getField("REGLE"), "=", Boolean.FALSE);
+        if (!showRegCompta) {
+            wNotRegle = wNotRegle.and(new Where(elementEchT.getField("REG_COMPTA"), "=", Boolean.FALSE));
+        }
+        if (onlyOld) {
+            Calendar c = Calendar.getInstance();
+            c.add(Calendar.DAY_OF_MONTH, -7);
+            Date date = c.getTime();
+            wNotRegle = wNotRegle.and(new Where(elementEchT.getField("DATE"), "<", date));
+        }
+        getListe().getRequest().setWhere(wNotRegle);
 
-                final SQLTable elementEchT = getListe().getSource().getPrimaryTable();
-                Where wNotRegle = new Where(elementEchT.getField("REGLE"), "=", Boolean.FALSE);
-                if (!showRegCompta) {
-                    wNotRegle = wNotRegle.and(new Where(elementEchT.getField("REG_COMPTA"), "=", Boolean.FALSE));
-                }
-                getListe().getRequest().setWhere(wNotRegle);
-
-                // this.buttonAjouter.setVisible(false);
-                final ListEcheanceClientRenderer rend = new ListEcheanceClientRenderer();
-                for (int i = 0; i < ListPanelEcheancesClients.this.getListe().getJTable().getColumnCount(); i++) {
-                    if (ListPanelEcheancesClients.this.getListe().getJTable().getColumnClass(i) != Boolean.class) {
-
-                        ListPanelEcheancesClients.this.getListe().getJTable().getColumnModel().getColumn(i).setCellRenderer(rend);
-                    }
-                }
-                // this.getListe().setSQLEditable(false);
-                ListPanelEcheancesClients.this.buttonAjouter.setVisible(false);
-                ListPanelEcheancesClients.this.buttonEffacer.setVisible(false);
-                ListPanelEcheancesClients.this.buttonModifier.setVisible(false);
-
-                final SQLTableModelSource src = ListPanelEcheancesClients.this.getListe().getSource();
-
-                ListPanelEcheancesClients.this.getListe().setSQLEditable(true);
-
-                for (SQLTableModelColumn column : src.getColumns()) {
-                    if (column.getClass().isAssignableFrom(SQLTableModelColumnPath.class)) {
-                        ((SQLTableModelColumnPath) column).setEditable(false);
-                    }
-                }
-
-                ((SQLTableModelColumnPath) src.getColumns(getElement().getTable().getField("INFOS")).iterator().next()).setEditable(true);
-
+        final ListEcheanceClientRenderer rend = new ListEcheanceClientRenderer();
+        final JTable jTable = ListPanelEcheancesClients.this.getListe().getJTable();
+        final int columnCount = jTable.getColumnCount();
+        for (int i = 0; i < columnCount; i++) {
+            if (jTable.getColumnClass(i) != Boolean.class) {
+                jTable.getColumnModel().getColumn(i).setCellRenderer(rend);
             }
-        });
+        }
+
+        ListPanelEcheancesClients.this.buttonAjouter.setVisible(false);
+        ListPanelEcheancesClients.this.buttonEffacer.setVisible(false);
+        ListPanelEcheancesClients.this.buttonModifier.setVisible(false);
+
+        final SQLTableModelSource src = ListPanelEcheancesClients.this.getListe().getSource();
+
+        ListPanelEcheancesClients.this.getListe().setSQLEditable(true);
+
+        for (SQLTableModelColumn column : src.getColumns()) {
+            if (column.getClass().isAssignableFrom(SQLTableModelColumnPath.class)) {
+                ((SQLTableModelColumnPath) column).setEditable(false);
+            }
+        }
+
+        ((SQLTableModelColumnPath) src.getColumns(getElement().getTable().getField("INFOS")).iterator().next()).setEditable(true);
+
     }
 
     @Override
     public SQLComponent getModifComp() {
-        // TODO Auto-generated method stub
         return null;
     }
 }

@@ -37,6 +37,10 @@ public abstract class SQLIdentifier extends DBStructureItemJDBC {
 
     // ** names
 
+    public final String getQuotedName() {
+        return SQLBase.quoteIdentifier(this.getName());
+    }
+
     /**
      * The complete name from the root.
      * 

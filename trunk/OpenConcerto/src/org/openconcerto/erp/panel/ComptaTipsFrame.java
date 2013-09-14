@@ -142,7 +142,8 @@ public class ComptaTipsFrame extends TipsFrame {
             t11.addImage(ComptaTipsFrame.class.getResource("tips_add.png"));
             f.addTip(t11);
             f.setCurrentTip(0);
-            f.setAlwaysOnTop(true);
+            // don't setAlwaysOnTop(true) since this will hide errors and emergency module frame
+            // (plus this is system wide)
             f.setLocationRelativeTo(null);
             f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
             return f;

@@ -29,6 +29,18 @@ import java.util.Map;
 import java.util.Set;
 
 public abstract class FieldExpander {
+
+    static private final FieldExpander EMPTY = new FieldExpander() {
+        @Override
+        protected List<SQLField> expandOnce(SQLField field) {
+            return Collections.emptyList();
+        }
+    };
+
+    public static FieldExpander getEmpty() {
+        return EMPTY;
+    }
+
     // eg |TABLEAU.ID_OBSERVATION| -> [[DESIGNATION], []]
     private final Map<IFieldPath, List<FieldPath>> cache;
     private final Map<List<? extends IFieldPath>, List<Tuple2<Path, List<FieldPath>>>> cacheGroupBy;

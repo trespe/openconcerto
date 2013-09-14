@@ -39,9 +39,14 @@ public class UserManager {
         return instance;
     }
 
-    public static final int getUserID() {
+    public static final User getUser() {
         final UserManager mngr = getInstance();
-        return mngr == null || mngr.getCurrentUser() == null ? SQLRow.NONEXISTANT_ID : mngr.getCurrentUser().getId();
+        return mngr == null ? null : mngr.getCurrentUser();
+    }
+
+    public static final int getUserID() {
+        final User user = getUser();
+        return user == null ? SQLRow.NONEXISTANT_ID : user.getId();
     }
 
     private final SQLTable t;

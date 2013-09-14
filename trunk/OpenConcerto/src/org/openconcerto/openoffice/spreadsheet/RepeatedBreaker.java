@@ -79,23 +79,29 @@ abstract class RepeatedBreaker<P, C extends ODNode> {
         final String repeatedS = element.getAttributeValue(this.attrName, element.getNamespace());
         if (repeatedS != null) {
             final int repeated = Integer.parseInt(repeatedS);
+            // since for repeated elements, the same instance is at multiple index
             final int firstIndex = children.indexOf(c);
             final int lastIndex = firstIndex + repeated - 1;
+            assert children.get(lastIndex) == c;
+            // not the same as firstIndex as they're can be repeated elements before
+            final int indexOfElement = element.getParent().indexOf(element);
 
             final int preRepeated = col - firstIndex;
             final int postRepeated = lastIndex - col;
 
-            breakRepeated(parent, children, element, firstIndex, preRepeated, true);
+            // start from the end to avoid changing indexOfElement
+            breakRepeated(parent, children, element, indexOfElement, col + 1, postRepeated, false);
             element.removeAttribute(this.attrName, element.getNamespace());
-            breakRepeated(parent, children, element, col + 1, postRepeated, false);
+            breakRepeated(parent, children, element, indexOfElement, firstIndex, preRepeated, true);
         }
         children.set(col, this.create(element, parent, col, true));
     }
 
-    private final void breakRepeated(final P parent, final List<C> children, Element element, int firstIndex, int repeat, boolean before) {
+    private final void breakRepeated(final P parent, final List<C> children, Element element, final int indexOfElement, int firstIndex, int repeat, boolean before) {
         if (repeat > 0) {
             final Element newElem = (Element) element.clone();
-            element.getParentElement().addContent(element.getParent().indexOf(element) + (before ? 0 : 1), newElem);
+            assert element.getParent().getContent(indexOfElement) == element;
+            element.getParentElement().addContent(indexOfElement + (before ? 0 : 1), newElem);
             setRepeated(newElem, this.attrName, repeat);
             final C preCell = this.create(newElem, parent, firstIndex, false);
             for (int i = 0; i < repeat; i++) {

@@ -19,8 +19,7 @@ import org.openconcerto.sql.model.SQLTable;
 
 public class BrFactureAchatSQLInjector extends SQLInjector {
     public BrFactureAchatSQLInjector(final DBRoot root) {
-        super(root, "BON_RECEPTION", "SAISIE_ACHAT");
-
+        super(root, "BON_RECEPTION", "SAISIE_ACHAT", true);
         final SQLTable tableBon = getSource();
         final SQLTable tableAchat = getDestination();
         map(tableBon.getField("ID_FOURNISSEUR"), tableAchat.getField("ID_FOURNISSEUR"));

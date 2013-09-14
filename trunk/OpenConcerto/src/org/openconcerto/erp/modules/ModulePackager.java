@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StreamUtils;
 
 import java.io.BufferedInputStream;
@@ -32,6 +33,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipFile;
+
+import net.jcip.annotations.ThreadSafe;
 
 /**
  * Package a module from its properties and classes.
@@ -219,5 +222,61 @@ public class ModulePackager {
         } finally {
             f.close();
         }
+    }
+
+    @ThreadSafe
+    public static class ModuleFiles {
+        private final File baseDir;
+        private final File propsFile;
+
+        public ModuleFiles(final File baseDir, final String propsFileName) {
+            this.baseDir = baseDir;
+            this.propsFile = new File(this.baseDir, propsFileName == null ? "module.properties" : propsFileName);
+        }
+
+        public final File getBaseDir() {
+            return this.baseDir;
+        }
+
+        public final File getPropertiesFile() {
+            return this.propsFile;
+        }
+
+        public File getClassesDir() {
+            return new File(this.getBaseDir(), "bin");
+        }
+
+        public File getLibrariesDir() {
+            return new File(this.getBaseDir(), "lib");
+        }
+
+        public File getDistDir() {
+            return new File(this.getBaseDir(), "dist");
+        }
+    }
+
+    public static File createDist(final File moduleDir) throws IOException {
+        return createDist(new ModuleFiles(moduleDir, null));
+    }
+
+    public static File createDist(final ModuleFiles files) throws IOException {
+        final File distDir = files.getDistDir();
+        FileUtils.mkdir_p(distDir);
+        final ModulePackager pkger = new ModulePackager(files.getPropertiesFile(), files.getClassesDir());
+        final File libDir = files.getLibrariesDir();
+        if (libDir.exists()) {
+            pkger.setSkipDuplicateFiles(true);
+            pkger.addJarsFromDir(libDir);
+        }
+        return pkger.writeToDir(distDir);
+    }
+
+    public static void main(String[] args) throws IOException {
+        if (args.length != 1) {
+            System.err.println("Usage : " + ModulePackager.class.getName() + " moduleBaseDir");
+            System.exit(1);
+        }
+        final File jar = createDist(ModuleLauncher.createModuleFiles(args[0]));
+        System.out.println("Created " + jar.getCanonicalPath());
     }
 }

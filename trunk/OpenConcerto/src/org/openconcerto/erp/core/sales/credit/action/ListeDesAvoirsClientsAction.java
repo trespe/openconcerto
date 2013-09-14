@@ -66,6 +66,7 @@ public class ListeDesAvoirsClientsAction extends CreateFrameAbstractAction {
         IListFilterDatePanel datePanel = new IListFilterDatePanel(frame.getPanel().getListe(), element.getTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
         c.gridy++;
         c.anchor = GridBagConstraints.CENTER;
+        datePanel.setFilterOnDefault();
         frame.getPanel().add(datePanel, c);
 
         frame.getPanel().getListe().addIListeActions(new MouseSheetXmlListeListener(AvoirClientXmlSheet.class).getRowActions());

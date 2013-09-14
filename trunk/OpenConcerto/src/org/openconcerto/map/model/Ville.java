@@ -224,8 +224,8 @@ public class Ville {
         return list;
     }
 
-    public static synchronized Ville getVilleContaining(String string, int codepostal) {
-        if (codepostal <= 0 && string.length() <= 2) {
+    public static synchronized Ville getVilleContaining(String string, String codepostal) {
+        if (codepostal.length() < 0 && string.length() <= 2) {
             return null;
         }
 
@@ -249,14 +249,14 @@ public class Ville {
         return null;
     }
 
-    private static List<Ville> getVillesFromCode(int cp) {
-        String string = String.valueOf(cp);
+    private static List<Ville> getVillesFromCode(String cp) {
+
         List<Ville> list = new ArrayList<Ville>();
         final List<Ville> l = getVilles();
         final int size = l.size();
         for (int i = 0; i < size; i++) {
             final Ville v = l.get(i);
-            if (v.getCodepostal().toLowerCase().indexOf(string) >= 0) {
+            if (v.getCodepostal().toLowerCase().indexOf(cp) >= 0) {
                 list.add(v);
             }
         }
@@ -452,7 +452,7 @@ public class Ville {
 
     @Override
     public String toString() {
-        return this.name + " (" + this.yLambert + "," + this.xLambert + ")";
+        return this.name + " (" + this.codepostal + ")";
     }
 
     public Color getColor() {

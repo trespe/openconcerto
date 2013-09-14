@@ -148,7 +148,7 @@ public abstract class AbstractReglementComptePreferencePanel extends DefaultPref
             final Set<ISQLCompteSelector> set = this.map.keySet();
             for (ISQLCompteSelector key : set) {
                 final SQLRow row = this.map.get(key);
-                final int oldValue = row.getInt(getComptePCEField());
+                int oldValue = (row.getObject(getComptePCEField()) == null ? 1 : row.getInt(getComptePCEField()));
                 String compte = null;
                 if (oldValue <= 1) {
                     compte = getCompteFromId(row.getID());

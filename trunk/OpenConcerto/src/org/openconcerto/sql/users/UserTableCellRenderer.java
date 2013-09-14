@@ -37,19 +37,18 @@ public class UserTableCellRenderer implements TableCellRenderer {
         AlternateTableCellRenderer.setBGColorMap(label, Collections.singletonMap(c, cDark));
     }
 
+    @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-
-        Integer v = (Integer) value;
         TableCellRendererUtils.setBackgroundColor(label, table, isSelected);
-        if (v.intValue() > 1) {
-            User u = UserManager.getInstance().getUser(v);
-
+        final Integer v = (Integer) value;
+        try {
+            final User u = UserManager.getInstance().getUser(v);
             if (!isSelected && u.equals(UserManager.getInstance().getCurrentUser())) {
                 label.setBackground(c);
             }
             label.setText(u.getFullName());
-        } else {
-            System.err.println("User incorrect à la ligne " + row + " column " + column + " Value " + value);
+        } catch (Exception e) {
+            label.setText(e.getLocalizedMessage());
         }
 
         return label;

@@ -51,29 +51,6 @@ public class Map3310 extends Thread {
     private SQLRowValues rowPrefCompteVals = new SQLRowValues(tablePrefCompte);
     SommeCompte sommeCompte;
 
-    private static String getVille(final String name) {
-
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-            SwingUtilities.invokeLater(new Runnable() {
-                public void run() {
-                    JOptionPane.showMessageDialog(null, "La ville " + "\"" + name + "\"" + " est introuvable! Veuillez corriger l'erreur!");
-                }
-            });
-            return null;
-        }
-        return ville.getName();
-    }
-
-    private static String getVilleCP(String name) {
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-
-            return null;
-        }
-        return ville.getCodepostal();
-    }
-
     // TODO if value = 0.0 ne pas mettre -0.0
 
     public void run() {
@@ -180,10 +157,18 @@ public class Map3310 extends Thread {
         this.m.put("B16", GestionDevise.round(tvaCol));
         this.m.put("B17", GestionDevise.round(tvaIntra));
         this.m.put("B18", "");
-        long tvaImmo = this.sommeCompte.sommeCompteFils(rowCompteTVAImmo.getString("NUMERO"), this.dateDebut, this.dateFin);
+        final String numeroCptTVAImmo = rowCompteTVAImmo.getString("NUMERO");
+        long tvaImmo = this.sommeCompte.sommeCompteFils(numeroCptTVAImmo, this.dateDebut, this.dateFin);
         this.m.put("B19", GestionDevise.round(tvaImmo));
 
-        long tvaAutre = this.sommeCompte.sommeCompteFils(rowCompteTVADed.getString("NUMERO"), this.dateDebut, this.dateFin);
+        final String numeroCptTVADed = rowCompteTVADed.getString("NUMERO");
+        long tvaAutre = this.sommeCompte.sommeCompteFils(numeroCptTVADed, this.dateDebut, this.dateFin);
+
+        // Déduction de la tva sur immo si elle fait partie des sous comptes
+        if (numeroCptTVAImmo.startsWith(numeroCptTVADed)) {
+            tvaAutre -= tvaImmo;
+        }
+
         this.m.put("B20", GestionDevise.round(tvaAutre));
         this.m.put("B21", "");
         this.m.put("B22", "");

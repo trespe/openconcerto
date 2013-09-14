@@ -28,7 +28,6 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -108,7 +107,6 @@ public class ColumnPanel extends JPanel {
             throw new IllegalAccessError("not in EventDispatchThread");
         }
         if (!loading) {
-
             this.removeAll();
             loadColumnHeader();
             revalidate();
@@ -121,7 +119,7 @@ public class ColumnPanel extends JPanel {
     private synchronized void loadColumnHeader() {
         // Must be called from EventDispatchThread
         loading = true;
-        SwingWorker2<Object, Object> worker = new SwingWorker2<Object, Object>() {
+        final SwingWorker2<Object, Object> worker = new SwingWorker2<Object, Object>() {
 
             @Override
             protected Object doInBackground() throws Exception {
@@ -153,7 +151,7 @@ public class ColumnPanel extends JPanel {
     protected void layoutColumns() {
         final int size = this.columns.size();
         this.setLayout(new GridBagLayout());
-        GridBagConstraints c = new DefaultGridBagConstraints();
+        final GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.BOTH;
         if (this.headerRenderer != null) {
             c.gridwidth = size * 2 - 1;
@@ -197,7 +195,7 @@ public class ColumnPanel extends JPanel {
             @Override
             protected Integer doInBackground() throws Exception {
                 int cCount = columns.size();
-                List<SQLRowAccessor> allRows = new ArrayList<SQLRowAccessor>();
+                final List<SQLRowAccessor> allRows = new ArrayList<SQLRowAccessor>();
                 for (int i = 0; i < cCount; i++) {
                     final List<? extends SQLRowAccessor> rows = fetcher.getRowsForColumn(i);
                     columns.get(i).setRows(rows);

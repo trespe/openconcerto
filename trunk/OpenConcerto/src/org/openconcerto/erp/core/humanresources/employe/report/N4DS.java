@@ -33,6 +33,7 @@ import java.text.DecimalFormatSymbols;
 import java.text.Normalizer;
 import java.text.Normalizer.Form;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -48,6 +49,8 @@ public class N4DS {
     private PrintStream stream = null;
 
     DecimalFormat decimalFormat = new DecimalFormat("0.00");
+
+    Date dateDebut, dateFin;
 
     // FIXME Salarie renvoye
 
@@ -78,7 +81,7 @@ public class N4DS {
 
             writeS20(this.stream, rowSociete);
 
-            SQLSelect sel = new SQLSelect(this.conf.getBase());
+            SQLSelect sel = new SQLSelect();
             sel.addSelect(eltSalarie.getTable().getKey());
 
             @SuppressWarnings("unchecked")
@@ -116,8 +119,6 @@ public class N4DS {
         SQLRow rowAdr = rowSociete.getForeignRow("ID_ADRESSE_COMMON");
         String voie = rowAdr.getString("RUE");
 
-        Ville ville = Ville.getVilleFromVilleEtCode(rowAdr.getString("VILLE"));
-
         // Complement adresse
         if (voie.contains("\n")) {
             String[] sVoies = voie.split("\n");
@@ -145,10 +146,10 @@ public class N4DS {
         // stream.write("S80.G01.00.003.009",ville.getName());
 
         // Code postal
-        write("S80.G01.00.003.010", ville.getCodepostal());
+        write("S80.G01.00.003.010", rowAdr.getString("CODE_POSTAL"));
 
         // Localité
-        write("S80.G01.00.003.012", ville.getName().toUpperCase());
+        write("S80.G01.00.003.012", rowAdr.getString("VILLE").toUpperCase());
 
         // Code Pays, ne doit pas être renseigné pour une adresse en France
         // TODO support des autres pays
@@ -180,17 +181,18 @@ public class N4DS {
         // write( "S80.G01.02.001", "G022");
 
         // FIXME Code assujettissement taxe et contribution apprentissage
-        write("S80.G62.05.001", "01");
+        write("S80.G62.00.001", "01");
         double totalApprentissage = this.masseSalarialeBrute * 0.0068;
         System.err.println(this.masseSalarialeBrute);
-        write("S80.G62.05.002", this.decimalFormat.format(totalApprentissage));
+        write("S80.G62.00.002", this.decimalFormat.format(totalApprentissage));
 
-        write("S80.G62.05.003", "02");
-
+        write("S80.G62.00.003", "02");
         // FIXME Code assujettissement formation professionnelle continue
-        write("S80.G62.10.001", "01");
+        write("S80.G62.00.005", "01");
         double totalFormation = this.masseSalarialeBrute * 0.0055;
-        write("S80.G62.10.003.001", this.decimalFormat.format(totalFormation));
+        write("S80.G62.00.007", this.decimalFormat.format(totalFormation));
+
+        write("S80.G62.00.008", "02");
 
     }
 
@@ -222,7 +224,7 @@ public class N4DS {
         SQLElement eltInfos = this.conf.getDirectory().getElement("INFOS_SALARIE_PAYE");
         SQLSelect sel = new SQLSelect(eltSalarie.getTable().getBase());
         sel.addSelect(eltSalarie.getTable().getKey());
-        Date d2 = new Date(111, 11, 31);
+        Date d2 = new Date(112, 11, 31);
         Where w = new Where(eltSalarie.getTable().getField("ID_INFOS_SALARIE_PAYE"), "=", eltInfos.getTable().getKey());
         w = w.and(new Where(eltInfos.getTable().getField("DATE_SORTIE"), "=", (Date) null).or(new Where(eltInfos.getTable().getField("DATE_SORTIE"), ">", d2)));
 
@@ -252,10 +254,10 @@ public class N4DS {
         write("S20.G01.00.002", rowSociete.getString("NOM"));
 
         // FIXME Debut periode
-        write("S20.G01.00.003.001", "01012011");
+        write("S20.G01.00.003.001", "01012012");
 
         // FIXME Fin periode
-        write("S20.G01.00.003.002", "31122011");
+        write("S20.G01.00.003.002", "31122012");
 
         // Code nature
         write("S20.G01.00.004.001", "01");
@@ -281,8 +283,6 @@ public class N4DS {
         SQLRow rowAdr = rowSociete.getForeignRow("ID_ADRESSE_COMMON");
         String voie = rowAdr.getString("RUE");
 
-        Ville ville = Ville.getVilleFromVilleEtCode(rowAdr.getString("VILLE"));
-
         // Complement adresse
         if (voie.contains("\n")) {
             String[] sVoies = voie.split("\n");
@@ -304,10 +304,10 @@ public class N4DS {
         write("S20.G01.00.009.006", voie);
 
         // Code postal
-        write("S20.G01.00.009.010", ville.getCodepostal());
+        write("S20.G01.00.009.010", rowAdr.getString("CODE_POSTAL"));
 
         // Localité
-        write("S20.G01.00.009.012", ville.getName().toUpperCase());
+        write("S20.G01.00.009.012", rowAdr.getString("VILLE").toUpperCase());
 
         write("S20.G01.00.013.002", "1");
 
@@ -340,8 +340,6 @@ public class N4DS {
         SQLRow rowAdr = rowSociete.getForeignRow("ID_ADRESSE_COMMON");
         String voie = rowAdr.getString("RUE");
 
-        Ville ville = Ville.getVilleFromVilleEtCode(rowAdr.getString("VILLE"));
-
         // Complement adresse
         if (voie.contains("\n")) {
             String[] sVoies = voie.split("\n");
@@ -366,13 +364,13 @@ public class N4DS {
         // stream.write("S10.G01.00.003.007",voie);
 
         // TODO: Service de distribution
-        write("S10.G01.00.003.009", ville.getName());
+        write("S10.G01.00.003.009", rowAdr.getString("VILLE"));
 
         // Code postal
-        write("S10.G01.00.003.010", ville.getCodepostal());
+        write("S10.G01.00.003.010", rowAdr.getString("CODE_POSTAL"));
 
         // Localité
-        write("S10.G01.00.003.012", ville.getName().toUpperCase());
+        write("S10.G01.00.003.012", rowAdr.getString("VILLE").toUpperCase());
 
         // Code Pays, ne doit pas être renseigné pour une adresse en France
         // TODO support des autres pays
@@ -398,7 +396,7 @@ public class N4DS {
         write("S10.G01.00.010", "02");
 
         // Norme utilisée
-        write("S10.G01.00.011", "V01X06");
+        write("S10.G01.00.011", "V01X07");
 
         // Code table char
         write("S10.G01.00.012", "01");

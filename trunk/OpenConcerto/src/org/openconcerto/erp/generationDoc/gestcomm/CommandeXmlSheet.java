@@ -13,7 +13,11 @@
  
  package org.openconcerto.erp.generationDoc.gestcomm;
 
+import java.util.Arrays;
+import java.util.List;
+
 import org.openconcerto.erp.generationDoc.AbstractSheetXMLWithDate;
+import org.openconcerto.erp.generationDoc.MetaDataSheet;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
@@ -38,6 +42,10 @@ public class CommandeXmlSheet extends AbstractSheetXMLWithDate {
         super(row);
         this.printer = PrinterNXProps.getInstance().getStringProperty("CmdPrinter");
         this.elt = Configuration.getInstance().getDirectory().getElement("COMMANDE");
+        MetaDataSheet meta = new MetaDataSheet();
+        SQLRow foreign = this.row.getForeign("ID_FOURNISSEUR");
+        if (foreign != null && !foreign.isUndefined())
+            meta.setKeywords(Arrays.asList(foreign.getString("NOM")));
     }
 
     @Override

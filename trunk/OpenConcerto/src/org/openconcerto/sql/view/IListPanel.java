@@ -19,6 +19,7 @@ import org.openconcerto.openoffice.ContentType;
 import org.openconcerto.openoffice.OOUtils;
 import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
@@ -95,8 +96,11 @@ abstract public class IListPanel extends JPanel implements ActionListener {
     }
 
     static public final File getConfigFile(final SQLElement elem, final Class<? extends Container> c, final String variant) {
+        final Configuration conf = Configuration.getInstance();
+        if (conf == null)
+            return null;
         final String suffix = variant == null || variant.length() == 0 ? "" : "-" + variant;
-        return new File(Configuration.getInstance().getConfDir(), "state-" + c.getSimpleName() + "-list" + File.separator + elem.getPluralName() + suffix + ".xml");
+        return new File(conf.getConfDir(), "state-" + c.getSimpleName() + "-list" + File.separator + elem.getPluralName() + suffix + ".xml");
     }
 
     private final IListe liste;
@@ -259,20 +263,19 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         this.searchComponent = new SearchListComponent(this.liste.getModel());
         this.searchComponent.setFormats(this.liste.getSearchFormats());
 
-        this.buttonModifier = new JButton("Modifier");
+        this.buttonModifier = new JButton(TM.tr("modify"));
         this.buttonModifier.setOpaque(false);
-        this.btnMngr.addBtn(this.buttonModifier, "de modifier", TableAllRights.MODIFY_ROW_TABLE, true);
-        this.buttonEffacer = new JButton("Effacer");
+        this.btnMngr.addBtn(this.buttonModifier, "noRightToModify", TableAllRights.MODIFY_ROW_TABLE, true);
+        this.buttonEffacer = new JButton(TM.tr("remove"));
         this.buttonEffacer.setOpaque(false);
-        this.btnMngr.addBtn(this.buttonEffacer, "d'effacer", TableAllRights.DELETE_ROW_TABLE, true);
-        this.buttonAjouter = new JButton("Ajouter");
+        this.btnMngr.addBtn(this.buttonEffacer, "noRightToDel", TableAllRights.DELETE_ROW_TABLE, true);
+        this.buttonAjouter = new JButton(TM.tr("add"));
         this.buttonAjouter.setOpaque(false);
-        this.btnMngr.addBtn(this.buttonAjouter, "d'ajouter", TableAllRights.ADD_ROW_TABLE, false);
-        this.buttonClone = new JButton("Dupliquer");
+        this.btnMngr.addBtn(this.buttonAjouter, "noRightToAdd", TableAllRights.ADD_ROW_TABLE, false);
+        this.buttonClone = new JButton(TM.tr("duplicate"));
         this.buttonClone.setOpaque(false);
-        this.btnMngr.addBtn(this.buttonClone, "de dupliquer", TableAllRights.ADD_ROW_TABLE, true);
-        this.btnMngr.setOKToolTip(this.buttonClone,
-                "<html>Permet de dupliquer une ligne.<br>Maintenir CTRL enfoncé pour dupliquer également le contenu<br>Maintenir Maj. enfoncé pour changer d'emplacement.</html>");
+        this.btnMngr.addBtn(this.buttonClone, "noRightToClone", TableAllRights.ADD_ROW_TABLE, true);
+        this.btnMngr.setOKToolTip(this.buttonClone, TM.tr("listPanel.cloneToolTip"));
 
         this.saveBtn = new JButton(new ImageIcon(IListPanel.class.getResource("save.png")));
         this.saveBtn.setFocusPainted(false);
@@ -286,15 +289,15 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         this.buttonPlus = createBtn(DOWN_ARROW);
 
         // needSelection = false since we handle it with the transformer
-        this.btnMngr.addBtn(this.buttonMoins, "de changer l'ordre", TableAllRights.MODIFY_ROW_TABLE, false);
-        this.btnMngr.addBtn(this.buttonPlus, "de changer l'ordre", TableAllRights.MODIFY_ROW_TABLE, false);
+        this.btnMngr.addBtn(this.buttonMoins, "noRightToReorder", TableAllRights.MODIFY_ROW_TABLE, false);
+        this.btnMngr.addBtn(this.buttonPlus, "noRightToReorder", TableAllRights.MODIFY_ROW_TABLE, false);
         final ITransformer<JButton, String> transf = new ITransformer<JButton, String>() {
             @Override
             public String transformChecked(JButton input) {
                 final boolean ok = getListe().hasSelection() && !getListe().isSorted();
                 // keep them enabled when armed otherwise they will be disabled when used
                 // since they refresh the list which in turn does a clearSelection()
-                return input.getModel().isArmed() || ok ? null : "Pas de sélection ou liste triée";
+                return input.getModel().isArmed() || ok ? null : TM.tr("listPanel.noSelectionOrSort");
             }
         };
         this.btnMngr.setAdditional(this.buttonMoins, transf);
@@ -320,7 +323,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 0;
 
-        final JLabel label = new JLabel("Rechercher");
+        final JLabel label = new JLabel(TM.tr("search"));
         label.setOpaque(false);
         this.searchPanel.add(label, c);
         c.gridx++;
@@ -417,10 +420,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
     }
 
     private final JPanel createClonePanel(final int selectedLines, final boolean rec, final SQLRequestComboBox combo) {
-        final boolean plural = selectedLines > 1;
-        final String lines = plural ? "ces " + selectedLines + " lignes" : "cette ligne";
-        final String recS = rec ? " et " + (plural ? "leurs contenus" : "son contenu") : "";
-        final String msg = "Voulez vous cloner " + lines + recS + " ?";
+        final String msg = TM.tr("listPanel.cloneRows", selectedLines, rec ? 1 : 0);
 
         final JPanel p = new JPanel(new GridBagLayout());
         final GridBagConstraints c = new GridBagConstraints();
@@ -435,7 +435,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         if (combo != null) {
             c.gridx = 0;
             c.gridy++;
-            p.add(new JLabel("Nouvel emplacement (optionnel) : "), c);
+            p.add(new JLabel(TM.tr("clone.newPlace")), c);
 
             c.gridy++;
             combo.uiInit(getElement().getParentElement().getComboRequest());
@@ -470,7 +470,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
             // on Ubuntu ALT-Click is used to move windows
             final boolean showParent = (evt.getModifiers() & ActionEvent.SHIFT_MASK) != 0;
             final SQLRequestComboBox combo = showParent && getElement().getParentElement() != null ? new SQLRequestComboBox() : null;
-            if (askSerious(createClonePanel(selectedIDs.size(), rec, combo), "Duplication") == JOptionPane.YES_OPTION) {
+            if (askSerious(createClonePanel(selectedIDs.size(), rec, combo), TM.tr("duplication")) == JOptionPane.YES_OPTION) {
                 final SQLRow parent = combo == null ? null : combo.getSelectedRow();
                 for (final int id : selectedIDs) {
                     final SQLRow row = this.getElement().getTable().getRow(id);
@@ -480,7 +480,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                         else
                             this.getElement().copy(row, parent);
                     } catch (SQLException e) {
-                        ExceptionHandler.handle(this, "Impossible de dupliquer " + row, e);
+                        ExceptionHandler.handle(this, TM.tr("listPanel.duplicationError", row), e);
                     }
                 }
             }
@@ -488,16 +488,16 @@ abstract public class IListPanel extends JPanel implements ActionListener {
             this.getElement().askArchive(this, this.getListe().getSelection().getSelectedIDs());
         } else if (source == this.saveBtn) {
             try {
-                final String allRows = "l'ensemble de la liste";
-                final String selectedRows = "la sélection";
+                final String allRows = TM.tr("listPanel.wholeList");
+                final String selectedRows = TM.tr("listPanel.selection");
                 final JStringRadioButtons radios = new JStringRadioButtons(false, Arrays.asList(allRows, selectedRows));
                 // we rarely mean to save one row or less
                 radios.setValue(this.getListe().getSelection().getSelectedIDs().size() <= 1 ? allRows : selectedRows);
                 final JPanel p = new JPanel(new BorderLayout());
-                p.add(new JLabel("Exporter "), BorderLayout.PAGE_START);
+                p.add(new JLabel(TM.tr("export")), BorderLayout.PAGE_START);
                 p.add(radios, BorderLayout.LINE_START);
-                final Object[] options = { "Ouvrir", "Sauver...", "Annuler" };
-                final int answer = JOptionPane.showOptionDialog(this, p, "Export de la liste", DEFAULT_OPTION, QUESTION_MESSAGE, null, options, options[0]);
+                final Object[] options = { TM.tr("open"), TM.tr("save") + "...", TM.tr("cancel") };
+                final int answer = JOptionPane.showOptionDialog(this, p, TM.tr("listPanel.export"), DEFAULT_OPTION, QUESTION_MESSAGE, null, options, options[0]);
                 if (answer == 0 || answer == 1) {
                     final boolean tmp = answer == 0;
                     final XMLFormatVersion version = XMLFormatVersion.getDefault();
@@ -507,7 +507,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                     if (tmp) {
                         file = File.createTempFile(prefix, suffix);
                     } else {
-                        final FileDialog fd = new FileDialog(SwingThreadUtils.getAncestorOrSelf(Frame.class, this), "Sauver la liste", FileDialog.SAVE);
+                        final FileDialog fd = new FileDialog(SwingThreadUtils.getAncestorOrSelf(Frame.class, this), TM.tr("listPanel.save"), FileDialog.SAVE);
                         final Preferences prefs = Preferences.userNodeForPackage(this.getClass());
                         fd.setDirectory(prefs.get(EXPORT_DIR_KEY, Configuration.getInstance().getWD().getAbsolutePath()));
                         fd.setFile(prefix + suffix);
@@ -529,7 +529,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                     }
                 }
             } catch (Exception e) {
-                ExceptionHandler.handle(this, "Erreur lors de la sauvegarde", e);
+                ExceptionHandler.handle(this, TM.tr("saveError"), e);
             }
         } else {
             throw new IllegalStateException("button '" + source.getText() + "' not implemented");
@@ -622,10 +622,10 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                 final String tooltip;
                 if (!TableAllRights.hasRight(rights, t.get1(), getElement().getTable())) {
                     ok = false;
-                    tooltip = "Vous n'avez pas le droit " + t.get0();
+                    tooltip = TM.tr(t.get0());
                 } else if (this.needSelection.contains(btn) && !hasSelection) {
                     ok = false;
-                    tooltip = "Aucune sélection";
+                    tooltip = TM.tr("noSelection");
                 } else if (this.additional.containsKey(btn)) {
                     tooltip = this.additional.get(btn).transformChecked(btn);
                     ok = tooltip == null;

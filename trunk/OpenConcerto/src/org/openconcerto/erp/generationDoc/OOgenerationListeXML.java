@@ -23,6 +23,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.StreamUtils;
+import org.openconcerto.utils.StringUtils;
 
 import java.awt.Point;
 import java.io.File;
@@ -46,6 +47,7 @@ public class OOgenerationListeXML {
 
     // Cache pour la recherche des styles
     private static Map<Sheet, Map<String, Map<Integer, String>>> cacheStyle = new HashMap<Sheet, Map<String, Map<Integer, String>>>();
+    private static Point testPoint = new Point(0, 0);
 
     public static File genere(String modele, File pathDest, String fileDest, Map<Integer, List<Map<String, Object>>> liste, Map<Integer, Map<String, Object>> values) {
         return genere(modele, pathDest, fileDest, liste, values, new HashMap<Integer, Map<Integer, String>>(), null, null);
@@ -88,6 +90,7 @@ public class OOgenerationListeXML {
                 }
                 parseListeXML(child, liste.get(i), sheet, mapStyle.get(i));
             }
+            cacheStyle.clear();
             // Sauvegarde du fichier
             return saveSpreadSheet(spreadSheet, pathDest, fileDest, templateId, rowLanguage);
 
@@ -96,6 +99,7 @@ public class OOgenerationListeXML {
         } catch (IOException e) {
             ExceptionHandler.handle("Erreur lors de la création du fichier " + fileDest, e);
         }
+        cacheStyle.clear();
         return null;
     }
 
@@ -109,10 +113,11 @@ public class OOgenerationListeXML {
             Object result = values.get(name);
 
             if (result != null) {
+                result = resizeValue(elt, result);
                 boolean controlLine = elt.getAttributeValue("controleMultiline") == null ? true : !elt.getAttributeValue("controleMultiline").equalsIgnoreCase("false");
                 boolean replace = elt.getAttributeValue("type").equalsIgnoreCase("Replace");
                 String replacePattern = elt.getAttributeValue("replacePattern");
-                fill(elt.getAttributeValue("location"), result, sheet, replace, replacePattern, null, false, controlLine);
+                fill(sheet.resolveHint(elt.getAttributeValue("location")), result, sheet, replace, replacePattern, null, false, controlLine);
             }
         }
     }
@@ -228,7 +233,7 @@ public class OOgenerationListeXML {
             // on remplit chaque cellule de la ligne
             for (Iterator j = listElts.iterator(); j.hasNext();) {
 
-                if ((currentLine - 1 + fill("A1", "test", sheet, false, null, null, true)) > (endPageLine * nbPage)) {
+                if ((currentLine - 1 + fill(testPoint, "test", sheet, false, null, null, true)) > (endPageLine * nbPage)) {
                     currentLine = currentLineTmp + endPageLine;
                     currentLineTmp = currentLine;
                     nbPage++;
@@ -241,6 +246,7 @@ public class OOgenerationListeXML {
                 if (e.getAttributeValue("type").equalsIgnoreCase("fill") || e.getAttributeValue("type").equalsIgnoreCase("replace")) {
 
                     Object value = getElementValue(e, mValues);
+                    Point resolveHint = sheet.resolveHint(loc);
                     if (e.getAttributeValue("location").trim().equals(columnSousTotal)) {
                         if (o != null) {
                             if (!o.equals(value)) {
@@ -255,37 +261,38 @@ public class OOgenerationListeXML {
                                     String styleOOA = null;
                                     if (mTmp != null) {
 
-                                        Object oTmp = mTmp.get(Integer.valueOf(sheet.resolveHint(loc).x));
+                                        Object oTmp = mTmp.get(Integer.valueOf(resolveHint.x));
                                         styleOO = oTmp == null ? null : oTmp.toString();
                                         Object oTmpA = mTmp.get(Integer.valueOf(0));
                                         styleOOA = oTmpA == null ? null : oTmpA.toString();
                                     }
-                                    fill(test ? "A1" : "A" + currentLine, "Sous total", sheet, false, null, styleOOA, test, controlLine);
-                                    fill(test ? "A1" : object + "" + currentLine, mapSousTotal.get(object), sheet, false, null, styleOO, test, controlLine);
+                                    fill(test ? testPoint : sheet.resolveHint("A" + currentLine), "Sous total", sheet, false, null, styleOOA, test, controlLine);
+                                    fill(test ? testPoint : sheet.resolveHint(object + "" + currentLine), mapSousTotal.get(object), sheet, false, null, styleOO, test, controlLine);
                                 }
                                 mapSousTotal.clear();
-                                currentLine++;
+                                currentLine += 2;
                                 loc = e.getAttributeValue("location").trim() + currentLine;
+                                resolveHint = sheet.resolveHint(loc);
                                 o = value;
                             }
                         } else {
                             o = value;
                         }
                     }
-                    if (value instanceof Double) {
+                    if (value instanceof Number) {
                         final String attributeValue = e.getAttributeValue("total");
                         if (attributeValue != null && attributeValue.equalsIgnoreCase("true")) {
-                            incrementTotal(e.getAttributeValue("location"), (Double) value, mapTotal);
+                            incrementTotal(e.getAttributeValue("location"), (Number) value, mapTotal);
                         }
 
                         final String attributeValue2 = e.getAttributeValue("sousTotal");
                         if (attributeValue2 != null && attributeValue2.equalsIgnoreCase("true")) {
-                            incrementTotal(e.getAttributeValue("location"), (Double) value, mapSousTotal);
+                            incrementTotal(e.getAttributeValue("location"), (Number) value, mapSousTotal);
                         }
                     }
                     boolean replace = e.getAttributeValue("type").equalsIgnoreCase("replace");
 
-                    if (test || sheet.isCellValid(sheet.resolveHint(loc).x, sheet.resolveHint(loc).y)) {
+                    if (test || sheet.isCellValid(resolveHint.x, resolveHint.y)) {
                         if (style != null) {
                             styleName = style.get(i);
                         }
@@ -293,12 +300,12 @@ public class OOgenerationListeXML {
                         String styleOO = null;
                         if (mTmp != null) {
 
-                            Object oTmp = mTmp.get(new Integer(sheet.resolveHint(loc).x));
+                            Object oTmp = mTmp.get(new Integer(resolveHint.x));
                             styleOO = oTmp == null ? null : oTmp.toString();
                             // System.err.println("Set style " + styleOO);
                         }
 
-                        int tmpCelluleAffect = fill(test ? "A1" : loc, value, sheet, replace, null, styleOO, test, controlLine);
+                        int tmpCelluleAffect = fill(test ? testPoint : resolveHint, value, sheet, replace, null, styleOO, test, controlLine);
                         nbCellule = Math.max(nbCellule, tmpCelluleAffect);
                     } else {
                         System.err.println("Cell not valid at " + loc);
@@ -321,8 +328,8 @@ public class OOgenerationListeXML {
                 styleOOA = oTmpA == null ? null : oTmpA.toString();
             }
 
-            fill(test ? "A1" : "A" + currentLine, "Sous total", sheet, false, null, styleOOA, test);
-            fill(test ? "A1" : object + "" + currentLine, mapSousTotal.get(object), sheet, false, null, styleOO, test);
+            fill(test ? testPoint : sheet.resolveHint("A" + currentLine), "Sous total", sheet, false, null, styleOOA, test);
+            fill(test ? testPoint : sheet.resolveHint(object + "" + currentLine), mapSousTotal.get(object), sheet, false, null, styleOO, test);
         }
         for (String object : mapTotal.keySet()) {
             System.err.println(object + " = " + mapTotal.get(object));
@@ -336,18 +343,18 @@ public class OOgenerationListeXML {
                 Object oTmpA = mTmp.get(Integer.valueOf(0));
                 styleOOA = oTmpA == null ? null : oTmpA.toString();
             }
-            fill(test ? "A1" : "A" + (currentLine + 1), "Total", sheet, false, null, styleOOA, test);
-            fill(test ? "A1" : object + "" + (currentLine + 1), mapTotal.get(object), sheet, false, null, styleOO, test);
+            fill(test ? testPoint : sheet.resolveHint("A" + (currentLine + 1)), "Total", sheet, false, null, styleOOA, test);
+            fill(test ? testPoint : sheet.resolveHint(object + "" + (currentLine + 1)), mapTotal.get(object), sheet, false, null, styleOO, test);
         }
         return nbPage;
     }
 
-    private static void incrementTotal(String field, Double value, Map<String, Double> map) {
+    private static void incrementTotal(String field, Number value, Map<String, Double> map) {
         Double d = map.get(field);
         if (d == null) {
-            map.put(field, value);
+            map.put(field, value.doubleValue());
         } else {
-            map.put(field, d + value);
+            map.put(field, d + value.doubleValue());
         }
     }
 
@@ -370,11 +377,32 @@ public class OOgenerationListeXML {
                 res = getValueOfComposant((Element) eltFields.get(0), mValues);
             }
         }
-        String attributeValueMaxChar = elt.getAttributeValue("maxChar");
-        if (attributeValueMaxChar != null ) {
-            int maxChar = Integer.valueOf(attributeValueMaxChar);
-            if (res != null && res.toString().length() > maxChar) {
-                res = res.toString().substring(0, maxChar);
+        res = resizeValue(elt, res);
+        return res;
+    }
+
+    private static Object resizeValue(Element elt, Object res) {
+        {
+            String attributeValueMaxChar = elt.getAttributeValue("maxChar");
+            if (attributeValueMaxChar != null) {
+                int maxChar = Integer.valueOf(attributeValueMaxChar);
+                if (res != null && res.toString().length() > maxChar) {
+                    res = res.toString().substring(0, maxChar);
+                }
+            }
+        }
+        {
+            String attributeValueCellSize = elt.getAttributeValue("cellSize");
+            if (attributeValueCellSize != null) {
+                int size = Integer.valueOf(attributeValueCellSize);
+                if (res != null && res.toString().length() > size) {
+                    try {
+                        res = StringUtils.splitString(res.toString(), size);
+                    } catch (NumberFormatException e) {
+                        e.printStackTrace();
+                    }
+
+                }
             }
         }
         return res;
@@ -396,8 +424,8 @@ public class OOgenerationListeXML {
         return mValues.get(field);
     }
 
-    private static int fill(String location, Object value, Sheet sheet, boolean replace, String replacePattern, String styleOO, boolean test) {
-        return fill(location, value, sheet, replace, replacePattern, styleOO, test, true);
+    private static int fill(Point resolveHint, Object value, Sheet sheet, boolean replace, String replacePattern, String styleOO, boolean test) {
+        return fill(resolveHint, value, sheet, replace, replacePattern, styleOO, test, true);
     }
 
     /**
@@ -409,37 +437,38 @@ public class OOgenerationListeXML {
      * @param replace efface ou non le contenu original de la cellule
      * @param styleOO style à appliquer
      */
-    private static int fill(String location, Object value, Sheet sheet, boolean replace, String replacePattern, String styleOO, boolean test, boolean controlLine) {
+    private static int fill(Point resolveHint, Object value, Sheet sheet, boolean replace, String replacePattern, String styleOO, boolean test, boolean controlLine) {
 
         int nbCellule = 1;
         // est ce que la cellule est valide
-        if (test || sheet.isCellValid(sheet.resolveHint(location).x, sheet.resolveHint(location).y)) {
+        if (test || sheet.isCellValid(resolveHint.x, resolveHint.y)) {
 
             // on divise en 2 cellules si il y a des retours à la ligne
             if (controlLine && (value != null && value.toString().indexOf('\n') >= 0)) {
-
+                String[] values = value.toString().split("\n");
                 if (!test) {
-                    MutableCell cell = sheet.getCellAt(location);
-                    String firstPart = value.toString().substring(0, value.toString().indexOf('\n'));
-                    String secondPart = value.toString().substring(value.toString().indexOf('\n') + 1, value.toString().length());
-                    secondPart = secondPart.replace('\n', ',');
-                    setCellValue(cell, firstPart, replace, replacePattern);
-                    if (styleOO != null) {
-                        cell.setStyleName(styleOO);
-                    }
 
-                    Point p = sheet.resolveHint(location);
-                    try {
-                        MutableCell cellSec = sheet.getCellAt(p.x, p.y + 1);
-                        setCellValue(cellSec, secondPart, replace, replacePattern);
-                    } catch (Exception ex) {
-                        ex.printStackTrace();
+                    int y = 0;
+                    for (String string : values) {
+                        if (string != null && string.trim().length() != 0) {
+                            try {
+                                MutableCell c = sheet.getCellAt(resolveHint.x, resolveHint.y + y);
+                                setCellValue(c, string, replace, replacePattern);
+                                if (styleOO != null) {
+                                    c.setStyleName(styleOO);
+                                }
+                                y++;
+                            } catch (IllegalArgumentException e) {
+                                JOptionPane.showMessageDialog(null, "La cellule " + resolveHint + " n'existe pas ou est fusionnée.", "Erreur pendant la génération", JOptionPane.ERROR_MESSAGE);
+                            }
+                        }
                     }
                 }
-                nbCellule = 2;
+
+                nbCellule = values.length;
             } else {
                 if (!test) {
-                    MutableCell cell = sheet.getCellAt(location);
+                    MutableCell cell = sheet.getCellAt(resolveHint.x, resolveHint.y);
                     // application de la valeur
                     setCellValue(cell, value, replace, replacePattern);
 

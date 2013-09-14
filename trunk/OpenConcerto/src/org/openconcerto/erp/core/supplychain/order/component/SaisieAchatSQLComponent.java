@@ -39,7 +39,6 @@ import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
-import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
@@ -86,7 +85,7 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
 
         public void propertyChange(PropertyChangeEvent evt) {
 
-            SQLRow rowFourn = SaisieAchatSQLComponent.this.nomFournisseur.getSelectedRow();
+            SQLRow rowFourn = SaisieAchatSQLComponent.this.nomFournisseur.getRequest().getPrimaryTable().getRow(nomFournisseur.getWantedID());
 
             // System.err.println("Select Fournisseur " + idSeleted);
 
@@ -372,7 +371,7 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
 
         this.montant.setChoixTaxe(2);
 
-        this.nomFournisseur.addValueListener(this.listenerModeReglDefaut);
+        this.nomFournisseur.addModelListener("wantedID", this.listenerModeReglDefaut);
 
         this.montant.getMontantTTC().getDocument().addDocumentListener(new SimpleDocumentListener() {
             @Override
@@ -426,9 +425,9 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
     public ValidState getValidState() {
         ValidState result = super.getValidState();
         if (result.isValid()) {
-            if (this.montant.getMontantTTC() != null && this.montant.getMontantTTC().getUncheckedValue() != null) {
+            if (this.montant.getMontantTTC() != null && this.montant.getMontantTTC().getValue() != null) {
 
-                long l = ((Long) this.montant.getMontantTTC().getUncheckedValue());
+                long l = this.montant.getMontantTTC().getValue();
 
                 if (this.comboAvoir != null && !this.comboAvoir.isEmpty() && this.comboAvoir.getSelectedId() > 1) {
                     SQLElement eltAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_FOURNISSEUR");
@@ -471,7 +470,6 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
 
         // FIXME probleme selection du mode de reglement par defaut -> l'id est celui du défaut dans
         // la saisie
-        this.nomFournisseur.rmValueListener(this.listenerModeReglDefaut);
 
         super.select(r);
 
@@ -495,7 +493,6 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
             }
             System.out.println("select id Saisie Achat " + r.getID());
         }
-        this.nomFournisseur.addValueListener(this.listenerModeReglDefaut);
 
     }
 
@@ -571,22 +568,22 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
     }
 
     private void refreshText() {
-        Number n = (Number) this.montant.getMontantTTC().getUncheckedValue();
+        Number n = this.montant.getMontantTTC().getValue();
         if (this.comboAvoir.getSelectedId() > 1) {
             SQLTable tableAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_FOURNISSEUR").getTable();
             if (n != null) {
                 long ttc = n.longValue();
                 SQLRow rowAvoir = tableAvoir.getRow(this.comboAvoir.getSelectedId());
                 long totalAvoir = ((Number) rowAvoir.getObject("MONTANT_TTC")).longValue();
-                this.fieldMontantRegle.setValue(GestionDevise.currencyToString(ttc - totalAvoir));
+                this.fieldMontantRegle.setValue(ttc - totalAvoir);
             } else {
-                this.fieldMontantRegle.setValue(GestionDevise.currencyToString(0));
+                this.fieldMontantRegle.setValue(0l);
             }
         } else {
             if (n != null) {
-                this.fieldMontantRegle.setValue(GestionDevise.currencyToString(n.longValue()));
+                this.fieldMontantRegle.setValue(n.longValue());
             } else {
-                this.fieldMontantRegle.setValue(GestionDevise.currencyToString(0));
+                this.fieldMontantRegle.setValue(0l);
             }
         }
     }

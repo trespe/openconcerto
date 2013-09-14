@@ -14,24 +14,57 @@
  package org.openconcerto.sql.users.rights;
 
 import static java.util.Arrays.asList;
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.UISQLComponent;
+import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
+import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.i18n.I18nUtils;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 public class UserRightSQLElement extends ConfSQLElement {
+    public static final String TABLE_NAME = "USER_RIGHT";
+
+    static public List<SQLCreateTable> getCreateTables(final SQLTable userT) {
+        final DBRoot root = userT.getDBRoot();
+        final SQLTable t = root.findTable(TABLE_NAME, false);
+        if (t != null) {
+            return Collections.emptyList();
+        }
+
+        final List<SQLCreateTable> res = new ArrayList<SQLCreateTable>();
+        final SQLCreateTable create = new SQLCreateTable(root, TABLE_NAME);
+        create.addForeignColumn(userT.getName());
+        if (root.contains(RightSQLElement.TABLE_NAME)) {
+            create.addForeignColumn(RightSQLElement.TABLE_NAME);
+        } else {
+            final SQLCreateTable createRight = RightSQLElement.getCreateTable(root);
+            res.add(createRight);
+            create.addForeignColumn(createRight);
+        }
+        // NULL meaning any
+        create.addColumn("OBJECT", "varchar(150) NULL DEFAULT NULL");
+        create.addColumn("HAVE_RIGHT", "boolean NOT NULL");
+        res.add(create);
+
+        return res;
+    }
 
     public UserRightSQLElement() {
-        super("USER_RIGHT", "un droit utilisateur", "droits utilisateurs");
+        super(TABLE_NAME);
+        this.setL18nPackageName(I18nUtils.getPackageName(TM.class));
     }
 
     protected List<String> getListFields() {

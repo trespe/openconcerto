@@ -13,9 +13,7 @@
  
  package org.openconcerto.erp.core.sales.shipment.element;
 
-import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
-import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.shipment.component.BonDeLivraisonSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
@@ -23,13 +21,9 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowAccessor;
-import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.SQLPreferences;
-import org.openconcerto.sql.request.ListSQLRequest;
-import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.preferences.DefaultProps;
 
 import java.sql.SQLException;
@@ -38,14 +32,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import javax.swing.ImageIcon;
-import javax.swing.JFrame;
-
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
 
-    // TODO bug rafraichissement on resize frame
     // TODO afficher uniquement les factures non livrees dans la combo
     // MAYBE mettre un niceCellRenderer dans les rowValuesTable
 
@@ -64,6 +54,7 @@ public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
             l.add("TOTAL_POIDS");
         }
         l.add("NOM");
+        l.add("TOTAL_HT");
         l.add("INFOS");
         return l;
     }
@@ -91,62 +82,7 @@ public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
         return new BonDeLivraisonSQLComponent();
     }
 
-    @Override
-    public synchronized ListSQLRequest createListRequest() {
-        return new ListSQLRequest(this.getTable(), this.getListFields()) {
-            @Override
-            protected void customizeToFetch(SQLRowValues graphToFetch) {
-                super.customizeToFetch(graphToFetch);
-                graphToFetch.put("ID_SAISIE_VENTE_FACTURE", null);
-            }
-        };
-    }
-
-    /**
-     * Transfert d'un BL en facture
-     * 
-     * @param blID
-     */
-    public void transfertFacture(List<SQLRowAccessor> rowsBL) {
-
-        // MAYBE check if all rows have the same customer
-        if (rowsBL != null && rowsBL.size() > 0) {
-
-            SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-            EditFrame editFactureFrame = new EditFrame(elt);
-            editFactureFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-
-            SaisieVenteFactureSQLComponent comp = (SaisieVenteFactureSQLComponent) editFactureFrame.getSQLComponent();
-
-            comp.setDefaults();
-
-            SQLRowAccessor rowBL = rowsBL.get(0);
-            SQLRowValues rowVals = new SQLRowValues(elt.getTable());
-            rowVals.put("ID_CLIENT", rowBL.getForeign("ID_CLIENT").getID());
-            rowVals.put("NOM", rowBL.getObject("NOM"));
-            rowVals.put("INFOS", rowBL.getObject("INFOS"));
-            rowVals.put("IDSOURCE", rowBL.getObject("ID"));
-            rowVals.put("SOURCE", getTable().getName());
-
-            comp.select(rowVals);
-            comp.loadBonItems(rowBL, true);
-
-            for (int i = 1; i < rowsBL.size(); i++) {
-                SQLRowAccessor row = rowsBL.get(i);
-                rowVals.put("NOM", rowVals.getString("NOM") + "\n" + row.getObject("NOM"));
-                rowVals.put("INFOS", rowVals.getString("INFOS") + "\n" + row.getObject("INFOS"));
-                comp.loadBonItems(row, false);
-            }
-
-            editFactureFrame.pack();
-            editFactureFrame.setState(JFrame.NORMAL);
-            editFactureFrame.setVisible(true);
-        }
-    }
-
-    @Override
     protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
-        // TODO Raccord de méthode auto-généré
         super.archive(row, cutLinks);
 
         SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
@@ -154,17 +90,18 @@ public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
 
             // Mise à jour des stocks
             SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-            SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
+            SQLSelect sel = new SQLSelect();
             sel.addSelect(eltMvtStock.getTable().getField("ID"));
             Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
             Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
             sel.setWhere(w.and(w2));
 
-            List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+            @SuppressWarnings("unchecked")
+            List<Number[]> l = (List<Number[]>) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
             if (l != null) {
                 for (int i = 0; i < l.size(); i++) {
-                    Object[] tmp = (Object[]) l.get(i);
-                    eltMvtStock.archive(((Number) tmp[0]).intValue());
+                    Number[] tmp = l.get(i);
+                    eltMvtStock.archive(tmp[0].intValue());
                 }
             }
         }

@@ -20,8 +20,6 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.util.ArrayList;
-import java.util.List;
 
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -92,18 +90,5 @@ public class ReminderDialog {
 
         }
 
-    }
-
-    public static void resetMessageStates() {
-        assert !SwingUtilities.isEventDispatchThread();
-        final List<Object> keys = new ArrayList<Object>();
-        keys.addAll(UserProps.getInstance().getProps().keySet());
-        for (Object object : keys) {
-            final String key = object.toString();
-            if (key.startsWith("hide.")) {
-                UserProps.getInstance().setProperty(key, null);
-            }
-        }
-        UserProps.getInstance().store();
     }
 }

@@ -14,6 +14,8 @@
  package org.openconcerto.sql.view.list;
 
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
@@ -33,7 +35,6 @@ import java.util.EventObject;
 import javax.swing.AbstractAction;
 import javax.swing.AbstractCellEditor;
 import javax.swing.Action;
-import javax.swing.JComponent;
 import javax.swing.JTable;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
@@ -42,6 +43,8 @@ import javax.swing.table.TableCellEditor;
 public class SQLTextComboTableCellEditor extends AbstractCellEditor implements TableCellEditor {
 
     private SQLRequestComboBox comboBox;
+
+    private Where w;
     // Stock Value of Combo to fix problem with undefined
     int val = 1;
 
@@ -69,7 +72,7 @@ public class SQLTextComboTableCellEditor extends AbstractCellEditor implements T
         // Mimic JTable.GenericEditor behavior
         this.comboBox.getTextComp().setBorder(new EmptyBorder(0, 0, 0, 18));
         this.comboBox.setBorder(new LineBorder(Color.black));
-        ((JComponent) this.comboBox.getPulseComponent()).setBorder(null);
+        this.comboBox.getPulseComponents().iterator().next().setBorder(null);
 
         ComboSQLRequest c = elt.getComboRequest(true);
         this.comboBox.uiInit(c);
@@ -132,14 +135,42 @@ public class SQLTextComboTableCellEditor extends AbstractCellEditor implements T
                 }
             }
         });
+        // Filtre sur une valeur specifique
+        if (this.fieldWhere != null && table instanceof RowValuesTable) {
+            RowValuesTable rowVals = (RowValuesTable) table;
+            SQLRowValues rowValues = rowVals.getRowValuesTableModel().getRowValuesAt(row);
+            if (rowValues.isForeignEmpty(this.fieldWhere.getName())) {
+
+                if (this.w != null) {
+                    this.comboBox.getRequest().setWhere(this.w);
+                } else {
+                    this.comboBox.getRequest().setWhere(null);
+                }
+            } else {
+                final Where w2 = new Where(this.fieldWhere, "=", rowValues.getForeign(this.fieldWhere.getName()).getID());
+                if (this.w != null) {
+                    this.comboBox.getRequest().setWhere(this.w.and(w2));
+                } else {
+                    this.comboBox.getRequest().setWhere(w2);
+                }
+            }
+        }
         return this.comboBox;
+
     }
 
     public int getComboSelectedId() {
         return SQLTextComboTableCellEditor.this.comboBox.getSelectedId();
     }
 
+    private SQLField fieldWhere;
+
+    public void setDynamicWhere(SQLField field) {
+        this.fieldWhere = field;
+    }
+
     public void setWhere(Where w) {
+        this.w = w;
         this.comboBox.getRequest().setWhere(w);
     }
 

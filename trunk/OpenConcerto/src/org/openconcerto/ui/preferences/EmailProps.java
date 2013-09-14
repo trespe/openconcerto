@@ -38,6 +38,7 @@ public class EmailProps extends AbstractProps {
 
     public void setPropsFileName(String propsFileName) {
         this.propsFileName = propsFileName;
+        load();
     }
 
     public String getThunderbirdPath() {

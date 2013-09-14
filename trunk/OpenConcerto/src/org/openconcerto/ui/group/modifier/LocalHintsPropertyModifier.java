@@ -16,7 +16,7 @@
 import org.openconcerto.ui.group.Group;
 import org.openconcerto.ui.group.GroupModifier;
 import org.openconcerto.ui.group.Item;
-import org.openconcerto.ui.group.LayoutHints;
+import org.openconcerto.ui.group.LayoutHintsBuilder;
 
 public class LocalHintsPropertyModifier extends ItemGroupModifier {
 
@@ -45,8 +45,8 @@ public class LocalHintsPropertyModifier extends ItemGroupModifier {
 
     @Override
     public void applyOn(Group g) {
-        final Item it = g.getItemFromId(getItemId());
-        final LayoutHints localHint = it.getLocalHint();
+        final Item it = g.getDescFromID(getItemId());
+        final LayoutHintsBuilder localHint = it.getLocalHint().getBuilder();
         if (property.equals(FILLWIDTH)) {
             localHint.setFillWidth(b);
         } else if (property.equals(FILLHEIGHT)) {
@@ -62,6 +62,7 @@ public class LocalHintsPropertyModifier extends ItemGroupModifier {
         } else {
             throw new IllegalStateException("Unknown property:" + this.getProperty());
         }
+        it.setLocalHint(localHint.build());
     }
 
     @Override

@@ -51,7 +51,11 @@ public class EcheanceRenderer extends DeviseNiceTableCellRenderer {
                 int njour = foreignRow.getInt("LENJOUR");
 
                 if (ajours == 0 && njour == 0) {
-                    label.setText("Comptant");
+                    if (foreignRow.getBoolean("COMPTANT") != null && !foreignRow.getBoolean("COMPTANT")) {
+                        label.setText("Date de facture");
+                    } else {
+                        label.setText("Comptant");
+                    }
                 } else {
                     String s = "";
                     if (ajours != 0) {

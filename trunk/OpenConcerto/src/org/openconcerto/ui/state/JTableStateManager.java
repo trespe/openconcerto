@@ -14,8 +14,10 @@
  package org.openconcerto.ui.state;
 
 import org.openconcerto.ui.Log;
+import org.openconcerto.ui.TM;
 import org.openconcerto.ui.table.XTableColumnModel;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.TableSorter;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,6 +30,7 @@ import javax.swing.event.AncestorEvent;
 import javax.swing.event.AncestorListener;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
+import javax.swing.table.TableModel;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -78,7 +81,7 @@ public class JTableStateManager extends ListenerXMLStateManager<JTable, Ancestor
                 try {
                     saveState();
                 } catch (IOException e) {
-                    ExceptionHandler.handle(getSrc(), "Impossible de sauvegarder la taille des colonnes", e);
+                    ExceptionHandler.handle(getSrc(), TM.tr("saveColumnsWidth"), e);
                 }
             }
         };
@@ -110,16 +113,17 @@ public class JTableStateManager extends ListenerXMLStateManager<JTable, Ancestor
         doc.appendChild(elem);
 
         final TableColumnModel model = this.getSrc().getColumnModel();
+        final TableModel tModel = this.getSrc().getModel();
         if (model instanceof XTableColumnModel) {
             final XTableColumnModel visibilityModel = (XTableColumnModel) model;
             for (final TableColumn col : visibilityModel.getColumns(false)) {
-                writeCol(elem, col).setAttribute("visible", String.valueOf(visibilityModel.isColumnVisible(col)));
+                writeCol(elem, col, tModel).setAttribute("visible", String.valueOf(visibilityModel.isColumnVisible(col)));
             }
         } else {
             final int nCol = this.getSrc().getColumnCount();
             for (int i = 0; i < nCol; i++) {
                 final TableColumn col = model.getColumn(i);
-                writeCol(elem, col);
+                writeCol(elem, col, tModel);
             }
         }
 
@@ -133,7 +137,7 @@ public class JTableStateManager extends ListenerXMLStateManager<JTable, Ancestor
         }
     }
 
-    private Element writeCol(final Element elem, final TableColumn col) {
+    private Element writeCol(final Element elem, final TableColumn col, TableModel tModel) {
         final Element res = elem.getOwnerDocument().createElement("col");
         elem.appendChild(res);
         int min = col.getMinWidth();
@@ -144,7 +148,15 @@ public class JTableStateManager extends ListenerXMLStateManager<JTable, Ancestor
         res.setAttribute("width", String.valueOf(width));
         res.setAttribute("identifier", String.valueOf(col.getIdentifier()));
         res.setAttribute("modelIndex", String.valueOf(col.getModelIndex()));
-
+        if (tModel instanceof TableSorter) {
+            TableSorter sorter = (TableSorter) tModel;
+            int status = sorter.getSortingStatus(col.getModelIndex());
+            if (status == TableSorter.ASCENDING) {
+                res.setAttribute("sort", "ascending");
+            } else if (status == TableSorter.DESCENDING) {
+                res.setAttribute("sort", "descending");
+            }
+        }
         return res;
     }
 
@@ -182,6 +194,7 @@ public class JTableStateManager extends ListenerXMLStateManager<JTable, Ancestor
                     visibilityModel.setColumnVisible(visibilityModel.getColumn(i, false), true);
                 }
             }
+            final TableModel tModel = this.getSrc().getModel();
             final List<TableColumn> invisibleCols = new ArrayList<TableColumn>();
             for (int i = 0; i < colsCount; i++) {
                 final NamedNodeMap attrs = listOfCol.item(i).getAttributes();
@@ -214,11 +227,32 @@ public class JTableStateManager extends ListenerXMLStateManager<JTable, Ancestor
                 modelCol.setWidth(size);
                 modelCol.setPreferredWidth(size);
 
+                // Visibility
                 final Node visible = attrs.getNamedItem("visible");
                 // don't call setColumnVisible() now since it removes the column and this offsets
                 // indexes, only deal will invisible since by now all columns are visible
                 if (visible != null && !Boolean.parseBoolean(visible.getNodeValue()))
                     invisibleCols.add(modelCol);
+
+                // Sorting
+
+                if (tModel instanceof TableSorter) {
+                    final TableSorter sorter = (TableSorter) tModel;
+                    final Node sortNode = attrs.getNamedItem("sort");
+                    if (sortNode != null) {
+                        String sort = sortNode.getNodeValue();
+                        if (sort != null) {
+                            if (sort.equals("ascending")) {
+                                sorter.setSortingStatus(modelIndex, TableSorter.ASCENDING);
+                            } else if (sort.equals("descending")) {
+                                sorter.setSortingStatus(modelIndex, TableSorter.DESCENDING);
+                            } else {
+                                sorter.setSortingStatus(modelIndex, TableSorter.NOT_SORTED);
+                            }
+                        }
+                    }
+                }
+
             }
             if (visibilityModel != null) {
                 for (final TableColumn toRm : invisibleCols) {

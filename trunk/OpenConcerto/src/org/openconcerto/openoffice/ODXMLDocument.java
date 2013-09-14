@@ -60,8 +60,9 @@ public class ODXMLDocument {
         final List<Element> res = new ArrayList<Element>(8);
         res.add(new Element("meta", ns));
         res.add(new Element("settings", ns));
-        res.add(new Element(ins == XMLVersion.OOo ? "script" : "scripts", ns));
-        res.add(new Element(OOXML.getLast(ins).getFontDecls()[0], ns));
+        final OOXML xml = OOXML.getLast(ins);
+        res.add(new Element(xml.getOfficeScripts(), ns));
+        res.add(new Element(xml.getFontDecls()[0], ns));
         res.add(new Element("styles", ns));
         res.add(new Element("automatic-styles", ns));
         res.add(new Element("master-styles", ns));
@@ -214,6 +215,10 @@ public class ODXMLDocument {
 
     // *** styles
     public final Element getStyle(final StyleDesc<?> styleDesc, final String name) {
+        return this.getStyle(styleDesc, name, this.getDocument());
+    }
+
+    public final Element getStyle(final StyleDesc<?> styleDesc, final String name, final Document referent) {
         final String family = styleDesc instanceof StyleStyleDesc<?> ? ((StyleStyleDesc<?>) styleDesc).getFamily() : null;
         // see section 14.1 § Style Name : "uniquely identifies a style"
         // was using an XPath but we had performance issues, we first rewrote it using variables
@@ -230,9 +235,12 @@ public class ODXMLDocument {
             return res;
         }
 
-        res = this.findStyleChild(root.getChild("automatic-styles", office), styleDesc.getElementNS(), styleDesc.getElementName(), family, name);
-        if (res != null) {
-            return res;
+        // automatic-styles are only reachable from the same document
+        if (referent == this.getDocument()) {
+            res = this.findStyleChild(root.getChild("automatic-styles", office), styleDesc.getElementNS(), styleDesc.getElementName(), family, name);
+            if (res != null) {
+                return res;
+            }
         }
 
         final Element masterStyles = root.getChild("master-styles", office);
@@ -399,6 +407,10 @@ public class ODXMLDocument {
                         final Element transformedElem = addTransf.transform((Element) c);
                         if (transformedElem != null)
                             listToAdd.add(transformedElem);
+                    } else {
+                        // keep non element as when addTransf is null
+                        // perhaps use a Transformer<Content> to allow to remove or modify
+                        listToAdd.add(c);
                     }
                 }
             }

@@ -19,8 +19,7 @@ import org.openconcerto.sql.model.SQLTable;
 
 public class CommandeCliCommandeSQLInjector extends SQLInjector {
     public CommandeCliCommandeSQLInjector(final DBRoot root) {
-        super(root, "COMMANDE_CLIENT", "COMMANDE");
-
+        super(root, "COMMANDE_CLIENT", "COMMANDE", true);
         final SQLTable tableCommandeCli = getSource();
         final SQLTable tableCommande = getDestination();
         mapDefaultValues(tableCommande.getField("SOURCE"), tableCommandeCli.getName());

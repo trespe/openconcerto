@@ -13,13 +13,14 @@
  
  package org.openconcerto.sql.view;
 
+import static org.openconcerto.sql.TM.getTM;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.view.SQLMenuItemHelper.GenericSQLElementAction;
 
 public class SQLElementEditAction extends GenericSQLElementAction<EditFrame> {
 
     public SQLElementEditAction(SQLElement elem) {
-        super(elem, "Créer " + elem.getSingularName());
+        super(elem, getTM().trM("editAction.name", "element", elem.getName()));
     }
 
     @Override

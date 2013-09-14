@@ -18,7 +18,6 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.ExceptionHandler;
 
 import java.sql.SQLException;
 import java.util.Date;
@@ -30,11 +29,10 @@ public class GenerationMvtSaisieKm extends GenerationEcritures {
     private static final String source = "SAISIE_KM";
 
     public GenerationMvtSaisieKm(int idSaisieKm) {
-
         this.idSaisieKm = idSaisieKm;
     }
 
-    public int genereMouvement() {
+    public int genereMouvement() throws SQLException {
 
         SQLRow saisieRow = base.getTable("SAISIE_KM").getRow(this.idSaisieKm);
 
@@ -54,35 +52,23 @@ public class GenerationMvtSaisieKm extends GenerationEcritures {
         List<SQLRow> set = saisieRow.getReferentRows(tableElt);
 
         SQLTable tableAssoc;
-        try {
-            for (SQLRow rowElement : set) {
 
-                int idCpt = ComptePCESQLElement.getId(rowElement.getString("NUMERO"), rowElement.getString("NOM"));
+        for (SQLRow rowElement : set) {
 
-                // Ajout de l'écriture
-                this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCpt));
-                this.mEcritures.put("NOM", rowElement.getString("NOM_ECRITURE"));
-                this.mEcritures.put("DEBIT", rowElement.getObject("DEBIT"));
-                this.mEcritures.put("CREDIT", rowElement.getObject("CREDIT"));
-                int idEcr = ajoutEcriture();
-                // Mise à jour de la clef étrangère écriture de l'élément saisie au km
-                if (idEcr > 1) {
-                    SQLRowValues vals = rowElement.createEmptyUpdateRow();
-                    vals.put("ID_ECRITURE", new Integer(idEcr));
-                    try {
-                        vals.update();
-                    } catch (NumberFormatException e) {
+            int idCpt = ComptePCESQLElement.getId(rowElement.getString("NUMERO"), rowElement.getString("NOM"));
 
-                        e.printStackTrace();
-                    } catch (SQLException e) {
-
-                        e.printStackTrace();
-                    }
-                }
+            // Ajout de l'écriture
+            this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCpt));
+            this.mEcritures.put("NOM", rowElement.getString("NOM_ECRITURE"));
+            this.mEcritures.put("DEBIT", rowElement.getObject("DEBIT"));
+            this.mEcritures.put("CREDIT", rowElement.getObject("CREDIT"));
+            int idEcr = ajoutEcriture();
+            // Mise à jour de la clef étrangère écriture de l'élément saisie au km
+            if (idEcr > 1) {
+                SQLRowValues vals = rowElement.createEmptyUpdateRow();
+                vals.put("ID_ECRITURE", new Integer(idEcr));
+                vals.update();
             }
-        } catch (IllegalArgumentException e) {
-            ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
         }
 
         return this.idMvt;

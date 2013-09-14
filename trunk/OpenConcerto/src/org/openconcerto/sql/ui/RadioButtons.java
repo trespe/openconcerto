@@ -22,6 +22,9 @@ import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.sqlobject.itemview.RowItemViewComponent;
 import org.openconcerto.ui.component.JRadioButtons;
 import org.openconcerto.utils.SwingWorker2;
+import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.cc.Transformer;
+import org.openconcerto.utils.i18n.TM;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,6 +39,7 @@ public class RadioButtons extends JRadioButtons<Integer> implements RowItemViewC
 
     private final String colName;
     private SQLField field;
+    private ITransformer<? super String, String> tm;
 
     public RadioButtons() {
         this("LABEL");
@@ -44,6 +48,29 @@ public class RadioButtons extends JRadioButtons<Integer> implements RowItemViewC
     public RadioButtons(String colName) {
         super();
         this.colName = colName;
+        this.tm = Transformer.nopTransformer();
+    }
+
+    public final RadioButtons initLocalization(final TM tm) {
+        return this.initLocalization(new ITransformer<String, String>() {
+            @Override
+            public String transformChecked(String input) {
+                return tm.translate(input);
+            }
+        });
+    }
+
+    /**
+     * Allow to localize choices.
+     * 
+     * @param tm will be passed the column value.
+     * @return this.
+     */
+    public final RadioButtons initLocalization(final ITransformer<? super String, String> tm) {
+        if (this.isInited())
+            throw new IllegalStateException("Already inited");
+        this.tm = tm;
+        return this;
     }
 
     private final Map<Integer, String> createChoices() {
@@ -62,7 +89,7 @@ public class RadioButtons extends JRadioButtons<Integer> implements RowItemViewC
 
         for (final SQLRow choice : SQLRowListRSH.execute(sel)) {
             final String choiceLabel = choice.getString(this.colName);
-            res.put(choice.getID(), choiceLabel);
+            res.put(choice.getID(), this.tm.transformChecked(choiceLabel));
         }
 
         return res;

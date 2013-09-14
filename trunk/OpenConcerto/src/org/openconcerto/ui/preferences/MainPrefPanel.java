@@ -14,6 +14,7 @@
  package org.openconcerto.ui.preferences;
 
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.TM;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidState;
@@ -59,7 +60,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
     private JButton buttonRight;
     private PrefTree tree;
     private PrefTreeNode currentNode;
-    private final JButton buttonApply = new JButton("Appliquer");
+    private final JButton buttonApply = new JButton(TM.tr("toApply"));
     private final ValidListener validListener = new ValidListener() {
         @Override
         public void validChange(ValidObject src, ValidState newValue) {
@@ -99,7 +100,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
         c.anchor = GridBagConstraints.EAST;
         c.gridwidth = 1;
 
-        JButton reglDefault = new JButton("Réglages par défaut");
+        JButton reglDefault = new JButton(TM.tr("prefs.reset"));
         this.add(reglDefault, c);
         reglDefault.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -132,7 +133,8 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
                     SwingUtilities.invokeLater(new Runnable() {
                         @Override
                         public void run() {
-                            if (panel.isModified() && JOptionPane.showConfirmDialog(root, "Appliquer les modifications?", "Modifications", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                            if (panel.isModified()
+                                    && JOptionPane.showConfirmDialog(root, TM.tr("prefs.applyModif"), TM.tr("prefs.applyModif.title"), JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                                 panel.apply();
                             }
                         }
@@ -152,7 +154,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
         c.gridwidth = 2;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.weightx = 1;
-        this.titleLabel = new JLabel("Préférences générales de l'application");
+        this.titleLabel = new JLabel(TM.tr("prefs.main"));
         Font fontTitre = new Font("Arial Gras", Font.PLAIN, 12);
         this.titleLabel.setFont(fontTitre);
         p.add(this.titleLabel, c);
@@ -226,7 +228,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
         if (this.currentPanel != null) {
 
             if (this.currentPanel.isModified()) {
-                if (JOptionPane.showConfirmDialog(this, "Appliquer les modifications?", "Modifications", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                if (JOptionPane.showConfirmDialog(this, TM.tr("prefs.applyModif"), TM.tr("prefs.applyModif.title"), JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
                     this.currentPanel.apply();
                 } else {
                     // no need to reset the panel, it will be discarded (the node is kept in history

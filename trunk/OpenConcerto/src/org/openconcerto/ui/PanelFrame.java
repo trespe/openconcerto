@@ -14,8 +14,6 @@
  package org.openconcerto.ui;
 
 import java.awt.Container;
-import java.awt.GraphicsEnvironment;
-import java.awt.Rectangle;
 
 import javax.swing.JFrame;
 
@@ -31,27 +29,7 @@ public class PanelFrame extends JFrame {
         this.setContentPane(p);
         this.setTitle(titre);
         if (setBounds)
-            this.setBounds();
+            FrameUtil.setBounds(this);
         this.pack();
-    }
-
-    final protected void setBounds() {
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        final Rectangle dm = new Rectangle(ge.getMaximumWindowBounds());
-        // don't use ge.getDefaultScreenDevice().getDisplayMode();
-        // see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6921661
-
-        // if there's room, don't maximize
-        if (dm.getWidth() > 800 && dm.getHeight() > 600) {
-            dm.x += 10;
-            dm.width -= 50;
-            dm.height -= 20;
-        }
-        // on Ubuntu getMaximumWindowBounds() ignores menu bars
-        final int topOffset = 50;
-        dm.height -= topOffset;
-        dm.y += topOffset;
-
-        this.setBounds(dm);
     }
 }

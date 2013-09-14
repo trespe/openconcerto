@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.modules;
 
-import org.openconcerto.erp.config.MainFrame;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.DBRoot;
@@ -21,20 +20,12 @@ import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.view.DropManager;
 import org.openconcerto.sql.view.FileDropHandler;
-import org.openconcerto.sql.view.SQLElementEditAction;
-import org.openconcerto.sql.view.SQLElementListAction;
 import org.openconcerto.sql.view.list.IListeAction;
 import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.utils.CollectionMap;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 
-import javax.swing.Action;
-import javax.swing.JMenuItem;
 import javax.swing.text.JTextComponent;
 
 /**
@@ -43,22 +34,17 @@ import javax.swing.text.JTextComponent;
  * @author Sylvain
  */
 
-public final class ComponentsContext {
+public final class ComponentsContext extends ElementContext {
 
-    private final SQLElementDirectory dir;
-    private final DBRoot root;
     private final Set<String> createdTables;
     // only for non-created tables
     private final CollectionMap<String, String> createdFields;
     // * module items
     private final CollectionMap<SQLElement, String> fields;
     private final CollectionMap<SQLElement, RowAction> rowActions;
-    private final List<JMenuItem> menuItems;
 
     ComponentsContext(SQLElementDirectory dir, DBRoot root, final Set<String> tables, final Set<SQLName> fields) {
-        super();
-        this.dir = dir;
-        this.root = root;
+        super(dir, root);
         this.createdTables = tables;
         this.createdFields = new CollectionMap<String, String>();
         for (final SQLName f : fields) {
@@ -69,11 +55,6 @@ public final class ComponentsContext {
         }
         this.fields = new CollectionMap<SQLElement, String>();
         this.rowActions = new CollectionMap<SQLElement, RowAction>();
-        this.menuItems = new ArrayList<JMenuItem>();
-    }
-
-    private final DBRoot getRoot() {
-        return this.root;
     }
 
     private final SQLElement checkField(final String tableName, final String name) {
@@ -82,14 +63,6 @@ public final class ComponentsContext {
         if (!this.createdFields.getNonNull(tableName).contains(name))
             throw new IllegalArgumentException("The field " + new SQLName(tableName, name).quote() + " wasn't created by this module");
         return getElement(tableName);
-    }
-
-    public final SQLElement getElement(final String tableName) {
-        final SQLElement element = this.dir.getElement(this.getRoot().getTable(tableName));
-        if (element == null) {
-            throw new IllegalArgumentException("Not element found for table " + tableName);
-        }
-        return element;
     }
 
     public final void putAdditionalField(final String tableName, final String name) {
@@ -133,42 +106,6 @@ public final class ComponentsContext {
 
     final CollectionMap<SQLElement, RowAction> getRowActions() {
         return this.rowActions;
-    }
-
-    public final SQLElementEditAction createEditAction(final String table) {
-        return new SQLElementEditAction(getElement(table));
-    }
-
-    public final SQLElementListAction createListAction(final String table) {
-        return new SQLElementListAction(getElement(table));
-    }
-
-    public final void addMenuItem(final Action action, final String menu) {
-        this.addMenuItem(action, menu, null);
-    }
-
-    public final void addMenuItem(final Action action, final String menu, final String group) {
-        this.addMenuItem(action, new String[] { menu, group });
-    }
-
-    public final void addMenuItem(final Action action, final String... path) {
-        this.addMenuItem(action, Arrays.asList(path));
-    }
-
-    /**
-     * Adds a menu item to the main frame.
-     * 
-     * @param action the action to perform.
-     * @param path where to add the item.
-     * @see MainFrame#addMenuItem(Action, List)
-     */
-    public final void addMenuItem(final Action action, final List<String> path) {
-        final JMenuItem item = MainFrame.getInstance().addMenuItem(action, path);
-        this.menuItems.add(item);
-    }
-
-    final Collection<JMenuItem> getMenuItems() {
-        return this.menuItems;
     }
 
     public final void addFileDropHandler(final String tableName, FileDropHandler handler) {

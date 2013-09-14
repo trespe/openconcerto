@@ -18,22 +18,18 @@ package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODValueType;
-import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.XMLVersion;
-import org.openconcerto.utils.CollectionUtils;
-import org.openconcerto.xml.JDOMUtils;
+import org.openconcerto.openoffice.text.TextNode;
+import org.openconcerto.utils.Tuple2.List2;
+import org.openconcerto.utils.Tuple3;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
 import java.util.regex.Pattern;
 
 import org.jdom.Element;
 import org.jdom.Namespace;
-import org.jdom.Text;
+import org.jdom.Verifier;
 
 /**
  * A cell in a calc document. If you want to change a cell value you must obtain a MutableCell.
@@ -43,8 +39,6 @@ import org.jdom.Text;
  */
 public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
 
-    // see 5.1.1
-    private static final Pattern multiSpacePattern = Pattern.compile("[\t\r\n ]+");
     private static boolean OO_MODE = true;
 
     // from §5.12 of OpenDocument-v1.2-cs01-part2
@@ -77,6 +71,18 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
         if (count > 1)
             e.setAttribute("number-columns-repeated", count + "", ns.getTABLE());
         return e;
+    }
+
+    static public final List2<String> getFormulaNSPrefix(final String formula) {
+        final int colonIndex = formula.indexOf(':');
+        if (colonIndex > 0) {
+            final String ncName = formula.substring(0, colonIndex);
+            if (Verifier.checkXMLName(ncName) == null) {
+                // +1 : remove colon
+                return new List2<String>(ncName, formula.substring(colonIndex + 1));
+            }
+        }
+        return new List2<String>(null, formula);
     }
 
     private final Row<D> row;
@@ -159,59 +165,61 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
      * @return a string for the content of this cell.
      */
     public String getTextValue(final boolean ooMode) {
-        final List<String> ps = new ArrayList<String>();
-        for (final Object o : this.getElement().getChildren()) {
-            final Element child = (Element) o;
-            if ((child.getName().equals("p") || child.getName().equals("h")) && child.getNamespacePrefix().equals("text")) {
-                ps.add(getStringValue(child, ooMode));
-            }
-        }
-        return CollectionUtils.join(ps, "\n");
+        return TextNode.getChildrenCharacterContent(this.getElement(), getODDocument().getFormatVersion(), ooMode);
     }
 
-    private String getStringValue(final Element pElem, final boolean ooMode) {
-        final StringBuilder sb = new StringBuilder();
-        final Namespace textNS = pElem.getNamespace();
-        final OOXML xml = OOXML.get(getODDocument().getFormatVersion());
-        final Element tabElem = xml.getTab();
-        final Element newLineElem = xml.getLineBreak();
-        // true if the string ends with a space that wasn't expanded from an XML element (e.g.
-        // <tab/> or <text:s/>)
-        boolean spaceSuffix = false;
-        final Iterator<?> iter = pElem.getDescendants();
-        while (iter.hasNext()) {
-            final Object o = iter.next();
-            if (o instanceof Text) {
-                final String text = multiSpacePattern.matcher(((Text) o).getText()).replaceAll(" ");
-                // trim leading
-                if (!ooMode && text.startsWith(" ") && (spaceSuffix || sb.length() == 0))
-                    sb.append(text.substring(1));
-                else
-                    sb.append(text);
-                spaceSuffix = text.endsWith(" ");
-            } else if (o instanceof Element) {
-                final Element elem = (Element) o;
-                if (JDOMUtils.equals(elem, tabElem)) {
-                    sb.append("\t");
-                } else if (JDOMUtils.equals(elem, newLineElem)) {
-                    sb.append("\n");
-                } else if (elem.getName().equals("s") && elem.getNamespace().equals(textNS)) {
-                    final int count = Integer.valueOf(elem.getAttributeValue("c", textNS, "1"));
-                    final char[] toAdd = new char[count];
-                    Arrays.fill(toAdd, ' ');
-                    sb.append(toAdd);
-                }
-            }
-        }
-        // trim trailing
-        if (!ooMode && spaceSuffix)
-            sb.deleteCharAt(sb.length() - 1);
-
-        return sb.toString();
-    }
-
-    public final String getFormula() {
+    /**
+     * Get the raw value of the formula attribute.
+     * 
+     * @return the raw value, e.g. "of:sum(A1:A2)".
+     * @see #getFormula()
+     */
+    public final String getRawFormula() {
         return this.getElement().getAttributeValue("formula", getTABLE());
+    }
+
+    protected final Namespace getDefaultFormulaNS() {
+        return getNS().getNS("of");
+    }
+
+    /**
+     * Get the formula text if it's from the default OpenFormula namespace.
+     * 
+     * @return the OpenFormula text, e.g. "sum(A1:A2)".
+     * @throws IllegalStateException if there's no default namespace defined for this version of XML
+     *         or if the formula is from a different namespace.
+     * @see #getFormulaAndNamespace()
+     */
+    public final String getFormula() throws IllegalStateException {
+        final Tuple3<Namespace, String, String> res = this.getFormulaAndNamespace();
+        if (res.get2() != null) {
+            final Namespace defaultNS = getDefaultFormulaNS();
+            if (defaultNS == null)
+                throw new IllegalStateException("No default namespace");
+            if (!defaultNS.equals(res.get0()))
+                throw new IllegalStateException("Not from default namespace");
+        }
+        return res.get1();
+    }
+
+    /**
+     * Get the formula text and its namespace. The result can be passed to
+     * {@link MutableCell#setFormulaAndNamespace(org.openconcerto.utils.Tuple2)}. NOTE : {@link XMLVersion#OOo}
+     * doesn't support namespaces.
+     * 
+     * @return the namespace (can be <code>null</code> if not included in this document), the text,
+     *         the namespace prefix (can be <code>null</code>), e.g.
+     *         [urn:oasis:names:tc:opendocument:xmlns:of:1.2, "sum(A1:A2)", null].
+     * @see {@link #getFormula()}
+     */
+    public final Tuple3<Namespace, String, String> getFormulaAndNamespace() {
+        final String raw = getRawFormula();
+        if (raw == null || getODDocument().getVersion() == XMLVersion.OOo)
+            return Tuple3.create(null, raw, null);
+        final List2<String> tuple = getFormulaNSPrefix(raw);
+        final String prefix = tuple.get0();
+        final Namespace ns = prefix == null ? getDefaultFormulaNS() : getElement().getNamespace(prefix);
+        return Tuple3.create(ns, tuple.get1(), prefix);
     }
 
     /**
@@ -226,7 +234,7 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
         // to differentiate between the result of a computation and the user having typed '#N/A'
         // (this is because per §4.6 of OpenDocument-v1.2-cs01-part2 : if an error value is the
         // result of a cell computation it shall be stored as if it was a string.)
-        if (getFormula() == null)
+        if (getRawFormula() == null)
             return null;
         final String textValue = getTextValue();
         // OpenDocument 1.1 didn't specify errors

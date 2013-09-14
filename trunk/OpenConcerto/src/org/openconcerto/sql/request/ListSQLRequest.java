@@ -14,7 +14,7 @@
  package org.openconcerto.sql.request;
 
 import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.ShowAs;
+import org.openconcerto.sql.FieldExpander;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
@@ -86,8 +86,9 @@ public class ListSQLRequest extends FilteredFillSQLRequest {
     }
 
     @Override
-    protected ShowAs getShowAs() {
-        return Configuration.getInstance().getShowAs();
+    protected FieldExpander getShowAs() {
+        final Configuration conf = Configuration.getInstance();
+        return conf == null ? FieldExpander.getEmpty() : conf.getShowAs();
     }
 
     /*

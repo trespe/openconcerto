@@ -26,7 +26,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.Date;
 
-
 public class GenerationMvtReglementVenteFacture extends GenerationEcritures implements Runnable {
 
     private int idSaisieVenteFacture;
@@ -39,69 +38,68 @@ public class GenerationMvtReglementVenteFacture extends GenerationEcritures impl
     private static final SQLTable tableMouvement = base.getTable("MOUVEMENT");
     private int idPere = 1;
 
+    public GenerationMvtReglementVenteFacture(int idSaisieVenteFacture, int idMvt) {
+        this.idSaisieVenteFacture = idSaisieVenteFacture;
+        System.err.println("**************Init Generation Reglement");
+        this.idPere = idMvt;
+        new Thread(GenerationMvtReglementVenteFacture.this).start();
+    }
+
     public void run() {
+        try {
+            System.err.println("****génération des ecritures de règlement vente facture");
 
-        System.err.println("****génération des ecritures de règlement vente facture");
+            SQLRow saisieRow = base.getTable("SAISIE_VENTE_FACTURE").getRow(this.idSaisieVenteFacture);
+            SQLRow clientRow = base.getTable("CLIENT").getRow(saisieRow.getInt("ID_CLIENT"));
+            SQLRow modeRegRow = base.getTable("MODE_REGLEMENT").getRow(saisieRow.getInt("ID_MODE_REGLEMENT"));
+            SQLRow typeRegRow = base.getTable("TYPE_REGLEMENT").getRow(modeRegRow.getInt("ID_TYPE_REGLEMENT"));
 
-        SQLRow saisieRow = base.getTable("SAISIE_VENTE_FACTURE").getRow(this.idSaisieVenteFacture);
-        SQLRow clientRow = base.getTable("CLIENT").getRow(saisieRow.getInt("ID_CLIENT"));
-        SQLRow modeRegRow = base.getTable("MODE_REGLEMENT").getRow(saisieRow.getInt("ID_MODE_REGLEMENT"));
-        SQLRow typeRegRow = base.getTable("TYPE_REGLEMENT").getRow(modeRegRow.getInt("ID_TYPE_REGLEMENT"));
+            PrixTTC prixTTC;
+            int idAvoir = saisieRow.getInt("ID_AVOIR_CLIENT");
+            if (idAvoir > 1) {
 
-        PrixTTC prixTTC;
-        int idAvoir = saisieRow.getInt("ID_AVOIR_CLIENT");
-        if (idAvoir > 1) {
-
-            long l = ((Number) saisieRow.getObject("T_AVOIR_TTC")).longValue();
-            prixTTC = new PrixTTC(((Long) saisieRow.getObject("T_TTC")).longValue() - l);
-        } else {
-            prixTTC = new PrixTTC(((Long) saisieRow.getObject("T_TTC")).longValue());
-        }
-
-        if (prixTTC.getLongValue() == 0) {
-            return;
-        }
-
-        // iniatilisation des valeurs de la map
-        this.date = (Date) saisieRow.getObject("DATE");
-        this.nom = "Saisie Vente facture " + saisieRow.getObject("NUMERO").toString() + " (" + typeRegRow.getString("NOM") + ")";
-
-        // si paiement comptant
-        if ((modeRegRow.getInt("AJOURS") == 0) && (modeRegRow.getInt("LENJOUR") == 0)) {
-
-            // test Cheque
-            if (typeRegRow.getID() == 2) {
-
-                // Ajout dans cheque à encaisser sans date minimum d'encaissement
-                paiementCheque(this.date);
+                long l = ((Number) saisieRow.getObject("T_AVOIR_TTC")).longValue();
+                prixTTC = new PrixTTC(((Long) saisieRow.getObject("T_TTC")).longValue() - l);
             } else {
+                prixTTC = new PrixTTC(((Long) saisieRow.getObject("T_TTC")).longValue());
+            }
 
-                setDateReglement(saisieRow);
+            if (prixTTC.getLongValue() == 0) {
+                return;
+            }
 
-                if (typeRegRow.getID() == 4) {
-                    this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementVenteFacture.journalCaisse);
+            // iniatilisation des valeurs de la map
+            this.date = (Date) saisieRow.getObject("DATE");
+            this.nom = "Saisie Vente facture " + saisieRow.getObject("NUMERO").toString() + " (" + typeRegRow.getString("NOM") + ")";
+
+            // si paiement comptant
+            if ((modeRegRow.getInt("AJOURS") == 0) && (modeRegRow.getInt("LENJOUR") == 0)) {
+                // test Cheque
+                if (typeRegRow.getID() == 2) {
+                    // Ajout dans cheque à encaisser sans date minimum d'encaissement
+                    paiementCheque(this.date);
                 } else {
-                    this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
-                }
+                    setDateReglement(saisieRow);
+                    if (typeRegRow.getID() == 4) {
+                        this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementVenteFacture.journalCaisse);
+                    } else {
+                        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+                    }
 
-                this.idMvt = idPere;
-                this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
-                this.mEcritures.put("NOM", this.nom);
-                this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
+                    this.idMvt = idPere;
+                    this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
+                    this.mEcritures.put("NOM", this.nom);
+                    this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
-                // compte Clients
-                int idCompteClient = clientRow.getInt("ID_COMPTE_PCE");
-                if (idCompteClient <= 1) {
-                    idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
+                    // compte Clients
+                    int idCompteClient = clientRow.getInt("ID_COMPTE_PCE");
                     if (idCompteClient <= 1) {
-                        try {
+                        idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
+                        if (idCompteClient <= 1) {
                             idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
-                        } catch (Exception e) {
-                            e.printStackTrace();
                         }
                     }
-                }
-                try {
+
                     this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteClient));
                     this.mEcritures.put("DEBIT", new Long(0));
                     this.mEcritures.put("CREDIT", new Long(prixTTC.getLongValue()));
@@ -110,75 +108,59 @@ public class GenerationMvtReglementVenteFacture extends GenerationEcritures impl
                     // compte de reglement, caisse, cheque, ...
                     int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
                     if (idCompteRegl <= 1) {
-                        try {
-                            idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
                     }
                     this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteRegl));
                     this.mEcritures.put("DEBIT", new Long(prixTTC.getLongValue()));
                     this.mEcritures.put("CREDIT", new Long(0));
                     ajoutEcriture();
-                } catch (IllegalArgumentException e) {
-                    ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-                    e.printStackTrace();
+
                 }
-            }
-        } else {
-
-            Date dateEch = ModeDeReglementSQLElement.calculDate(modeRegRow.getInt("AJOURS"), modeRegRow.getInt("LENJOUR"), this.date);
-
-            // Cheque
-            if (typeRegRow.getID() == 2) {
-
-                paiementCheque(dateEch);
             } else {
 
-                System.err.println("Echéance client");
+                Date dateEch = ModeDeReglementSQLElement.calculDate(modeRegRow.getInt("AJOURS"), modeRegRow.getInt("LENJOUR"), this.date);
+                // Cheque
+                if (typeRegRow.getID() == 2) {
+                    paiementCheque(dateEch);
+                } else {
 
-                // Ajout dans echeance
-                SQLRowValues valEcheance = new SQLRowValues(base.getTable("ECHEANCE_CLIENT"));
+                    System.err.println("Echéance client");
 
-                valEcheance.put("DATE", dateEch);
-                valEcheance.put("MONTANT", new Long(prixTTC.getLongValue()));
-                valEcheance.put("ID_CLIENT", new Integer(saisieRow.getInt("ID_CLIENT")));
+                    // Ajout dans echeance
+                    SQLRowValues valEcheance = new SQLRowValues(base.getTable("ECHEANCE_CLIENT"));
+                    valEcheance.put("DATE", dateEch);
+                    valEcheance.put("MONTANT", new Long(prixTTC.getLongValue()));
+                    valEcheance.put("ID_CLIENT", new Integer(saisieRow.getInt("ID_CLIENT")));
 
-                SQLRow rowMvtPere = tableMouvement.getRow(idPere);
-                this.idMvt = getNewMouvement("ECHEANCE_CLIENT", 1, idPere, rowMvtPere.getInt("ID_PIECE"));
-                valEcheance.put("ID_MOUVEMENT", new Integer(this.idMvt));
+                    SQLRow rowMvtPere = tableMouvement.getRow(idPere);
+                    this.idMvt = getNewMouvement("ECHEANCE_CLIENT", 1, idPere, rowMvtPere.getInt("ID_PIECE"));
+                    valEcheance.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
-                try {
                     if (valEcheance.getInvalid() == null) {
-
                         // ajout de l'ecriture
                         SQLRow row = valEcheance.insert();
                         SQLRowValues rowVals = new SQLRowValues(tableMouvement);
                         rowVals.put("IDSOURCE", row.getID());
                         rowVals.update(this.idMvt);
                     }
-                } catch (SQLException e) {
-                    System.err.println("Error insert in Table " + valEcheance.getTable().getName());
-                    e.printStackTrace();
+
                 }
             }
+            System.err.println("****End génération des ecritures de règlement vente facture");
+        } catch (Exception e) {
+            ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
+            e.printStackTrace();
         }
-        System.err.println("****End génération des ecritures de règlement vente facture");
     }
 
-    private void setDateReglement(SQLRow saisieRow) {
+    private void setDateReglement(SQLRow saisieRow) throws SQLException {
         // On fixe la date du paiement
         SQLRowValues rowValsUpdateVF = saisieRow.createEmptyUpdateRow();
         rowValsUpdateVF.put("DATE_REGLEMENT", new Timestamp(this.date.getTime()));
-        try {
-            rowValsUpdateVF.update();
-        } catch (SQLException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
-        }
+        rowValsUpdateVF.update();
     }
 
-    private void paiementCheque(Date dateEch) {
+    private void paiementCheque(Date dateEch) throws SQLException {
 
         SQLRow saisieRow = base.getTable("SAISIE_VENTE_FACTURE").getRow(this.idSaisieVenteFacture);
 
@@ -203,28 +185,14 @@ public class GenerationMvtReglementVenteFacture extends GenerationEcritures impl
         valEncaisse.put("ID_MOUVEMENT", new Integer(this.idMvt));
         valEncaisse.put("MONTANT", new Long(prixTTC.getLongValue()));
 
-        try {
-            if (valEncaisse.getInvalid() == null) {
-
-                // ajout de l'ecriture
-                SQLRow row = valEncaisse.insert();
-                SQLRowValues rowVals = new SQLRowValues(tableMouvement);
-                rowVals.put("IDSOURCE", row.getID());
-                rowVals.update(this.idMvt);
-            }
-        } catch (SQLException e) {
-            System.err.println("Error insert in Table " + valEncaisse.getTable().getName());
-            e.printStackTrace();
+        if (valEncaisse.getInvalid() == null) {
+            // ajout de l'ecriture
+            SQLRow row = valEncaisse.insert();
+            SQLRowValues rowVals = new SQLRowValues(tableMouvement);
+            rowVals.put("IDSOURCE", row.getID());
+            rowVals.update(this.idMvt);
         }
+
     }
 
-    public GenerationMvtReglementVenteFacture(int idSaisieVenteFacture, int idMvt) {
-        this.idSaisieVenteFacture = idSaisieVenteFacture;
-        // SQLRow rowMvtPere = tableMouvement.getRow(idMvt);
-        // this.idMvt = getNewMouvement("SAISIE_VENTE_FACTURE", idSaisieVenteFacture, idMvt,
-        // rowMvtPere.getInt("ID_PIECE"));
-        System.err.println("**************Init Generation Reglement");
-        this.idPere = idMvt;
-        new Thread(GenerationMvtReglementVenteFacture.this).start();
-    }
 }

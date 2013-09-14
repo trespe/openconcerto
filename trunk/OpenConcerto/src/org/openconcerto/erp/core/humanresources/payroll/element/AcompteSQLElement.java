@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -99,27 +100,25 @@ public class AcompteSQLElement extends ComptaSQLConfElement {
             public int insert(SQLRow order) {
 
                 int id = super.insert(order);
-
-                SQLRow rowTmp = getTable().getRow(id);
-                new GenerationMvtAcompte(id);
-
-                SQLTable tableSal = getTable().getBase().getTable("SALARIE");
-                SQLTable tableFichePaye = getTable().getBase().getTable("FICHE_PAYE");
-
-                SQLRow rowSal = tableSal.getRow(rowTmp.getInt("ID_SALARIE"));
-                SQLRow rowFiche = tableFichePaye.getRow(rowSal.getInt("ID_FICHE_PAYE"));
-
-                SQLRowValues rowVals = new SQLRowValues(tableFichePaye);
-
-                float nouveauMontantAcompte = rowFiche.getFloat("ACOMPTE") + rowTmp.getFloat("MONTANT");
-
-                rowVals.put("ACOMPTE", new Float(nouveauMontantAcompte));
-
                 try {
+                    SQLRow rowTmp = getTable().getRow(id);
+                    new GenerationMvtAcompte(id);
+
+                    SQLTable tableSal = getTable().getBase().getTable("SALARIE");
+                    SQLTable tableFichePaye = getTable().getBase().getTable("FICHE_PAYE");
+
+                    SQLRow rowSal = tableSal.getRow(rowTmp.getInt("ID_SALARIE"));
+                    SQLRow rowFiche = tableFichePaye.getRow(rowSal.getInt("ID_FICHE_PAYE"));
+
+                    SQLRowValues rowVals = new SQLRowValues(tableFichePaye);
+
+                    float nouveauMontantAcompte = rowFiche.getFloat("ACOMPTE") + rowTmp.getFloat("MONTANT");
+
+                    rowVals.put("ACOMPTE", new Float(nouveauMontantAcompte));
+
                     rowVals.update(rowFiche.getID());
                 } catch (SQLException e) {
-
-                    e.printStackTrace();
+                    ExceptionHandler.handle("Erreur lors de l'insertion", e);
                 }
 
                 return id;

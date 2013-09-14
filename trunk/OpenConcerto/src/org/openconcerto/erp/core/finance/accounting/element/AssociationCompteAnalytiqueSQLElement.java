@@ -17,6 +17,7 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.finance.accounting.model.AssociationAnalytiqueModel;
 import org.openconcerto.erp.core.finance.accounting.ui.PlanComptableCellRenderer;
 import org.openconcerto.erp.element.objet.ClasseCompte;
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLBase;
@@ -192,7 +193,7 @@ public class AssociationCompteAnalytiqueSQLElement extends ComptaSQLConfElement 
                     }
                 });
 
-                ComptePCESQLElement compteElt = new ComptePCESQLElement();
+                ComptePCESQLElement compteElt = (ComptePCESQLElement) Configuration.getInstance().getDirectory().getElement("COMPTE_PCE");
                 compteElt.getTable().addTableListener(new SQLTableListener() {
 
                     public void rowModified(SQLTable table, int id) {

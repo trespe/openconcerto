@@ -26,7 +26,7 @@ import org.jdom.Namespace;
 
 /**
  * A step in {@link SimpleXMLPath}. There's only 2 types of step, those which go to {@link Element}
- * and those which go to {@link Attribute}.
+ * and those which go to {@link Attribute}. Thread-safe if its {@link #getPredicate() predicate} is.
  * 
  * @author Sylvain CUAZ
  * 
@@ -38,12 +38,33 @@ public final class Step<T> {
         attribute, child, ancestor, descendantOrSelf
     }
 
+    private static final Step<Attribute> ANY_ATTRIBUTE = createAttributeStep(null, null);
+    private static final Step<Element> ANY_CHILD_ELEMENT = createElementStep(Axis.child, null, null);
+
+    /**
+     * Return a step that match any attribute.
+     * 
+     * @return the equivalent of <code>@*</code>.
+     */
+    public static Step<Attribute> getAnyAttributeStep() {
+        return ANY_ATTRIBUTE;
+    }
+
     public static Step<Attribute> createAttributeStep(final String name, final String ns) {
         return createAttributeStep(name, ns, null);
     }
 
     public static Step<Attribute> createAttributeStep(final String name, final String ns, final IPredicate<Attribute> pred) {
         return new Step<Attribute>(Axis.attribute, name, ns, Attribute.class, pred);
+    }
+
+    /**
+     * Return a step that match any child element.
+     * 
+     * @return the equivalent of <code>*</code>.
+     */
+    public static Step<Element> getAnyChildElementStep() {
+        return ANY_CHILD_ELEMENT;
     }
 
     public static Step<Element> createElementStep(final String name, final String ns) {
@@ -89,6 +110,10 @@ public final class Step<T> {
 
     public final String getName() {
         return this.name;
+    }
+
+    public final IPredicate<T> getPredicate() {
+        return this.pred;
     }
 
     protected final Namespace getNS(final Element elem) {

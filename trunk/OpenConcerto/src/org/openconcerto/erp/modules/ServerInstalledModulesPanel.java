@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.sql.users.rights.LockAdminUserRight;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.cc.IFactory;
@@ -63,6 +65,9 @@ public class ServerInstalledModulesPanel extends JPanel {
         this.add(activateButton, c);
         c.gridx++;
         final JButton desactivateButton = new JButton(new UninstallAction());
+        if (!UserManager.getInstance().getCurrentUser().getRights().haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {
+            desactivateButton.setEnabled(false);
+        }
         desactivateButton.setOpaque(false);
         this.add(desactivateButton, c);
 

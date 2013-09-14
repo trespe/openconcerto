@@ -46,4 +46,11 @@ public final class SubReportPart extends ReportPart implements ConditionalPart {
         final Object res = this.evaluateOgnl(attr);
         return res == null ? null : res.toString();
     }
+
+    // Only used if getDocumentID() isn't null. If true the new document will just be the result of
+    // the first part (instead of using the template and then adding the part). This also allows to
+    // generate spreadsheets since they doesn't support the add().
+    public final boolean isSinglePart() {
+        return Boolean.valueOf(this.elem.getAttributeValue("singlePart", "false").trim());
+    }
 }

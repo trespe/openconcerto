@@ -128,7 +128,7 @@ public class SQLTableModelLinesSourceOffline extends SQLTableModelLinesSource {
         f.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
             @Override
             public SQLSelect transformChecked(SQLSelect input) {
-                if (ListSQLRequest.lockSelect)
+                if (ListSQLRequest.getDefaultLockSelect())
                     input.addWaitPreviousWriteTXTable(getParent().getPrimaryTable().getName());
                 final Where w = new Where(getParent().getPrimaryTable().getKey(), "=", id);
                 return getParent().getFetcher().getSelTransf().transformChecked(input).andWhere(w);
@@ -170,7 +170,7 @@ public class SQLTableModelLinesSourceOffline extends SQLTableModelLinesSource {
     @Override
     public void commit(ListSQLLine l, Path path, SQLRowValues vals) {
         checkCanModif(l, path);
-        l.loadAt(vals, path);
+        l.loadAt(vals.getID(), vals, path);
     }
 
     private synchronized void checkCanModif(ListSQLLine l, Path path) {

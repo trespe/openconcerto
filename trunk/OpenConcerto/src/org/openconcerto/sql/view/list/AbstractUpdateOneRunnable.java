@@ -16,14 +16,16 @@
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValues.CreateMode;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 import org.openconcerto.sql.model.SQLSelect;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.request.BaseFillSQLRequest;
 import org.openconcerto.sql.request.ListSQLRequest;
+import org.openconcerto.sql.view.list.search.SearchQueue;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.Collection;
@@ -32,14 +34,14 @@ import java.util.Map.Entry;
 
 abstract class AbstractUpdateOneRunnable extends UpdateRunnable {
 
-    public AbstractUpdateOneRunnable(ITableModel model, SQLTable table, int id) {
-        super(model, table, id);
+    public AbstractUpdateOneRunnable(ITableModel model, final SQLRow r) {
+        super(model, r);
         if (this.getID() < SQLRow.MIN_VALID_ID)
             throw new IllegalArgumentException("id is not valid : " + this.getID());
     }
 
     protected final CollectionMap<Path, ListSQLLine> getAffectedPaths() {
-        return this.getSearchQ().getAffectedPaths(this.getTable(), this.getID());
+        return this.getSearchQ().getAffectedPaths(this.getRow());
     }
 
     protected final void updateLines(CollectionMap<Path, ListSQLLine> paths) {
@@ -51,19 +53,27 @@ abstract class AbstractUpdateOneRunnable extends UpdateRunnable {
             if (!lines.isEmpty()) {
                 // deepCopy() instead of new SQLRowValues() otherwise the used line's graph will be
                 // modified (eg the new instance would be linked to it)
-                final SQLRowValues proto = getModel().getLinesSource().getParent().getMaxGraph().followPath(p).deepCopy();
-                // keep only what has changed, eg CONTACT.NOM
-                proto.retainAll(getModifedFields());
+                final SQLRowValues proto = getModel().getLinesSource().getParent().getMaxGraph().followPathToOne(p, CreateMode.CREATE_NONE, false).deepCopy();
+                final String lastReferentField = SearchQueue.getLastReferentField(p);
+                // there's only one path from the graph start to proto, and we will graft the newly
+                // fetched values at the end of p, so remove other values
+                if (lastReferentField != null) {
+                    proto.put(lastReferentField, null);
+                } else {
+                    proto.clearReferents();
+                    // keep only what has changed, eg CONTACT.NOM
+                    proto.retainAll(getModifedFields());
+                }
                 // fetch the changed rowValues
                 // ATTN this doesn't use the original fetcher that was used in the updateAll
                 // MAYBE add a slower but accurate mode using the updateAll fetcher (and thus
                 // reloading rows from the primary table and not just the changed rows)
-                final SQLRowValuesListFetcher fetcher = new SQLRowValuesListFetcher(proto);
+                final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(proto);
                 BaseFillSQLRequest.setupForeign(fetcher);
                 final ITransformer<SQLSelect, SQLSelect> transf = new ITransformer<SQLSelect, SQLSelect>() {
                     @Override
                     public SQLSelect transformChecked(SQLSelect input) {
-                        if (ListSQLRequest.lockSelect)
+                        if (ListSQLRequest.getDefaultLockSelect())
                             input.addWaitPreviousWriteTXTable(getTable().getName());
                         return input.setWhere(new Where(getTable().getKey(), "=", getID()));
                     }
@@ -73,14 +83,15 @@ abstract class AbstractUpdateOneRunnable extends UpdateRunnable {
                 if (fetched.size() > 1)
                     throw new IllegalStateException("more than one row fetched for " + this + " with " + fetcher.getReq() + " :\n" + fetched);
 
-                if (fetched.size() == 0) {
+                // OK if lastReferentField != null : a referent row has been deleted
+                if (fetched.size() == 0 && lastReferentField == null) {
                     Log.get().fine("no row fetched for " + this + ", lines have been changed without the TableModel knowing : " + lines + " req :\n" + fetcher.getReq());
                     getModel().updateAll();
                 } else {
-                    final SQLRowValues soleFetched = fetched.get(0);
+                    final SQLRowValues soleFetched = CollectionUtils.getSole(fetched);
                     // copy it to each affected lines
                     for (final ListSQLLine line : lines) {
-                        line.loadAt(soleFetched.deepCopy(), p);
+                        line.loadAt(getID(), soleFetched, p);
                     }
                 }
             }

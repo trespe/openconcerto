@@ -19,6 +19,7 @@ import org.openconcerto.erp.model.ISQLCompteSelector;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -149,34 +150,43 @@ public class CompteCloturePreferencePanel extends DefaultPreferencePanel {
 
         try {
             // Ouverture
-            int value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_BILAN_O");
-            if (value <= 1) {
+            SQLRowAccessor rowBilanO = this.rowPrefCompteVals.getForeign("ID_COMPTE_PCE_BILAN_O");
+            int value = 1;
+            if (rowBilanO == null || rowBilanO.isUndefined()) {
                 String compte = ComptePCESQLElement.getComptePceDefault("BilanOuverture");
                 value = ComptePCESQLElement.getId(compte);
+            } else {
+                value = rowBilanO.getID();
             }
             this.selCompteOuverture.setValue(value);
 
             // Fermeture
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_BILAN_F");
-            if (value <= 1) {
+            SQLRowAccessor rowBilanF = this.rowPrefCompteVals.getForeign("ID_COMPTE_PCE_BILAN_F");
+            if (rowBilanF == null || rowBilanF.isUndefined()) {
                 String compte = ComptePCESQLElement.getComptePceDefault("BilanFermeture");
                 value = ComptePCESQLElement.getId(compte);
+            } else {
+                value = rowBilanF.getID();
             }
             this.selCompteFermeture.setValue(value);
 
             // Resultat
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_RESULTAT");
-            if (value <= 1) {
+            SQLRowAccessor rowResultat = this.rowPrefCompteVals.getForeign("ID_COMPTE_PCE_RESULTAT");
+            if (rowResultat == null || rowResultat.isUndefined()) {
                 String compte = ComptePCESQLElement.getComptePceDefault("Resultat");
                 value = ComptePCESQLElement.getId(compte);
+            } else {
+                value = rowResultat.getID();
             }
             this.selCompteResultat.setValue(value);
 
             // Resultat Perte
-            value = this.rowPrefCompteVals.getInt("ID_COMPTE_PCE_RESULTAT_PERTE");
-            if (value <= 1) {
+            SQLRowAccessor rowResultatP = this.rowPrefCompteVals.getForeign("ID_COMPTE_PCE_RESULTAT_PERTE");
+            if (rowResultatP == null || rowResultatP.isUndefined()) {
                 String compte = ComptePCESQLElement.getComptePceDefault("ResultatPerte");
                 value = ComptePCESQLElement.getId(compte);
+            } else {
+                value = rowResultatP.getID();
             }
             this.selCompteResultatPerte.setValue(value);
 

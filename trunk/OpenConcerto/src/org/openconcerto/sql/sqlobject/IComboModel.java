@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
@@ -22,6 +23,7 @@ import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.view.search.SearchSpec;
 import org.openconcerto.sql.view.search.SearchSpecUtils;
+import org.openconcerto.ui.SwingThreadUtils;
 import org.openconcerto.ui.component.combo.Log;
 import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.SwingWorker2;
@@ -31,6 +33,7 @@ import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.MutableValueObject;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
+import org.openconcerto.utils.model.NewSelection;
 
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
@@ -45,6 +48,8 @@ import java.util.concurrent.ExecutionException;
 import javax.swing.SwingUtilities;
 import javax.swing.event.ListDataEvent;
 import javax.swing.event.ListDataListener;
+
+import net.jcip.annotations.GuardedBy;
 
 /**
  * A model that takes its values from a {@link ComboSQLRequest}. It listens to table changes, but
@@ -79,6 +84,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     // index des éléments par leurs IDs
     private Map<Integer, IComboSelectionItem> itemsByID;
 
+    @GuardedBy("this")
     private SearchSpec search;
 
     private PropertyChangeListener filterListener;
@@ -106,7 +112,8 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         this.running = false;
 
         this.setSelectOnAdd(false);
-        this.setSelectOnRm(false);
+        // we always change the selection after changing the items
+        this.setOnRemovingOrReplacingSelection(NewSelection.NO);
 
         this.uiInit();
     }
@@ -366,7 +373,14 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         this.itemsByID.put(item.getId(), item);
     }
 
+    private void removeItem(final int id) {
+        final IComboSelectionItem removed = this.itemsByID.remove(id);
+        if (removed != null)
+            this.getComboModel().removeElement(removed);
+    }
+
     private IComboSelectionItem getComboItem(int id) {
+        assert SwingUtilities.isEventDispatchThread();
         return this.itemsByID.get(id);
     }
 
@@ -376,15 +390,14 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     }
 
     // refresh, delete or add the passed row
-    private void reloadComboItem(int id) {
-        final IComboSelectionItem item = this.getComboItem(id);
-        // does this combo currently displays id
-        if (item != null) {
-            final IComboSelectionItem nItem = this.req.getComboItem(id);
-            if (nItem == null) {
-                this.getComboModel().removeElement(item);
-                this.itemsByID.remove(item.getId());
-            } else {
+    private void reloadComboItem(final int id, final IComboSelectionItem nItem) {
+        assert SwingUtilities.isEventDispatchThread();
+        if (nItem == null) {
+            removeItem(id);
+        } else {
+            final IComboSelectionItem item = this.getComboItem(id);
+            // does this combo currently displays id
+            if (item != null) {
                 // before replace() which empties the selection
                 final boolean selectedID = this.getSelectedId() == id;
                 this.getComboModel().replace(item, nItem);
@@ -393,10 +406,10 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
                     // selectedItem is NOT part of the items, even for non-editable combos
                     this.setValue(id);
                 }
+            } else {
+                // don't know if and where to put the new item, so call fillCombo()
+                this.fillCombo();
             }
-        } else {
-            // don't know if and where to put the new item, so call fillCombo()
-            this.fillCombo();
         }
     }
 
@@ -529,10 +542,17 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         } else if (id == SQLRow.NONEXISTANT_ID) {
             this.setSelectedItem(null);
             log("NONEXISTANT_ID: setSelectedItem(null)");
-        } else if (id != this.getSelectedId()) {
-            log("id != this.getSelectedId() : " + this.getSelectedId());
+        } else {
             final IComboSelectionItem item = this.getComboItem(id);
-            log("item: " + item);
+            log("valid id : " + id + " item: " + item);
+            // * setSelectedItem() use IComboSelectionItem.equals() so it must compare the ID and
+            // the flag since even if ID doesn't change the combo might get refreshed and the
+            // selected row :
+            // 1. get removed : in that case we want to add the "warning" item
+            // 2. get added : in that case remove the "warning"
+            // * ATTN item being null means id isn't in the result set, getSelectedValue() being
+            // null means nothing is selected. For example if the current selection is empty and
+            // now we want ID 34 but it isn't returned by the request, both will be null.
             if (item == null && this.addMissingItem()) {
                 // si l'ID voulu n'est pas la, essayer d'aller le chercher directement dans la base
                 // sans respecter le filtre
@@ -614,6 +634,11 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     }
 
     @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.emptySupp.removeEmptyListener(l);
+    }
+
+    @Override
     public final void addValueListener(PropertyChangeListener l) {
         this.addListener("value", l);
     }
@@ -653,23 +678,43 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
 
     // *** une table que nous affichons a changé
 
+    private boolean tableOnlyOnce() {
+        final SQLRowValues graphToFetch = this.req.getGraphToFetch();
+        for (final SQLRowValues item : graphToFetch.getGraph().getItems()) {
+            if (item != graphToFetch && item.getTable() == graphToFetch.getTable()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     @Override
     public void tableModified(SQLTableEvent evt) {
         final int id = evt.getId();
-        if (id >= SQLRow.MIN_VALID_ID && this.getForeignTable().equals(evt.getTable())) {
-            this.reloadComboItem(id);
-        } else
+        if (id >= SQLRow.MIN_VALID_ID && this.getForeignTable().equals(evt.getTable()) && tableOnlyOnce()) {
+            // MAYBE SwingWorker à la fillCombo()
+            final IComboSelectionItem nItem = SearchSpecUtils.filterOne(this.req.getComboItem(id), getSearch());
+            SwingThreadUtils.invoke(new Runnable() {
+                @Override
+                public void run() {
+                    reloadComboItem(id, nItem);
+                }
+            });
+        } else {
+            // if multiple rows were changed or if one row can affect multiple combo items (e.g.
+            // displaying mission and its previous date)
             this.fillCombo();
+        }
     }
 
     // *** search
 
-    public final void search(SearchSpec spec) {
+    public synchronized final void search(SearchSpec spec) {
         this.search = spec;
         this.fillCombo();
     }
 
-    private SearchSpec getSearch() {
+    private synchronized SearchSpec getSearch() {
         return this.search;
     }
 

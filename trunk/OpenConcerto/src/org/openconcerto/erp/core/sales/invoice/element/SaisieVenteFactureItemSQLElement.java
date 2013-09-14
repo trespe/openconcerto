@@ -13,9 +13,11 @@
  
  package org.openconcerto.erp.core.sales.invoice.element;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
@@ -62,20 +64,21 @@ public class SaisieVenteFactureItemSQLElement extends ComptaSQLConfElement {
     protected List<String> getListFields() {
         List<String> l = new ArrayList<String>();
         l.add("ID_SAISIE_VENTE_FACTURE");
-        l.add("CODE");
-        l.add("NOM");
-        String articleAdvanced = DefaultNXProps.getInstance().getStringProperty("ArticleModeVenteAvance");
-        Boolean bArticleAdvanced = Boolean.valueOf(articleAdvanced);
-        if (bArticleAdvanced) {
-            l.add("PRIX_METRIQUE_VT_1");
-            l.add("ID_MODE_VENTE_ARTICLE");
-        }
-        l.add("PA_HT");
-        l.add("PV_HT");
 
+            l.add("CODE");
+            l.add("NOM");
+            String articleAdvanced = DefaultNXProps.getInstance().getStringProperty("ArticleModeVenteAvance");
+            Boolean bArticleAdvanced = Boolean.valueOf(articleAdvanced);
+            if (bArticleAdvanced) {
+                l.add("PRIX_METRIQUE_VT_1");
+                l.add("ID_MODE_VENTE_ARTICLE");
+            }
+            l.add("PA_HT");
+            l.add("PV_HT");
         l.add("QTE");
         l.add("T_PV_HT");
         l.add("T_PV_TTC");
+
         return l;
     }
 

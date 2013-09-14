@@ -13,30 +13,51 @@
  
  package org.openconcerto.ui.group;
 
+import net.jcip.annotations.Immutable;
+
+@Immutable
 public class LayoutHints {
+    private final boolean visible;
+    private final boolean largeWidth;
+    private final boolean largeHeight;
 
-    private boolean largeWidth;
-    private boolean largeHeight;
+    private final boolean showLabel;
+    private final boolean separated;
+    private final boolean fillWidth;
+    private final boolean fillHeight;
+    // true if label and editor are separated
+    private final boolean split;
 
-    private boolean showLabel;
-    private boolean separated;
-    private boolean fillWidth;
-    private boolean fillHeight;
     public static final LayoutHints DEFAULT_FIELD_HINTS = new LayoutHints(false, false, true, false, false, false);
     public static final LayoutHints DEFAULT_LARGE_FIELD_HINTS = new LayoutHints(false, false, true, false, true, false);
     public static final LayoutHints DEFAULT_VERY_LARGE_FIELD_HINTS = new LayoutHints(true, false, true, false, false, false);
+    public static final LayoutHints DEFAULT_VERY_LARGE_TEXT_HINTS = new LayoutHints(true, false, true, false, true, false, true);
     public static final LayoutHints DEFAULT_LIST_HINTS = new LayoutHints(true, true, false, true, true, true);
     public static final LayoutHints DEFAULT_GROUP_HINTS = new LayoutHints(true, false, false, false, true, true);
     public static final LayoutHints DEFAULT_SEPARATED_GROUP_HINTS = new LayoutHints(true, false, true, true, true, true);
     public static final LayoutHints DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS = new LayoutHints(true, false, false, true, true, true);
 
+    public LayoutHints(boolean largeWidth, boolean largeHeight, boolean showLabel) {
+        this(largeWidth, largeHeight, showLabel, false, false, false);
+    }
+
     public LayoutHints(boolean largeWidth, boolean largeHeight, boolean showLabel, boolean separated, boolean fillWidth, boolean fillHeight) {
+        this(largeWidth, largeHeight, showLabel, separated, fillWidth, fillHeight, false);
+    }
+
+    public LayoutHints(boolean largeWidth, boolean largeHeight, boolean showLabel, boolean separated, boolean fillWidth, boolean fillHeight, boolean split) {
+        this(largeWidth, largeHeight, showLabel, separated, fillWidth, fillHeight, split, true);
+    }
+
+    public LayoutHints(boolean largeWidth, boolean largeHeight, boolean showLabel, boolean separated, boolean fillWidth, boolean fillHeight, boolean split, boolean visible) {
         this.largeWidth = largeWidth;
         this.largeHeight = largeHeight;
         this.showLabel = showLabel;
         this.separated = separated;
         this.fillWidth = fillWidth;
         this.fillHeight = fillHeight;
+        this.split = split;
+        this.visible = visible;
     }
 
     public LayoutHints(LayoutHints localHint) {
@@ -46,89 +67,112 @@ public class LayoutHints {
         this.separated = localHint.separated;
         this.fillWidth = localHint.fillWidth;
         this.fillHeight = localHint.fillHeight;
+        this.split = localHint.split;
+        this.visible = localHint.visible;
+    }
+
+    public final LayoutHintsBuilder getBuilder() {
+        return new LayoutHintsBuilder(this.largeWidth, this.largeHeight, this.showLabel).setFillHeight(this.fillHeight).setFillWidth(this.fillWidth).setSeparated(this.separated).setSplit(this.split)
+                .setVisible(this.visible);
     }
 
     public boolean largeWidth() {
-        return largeWidth;
-    }
-
-    public void setLargeWidth(boolean largeWidth) {
-        this.largeWidth = largeWidth;
+        return this.largeWidth;
     }
 
     public boolean largeHeight() {
-        return largeHeight;
-    }
-
-    public void setLargeHeight(boolean largeHeight) {
-        this.largeHeight = largeHeight;
+        return this.largeHeight;
     }
 
     public boolean showLabel() {
-        return showLabel;
-    }
-
-    public void setShowLabel(boolean showLabel) {
-        this.showLabel = showLabel;
+        return this.showLabel;
     }
 
     public boolean isSeparated() {
-        return separated;
-    }
-
-    public void setSeparated(boolean separated) {
-        this.separated = separated;
+        return this.separated;
     }
 
     public boolean fillWidth() {
-        return fillWidth;
-    }
-
-    public void setFillWidth(boolean fillWidth) {
-        this.fillWidth = fillWidth;
+        return this.fillWidth;
     }
 
     public boolean fillHeight() {
-        return fillHeight;
+        return this.fillHeight;
     }
 
-    public void setFillHeight(boolean fillHeight) {
-        this.fillHeight = fillHeight;
+    public boolean isSplit() {
+        return this.split;
     }
 
     @Override
     public String toString() {
         String r = "";
-        if (largeHeight && largeWidth) {
+        if (this.largeHeight && this.largeWidth) {
             r += "LargeW&H";
         } else {
-            if (largeHeight) {
+            if (this.largeHeight) {
                 r += "LargeH";
             }
-            if (largeWidth) {
+            if (this.largeWidth) {
                 r += "LargeW";
             }
         }
-        if (showLabel && separated) {
-            r += " SeparatedLabel";
-        } else {
-            if (showLabel) {
-                r += " StdLabel";
-            } else {
-                r += " NoLabel";
-            }
-
+        if (this.separated) {
+            r += " Separated";
         }
-        if (fillHeight && fillWidth) {
+        if (this.showLabel) {
+            r += " StdLabel";
+        } else {
+            r += " NoLabel";
+        }
+        if (this.split) {
+            r += " (label and editor splitted)";
+        }
+        if (this.fillHeight && this.fillWidth) {
             r += " FillW&H";
         } else {
-            if (fillHeight) {
+            if (this.fillHeight) {
                 r += " FillH";
             }
-            if (fillWidth) {
+            if (this.fillWidth) {
                 r += " FillW";
             }
         }
+        if (!this.isVisible()) {
+            r += " (hidden)";
+        }
         return r;
+    }
+
+    public boolean isVisible() {
+        return visible;
+    }
+
+    @Override
+    public int hashCode() {
+        final int prime = 31;
+        int result = 1;
+        result = prime * result + (this.fillHeight ? 1231 : 1237);
+        result = prime * result + (this.fillWidth ? 1231 : 1237);
+        result = prime * result + (this.largeHeight ? 1231 : 1237);
+        result = prime * result + (this.largeWidth ? 1231 : 1237);
+        result = prime * result + (this.separated ? 1231 : 1237);
+        result = prime * result + (this.showLabel ? 1231 : 1237);
+        result = prime * result + (this.split ? 1231 : 1237);
+        result = prime * result + (this.visible ? 1231 : 1237);
+        return result;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj)
+            return true;
+        if (obj == null)
+            return false;
+        if (getClass() != obj.getClass())
+            return false;
+        final LayoutHints other = (LayoutHints) obj;
+        return this.fillHeight == other.fillHeight && this.fillWidth == other.fillWidth && this.largeHeight == other.largeHeight && this.largeWidth == other.largeWidth
+                && this.separated == other.separated && this.showLabel == other.showLabel && this.split == other.split && this.visible == other.visible;
     }
 }

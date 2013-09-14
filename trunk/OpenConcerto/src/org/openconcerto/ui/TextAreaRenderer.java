@@ -13,6 +13,8 @@
  
  package org.openconcerto.ui;
 
+import org.openconcerto.ui.table.TableCellRendererUtils;
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -70,13 +72,16 @@ public class TextAreaRenderer extends DefaultTableCellRenderer {
     @Override
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
         super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        TableCellRendererUtils.setColors(this, table, isSelected);
         this.currentTable = table;
         this.currentRow = row;
 
         this.setHorizontalAlignment(SwingConstants.LEFT);
 
-        this.area.setForeground(this.getForeground());
-        this.area.setBackground(this.getBackground());
+        // Important: we need to clone the colors due to a bug of GTK L&F
+        this.area.setForeground(new Color(this.getForeground().getRGB()));
+        this.area.setBackground(new Color(this.getBackground().getRGB()));
+        //
         this.area.setFont(this.getFont());
         this.area.setBorder(null);
         this.area.setMargin(null);

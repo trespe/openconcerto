@@ -15,7 +15,6 @@
 
 import org.openconcerto.map.model.Ville;
 import org.openconcerto.ui.component.ComboLockedMode;
-import org.openconcerto.ui.component.ITextComboCache;
 import org.openconcerto.ui.component.combo.ISearchableTextCombo;
 import org.openconcerto.utils.model.DefaultIListModel;
 
@@ -85,7 +84,8 @@ public class StatusPanel extends JPanel implements VilleRendererListener, ZoomLi
         txt.addValueListener(new PropertyChangeListener() {
 
             public void propertyChange(PropertyChangeEvent evt) {
-                final String trim = evt.getNewValue().toString().trim();
+                // null if empty
+                final String trim = (String) evt.getNewValue();
                 StatusPanel.this.currentVille = Ville.getVilleFromVilleEtCode(trim);
                 if (StatusPanel.this.currentVille != null) {
                     System.out.println("CurrentVille:" + StatusPanel.this.currentVille + " from:" + trim);
@@ -100,7 +100,7 @@ public class StatusPanel extends JPanel implements VilleRendererListener, ZoomLi
         txt.setMinimumSearch(0);
         txt.setMaximumResult(200);
 
-        txt.initCache(new DefaultIListModel<String>(new ITextComboCacheVille().getCache()));
+        txt.initCache(new DefaultIListModel<String>(Ville.getVillesNames()));
         c.weightx = 1;
         c.gridx++;
         this.add(txt, c);

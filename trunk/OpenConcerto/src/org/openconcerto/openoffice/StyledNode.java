@@ -30,6 +30,13 @@ public abstract class StyledNode<S extends Style, D extends ODDocument> extends 
         return Style.getStyleDesc(styleClass, XMLVersion.getVersion(local));
     }
 
+    static public final void setStyleName(final Element elem, final String name) {
+        if (name == null)
+            elem.removeAttribute("style-name", elem.getNamespace());
+        else
+            elem.setAttribute("style-name", name, elem.getNamespace());
+    }
+
     private final StyleDesc<S> styleClass;
 
     /**
@@ -116,6 +123,6 @@ public abstract class StyledNode<S extends Style, D extends ODDocument> extends 
     }
 
     public final void setStyleName(final String name) {
-        this.getElement().setAttribute("style-name", name, this.getElement().getNamespace());
+        setStyleName(this.getElement(), name);
     }
 }

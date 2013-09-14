@@ -24,7 +24,6 @@ import org.openconcerto.utils.GestionDevise;
 import java.sql.SQLException;
 import java.util.Date;
 
-
 public final class GenerationMvtAcompte extends GenerationEcritures implements Runnable {
 
     private int idSalarie;
@@ -38,12 +37,9 @@ public final class GenerationMvtAcompte extends GenerationEcritures implements R
     private static final SQLTable tablePrefCompte = base.getTable("PREFS_COMPTE");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
-    public GenerationMvtAcompte(int idAcompte) {
-
+    public GenerationMvtAcompte(int idAcompte) throws SQLException {
         this.idAcompte = idAcompte;
-
         SQLRow rowAcompte = tableAcompte.getRow(idAcompte);
-
         this.idSalarie = rowAcompte.getInt("ID_SALARIE");
         this.montant = GestionDevise.parseLongCurrency(String.valueOf(rowAcompte.getFloat("MONTANT")));
         SQLRow rowSal = tableSalarie.getRow(this.idSalarie);
@@ -51,7 +47,7 @@ public final class GenerationMvtAcompte extends GenerationEcritures implements R
         new Thread(GenerationMvtAcompte.this).start();
     }
 
-    private void genereComptaAcompte() {
+    private void genereComptaAcompte() throws Exception {
 
         System.out.println("Génération des ecritures du mouvement " + this.idMvt);
 
@@ -68,54 +64,47 @@ public final class GenerationMvtAcompte extends GenerationEcritures implements R
         // Acompte
         int idCompteAcompte = rowPrefsCompte.getInt("ID_COMPTE_PCE_ACOMPTE");
         if (idCompteAcompte <= 1) {
-
-            try {
-                idCompteAcompte = ComptePCESQLElement.getIdComptePceDefault("PayeAcompte");
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            idCompteAcompte = ComptePCESQLElement.getIdComptePceDefault("PayeAcompte");
         }
 
         this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteAcompte));
         this.mEcritures.put("NOM", this.nom);
         this.mEcritures.put("DEBIT", Long.valueOf(this.montant));
         this.mEcritures.put("CREDIT", Long.valueOf(0));
-        try {
-            ajoutEcriture();
 
-            // Trésorie
-            int idCompteTresor = rowPrefsCompte.getInt("ID_COMPTE_PCE_ACOMPTE_REGL");
-            if (idCompteTresor <= 1) {
-                try {
-                    idCompteTresor = ComptePCESQLElement.getIdComptePceDefault("PayeReglementAcompte");
-                } catch (Exception e) {
+        ajoutEcriture();
 
-                    e.printStackTrace();
-                }
+        // Trésorie
+        int idCompteTresor = rowPrefsCompte.getInt("ID_COMPTE_PCE_ACOMPTE_REGL");
+        if (idCompteTresor <= 1) {
+            try {
+                idCompteTresor = ComptePCESQLElement.getIdComptePceDefault("PayeReglementAcompte");
+            } catch (Exception e) {
+
+                e.printStackTrace();
             }
-            this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTresor));
-            this.mEcritures.put("NOM", this.nom);
-            this.mEcritures.put("DEBIT", Long.valueOf(0));
-            this.mEcritures.put("CREDIT", Long.valueOf(this.montant));
-
-            ajoutEcriture();
-        } catch (IllegalArgumentException e) {
-            ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
         }
+        this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteTresor));
+        this.mEcritures.put("NOM", this.nom);
+        this.mEcritures.put("DEBIT", Long.valueOf(0));
+        this.mEcritures.put("CREDIT", Long.valueOf(this.montant));
+
+        ajoutEcriture();
 
         // Replace mvt
         SQLRowValues rowVals = new SQLRowValues(tableAcompte);
         rowVals.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
-        try {
-            rowVals.update(this.idAcompte);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+
+        rowVals.update(this.idAcompte);
+
     }
 
     public void run() {
 
-        genereComptaAcompte();
+        try {
+            genereComptaAcompte();
+        } catch (Exception e) {
+            ExceptionHandler.handle("Erreur lors de la génération des mouvements", e);
+        }
     }
 }

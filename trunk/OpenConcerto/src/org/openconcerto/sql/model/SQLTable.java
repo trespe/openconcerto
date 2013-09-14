@@ -27,6 +27,7 @@ import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cc.CopyOnWriteMap;
@@ -49,6 +50,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
@@ -110,7 +112,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
                         return res;
                     }
                 });
-                undefT.addTableModifiedListener(new SQLTableModifiedListener() {
+                // be called early, since it's more likely that some transaction will create table,
+                // set its undefined ID, then use it in requests, than some other transaction
+                // needing the undefined ID. TODO The real fix is one tree per transaction.
+                undefT.addTableModifiedListener(new ListenerAndConfig(new SQLTableModifiedListener() {
                     @Override
                     public void tableModified(SQLTableEvent evt) {
                         synchronized (UNDEFINED_IDs) {
@@ -118,7 +123,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
                             undefT.removeTableModifiedListener(this);
                         }
                     }
-                });
+                }, false));
             } else {
                 r = Collections.emptyMap();
             }
@@ -222,6 +227,55 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         }
     }
 
+    static private boolean AFTER_TX_DEFAULT = true;
+
+    static public void setDefaultAfterTransaction(final boolean val) {
+        AFTER_TX_DEFAULT = val;
+    }
+
+    static public final class ListenerAndConfig {
+
+        private final SQLTableModifiedListener l;
+        private final boolean afterTx;
+
+        public ListenerAndConfig(SQLTableModifiedListener l, boolean afterTx) {
+            super();
+            if (l == null)
+                throw new NullPointerException("Null listener");
+            this.l = l;
+            this.afterTx = afterTx;
+        }
+
+        public final SQLTableModifiedListener getListener() {
+            return this.l;
+        }
+
+        public final boolean callOnlyAfterTx() {
+            return this.afterTx;
+        }
+
+        @Override
+        public int hashCode() {
+            final int prime = 31;
+            int result = 1;
+            result = prime * result + (this.afterTx ? 1231 : 1237);
+            result = prime * result + this.l.hashCode();
+            return result;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj)
+                return true;
+            if (obj == null)
+                return false;
+            if (getClass() != obj.getClass())
+                return false;
+            final ListenerAndConfig other = (ListenerAndConfig) obj;
+            return this.afterTx == other.afterTx && this.l.equals(other.l);
+        }
+    }
+
     @GuardedBy("this")
     private String version;
     private final CopyOnWriteMap<String, SQLField> fields;
@@ -243,7 +297,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
     // always immutable so that fire can iterate safely ; to modify it, simply copy it before
     // (adding listeners is a lot less common than firing events)
     @GuardedBy("listenersMutex")
-    private List<SQLTableModifiedListener> tableModifiedListeners;
+    private List<ListenerAndConfig> tableModifiedListeners;
+    @GuardedBy("listenersMutex")
+    private final ListMap<TransactionPoint, FireState> transactions;
+    private final TransactionListener txListener;
     private final Object listenersMutex = new String("tableModifiedListeners mutex");
     // the id that foreign keys pointing to this, can use instead of NULL
     // a null value meaning not yet known
@@ -259,6 +316,13 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
     SQLTable(SQLSchema schema, String name) {
         super(schema, name);
         this.tableModifiedListeners = Collections.emptyList();
+        this.transactions = new ListMap<TransactionPoint, FireState>();
+        this.txListener = new TransactionListener() {
+            @Override
+            public void transactionEnded(TransactionPoint point) {
+                fireFromTransaction(point, point.getCommitted());
+            }
+        };
         // needed for getOrderedFields()
         this.fields = new CopyOnWriteMap<String, SQLField>() {
             @Override
@@ -631,6 +695,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
 
     public SQLBase getBase() {
         return this.getSchema().getBase();
+    }
+
+    synchronized final String getVersion() {
+        return this.version;
     }
 
     /**
@@ -1082,16 +1150,20 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
      */
 
     public void addTableModifiedListener(SQLTableModifiedListener l) {
+        this.addTableModifiedListener(new ListenerAndConfig(l, AFTER_TX_DEFAULT));
+    }
+
+    public void addTableModifiedListener(ListenerAndConfig l) {
         this.addTableModifiedListener(l, false);
     }
 
-    public void addPremierTableModifiedListener(SQLTableModifiedListener l) {
+    public void addPremierTableModifiedListener(ListenerAndConfig l) {
         this.addTableModifiedListener(l, true);
     }
 
-    private void addTableModifiedListener(SQLTableModifiedListener l, final boolean before) {
+    private void addTableModifiedListener(ListenerAndConfig l, final boolean before) {
         synchronized (this.listenersMutex) {
-            final List<SQLTableModifiedListener> newListeners = new ArrayList<SQLTableModifiedListener>(this.tableModifiedListeners.size() + 1);
+            final List<ListenerAndConfig> newListeners = new ArrayList<ListenerAndConfig>(this.tableModifiedListeners.size() + 1);
             if (before)
                 newListeners.add(l);
             newListeners.addAll(this.tableModifiedListeners);
@@ -1102,8 +1174,12 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
     }
 
     public void removeTableModifiedListener(SQLTableModifiedListener l) {
+        this.removeTableModifiedListener(new ListenerAndConfig(l, AFTER_TX_DEFAULT));
+    }
+
+    public void removeTableModifiedListener(ListenerAndConfig l) {
         synchronized (this.listenersMutex) {
-            final List<SQLTableModifiedListener> newListeners = new ArrayList<SQLTableModifiedListener>(this.tableModifiedListeners);
+            final List<ListenerAndConfig> newListeners = new ArrayList<ListenerAndConfig>(this.tableModifiedListeners);
             if (newListeners.remove(l))
                 this.tableModifiedListeners = Collections.unmodifiableList(newListeners);
         }
@@ -1184,20 +1260,42 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         this.fireTableModified(evt);
     }
 
-    static private final ThreadLocal<LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>>> events = new ThreadLocal<LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>>>() {
+    // the listeners and the event that was notified to them
+    static private class FireState extends Tuple2<List<ListenerAndConfig>, SQLTableEvent> {
+        public FireState(final List<ListenerAndConfig> listeners, final SQLTableEvent evt) {
+            super(listeners, evt);
+        }
+
+        private DispatchingState createDispatchingState(final Boolean callbackAfterTxListeners, final boolean oppositeEvt) {
+            final List<SQLTableModifiedListener> listeners = new LinkedList<SQLTableModifiedListener>();
+            for (final ListenerAndConfig l : get0()) {
+                if (callbackAfterTxListeners == null || callbackAfterTxListeners == l.callOnlyAfterTx())
+                    listeners.add(l.getListener());
+            }
+            return new DispatchingState(listeners, oppositeEvt ? get1().opposite() : get1());
+        }
+    }
+
+    static private class DispatchingState extends Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent> {
+        public DispatchingState(final List<SQLTableModifiedListener> listeners, final SQLTableEvent evt) {
+            super(listeners.iterator(), evt);
+        }
+    }
+
+    static private final ThreadLocal<LinkedList<DispatchingState>> events = new ThreadLocal<LinkedList<DispatchingState>>() {
         @Override
-        protected LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>> initialValue() {
-            return new LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>>();
+        protected LinkedList<DispatchingState> initialValue() {
+            return new LinkedList<DispatchingState>();
         }
     };
 
     // allow to maintain the dispatching of events in order when a listener itself fires an event
-    static private void fireTableModified(Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent> newTuple) {
-        final LinkedList<Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent>> linkedList = events.get();
+    static private void fireTableModified(DispatchingState newTuple) {
+        final LinkedList<DispatchingState> linkedList = events.get();
         // add new event
         linkedList.addLast(newTuple);
         // process all pending events
-        Tuple2<Iterator<SQLTableModifiedListener>, SQLTableEvent> currentTuple;
+        DispatchingState currentTuple;
         while ((currentTuple = linkedList.peekFirst()) != null) {
             final Iterator<SQLTableModifiedListener> iter = currentTuple.get0();
             final SQLTableEvent currentEvt = currentTuple.get1();
@@ -1211,12 +1309,37 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
     }
 
     private void fireTableModified(final SQLTableEvent evt) {
-        // no need to copy since this.tableModifiedListeners is immutable
-        final List<SQLTableModifiedListener> dispatchingListeners;
+        final FireState fireState;
+        final TransactionPoint point = this.getDBSystemRoot().getDataSource().getTransactionPoint();
+        final Boolean callbackAfterTxListeners;
         synchronized (this.listenersMutex) {
-            dispatchingListeners = this.tableModifiedListeners;
+            // no need to copy since this.tableModifiedListeners is immutable
+            fireState = new FireState(this.tableModifiedListeners, evt);
+            if (point == null) {
+                // call back every listener
+                callbackAfterTxListeners = null;
+            } else {
+                if (!this.transactions.containsKey(point))
+                    point.addListener(this.txListener);
+                this.transactions.add(point, fireState);
+                callbackAfterTxListeners = false;
+            }
         }
-        fireTableModified(Tuple2.create(dispatchingListeners.iterator(), evt));
+        fireTableModified(fireState.createDispatchingState(callbackAfterTxListeners, false));
+    }
+
+    // a transaction was committed or aborted, we must either notify listeners that wanted the
+    // transaction to commit, or re-notify the listeners that didn't want to wait
+    protected void fireFromTransaction(final TransactionPoint point, final boolean committed) {
+        final List<FireState> states;
+        synchronized (this.listenersMutex) {
+            states = this.transactions.remove(point);
+        }
+        final ListIterator<FireState> iter = CollectionUtils.getListIterator(states, !committed);
+        while (iter.hasNext()) {
+            final FireState state = iter.next();
+            fireTableModified(state.createDispatchingState(committed, !committed));
+        }
     }
 
     public synchronized String toXML() {

@@ -70,10 +70,16 @@ public class TextAreaTableCellEditor extends AbstractCellEditor implements Table
                                 if (column >= 0 && column < t.getColumnCount()) {
                                     t.setColumnSelectionInterval(column, column);
                                     t.setRowSelectionInterval(row, row);
+                                    // Need to postpone editCell because selection with cancel
+                                    // selection
+                                    SwingUtilities.invokeLater(new Runnable() {
 
-                                    if (t.editCellAt(row, column)) {
-                                        t.getEditorComponent().requestFocusInWindow();
-                                    }
+                                        public void run() {
+                                            if (t.editCellAt(row, column)) {
+                                                t.getEditorComponent().requestFocusInWindow();
+                                            }
+                                        }
+                                    });
                                 }
                             }
                         }

@@ -44,7 +44,7 @@ public class DevisTextSheet extends AbstractJOOReportsSheet {
     /**
      * @return une Map contenant les valeurs à remplacer dans la template
      */
-    protected Map createMap() {
+    protected Map<String, Object> createMap() {
 
         Map<String, Object> m = new HashMap<String, Object>();
 
@@ -65,7 +65,7 @@ public class DevisTextSheet extends AbstractJOOReportsSheet {
         m.put("ClientTelP", rowClient.getString("TEL_P"));
         m.put("ClientFax", rowClient.getString("FAX"));
         m.put("ClientMail", rowClient.getString("MAIL"));
-        String villeCli = getVille(rowAdresse.getString("VILLE"));
+        String villeCli = rowAdresse.getString("VILLE");
         final Object cedexCli = rowAdresse.getObject("CEDEX");
         final boolean hasCedexCli = rowAdresse.getBoolean("HAS_CEDEX");
 
@@ -76,13 +76,13 @@ public class DevisTextSheet extends AbstractJOOReportsSheet {
             }
         }
 
-        final String adr = rowAdresse.getString("RUE") + "\n" + getVilleCP(rowAdresse.getString("VILLE")) + " " + villeCli;
+        final String adr = rowAdresse.getString("RUE") + "\n" + rowAdresse.getString("CODE_POSTAL") + " " + villeCli;
         m.put("ClientAdresse", adr);
         if (this.row.getBoolean("ADRESSE_IDENTIQUE")) {
             m.put("ClientInterv", "");
         } else {
             SQLRow rowIntervention = this.row.getForeignRow("ID_ADRESSE");
-            String villeInter = getVille(rowIntervention.getString("VILLE"));
+            String villeInter = rowIntervention.getString("VILLE");
             final Object cedexInter = rowIntervention.getObject("CEDEX");
             final boolean hasCedexInter = rowIntervention.getBoolean("HAS_CEDEX");
 
@@ -93,7 +93,7 @@ public class DevisTextSheet extends AbstractJOOReportsSheet {
                 }
             }
 
-            final String adrInter = rowIntervention.getString("RUE") + "\n" + getVilleCP(rowIntervention.getString("VILLE")) + " " + villeInter;
+            final String adrInter = rowIntervention.getString("RUE") + "\n" + rowIntervention.getString("CODE_POSTAL") + " " + villeInter;
 
             m.put("ClientInterv", adrInter);
         }

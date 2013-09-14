@@ -206,7 +206,7 @@ public class SocieteCommonSQLElement extends ConfSQLElement {
                 this.add(fieldRCS, c);
                 this.addView(fieldRCS, "RCS");
 
-                // Numero APE
+                // Capital
                 c.gridx++;
                 c.weightx = 0;
                 JLabel labelCapital = new JLabel(getLabelFor("CAPITAL"));
@@ -218,6 +218,22 @@ public class SocieteCommonSQLElement extends ConfSQLElement {
                 JTextField fieldCapital = new JTextField();
                 this.add(fieldCapital, c);
                 this.addView(fieldCapital, "CAPITAL");
+
+                // Assurance
+                if (getTable().contains("NUMERO_POLICE")) {
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.weightx = 0;
+                    JLabel labelPolice = new JLabel(getLabelFor("NUMERO_POLICE"));
+                    labelPolice.setHorizontalAlignment(SwingConstants.RIGHT);
+                    this.add(labelPolice, c);
+
+                    c.gridx++;
+                    c.weightx = 1;
+                    JTextField fieldPolice = new JTextField();
+                    this.add(fieldPolice, c);
+                    this.addView(fieldPolice, "NUMERO_POLICE");
+                }
 
                 // Adresse
                 final TitledSeparator sepAdresse = new TitledSeparator(getLabelFor("ID_ADRESSE_COMMON"));

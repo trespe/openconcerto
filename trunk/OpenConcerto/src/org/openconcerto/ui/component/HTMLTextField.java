@@ -80,7 +80,7 @@ public class HTMLTextField extends JEditorPane {
                 try {
                     Desktop.getDesktop().browse(e.getURL().toURI());
                 } catch (Exception exn) {
-                    ExceptionHandler.handle(src, "Impossible d'ouvrir " + e.getURL(), exn);
+                    ExceptionHandler.handle(src, org.openconcerto.utils.i18n.TM.tr("linkOpenError", e.getURL()), exn);
                 }
             }
         });

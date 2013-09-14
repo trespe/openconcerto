@@ -28,10 +28,14 @@ public final class I18nUtils {
         @Override
         public List<Locale> getCandidateLocales(String baseName, Locale locale) {
             List<Locale> res = super.getCandidateLocales(baseName, locale);
-            assert res.get(res.size() - 1) == Locale.ROOT;
+            final int superSize = res.size();
+            assert res.get(superSize - 1) == Locale.ROOT;
+            // as per the documentation (if the given locale is equal to Locale.ROOT...)
+            if (superSize == 1)
+                return res;
             // remove Locale.ROOT
-            res = res.subList(0, res.size() - 1);
-            assert res.isEmpty() || res.get(res.size() - 1).getLanguage().equals(locale.getLanguage());
+            res = res.subList(0, superSize - 1);
+            assert res.get(res.size() - 1).getLanguage().equals(locale.getLanguage());
             return res;
         }
 
@@ -45,7 +49,15 @@ public final class I18nUtils {
 
     static private final SameLanguageControl INSTANCE = new SameLanguageControl();
 
-    static public final String RSRC_BASENAME = I18nUtils.class.getPackage().getName() + ".Resources";
+    static public final String getPackageName(final Class<?> c) {
+        return c.getPackage().getName() + ".translation";
+    }
+
+    static protected final String getBaseName(final Class<?> c) {
+        return getPackageName(c) + ".messages";
+    }
+
+    static public final String RSRC_BASENAME = getBaseName(I18nUtils.class);
     static public final String TRUE_KEY = "true_key";
     static public final String FALSE_KEY = "false_key";
     static public final String YES_KEY = "yes_key";

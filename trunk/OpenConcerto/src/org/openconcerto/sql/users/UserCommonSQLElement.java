@@ -14,6 +14,7 @@
  package org.openconcerto.sql.users;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.SQLComponent;
@@ -29,6 +30,7 @@ import org.openconcerto.ui.valuewrapper.TextValueWrapper;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.checks.ValidState;
+import org.openconcerto.utils.i18n.I18nUtils;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.GridBagConstraints;
@@ -55,7 +57,8 @@ public class UserCommonSQLElement extends ConfSQLElement {
     public static final String LEGACY_PASSWORDS = "org.openconcerto.sql.legacyPasswords";
 
     public UserCommonSQLElement() {
-        super("USER_COMMON", "un utilisateur", "utilisateurs");
+        super("USER_COMMON");
+        this.setL18nPackageName(I18nUtils.getPackageName(TM.class));
     }
 
     @Override
@@ -126,7 +129,7 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 final JLabelWarning labelWarning = new JLabelWarning();
                 // labelWarning.setBorder(null);
                 this.panelWarning.add(labelWarning, c);
-                final JLabel labelTextWarning = new JLabel("Confirmation incorrecte");
+                final JLabel labelTextWarning = new JLabel(TM.tr("user.passwordsDontMatch.short"));
                 // labelTextWarning.setBorder(null);
                 c.gridx++;
                 this.panelWarning.add(labelTextWarning, c);
@@ -172,7 +175,7 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 // Confirmation password
                 c.gridx++;
                 c.weightx = 0;
-                final JLabel labelConfirmationPass = new JLabel("Confirmation");
+                final JLabel labelConfirmationPass = new JLabel(getLabelFor("PASSWORD_CONFIRM"));
                 labelConfirmationPass.setHorizontalAlignment(SwingConstants.RIGHT);
                 this.add(labelConfirmationPass, c);
                 this.passFieldConfirm = new JPasswordField(15);
@@ -346,7 +349,7 @@ public class UserCommonSQLElement extends ConfSQLElement {
 
             @Override
             public synchronized ValidState getValidState() {
-                return super.getValidState().and(ValidState.createCached(checkValidityPassword(), "Les mots de passe ne correspondent pas"));
+                return super.getValidState().and(ValidState.createCached(checkValidityPassword(), TM.tr("user.passwordsDontMatch")));
             }
 
             @Override

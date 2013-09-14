@@ -19,6 +19,7 @@ import org.openconcerto.sql.model.LoadingListener.LoadingEvent;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.utils.SQLCreateMoveableTable;
+import org.openconcerto.sql.utils.SQLCreateRoot;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.IClosure;
 
@@ -340,7 +341,7 @@ public final class DBSystemRoot extends DBStructureItemDB {
             // don't fire GraphLoadingEvent here since we might be in an atomicRefresh
             this.getGraph().refresh(tablesRefreshed, readCache);
         } catch (SQLException e) {
-            throw new IllegalStateException("Couldn't refresh the graph");
+            throw new IllegalStateException("Couldn't refresh the graph", e);
         }
         // the dataSource must always have all tables, to listen to them for its cache
         if (tableListChange)
@@ -470,6 +471,18 @@ public final class DBSystemRoot extends DBStructureItemDB {
         this.addRoots(roots, true, true);
     }
 
+    public final DBRoot addRoot(final String root) throws SQLException {
+        return this.addRoot(root, true);
+    }
+
+    /**
+     * Add the passed root to the roots to map then refresh.
+     * 
+     * @param root the roots name to add (must exist).
+     * @param readCache <code>false</code> to use JDBC.
+     * @return the newly added root, not <code>null</code>.
+     * @throws SQLException if problem while reloading.
+     */
     public final DBRoot addRoot(final String root, final boolean readCache) throws SQLException {
         this.addRoots(Collections.singletonList(root), readCache);
         return this.getRoot(root);
@@ -484,6 +497,20 @@ public final class DBSystemRoot extends DBStructureItemDB {
         this.refresh(new HashSet<String>(roots), readCache);
         if (addToPath)
             this.appendToRootPath(roots);
+    }
+
+    /**
+     * Create a root, add it to roots to map and refresh.
+     * 
+     * @param rootName the root to create (mustn't exist).
+     * @return the new root.
+     * @throws SQLException if problem while reloading.
+     * @see #addRoot(String)
+     */
+    public final DBRoot createRoot(final String rootName) throws SQLException {
+        for (final String s : new SQLCreateRoot(SQLSyntax.get(this), rootName).asList(rootName, false, true))
+            getDataSource().execute(s);
+        return this.addRoot(rootName);
     }
 
     /**

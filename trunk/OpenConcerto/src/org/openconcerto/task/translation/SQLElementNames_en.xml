@@ -1,0 +1,4 @@
+<translations>
+	<element refid="TACHE_COMMON" name="task" />
+	<element refid="TACHE_RIGHTS" name="right for tasks" namePlural="rights for tasks" />
+</translations>

@@ -31,6 +31,9 @@ public class Range {
 
     public void setStop(int stop) {
         this.stop = stop;
+        if (stop <= start) {
+            throw new IllegalArgumentException("Invalid range " + start + " - " + stop);
+        }
     }
 
     @Override
@@ -39,7 +42,7 @@ public class Range {
     }
 
     public boolean isEmpty() {
-        return start == stop;
+        return start >= stop;
     }
 
     public int size() {

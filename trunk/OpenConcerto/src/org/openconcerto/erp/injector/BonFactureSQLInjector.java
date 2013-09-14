@@ -13,18 +13,19 @@
  
  package org.openconcerto.erp.injector;
 
-import org.openconcerto.sql.Configuration;
+import java.math.BigDecimal;
+import java.util.Collection;
+
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLInjector;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 
 public class BonFactureSQLInjector extends SQLInjector {
-    private static final SQLTable blTable = Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON").getTable();
-    private static final SQLTable factureTable = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE").getTable();
 
     public BonFactureSQLInjector(final DBRoot root) {
-        super(blTable, factureTable);
-
+        super(root.getTable("BON_DE_LIVRAISON"), root.getTable("SAISIE_VENTE_FACTURE"), true);
         final SQLTable tableBon = getSource();
         final SQLTable tableFacture = getDestination();
         // map(tableDevis.getField("PORT_HT"), tableCommande.getField("PORT_HT"));
@@ -32,7 +33,29 @@ public class BonFactureSQLInjector extends SQLInjector {
         map(tableBon.getField("ID_CLIENT"), tableFacture.getField("ID_CLIENT"));
         map(tableBon.getField("NOM"), tableFacture.getField("NOM"));
         map(tableBon.getField("INFOS"), tableFacture.getField("INFOS"));
-        map(tableBon.getField("ID"), tableFacture.getField("IDSOURCE"));
-        mapDefaultValues(tableFacture.getField("SOURCE"), tableBon.getName());
     }
+
+    @Override
+    protected void merge(SQLRowAccessor srcRow, SQLRowValues rowVals) {
+        super.merge(srcRow, rowVals);
+
+        // Merge elements
+        final SQLTable tableElementSource = getSource().getTable("BON_DE_LIVRAISON_ELEMENT");
+        final SQLTable tableElementDestination = getSource().getTable("SAISIE_VENTE_FACTURE_ELEMENT");
+        final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+
+        if (myListItem.size() != 0) {
+            final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);
+            for (SQLRowAccessor rowElt : myListItem) {
+                final SQLRowValues createRowValuesFrom = injector.createRowValuesFrom(rowElt.asRow());
+                if (createRowValuesFrom.getTable().getFieldsName().contains("POURCENT_ACOMPTE")) {
+                    if (createRowValuesFrom.getObject("POURCENT_ACOMPTE") == null) {
+                        createRowValuesFrom.put("POURCENT_ACOMPTE", new BigDecimal(100.0));
+                    }
+                }
+                createRowValuesFrom.put("ID_SAISIE_VENTE_FACTURE", rowVals);
+            }
+        }
+    }
+
 }

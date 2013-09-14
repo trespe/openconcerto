@@ -69,11 +69,15 @@ public abstract class ComptaSQLConfElement extends SQLElement {
     }
 
     public ComptaSQLConfElement(String tableName, String singular, String plural) {
-        this(tableName, singular, plural, null);
+        super(singular, plural, getBaseSociete().findTable(tableName, true));
     }
 
-    public ComptaSQLConfElement(String tableName, String singular, String plural, final String id) {
-        super(singular, plural, getBaseSociete().findTable(tableName, true), id);
+    public ComptaSQLConfElement(String tableName) {
+        this(tableName, null);
+    }
+
+    public ComptaSQLConfElement(String tableName, String code) {
+        super(getBaseSociete().findTable(tableName, true), null, code);
     }
 
     @Override

@@ -18,6 +18,8 @@ package org.openconcerto.sql.utils;
 
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.request.RowItemDesc;
+import org.openconcerto.sql.request.SQLFieldTranslator;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.io.NewLineWriter;
@@ -58,8 +60,8 @@ public class ClassGenerator {
     public static void generateMappingXML(SQLTable t, List<SQLField> f, NewLineWriter out) throws IOException {
         out.println("<TABLE name=\"" + t.getName() + "\">");
         for (final SQLField element : f) {
-            final String fieldName = StringUtils.firstUpThenLow(element.getName()).replace('_', ' ');
-            out.println("   <FIELD name=\"" + element.getName() + "\" label=\"" + fieldName + "\" titleLabel=\"" + fieldName + "\" />");
+            final RowItemDesc desc = SQLFieldTranslator.getDefaultDesc(element);
+            out.println("   <FIELD name=\"" + element.getName() + "\" label=\"" + desc.getLabel() + "\" titleLabel=\"" + desc.getTitleLabel() + "\" />");
 
         }
         out.println("</TABLE>");

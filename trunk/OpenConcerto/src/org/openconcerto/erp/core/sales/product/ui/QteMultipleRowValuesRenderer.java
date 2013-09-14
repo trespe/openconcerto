@@ -17,6 +17,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.table.AlternateTableCellRenderer;
+import org.openconcerto.ui.table.TableCellRendererUtils;
 import org.openconcerto.utils.CollectionUtils;
 
 import java.awt.Color;
@@ -46,6 +47,7 @@ public class QteMultipleRowValuesRenderer extends DefaultTableCellRenderer {
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 
         Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        TableCellRendererUtils.setColors(comp, table, isSelected);
         ((JLabel) comp).setHorizontalAlignment(SwingConstants.RIGHT);
         if (table instanceof RowValuesTable) {
 
@@ -62,12 +64,6 @@ public class QteMultipleRowValuesRenderer extends DefaultTableCellRenderer {
                     comp.setBackground(redGrey);
                 }
                 return comp;
-            } else {
-                if (!isSelected) {
-                    comp.setBackground(Color.white);
-                } else {
-                    comp.setBackground(Color.LIGHT_GRAY);
-                }
             }
 
         }

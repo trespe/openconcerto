@@ -26,7 +26,14 @@ import java.util.List;
 public class ESCSerialPrinter extends DefaultTicketPrinter {
     private String port;
 
+    /**
+     * Valid port are COM1: , COM1 , /dev/ttyS0 or /dev/tty.mydevice
+     * */
     public ESCSerialPrinter(String port) {
+        port = port.trim();
+        if (port.endsWith(":")) {
+            port = port.substring(0, port.length() - 1);
+        }
         this.port = port;
     }
 
@@ -193,7 +200,7 @@ public class ESCSerialPrinter extends DefaultTicketPrinter {
 
     public static void main(String[] args) {
         listPorts();
-        ESCSerialPrinter prt = new ESCSerialPrinter("COM1:");
+        ESCSerialPrinter prt = new ESCSerialPrinter("COM1");
         prt.setPort(getSerialPortNames().get(0));
         prt.addToBuffer("ILM INFORMATIQUE", BOLD_LARGE);
         prt.addToBuffer("");

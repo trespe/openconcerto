@@ -39,12 +39,11 @@ import java.util.Set;
 
 public class ColumnPanelFetcher {
 
-    final SQLRowValues rowValsFecth;
-    final FieldPath p;
-    final ITransformer<SQLSelect, SQLSelect> t;
-    Map<String, Integer> columns;
-
-    List<List<SQLRowValues>> values;
+    private final SQLRowValues rowValsFecth;
+    private final FieldPath p;
+    private final ITransformer<SQLSelect, SQLSelect> t;
+    private Map<String, Integer> columns;
+    private List<List<SQLRowValues>> values;
 
     /**
      * 
@@ -85,14 +84,14 @@ public class ColumnPanelFetcher {
      * Fill values
      */
     private void fetch() {
-        SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(this.rowValsFecth);
+        final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(this.rowValsFecth);
 
         fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
 
             @Override
             public SQLSelect transformChecked(SQLSelect input) {
                 // Jointure jusqu'à la table contenant les colonnes
-                List<Step> l = ColumnPanelFetcher.this.p.getPath().getSteps();
+                final List<Step> l = ColumnPanelFetcher.this.p.getPath().getSteps();
                 for (Step step : l) {
                     input.addJoin("LEFT", step.getSingleField());
                 }
@@ -106,7 +105,7 @@ public class ColumnPanelFetcher {
             }
         });
 
-        List<SQLRowValues> rowVals = fetcher.fetch();
+        final List<SQLRowValues> rowVals = fetcher.fetch();
 
         if (this.columns == null) {
             getColumnName();
@@ -115,7 +114,8 @@ public class ColumnPanelFetcher {
         // Init de la liste des values
         ArrayList<Integer> cols = new ArrayList<Integer>(this.columns.values());
         this.values = new ArrayList<List<SQLRowValues>>();
-        for (int i = 0; i < cols.size(); i++) {
+        final int size = cols.size();
+        for (int i = 0; i < size; i++) {
             this.values.add(new ArrayList<SQLRowValues>());
         }
 
@@ -131,7 +131,9 @@ public class ColumnPanelFetcher {
             }
             if (rowValuesStep != null && !rowValuesStep.isUndefined()) {
                 int index = cols.indexOf(rowValuesStep.getID());
-                this.values.get(index).add(sqlRowValues);
+                if (index >= 0 && index < this.values.size()) {
+                    this.values.get(index).add(sqlRowValues);
+                }
             }
         }
 

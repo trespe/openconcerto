@@ -18,6 +18,7 @@ import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.ElementSQLObject;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
@@ -308,26 +309,10 @@ public class EtatCivilSQLElement extends ComptaSQLConfElement {
                 this.comboSituationFam.setButtonsVisible(false);
             }
 
-            /*
-             * 
-             * protected SQLRowValues createDefaults() {
-             * 
-             * final SQLRowValues vals = new SQLRowValues(EtatCivilSQLElement.this.getTable());
-             * 
-             * vals.put("NB_ENFANTS", 0); vals.put("NB_PERS_A_CHARGE", 0);
-             * vals.put("ID_PAYS_NAISSANCE", 61);
-             * 
-             * System.err.println("GET DEFAULTS");
-             * 
-             * return vals; }
-             */
             protected SQLRowValues createDefaults() {
-                final SQLRowValues vals = new SQLRowValues(EtatCivilSQLElement.this.getTable());
-
-                vals.loadAllSafe(EtatCivilSQLElement.this.getTable().getRow(1));
-
-                System.err.println("GET DEFAULTS");
-
+                final SQLTable table = getTable();
+                final SQLRowValues vals = new SQLRowValues(table);
+                getElement().loadAllSafe(vals, table.getRow(table.getUndefinedID()));
                 return vals;
             }
         };

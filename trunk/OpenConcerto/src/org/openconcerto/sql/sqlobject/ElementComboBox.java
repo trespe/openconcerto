@@ -13,11 +13,11 @@
  
  package org.openconcerto.sql.sqlobject;
 
-import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.TM;
+import org.openconcerto.sql.element.RIVPanel;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.view.EditFrame;
@@ -28,6 +28,7 @@ import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
+import org.openconcerto.ui.component.ITextCombo;
 import org.openconcerto.ui.list.selection.BaseListStateModel;
 import org.openconcerto.utils.cc.ITransformer;
 
@@ -148,15 +149,12 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
     }
 
     @Override
-    public void init(SQLRowItemView v) {
-        final SQLTable foreignTable = v.getField().getDBSystemRoot().getGraph().getForeignTable(v.getField());
-        if (foreignTable == null) {
-            throw new IllegalArgumentException("No foreign table for " + v.getField().getFullName());
-        }
+    public void added(RIVPanel sqlComp, SQLRowItemView v) {
+        final SQLElement foreignElement = sqlComp.getDirectory().getElement(v.getField().getForeignTable());
         if (this.getElement() == null)
-            this.init(Configuration.getInstance().getDirectory().getElement(foreignTable));
-        else if (this.getElement().getTable() != foreignTable)
-            throw new IllegalArgumentException("Tables are different " + getElement().getTable().getSQLName() + " != " + foreignTable.getSQLName());
+            this.init(foreignElement);
+        else if (this.getElement() != foreignElement)
+            throw new IllegalArgumentException("Elements are different " + getElement() + " != " + foreignElement);
     }
 
     public final SQLElement getElement() {
@@ -222,7 +220,7 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
             DefaultGridBagConstraints.lockMinimumSize(this.viewButton);
             add(this.viewButton, c);
             c.gridx++;
-            this.listButton.setToolTipText("Lister les " + this.element.getPluralName());
+            this.listButton.setToolTipText(TM.getInstance().trM("combo.list", "element", this.element.getName()));
             DefaultGridBagConstraints.lockMinimumSize(this.listButton);
             add(this.listButton, c);
 
@@ -230,7 +228,7 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
             this.addButton.setPreferredSize(new Dimension(24, 16));
             this.addButton.setIcon(getAddIcon());
             IListButton.initButton(this.addButton);
-            this.addButton.setToolTipText("Créer " + this.element.getSingularName());
+            this.addButton.setToolTipText(EditFrame.getCreateMessage(this.element));
             c.gridx++;
             DefaultGridBagConstraints.lockMinimumSize(this.addButton);
             add(this.addButton, c);
@@ -241,15 +239,11 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
             this.listButton.addActionListener(this);
             this.addValueListener(new PropertyChangeListener() {
                 public void propertyChange(PropertyChangeEvent evt) {
-                    // don't change our frames' selection when we reload
-                    // (furthermore our listener on the list will change idToSelect to the
-                    // temporary one, thus rending it ineffective)
-                    if (!isUpdating())
-                        valueChanged();
+                    valueChanged();
                 }
             });
 
-            if (Boolean.getBoolean("org.openconcerto.ui.simpleTraversal")) {
+            if (Boolean.getBoolean(ITextCombo.SIMPLE_TRAVERSAL)) {
                 this.viewButton.setFocusable(false);
                 this.listButton.setFocusable(false);
                 this.addButton.setFocusable(false);
@@ -265,10 +259,10 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
         updateViewBtn();
         if (this.viewFrame != null) {
             // changer la frame du détail
-            this.viewFrame.selectionId(this.getSelectedId());
+            this.viewFrame.selectionId(this.getWantedID());
         }
         if (this.listFrame != null) {
-            this.listFrame.getPanel().getListe().selectID(this.getSelectedId());
+            this.listFrame.getPanel().getListe().selectID(this.getWantedID());
         }
     }
 
@@ -298,7 +292,7 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
                     // dispose since if we change canModif, the old frame will be orphaned
                     this.viewFrame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
                 }
-                this.viewFrame.selectionId(getSelectedId());
+                this.viewFrame.selectionId(getWantedID());
                 FrameUtil.show(this.viewFrame);
             }
         } else if (e.getSource() == this.addButton) {
@@ -315,7 +309,7 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
                         setValue(newID == BaseListStateModel.INVALID_ID ? null : newID);
                     }
                 });
-                this.listFrame.getPanel().getListe().selectID(getSelectedId());
+                this.listFrame.getPanel().getListe().selectID(getWantedID());
             }
             FrameUtil.show(this.listFrame);
         }
@@ -368,7 +362,7 @@ public class ElementComboBox extends SQLRequestComboBox implements ActionListene
 
     private void updateViewBtn() {
         final boolean modif, enabled;
-        if (getEnabled() == ComboMode.DISABLED || this.getSelectedId() < SQLRow.MIN_VALID_ID) {
+        if (getEnabled() == ComboMode.DISABLED || this.getWantedID() < SQLRow.MIN_VALID_ID) {
             // disabled
             modif = this.canModif;
             enabled = false;

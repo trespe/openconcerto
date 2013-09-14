@@ -13,10 +13,6 @@
  
  package org.openconcerto.erp.core.finance.payment.action;
 
-import java.awt.GridBagConstraints;
-import java.util.ArrayList;
-import java.util.List;
-
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
@@ -24,9 +20,13 @@ import org.openconcerto.erp.core.common.ui.ListeViewPanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
-import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.IListFrame;
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+
+import java.awt.GridBagConstraints;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -41,10 +41,11 @@ public class ListeDesEncaissementsAction extends CreateFrameAbstractAction {
     public JFrame createFrame() {
 
         final SQLElement elementEchClient = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
-        final SQLElement elementModeRegl = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
-        Where w = new Where(elementEchClient.getTable().getField("ID_MODE_REGLEMENT"), "=", elementModeRegl.getTable().getKey());
-        Where w2 = new Where(elementModeRegl.getTable().getField("AJOURS"), "=", 0).and(new Where(elementModeRegl.getTable().getField("LENJOUR"), "=", 0));
-        IListFrame frame = new IListFrame(new ListeViewPanel(elementEchClient));
+
+        // FIXME Cacher les encaissements de reports (créer à partir d'une échéance pour la reporter
+        // ????)
+
+        IListFrame frame = new IListFrame(new ListeViewPanel(elementEchClient, new IListe(elementEchClient.getTableSource(true))));
 
         List<SQLField> fields = new ArrayList<SQLField>(2);
         fields.add(elementEchClient.getTable().getField("MONTANT"));

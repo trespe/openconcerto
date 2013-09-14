@@ -91,6 +91,26 @@ public final class SQLCreateRoot {
     }
 
     /**
+     * The SQL to update this root as a single list. I.e. this is just
+     * {@link #asLists(String, boolean, boolean, EnumSet)} flattened (without the boundaries
+     * parameter since all lists will be concatenated).
+     * 
+     * @param r the name of the updated root, <code>null</code> meaning {@link #getName()}.
+     * @param drop whether to first drop the root.
+     * @param create whether to create the root, e.g. <code>false</code> if adding some tables to an
+     *        existing root.
+     * @return the SQL needed.
+     */
+    public final List<String> asList(final String r, final boolean drop, final boolean create) {
+        final List<List<String>> lists = this.asLists(r, drop, create, EnumSet.noneOf(ConcatStep.class));
+        assert lists.size() == 2;
+        final List<String> res = new ArrayList<String>(lists.get(0).size() + lists.get(1).size());
+        res.addAll(lists.get(0));
+        res.addAll(lists.get(1));
+        return res;
+    }
+
+    /**
      * The SQL to update this root. The first item of the result is the drop/creation of the root
      * and the {@link #addClause(String) clauses}, then <code>boundaries</code> size + 1 items for
      * creating the tables.

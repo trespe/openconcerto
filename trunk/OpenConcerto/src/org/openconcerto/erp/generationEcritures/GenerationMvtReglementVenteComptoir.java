@@ -27,7 +27,6 @@ import org.openconcerto.utils.ExceptionHandler;
 import java.sql.SQLException;
 import java.util.Date;
 
-
 public class GenerationMvtReglementVenteComptoir extends GenerationEcritures implements Runnable {
     private int idSaisieVenteComptoir;
 
@@ -38,63 +37,65 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
     private static final SQLTable tableMouvement = base.getTable("MOUVEMENT");
     private int idPere = 1;
 
+    public GenerationMvtReglementVenteComptoir(int idSaisieVenteComptoir, int idMvt) {
+        this.idPere = idMvt;
+        this.idSaisieVenteComptoir = idSaisieVenteComptoir;
+        new Thread(GenerationMvtReglementVenteComptoir.this).start();
+    }
+
     public void run() {
+        try {
+            System.out.println("génération des ecritures de règlement vente comptoir");
 
-        System.out.println("génération des ecritures de règlement vente comptoir");
+            SQLRow saisieRow = base.getTable("SAISIE_VENTE_COMPTOIR").getRow(this.idSaisieVenteComptoir);
+            SQLRow clientRow = base.getTable("CLIENT").getRow(saisieRow.getInt("ID_CLIENT"));
+            SQLRow modeRegRow = base.getTable("MODE_REGLEMENT").getRow(saisieRow.getInt("ID_MODE_REGLEMENT"));
+            SQLRow typeRegRow = base.getTable("TYPE_REGLEMENT").getRow(modeRegRow.getInt("ID_TYPE_REGLEMENT"));
 
-        SQLRow saisieRow = base.getTable("SAISIE_VENTE_COMPTOIR").getRow(this.idSaisieVenteComptoir);
-        SQLRow clientRow = base.getTable("CLIENT").getRow(saisieRow.getInt("ID_CLIENT"));
-        SQLRow modeRegRow = base.getTable("MODE_REGLEMENT").getRow(saisieRow.getInt("ID_MODE_REGLEMENT"));
-        SQLRow typeRegRow = base.getTable("TYPE_REGLEMENT").getRow(modeRegRow.getInt("ID_TYPE_REGLEMENT"));
-
-        PrixTTC prixTTC = new PrixTTC(((Long) saisieRow.getObject("MONTANT_TTC")).longValue());
-        this.date = (Date) saisieRow.getObject("DATE");
-        String string = "Vente comptoir ";
-        final String rowLib = saisieRow.getObject("NOM").toString();
-        if (rowLib != null && rowLib.trim().length() > 0) {
-            string += rowLib.trim();
-        } else {
-            string += saisieRow.getForeignRow("ID_ARTICLE").getString("NOM");
-        }
-        this.nom = string + " (" + typeRegRow.getString("NOM") + ")";
-
-        // si paiement comptant
-        if ((modeRegRow.getInt("AJOURS") == 0) && (modeRegRow.getInt("LENJOUR") == 0)) {
-
-            // test Cheque
-            if (typeRegRow.getID() == 2) {
-
-                // Ajout dans cheque à encaisser sans date minimum d'encaissement
-                paiementCheque(this.date);
+            PrixTTC prixTTC = new PrixTTC(((Long) saisieRow.getObject("MONTANT_TTC")).longValue());
+            this.date = (Date) saisieRow.getObject("DATE");
+            String string = "Vente comptoir ";
+            final String rowLib = saisieRow.getObject("NOM").toString();
+            if (rowLib != null && rowLib.trim().length() > 0) {
+                string += rowLib.trim();
             } else {
+                string += saisieRow.getForeignRow("ID_ARTICLE").getString("NOM");
+            }
+            this.nom = string + " (" + typeRegRow.getString("NOM") + ")";
 
-                // si on paye comptant alors l'ensemble ne forme qu'un seul mouvement
-                this.idMvt = idPere;
+            // si paiement comptant
+            if ((modeRegRow.getInt("AJOURS") == 0) && (modeRegRow.getInt("LENJOUR") == 0)) {
 
-                // iniatilisation des valeurs de la map pour les ecritures
-                this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
-                this.mEcritures.put("NOM", this.nom);
-                this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
+                // test Cheque
+                if (typeRegRow.getID() == 2) {
 
-                if (typeRegRow.getID() == 4) {
-                    this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementVenteComptoir.journalCaisse);
+                    // Ajout dans cheque à encaisser sans date minimum d'encaissement
+                    paiementCheque(this.date);
                 } else {
-                    this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
-                }
 
-                // compte Clients
-                int idCompteClient = clientRow.getInt("ID_COMPTE_PCE");
-                if (idCompteClient <= 1) {
-                    idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
+                    // si on paye comptant alors l'ensemble ne forme qu'un seul mouvement
+                    this.idMvt = idPere;
+
+                    // iniatilisation des valeurs de la map pour les ecritures
+                    this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
+                    this.mEcritures.put("NOM", this.nom);
+                    this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
+
+                    if (typeRegRow.getID() == 4) {
+                        this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementVenteComptoir.journalCaisse);
+                    } else {
+                        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+                    }
+
+                    // compte Clients
+                    int idCompteClient = clientRow.getInt("ID_COMPTE_PCE");
                     if (idCompteClient <= 1) {
-                        try {
+                        idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
+                        if (idCompteClient <= 1) {
                             idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
-                        } catch (Exception e) {
-                            e.printStackTrace();
                         }
                     }
-                }
-                try {
+
                     this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteClient));
                     this.mEcritures.put("DEBIT", new Long(0));
                     this.mEcritures.put("CREDIT", new Long(prixTTC.getLongValue()));
@@ -103,48 +104,40 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
                     // compte de reglement
                     int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
                     if (idCompteRegl <= 1) {
-                        try {
-                            idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
                     }
                     this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteRegl));
                     this.mEcritures.put("DEBIT", new Long(prixTTC.getLongValue()));
                     this.mEcritures.put("CREDIT", new Long(0));
                     ajoutEcriture();
-                } catch (IllegalArgumentException e) {
-                    ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-                    e.printStackTrace();
+
                 }
-            }
-        } else {
-
-            Date dateEch = ModeDeReglementSQLElement.calculDate(modeRegRow.getInt("AJOURS"), modeRegRow.getInt("LENJOUR"), this.date);
-
-            // Cheque
-            if (typeRegRow.getID() == 2) {
-
-                // Ajout dans cheque à encaisser avec date minimum d'encaissement
-                paiementCheque(dateEch);
             } else {
 
-                System.err.println("Echéance client");
+                Date dateEch = ModeDeReglementSQLElement.calculDate(modeRegRow.getInt("AJOURS"), modeRegRow.getInt("LENJOUR"), this.date);
 
-                SQLTable tableEchCli = base.getTable("ECHEANCE_CLIENT");
-                SQLRowValues valEcheance = new SQLRowValues(tableEchCli);
+                // Cheque
+                if (typeRegRow.getID() == 2) {
 
-                // Ajout dans echeance
+                    // Ajout dans cheque à encaisser avec date minimum d'encaissement
+                    paiementCheque(dateEch);
+                } else {
 
-                SQLRow rowMvtPere = tableMouvement.getRow(idPere);
-                this.idMvt = getNewMouvement("ECHEANCE_CLIENT", 1, idPere, rowMvtPere.getInt("ID_PIECE"));
+                    System.err.println("Echéance client");
 
-                valEcheance.put("ID_MOUVEMENT", new Integer(this.idMvt));
-                valEcheance.put("DATE", new java.sql.Date(dateEch.getTime()));
-                valEcheance.put("MONTANT", new Long(prixTTC.getLongValue()));
-                valEcheance.put("ID_CLIENT", new Integer(saisieRow.getInt("ID_CLIENT")));
+                    SQLTable tableEchCli = base.getTable("ECHEANCE_CLIENT");
+                    SQLRowValues valEcheance = new SQLRowValues(tableEchCli);
 
-                try {
+                    // Ajout dans echeance
+
+                    SQLRow rowMvtPere = tableMouvement.getRow(idPere);
+                    this.idMvt = getNewMouvement("ECHEANCE_CLIENT", 1, idPere, rowMvtPere.getInt("ID_PIECE"));
+
+                    valEcheance.put("ID_MOUVEMENT", new Integer(this.idMvt));
+                    valEcheance.put("DATE", new java.sql.Date(dateEch.getTime()));
+                    valEcheance.put("MONTANT", new Long(prixTTC.getLongValue()));
+                    valEcheance.put("ID_CLIENT", new Integer(saisieRow.getInt("ID_CLIENT")));
+
                     if (valEcheance.getInvalid() == null) {
 
                         // ajout de l'ecriture
@@ -153,11 +146,11 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
                         rowVals.put("IDSOURCE", row.getID());
                         rowVals.update(this.idMvt);
                     }
-                } catch (SQLException e) {
-                    System.err.println("Error insert in Table " + valEcheance.getTable().getName());
-                    e.printStackTrace();
+
                 }
             }
+        } catch (Exception e) {
+            ExceptionHandler.handle("", e);
         }
     }
 
@@ -165,8 +158,9 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
      * Reglement par cheque
      * 
      * @param dateEch date d'echeance d'encaissement du cheque
+     * @throws SQLException
      */
-    private void paiementCheque(Date dateEch) {
+    private void paiementCheque(Date dateEch) throws SQLException {
         SQLRow saisieRow = base.getTable("SAISIE_VENTE_COMPTOIR").getRow(this.idSaisieVenteComptoir);
         PrixTTC prixTTC = new PrixTTC(((Long) saisieRow.getObject("MONTANT_TTC")).longValue());
 
@@ -184,30 +178,14 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
 
         valEncaisse.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
-        try {
-            if (valEncaisse.getInvalid() == null) {
-
-                // ajout de l'ecriture
-                SQLRow row = valEncaisse.insert();
-                SQLRowValues rowVals = new SQLRowValues(tableMouvement);
-                rowVals.put("IDSOURCE", row.getID());
-                rowVals.update(this.idMvt);
-            }
-        } catch (SQLException e) {
-            System.err.println("Error insert in Table " + valEncaisse.getTable().getName());
-            e.printStackTrace();
+        if (valEncaisse.getInvalid() == null) {
+            // ajout de l'ecriture
+            SQLRow row = valEncaisse.insert();
+            SQLRowValues rowVals = new SQLRowValues(tableMouvement);
+            rowVals.put("IDSOURCE", row.getID());
+            rowVals.update(this.idMvt);
         }
+
     }
 
-    public GenerationMvtReglementVenteComptoir(int idSaisieVenteComptoir, int idMvt) {
-
-        // SQLRow rowMvtPere = tableMouvement.getRow(idMvt);
-        this.idPere = idMvt;
-        // this.idMvt = getNewMouvement("SAISIE_VENTE_COMPTOIR", idSaisieVenteComptoir, idMvt,
-        // rowMvtPere.getInt("ID_PIECE"));
-
-        this.idSaisieVenteComptoir = idSaisieVenteComptoir;
-
-        new Thread(GenerationMvtReglementVenteComptoir.this).start();
-    }
 }

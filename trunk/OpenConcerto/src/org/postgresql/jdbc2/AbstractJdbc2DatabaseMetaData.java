@@ -1,9 +1,7 @@
 /*-------------------------------------------------------------------------
 *
-* Copyright (c) 2004-2008, PostgreSQL Global Development Group
+* Copyright (c) 2004-2011, PostgreSQL Global Development Group
 *
-* IDENTIFICATION
-*   $PostgreSQL: pgjdbc/org/postgresql/jdbc2/AbstractJdbc2DatabaseMetaData.java,v 1.57 2010/08/10 19:46:13 jurka Exp $
 *
 *-------------------------------------------------------------------------
 */
@@ -11,6 +9,7 @@ package org.postgresql.jdbc2;
 
 import java.sql.*;
 import java.util.*;
+
 import org.postgresql.core.*;
 import org.postgresql.util.PSQLException;
 import org.postgresql.util.PSQLState;
@@ -1567,10 +1566,19 @@ public abstract class AbstractJdbc2DatabaseMetaData
     }
 
     /**
-     * Escape single quotes with another single quote, escape backslashes as needed.
+     * Turn the provided value into a valid string literal for
+     * direct inclusion into a query.  This includes the single quotes
+     * needed around it.
      */
     protected String escapeQuotes(String s) throws SQLException {
-        return connection.escapeString(s);
+        StringBuffer sb = new StringBuffer();
+        if (!connection.getStandardConformingStrings() && connection.haveMinimumServerVersion("8.1")) {
+            sb.append("E");
+        }
+        sb.append("'");
+        sb.append(connection.escapeString(s));
+        sb.append("'");
+        return sb.toString();
     }
 
     /*
@@ -1607,29 +1615,40 @@ public abstract class AbstractJdbc2DatabaseMetaData
      */
     public java.sql.ResultSet getProcedures(String catalog, String schemaPattern, String procedureNamePattern) throws SQLException
     {
+        return getProcedures(2, catalog, schemaPattern, procedureNamePattern);
+    }
+
+    protected java.sql.ResultSet getProcedures(int jdbcVersion, String catalog, String schemaPattern, String procedureNamePattern) throws SQLException
+    {
         String sql;
         if (connection.haveMinimumServerVersion("7.3"))
         {
-            sql = "SELECT NULL AS PROCEDURE_CAT, n.nspname AS PROCEDURE_SCHEM, p.proname AS PROCEDURE_NAME, NULL, NULL, NULL, d.description AS REMARKS, " + java.sql.DatabaseMetaData.procedureReturnsResult + " AS PROCEDURE_TYPE " +
-                  " FROM pg_catalog.pg_namespace n, pg_catalog.pg_proc p " +
+            sql = "SELECT NULL AS PROCEDURE_CAT, n.nspname AS PROCEDURE_SCHEM, p.proname AS PROCEDURE_NAME, NULL, NULL, NULL, d.description AS REMARKS, " + java.sql.DatabaseMetaData.procedureReturnsResult + " AS PROCEDURE_TYPE ";
+            if (jdbcVersion >= 4) {
+                sql += ", p.proname || '_' || p.oid AS SPECIFIC_NAME ";
+            }
+            sql += " FROM pg_catalog.pg_namespace n, pg_catalog.pg_proc p " +
                   " LEFT JOIN pg_catalog.pg_description d ON (p.oid=d.objoid) " +
                   " LEFT JOIN pg_catalog.pg_class c ON (d.classoid=c.oid AND c.relname='pg_proc') " +
                   " LEFT JOIN pg_catalog.pg_namespace pn ON (c.relnamespace=pn.oid AND pn.nspname='pg_catalog') " +
                   " WHERE p.pronamespace=n.oid ";
             if (schemaPattern != null && !"".equals(schemaPattern))
             {
-                sql += " AND n.nspname LIKE '" + escapeQuotes(schemaPattern) + "' ";
+                sql += " AND n.nspname LIKE " + escapeQuotes(schemaPattern);
             }
             if (procedureNamePattern != null)
             {
-                sql += " AND p.proname LIKE '" + escapeQuotes(procedureNamePattern) + "' ";
+                sql += " AND p.proname LIKE " + escapeQuotes(procedureNamePattern);
             }
-            sql += " ORDER BY PROCEDURE_SCHEM, PROCEDURE_NAME ";
+            sql += " ORDER BY PROCEDURE_SCHEM, PROCEDURE_NAME, p.oid::text ";
         }
         else if (connection.haveMinimumServerVersion("7.1"))
         {
-            sql = "SELECT NULL AS PROCEDURE_CAT, NULL AS PROCEDURE_SCHEM, p.proname AS PROCEDURE_NAME, NULL, NULL, NULL, d.description AS REMARKS, " + java.sql.DatabaseMetaData.procedureReturnsResult + " AS PROCEDURE_TYPE " +
-                  " FROM pg_proc p " +
+            sql = "SELECT NULL AS PROCEDURE_CAT, NULL AS PROCEDURE_SCHEM, p.proname AS PROCEDURE_NAME, NULL, NULL, NULL, d.description AS REMARKS, " + java.sql.DatabaseMetaData.procedureReturnsResult + " AS PROCEDURE_TYPE ";
+            if (jdbcVersion >= 4) {
+                sql += ", p.proname || '_' || p.oid AS SPECIFIC_NAME ";
+            }
+            sql += " FROM pg_proc p " +
                   " LEFT JOIN pg_description d ON (p.oid=d.objoid) ";
             if (connection.haveMinimumServerVersion("7.2"))
             {
@@ -1637,19 +1656,22 @@ public abstract class AbstractJdbc2DatabaseMetaData
             }
             if (procedureNamePattern != null)
             {
-                sql += " WHERE p.proname LIKE '" + escapeQuotes(procedureNamePattern) + "' ";
+                sql += " WHERE p.proname LIKE " + escapeQuotes(procedureNamePattern);
             }
-            sql += " ORDER BY PROCEDURE_NAME ";
+            sql += " ORDER BY PROCEDURE_NAME, p.oid::text ";
         }
         else
         {
-            sql = "SELECT NULL AS PROCEDURE_CAT, NULL AS PROCEDURE_SCHEM, p.proname AS PROCEDURE_NAME, NULL, NULL, NULL, NULL AS REMARKS, " + java.sql.DatabaseMetaData.procedureReturnsResult + " AS PROCEDURE_TYPE " +
-                  " FROM pg_proc p ";
+            sql = "SELECT NULL AS PROCEDURE_CAT, NULL AS PROCEDURE_SCHEM, p.proname AS PROCEDURE_NAME, NULL, NULL, NULL, NULL AS REMARKS, " + java.sql.DatabaseMetaData.procedureReturnsResult + " AS PROCEDURE_TYPE ";
+            if (jdbcVersion >= 4) {
+                sql += ", p.proname || '_' || p.oid AS SPECIFIC_NAME ";
+            }
+            sql += " FROM pg_proc p ";
             if (procedureNamePattern != null)
             {
-                sql += " WHERE p.proname LIKE '" + escapeQuotes(procedureNamePattern) + "' ";
+                sql += " WHERE p.proname LIKE " + escapeQuotes(procedureNamePattern);
             }
-            sql += " ORDER BY PROCEDURE_NAME ";
+            sql += " ORDER BY PROCEDURE_NAME, p.oid::text ";
         }
         return createMetaDataStatement().executeQuery(sql);
     }
@@ -1702,8 +1724,17 @@ public abstract class AbstractJdbc2DatabaseMetaData
     // Implementation note: This is required for Borland's JBuilder to work
     public java.sql.ResultSet getProcedureColumns(String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern) throws SQLException
     {
-        Field f[] = new Field[13];
-        Vector v = new Vector();  // The new ResultSet tuple stuff
+        return getProcedureColumns(2, catalog, schemaPattern, procedureNamePattern, columnNamePattern);
+    }
+
+    protected java.sql.ResultSet getProcedureColumns(int jdbcVersion, String catalog, String schemaPattern, String procedureNamePattern, String columnNamePattern) throws SQLException
+    {
+        int columns = 13;
+        if (jdbcVersion >= 4) {
+            columns += 7;
+        }
+        Field f[] = new Field[columns];
+        List v = new ArrayList();  // The new ResultSet tuple stuff
 
         f[0] = new Field("PROCEDURE_CAT", Oid.VARCHAR);
         f[1] = new Field("PROCEDURE_SCHEM", Oid.VARCHAR);
@@ -1718,6 +1749,15 @@ public abstract class AbstractJdbc2DatabaseMetaData
         f[10] = new Field("RADIX", Oid.INT2);
         f[11] = new Field("NULLABLE", Oid.INT2);
         f[12] = new Field("REMARKS", Oid.VARCHAR);
+        if (jdbcVersion >= 4) {
+            f[13] = new Field("COLUMN_DEF", Oid.VARCHAR);
+            f[14] = new Field("SQL_DATA_TYPE", Oid.INT4);
+            f[15] = new Field("SQL_DATETIME_SUB", Oid.INT4);
+            f[16] = new Field("CHAR_OCTECT_LENGTH", Oid.INT4);
+            f[17] = new Field("ORDINAL_POSITION", Oid.INT4);
+            f[18] = new Field("IS_NULLABLE", Oid.VARCHAR);
+            f[19] = new Field("SPECIFIC_NAME", Oid.VARCHAR);
+        }
 
         String sql;
         if (connection.haveMinimumServerVersion("7.3"))
@@ -1730,46 +1770,49 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 sql += ", p.proargnames, NULL AS proargmodes, NULL AS proallargtypes ";
             else
                 sql += ", NULL AS proargnames, NULL AS proargmodes, NULL AS proallargtypes ";
-
-            sql += " FROM pg_catalog.pg_proc p, pg_catalog.pg_namespace n, pg_catalog.pg_type t " +
-                  " WHERE p.pronamespace=n.oid AND p.prorettype=t.oid ";
+            sql += ", p.oid "
+                + " FROM pg_catalog.pg_proc p, pg_catalog.pg_namespace n, pg_catalog.pg_type t "
+                + " WHERE p.pronamespace=n.oid AND p.prorettype=t.oid ";
             if (schemaPattern != null && !"".equals(schemaPattern))
             {
-                sql += " AND n.nspname LIKE '" + escapeQuotes(schemaPattern) + "' ";
+                sql += " AND n.nspname LIKE " + escapeQuotes(schemaPattern);
             }
             if (procedureNamePattern != null)
             {
-                sql += " AND p.proname LIKE '" + escapeQuotes(procedureNamePattern) + "' ";
+                sql += " AND p.proname LIKE " + escapeQuotes(procedureNamePattern);
             }
-            sql += " ORDER BY n.nspname, p.proname ";
+            sql += " ORDER BY n.nspname, p.proname, p.oid::text ";
         }
         else
         {
-            sql = "SELECT NULL AS nspname,p.proname,p.prorettype,p.proargtypes,t.typtype,t.typrelid, NULL AS proargnames, NULL AS proargmodes, NULL AS proallargtypes " +
+            sql = "SELECT NULL AS nspname,p.proname,p.prorettype,p.proargtypes,t.typtype,t.typrelid, NULL AS proargnames, NULL AS proargmodes, NULL AS proallargtypes, p.oid " +
                   " FROM pg_proc p,pg_type t " +
                   " WHERE p.prorettype=t.oid ";
             if (procedureNamePattern != null)
             {
-                sql += " AND p.proname LIKE '" + escapeQuotes(procedureNamePattern) + "' ";
+                sql += " AND p.proname LIKE " + escapeQuotes(procedureNamePattern);
             }
-            sql += " ORDER BY p.proname ";
+            sql += " ORDER BY p.proname, p.oid::text ";
         }
+
+        byte isnullableUnknown[] = new byte[0];
 
         ResultSet rs = connection.createStatement().executeQuery(sql);
         while (rs.next())
         {
             byte schema[] = rs.getBytes("nspname");
             byte procedureName[] = rs.getBytes("proname");
+            byte specificName[] = connection.encodeString(rs.getString("proname") + "_" + rs.getString("oid"));
             int returnType = (int)rs.getLong("prorettype");
             String returnTypeType = rs.getString("typtype");
             int returnTypeRelid = (int)rs.getLong("typrelid");
 
             String strArgTypes = rs.getString("proargtypes");
             StringTokenizer st = new StringTokenizer(strArgTypes);
-            Vector argTypes = new Vector();
+            List argTypes = new ArrayList();
             while (st.hasMoreTokens())
             {
-                argTypes.addElement(new Long(st.nextToken()));
+                argTypes.add(new Long(st.nextToken()));
             }
 
             String argNames[] = null;
@@ -1806,7 +1849,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
             // decide if we are returning a single column result.
             if (returnTypeType.equals("b") || returnTypeType.equals("d") || (returnTypeType.equals("p") && argModesArray == null))
             {
-                byte[][] tuple = new byte[13][];
+                byte[][] tuple = new byte[columns][];
                 tuple[0] = null;
                 tuple[1] = schema;
                 tuple[2] = procedureName;
@@ -1820,13 +1863,18 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 tuple[10] = null;
                 tuple[11] = connection.encodeString(Integer.toString(java.sql.DatabaseMetaData.procedureNullableUnknown));
                 tuple[12] = null;
-                v.addElement(tuple);
+                if (jdbcVersion >= 4) {
+                    tuple[17] = connection.encodeString(Integer.toString(0));
+                    tuple[18] = isnullableUnknown;
+                    tuple[19] = specificName;
+                }
+                v.add(tuple);
             }
 
             // Add a row for each argument.
             for (int i = 0; i < numArgs; i++)
             {
-                byte[][] tuple = new byte[13][];
+                byte[][] tuple = new byte[columns][];
                 tuple[0] = null;
                 tuple[1] = schema;
                 tuple[2] = procedureName;
@@ -1848,7 +1896,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 if (allArgTypes != null)
                     argOid = allArgTypes[i].intValue();
                 else
-                    argOid = ((Long)argTypes.elementAt(i)).intValue();
+                    argOid = ((Long)argTypes.get(i)).intValue();
 
                 tuple[5] = connection.encodeString(Integer.toString(connection.getTypeInfo().getSQLType(argOid)));
                 tuple[6] = connection.encodeString(connection.getTypeInfo().getPGType(argOid));
@@ -1858,7 +1906,12 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 tuple[10] = null;
                 tuple[11] = connection.encodeString(Integer.toString(DatabaseMetaData.procedureNullableUnknown));
                 tuple[12] = null;
-                v.addElement(tuple);
+                if (jdbcVersion >= 4) {
+                    tuple[17] = connection.encodeString(Integer.toString(i+1));
+                    tuple[18] = isnullableUnknown;
+                    tuple[19] = specificName;
+                }
+                v.add(tuple);
             }
 
             // if we are returning a multi-column result.
@@ -1873,7 +1926,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 while (columnrs.next())
                 {
                     int columnTypeOid = (int)columnrs.getLong("atttypid");
-                    byte[][] tuple = new byte[13][];
+                    byte[][] tuple = new byte[columns][];
                     tuple[0] = null;
                     tuple[1] = schema;
                     tuple[2] = procedureName;
@@ -1887,7 +1940,12 @@ public abstract class AbstractJdbc2DatabaseMetaData
                     tuple[10] = null;
                     tuple[11] = connection.encodeString(Integer.toString(java.sql.DatabaseMetaData.procedureNullableUnknown));
                     tuple[12] = null;
-                    v.addElement(tuple);
+                    if (jdbcVersion >= 4) {
+                        tuple[17] = connection.encodeString(Integer.toString(0));
+                        tuple[18] = isnullableUnknown;
+                        tuple[19] = specificName;
+                    }
+                    v.add(tuple);
                 }
                 columnrs.close();
             }
@@ -1921,7 +1979,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
      * "SYSTEM TABLE", "SYSTEM INDEX", "SYSTEM VIEW",
      * "SYSTEM TOAST TABLE", "SYSTEM TOAST INDEX",
      * "TEMPORARY TABLE", "TEMPORARY VIEW", "TEMPORARY INDEX",
-     * "TEMPORARY SEQUENCE".
+     * "TEMPORARY SEQUENCE", "FOREIGN TABLE".
      *
      * @param catalog a catalog name; For org.postgresql, this is ignored, and
      * should be set to null
@@ -1968,6 +2026,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                      " WHEN 'S' THEN 'SEQUENCE' " +
                      " WHEN 'v' THEN 'VIEW' " +
                      " WHEN 'c' THEN 'TYPE' " +
+                     " WHEN 'f' THEN 'FOREIGN TABLE' " +
                      " ELSE NULL " +
                      " END " +
                      " ELSE NULL " +
@@ -1980,7 +2039,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                      " WHERE c.relnamespace = n.oid ";
             if (schemaPattern != null && !"".equals(schemaPattern))
             {
-                select += " AND n.nspname LIKE '" + escapeQuotes(schemaPattern) + "' ";
+                select += " AND n.nspname LIKE " + escapeQuotes(schemaPattern);
             }
             orderby = " ORDER BY TABLE_TYPE,TABLE_SCHEM,TABLE_NAME ";
         }
@@ -2047,15 +2106,15 @@ public abstract class AbstractJdbc2DatabaseMetaData
             }
         }
 
-        if (tableNamePattern != null)
+        if (tableNamePattern != null && !"".equals(tableNamePattern))
         {
-            select += " AND c.relname LIKE '" + escapeQuotes(tableNamePattern) + "' ";
+            select += " AND c.relname LIKE " + escapeQuotes(tableNamePattern);
         }
         if (types != null) {
             select += " AND (false ";
             for (int i = 0; i < types.length; i++)
             {
-                Hashtable clauses = (Hashtable)tableTypeClauses.get(types[i]);
+                Map clauses = (Map)tableTypeClauses.get(types[i]);
                 if (clauses != null)
                 {
                     String clause = (String)clauses.get(useSchemas);
@@ -2069,65 +2128,69 @@ public abstract class AbstractJdbc2DatabaseMetaData
         return createMetaDataStatement().executeQuery(sql);
     }
 
-    private static final Hashtable tableTypeClauses;
+    private static final Map tableTypeClauses;
     static {
-        tableTypeClauses = new Hashtable();
-        Hashtable ht = new Hashtable();
+        tableTypeClauses = new HashMap();
+        Map ht = new HashMap();
         tableTypeClauses.put("TABLE", ht);
         ht.put("SCHEMAS", "c.relkind = 'r' AND n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'");
         ht.put("NOSCHEMAS", "c.relkind = 'r' AND c.relname !~ '^pg_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("VIEW", ht);
         ht.put("SCHEMAS", "c.relkind = 'v' AND n.nspname <> 'pg_catalog' AND n.nspname <> 'information_schema'");
         ht.put("NOSCHEMAS", "c.relkind = 'v' AND c.relname !~ '^pg_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("INDEX", ht);
         ht.put("SCHEMAS", "c.relkind = 'i' AND n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'");
         ht.put("NOSCHEMAS", "c.relkind = 'i' AND c.relname !~ '^pg_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("SEQUENCE", ht);
         ht.put("SCHEMAS", "c.relkind = 'S'");
         ht.put("NOSCHEMAS", "c.relkind = 'S'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("TYPE", ht);
         ht.put("SCHEMAS", "c.relkind = 'c' AND n.nspname !~ '^pg_' AND n.nspname <> 'information_schema'");
         ht.put("NOSCHEMAS", "c.relkind = 'c' AND c.relname !~ '^pg_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("SYSTEM TABLE", ht);
         ht.put("SCHEMAS", "c.relkind = 'r' AND (n.nspname = 'pg_catalog' OR n.nspname = 'information_schema')");
         ht.put("NOSCHEMAS", "c.relkind = 'r' AND c.relname ~ '^pg_' AND c.relname !~ '^pg_toast_' AND c.relname !~ '^pg_temp_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("SYSTEM TOAST TABLE", ht);
         ht.put("SCHEMAS", "c.relkind = 'r' AND n.nspname = 'pg_toast'");
         ht.put("NOSCHEMAS", "c.relkind = 'r' AND c.relname ~ '^pg_toast_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("SYSTEM TOAST INDEX", ht);
         ht.put("SCHEMAS", "c.relkind = 'i' AND n.nspname = 'pg_toast'");
         ht.put("NOSCHEMAS", "c.relkind = 'i' AND c.relname ~ '^pg_toast_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("SYSTEM VIEW", ht);
         ht.put("SCHEMAS", "c.relkind = 'v' AND (n.nspname = 'pg_catalog' OR n.nspname = 'information_schema') ");
         ht.put("NOSCHEMAS", "c.relkind = 'v' AND c.relname ~ '^pg_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("SYSTEM INDEX", ht);
         ht.put("SCHEMAS", "c.relkind = 'i' AND (n.nspname = 'pg_catalog' OR n.nspname = 'information_schema') ");
         ht.put("NOSCHEMAS", "c.relkind = 'v' AND c.relname ~ '^pg_' AND c.relname !~ '^pg_toast_' AND c.relname !~ '^pg_temp_'");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("TEMPORARY TABLE", ht);
         ht.put("SCHEMAS", "c.relkind = 'r' AND n.nspname ~ '^pg_temp_' ");
         ht.put("NOSCHEMAS", "c.relkind = 'r' AND c.relname ~ '^pg_temp_' ");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("TEMPORARY INDEX", ht);
         ht.put("SCHEMAS", "c.relkind = 'i' AND n.nspname ~ '^pg_temp_' ");
         ht.put("NOSCHEMAS", "c.relkind = 'i' AND c.relname ~ '^pg_temp_' ");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("TEMPORARY VIEW", ht);
         ht.put("SCHEMAS", "c.relkind = 'v' AND n.nspname ~ '^pg_temp_' ");
         ht.put("NOSCHEMAS", "c.relkind = 'v' AND c.relname ~ '^pg_temp_' ");
-        ht = new Hashtable();
+        ht = new HashMap();
         tableTypeClauses.put("TEMPORARY SEQUENCE", ht);
         ht.put("SCHEMAS", "c.relkind = 'S' AND n.nspname ~ '^pg_temp_' ");
         ht.put("NOSCHEMAS", "c.relkind = 'S' AND c.relname ~ '^pg_temp_' ");
+        ht = new HashMap();
+        tableTypeClauses.put("FOREIGN TABLE", ht);
+        ht.put("SCHEMAS", "c.relkind = 'f'");
+        ht.put("NOSCHEMAS", "c.relkind = 'f'");
     }
 
     /*
@@ -2144,14 +2207,42 @@ public abstract class AbstractJdbc2DatabaseMetaData
      */
     public java.sql.ResultSet getSchemas() throws SQLException
     {
+        return getSchemas(2, null, null);
+    }
+
+    protected ResultSet getSchemas(int jdbcVersion, String catalog, String schemaPattern) throws SQLException {
         String sql;
+        // Show only the users temp schemas, but not other peoples
+        // because they can't access any objects in them.
         if (connection.haveMinimumServerVersion("7.3"))
         {
-            sql = "SELECT nspname AS TABLE_SCHEM FROM pg_catalog.pg_namespace WHERE nspname <> 'pg_toast' AND nspname !~ '^pg_temp_' ORDER BY TABLE_SCHEM";
+            // 7.3 can't extract elements from an array returned by
+            // a function, so we've got to coerce it to text and then
+            // hack it up with a regex.
+            String tempSchema = "substring(textin(array_out(pg_catalog.current_schemas(true))) from '{(pg_temp_[0-9]+),')";
+            if (connection.haveMinimumServerVersion("7.4")) {
+                tempSchema = "(pg_catalog.current_schemas(true))[1]";
+            }
+            sql = "SELECT nspname AS TABLE_SCHEM ";
+            if (jdbcVersion >= 3)
+                sql += ", NULL AS TABLE_CATALOG ";
+            sql += " FROM pg_catalog.pg_namespace WHERE nspname <> 'pg_toast' AND (nspname !~ '^pg_temp_' OR nspname = " + tempSchema + ") AND (nspname !~ '^pg_toast_temp_' OR nspname = replace(" + tempSchema + ", 'pg_temp_', 'pg_toast_temp_')) ";
+            if (schemaPattern != null && !"".equals(schemaPattern))
+            {
+                sql += " AND nspname LIKE " + escapeQuotes(schemaPattern);
+            }
+            sql += " ORDER BY TABLE_SCHEM";
         }
         else
         {
-            sql = "SELECT ''::text AS TABLE_SCHEM ORDER BY TABLE_SCHEM";
+            sql = "SELECT ''::text AS TABLE_SCHEM ";
+            if (jdbcVersion >= 3) {
+                sql += ", NULL AS TABLE_CATALOG ";
+            }
+            if (schemaPattern != null)
+            {
+                sql += " WHERE ''::text LIKE " + escapeQuotes(schemaPattern);
+            }
         }
         return createMetaDataStatement().executeQuery(sql);
     }
@@ -2175,11 +2266,11 @@ public abstract class AbstractJdbc2DatabaseMetaData
     public java.sql.ResultSet getCatalogs() throws SQLException
     {
         Field f[] = new Field[1];
-        Vector v = new Vector();
+        List v = new ArrayList();
         f[0] = new Field("TABLE_CAT", Oid.VARCHAR);
         byte[][] tuple = new byte[1][];
         tuple[0] = connection.encodeString(connection.getCatalog());
-        v.addElement(tuple);
+        v.add(tuple);
 
         return (ResultSet) ((BaseStatement)createMetaDataStatement()).createDriverResultSet(f, v);
     }
@@ -2201,22 +2292,22 @@ public abstract class AbstractJdbc2DatabaseMetaData
     public java.sql.ResultSet getTableTypes() throws SQLException
     {
         String types[] = new String[tableTypeClauses.size()];
-        Enumeration e = tableTypeClauses.keys();
+        Iterator e = tableTypeClauses.keySet().iterator();
         int i = 0;
-        while (e.hasMoreElements())
+        while (e.hasNext())
         {
-            types[i++] = (String)e.nextElement();
+            types[i++] = (String)e.next();
         }
         sortStringArray(types);
 
         Field f[] = new Field[1];
-        Vector v = new Vector();
+        List v = new ArrayList();
         f[0] = new Field("TABLE_TYPE", Oid.VARCHAR);
         for (i = 0; i < types.length; i++)
         {
             byte[][] tuple = new byte[1][];
             tuple[0] = connection.encodeString(types[i]);
-            v.addElement(tuple);
+            v.add(tuple);
         }
 
         return (ResultSet) ((BaseStatement)createMetaDataStatement()).createDriverResultSet(f, v);
@@ -2232,7 +2323,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
         } else {
             numberOfFields = 18;
         }
-        Vector v = new Vector();  // The new ResultSet tuple stuff
+        List v = new ArrayList();  // The new ResultSet tuple stuff
         Field f[] = new Field[numberOfFields];  // The field descriptors for the new ResultSet
 
         f[0] = new Field("TABLE_CAT", Oid.VARCHAR);
@@ -2281,7 +2372,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
             else
                 sql = "";
 
-            sql += "SELECT n.nspname,c.relname,a.attname,a.atttypid,a.attnotnull,a.atttypmod,a.attlen,";
+            sql += "SELECT n.nspname,c.relname,a.attname,a.atttypid,a.attnotnull OR (t.typtype = 'd' AND t.typnotnull) AS attnotnull,a.atttypmod,a.attlen,";
             
             if (connection.haveMinimumServerVersion("8.4"))
                 sql += "row_number() OVER (PARTITION BY a.attrelid ORDER BY a.attnum) AS attnum, ";
@@ -2301,12 +2392,12 @@ public abstract class AbstractJdbc2DatabaseMetaData
 
             if (schemaPattern != null && !"".equals(schemaPattern))
             {
-                sql += " AND n.nspname LIKE '" + escapeQuotes(schemaPattern) + "' ";
+                sql += " AND n.nspname LIKE " + escapeQuotes(schemaPattern);
             }
 
             if (tableNamePattern != null && !"".equals(tableNamePattern))
             {
-                sql += " AND c.relname LIKE '" + escapeQuotes(tableNamePattern) + "' ";
+                sql += " AND c.relname LIKE " + escapeQuotes(tableNamePattern);
             }
 
             if (connection.haveMinimumServerVersion("8.4"))
@@ -2343,11 +2434,11 @@ public abstract class AbstractJdbc2DatabaseMetaData
 
         if (!connection.haveMinimumServerVersion("7.3") && tableNamePattern != null && !"".equals(tableNamePattern))
         {
-            sql += " AND c.relname LIKE '" + escapeQuotes(tableNamePattern) + "' ";
+            sql += " AND c.relname LIKE " + escapeQuotes(tableNamePattern);
         }
         if (columnNamePattern != null && !"".equals(columnNamePattern))
         {
-            sql += " AND attname LIKE '" + escapeQuotes(columnNamePattern) + "' ";
+            sql += " AND attname LIKE " + escapeQuotes(columnNamePattern);
         }
         sql += " ORDER BY nspname,c.relname,attnum ";
 
@@ -2418,7 +2509,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
             tuple[13] = null;      // sql data type (unused)
             tuple[14] = null;      // sql datetime sub (unused)
             tuple[15] = tuple[6];     // char octet length
-            tuple[16] = rs.getBytes("attnum");  // ordinal position
+            tuple[16] = connection.encodeString(String.valueOf(rs.getInt("attnum"))); // ordinal position
             tuple[17] = connection.encodeString(rs.getBoolean("attnotnull") ? "NO" : "YES"); // Is nullable
 
             if (jdbcVersion >= 3) {
@@ -2438,7 +2529,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 tuple[22] = connection.encodeString(autoinc);
             }
 
-            v.addElement(tuple);
+            v.add(tuple);
         }
         rs.close();
 
@@ -2528,7 +2619,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
     public java.sql.ResultSet getColumnPrivileges(String catalog, String schema, String table, String columnNamePattern) throws SQLException
     {
         Field f[] = new Field[8];
-        Vector v = new Vector();
+        List v = new ArrayList();
 
         if (table == null)
             table = "%";
@@ -2546,18 +2637,32 @@ public abstract class AbstractJdbc2DatabaseMetaData
         f[7] = new Field("IS_GRANTABLE", Oid.VARCHAR);
 
         String sql;
-        if (connection.haveMinimumServerVersion("7.3"))
+        if (connection.haveMinimumServerVersion("8.4"))
         {
-            sql = "SELECT n.nspname,c.relname,u.usename,c.relacl,a.attname " +
-                  " FROM pg_catalog.pg_namespace n, pg_catalog.pg_class c, pg_catalog.pg_user u, pg_catalog.pg_attribute a " +
+            sql = "SELECT n.nspname,c.relname,r.rolname,c.relacl,a.attacl,a.attname " +
+                  " FROM pg_catalog.pg_namespace n, pg_catalog.pg_class c, pg_catalog.pg_roles r, pg_catalog.pg_attribute a " +
                   " WHERE c.relnamespace = n.oid " +
-                  " AND u.usesysid = c.relowner " +
+                  " AND c.relowner = r.oid " +
                   " AND c.oid = a.attrelid " +
                   " AND c.relkind = 'r' " +
                   " AND a.attnum > 0 AND NOT a.attisdropped ";
             if (schema != null && !"".equals(schema))
             {
-                sql += " AND n.nspname = '" + escapeQuotes(schema) + "' ";
+                sql += " AND n.nspname = " + escapeQuotes(schema);
+            }
+        }
+        else if (connection.haveMinimumServerVersion("7.3"))
+        {
+            sql = "SELECT n.nspname,c.relname,r.rolname,c.relacl,a.attname " +
+                  " FROM pg_catalog.pg_namespace n, pg_catalog.pg_class c, pg_catalog.pg_roles r, pg_catalog.pg_attribute a " +
+                  " WHERE c.relnamespace = n.oid " +
+                  " AND c.relowner = r.oid " +
+                  " AND c.oid = a.attrelid " +
+                  " AND c.relkind = 'r' " +
+                  " AND a.attnum > 0 AND NOT a.attisdropped ";
+            if (schema != null && !"".equals(schema))
+            {
+                sql += " AND n.nspname = " + escapeQuotes(schema);
             }
         }
         else
@@ -2570,10 +2675,10 @@ public abstract class AbstractJdbc2DatabaseMetaData
                   " AND c.relkind = 'r' ";
         }
 
-        sql += " AND c.relname = '" + escapeQuotes(table) + "' ";
+        sql += " AND c.relname = " + escapeQuotes(table);
         if (columnNamePattern != null && !"".equals(columnNamePattern))
         {
-            sql += " AND a.attname LIKE '" + escapeQuotes(columnNamePattern) + "' ";
+            sql += " AND a.attname LIKE " + escapeQuotes(columnNamePattern);
         }
         sql += " ORDER BY attname ";
 
@@ -2583,38 +2688,56 @@ public abstract class AbstractJdbc2DatabaseMetaData
             byte schemaName[] = rs.getBytes("nspname");
             byte tableName[] = rs.getBytes("relname");
             byte column[] = rs.getBytes("attname");
-            String owner = rs.getString("usename");
-            String acl = rs.getString("relacl");
-            Hashtable permissions = parseACL(acl, owner);
-            String permNames[] = new String[permissions.size()];
-            Enumeration e = permissions.keys();
-            int i = 0;
-            while (e.hasMoreElements())
+            String owner = rs.getString("rolname");
+            String relAcl = rs.getString("relacl");
+            
+            Map permissions = parseACL(relAcl, owner);
+            
+            if (connection.haveMinimumServerVersion("8.4"))
             {
-                permNames[i++] = (String)e.nextElement();
+                String acl = rs.getString("attacl");
+                Map relPermissions = parseACL(acl, owner);
+                permissions.putAll(relPermissions);
+            }
+            String permNames[] = new String[permissions.size()];
+            Iterator e = permissions.keySet().iterator();
+            int i = 0;
+            while (e.hasNext())
+            {
+                permNames[i++] = (String)e.next();
             }
             sortStringArray(permNames);
             for (i = 0; i < permNames.length; i++)
             {
                 byte[] privilege = connection.encodeString(permNames[i]);
-                Vector grantees = (Vector)permissions.get(permNames[i]);
+                Map grantees = (Map)permissions.get(permNames[i]);
+                String granteeUsers[] = new String[grantees.size()];
+                Iterator g = grantees.keySet().iterator();
+                int k = 0;
+                while (g.hasNext()){
+                    granteeUsers[k++] = (String)g.next();
+                }                
                 for (int j = 0; j < grantees.size(); j++)
                 {
-                    String grantee = (String)grantees.elementAt(j);
-                    String grantable = owner.equals(grantee) ? "YES" : "NO";
+                    List grantor = (List)grantees.get(granteeUsers[j]);
+                    String grantee = (String)granteeUsers[j];
+                    for (int l = 0; l < grantor.size(); l++) {
+                        String[] grants = (String[])grantor.get(l);                 
+                        String grantable = owner.equals(grantee) ? "YES" : grants[1];
                     byte[][] tuple = new byte[8][];
                     tuple[0] = null;
                     tuple[1] = schemaName;
                     tuple[2] = tableName;
                     tuple[3] = column;
-                    tuple[4] = connection.encodeString(owner);
+                        tuple[4] = connection.encodeString(grants[0]);
                     tuple[5] = connection.encodeString(grantee);
                     tuple[6] = privilege;
                     tuple[7] = connection.encodeString(grantable);
-                    v.addElement(tuple);
+                    v.add(tuple);
                 }
             }
         }
+    }
         rs.close();
 
         return (ResultSet) ((BaseStatement)createMetaDataStatement()).createDriverResultSet(f, v);
@@ -2630,7 +2753,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
     * criteria are returned.  They are ordered by TABLE_SCHEM,
     * TABLE_NAME, and PRIVILEGE.
     *
-    * <P>Each privilige description has the following columns:
+    * <P>Each privilege description has the following columns:
     * <OL>
     * <LI><B>TABLE_CAT</B> String => table catalog (may be null)
     * <LI><B>TABLE_SCHEM</B> String => table schema (may be null)
@@ -2653,7 +2776,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
     public java.sql.ResultSet getTablePrivileges(String catalog, String schemaPattern, String tableNamePattern) throws SQLException
     {
         Field f[] = new Field[7];
-        Vector v = new Vector();
+        List v = new ArrayList();
 
         f[0] = new Field("TABLE_CAT", Oid.VARCHAR);
         f[1] = new Field("TABLE_SCHEM", Oid.VARCHAR);
@@ -2666,14 +2789,14 @@ public abstract class AbstractJdbc2DatabaseMetaData
         String sql;
         if (connection.haveMinimumServerVersion("7.3"))
         {
-            sql = "SELECT n.nspname,c.relname,u.usename,c.relacl " +
-                  " FROM pg_catalog.pg_namespace n, pg_catalog.pg_class c, pg_catalog.pg_user u " +
+            sql = "SELECT n.nspname,c.relname,r.rolname,c.relacl " +
+                  " FROM pg_catalog.pg_namespace n, pg_catalog.pg_class c, pg_catalog.pg_roles r " +
                   " WHERE c.relnamespace = n.oid " +
-                  " AND u.usesysid = c.relowner " +
+                  " AND c.relowner = r.oid " +
                   " AND c.relkind = 'r' ";
             if (schemaPattern != null && !"".equals(schemaPattern))
             {
-                sql += " AND n.nspname LIKE '" + escapeQuotes(schemaPattern) + "' ";
+                sql += " AND n.nspname LIKE " + escapeQuotes(schemaPattern);
             }
         }
         else
@@ -2686,7 +2809,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
 
         if (tableNamePattern != null && !"".equals(tableNamePattern))
         {
-            sql += " AND c.relname LIKE '" + escapeQuotes(tableNamePattern) + "' ";
+            sql += " AND c.relname LIKE " + escapeQuotes(tableNamePattern);
         }
         sql += " ORDER BY nspname, relname ";
 
@@ -2695,34 +2818,48 @@ public abstract class AbstractJdbc2DatabaseMetaData
         {
             byte schema[] = rs.getBytes("nspname");
             byte table[] = rs.getBytes("relname");
-            String owner = rs.getString("usename");
+            String owner = rs.getString("rolname");
             String acl = rs.getString("relacl");
-            Hashtable permissions = parseACL(acl, owner);
+            Map permissions = parseACL(acl, owner);
             String permNames[] = new String[permissions.size()];
-            Enumeration e = permissions.keys();
+            Iterator e = permissions.keySet().iterator();
             int i = 0;
-            while (e.hasMoreElements())
+            while (e.hasNext())
             {
-                permNames[i++] = (String)e.nextElement();
+                permNames[i++] = (String)e.next();
             }
             sortStringArray(permNames);
             for (i = 0; i < permNames.length; i++)
             {
                 byte[] privilege = connection.encodeString(permNames[i]);
-                Vector grantees = (Vector)permissions.get(permNames[i]);
-                for (int j = 0; j < grantees.size(); j++)
+                Map grantees = (Map)permissions.get(permNames[i]);
+                String granteeUsers[] = new String[grantees.size()];
+                Iterator g = grantees.keySet().iterator();
+                int k = 0;
+                while (g.hasNext()){
+                    granteeUsers[k++] = (String)g.next();
+                }
+                for (int j = 0; j < granteeUsers.length; j++)
                 {
-                    String grantee = (String)grantees.elementAt(j);
-                    String grantable = owner.equals(grantee) ? "YES" : "NO";
-                    byte[][] tuple = new byte[7][];
-                    tuple[0] = null;
-                    tuple[1] = schema;
-                    tuple[2] = table;
-                    tuple[3] = connection.encodeString(owner);
-                    tuple[4] = connection.encodeString(grantee);
-                    tuple[5] = privilege;
-                    tuple[6] = connection.encodeString(grantable);
-                    v.addElement(tuple);
+                    List grants = (List)grantees.get(granteeUsers[j]);
+                    String grantee = (String)granteeUsers[j];
+                    for (int l = 0; l < grants.size(); l++) {
+                        String[] grantTuple = (String[])grants.get(l);
+                        // report the owner as grantor if it's missing
+                        String grantor = grantTuple[0].equals(null) ? owner : grantTuple[0];
+                        // owner always has grant privileges
+                        String grantable = owner.equals(grantee) ? "YES" : grantTuple[1];
+                        byte[][] tuple = new byte[7][];
+                        tuple[0] = null;
+                        tuple[1] = schema;
+                        tuple[2] = table;
+                        tuple[3] = connection.encodeString(grantor);
+                        tuple[4] = connection.encodeString(grantee);
+                        tuple[5] = privilege;
+                        tuple[6] = connection.encodeString(grantable);
+                        v.add(tuple);
+                            
+                    }
                 }
             }
         }
@@ -2747,10 +2884,10 @@ public abstract class AbstractJdbc2DatabaseMetaData
     }
 
     /**
-     * Parse an String of ACLs into a Vector of ACLs.
+     * Parse an String of ACLs into a List of ACLs.
      */
-    private static Vector parseACLArray(String aclString) {
-        Vector acls = new Vector();
+    private static List parseACLArray(String aclString) {
+        List acls = new ArrayList();
         if (aclString == null || aclString.length() == 0)
         {
             return acls;
@@ -2769,43 +2906,62 @@ public abstract class AbstractJdbc2DatabaseMetaData
             }
             else if (c == ',' && !inQuotes)
             {
-                acls.addElement(aclString.substring(beginIndex, i));
+                acls.add(aclString.substring(beginIndex, i));
                 beginIndex = i + 1;
             }
             prevChar = c;
         }
         // add last element removing the trailing "}"
-        acls.addElement(aclString.substring(beginIndex, aclString.length() - 1));
+        acls.add(aclString.substring(beginIndex, aclString.length() - 1));
 
         // Strip out enclosing quotes, if any.
         for (int i = 0; i < acls.size(); i++)
         {
-            String acl = (String)acls.elementAt(i);
+            String acl = (String)acls.get(i);
             if (acl.startsWith("\"") && acl.endsWith("\""))
             {
                 acl = acl.substring(1, acl.length() - 1);
-                acls.setElementAt(acl, i);
+                acls.set(i, acl);
             }
         }
         return acls;
     }
 
     /**
-     * Add the user described by the given acl to the Vectors of users
+     * Add the user described by the given acl to the Lists of users
      * with the privileges described by the acl.
      */
-    private void addACLPrivileges(String acl, Hashtable privileges) {
+    private void addACLPrivileges(String acl, Map privileges) {
         int equalIndex = acl.lastIndexOf("=");
-        String name = acl.substring(0, equalIndex);
-        if (name.length() == 0)
+        int slashIndex = acl.lastIndexOf("/");
+        if (equalIndex == -1)
+            return;
+
+        String user = acl.substring(0, equalIndex);
+        String grantor = null;
+        if (user.length() == 0)
         {
-            name = "PUBLIC";
+            user = "PUBLIC";
         }
-        String privs = acl.substring(equalIndex + 1);
+        String privs;
+        if (slashIndex != -1) {
+            privs = acl.substring(equalIndex + 1, slashIndex);
+            grantor = acl.substring(slashIndex + 1, acl.length());
+        } else {
+            privs = acl.substring(equalIndex + 1, acl.length());
+        }
+            
         for (int i = 0; i < privs.length(); i++)
         {
             char c = privs.charAt(i);
+            if (c != '*') {
             String sqlpriv;
+                String grantable;
+                if ( i < privs.length()-1 && privs.charAt(i + 1) == '*') {
+                    grantable = "YES";
+                } else {
+                    grantable = "NO";
+                }
             switch (c)
             {
             case 'a':
@@ -2849,32 +3005,55 @@ public abstract class AbstractJdbc2DatabaseMetaData
             default:
                 sqlpriv = "UNKNOWN";
             }
-            Vector usersWithPermission = (Vector)privileges.get(sqlpriv);
-            if (usersWithPermission == null)
-            {
-                usersWithPermission = new Vector();
+                
+                Map usersWithPermission = (Map)privileges.get(sqlpriv);
+                String[] grant = {grantor, grantable}; 
+
+                if (usersWithPermission == null) {             
+                    usersWithPermission = new HashMap();
+                    List permissionByGrantor = new ArrayList();
+                    permissionByGrantor.add(grant);
+                    usersWithPermission.put(user, permissionByGrantor);
                 privileges.put(sqlpriv, usersWithPermission);
+                } else {
+                    List permissionByGrantor = (List)usersWithPermission.get(user);
+                    if (permissionByGrantor == null) {
+                        permissionByGrantor = new ArrayList();
+                        permissionByGrantor.add(grant);
+                        usersWithPermission.put(user,permissionByGrantor);
+                    } else {
+                        permissionByGrantor.add(grant);
+                    }               
+                }
             }
-            usersWithPermission.addElement(name);
         }
     }
 
     /**
      * Take the a String representing an array of ACLs and return
-     * a Hashtable mapping the SQL permission name to a Vector of
+     * a Map mapping the SQL permission name to a List of
      * usernames who have that permission.
      */
-    protected Hashtable parseACL(String aclArray, String owner) {
+    public Map parseACL(String aclArray, String owner) {
         if (aclArray == null)
         {
             //null acl is a shortcut for owner having full privs
-            aclArray = "{" + owner + "=arwdRxt}";
+            String perms = "arwdRxt";
+            if (connection.haveMinimumServerVersion("8.2")) {
+                // 8.2 Removed the separate RULE permission
+                perms = "arwdxt";
+            } else if (connection.haveMinimumServerVersion("8.4")) {
+                // 8.4 Added a separate TRUNCATE permission
+                perms = "arwdDxt";
+            }
+            aclArray = "{" + owner + "=" + perms + "/" + owner + "}";
         }
-        Vector acls = parseACLArray(aclArray);
-        Hashtable privileges = new Hashtable();
+
+        List acls = parseACLArray(aclArray);
+        Map privileges = new HashMap();
         for (int i = 0; i < acls.size(); i++)
         {
-            String acl = (String)acls.elementAt(i);
+            String acl = (String)acls.get(i);
             addACLPrivileges(acl, privileges);
         }
         return privileges;
@@ -2918,7 +3097,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
     public java.sql.ResultSet getBestRowIdentifier(String catalog, String schema, String table, int scope, boolean nullable) throws SQLException
     {
         Field f[] = new Field[8];
-        Vector v = new Vector();  // The new ResultSet tuple stuff
+        List v = new ArrayList();  // The new ResultSet tuple stuff
 
         f[0] = new Field("SCOPE", Oid.INT2);
         f[1] = new Field("COLUMN_NAME", Oid.VARCHAR);
@@ -2948,7 +3127,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 + "WHERE true ";
             if (schema != null && !"".equals(schema))
             {
-                sql += " AND n.nspname = '" + escapeQuotes(schema) + "' ";
+                sql += " AND n.nspname = " + escapeQuotes(schema);
             }
         }
         else
@@ -2961,7 +3140,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 where = " AND ct.relnamespace = n.oid ";
                 if (schema != null && !"".equals(schema))
                 {
-                    where += " AND n.nspname = '" + escapeQuotes(schema) + "' ";
+                    where += " AND n.nspname = " + escapeQuotes(schema);
                 }
             }
             else
@@ -2975,7 +3154,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                      where;
         }
 
-        sql += " AND ct.relname = '" + escapeQuotes(table) + "' " +
+        sql += " AND ct.relname = " + escapeQuotes(table) +
                      " AND i.indisprimary " +
                      " ORDER BY a.attnum ";
 
@@ -2998,7 +3177,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
             tuple[5] = null; // unused
             tuple[6] = connection.encodeString(Integer.toString(decimalDigits));
             tuple[7] = connection.encodeString(Integer.toString(java.sql.DatabaseMetaData.bestRowNotPseudo));
-            v.addElement(tuple);
+            v.add(tuple);
         }
 
         return (ResultSet) ((BaseStatement)createMetaDataStatement()).createDriverResultSet(f, v);
@@ -3035,7 +3214,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
     public java.sql.ResultSet getVersionColumns(String catalog, String schema, String table) throws SQLException
     {
         Field f[] = new Field[8];
-        Vector v = new Vector();  // The new ResultSet tuple stuff
+        List v = new ArrayList();  // The new ResultSet tuple stuff
 
         f[0] = new Field("SCOPE", Oid.INT2);
         f[1] = new Field("COLUMN_NAME", Oid.VARCHAR);
@@ -3066,7 +3245,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
         tuple[5] = null;
         tuple[6] = null;
         tuple[7] = connection.encodeString(Integer.toString(java.sql.DatabaseMetaData.versionColumnPseudo));
-        v.addElement(tuple);
+        v.add(tuple);
 
         /* Perhaps we should check that the given
          * catalog.schema.table actually exists. -KJ
@@ -3113,7 +3292,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 + "WHERE true ";
             if (schema != null && !"".equals(schema))
             {
-                sql += " AND n.nspname = '" + escapeQuotes(schema) + "' ";
+                sql += " AND n.nspname = " + escapeQuotes(schema);
             }
         } else {
             String select;
@@ -3127,7 +3306,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 where = " AND ct.relnamespace = n.oid ";
                 if (schema != null && !"".equals(schema))
                 {
-                    where += " AND n.nspname = '" + escapeQuotes(schema) + "' ";
+                    where += " AND n.nspname = " + escapeQuotes(schema);
                 }
             }
             else
@@ -3149,7 +3328,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
 
         if (table != null && !"".equals(table))
         {
-            sql += " AND ct.relname = '" + escapeQuotes(table) + "' ";
+            sql += " AND ct.relname = " + escapeQuotes(table);
         }
 
         sql += " AND i.indisprimary " +
@@ -3243,19 +3422,19 @@ public abstract class AbstractJdbc2DatabaseMetaData
                          " AND con.contype = 'f' AND con.oid = dep.objid AND pkic.oid = dep.refobjid AND pkic.relkind = 'i' AND dep.classid = 'pg_constraint'::regclass::oid AND dep.refclassid = 'pg_class'::regclass::oid ";
             if (primarySchema != null && !"".equals(primarySchema))
             {
-                sql += " AND pkn.nspname = '" + escapeQuotes(primarySchema) + "' ";
+                sql += " AND pkn.nspname = " + escapeQuotes(primarySchema);
             }
             if (foreignSchema != null && !"".equals(foreignSchema))
             {
-                sql += " AND fkn.nspname = '" + escapeQuotes(foreignSchema) + "' ";
+                sql += " AND fkn.nspname = " + escapeQuotes(foreignSchema);
             }
             if (primaryTable != null && !"".equals(primaryTable))
             {
-                sql += " AND pkc.relname = '" + escapeQuotes(primaryTable) + "' ";
+                sql += " AND pkc.relname = " + escapeQuotes(primaryTable);
             }
             if (foreignTable != null && !"".equals(foreignTable))
             {
-                sql += " AND fkc.relname = '" + escapeQuotes(foreignTable) + "' ";
+                sql += " AND fkc.relname = " + escapeQuotes(foreignTable);
             }
 
             if (primaryTable != null)
@@ -3289,11 +3468,11 @@ public abstract class AbstractJdbc2DatabaseMetaData
                    " JOIN pg_catalog.pg_proc p2 ON (t2.tgfoid=p2.oid) ";
             if (primarySchema != null && !"".equals(primarySchema))
             {
-                where += " AND n1.nspname = '" + escapeQuotes(primarySchema) + "' ";
+                where += " AND n1.nspname = " + escapeQuotes(primarySchema);
             }
             if (foreignSchema != null && !"".equals(foreignSchema))
             {
-                where += " AND n2.nspname = '" + escapeQuotes(foreignSchema) + "' ";
+                where += " AND n2.nspname = " + escapeQuotes(foreignSchema);
             }
         }
         else
@@ -3341,11 +3520,11 @@ public abstract class AbstractJdbc2DatabaseMetaData
 
         if (primaryTable != null)
         {
-            sql += "AND c1.relname='" + escapeQuotes(primaryTable) + "' ";
+            sql += "AND c1.relname=" + escapeQuotes(primaryTable);
         }
         if (foreignTable != null)
         {
-            sql += "AND c2.relname='" + escapeQuotes(foreignTable) + "' ";
+            sql += "AND c2.relname=" + escapeQuotes(foreignTable);
         }
 
         sql += "ORDER BY ";
@@ -3392,7 +3571,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
         // | 8  |       9            |    10     |   11
         // | 6  | <unnamed>\000users\000people\000UNSPECIFIED\000people_id\000id\000 | RI_FKey_noaction_upd | RI_FKey_noaction_del
 
-        Vector tuples = new Vector();
+        List tuples = new ArrayList();
 
         while ( rs.next() )
         {
@@ -3465,10 +3644,10 @@ public abstract class AbstractJdbc2DatabaseMetaData
             //<unnamed>\000ww\000vv\000UNSPECIFIED\000m\000a\000n\000b\000
             // we are primarily interested in the column names which are the last items in the string
 
-            Vector tokens = tokenize(targs, "\\000");
+            List tokens = tokenize(targs, "\\000");
             if (tokens.size() > 0)
             {
-                fkName = (String)tokens.elementAt(0);
+                fkName = (String)tokens.get(0);
             }
 
             if (fkName.startsWith("<unnamed>"))
@@ -3479,13 +3658,13 @@ public abstract class AbstractJdbc2DatabaseMetaData
             int element = 4 + (keySequence - 1) * 2;
             if (tokens.size() > element)
             {
-                fkeyColumn = (String)tokens.elementAt(element);
+                fkeyColumn = (String)tokens.get(element);
             }
 
             element++;
             if (tokens.size() > element)
             {
-                pkeyColumn = (String)tokens.elementAt(element);
+                pkeyColumn = (String)tokens.get(element);
             }
 
             tuple[3] = connection.encodeString(pkeyColumn); //PKCOLUMN_NAME
@@ -3508,7 +3687,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
             }
             tuple[13] = connection.encodeString(Integer.toString(deferrability));
 
-            tuples.addElement(tuple);
+            tuples.add(tuple);
         }
 
         return (ResultSet) ((BaseStatement)createMetaDataStatement()).createDriverResultSet(f, tuples);
@@ -3738,7 +3917,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
     {
 
         Field f[] = new Field[18];
-        Vector v = new Vector();  // The new ResultSet tuple stuff
+        List v = new ArrayList();  // The new ResultSet tuple stuff
 
         f[0] = new Field("TYPE_NAME", Oid.VARCHAR);
         f[1] = new Field("DATA_TYPE", Oid.INT2);
@@ -3812,7 +3991,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
             // 12 - LOCAL_TYPE_NAME is null
             // 15 & 16 are unused so we return null
             tuple[17] = b10; // everything is base 10
-            v.addElement(tuple);
+            v.add(tuple);
 
             // add pseudo-type serial, bigserial
             if ( typname.equals("int4") )
@@ -3821,7 +4000,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
 
                 tuple1[0] = connection.encodeString("serial");
                 tuple1[11] = bt;
-                v.addElement(tuple1);
+                v.add(tuple1);
             }
             else if ( typname.equals("int8") )
             {
@@ -3829,7 +4008,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
 
                 tuple1[0] = connection.encodeString("bigserial");
                 tuple1[11] = bt;
-                v.addElement(tuple1);
+                v.add(tuple1);
             }
 
         }
@@ -3943,7 +4122,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
 
             if (schema != null && !"".equals(schema))
             {
-                sql += " AND n.nspname = '" + escapeQuotes(schema) + "' ";
+                sql += " AND n.nspname = " + escapeQuotes(schema);
             }
         } else {
             String select;
@@ -3964,7 +4143,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 }
                 if (schema != null && ! "".equals(schema))
                 {
-                    where += " AND n.nspname = '" + escapeQuotes(schema) + "' ";
+                    where += " AND n.nspname = " + escapeQuotes(schema);
                 }
             }
             else
@@ -4017,7 +4196,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
                      where;
         }
 
-        sql += " AND ct.relname = '" + escapeQuotes(tableName) + "' ";
+        sql += " AND ct.relname = " + escapeQuotes(tableName);
 
         if (unique)
         {
@@ -4030,8 +4209,8 @@ public abstract class AbstractJdbc2DatabaseMetaData
     /**
      * Tokenize based on words not on single characters.
      */
-    private static Vector tokenize(String input, String delimiter) {
-        Vector result = new Vector();
+    private static List tokenize(String input, String delimiter) {
+        List result = new ArrayList();
         int start = 0;
         int end = input.length();
         int delimiterSize = delimiter.length();
@@ -4041,13 +4220,13 @@ public abstract class AbstractJdbc2DatabaseMetaData
             int delimiterIndex = input.indexOf(delimiter, start);
             if (delimiterIndex < 0)
             {
-                result.addElement(input.substring(start));
+                result.add(input.substring(start));
                 break;
             }
             else
             {
                 String token = input.substring(start, delimiterIndex);
-                result.addElement(token);
+                result.add(token);
                 start = delimiterIndex + delimiterSize;
             }
         }
@@ -4172,7 +4351,7 @@ public abstract class AbstractJdbc2DatabaseMetaData
         for (Iterator i = connection.getTypeInfo().getPGTypeNamesWithSQLTypes(); i.hasNext();) {
             String pgType = (String)i.next();
             int sqlType = connection.getTypeInfo().getSQLType(pgType);
-            sql += " when typname = '" + escapeQuotes(pgType) + "' then " + sqlType;
+            sql += " when typname = " + escapeQuotes(pgType) + " then " + sqlType;
         }
 
         sql += " else " + java.sql.Types.OTHER + " end from pg_type where oid=t.typbasetype) "
@@ -4227,13 +4406,13 @@ public abstract class AbstractJdbc2DatabaseMetaData
                 // strip out just the typeName
                 typeNamePattern = typeNamePattern.substring(secondQualifier + 1);
             }
-            toAdd += " and t.typname like '" + escapeQuotes(typeNamePattern) + "'";
+            toAdd += " and t.typname like " + escapeQuotes(typeNamePattern);
         }
 
         // schemaPattern may have been modified above
         if ( schemaPattern != null)
         {
-            toAdd += " and n.nspname like '" + escapeQuotes(schemaPattern) + "'";
+            toAdd += " and n.nspname like " + escapeQuotes(schemaPattern);
         }
         sql += toAdd;
         sql += " order by data_type, type_schem, type_name";

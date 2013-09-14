@@ -16,7 +16,9 @@
  */
 package org.openconcerto.sql.element;
 
+import static org.openconcerto.sql.TM.getTM;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidObject;
 import org.openconcerto.utils.checks.ValidState;
@@ -100,7 +102,7 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         });
 
         this.supprBtn = new JButton(new ImageIcon(this.getClass().getResource("delete.png")));
-        this.supprBtn.setToolTipText("Supprimer");
+        this.supprBtn.setToolTipText(getTM().translate("remove"));
         this.supprBtn.setOpaque(false);
         if (isPlastic)
             this.supprBtn.setBorder(null);
@@ -112,10 +114,11 @@ public class DefaultElementSQLObject extends ElementSQLObject {
             }
 
             private boolean confirm() {
-                return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(DefaultElementSQLObject.this, "Voulez-vous vraiment supprimer cet élément ?", "Suppression", JOptionPane.YES_NO_OPTION);
+                return JOptionPane.YES_OPTION == JOptionPane.showConfirmDialog(DefaultElementSQLObject.this, getTM().trM("elementSQLObject.delete", "element", getSQLChild().getElement().getName()),
+                        getTM().trA("sqlElement.confirmDelete"), JOptionPane.YES_NO_OPTION);
             }
         });
-        this.createBtn = new JButton("Créer " + this.getSQLChild().getElement().getSingularName());
+        this.createBtn = new JButton(EditFrame.getCreateMessage(this.getSQLChild().getElement()));
         // false leaves only a line for the button under Plastic3DLookAndFeel
         this.createBtn.setOpaque(isPlastic);
         this.createBtn.addActionListener(new ActionListener() {

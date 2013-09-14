@@ -18,7 +18,6 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.DBRoot;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -32,6 +31,7 @@ public abstract class AbstractModule {
 
     public AbstractModule(final ModuleFactory f) throws IOException {
         this.factory = f;
+
     }
 
     public final ModuleFactory getFactory() {
@@ -56,13 +56,14 @@ public abstract class AbstractModule {
     }
 
     /**
-     * The directory this module should use while running. During installation use
-     * {@link DBContext#getLocalDirectory()}.
+     * Should create permanent items. NOTE: all files created in
+     * {@link LocalContext#getLocalDirectory()} will be deleted automatically, i.e. no action is
+     * necessary in {@link #uninstall(DBRoot)}.
      * 
-     * @return the directory for this module.
+     * @param ctxt to create database objects.
      */
-    protected final File getLocalDirectory() {
-        return ModuleManager.getInstance().getLocalDirectory(this.getFactory().getID());
+    protected void install(LocalContext ctxt) {
+
     }
 
     /**
@@ -78,17 +79,6 @@ public abstract class AbstractModule {
     }
 
     /**
-     * Should create permanent items. NOTE: all files created in
-     * {@link LocalContext#getLocalDirectory()} will be deleted automatically, i.e. no action is
-     * necessary in {@link #uninstall(DBRoot)}.
-     * 
-     * @param ctxt to create database objects.
-     */
-    protected void install(LocalContext ctxt) {
-
-    }
-
-    /**
      * Should add elements for the tables of this module. It's also the place to
      * {@link SQLElement#setAction(String, SQLElement.ReferenceAction) set actions} for foreign keys
      * of this module. NOTE: this method is called as long as the module is installed in the
@@ -97,6 +87,9 @@ public abstract class AbstractModule {
      * @param dir the directory where to add elements.
      */
     protected void setupElements(SQLElementDirectory dir) {
+    }
+
+    protected void setupMenu(MenuContext menuContext) {
     }
 
     /**

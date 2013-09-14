@@ -17,6 +17,7 @@ import static org.openconcerto.sql.users.rights.TableAllRights.ADD_ROW_TABLE;
 import static org.openconcerto.sql.users.rights.TableAllRights.DELETE_ROW_TABLE;
 import static org.openconcerto.sql.users.rights.TableAllRights.MODIFY_ROW_TABLE;
 import static org.openconcerto.sql.users.rights.TableAllRights.VIEW_ROW_TABLE;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.CompareUtils.Equalizer;
@@ -31,6 +32,14 @@ import java.util.Set;
  * @see #canModify(SQLTable)
  */
 public class UserRights {
+
+    static public final UserRights ALLOW_ALL = new UserRights(SQLRow.NONEXISTANT_ID) {
+        @Override
+        public boolean haveRight(final String code, final String object, final Equalizer<? super String> objectMatcher) {
+            return true;
+        }
+    };
+
     private final int userID;
 
     public UserRights(final int userID) {

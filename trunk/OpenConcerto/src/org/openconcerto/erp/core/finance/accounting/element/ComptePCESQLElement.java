@@ -228,15 +228,10 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
     public static SQLRow getRow(String numero, String nom) {
         SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
         SQLTable compteTable = base.getTable("COMPTE_PCE");
+
         SQLSelect selCompte = new SQLSelect();
         selCompte.addSelectStar(compteTable);
         selCompte.setWhere(new Where(compteTable.getField("NUMERO"), "=", numero.trim()));
-
-        // String reqCompte = selCompte.asString();
-        //
-        // Object obCompte = base.getDataSource().execute(reqCompte, new ArrayListHandler());
-        //
-        // List myListCompte = (List) obCompte;
 
         List<SQLRow> myListCompte = SQLRowListRSH.execute(selCompte);
         if (myListCompte.size() != 0) {

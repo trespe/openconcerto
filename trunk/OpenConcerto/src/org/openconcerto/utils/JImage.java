@@ -13,6 +13,8 @@
  
  package org.openconcerto.utils;
 
+import org.openconcerto.utils.i18n.TM;
+
 import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Dimension;
@@ -68,7 +70,7 @@ public class JImage extends JComponent {
                         URI uri = new URI(hyperlink);
                         Desktop.getDesktop().browse(uri);
                     } catch (Exception ex) {
-                        ExceptionHandler.handle("Impossible d'ouvir l'URL " + hyperlink, ex);
+                        ExceptionHandler.handle(e.getComponent(), TM.tr("linkOpenError", hyperlink), ex);
                     }
                     e.consume();
                 }

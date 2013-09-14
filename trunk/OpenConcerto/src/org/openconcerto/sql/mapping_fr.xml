@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+	<TABLE name="USER_COMMON">
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="PRENOM" label="Prénom" titlelabel="Prénom" />
+		<FIELD name="PASSWORD" label="Mot de passe" titlelabel="Mot de passe" />
+		<FIELD name="PASSWORD_CONFIRM" label="Confirmation" />
+		<FIELD name="LOGIN" label="Identifiant" titlelabel="Identifiant" />
+		<FIELD name="SURNOM" label="Surnom" titlelabel="Surnom" />
+		<FIELD name="ADMIN" label="Administrateur" titlelabel="Admin." />
+		<FIELD name="ID_USER_RIGHT_COMMON" label="Droits utilisateur" titlelabel="Droits utilisateur" />
+		<FIELD name="MAIL" label="E-Mail" titlelabel="E-Mail" />
+	</TABLE>
+	<TABLE name="RIGHT">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Nom" titlelabel="Nom du droit" />
+		<FIELD name="DESCRIPTION" label="Description" titlelabel="Desc." />
+	</TABLE>
+	<TABLE name="USER_RIGHT">
+		<FIELD name="ID_USER_COMMON" label="Utilisateur" titlelabel="Utilis." />
+		<FIELD name="ID_RIGHT" label="Droit" />
+		<FIELD name="OBJECT" label="Objet" />
+		<FIELD name="HAVE_RIGHT" label="Droit accordé" titlelabel="Accordé" />
+	</TABLE>
+</ROOT>

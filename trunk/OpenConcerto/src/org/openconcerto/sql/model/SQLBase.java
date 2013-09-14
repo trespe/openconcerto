@@ -41,8 +41,8 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -565,7 +565,7 @@ public class SQLBase extends SQLIdentifier {
      */
     String getFwkMetadata(String schema, String name, final boolean shouldTestForTable) {
         final SQLName tableName = new SQLName(this.getName(), schema, SQLSchema.METADATA_TABLENAME);
-        final String sel = SQLSelect.quote("SELECT \"VALUE\" FROM " + tableName.quote() + " WHERE \"NAME\"= " + this.quoteString(name));
+        final String sel = "SELECT \"VALUE\" FROM " + tableName.quote() + " WHERE \"NAME\"= " + this.quoteString(name);
         // In postgreSQL once there's an error the transaction is aborted and further queries throw
         // an exception. In H2 and MySQL, the transaction is *not* aborted.
         final SQLSystem system = getServer().getSQLSystem();
@@ -750,6 +750,8 @@ public class SQLBase extends SQLIdentifier {
         return quote(this, pattern, params);
     }
 
+    // since Strings might not be quoted correctly
+    @Deprecated
     public final static String quoteStd(final String pattern, Object... params) {
         return quote(null, pattern, params);
     }

@@ -18,18 +18,24 @@ import org.openconcerto.openoffice.ContentTypeVersioned;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.OOUtils;
+import org.openconcerto.openoffice.Style;
 import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.spreadsheet.SheetTableModel.MutableTableModel;
 import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.IPredicate;
+import org.openconcerto.xml.SimpleXMLPath;
+import org.openconcerto.xml.Step;
 
 import java.awt.Point;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -37,6 +43,7 @@ import javax.swing.table.TableModel;
 
 import org.jdom.Element;
 import org.jdom.JDOMException;
+import org.jdom.Namespace;
 import org.jdom.xpath.XPath;
 
 /**
@@ -77,8 +84,11 @@ public class SpreadSheet extends ODDocument {
     public static SpreadSheet create(final XMLFormatVersion ns, final int sheetCount, final int colCount, final int rowCount) {
         final ContentTypeVersioned ct = ContentType.SPREADSHEET.getVersioned(ns.getXMLVersion());
         final SpreadSheet spreadSheet = ct.createPackage(ns).getSpreadSheet();
+        // create auto style with display=true (LO always generates one, and Google Docs expects it)
+        final TableStyle tableStyle = Style.getStyleStyleDesc(TableStyle.class, ns.getXMLVersion()).createAutoStyle(spreadSheet.getPackage());
+        tableStyle.getTableProperties().setDisplayed(true);
         for (int i = 0; i < sheetCount; i++) {
-            spreadSheet.getBody().addContent(Sheet.createEmpty(ns.getXMLVersion(), colCount, rowCount));
+            spreadSheet.getBody().addContent(Sheet.createEmpty(ns.getXMLVersion(), colCount, rowCount, tableStyle.getName()));
         }
         return spreadSheet;
     }
@@ -95,6 +105,33 @@ public class SpreadSheet extends ODDocument {
      */
     public static File export(TableModel t, File f, XMLFormatVersion ns) throws IOException {
         return SpreadSheet.createEmpty(t, ns).saveAs(f);
+    }
+
+    static final Set<String> getRangesNames(final Element parentElement, final Namespace tableNS) {
+        final List<Element> ranges = getRangePath(tableNS, null).selectNodes(parentElement);
+        final Set<String> res = new HashSet<String>(ranges.size());
+        for (final Element elem : ranges) {
+            res.add(elem.getAttributeValue("name", tableNS));
+        }
+        return res;
+    }
+
+    static private final SimpleXMLPath<Element> getRangePath(final Namespace tableNS, final String name) {
+        final IPredicate<Element> pred = name == null ? null : new IPredicate<Element>() {
+            @Override
+            public boolean evaluateChecked(Element input) {
+                return input.getAttributeValue("name", tableNS).equals(name);
+            }
+        };
+        return SimpleXMLPath.create(Step.createElementStep("named-expressions", tableNS.getPrefix()), Step.createElementStep("named-range", tableNS.getPrefix(), pred));
+    }
+
+    static final Range getRange(final Element parentElement, final Namespace tableNS, final String name) {
+        final Element range = getRangePath(tableNS, name).selectSingleNode(parentElement);
+        if (range == null)
+            return null;
+
+        return Range.parse(range.getAttributeValue("cell-range-address", tableNS));
     }
 
     private final Map<Element, Sheet> sheets;
@@ -144,25 +181,41 @@ public class SpreadSheet extends ODDocument {
     }
 
     /**
+     * All global ranges defined in this document.
+     * 
+     * @return the global names.
+     * @see Table#getRangesNames()
+     */
+    public final Set<String> getRangesNames() {
+        return getRangesNames(getBody(), getVersion().getTABLE());
+    }
+
+    /**
+     * Get a global named range.
+     * 
+     * @param name the name of the range.
+     * @return a named range, or <code>null</code> if the passed name doesn't exist.
+     * @see #getRangesNames()
+     * @see Table#getRange(String)
+     */
+    public final Range getRange(String name) {
+        return getRange(getBody(), getVersion().getTABLE(), name);
+    }
+
+    /**
      * Return a view of the passed range.
      * 
-     * @param name a named range.
+     * @param name a global named range.
      * @return the matching TableModel, <code>null</code> if it doesn't exist.
+     * @see #getRange(String)
+     * @see Table#getMutableTableModel(Point, Point)
      */
     public final MutableTableModel<SpreadSheet> getTableModel(String name) {
-        final Element range;
-        try {
-            final XPath path = this.getXPath("./table:named-expressions/table:named-range[@table:name='" + name + "']");
-            range = (Element) path.selectSingleNode(this.getBody());
-        } catch (JDOMException e) {
-            throw new IllegalStateException(e);
-        }
-        if (range == null)
+        final Range points = getRange(name);
+        if (points == null)
             return null;
-
-        // OpenOffice only supports absolute addresses, so need to use base-cell-address
-        final String baseCell = range.getAttributeValue("cell-range-address", getVersion().getTABLE());
-        final Range points = Range.parse(baseCell);
+        if (points.getStartSheet() == null)
+            throw new IllegalStateException("Missing table name");
         if (points.spanSheets())
             throw new UnsupportedOperationException("different sheet names: " + points.getStartSheet() + " != " + points.getEndSheet());
         final Sheet sheet = this.getSheet(points.getStartSheet(), true);

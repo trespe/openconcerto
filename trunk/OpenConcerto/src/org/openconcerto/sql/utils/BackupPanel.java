@@ -13,7 +13,10 @@
  
  package org.openconcerto.sql.utils;
 
+import static org.openconcerto.sql.TM.getTM;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
@@ -46,25 +49,22 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JSeparator;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingUtilities;
-
-import org.jdesktop.swingx.VerticalLayout;
+import javax.swing.text.JTextComponent;
 
 public class BackupPanel extends JPanel implements ActionListener {
 
-    static final private DateFormat format = new SimpleDateFormat("EEEE");
+    private final DateFormat format = new SimpleDateFormat("EEEE", getTM().getTranslationsLocale());
 
     private JProgressBar barDB = new JProgressBar();
     private JTextField textDest = new JTextField();
-    private JButton buttonBackup = new JButton("Sauvegarder");
+    private JButton buttonBackup = new JButton(getTM().translate("backup"));
     private JButton buttonBrowse = new JButton("...");
 
-    DateFormat dateFormat = new SimpleDateFormat("dd MM yyyy");
-
     private JLabel labelErrors = new JLabel(" ");
-    private JLabel labelLastBackup = new JLabel(" ");
-    private JLabel labelLastDir = new JLabel(" ");
+    private JTextComponent labelLastBackup = new JTextArea();
     private JLabel labelState = new JLabelBold(" ");
     JButton buttonClose;
     private List<String> listDb;
@@ -72,8 +72,6 @@ public class BackupPanel extends JPanel implements ActionListener {
     private boolean closed = false;
     private boolean autoClose = false;
     private ReloadPanel reloadPanel = new ReloadPanel();
-
-    private static String textErrors = "Des erreurs sont survenues lors de la dernière sauvegarde. Veuillez contacter le service technique.";
 
     BackupProps props;
 
@@ -95,15 +93,12 @@ public class BackupPanel extends JPanel implements ActionListener {
 
         topPanel.setBackground(Color.white);
 
-        topPanel.add(new JLabelBold("Sauvegarde"));
+        topPanel.add(new JLabelBold(getTM().translate("backup")));
         topPanel.add(this.labelLastBackup);
-        topPanel.add(this.labelLastDir);
 
-        String lastBackup = props.getLastBackup();
-        if (lastBackup != null) {
-            this.labelLastBackup.setText("Derniére sauvegarde effectuée le " + lastBackup);
-            this.labelLastDir.setText("sur " + props.getProperty("LastBackupDestination"));
-        }
+        this.labelLastBackup.setEditable(false);
+        this.labelLastBackup.setFont(this.labelErrors.getFont());
+        updateLastBackup();
 
         c.gridy++;
         c.gridx = 0;
@@ -115,7 +110,7 @@ public class BackupPanel extends JPanel implements ActionListener {
         c.gridy++;
         this.add(new JSeparator(), c);
 
-        JLabelBold sep1 = new JLabelBold("Emplacement");
+        JLabelBold sep1 = new JLabelBold(getTM().translate("location"));
         c.gridy++;
         c.gridx = 0;
         c.fill = GridBagConstraints.HORIZONTAL;
@@ -146,10 +141,10 @@ public class BackupPanel extends JPanel implements ActionListener {
         c.gridy++;
         c.gridx = 0;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        this.add(new JLabel("Pensez à effectuer vos sauvegardes sur différents disques!"), c);
+        this.add(new JLabel(getTM().translate("backupPanel.differentDisks")), c);
 
         // Progression
-        JLabelBold sep = new JLabelBold("Progression de la sauvegarde");
+        final JLabelBold sep = new JLabelBold(getTM().translate("backupPanel.progress"));
         c.gridy++;
         c.gridx = 0;
         c.fill = GridBagConstraints.HORIZONTAL;
@@ -180,7 +175,7 @@ public class BackupPanel extends JPanel implements ActionListener {
         this.add(this.labelErrors, c);
         int errors = props.getErrors();
         if (errors > 0) {
-            this.labelErrors.setText(textErrors);
+            this.labelErrors.setText(getTM().translate("backupPanel.errorsOnLastBackup"));
         }
 
         // Etat de la sauvegarde
@@ -194,7 +189,7 @@ public class BackupPanel extends JPanel implements ActionListener {
         c.weighty = 1;
 
         JPanel panelButton = new JPanel();
-        this.buttonClose = new JButton("Fermer");
+        this.buttonClose = new JButton(getTM().translate("close"));
         if (!startNow) {
             panelButton.add(this.buttonBackup);
         }
@@ -222,6 +217,15 @@ public class BackupPanel extends JPanel implements ActionListener {
         }
     }
 
+    protected void updateLastBackup() {
+        final Date lastBackup = this.props.getLastBackup();
+        if (lastBackup != null) {
+            this.labelLastBackup.setText(getTM().trM("backupPanel.lastBackup", "date", lastBackup, "destination", this.props.getProperty("LastBackupDestination")));
+        } else {
+            this.labelLastBackup.setText("");
+        }
+    }
+
     public void doOnClose() {
         // Default do nothing
     }
@@ -231,7 +235,7 @@ public class BackupPanel extends JPanel implements ActionListener {
         if (e.getSource() == this.buttonBrowse) {
             JFileChooser choose = new JFileChooser();
             choose.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
-            if (choose.showDialog(this, "Sélectionner") == JFileChooser.APPROVE_OPTION) {
+            if (choose.showDialog(this, getTM().translate("choose")) == JFileChooser.APPROVE_OPTION) {
                 final File selectedFile = choose.getSelectedFile();
                 final String absolutePath = selectedFile.getAbsolutePath();
                 this.textDest.setText(absolutePath);
@@ -251,13 +255,13 @@ public class BackupPanel extends JPanel implements ActionListener {
 
         this.barDB.setStringPainted(false);
         this.buttonBackup.setEnabled(false);
-        this.labelState.setText("Sauvegarde en cours!");
+        this.labelState.setText(getTM().translate("backupPanel.inProgress"));
         this.reloadPanel.setMode(ReloadPanel.MODE_ROTATE);
         this.barDB.setValue(1);
 
         final String dest = this.textDest.getText();
         final File fTmp = new File(dest, Configuration.getInstance().getAppName());
-        final File fDest = new File(fTmp, format.format(new Date()));
+        final File fDest = new File(fTmp, this.format.format(new Date()));
 
         final Thread thread = new Thread(new Runnable() {
             public void run() {
@@ -266,7 +270,7 @@ public class BackupPanel extends JPanel implements ActionListener {
                     if (!fDest.exists() && !fDest.mkdirs()) {
                         SwingUtilities.invokeLater(new Runnable() {
                             public void run() {
-                                JOptionPane.showMessageDialog(BackupPanel.this, "Impossible de créer le dossier de destination. Sauvegarde annulée!");
+                                JOptionPane.showMessageDialog(BackupPanel.this, getTM().translate("backupPanel.createFolderError"));
                             }
                         });
                     } else {
@@ -276,7 +280,7 @@ public class BackupPanel extends JPanel implements ActionListener {
                             if (!testFileCreate.createNewFile()) {
                                 SwingUtilities.invokeLater(new Runnable() {
                                     public void run() {
-                                        JOptionPane.showMessageDialog(BackupPanel.this, "Droits insuffisants sur le dossier de destination. Sauvegarde annulée!");
+                                        JOptionPane.showMessageDialog(BackupPanel.this, getTM().translate("backupPanel.folderRightsError"));
 
                                         BackupPanel.this.barDB.setValue(0);
                                     }
@@ -288,7 +292,7 @@ public class BackupPanel extends JPanel implements ActionListener {
                             e1.printStackTrace();
                             SwingUtilities.invokeLater(new Runnable() {
                                 public void run() {
-                                    JOptionPane.showMessageDialog(BackupPanel.this, "Droits insuffisants sur le dossier de destination. Sauvegarde annulée!");
+                                    JOptionPane.showMessageDialog(BackupPanel.this, getTM().translate("backupPanel.folderRightsError"));
                                     BackupPanel.this.barDB.setValue(0);
                                 }
                             });
@@ -300,28 +304,21 @@ public class BackupPanel extends JPanel implements ActionListener {
                         // Sauvegarde de la base
                         if (BackupPanel.this.listDb != null) {
 
-                            final SQLSystem system = Configuration.getInstance().getBase().getServer().getSQLSystem();
+                            final DBRoot root = Configuration.getInstance().getRoot();
+                            final DBSystemRoot sysRoot = root.getDBSystemRoot();
+                            final SQLSystem system = sysRoot.getServer().getSQLSystem();
 
                             // Sauvegarde pour H2
                             if (system == SQLSystem.H2) {
-
-                                // FIXME Close Connection
-
-                                try {
-                                    Configuration.getInstance().getBase().getDataSource().close();
-
-                                } catch (SQLException e) {
-                                    e.printStackTrace();
-                                }
-                                // Backup backup = new Backup(fDest);
-                                // errors += backup.applyTo(new File( ));
-                                // backup.close();
+                                sysRoot.getDataSource().execute("backup to " + root.getBase().quoteString(new File(fDest, "Base.zip").getAbsolutePath()));
+                                // TODO don't backup H2 files below ('backup to' is the only safe
+                                // way);
                             } else {
                                 // Sauvegarde autres bases
                                 File fBase = new File(fDest, "Base");
                                 Copy copy;
                                 try {
-                                    copy = new Copy(true, fBase, Configuration.getInstance().getBase().getDBSystemRoot(), false, false);
+                                    copy = new Copy(true, fBase, sysRoot, false, false);
                                     for (String db : BackupPanel.this.listDb) {
                                         copy.applyTo(db, null);
                                     }
@@ -378,18 +375,17 @@ public class BackupPanel extends JPanel implements ActionListener {
                         SwingUtilities.invokeLater(new Runnable() {
                             public void run() {
                                 if (backupErrors > 0) {
-                                    BackupPanel.this.labelErrors.setText(textErrors);
-                                    BackupPanel.this.labelState.setText("Sauvegarde terminée avec erreurs!");
+                                    BackupPanel.this.labelErrors.setText(getTM().translate("backupPanel.errorsOnLastBackup"));
+                                    BackupPanel.this.labelState.setText(getTM().translate("backupPanel.endFail"));
                                     BackupPanel.this.reloadPanel.setMode(ReloadPanel.MODE_BLINK);
                                 } else {
                                     BackupPanel.this.labelErrors.setText("");
-                                    BackupPanel.this.labelState.setText("Sauvegarde terminée avec succés!");
+                                    BackupPanel.this.labelState.setText(getTM().translate("backupPanel.endSuccess"));
                                     BackupPanel.this.reloadPanel.setMode(ReloadPanel.MODE_EMPTY);
                                     closeAfter5Secondes();
                                 }
 
-                                BackupPanel.this.labelLastBackup.setText("Dernière sauvegarde effectuée le " + props.getLastBackup());
-                                BackupPanel.this.labelLastDir.setText("sur " + props.getProperty("LastBackupDestination"));
+                                updateLastBackup();
                                 BackupPanel.this.buttonBackup.setEnabled(true);
                             }
 
@@ -397,7 +393,7 @@ public class BackupPanel extends JPanel implements ActionListener {
 
                     }
                 } catch (Exception e) {
-                    ExceptionHandler.handle("Echec de la sauvegarde", e);
+                    ExceptionHandler.handle(BackupPanel.this, getTM().translate("backupPanel.failed"), e);
                 }
             }
         });
@@ -419,7 +415,7 @@ public class BackupPanel extends JPanel implements ActionListener {
                         SwingUtilities.invokeLater(new Runnable() {
                             @Override
                             public void run() {
-                                BackupPanel.this.buttonClose.setText("Fermeture dans " + rest + "s");
+                                BackupPanel.this.buttonClose.setText(getTM().translate("backupPanel.closingIn", rest));
                             }
                         });
                         BackupPanel.this.seconde--;
@@ -433,7 +429,7 @@ public class BackupPanel extends JPanel implements ActionListener {
                     SwingUtilities.invokeLater(new Runnable() {
                         @Override
                         public void run() {
-                            BackupPanel.this.buttonClose.setText("Fermer");
+                            BackupPanel.this.buttonClose.setText(getTM().translate("close"));
                         }
                     });
                     if (!BackupPanel.this.closed) {

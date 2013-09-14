@@ -22,9 +22,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.ExceptionHandler;
 
-import java.sql.SQLException;
 import java.util.Date;
-
 
 public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implements Runnable {
 
@@ -37,20 +35,16 @@ public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implem
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
     public GenerationMvtSaisieVenteComptoir(int idSaisieVenteComptoir) {
-
-        this.idSaisieVenteComptoir = idSaisieVenteComptoir;
-        this.idMvt = 1;
-        (new Thread(GenerationMvtSaisieVenteComptoir.this)).start();
+        this(idSaisieVenteComptoir, 1);
     }
 
     public GenerationMvtSaisieVenteComptoir(int idSaisieVenteComptoir, int idMvt) {
-
         this.idSaisieVenteComptoir = idSaisieVenteComptoir;
         this.idMvt = idMvt;
         (new Thread(GenerationMvtSaisieVenteComptoir.this)).start();
     }
 
-    private void genereMouvement() throws IllegalArgumentException {
+    private void genereMouvement() throws Exception {
 
         SQLRow saisieRow = GenerationMvtSaisieVenteComptoir.saisieVCTable.getRow(this.idSaisieVenteComptoir);
         SQLRow clientRow = base.getTable("CLIENT").getRow(saisieRow.getInt("ID_CLIENT"));
@@ -89,26 +83,17 @@ public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implem
 
             int idCompteVenteService = rowPrefsCompte.getInt("ID_COMPTE_PCE_VENTE_SERVICE");
             if (idCompteVenteService <= 1) {
-                try {
-                    idCompteVenteService = ComptePCESQLElement.getIdComptePceDefault("VentesServices");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idCompteVenteService = ComptePCESQLElement.getIdComptePceDefault("VentesServices");
             }
             this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteVenteService));
             this.mEcritures.put("DEBIT", new Long(0));
             this.mEcritures.put("CREDIT", new Long(service));
             ajoutEcriture();
 
-            // System.out.println("___________---> Value " + (prixHT.getValue() - service));
             if ((prixHT.getLongValue() - service) > 0) {
                 int idCompteVenteProduit = rowPrefsCompte.getInt("ID_COMPTE_PCE_VENTE_PRODUIT");
                 if (idCompteVenteProduit <= 1) {
-                    try {
-                        idCompteVenteProduit = ComptePCESQLElement.getIdComptePceDefault("VentesProduits");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idCompteVenteProduit = ComptePCESQLElement.getIdComptePceDefault("VentesProduits");
                 }
                 this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteVenteProduit));
                 this.mEcritures.put("DEBIT", new Long(0));
@@ -120,11 +105,7 @@ public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implem
 
             int idCompteVenteProduit = rowPrefsCompte.getInt("ID_COMPTE_PCE_VENTE_PRODUIT");
             if (idCompteVenteProduit <= 1) {
-                try {
-                    idCompteVenteProduit = ComptePCESQLElement.getIdComptePceDefault("VentesProduits");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idCompteVenteProduit = ComptePCESQLElement.getIdComptePceDefault("VentesProduits");
             }
             this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteVenteProduit));
             this.mEcritures.put("DEBIT", new Long(0));
@@ -137,11 +118,7 @@ public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implem
         if (tva > 0) {
             int idCompteTVA = rowPrefsCompte.getInt("ID_COMPTE_PCE_TVA_VENTE");
             if (idCompteTVA <= 1) {
-                try {
-                    idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVACollectee");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idCompteTVA = ComptePCESQLElement.getIdComptePceDefault("TVACollectee");
             }
             this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteTVA));
             this.mEcritures.put("DEBIT", new Long(0));
@@ -154,11 +131,7 @@ public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implem
         if (idCompteClient <= 1) {
             idCompteClient = rowPrefsCompte.getInt("ID_COMPTE_PCE_CLIENT");
             if (idCompteClient <= 1) {
-                try {
-                    idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                idCompteClient = ComptePCESQLElement.getIdComptePceDefault("Clients");
             }
         }
         this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteClient));
@@ -182,23 +155,18 @@ public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implem
         SQLRowValues valSaisieVC = new SQLRowValues(GenerationMvtSaisieVenteComptoir.saisieVCTable);
         valSaisieVC.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
-        try {
-            if (valSaisieVC.getInvalid() == null) {
-                // ajout de l'ecriture
-                valSaisieVC.update(this.idSaisieVenteComptoir);
-            }
-        } catch (SQLException e) {
-            System.err.println("Erreur à l'insertion dans la table " + valSaisieVC.getTable().getName() + " : " + e);
-            e.printStackTrace();
+        if (valSaisieVC.getInvalid() == null) {
+            // ajout de l'ecriture
+            valSaisieVC.update(this.idSaisieVenteComptoir);
         }
+
     }
 
     public void run() {
         try {
             genereMouvement();
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
-            e.printStackTrace();
         }
     }
 }

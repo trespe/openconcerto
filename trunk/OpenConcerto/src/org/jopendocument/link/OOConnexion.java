@@ -17,12 +17,17 @@ import org.openconcerto.utils.CollectionUtils;
 
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FilePermission;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.SocketPermission;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.security.CodeSource;
+import java.security.PermissionCollection;
 import java.util.List;
 import java.util.Map;
+import java.util.PropertyPermission;
 import java.util.WeakHashMap;
 
 /**
@@ -37,6 +42,9 @@ public abstract class OOConnexion {
     // TODO use OOInstallation.getVersion()
     // for now only one version (but also works with OO2)
     private static final String OO_VERSION = "3";
+
+    protected static final int PORT = 8100;
+
     static {
         // needed to access .class inside a jar inside a jar.
         org.openconcerto.utils.protocol.Helper.register();
@@ -61,7 +69,21 @@ public abstract class OOConnexion {
             // pass our classloader otherwise the system class loader will be used. This won't work
             // in webstart since the classpath is loaded by JNLPClassLoader, thus a class loaded by
             // res couldn't refer to the classpath (e.g. this class) but only to the java library.
-            res = new URLClassLoader(getURLs(ooInstall), OOConnexion.class.getClassLoader());
+            res = new URLClassLoader(getURLs(ooInstall), OOConnexion.class.getClassLoader()) {
+                @Override
+                protected PermissionCollection getPermissions(CodeSource codesource) {
+                    final PermissionCollection perms = super.getPermissions(codesource);
+                    perms.add(new FilePermission(ooInstall.getExecutable().getAbsolutePath(), "execute"));
+                    perms.add(new SocketPermission("localhost:" + PORT + "-" + (PORT + 10), "connect"));
+                    // needed by OO jars
+                    perms.add(new PropertyPermission("*", "read"));
+                    // to be able to open any document
+                    perms.add(new FilePermission("<<ALL FILES>>", "read"));
+                    // needed by ThreadPoolExecutor.shutdown()
+                    perms.add(new RuntimePermission("modifyThread"));
+                    return perms;
+                }
+            };
             loaders.put(ooInstall, res);
         }
         return res;
@@ -92,6 +114,19 @@ public abstract class OOConnexion {
         } catch (Exception e) {
             throw new IllegalStateException("Couldn't create OOCOnnexion", e);
         }
+    }
+
+    public static void main(String[] args) throws IOException {
+        if (args.length == 0) {
+            System.out.println("Usage : " + OOConnexion.class.getName() + " officeFile");
+            System.out.println("Open officeFile in the default installation of LibreOffice");
+            System.exit(1);
+        }
+        final OOConnexion conn = OOConnexion.create();
+        if (conn == null)
+            throw new IllegalStateException("No Office found");
+        conn.loadDocument(new File(args[0]), false);
+        conn.closeConnexion();
     }
 
     protected abstract Component loadDocumentFromURLAsync(final String url, final boolean hidden);

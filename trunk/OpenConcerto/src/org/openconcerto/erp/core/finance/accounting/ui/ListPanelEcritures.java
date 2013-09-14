@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.finance.accounting.ui;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.erp.rights.ComptaUserRight;
@@ -80,8 +81,15 @@ public class ListPanelEcritures extends ListeAddPanel {
         if (source == this.buttonModifier) {
             final SQLRow ecritureRow = new EcritureSQLElement().getTable().getRow(this.getListe().getSelectedId());
             MouvementSQLElement.showSource(ecritureRow.getInt("ID_MOUVEMENT"));
+        } else if (source == this.buttonEffacer) {
+            SQLRow row = this.getListe().getSelectedRow();
+
+            PanelFrame frame = new PanelFrame(new SuppressionEcrituresPanel(row.getInt("ID_MOUVEMENT")), "Suppression");
+            frame.pack();
+            frame.setLocationRelativeTo(null);
+            frame.setResizable(false);
+            frame.setVisible(true);
         } else {
-            // TODO Suppression ecriture = suppression mouvement si non validé
             super.handleAction(source, e);
         }
     }

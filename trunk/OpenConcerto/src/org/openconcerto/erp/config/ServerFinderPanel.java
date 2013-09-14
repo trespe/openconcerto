@@ -16,7 +16,6 @@
 import org.openconcerto.erp.core.sales.pos.ui.ConfigCaissePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.PropsConfiguration;
-import org.openconcerto.sql.State;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
@@ -81,10 +80,7 @@ public class ServerFinderPanel extends JPanel {
 
     public static void main(String[] args) {
         System.out.println("Reading configuration from: " + ComptaPropsConfiguration.getConfFile().getAbsolutePath());
-        // nothing to debug, avoid firewall questions
-        if (System.getProperty(State.DEAF) == null) {
-            System.setProperty(State.DEAF, "true");
-        }
+
         System.setProperty(org.openconcerto.sql.PropsConfiguration.REDIRECT_TO_FILE, "true");
         System.setProperty(SQLBase.ALLOW_OBJECT_REMOVAL, "true");
 
@@ -276,6 +272,7 @@ public class ServerFinderPanel extends JPanel {
                     e.printStackTrace();
                 }
         }
+        JOptionPane.showMessageDialog(this, "Configuration sauvegardée.\n" + this.confFile.getAbsolutePath());
     }
 
     protected void deleteConfigFile() {

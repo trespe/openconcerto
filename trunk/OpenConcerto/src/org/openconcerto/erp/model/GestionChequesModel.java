@@ -38,7 +38,6 @@ import org.openconcerto.sql.model.SQLTableListener;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.ExceptionHandler;
 
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
@@ -212,6 +211,7 @@ public class GestionChequesModel extends AbstractTableModel {
         fireIsLoading(true);
         worker = new SwingWorker<String, Object>() {
 
+            @SuppressWarnings("unchecked")
             @Override
             protected String doInBackground() throws Exception {
 
@@ -248,7 +248,7 @@ public class GestionChequesModel extends AbstractTableModel {
                 selCheque.setWhere(w);
 
                 String reqCheque = selCheque.asString();
-                // System.err.println("GestionChequesModel.loadCheque()" + reqCheque);
+
                 GestionChequesModel.this.cheque = (List<Map<String, Object>>) base.getDataSource().execute(reqCheque, new IResultSetHandler(SQLDataSource.MAP_LIST_HANDLER) {
                     @Override
                     public Set<? extends SQLData> getCacheModifiers() {
@@ -298,7 +298,6 @@ public class GestionChequesModel extends AbstractTableModel {
             }
         };
         worker.execute();
-        // System.err.println(this.cheque);
     }
 
     /**
@@ -453,7 +452,7 @@ public class GestionChequesModel extends AbstractTableModel {
                                 }
                             }
                         }
-                    } catch (SQLException e) {
+                    } catch (Exception e) {
                         System.err.println("Erreur pendant la mise à jour dans la table " + valChq.getTable().getName());
                         ExceptionHandler.handle("Erreur lors de la génération des écritures du chéques + " + this.chqTable.getName() + " ID : " + id);
                         e.printStackTrace();

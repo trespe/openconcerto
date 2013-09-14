@@ -27,10 +27,12 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.graph.SQLKey;
 import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.StringUtils;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -62,7 +64,8 @@ import org.jdom.input.SAXBuilder;
  */
 public class SQLFieldTranslator {
 
-    private static final RowItemDesc NULL_DESC = new RowItemDesc(null, null);
+    // OK since RowItemDesc is immutable
+    public static final RowItemDesc NULL_DESC = new RowItemDesc(null, null);
 
     private static final String METADATA_TABLENAME = SQLSchema.FWK_TABLENAME_PREFIX + "RIV_METADATA";
     private static final String ELEM_FIELDNAME = "ELEMENT_CODE";
@@ -92,6 +95,29 @@ public class SQLFieldTranslator {
             root.createTable(createValueT);
         }
         return root.getTable(METADATA_TABLENAME);
+    }
+
+    public static RowItemDesc getDefaultDesc(SQLField f) {
+        String name = f.getName(), label = null;
+        if (f.isPrimaryKey())
+            label = "ID";
+        else if (f.getTable().getForeignKeys().contains(f))
+            name = name.startsWith(SQLKey.PREFIX) ? name.substring(SQLKey.PREFIX.length()) : name;
+        if (label == null)
+            label = cleanupName(name);
+        return new RowItemDesc(label, label);
+    }
+
+    private static String cleanupName(final String name) {
+        return StringUtils.firstUpThenLow(name).replace('_', ' ');
+    }
+
+    public static RowItemDesc getDefaultDesc(SQLTable t, final String name) {
+        if (t.contains(name))
+            return getDefaultDesc(t.getField(name));
+
+        final String label = cleanupName(name);
+        return new RowItemDesc(label, label);
     }
 
     // Instance members
@@ -213,7 +239,8 @@ public class SQLFieldTranslator {
         if (table == null && this.dir != null && this.dir.getElement(tableName) != null)
             table = this.dir.getElement(tableName).getTable();
         if (table == null) {
-            Log.get().info("unknown table " + tableName);
+            // allow to supply the union all tables and ignore those that aren't in a given base
+            Log.get().config("Ignore loading of inexistent table " + tableName);
         } else {
             for (final Element elem : getChildren(tableElem)) {
                 final String elemName = elem.getName().toLowerCase();
@@ -351,25 +378,31 @@ public class SQLFieldTranslator {
     }
 
     public RowItemDesc getDescFor(SQLTable t, String compCode, String name) {
-        return getDescFor(t, compCode, Collections.<String> emptyList(), name);
+        final SQLElement element = this.dir == null ? null : this.dir.getElement(t);
+        final List<String> variants = element == null ? Collections.<String> emptyList() : element.getMDPath();
+        return getDescFor(t, compCode, variants, name);
     }
 
     public RowItemDesc getDescFor(final String elementCode, String compCode, String name) {
-        return this.getDescFor(elementCode, compCode, Collections.<String> emptyList(), name);
+        return this.getDescFor(elementCode, compCode, null, name);
     }
 
     public RowItemDesc getDescFor(final String elementCode, String compCode, List<String> variants, String name) {
-        return this.getDescFor(this.dir.getElementForCode(elementCode).getTable(), compCode, variants, name);
+        final SQLElement elem = this.dir.getElementForCode(elementCode);
+        if (variants == null)
+            variants = elem.getMDPath();
+        return this.getDescFor(elem.getTable(), compCode, variants, name);
     }
 
     public RowItemDesc getDescFor(SQLTable t, String compCodeArg, List<String> variants, String name) {
         RowItemDesc labeledField = this.getTranslation(t, compCodeArg, variants, name);
         // if nothing found, re-fetch from the DB
-        if (labeledField == null) {
+        if (labeledField == null && this.dir.getElement(t) != null) {
             this.fetchAndPut(this.table, Collections.singleton(this.dir.getElement(t).getCode()));
             labeledField = this.getTranslation(t, compCodeArg, variants, name);
         }
         if (labeledField == null) {
+            // we didn't find a requested item
             Log.get().info("unknown item " + name + " in " + t);
             return NULL_DESC;
         } else {
@@ -378,7 +411,7 @@ public class SQLFieldTranslator {
     }
 
     private RowItemDesc getDescFor(SQLField f) {
-        return this.getDescFor(f.getTable(), SQLElement.DEFAULT_COMP_ID, this.dir.getElement(f.getTable()).getMDPath(), f.getName());
+        return this.getDescFor(f.getTable(), f.getName());
     }
 
     public String getLabelFor(SQLField f) {

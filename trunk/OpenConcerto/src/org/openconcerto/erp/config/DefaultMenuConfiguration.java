@@ -92,6 +92,7 @@ import org.openconcerto.erp.core.sales.product.action.ListeDesArticlesAction;
 import org.openconcerto.erp.core.sales.quote.action.ListeDesDevisAction;
 import org.openconcerto.erp.core.sales.quote.action.ListeDesElementsPropositionsAction;
 import org.openconcerto.erp.core.sales.quote.action.NouveauDevisAction;
+import org.openconcerto.erp.core.sales.quote.action.NouvellePropositionAction;
 import org.openconcerto.erp.core.sales.shipment.action.ListeDesBonsDeLivraisonAction;
 import org.openconcerto.erp.core.sales.shipment.action.NouveauBonLivraisonAction;
 import org.openconcerto.erp.core.supplychain.credit.action.ListeDesAvoirsFournisseurAction;
@@ -123,16 +124,23 @@ import java.awt.event.ActionEvent;
 
 import javax.swing.AbstractAction;
 
-public class DefaultMenuConfiguration {
+public class DefaultMenuConfiguration implements MenuConfiguration {
     public void registerMenuTranslations() {
 
     }
 
-    public void createMenuGroup() {
+    @Override
+    public final MenuAndActions createMenuAndActions() {
+        final MenuAndActions res = new MenuAndActions();
+        this.createMenuGroup(res.getGroup());
+        this.registerMenuActions(res);
+        return res;
+    }
+
+    private void createMenuGroup(Group mGroup) {
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
 
-        Group mGroup = MenuManager.getInstance().getGroup();
         mGroup.add(createFilesMenuGroup());
         mGroup.add(createCreationMenuGroup());
         mGroup.add(createListMenuGroup());
@@ -157,35 +165,39 @@ public class DefaultMenuConfiguration {
 
     }
 
-    public void registerMenuActions() {
-        registerFilesMenuActions();
-        registerCreationMenuActions();
-        registerListMenuActions();
-        registerAccountingMenuActions();
-        registerStatsDocumentsActions();
-        registerStatsMenuActions();
-        registerPaymentMenuActions();
-        registerPayrollMenuActions();
-        registerOrganizationMenuActions();
-        registerHelpMenuActions();
-        registerHelpTestActions();
+    void registerMenuActions(final MenuAndActions ma) {
+        registerFilesMenuActions(ma);
+        registerCreationMenuActions(ma);
+        registerListMenuActions(ma);
+        registerAccountingMenuActions(ma);
+        registerStatsDocumentsActions(ma);
+        registerStatsMenuActions(ma);
+        registerPaymentMenuActions(ma);
+        registerPayrollMenuActions(ma);
+        registerOrganizationMenuActions(ma);
+        registerHelpMenuActions(ma);
+        registerHelpTestActions(ma);
     }
 
     /**
      * Groups
      */
     private Group createFilesMenuGroup() {
-        Group group = new Group("menu.file");
+        Group group = new Group(MainFrame.FILE_MENU);
         group.addItem("backup");
         group.addItem("export.accounting");
         group.addItem("modules");
-        group.addItem("preferences");
-        group.addItem("quit");
+        if (!Gestion.MAC_OS_X) {
+            group.addItem("preferences");
+            group.addItem("quit");
+        }
         return group;
     }
 
     private Group createCreationMenuGroup() {
-        final Group group = new Group("menu.create");
+        final Group group = new Group(MainFrame.CREATE_MENU);
+        final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
+
         final Boolean bModeVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
         final Group accountingGroup = new Group("accounting");
@@ -195,39 +207,41 @@ public class DefaultMenuConfiguration {
         group.add(accountingGroup);
 
         final Group customerGroup = new Group("customer", LayoutHints.DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS);
-        customerGroup.addItem("customer.quote.create");
-        customerGroup.addItem("customer.delivery.create");
-        customerGroup.addItem("customer.order.create");
-        if (bModeVenteComptoir && rights.haveRight("VENTE_COMPTOIR")) {
-            customerGroup.addItem("pos.sale.create");
-        }
-        customerGroup.addItem("customer.invoice.create");
 
-        customerGroup.addItem("customer.credit.create");
-        group.add(customerGroup);
+            customerGroup.addItem("customer.quote.create");
 
-        final Group supplierGroup = new Group("supplier", LayoutHints.DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS);
-        group.add(supplierGroup);
-        if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
-            supplierGroup.addItem("supplier.order.create");
-            supplierGroup.addItem("supplier.receipt.create");
-            supplierGroup.addItem("supplier.purchase.create");
-            supplierGroup.addItem("supplier.credit.create");
-            group.addItem("stock.io.create");
-        }
+            customerGroup.addItem("customer.delivery.create");
+            customerGroup.addItem("customer.order.create");
+            if (bModeVenteComptoir && rights.haveRight("VENTE_COMPTOIR")) {
+                customerGroup.addItem("pos.sale.create");
+            }
+            customerGroup.addItem("customer.invoice.create");
+
+            customerGroup.addItem("customer.credit.create");
+            group.add(customerGroup);
+
+            final Group supplierGroup = new Group("supplier", LayoutHints.DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS);
+            group.add(supplierGroup);
+            if (rights.haveRight(NXRights.LOCK_MENU_ACHAT.getCode())) {
+                supplierGroup.addItem("supplier.order.create");
+                supplierGroup.addItem("supplier.receipt.create");
+                supplierGroup.addItem("supplier.purchase.create");
+                supplierGroup.addItem("supplier.credit.create");
+                group.addItem("stock.io.create");
+            }
 
         return group;
     }
 
     private Group createHelpMenuGroup() {
-        final Group group = new Group("menu.help");
+        final Group group = new Group(MainFrame.HELP_MENU);
         group.addItem("information");
         group.addItem("tips");
         return group;
     }
 
     private Group createOrganizationMenuGroup() {
-        final Group group = new Group("menu.organization");
+        final Group group = new Group(MainFrame.STRUCTURE_MENU);
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
 
@@ -246,7 +260,7 @@ public class DefaultMenuConfiguration {
             group.add(gUser);
         }
 
-        group.addItem("contact.list");
+        group.addItem("office.contact.list");
         group.addItem("salesman.list");
 
         final Group gPos = new Group("menu.organization.pos", LayoutHints.DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS);
@@ -261,7 +275,7 @@ public class DefaultMenuConfiguration {
     }
 
     private Group createPayrollMenuGroup() {
-        final Group group = new Group("menu.payroll");
+        final Group group = new Group(MainFrame.PAYROLL_MENU);
         group.addItem("payroll.list.report.print");
         group.addItem("payroll.profile.list");
         group.addItem("payroll.history");
@@ -277,7 +291,7 @@ public class DefaultMenuConfiguration {
     }
 
     private Group createPaymentMenuGroup() {
-        final Group group = new Group("menu.payment");
+        final Group group = new Group(MainFrame.PAYMENT_MENU);
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
 
         if (rights.haveRight(ComptaUserRight.MENU) || rights.haveRight(ComptaUserRight.POINTAGE_LETTRAGE)) {
@@ -309,7 +323,7 @@ public class DefaultMenuConfiguration {
     }
 
     private Group createStatsMenuGroup() {
-        final Group group = new Group("menu.stats");
+        final Group group = new Group(MainFrame.STATS_MENU);
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
 
         group.addItem("sales.graph");
@@ -324,7 +338,7 @@ public class DefaultMenuConfiguration {
     }
 
     private Group createStatsDocumentsGroup() {
-        final Group group = new Group("menu.report");
+        final Group group = new Group(MainFrame.DECLARATION_MENU);
         group.addItem("accounting.vat.report");
         group.addItem("accounting.costs.report");
         group.addItem("accounting.balance.report");
@@ -333,7 +347,7 @@ public class DefaultMenuConfiguration {
     }
 
     private Group createAccountingMenuGroup() {
-        final Group group = new Group("menu.accounting");
+        final Group group = new Group(MainFrame.STATE_MENU);
         group.addItem("accounting.balance");
         group.addItem("accounting.client.balance");
         group.addItem("accounting.ledger");
@@ -348,7 +362,7 @@ public class DefaultMenuConfiguration {
     }
 
     private Group createListMenuGroup() {
-        final Group group = new Group("menu.list");
+        final Group group = new Group(MainFrame.LIST_MENU);
 
         final Boolean bModeVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
@@ -412,8 +426,7 @@ public class DefaultMenuConfiguration {
     /**
      * Actions
      * */
-    private void registerFilesMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerFilesMenuActions(final MenuAndActions mManager) {
         mManager.registerAction("backup", new SauvegardeBaseAction());
         mManager.registerAction("export.accounting", new ExportRelationExpertAction());
         mManager.registerAction("modules", new AbstractAction() {
@@ -436,14 +449,15 @@ public class DefaultMenuConfiguration {
         }
     }
 
-    private void registerCreationMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerCreationMenuActions(final MenuAndActions mManager) {
         final Boolean bModeVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
+        final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
 
         if (rights.haveRight(ComptaUserRight.MENU)) {
             mManager.registerAction("accounting.entry.create", new NouvelleSaisieKmAction());
         }
+
 
         mManager.registerAction("customer.quote.create", new NouveauDevisAction());
 
@@ -467,8 +481,7 @@ public class DefaultMenuConfiguration {
 
     }
 
-    private void registerListMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerListMenuActions(final MenuAndActions mManager) {
         final Boolean bModeVenteComptoir = DefaultNXProps.getInstance().getBooleanValue("ArticleVenteComptoir", true);
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
@@ -515,8 +528,7 @@ public class DefaultMenuConfiguration {
 
     }
 
-    private void registerAccountingMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerAccountingMenuActions(final MenuAndActions mManager) {
         mManager.registerAction("accounting.balance", new EtatBalanceAction());
         mManager.registerAction("accounting.client.balance", new BalanceAgeeAction());
         mManager.registerAction("accounting.ledger", new EtatJournauxAction());
@@ -527,16 +539,14 @@ public class DefaultMenuConfiguration {
         mManager.registerAction("accounting.closing", new NouveauClotureAction());
     }
 
-    private void registerStatsDocumentsActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerStatsDocumentsActions(final MenuAndActions mManager) {
         mManager.registerAction("accounting.vat.report", new DeclarationTVAAction());
         mManager.registerAction("accounting.costs.report", new EtatChargeAction());
         mManager.registerAction("accounting.balance.report", new CompteResultatBilanAction());
         mManager.registerAction("employe.social.report", new N4DSAction());
     }
 
-    private void registerStatsMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerStatsMenuActions(final MenuAndActions mManager) {
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
 
         mManager.registerAction("sales.graph", new EvolutionCAAction());
@@ -550,8 +560,7 @@ public class DefaultMenuConfiguration {
 
     }
 
-    private void registerPaymentMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerPaymentMenuActions(final MenuAndActions mManager) {
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
 
         if (rights.haveRight(ComptaUserRight.MENU) || rights.haveRight(ComptaUserRight.POINTAGE_LETTRAGE)) {
@@ -578,8 +587,7 @@ public class DefaultMenuConfiguration {
 
     }
 
-    private void registerPayrollMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerPayrollMenuActions(final MenuAndActions mManager) {
         mManager.registerAction("payroll.list.report.print", new ImpressionLivrePayeAction());
         mManager.registerAction("payroll.profile.list", new ListeDesProfilsPayeAction());
         mManager.registerAction("payroll.history", new NouvelHistoriqueFichePayeAction());
@@ -592,8 +600,7 @@ public class DefaultMenuConfiguration {
 
     }
 
-    private void registerOrganizationMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerOrganizationMenuActions(final MenuAndActions mManager) {
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
         if (rights.haveRight(ComptaUserRight.MENU)) {
@@ -607,7 +614,7 @@ public class DefaultMenuConfiguration {
             mManager.registerAction("user.task.right", new TaskAdminAction());
         }
 
-        mManager.registerAction("contact.list", new ListeDesContactsAdministratif());
+        mManager.registerAction("office.contact.list", new ListeDesContactsAdministratif());
         mManager.registerAction("salesman.list", new ListeDesCommerciauxAction());
         mManager.registerAction("pos.list", new ListeDesCaissesTicketAction());
 
@@ -617,13 +624,11 @@ public class DefaultMenuConfiguration {
             mManager.registerAction("enterprise.create", new NouvelleSocieteAction());
     }
 
-    private void registerHelpMenuActions() {
-        final MenuManager mManager = MenuManager.getInstance();
+    private void registerHelpMenuActions(final MenuAndActions mManager) {
         mManager.registerAction("information", AboutAction.getInstance());
         mManager.registerAction("tips", new AstuceAction());
     }
 
-    private void registerHelpTestActions() {
-
+    private void registerHelpTestActions(final MenuAndActions mManager) {
     }
 }

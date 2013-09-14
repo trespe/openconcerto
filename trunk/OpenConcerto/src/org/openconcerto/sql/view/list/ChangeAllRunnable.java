@@ -13,6 +13,8 @@
  
  package org.openconcerto.sql.view.list;
 
+import org.openconcerto.sql.model.SQLRow;
+
 import java.util.List;
 
 /**
@@ -23,7 +25,7 @@ import java.util.List;
 abstract class ChangeAllRunnable extends UpdateRunnable {
 
     public ChangeAllRunnable(ITableModel model) {
-        super(model, model.getTable(), -1);
+        super(model, new SQLRow(model.getTable(), SQLRow.NONEXISTANT_ID));
     }
 
     public final void run() {

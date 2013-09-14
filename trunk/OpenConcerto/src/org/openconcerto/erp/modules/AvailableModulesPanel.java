@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.sql.users.rights.LockAdminUserRight;
 import org.openconcerto.sql.view.AbstractFileTransfertHandler;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.component.WaitIndeterminatePanel;
@@ -81,9 +83,12 @@ public class AvailableModulesPanel extends JPanel {
 
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.WEST;
-        final JButton startButton = new JButton(new InstallAction());
-        startButton.setOpaque(false);
-        this.add(startButton, c);
+        final JButton installButton = new JButton(new InstallAction());
+        if (!UserManager.getInstance().getCurrentUser().getRights().haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {
+            installButton.setEnabled(false);
+        }
+        installButton.setOpaque(false);
+        this.add(installButton, c);
         c.gridx++;
         final JButton importButton = new JButton(new ImportAction());
         importButton.setOpaque(false);

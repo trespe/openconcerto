@@ -48,28 +48,24 @@ public class PieChart extends Chart {
     }
 
     public void renderPlot(Graphics2D g) {
-
-        g.setColor(Color.RED);
+        final DataModel1D model1 = (DataModel1D) this.getDataModel();
+        final int stop = model1.getSize();
+        if (stop < 1) {
+            return;
+        }
 
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         int xCenter = getCenterX();
         int yCenter = getCenterY();
 
-        // g.drawRect(0, 0, xCenter, yCenter);
-        // g.drawRect(0, 0, this.getDimension().width,
-        // this.getDimension().height);
-
-        DataModel1D model1 = (DataModel1D) this.getDataModel();
         double total = getTotalValue().doubleValue();
 
-        int stop = model1.getSize();
-
         computeColorsAndSpaces();
-        // spaces[0] = 10;
+
         int maxSpace = (int) spaces[0];
 
         int height2 = Math.min(xCenter, yCenter) - maxSpace - this.getMaxLabelHeight(g) / 2 - 2;
-        int width2 = height2;// Math.min(xCenter, yCenter) - maxSpace;
+        int width2 = height2;
         int posX = (getCenterX() - width2);
         int posY = (getCenterY() - width2);
         double ratio = 360 / total;
@@ -133,9 +129,7 @@ public class PieChart extends Chart {
 
                     g.drawLine(x2, y2, x3, y2);
                 }
-                // if (xLabel < 0) {
-                // xLabel = 0;
-                // }
+
                 g.drawString(label, xLabel, y4);
             }
             startAngle -= angle;
@@ -146,7 +140,7 @@ public class PieChart extends Chart {
             startAngle = 0D;
             g.setStroke(new BasicStroke(2f));
             g.setColor(this.getSeparatorColor());
-            // g.setColor(Color.RED);
+
             for (int i = 0; i < stop; i++) {
                 Number n = model1.getValueAt(i);
                 if (n == null) {
@@ -157,17 +151,12 @@ public class PieChart extends Chart {
                 double angleRadian = ((startAngle) * Math.PI * 2) / 360;
                 double current_space = spaces[i];
 
-                // int x1 = posX + width2 + (int)
-                // Math.round((Math.cos(angleRadian)) * (current_space+1);
-                // int y1 = posY + height2 + (int)
-                // Math.round((-Math.sin(angleRadian)) * (current_space+1);
                 int x2 = posX + width2 + (int) ((Math.cos(angleRadian)) * (width2 + current_space + 2));
                 int y2 = posY + height2 + (int) ((-Math.sin(angleRadian)) * (height2 + current_space + 2));
                 g.drawLine(xCenter, yCenter, x2, y2);
                 startAngle -= angle;
             }
         }
-        // renderInner(g, width2, height2, spaces);
 
     }
 
@@ -234,12 +223,11 @@ public class PieChart extends Chart {
         DataModel1D model1 = (DataModel1D) this.getDataModel();
         int stop = model1.getSize();
         g.setColor(this.innerColor);
-        // g.setColor(Color.BLACK);
+
         double ratio = 360 / this.getTotalValue().doubleValue();
         int posX = (getCenterX() - this.innerWidth / 2);
         int posY = (getCenterY() - this.innerHeight / 2);//
-        // g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
-        // RenderingHints.VALUE_ANTIALIAS_OFF);
+
         for (int i = 0; i < stop; i++) {
             Number n = model1.getValueAt(i);
             if (n == null) {
@@ -253,8 +241,6 @@ public class PieChart extends Chart {
             int x = posX + (int) ((Math.cos(angleRadian)) * current_space);
             int y = posY + (int) ((-Math.sin(angleRadian)) * current_space);
 
-            // g.fillArc(x, y, width2 * 2, height2 * 2, (int)
-            // Math.round(startAngle), -angle);
             g.fillArc(x, y, this.innerWidth, this.innerHeight, (int) Math.round(startAngle) + 50, -angle - 100);
 
             startAngle -= angle;
@@ -263,12 +249,10 @@ public class PieChart extends Chart {
     }
 
     public Color getInnerColor() {
-
         return innerColor;
     }
 
     public Color getSeparatorColor() {
-
         return separatorColor;
     }
 
@@ -279,7 +263,6 @@ public class PieChart extends Chart {
             if (w > max)
                 max = w;
         }
-
         return max;
     }
 
@@ -290,7 +273,6 @@ public class PieChart extends Chart {
             if (w > max)
                 max = w;
         }
-
         return max;
     }
 

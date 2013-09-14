@@ -280,12 +280,14 @@ public abstract class StructureSource<E extends Exception> {
      */
     public final void fillTables() throws E {
         assert Thread.holdsLock(this.getBase().getDBSystemRoot().getTreeMutex());
+        // externalStruct was created before this, so it must be applied first
+        // (e.g. it might have an old schema version, while we have one up to date)
+        mutateTo(this.externalStruct);
         if (!this.isPreVerify())
             this.fillTablesP();
         else {
             mutateTo(this.newStructure);
         }
-        mutateTo(this.externalStruct);
     }
 
     private final void mutateTo(final Map<String, SQLSchema> m) {

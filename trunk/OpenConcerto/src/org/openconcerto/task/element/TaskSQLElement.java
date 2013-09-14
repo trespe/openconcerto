@@ -14,15 +14,14 @@
  package org.openconcerto.task.element;
 
 import static java.util.Arrays.asList;
-import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.SQLComponent;
 
 import java.util.List;
 
-public class TaskSQLElement extends ConfSQLElement {
+public class TaskSQLElement extends TaskSQLElementBase {
 
     public TaskSQLElement() {
-        super("TACHE_COMMON", "une tâche", "tâches");
+        super("TACHE_COMMON");
     }
 
     @Override

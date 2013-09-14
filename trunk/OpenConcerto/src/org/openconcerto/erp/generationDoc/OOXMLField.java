@@ -31,6 +31,8 @@ import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 
 import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -341,20 +343,14 @@ public class OOXMLField extends OOXMLElement {
                         return getLettreFromDevise(prix.longValue(), Nombre.EN, Tuple2.create(" " + rowDevise.getString("LIBELLE") + " ", " " + rowDevise.getString("LIBELLE_CENT") + " "));
                     }
                 }
+            } else if (typeComp.equalsIgnoreCase("VilleFull")) {
+                return this.row.getString("CODE_POSTAL") + " " + this.row.getString("VILLE");
             } else if (typeComp.equalsIgnoreCase("Ville")) {
-                // Ville si null on retourne la valeur du
-                // champ de la base
                 stringValue = (result == null) ? "" : result.toString();
-                final String ville = getVille(stringValue);
-                if (ville == null) {
-                    return stringValue;
-                } else {
-                    return ville;
-                }
+                return stringValue;
             } else if (typeComp.equalsIgnoreCase("VilleCP")) {
                 // Code postal de la ville
-                stringValue = (result == null) ? "" : result.toString();
-                return getVilleCP(stringValue, this.row);
+                return this.row.getString("CODE_POSTAL");
             } else if (typeComp.equalsIgnoreCase("DateEcheance")) {
                 // Retourne la date d'échéance
                 int idModeReglement = this.row.getInt("ID_MODE_REGLEMENT");
@@ -387,6 +383,12 @@ public class OOXMLField extends OOXMLElement {
                 stringValue = (result == null) ? "" : result.toString();
                 if (stringValue.trim().length() > 0) {
                     stringValue = String.valueOf(stringValue.charAt(0));
+                }
+                return stringValue;
+            } else if (typeComp.equalsIgnoreCase("initiale2")) {
+                stringValue = (result == null) ? "" : result.toString();
+                if (stringValue.trim().length() > 0) {
+                    stringValue = String.valueOf(stringValue.substring(0, 2));
                 }
                 return stringValue;
             }
@@ -466,43 +468,44 @@ public class OOXMLField extends OOXMLElement {
     private static long getMontantGlobal(SQLRowAccessor rowFact) {
 
         long cumul = 0;
+        final BigDecimal cent = new BigDecimal(100);
 
         // On recupere les missions associées
         SQLTable tableElt = Configuration.getInstance().getRoot().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
         Collection<? extends SQLRowAccessor> factElts = rowFact.getReferentRows(tableElt);
 
         for (SQLRowAccessor row : factElts) {
-            Long p0 = (Long) row.getObject("MONTANT_INITIAL");
+            BigDecimal p0 = row.getBigDecimal("MONTANT_INITIAL");
             Long l0 = (Long) row.getObject("INDICE_0");
             Long lN = (Long) row.getObject("INDICE_N");
-            final Object o = row.getObject("POURCENT_ACOMPTE");
-            final Object o2 = row.getObject("POURCENT_REMISE");
+            final BigDecimal o = row.getBigDecimal("POURCENT_ACOMPTE");
+            final BigDecimal o2 = row.getBigDecimal("POURCENT_REMISE");
             double lA = (o == null) ? 0 : ((BigDecimal) o).doubleValue();
-            double lremise = (o2 == null) ? 0 : ((BigDecimal) o2).doubleValue();
-            Long p;
+            BigDecimal lremise = (o2 == null) ? BigDecimal.ZERO : o2;
+            BigDecimal p;
             if (l0 != 0) {
-                double d;
+                BigDecimal d;
                 double coeff = ((double) lN) / ((double) l0);
 
-                d = 0.15 + (0.85 * coeff);
-                p = Math.round(d * p0);
+                d = new BigDecimal(0.15).add(new BigDecimal(0.85).multiply(new BigDecimal(coeff), MathContext.DECIMAL128));
+                p = d.multiply(p0, MathContext.DECIMAL128);
             } else {
                 p = p0;
             }
             // if (lA >= 0 && lA != 100) {
             // p = Math.round(p * (lA / 100.0));
             // }
-            if (lremise > 0 && lremise != 100) {
-                p = Math.round(p * (100.0 - lremise) / 100.0);
+            if (lremise.signum() != 0 && lremise.compareTo(BigDecimal.ZERO) > 0 && lremise.compareTo(cent) < 100) {
+                p = p.multiply(cent.subtract(lremise).movePointLeft(2), MathContext.DECIMAL128);
             }
-            cumul += p;
+            cumul += p.setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValue();
         }
 
         // Echantillons
         SQLTable tableEchElt = Configuration.getInstance().getRoot().findTable("ECHANTILLON_ELEMENT");
         Collection<? extends SQLRowAccessor> echElts = rowFact.getReferentRows(tableEchElt);
         for (SQLRowAccessor sqlRowAccessor : echElts) {
-            cumul += sqlRowAccessor.getLong("T_PV_HT");
+            cumul += sqlRowAccessor.getBigDecimal("T_PV_HT").setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValue();
         }
         return cumul;
     }
@@ -554,35 +557,6 @@ public class OOXMLField extends OOXMLElement {
         } else {
             return result.toString();
         }
-    }
-
-    private static String getVille(final String name) {
-
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-            // SwingUtilities.invokeLater(new Runnable() {
-            // public void run() {
-            // JOptionPane.showMessageDialog(null, "La ville " + "\"" + name + "\"" + " est
-            // introuvable! Veuillez corriger l'erreur!");
-            // }
-            // });
-            return null;
-        }
-        return ville.getName();
-    }
-
-    private static String getVilleCP(String name, SQLRowAccessor row) {
-        Ville ville = Ville.getVilleFromVilleEtCode(name);
-        if (ville == null) {
-            if (row.getTable().contains("CODE_POSTAL")) {
-                Object o = row.getObject("CODE_POSTAL");
-                return (o == null) ? null : o.toString();
-            } else {
-
-                return null;
-            }
-        }
-        return ville.getCodepostal();
     }
 
     private static BigDecimal calcul(Object o1, Object o2, String op) {

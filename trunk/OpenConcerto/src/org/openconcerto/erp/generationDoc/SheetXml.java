@@ -48,7 +48,6 @@ import javax.print.PrintService;
 import javax.print.PrintServiceLookup;
 
 import org.jopendocument.model.OpenDocument;
-import org.jopendocument.print.DefaultDocumentPrinter;
 
 public abstract class SheetXml {
 
@@ -140,7 +139,9 @@ public abstract class SheetXml {
                 if (exportToPDF) {
                     doc.saveToPDF(pdfFile).get();
                 }
-                doc.close();
+                if (!showDocument) {
+                    doc.close();
+                }
             } else {
                 final OpenDocument doc = new OpenDocument(generatedFile);
 
@@ -180,6 +181,27 @@ public abstract class SheetXml {
             e.printStackTrace();
             ExceptionHandler.handle("Impossible de charger le document OpenOffice", e);
         }
+    }
+
+    MetaDataSheet meta;
+
+    /**
+     * MetaData à inclure lors de la génération
+     * 
+     * @param meta
+     */
+    public void setMetaGeneration(MetaDataSheet meta) {
+        this.meta = meta;
+    }
+
+    /**
+     * MetaData à inclure lors de la génération
+     * 
+     * @param meta
+     */
+
+    public MetaDataSheet getMetaGeneration() {
+        return this.meta;
     }
 
     public static void createPDF(final File generatedFile, final File pdfFile, final OpenDocument doc, String storagePath) {

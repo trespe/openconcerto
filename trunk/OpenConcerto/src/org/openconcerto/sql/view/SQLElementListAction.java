@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.view;
 
+import static org.openconcerto.sql.TM.getTM;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.view.SQLMenuItemHelper.GenericSQLElementAction;
 
@@ -24,7 +25,7 @@ public class SQLElementListAction extends GenericSQLElementAction<IListFrame> {
     }
 
     public SQLElementListAction(SQLElement elem) {
-        super(elem, "Gérer les " + elem.getPluralName());
+        super(elem, getTM().trM("listAction.name", "element", elem.getName()));
     }
 
     @Override

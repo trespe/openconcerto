@@ -26,20 +26,22 @@ import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 public class TotalCalculator {
 
     private static String FIELD_SERVICE = "SERVICE";
-    private static String FIELD_POIDS = "POIDS";
+    private static String FIELD_POIDS = "T_POIDS";
     private final String fieldHT, fieldHA, fieldDevise;
 
     private SQLRowAccessor rowDefaultCptProduit, rowDefaultCptService, rowDefaultCptTVA;
     private static final SQLTable tablePrefCompte = Configuration.getInstance().getRoot().findTable("PREFS_COMPTE");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
-    double totalPoids;
+    private double totalPoids;
 
     private BigDecimal totalDevise, totalDeviseSel;
     private BigDecimal totalHA, totalHASel;
@@ -54,7 +56,7 @@ public class TotalCalculator {
     // Total des TVA par comptes
     private Map<SQLRowAccessor, BigDecimal> mapHtTVA = new HashMap<SQLRowAccessor, BigDecimal>();
     private Map<SQLRowAccessor, BigDecimal> mapHtTVASel = new HashMap<SQLRowAccessor, BigDecimal>();
-    int[] selectedRows;
+    private int[] selectedRows;
 
     private Boolean bServiceActive;
     private BigDecimal totalHTAvantRemise;
@@ -293,11 +295,17 @@ public class TotalCalculator {
                 cpt = compteArticle;
             } else {
                 SQLRowAccessor familleArticle = article.getForeign("ID_FAMILLE_ARTICLE");
-                if (familleArticle != null && !familleArticle.isUndefined()) {
+                Set<SQLRowAccessor> unique = new HashSet<SQLRowAccessor>();
+                while (familleArticle != null && !familleArticle.isUndefined() && !unique.contains(familleArticle)) {
+
+                    unique.add(familleArticle);
                     SQLRowAccessor compteFamilleArticle = familleArticle.getForeign("ID_COMPTE_PCE");
                     if (compteFamilleArticle != null && !compteFamilleArticle.isUndefined()) {
                         cpt = compteFamilleArticle;
+                        break;
                     }
+
+                    familleArticle = familleArticle.getForeign("ID_FAMILLE_ARTICLE_PERE");
                 }
             }
         }
@@ -329,7 +337,7 @@ public class TotalCalculator {
             totalHASel = totalHASel.add(totalHALigne);
 
             if (bServiceActive != null && bServiceActive) {
-                if (service) {
+                if (service != null && service.booleanValue()) {
                     totalServiceSel = totalServiceSel.add(totalLineHT);
                 }
             }
@@ -339,10 +347,16 @@ public class TotalCalculator {
             }
         }
 
+        // TODO Ne pas fetcher la TVA pour chaque instance de TotalCalculator utiliser un cache
         if (mapTVA == null) {
             fetchTVA();
         }
-        addHT(totalLineHT, mapTVA.get(rowAccessorLine.getObject("ID_TAXE")), cpt, selection);
+        final SQLRowAccessor foreignTVA = rowAccessorLine.getForeign("ID_TAXE");
+        Integer idTVA = null;
+        if (foreignTVA != null) {
+            idTVA = foreignTVA.getID();
+        }
+        addHT(totalLineHT, mapTVA.get(idTVA), cpt, selection);
     }
 
     /**
@@ -350,16 +364,13 @@ public class TotalCalculator {
      */
     public void checkResult() {
         BigDecimal ht = getTotalHT();
-
         BigDecimal tva = getTotalTVA();
-
         BigDecimal totalTTC2 = getTotalTTC();
         BigDecimal reste = totalTTC2.subtract(ht.add(tva));
         if (reste.compareTo(BigDecimal.ZERO) != 0) {
-            System.err.println("HT " + ht);
-            System.err.println("TVA " + tva);
-            System.err.println("TTC " + totalTTC2);
-            Thread.dumpStack();
+            System.err.print("Ecarts: " + reste + "(HT:" + ht);
+            System.err.print(" TVA:" + tva);
+            System.err.println(" TTC:" + totalTTC2);
             SQLRow row = ComptePCESQLElement.getRow("758", "Ecarts arrondis");
             // TODO Check if row already exist in MAP ??
             this.mapHt.put(row, reste);
@@ -412,7 +423,6 @@ public class TotalCalculator {
     }
 
     public BigDecimal getTotalTTC() {
-
         return this.totalTTC.setScale(2, RoundingMode.HALF_UP);
     }
 

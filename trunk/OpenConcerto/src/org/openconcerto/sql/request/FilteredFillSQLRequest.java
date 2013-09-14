@@ -26,7 +26,6 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
-import org.openconcerto.utils.CopyUtils;
 import org.openconcerto.utils.Tuple2;
 
 import java.util.Collection;
@@ -51,9 +50,16 @@ public abstract class FilteredFillSQLRequest extends BaseFillSQLRequest {
         return Tuple2.create(filterTable, ids);
     }
 
+    static protected final SQLFilter getDefaultFilter() {
+        final Configuration conf = Configuration.getInstance();
+        return conf == null ? null : conf.getFilter();
+    }
+
     // never null (but can be <null, null>)
     private Tuple2<Set<SQLRow>, Path> filterInfo;
-    private boolean filterEnabled;
+    private final SQLFilter filter;
+    // initially false since we don't listen to filter before calling setFilterEnabled()
+    private boolean filterEnabled = false;
     private final SQLFilterListener filterListener;
 
     {
@@ -67,27 +73,35 @@ public abstract class FilteredFillSQLRequest extends BaseFillSQLRequest {
 
     public FilteredFillSQLRequest(final SQLTable primaryTable, Where w) {
         super(primaryTable, w);
+        this.filter = getDefaultFilter();
         this.filterInfo = Tuple2.create(null, null);
         this.setFilterEnabled(true);
     }
 
     public FilteredFillSQLRequest(FilteredFillSQLRequest req) {
         super(req);
+        this.filter = req.filter;
         this.filterInfo = req.filterInfo;
         this.setFilterEnabled(req.filterEnabled);
     }
 
     protected final SQLFilter getFilter() {
-        return Configuration.getInstance().getFilter();
+        return this.filter;
     }
 
     public final void setFilterEnabled(boolean b) {
-        this.filterEnabled = b;
-        if (this.filterEnabled)
-            this.getFilter().addWeakListener(this.filterListener);
-        else
-            this.getFilter().rmListener(this.filterListener);
-        updateFilterWhere();
+        final SQLFilter filter = this.getFilter();
+        b = filter == null ? false : b;
+        if (this.filterEnabled != b) {
+            // since filter is final and filterEnabled is initially false
+            assert filter != null;
+            this.filterEnabled = b;
+            if (this.filterEnabled)
+                filter.addWeakListener(this.filterListener);
+            else
+                filter.rmListener(this.filterListener);
+            updateFilterWhere();
+        }
     }
 
     private void updateFilterWhere() {
@@ -103,7 +117,7 @@ public abstract class FilteredFillSQLRequest extends BaseFillSQLRequest {
             if (w == null || p == null) {
                 this.filterInfo = Tuple2.create(null, null);
             } else {
-                this.filterInfo = Tuple2.create(CopyUtils.copy(w), new Path(p));
+                this.filterInfo = Tuple2.create((Set<SQLRow>) new HashSet<SQLRow>(w), new Path(p));
             }
             fireWhereChange();
         }

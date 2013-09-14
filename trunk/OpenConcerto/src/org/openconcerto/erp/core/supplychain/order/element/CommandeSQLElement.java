@@ -17,7 +17,6 @@ import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.supplychain.order.component.CommandeSQLComponent;
 import org.openconcerto.erp.core.supplychain.order.component.SaisieAchatSQLComponent;
-import org.openconcerto.erp.core.supplychain.receipt.component.BonReceptionSQLComponent;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -98,27 +97,6 @@ public class CommandeSQLElement extends ComptaSQLConfElement {
      */
     public SQLComponent createComponent() {
         return new CommandeSQLComponent();
-    }
-
-    /**
-     * Transfert d'une commande en BR
-     * 
-     * @param commandeID
-     */
-    public void transfertBR(int commandeID) {
-
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement("BON_RECEPTION");
-        EditFrame editFactureFrame = new EditFrame(elt);
-        editFactureFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-
-        BonReceptionSQLComponent comp = (BonReceptionSQLComponent) editFactureFrame.getSQLComponent();
-
-        // comp.setDefaults();
-        comp.loadCommande(commandeID);
-
-        editFactureFrame.pack();
-        editFactureFrame.setState(JFrame.NORMAL);
-        editFactureFrame.setVisible(true);
     }
 
     /**

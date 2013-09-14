@@ -30,8 +30,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-
-
 // FIXME mettre toute les generations dans des threads à part
 public final class GenerationMvtReglementAchat extends GenerationEcritures implements Runnable {
 
@@ -51,7 +49,7 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
         new Thread(GenerationMvtReglementAchat.this).start();
     }
 
-    private void genereReglement() throws IllegalArgumentException {
+    private void genereReglement() throws Exception {
 
         System.out.println("Génération des ecritures du reglement du mouvement " + this.idMvt);
 
@@ -113,11 +111,7 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
                 if (compteFourn <= 1) {
                     compteFourn = rowPrefsCompte.getInt("ID_COMPTE_PCE_FOURNISSEUR");
                     if (compteFourn <= 1) {
-                        try {
-                            compteFourn = ComptePCESQLElement.getIdComptePceDefault("Fournisseurs");
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
+                        compteFourn = ComptePCESQLElement.getIdComptePceDefault("Fournisseurs");
                     }
                 }
 
@@ -129,11 +123,7 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
                 // compte de reglement, caisse, CB, ...
                 int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_FOURN");
                 if (idCompteRegl <= 1) {
-                    try {
-                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
                 }
                 this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteRegl));
                 this.mEcritures.put("DEBIT", Long.valueOf(0));
@@ -168,18 +158,14 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
                 SQLTable echeanceTable = base.getTable("ECHEANCE_FOURNISSEUR");
                 SQLRowValues valEcheance = new SQLRowValues(echeanceTable, mEcheance);
 
-                try {
-                    if (valEcheance.getInvalid() == null) {
-
-                        // ajout de l'ecriture
-                        SQLRow row = valEcheance.insert();
-                        SQLRowValues rowVals = new SQLRowValues(tableMouvement);
-                        rowVals.put("IDSOURCE", row.getID());
-                        rowVals.update(this.idMvt);
-                    }
-                } catch (SQLException e) {
-                    System.err.println("Erreur modification" + echeanceTable.getName());
+                if (valEcheance.getInvalid() == null) {
+                    // ajout de l'ecriture
+                    SQLRow row = valEcheance.insert();
+                    SQLRowValues rowVals = new SQLRowValues(tableMouvement);
+                    rowVals.put("IDSOURCE", row.getID());
+                    rowVals.update(this.idMvt);
                 }
+
             }
         }
     }
@@ -188,8 +174,9 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
      * Reglement par cheque. Crée un cheque fournisseur à décaisser.
      * 
      * @param dateEch date d'echeance d'encaissement du cheque
+     * @throws SQLException
      */
-    private void paiementCheque(Date dateEch) {
+    private void paiementCheque(Date dateEch) throws SQLException {
 
         SQLRow saisieRow = base.getTable("SAISIE_ACHAT").getRow(this.idSaisieAchat);
         // PrixTTC prixTTC = new PrixTTC(((Long) saisieRow.getObject("MONTANT_TTC")).longValue());
@@ -219,26 +206,22 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
 
         SQLRowValues valDecaisse = new SQLRowValues(chqFournTable, mEncaisse);
 
-        try {
-            if (valDecaisse.getInvalid() == null) {
+        if (valDecaisse.getInvalid() == null) {
 
-                // ajout de l'ecriture
-                SQLRow row = valDecaisse.insert();
+            // ajout de l'ecriture
+            SQLRow row = valDecaisse.insert();
 
-                SQLRowValues rowVals = new SQLRowValues(tableMouvement);
-                rowVals.put("IDSOURCE", row.getID());
-                rowVals.update(this.idMvt);
-            }
-        } catch (SQLException e) {
-            System.err.println("Erreur ajout " + chqFournTable.getName());
-            e.printStackTrace();
+            SQLRowValues rowVals = new SQLRowValues(tableMouvement);
+            rowVals.put("IDSOURCE", row.getID());
+            rowVals.update(this.idMvt);
         }
+
     }
 
     public void run() {
         try {
             genereReglement();
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             ExceptionHandler.handle("Erreur pendant la générations des écritures comptables", e);
             e.printStackTrace();
         }

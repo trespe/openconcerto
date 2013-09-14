@@ -185,10 +185,17 @@ public class ODMeta extends ODNode {
     }
 
     public final int getEditingCycles() {
-        return Integer.parseInt(this.getMetaChild("editing-cycles").getTextTrim());
+        final String metaText = this.getMetaChild("editing-cycles").getTextTrim();
+        if (metaText.length() == 0) {
+            final int res = 1;
+            setEditingCycles(res);
+            return res;
+        } else {
+            return Integer.parseInt(metaText);
+        }
     }
 
-    public final void setInitialCreator(final int s) {
+    public final void setEditingCycles(final int s) {
         this.getMetaChild("editing-cycles").setText(s + "");
     }
 
@@ -255,6 +262,10 @@ public class ODMeta extends ODNode {
 
     public final Element getMetaChild(final String name) {
         return this.getChild(name, this.getNS().getMETA());
+    }
+
+    public final boolean removeMetaChild(final String name) {
+        return this.getElement().removeChild(name, this.getNS().getMETA());
     }
 
     public final Element getDCChild(final String name) {

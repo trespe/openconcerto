@@ -13,39 +13,47 @@
  
  package org.openconcerto.ui.coreanimation;
 
-import java.awt.Color;
-
 import javax.swing.JComponent;
 
-public class JComponentAnimator {
-    protected JComponent chk;
-    // public static final int[] a = { 0, 0, 64, 80, 160, 255, 255, 160, 64, 1, 1, 64, 80, 160, 255,
-    // 218, 160, 64, 0, 0, 0, 0, 0, 0, 0, 0 };
+public abstract class JComponentAnimator {
     protected static final int[] a = { 0, 30, 60, 90, 120, 150, 180, 210, 240, 255, 255, 255, 240, 210, 180, 150, 120, 90, 60, 0 };
-    static protected Color[] yellowBG = new Color[a.length];
-    static protected Color[] yellowFG = new Color[a.length];;
-    static {
-        for (int i = 0; i < a.length; i++) {
-            final Color bgcolor = new Color(255, 255- (a[i] / 30), 255 - (a[i] / 5));
-            yellowBG[i] = bgcolor;
-            final Color fgcolor = new Color(a[i], a[i]/2, 0);
-            yellowFG[i] = fgcolor;
+
+    protected final JComponent chk;
+    private int i = 0;
+    private int wait = 0;
+
+    public JComponentAnimator(JComponent f) {
+        this.chk = f;
+    }
+
+    public final void pulse() {
+        if (this.wait > 0) {
+            if (this.wait > 4) {
+                this.wait = -1;
+            }
+            this.wait++;
+        } else {
+            setColor(this.i);
+            this.i++;
+            if (this.i >= a.length) {
+                this.i = 0;
+                this.wait++;
+            }
         }
     }
 
-    protected int i = 0;
-    protected int wait = 0;
-
-    public JComponentAnimator(JComponent f) {
-        chk = f;
-    }
+    abstract protected void setColor(int i);
 
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof JComponentAnimator) {
-            return (((JComponentAnimator) obj).chk == chk);
+            return (((JComponentAnimator) obj).chk == this.chk);
         }
         return super.equals(obj);
     }
 
+    @Override
+    public int hashCode() {
+        return this.chk.hashCode();
+    }
 }

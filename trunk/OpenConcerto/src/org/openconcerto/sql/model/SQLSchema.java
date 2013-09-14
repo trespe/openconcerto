@@ -135,6 +135,12 @@ public final class SQLSchema extends SQLIdentifier {
         return (SQLBase) this.getParent();
     }
 
+    /**
+     * The version when this instance was last fully refreshed. In other words, if we refresh tables
+     * by names (even if we name them all) this version isn't updated.
+     * 
+     * @return the version.
+     */
     synchronized final String getFullyRefreshedVersion() {
         return this.version;
     }
@@ -423,6 +429,11 @@ public final class SQLSchema extends SQLIdentifier {
         }
     }
 
+    /**
+     * The current version in the database.
+     * 
+     * @return current version in the database.
+     */
     public final String getVersion() {
         return this.getFwkMetadata(VERSION_MDKEY);
     }

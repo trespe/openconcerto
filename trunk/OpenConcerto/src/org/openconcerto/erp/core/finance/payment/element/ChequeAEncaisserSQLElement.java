@@ -42,6 +42,9 @@ public class ChequeAEncaisserSQLElement extends ComptaSQLConfElement {
 
         l.add("ID_MOUVEMENT");
         l.add("ID_CLIENT");
+        l.add("DATE");
+        l.add("ETS");
+        l.add("NUMERO");
         l.add("DATE_VENTE");
         l.add("DATE_DEPOT");
         l.add("MONTANT");

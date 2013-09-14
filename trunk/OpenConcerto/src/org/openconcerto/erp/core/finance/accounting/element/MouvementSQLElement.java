@@ -26,6 +26,8 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -74,6 +76,14 @@ public class MouvementSQLElement extends ComptaSQLConfElement {
         final Set<String> set = new HashSet<String>(1);
         set.add("ECRITURE");
         return set;
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        CollectionMap<String, String> m = new CollectionMap<String, String>();
+        m.put(null, "NUMERO");
+        m.put(null, "ID_PIECE");
+        return m;
     }
 
     @Override
@@ -138,25 +148,25 @@ public class MouvementSQLElement extends ComptaSQLConfElement {
             final int mode = MouvementSQLElement.isEditable(id) ? MouvementSQLElement.MODIFICATION : MouvementSQLElement.READONLY;
 
             if (stringTableSource.length() != 0 && tableMvt.getRow(id).getInt("IDSOURCE") != 1) {
-
                 if (mode == MouvementSQLElement.MODIFICATION) {
                     f = new EditFrame(Configuration.getInstance().getDirectory().getElement(stringTableSource), EditPanel.MODIFICATION);
                     f.getPanel().disableDelete();
                 } else {
                     f = new EditFrame(Configuration.getInstance().getDirectory().getElement(stringTableSource), EditPanel.READONLY);
-
                 }
                 f.selectionId(tableMvt.getRow(id).getInt("IDSOURCE"));
-
             } else {
-
                 if (mode == MouvementSQLElement.MODIFICATION) {
                     f = new EditFrame(new SaisieKmSQLElement(), EditPanel.MODIFICATION);
                 } else {
                     f = new EditFrame(new SaisieKmSQLElement(), EditPanel.READONLY);
                 }
-                f.selectionId(SaisieKmSQLElement.createSaisie(id));
-
+                // FIXME se passer de requete dans Swing...
+                try {
+                    f.selectionId(SaisieKmSQLElement.createSaisie(id));
+                } catch (Exception e) {
+                    ExceptionHandler.handle("Impossible de selectionner la source", e);
+                }
             }
             f.pack();
             f.setVisible(true);

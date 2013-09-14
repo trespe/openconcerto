@@ -17,6 +17,7 @@ import org.openconcerto.sql.model.SQLField;
 
 public class ValueConverter {
     private SQLField field;
+    private boolean ignoringEmptyValue = false;
 
     public ValueConverter(SQLField f) {
         this.field = f;
@@ -44,6 +45,14 @@ public class ValueConverter {
 
     public SQLField getField() {
         return field;
+    }
+
+    public boolean isIgnoringEmptyValue() {
+        return ignoringEmptyValue;
+    }
+
+    public void setIgnoringEmptyValue(boolean optionalValue) {
+        this.ignoringEmptyValue = optionalValue;
     }
 
     public String getFieldName() {

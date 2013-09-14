@@ -405,7 +405,7 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         }
 
         if (r != null) {
-            this.table.insertFrom("ID_" + this.getTable().getName(), r.getID());
+            this.table.insertFrom("ID_" + this.getTable().getName(), r.asRowValues());
             this.defaultContactRowVals.put("TEL_DIRECT", r.getString("TEL"));
             this.defaultContactRowVals.put("FAX", r.getString("FAX"));
         }

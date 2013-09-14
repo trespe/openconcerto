@@ -22,7 +22,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
-
 /**
  * Singleton pour la manipulation des Articles, prix, modifs..
  */
@@ -72,7 +71,7 @@ public class ArticleManager {
         }
         // on l'insere
         if (!update) {
-            rowParDefaut.loadAllSafe(table.getRow(table.getUndefinedID()));
+            Configuration.getInstance().getDirectory().getElement(table).loadAllSafe(rowParDefaut, table.getRow(table.getUndefinedID()));
             rowParDefaut.put("NOM", nom);
             rowParDefaut.put("CODE_BARRE", code);
         }

@@ -10,19 +10,18 @@ import org.jopenchart.DataModel1D;
 public class PieChartWithSeparatedLabels extends PieChart {
 
     public void renderPlot(Graphics2D g) {
-
-        g.setColor(Color.RED);
+        final DataModel1D model1 = (DataModel1D) this.getDataModel();
+        final int stop = model1.getSize();
+        if (stop < 1) {
+            return;
+        }
 
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         int xCenter = getCenterX();
         int yCenter = getCenterY();
 
-        DataModel1D model1 = (DataModel1D) this.getDataModel();
         double total = getTotalValue().doubleValue();
 
-        double space = 0.0D;
-
-        int stop = model1.getSize();
         computeColorsAndSpaces();
 
         int maxSpace = (int) spaces[0];

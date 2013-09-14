@@ -216,7 +216,7 @@ public class ISQLElementWithCodeSelector extends JPanel implements ValueWrapper<
         c.weightx = 1;
         this.add(this.textOpt, c);
 
-        this.addButton = new JButton("Créer " + this.element.getSingularName());
+        this.addButton = new JButton(EditFrame.getCreateMessage(this.element));
         this.addButton.addActionListener(this);
         c.fill = GridBagConstraints.NONE;
         c.weightx = 0;
@@ -268,6 +268,12 @@ public class ISQLElementWithCodeSelector extends JPanel implements ValueWrapper<
     @Override
     public void addEmptyListener(EmptyListener l) {
         this.emptyHelper.addListener(l);
+    }
+
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        // TODO no longer implements EmptyObject (just EmptyObj)
+        throw new UnsupportedOperationException();
     }
 
     @Override

@@ -16,6 +16,9 @@
  */
 package org.openconcerto.utils;
 
+import static java.lang.System.getProperty;
+import org.openconcerto.utils.io.PercentEncoder;
+
 import java.awt.Component;
 import java.awt.Desktop;
 import java.awt.Desktop.Action;
@@ -35,17 +38,25 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
@@ -53,6 +64,7 @@ import javax.swing.JTextArea;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
+import javax.swing.text.JTextComponent;
 
 /**
  * Allow to display an exception both on the GUI and on the console.
@@ -61,6 +73,7 @@ import javax.swing.UIManager;
  */
 public class ExceptionHandler extends RuntimeException {
 
+    private static final Pattern NL_PATTERN = Pattern.compile("\r?\n");
     private static final String ILM_CONTACT = "http://www.ilm-informatique.fr/contact";
     private static String ForumURL = null;
 
@@ -172,7 +185,6 @@ public class ExceptionHandler extends RuntimeException {
         final JImage im = new JImage(new ImageIcon(this.getClass().getResource("error.png")));
         final JLabel l = new JLabel("Une erreur est survenue");
         l.setFont(l.getFont().deriveFont(Font.BOLD));
-        final JLabel lError = new JLabel(msg);
 
         final JTextArea textArea = new JTextArea();
         textArea.setFont(textArea.getFont().deriveFont(11f));
@@ -186,13 +198,15 @@ public class ExceptionHandler extends RuntimeException {
         c.gridwidth = 2;
         p.add(l, c);
         c.gridy++;
-        p.add(lError, c);
 
+        final JLabel lError = new JLabel("<html>" + NL_PATTERN.matcher(msg).replaceAll("<br>") + "</html>");
+        p.add(lError, c);
         c.gridy++;
+
         p.add(new JLabel("Il s'agit probablement d'une mauvaise configuration ou installation du logiciel."), c);
 
         c.gridx = 0;
-        c.gridwidth = 3;
+        c.gridwidth = 4;
         c.gridy++;
         c.weighty = 0;
         c.gridwidth = 1;
@@ -209,10 +223,12 @@ public class ExceptionHandler extends RuntimeException {
                 communityAction = new AbstractAction("Consulter le forum") {
                     @Override
                     public void actionPerformed(ActionEvent e) {
-                        try {
-                            desktop.browse(new URI(ForumURL));
-                        } catch (Exception e1) {
-                            e1.printStackTrace();
+                        if (desktop != null) {
+                            try {
+                                desktop.browse(new URI(ForumURL));
+                            } catch (Exception e1) {
+                                e1.printStackTrace();
+                            }
                         }
                     }
                 };
@@ -234,10 +250,12 @@ public class ExceptionHandler extends RuntimeException {
             supportAction = new AbstractAction("Contacter l'assistance") {
                 @Override
                 public void actionPerformed(ActionEvent e) {
-                    try {
-                        desktop.browse(URI.create(ILM_CONTACT));
-                    } catch (Exception e1) {
-                        e1.printStackTrace();
+                    if (desktop != null) {
+                        try {
+                            desktop.browse(URI.create(ILM_CONTACT));
+                        } catch (Exception e1) {
+                            e1.printStackTrace();
+                        }
                     }
 
                 }
@@ -251,9 +269,66 @@ public class ExceptionHandler extends RuntimeException {
             };
 
         p.add(new JButton(supportAction), c);
+
+        c.gridx++;
+
+        final javax.swing.Action submitAction = new AbstractAction("Soumettre l'erreur") {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                submitError(p, textArea);
+            }
+
+            private void submitError(final JPanel p, final JTextComponent textArea) {
+                final Charset cs = StringUtils.UTF8;
+                try {
+                    ProductInfo productInfo = ProductInfo.getInstance();
+
+                    String name = "", version = "";
+                    if (productInfo != null) {
+                        name = productInfo.getName();
+                        version = productInfo.getProperty(ProductInfo.VERSION, version);
+                    }
+                    final String java = getProperty("java.runtime.version") != null ? getProperty("java.runtime.version") : getProperty("java.version");
+                    final String os = getProperty("os.name") + " " + getProperty("os.version") + " (" + getProperty("os.arch") + ")";
+                    final String encodedData = "java=" + PercentEncoder.encode(java, cs) + "&os=" + PercentEncoder.encode(os, cs) + "&software=" + PercentEncoder.encode(name + version, cs)
+                            + "&stack=" + PercentEncoder.encode(textArea.getText(), cs);
+                    final String request = "http://bugreport.ilm-informatique.fr:5000/bugreport";
+                    final URL url = new URL(request);
+                    final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                    connection.setDoOutput(true);
+                    connection.setRequestMethod("POST");
+                    connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                    connection.setRequestProperty("charset", cs.name());
+                    final byte[] bytes = encodedData.getBytes(cs);
+                    connection.setRequestProperty("Content-Length", String.valueOf(bytes.length));
+
+                    final OutputStream outputStream = connection.getOutputStream();
+                    outputStream.write(bytes);
+                    outputStream.flush();
+
+                    // Get the response
+                    final StringBuffer answer = new StringBuffer();
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        answer.append(line);
+                    }
+                    outputStream.close();
+                    reader.close();
+                    connection.disconnect();
+
+                    JOptionPane.showMessageDialog(p, "Merci d'avoir envoyé le rapport d'erreur au service technique.\nIl sera analysé prochainement.");
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+            }
+        };
+
+        p.add(new JButton(submitAction), c);
+
         c.gridy++;
         c.gridx = 0;
-        c.gridwidth = 3;
+        c.gridwidth = 4;
         c.fill = GridBagConstraints.BOTH;
         c.insets = new Insets(0, 0, 0, 0);
         p.add(new JSeparator(), c);
@@ -281,7 +356,7 @@ public class ExceptionHandler extends RuntimeException {
         scroll.setVerticalScrollBarPolicy(ScrollPaneConstants.VERTICAL_SCROLLBAR_ALWAYS);
         scroll.getViewport().setMinimumSize(new Dimension(200, 300));
         c.weighty = 1;
-        c.gridwidth = 3;
+        c.gridwidth = 4;
         c.gridx = 0;
         c.gridy++;
         p.add(scroll, c);
@@ -359,6 +434,6 @@ public class ExceptionHandler extends RuntimeException {
 
     public static void main(String[] args) throws Exception {
         UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        ExceptionHandler.handle("Fichier de configuration corrompu", new IllegalStateException("Id manquant"));
+        ExceptionHandler.handle("Fichier de configuration corrompu\n\nmulti\nline", new IllegalStateException("Id manquant"));
     }
 }

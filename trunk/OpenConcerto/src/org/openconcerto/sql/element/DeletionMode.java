@@ -16,7 +16,7 @@
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
-import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.Where;
 
 import java.sql.SQLException;
@@ -60,13 +60,13 @@ public abstract class DeletionMode {
 
     public abstract void fireChange(SQLRowAccessor row);
 
-    protected final String getUpdateClause(SQLElement elem, boolean archive) {
-        final String newVal;
+    protected final SQLRowValues getUpdateClause(SQLElement elem, boolean archive) {
+        final Object newVal;
         if (Boolean.class.equals(elem.getTable().getArchiveField().getType().getJavaType()))
-            newVal = archive + "";
+            newVal = archive;
         else
-            newVal = archive ? "1" : "0";
-        return SQLSelect.quote("UPDATE %f SET %n=" + newVal, elem.getTable(), elem.getTable().getArchiveField());
+            newVal = archive ? 1 : 0;
+        return new SQLRowValues(elem.getTable()).put(elem.getTable().getArchiveField().getName(), newVal);
     }
 
     protected final String getWhereClause(SQLElement elem, int id) {
@@ -106,9 +106,7 @@ public abstract class DeletionMode {
 
         @Override
         protected void updateDB(SQLElement elem, int id) throws SQLException {
-            String req = this.getUpdateClause(elem, true);
-            req += getWhereClause(elem, id);
-            elem.getTable().getBase().getDataSource().execute(req);
+            this.getUpdateClause(elem, true).update(id);
         }
 
         @Override
@@ -133,7 +131,7 @@ public abstract class DeletionMode {
         @Override
         protected void updateDB(SQLElement elem, int id) throws SQLException {
             // Supression d'un enregistrement de la table.
-            String req = SQLSelect.quote("DELETE FROM %f ", elem.getTable()) + getWhereClause(elem, id);
+            final String req = "DELETE FROM  " + elem.getTable().getSQLName().quote() + getWhereClause(elem, id);
             elem.getTable().getBase().getDataSource().execute(req);
         }
 
@@ -158,9 +156,7 @@ public abstract class DeletionMode {
 
         @Override
         protected void updateDB(SQLElement elem, int id) throws SQLException {
-            String req = this.getUpdateClause(elem, false);
-            req += getWhereClause(elem, id);
-            elem.getTable().getBase().getDataSource().execute(req);
+            this.getUpdateClause(elem, false).update(id);
         }
 
         @Override

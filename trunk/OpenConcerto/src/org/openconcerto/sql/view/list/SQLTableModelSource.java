@@ -273,7 +273,7 @@ public abstract class SQLTableModelSource {
     }
 
     /**
-     * All the displayed tables, ie tables of {@link #getLineFields()}.
+     * All the displayed tables, i.e. tables of {@link #getLineFields()}.
      * 
      * @return the displayed tables.
      */
@@ -282,15 +282,20 @@ public abstract class SQLTableModelSource {
     }
 
     /**
-     * All fields that affects a line of this source. Ie not just the displayed fields, but also the
-     * foreign keys (eg if this displays [LOCAL.DES, CPI.DES] CPI.ID_LOCAL matters).
+     * All fields that affects a line of this source. I.e. not just the displayed fields, but also
+     * the foreign keys, including intermediate ones (e.g. if this displays [BATIMENT.DES, CPI.DES]
+     * LOCAL.ID_BATIMENT matters).
      * 
      * @return the fields affecting this.
      */
     public final Set<SQLField> getLineFields() {
         final Set<SQLField> res = new HashSet<SQLField>();
-        for (final SQLTableModelColumn col : this.getAllColumns())
-            res.addAll(col.getFields());
+        for (final SQLRowValues v : getMaxGraph().getGraph().getItems()) {
+            for (final String f : v.getFields())
+                res.add(v.getTable().getField(f));
+            if (v.getTable().isArchivable())
+                res.add(v.getTable().getArchiveField());
+        }
         return res;
     }
 

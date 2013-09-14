@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -205,7 +206,8 @@ public class SQLRowValuesListFetcher {
     private final Path descendantPath;
     private ITransformer<SQLSelect, SQLSelect> selTransf;
     private Integer selID;
-    private boolean ordered;
+    private Set<Path> ordered;
+    private boolean descendantsOrdered;
     private SQLRowValues minGraph;
     private boolean includeForeignUndef;
     private SQLSelect frozen;
@@ -307,7 +309,8 @@ public class SQLRowValuesListFetcher {
 
         this.selTransf = null;
         this.selID = null;
-        this.ordered = false;
+        this.ordered = Collections.<Path> emptySet();
+        this.descendantsOrdered = false;
         this.minGraph = null;
         this.includeForeignUndef = false;
         this.frozen = null;
@@ -422,13 +425,55 @@ public class SQLRowValuesListFetcher {
      * @return this.
      */
     public final SQLRowValuesListFetcher setOrdered(final boolean b) {
-        this.checkFrozen();
-        this.ordered = b;
+        this.setOrder(b ? Collections.singleton(new Path(getGraph().getTable())) : Collections.<Path> emptySet(), true);
+        this.setReferentsOrdered(b, false);
         return this;
     }
 
-    public final boolean isOrdered() {
+    public final SQLRowValuesListFetcher setOrder(final List<Path> order) {
+        return this.setOrder(order, false);
+    }
+
+    private final SQLRowValuesListFetcher setOrder(final Collection<Path> order, final boolean safeVal) {
+        this.checkFrozen();
+        for (final Path p : order)
+            if (this.getGraph().followPath(p) == null)
+                throw new IllegalArgumentException("Path not in this " + p);
+        this.ordered = safeVal ? (Set<Path>) order : Collections.unmodifiableSet(new LinkedHashSet<Path>(order));
+        return this;
+    }
+
+    public final Set<Path> getOrder() {
         return this.ordered;
+    }
+
+    /**
+     * Whether to order referent rows in this fetcher.
+     * 
+     * @param b <code>true</code> to order referent rows starting from the primary node, e.g. if the
+     *        graph is
+     * 
+     *        <pre>
+     * *SITE* <- BATIMENT <- LOCAL
+     * </pre>
+     * 
+     *        then this will cause ORDER BY BATIMENT.ORDRE, LOCAL.ORDRE.
+     * @param rec if grafts should also be changed.
+     * @return this.
+     */
+    public final SQLRowValuesListFetcher setReferentsOrdered(final boolean b, final boolean rec) {
+        this.descendantsOrdered = b;
+        if (rec) {
+            for (final Map<Path, SQLRowValuesListFetcher> m : this.grafts.values()) {
+                for (final SQLRowValuesListFetcher f : m.values())
+                    f.setReferentsOrdered(b, rec);
+            }
+        }
+        return this;
+    }
+
+    public final boolean areReferentsOrdered() {
+        return this.descendantsOrdered;
     }
 
     public final SQLRowValuesListFetcher graft(final SQLRowValuesListFetcher other) {
@@ -525,15 +570,13 @@ public class SQLRowValuesListFetcher {
             return this.frozen;
 
         final SQLTable t = this.getGraph().getTable();
-        final SQLSelect sel = new SQLSelect(t.getBase());
+        final SQLSelect sel = new SQLSelect();
 
         if (this.includeForeignUndef) {
             sel.setExcludeUndefined(false);
             sel.setExcludeUndefined(true, t);
         }
 
-        if (this.isOrdered() && t.isOrdered())
-            sel.addFieldOrder(t.getOrderField());
         walk(sel, new ITransformer<State<SQLSelect>, SQLSelect>() {
             @Override
             public SQLSelect transformChecked(State<SQLSelect> input) {
@@ -545,10 +588,6 @@ public class SQLRowValuesListFetcher {
                     if (input.isBackwards()) {
                         // eg LEFT JOIN loc on loc.ID_BATIMENT = BATIMENT.ID
                         input.getAcc().addBackwardJoin(joinType, alias, input.getFrom(), aliasPrev);
-                        // order is only meaningfull for backwards
-                        // as going forward there's at most 1 row for each row in t
-                        if (isOrdered())
-                            input.getAcc().addOrderSilent(alias);
                     } else {
                         input.getAcc().addJoin(joinType, new AliasedField(input.getFrom(), aliasPrev), alias);
                     }
@@ -561,6 +600,16 @@ public class SQLRowValuesListFetcher {
             }
 
         });
+        for (final Path p : this.getOrder())
+            sel.addOrder(sel.followPath(t.getName(), p), false);
+        // after getOrder() since it can specify more precise order
+        if (this.areReferentsOrdered()) {
+            final int descSize = this.descendantPath.length();
+            for (int i = 1; i <= descSize; i++) {
+                sel.addOrder(sel.followPath(t.getName(), this.descendantPath.subPath(0, i)), false);
+            }
+        }
+
         if (this.selID != null)
             sel.andWhere(new Where(t.getKey(), "=", this.selID));
         return this.getSelTransf() == null ? sel : this.getSelTransf().transformChecked(sel);
@@ -632,7 +681,7 @@ public class SQLRowValuesListFetcher {
         }
 
         public final boolean isBackwards() {
-            return !this.from.isForeign(this.from.getSingleField());
+            return !this.from.isForeign();
         }
 
         @Override

@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.view.list;
 
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.view.list.search.SearchQueue;
@@ -55,15 +56,14 @@ abstract class UpdateRunnable implements Runnable {
     }
 
     private final ITableModel model;
-    private final SQLTable table;
-    private final int id;
+    private final SQLRow row;
 
-    protected UpdateRunnable(ITableModel model, SQLTable t, int id) {
+    protected UpdateRunnable(final ITableModel model, final SQLRow r) {
         this.model = model;
-        this.table = t;
-        this.id = id;
+        this.row = r;
     }
 
+    @Override
     public final String toString() {
         return this.getClass().getSimpleName() + "@" + this.hashCode() + " " + this.getTable() + "[" + this.getID() + "] on " + this.model;
     }
@@ -80,11 +80,15 @@ abstract class UpdateRunnable implements Runnable {
         return this.getModel().getSearchQueue();
     }
 
+    protected final SQLRow getRow() {
+        return this.row;
+    }
+
     protected final SQLTable getTable() {
-        return this.table;
+        return this.getRow().getTable();
     }
 
     protected final int getID() {
-        return this.id;
+        return this.getRow().getID();
     }
 }

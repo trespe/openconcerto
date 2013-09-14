@@ -15,6 +15,7 @@
 
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.StyleStyleDesc;
+import org.openconcerto.openoffice.StyledNode;
 import org.openconcerto.openoffice.XMLVersion;
 
 import org.jdom.Element;
@@ -24,7 +25,7 @@ public class Column<D extends ODDocument> extends TableCalcNode<ColumnStyle, D> 
     static Element createEmpty(XMLVersion ns, ColumnStyle style) {
         final Element res = new Element("table-column", ns.getTABLE());
         if (style != null)
-            res.setAttribute("style-name", style.getName(), ns.getTABLE());
+            StyledNode.setStyleName(res, style.getName());
         return res;
     }
 
@@ -38,7 +39,6 @@ public class Column<D extends ODDocument> extends TableCalcNode<ColumnStyle, D> 
     }
 
     public final void setWidth(final Number w) {
-        // TODO use Number
-        this.getPrivateStyle().setWidth(w.floatValue());
+        this.getPrivateStyle().setWidth(w, TableStyle.DEFAULT_UNIT);
     }
 }

@@ -91,6 +91,9 @@ public enum SQLSystem {
         void removeRootsToIgnore(Set<String> s) {
             super.removeRootsToIgnore(s);
             s.remove("mysql");
+            s.remove("performance_schema");
+            // before 5.5.8
+            s.remove("PERFORMANCE_SCHEMA");
         }
 
         @Override

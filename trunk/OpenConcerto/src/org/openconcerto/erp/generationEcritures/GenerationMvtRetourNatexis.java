@@ -20,9 +20,7 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 
-import java.sql.SQLException;
 import java.util.Date;
-
 
 public class GenerationMvtRetourNatexis extends GenerationEcritures {
 
@@ -30,7 +28,7 @@ public class GenerationMvtRetourNatexis extends GenerationEcritures {
     private static final SQLTable tablePrefCompte = base.getTable("PREFS_COMPTE");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
-    public GenerationMvtRetourNatexis(SQLRow rowFacture) {
+    public GenerationMvtRetourNatexis(SQLRow rowFacture) throws Exception {
 
         if (rowFacture.getBoolean("AFFACTURAGE") && !rowFacture.getBoolean("RETOUR_NATEXIS")) {
 
@@ -51,22 +49,17 @@ public class GenerationMvtRetourNatexis extends GenerationEcritures {
             valEcheance.put("ID_CLIENT", rowClient.getID());
             valEcheance.put("RETOUR_NATEXIS", Boolean.TRUE);
 
-            try {
-
-                // ajout de l'ecriture
-                SQLRow row = valEcheance.insert();
-                SQLRowValues rowVals = new SQLRowValues(mvtTable);
-                rowVals.put("IDSOURCE", row.getID());
-                rowVals.update(this.idMvt);
-            } catch (SQLException e) {
-                System.err.println("Error insert in Table " + valEcheance.getTable().getName());
-            }
+            // ajout de l'ecriture
+            SQLRow row = valEcheance.insert();
+            SQLRowValues rowVals = new SQLRowValues(mvtTable);
+            rowVals.put("IDSOURCE", row.getID());
+            rowVals.update(this.idMvt);
 
             this.nom = "Retour natexis facture " + rowFacture.getObject("NUMERO").toString();
             this.date = new Date();
             this.mEcritures.put("DATE", this.date);
             this.mEcritures.put("NOM", this.nom);
-           
+
             this.mEcritures.put("ID_JOURNAL", GenerationMvtSaisieVenteFacture.journal);
 
             int idJrnlFactor = rowPrefsCompte.getInt("ID_JOURNAL_FACTOR");
@@ -81,11 +74,7 @@ public class GenerationMvtRetourNatexis extends GenerationEcritures {
             if (idComptefactor <= 1) {
                 idComptefactor = rowPrefsCompte.getInt("ID_COMPTE_PCE_FACTOR");
                 if (idComptefactor <= 1) {
-                    try {
-                        idComptefactor = ComptePCESQLElement.getIdComptePceDefault("Factor");
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
+                    idComptefactor = ComptePCESQLElement.getIdComptePceDefault("Factor");
                 }
             }
 
@@ -113,12 +102,9 @@ public class GenerationMvtRetourNatexis extends GenerationEcritures {
 
             SQLRowValues rowValsFacture = rowFacture.asRowValues();
             rowValsFacture.put("RETOUR_NATEXIS", Boolean.TRUE);
-            try {
-                rowValsFacture.update();
-            } catch (SQLException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
+
+            rowValsFacture.update();
+
         }
     }
 

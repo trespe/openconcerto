@@ -28,7 +28,7 @@ import org.jdom.Namespace;
 public enum XMLVersion {
 
     // OpenOffice.org 1.x.
-    OOo("OpenOffice.org", Namespace.getNamespace("manifest", "http://openoffice.org/2001/manifest")) {
+    OOo("OpenOffice.org", Namespace.getNamespace("manifest", "http://openoffice.org/2001/manifest"), "script") {
         {
             this.putMandatory(OFFICE_1, STYLE_1, TEXT_1, TABLE_1);
             this.put("number", NUMBER_1);
@@ -39,11 +39,12 @@ public enum XMLVersion {
             this.put("script", "http://openoffice.org/2000/script");
             this.put("svg", "http://www.w3.org/2000/svg");
             this.put("meta", "http://openoffice.org/2000/meta");
+            this.put("config", "http://openoffice.org/2001/config");
             this.put("dc", "http://purl.org/dc/elements/1.1/");
         }
     },
     // OpenDocument 1.x/OpenOffice.org 2.x.
-    OD("OpenDocument", Namespace.getNamespace("manifest", "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0")) {
+    OD("OpenDocument", Namespace.getNamespace("manifest", "urn:oasis:names:tc:opendocument:xmlns:manifest:1.0"), "ooo") {
         {
             this.putMandatory(OFFICE_2, STYLE_2, TEXT_2, TABLE_2);
             this.put("number", NUMBER_2);
@@ -54,9 +55,15 @@ public enum XMLVersion {
             this.put("script", "urn:oasis:names:tc:opendocument:xmlns:script:1.0");
             this.put("svg", "urn:oasis:names:tc:opendocument:xmlns:svg-compatible:1.0");
             this.put("meta", "urn:oasis:names:tc:opendocument:xmlns:meta:1.0");
+            this.put("config", "urn:oasis:names:tc:opendocument:xmlns:config:1.0");
             this.put("dc", "http://purl.org/dc/elements/1.1/");
+            this.put("ooo", "http://openoffice.org/2004/office");
+            this.put("of", "urn:oasis:names:tc:opendocument:xmlns:of:1.2");
         }
     };
+
+    public static final Namespace LIBRARY_NS = Namespace.getNamespace("library", "http://openoffice.org/2000/library");
+    public static final Namespace DIALOG_NS = Namespace.getNamespace("dlg", "http://openoffice.org/2000/dialog");
 
     private static final String OFFICE_1 = "http://openoffice.org/2000/office";
     private static final String STYLE_1 = "http://openoffice.org/2000/style";
@@ -76,11 +83,13 @@ public enum XMLVersion {
 
     private final String name;
     private final Map<String, Namespace> nss;
+    private final String librariesPrefix;
     private final Namespace manifest;
 
-    private XMLVersion(String name, Namespace manifest) {
+    private XMLVersion(String name, Namespace manifest, final String librariesPrefix) {
         this.name = name;
         this.nss = new HashMap<String, Namespace>(16);
+        this.librariesPrefix = librariesPrefix;
         this.manifest = manifest;
     }
 
@@ -131,6 +140,10 @@ public enum XMLVersion {
 
     public Namespace[] getALL() {
         return this.nss.values().toArray(new Namespace[this.nss.size()]);
+    }
+
+    public Namespace getLibrariesNS() {
+        return this.getNS(this.librariesPrefix);
     }
 
     // *** static public

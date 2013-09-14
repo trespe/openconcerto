@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.Log;
 import org.openconcerto.utils.ExceptionUtils;
 
 import java.awt.BorderLayout;
@@ -24,12 +25,14 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.logging.Level;
 
 import javax.swing.JButton;
 import javax.swing.JFrame;
@@ -112,6 +115,18 @@ public class SQLRequestLog {
 
     public static void log(String query, String comment, long starAtMs, long startTime) {
         log(query, comment, 0, starAtMs, startTime, startTime, startTime, startTime, startTime, startTime);
+    }
+
+    public static void log(PreparedStatement pStmt, String comment, long timeMs, long startTime, long afterCache, long afterQueryInfo, long afterExecute, long afterHandle, long endTime) {
+        // only call potentially expensive and/or exceptions throwing methods if necessary
+        if (enabled) {
+            try {
+                log(pStmt.toString(), comment, pStmt.getConnection(), timeMs, startTime, afterCache, afterQueryInfo, afterExecute, afterHandle, endTime);
+            } catch (Exception e) {
+                // never propagate exceptions
+                Log.get().log(Level.WARNING, "Couldn't log " + pStmt, e);
+            }
+        }
     }
 
     public static void log(String query, String comment, Connection conn, long timeMs, long startTime, long afterCache, long afterQueryInfo, long afterExecute, long afterHandle, long endTime) {

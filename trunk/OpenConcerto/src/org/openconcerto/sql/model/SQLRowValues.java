@@ -13,8 +13,6 @@
  
  package org.openconcerto.sql.model;
 
-import org.openconcerto.sql.Configuration;
-import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.SQLRowValuesCluster.ValueChangeListener;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
@@ -35,6 +33,7 @@ import org.openconcerto.utils.RecursionType;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.cc.IdentitySet;
 import org.openconcerto.utils.cc.LinkedIdentitySet;
 import org.openconcerto.utils.cc.TransformedMap;
 import org.openconcerto.utils.convertor.NumberConvertor;
@@ -145,6 +144,8 @@ public final class SQLRowValues extends SQLRowAccessor {
     public static boolean isValidityChecked() {
         return checkValidity;
     }
+
+    private static final boolean DEFAULT_ALLOW_BACKTRACK = true;
 
     private final Map<String, Object> values;
     private final Map<String, SQLRowValues> foreigns;
@@ -507,7 +508,7 @@ public final class SQLRowValues extends SQLRowAccessor {
 
     private Object getContainedObject(String fieldName) throws IllegalArgumentException {
         if (!this.values.containsKey(fieldName))
-            throw new IllegalArgumentException("Field not present in this : " + this.getFields());
+            throw new IllegalArgumentException("Field " + fieldName + " not present in this : " + this.getFields());
         return this.values.get(fieldName);
     }
 
@@ -970,15 +971,30 @@ public final class SQLRowValues extends SQLRowAccessor {
     /**
      * Return the row at the end of passed path.
      * 
-     * @param p the path to follow, eg SITE,SITE.ID_CONTACT_CHEF.
-     * @return the row at the end or <code>null</code> if none exists, eg SQLRowValues on /CONTACT/.
+     * @param p the path to follow, e.g. SITE,SITE.ID_CONTACT_CHEF.
+     * @return the row at the end or <code>null</code> if none exists, e.g. SQLRowValues on
+     *         /CONTACT/.
      */
     public final SQLRowValues followPath(final Path p) {
         return this.followPath(p, false);
     }
 
     private final SQLRowValues followPath(final Path p, final boolean create) {
-        final Collection<SQLRowValues> res = followPath(p, create ? CreateMode.CREATE_ONE : CreateMode.CREATE_NONE, true);
+        return followPathToOne(p, create ? CreateMode.CREATE_ONE : CreateMode.CREATE_NONE, DEFAULT_ALLOW_BACKTRACK);
+    }
+
+    /**
+     * Follow path to at most one row.
+     * 
+     * @param p the path to follow.
+     * @param create if and how to create new rows.
+     * @param allowBackTrack <code>true</code> to allow encountering the same row more than once.
+     * @return the destination row or <code>null</code> if none exists and <code>create</code> was
+     *         {@link CreateMode#CREATE_NONE}
+     * @see #followPath(Path, CreateMode, boolean, boolean)
+     */
+    public final SQLRowValues followPathToOne(final Path p, final CreateMode create, final boolean allowBackTrack) {
+        final Collection<SQLRowValues> res = this.followPath(p, create, true, allowBackTrack);
         // since we passed onlyOne=true
         assert res.size() <= 1;
         return CollectionUtils.getSole(res);
@@ -996,6 +1012,26 @@ public final class SQLRowValues extends SQLRowAccessor {
     }
 
     public final Collection<SQLRowValues> followPath(final Path p, final CreateMode create, final boolean onlyOne) {
+        return followPath(p, create, onlyOne, DEFAULT_ALLOW_BACKTRACK);
+    }
+
+    /**
+     * Follow path through the graph.
+     * 
+     * @param p the path to follow.
+     * @param create if and how to create new rows.
+     * @param onlyOne <code>true</code> if this method should return at most one row.
+     * @param allowBackTrack <code>true</code> to allow encountering the same row more than once.
+     * @return the destination rows, can be empty.
+     * @throws IllegalArgumentException if <code>p</code> doesn't start with this table.
+     * @throws IllegalStateException if <code>onlyOne</code> and there's more than one row on the
+     *         path.
+     */
+    public final Collection<SQLRowValues> followPath(final Path p, final CreateMode create, final boolean onlyOne, final boolean allowBackTrack) throws IllegalArgumentException, IllegalStateException {
+        return followPath(p, create, onlyOne, allowBackTrack ? null : new LinkedIdentitySet<SQLRowValues>());
+    }
+
+    private final IdentitySet<SQLRowValues> followPath(final Path p, final CreateMode create, final boolean onlyOne, final IdentitySet<SQLRowValues> beenThere) {
         if (p.getFirst() != this.getTable())
             throw new IllegalArgumentException("path " + p + " doesn't start with us " + this);
         if (p.length() > 0) {
@@ -1010,11 +1046,12 @@ public final class SQLRowValues extends SQLRowAccessor {
             // _____-- rapport -> CONTACT
             final Set<SQLRowValues> next = new LinkedIdentitySet<SQLRowValues>();
             final Step firstStep = p.getStep(0);
-            final Set<SQLField> ffs = firstStep.getFields();
-            for (final SQLField ff : ffs) {
-                if (firstStep.isForeign(ff)) {
+            final Set<Link> ffs = firstStep.getLinks();
+            for (final Link l : ffs) {
+                final SQLField ff = l.getLabel();
+                if (firstStep.isForeign(l)) {
                     final Object fkValue = this.getObject(ff.getName());
-                    if (fkValue instanceof SQLRowValues) {
+                    if (fkValue instanceof SQLRowValues && (beenThere == null || !beenThere.contains(fkValue))) {
                         next.add((SQLRowValues) fkValue);
                     } else if (create == CreateMode.CREATE_ONE || create == CreateMode.CREATE_MANY) {
                         assert create == CreateMode.CREATE_MANY || (create == CreateMode.CREATE_ONE && next.size() <= 1);
@@ -1032,8 +1069,15 @@ public final class SQLRowValues extends SQLRowAccessor {
                     }
                 } else {
                     final Set<SQLRowValues> referentRows = this.getReferentRows(ff);
-                    if (referentRows.size() > 0) {
-                        next.addAll(referentRows);
+                    final Set<SQLRowValues> validReferentRows;
+                    if (beenThere == null || beenThere.size() == 0) {
+                        validReferentRows = referentRows;
+                    } else {
+                        validReferentRows = new LinkedIdentitySet<SQLRowValues>(referentRows);
+                        validReferentRows.removeAll(beenThere);
+                    }
+                    if (validReferentRows.size() > 0) {
+                        next.addAll(validReferentRows);
                     } else if (create == CreateMode.CREATE_ONE || create == CreateMode.CREATE_MANY) {
                         assert create == CreateMode.CREATE_MANY || (create == CreateMode.CREATE_ONE && next.size() <= 1);
                         final SQLRowValues nextOne;
@@ -1051,13 +1095,21 @@ public final class SQLRowValues extends SQLRowAccessor {
                 throw new IllegalStateException("more than one row and onlyOne=true : " + next);
 
             // see comment above for IdentitySet
-            final Set<SQLRowValues> res = new LinkedIdentitySet<SQLRowValues>();
+            final IdentitySet<SQLRowValues> res = new LinkedIdentitySet<SQLRowValues>();
             for (final SQLRowValues n : next) {
-                res.addAll(n.followPath(p.minusFirst(), create, onlyOne));
+                final IdentitySet<SQLRowValues> newBeenThere;
+                if (beenThere == null) {
+                    newBeenThere = null;
+                } else {
+                    newBeenThere = new LinkedIdentitySet<SQLRowValues>(beenThere);
+                    final boolean added = newBeenThere.add(this);
+                    assert added;
+                }
+                res.addAll(n.followPath(p.minusFirst(), create, onlyOne, newBeenThere));
             }
             return res;
         } else {
-            return Collections.singleton(this);
+            return CollectionUtils.createIdentitySet(this);
         }
     }
 
@@ -1109,21 +1161,6 @@ public final class SQLRowValues extends SQLRowAccessor {
 
         // put after remove so that this graph never contains row (and thus avoids unneeded events)
         this.putAll(m);
-    }
-
-    /**
-     * Load all values that can be safely copied (shared by multiple rows). This means all values
-     * except private, primary, order and archive.
-     * 
-     * @param row the row to be loaded.
-     */
-    public void loadAllSafe(SQLRow row) {
-        this.setAll(row.getAllValues());
-        final SQLElement elem = Configuration.getInstance().getDirectory().getElement(this.getTable());
-        this.load(row, elem.getNormalForeignFields());
-        if (elem.getParentForeignField() != null)
-            this.put(elem.getParentForeignField(), row.getObject(elem.getParentForeignField()));
-        this.load(row, elem.getSharedForeignFields());
     }
 
     // *** modify
@@ -1267,7 +1304,12 @@ public final class SQLRowValues extends SQLRowAccessor {
             @Override
             public List<String> handle(SQLDataSource ds) throws SQLException {
                 final Tuple2<PreparedStatement, List<String>> pStmt = createUpdateStatement(getTable(), updatedValues, id);
+                final long timeMs = System.currentTimeMillis();
+                final long time = System.nanoTime();
                 pStmt.get0().executeUpdate();
+                final long afterExecute = System.nanoTime();
+                // logging after closing fails to get the connection info
+                SQLRequestLog.log(pStmt.get0(), "rowValues.update()", timeMs, time, afterExecute, afterExecute, afterExecute, afterExecute, System.nanoTime());
                 pStmt.get0().close();
                 return pStmt.get1();
             }
@@ -1584,7 +1626,12 @@ public final class SQLRowValues extends SQLRowAccessor {
      * @throws SQLException if the insertion fails.
      */
     static public final Number insert(final PreparedStatement pStmt, final SQLTable table) throws SQLException {
+        final long timeMs = System.currentTimeMillis();
+
+        final long time = System.nanoTime();
         pStmt.execute();
+        final long afterExecute = System.nanoTime();
+
         final Number newID;
         if (table.isRowable()) {
             final ResultSet rs;
@@ -1605,6 +1652,9 @@ public final class SQLRowValues extends SQLRowAccessor {
         } else {
             newID = null;
         }
+        final long afterHandle = System.nanoTime();
+        SQLRequestLog.log(pStmt, "rowValues.insert()", timeMs, time, afterExecute, afterExecute, afterExecute, afterHandle, System.nanoTime());
+
         return newID;
     }
 

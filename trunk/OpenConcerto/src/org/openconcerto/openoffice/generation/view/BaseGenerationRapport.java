@@ -13,6 +13,7 @@
  
  package org.openconcerto.openoffice.generation.view;
 
+import org.openconcerto.openoffice.ContentType;
 import org.openconcerto.openoffice.Log;
 import org.openconcerto.openoffice.ODSingleXMLDocument;
 import org.openconcerto.openoffice.OOUtils;
@@ -284,7 +285,8 @@ public abstract class BaseGenerationRapport<R extends ReportGeneration<?>> exten
             if (report != null) {
                 for (Entry<String, ODSingleXMLDocument> e : report.entrySet()) {
                     try {
-                        final File reportFile = e.getValue().saveToPackageAs(this.getFile(rg, e.getKey()));
+                        final ODSingleXMLDocument singleDoc = e.getValue();
+                        final File reportFile = singleDoc.saveToPackageAs(this.getFile(rg, e.getKey()));
                         if (sel == FileAction.OPEN)
                             OOUtils.open(reportFile);
                         else if (sel == FileAction.MAIL) {
@@ -294,7 +296,8 @@ public abstract class BaseGenerationRapport<R extends ReportGeneration<?>> exten
                                 if (conn == null)
                                     throw new IllegalStateException("OpenOffice n'a pu être trouvé");
                                 final Component doc = conn.loadDocument(reportFile, true);
-                                final Future<File> pdf = doc.saveToPDF(fileOutPDF, "writer_pdf_Export");
+                                final String filter = singleDoc.getPackage().getContentType().getType() == ContentType.SPREADSHEET ? "calc_pdf_Export" : "writer_pdf_Export";
+                                final Future<File> pdf = doc.saveToPDF(fileOutPDF, filter);
                                 doc.close();
                                 conn.closeConnexion();
                                 // can wait for the pdf since we're not in the EDT

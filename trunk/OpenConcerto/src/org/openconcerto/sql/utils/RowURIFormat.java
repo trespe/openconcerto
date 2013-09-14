@@ -169,7 +169,7 @@ public final class RowURIFormat {
             try {
                 linkActivated(this.parser.parse(new URI(e.getDescription())), src);
             } catch (Exception exn) {
-                ExceptionHandler.handle(src, "Impossible d'ouvrir " + e.getDescription(), exn);
+                ExceptionHandler.handle(src, org.openconcerto.ui.TM.tr("linkOpenError", e.getDescription()), exn);
             }
         }
 

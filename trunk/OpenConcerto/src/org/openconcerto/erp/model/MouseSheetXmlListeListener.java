@@ -38,6 +38,7 @@ import java.util.Set;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 public class MouseSheetXmlListeListener {
@@ -77,8 +78,7 @@ public class MouseSheetXmlListeListener {
             AbstractSheetXml sheet = ctor.newInstance(row);
             return sheet;
         } catch (Exception e) {
-            // FIXME Exception Handler ??
-            e.printStackTrace();
+            ExceptionHandler.handle("sheet creation error", e);
         }
         return null;
     }
@@ -367,12 +367,10 @@ public class MouseSheetXmlListeListener {
         if (this.generateIsVisible) {
             l.add(new RowAction(new AbstractAction() {
                 public void actionPerformed(ActionEvent ev) {
-
-                    final AbstractSheetXml sheet = createAbstractSheet(IListe.get(ev).getSelectedRow());
-                    sheet.createDocumentAsynchronous();
-                    sheet.showPrintAndExportAsynchronous(true, false, true);
+                    createDocument(ev);
                 }
             }, this.generateHeader, "document.create") {
+
                 @Override
                 public boolean enabledFor(List<SQLRowAccessor> selection) {
                     return selection != null && selection.size() == 1;
@@ -382,6 +380,27 @@ public class MouseSheetXmlListeListener {
         }
 
         return l;
+    }
+
+    private void createDocument(ActionEvent ev) {
+        final AbstractSheetXml sheet = createAbstractSheet(IListe.get(ev).getSelectedRow());
+        if (sheet.getGeneratedFile().exists()) {
+            int a = JOptionPane.showConfirmDialog(null, "Voulez vous remplacer le document existant?", "Génération de documents", JOptionPane.YES_NO_OPTION);
+            if (a == JOptionPane.YES_OPTION) {
+                sheet.createDocumentAsynchronous();
+                sheet.showPrintAndExportAsynchronous(true, false, true);
+                return;
+            }
+        }
+
+        try {
+            sheet.getOrCreateDocumentFile();
+            sheet.showPrintAndExportAsynchronous(true, false, false);
+        } catch (Exception exn) {
+            // TODO Bloc catch auto-généré
+            exn.printStackTrace();
+        }
+
     }
 
     /**

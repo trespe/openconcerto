@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+
+	<TABLE name="CONTACT">
+		<FIELD name="ACTIF" label="Actif" titlelabel="Actif" />
+		<FIELD name="SUFFIXE" label="Suffixe" titlelabel="Suffixe" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="NOM_ASSISTANTE" label="Nom de l'assistante"
+			titlelabel="Nom de l'assistante" />
+		<FIELD name="EMAIL_ASSISTANTE" label="Email de l'assistante"
+			titlelabel="Email de l'assistante" />
+		<FIELD name="TEL_ASSISTANTE" label="Tél assistante" titlelabel="Tél assistante" />
+		<FIELD name="NOM_RESPONSABLE" label="Nom du responsable"
+			titlelabel="Nom du responsable" />
+	</TABLE>
+
+	<TABLE name="GROUPE_CLIENT">
+		<FIELD name="CODE" label="Code groupe" titlelabel="Code groupe" />
+		<FIELD name="NOM" label="Groupe" titlelabel="Groupe" />
+	</TABLE>
+
+	<TABLE name="AVOIR_CLIENT">
+		<FIELD name="ID_POLE_PRODUIT" label="Agence" titlelabel="Agence" />
+		<FIELD name="COMMERCIAL" label="Agence" titlelabel="Agence" />
+		<FIELD name="ID_ECHEANCIER_CCI" label="Echeancier CCI"
+			titlelabel="Echeancier CCI" />
+	</TABLE>
+
+	<TABLE name="TYPE_CLIENT">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+
+	<TABLE name="SAISIE_VENTE_FACTURE">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_POLE_PRODUIT" label="Agence" titlelabel="Agence" />
+		<FIELD name="ID_ECHEANCIER_CCI" label="Echeancier CCI"
+			titlelabel="Echeancier CCI" />
+	</TABLE>
+
+	<TABLE name="AFFAIRE">
+		<FIELD name="ID_POLE_PRODUIT" label="Agence" titlelabel="Agence" />
+		<FIELD name="MONTANT_TRAVAUX" label="Montant des travaux"
+			titlelabel="Montant des travaux" />
+		<FIELD name="DATE_ATTRIBUTION" label="Date d'attribution"
+			titlelabel="Date d'attribution" />
+	</TABLE>
+
+	<TABLE name="PROPOSITION">
+		<FIELD name="REVISION" label="N° de révision" titlelabel="N° de révision" />
+		<FIELD name="CONDITIONS_PAIEMENT" label="Conditions de paiement"
+			titlelabel="Conditions de paiement" />
+		<FIELD name="OBJET_PROPO" label="Objet" titlelabel="Objet" />
+		<FIELD name="ID_MODELE" label="Modèle" />
+		<FIELD name="NUMERO" label="N° proposition" titlelabel="N° proposition" />
+		<FIELD name="OBJET" label="Nom de l'affaire" titlelabel="Nom de l'affaire" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_CONTACT" label="A l'attention de" titlelabel="A l'attention de" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="TOTAL_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="ID_SECRETAIRE" label="Secrétaire" titlelabel="Secrétaire" />
+		<FIELD name="INFOS" label="Commentaires" titlelabel="Commentaires" />
+		<FIELD name="ID_ETAT_DEVIS" label="Etat" titlelabel="Etat" />
+		<FIELD name="INFOS_ETAT" label="Suite donnée à la proposition"
+			titlelabel="Suite donnée à la proposition" />
+		<FIELD name="DATE_CMD" label="Date de commande" titlelabel="Date de commande" />
+		<FIELD name="DATE_CONFIRM" label="Date de confirmation"
+			titlelabel="Date de confirmation" />
+		<FIELD name="CCI" label="CCI" titlelabel="CCI" />
+	</TABLE>
+
+	<TABLE name="AFFAIRE">
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="CCI" label="CCI" titlelabel="CCI" />
+		<FIELD name="ID_VERIFICATEUR" label="Chargé d'affaire"
+			titlelabel="Chargé d'affaire" />
+		<FIELD name="DATE_DEMARRAGE" label="Date de démarrage"
+			titlelabel="Date de démarrage" />
+		<FIELD name="MARCHE" label="Marché" titlelabel="Marché" />
+		<FIELD name="NUMERO" label="Numéro affaire" titlelabel="Numéro affaire" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_CONTACT_COM" label="Contact commercial"
+			titlelabel="Contact commercial" />
+		<FIELD name="ID_CONTACT_TECH" label="Contact technique"
+			titlelabel="Contact technique" />
+		<FIELD name="ID_PROPOSITION" label="Proposition" titlelabel="Proposition" />
+		<FIELD name="OBJET" label="Affaire" titlelabel="Affaire" />
+		<FIELD name="TOTAL_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="MONTANT_FACTURE" label="Montant HT facturé"
+			titlelabel="Montant HT facturé" />
+		<FIELD name="REFERENCE" label="Nos références" titlelabel="Nos références" />
+		<FIELD name="SITUATION_ADMIN" label="Situation administrative"
+			titlelabel="Situation administrative" />
+		<FIELD name="REFERENCE_CLIENT" label="Références client"
+			titlelabel="Références client" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="INFOS" label="Informations complémentaires"
+			titlelabel="Informations complémentaires" />
+		<FIELD name="INFOS_ETIQUETTE" label="Informations étiquette"
+			titlelabel="Informations étiquette" />
+		<FIELD name="MONTANT_REVISABLE" label="Révisable" titlelabel="Révisable" />
+		<FIELD name="ID_ADRESSE" label="Adresse de facturation"
+			titlelabel="Adresse de facturation" />
+		<FIELD name="ID_ADRESSE_COURRIER_1" label="Adresse de courrier 1"
+			titlelabel="Adresse de courrier 1" />
+		<FIELD name="ID_ADRESSE_COURRIER_2" label="Adresse de courrier 2"
+			titlelabel="Adresse de courrier 2" />
+		<FIELD name="ID_ADRESSE_COURRIER_3" label="Adresse de courrier 3"
+			titlelabel="Adresse de courrier 3" />
+	</TABLE>
+
+</ROOT>

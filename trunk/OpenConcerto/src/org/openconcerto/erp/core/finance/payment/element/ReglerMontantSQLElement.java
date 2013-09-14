@@ -33,6 +33,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.warning.JLabelWarning;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.checks.ValidState;
 
@@ -222,38 +223,37 @@ public class ReglerMontantSQLElement extends ComptaSQLConfElement {
             public int insert(SQLRow order) {
 
                 int id = super.insert(order);
+                try {
+                    // Génération des ecritures du reglement
+                    System.out.println("Génération des ecritures du reglement");
+                    new GenerationReglementAchat(id);
 
-                // Génération des ecritures du reglement
-                System.out.println("Génération des ecritures du reglement");
-                new GenerationReglementAchat(id);
+                    SQLTable tableEch = getTable().getBase().getTable("ECHEANCE_FOURNISSEUR");
 
-                SQLTable tableEch = getTable().getBase().getTable("ECHEANCE_FOURNISSEUR");
+                    SQLRow row = ReglerMontantSQLElement.this.getTable().getRow(id);
 
-                SQLRow row = ReglerMontantSQLElement.this.getTable().getRow(id);
+                    int idEchFourn = row.getInt("ID_ECHEANCE_FOURNISSEUR");
+                    System.out.println("ID ECHEANCE FOURNISSEUR" + idEchFourn);
+                    if (idEchFourn > 1) {
+                        SQLRow rowEch = tableEch.getRow(idEchFourn);
 
-                int idEchFourn = row.getInt("ID_ECHEANCE_FOURNISSEUR");
-                System.out.println("ID ECHEANCE FOURNISSEUR" + idEchFourn);
-                if (idEchFourn > 1) {
-                    SQLRow rowEch = tableEch.getRow(idEchFourn);
+                        // Mise a jour du montant de l'echeance
+                        System.out.println("Mise à jour du montant de l'échéance");
+                        long montant = ((Long) row.getObject("MONTANT")).longValue();
 
-                    // Mise a jour du montant de l'echeance
-                    System.out.println("Mise à jour du montant de l'échéance");
-                    long montant = ((Long) row.getObject("MONTANT")).longValue();
+                        SQLRowValues rowVals = rowEch.createEmptyUpdateRow();
 
-                    SQLRowValues rowVals = rowEch.createEmptyUpdateRow();
+                        if (montant == ((Long) rowEch.getObject("MONTANT")).longValue()) {
+                            rowVals.put("REGLE", Boolean.TRUE);
+                        } else {
+                            rowVals.put("MONTANT", new Long(((Long) rowEch.getObject("MONTANT")).longValue() - montant));
+                        }
 
-                    if (montant == ((Long) rowEch.getObject("MONTANT")).longValue()) {
-                        rowVals.put("REGLE", Boolean.TRUE);
-                    } else {
-                        rowVals.put("MONTANT", new Long(((Long) rowEch.getObject("MONTANT")).longValue() - montant));
-                    }
-
-                    try {
                         rowVals.commit();
-                    } catch (SQLException e) {
 
-                        e.printStackTrace();
                     }
+                } catch (Exception e) {
+                    ExceptionHandler.handle("Erreur lors de la génération des ecritures du reglement", e);
                 }
                 return id;
             }

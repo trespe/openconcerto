@@ -26,6 +26,12 @@ public class AssociationAnalytiqueSQLElement extends ComptaSQLConfElement {
 
     public AssociationAnalytiqueSQLElement() {
         super("ASSOCIATION_ANALYTIQUE", "une association analytique", "associations analytiques");
+
+    }
+
+    @Override
+    protected void ffInited() {
+        super.ffInited();
         this.setAction("ID_ECRITURE", ReferenceAction.CASCADE);
         this.setAction("ID_SAISIE_KM_ELEMENT", ReferenceAction.CASCADE);
     }

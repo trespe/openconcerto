@@ -77,7 +77,7 @@ public class OOXMLElement {
 
             final List<Element> eltFields = this.elt.getChildren("field");
 
-            if (eltFields != null) {
+            if (eltFields != null && !eltFields.isEmpty()) {
                 if (eltFields.size() > 1) {
                     String result = "";
                     for (Element eltField : eltFields) {

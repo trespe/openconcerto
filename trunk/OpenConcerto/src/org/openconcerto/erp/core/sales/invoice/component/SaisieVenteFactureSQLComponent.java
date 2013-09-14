@@ -51,7 +51,6 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.SQLPreferences;
-import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.ISQLElementWithCodeSelector;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
@@ -59,6 +58,7 @@ import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
@@ -105,7 +105,6 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
     private SQLTable tableClient = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("CLIENT");
     private final SQLElement client = Configuration.getInstance().getDirectory().getElement(this.tableClient);
     private JUniqueTextField textNumeroUnique;
-    private JTextField textSource, textIdSource;
     private ElementComboBox comboClient, comboAdresse;
     private ISQLCompteSelector compteSel;
     private final SQLTable tableNum = this.factureElt.getTable().getBase().getTable("NUMEROTATION_AUTO");
@@ -185,8 +184,6 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
 
         final ComptaPropsConfiguration comptaPropsConfiguration = ((ComptaPropsConfiguration) Configuration.getInstance());
 
-        this.textSource = new JTextField();
-        this.textIdSource = new JTextField();
         this.textAvoirTTC = new DeviseField();
 
         // Champ Module
@@ -228,6 +225,32 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         c.weightx = 1;
         c.fill = GridBagConstraints.NONE;
         final JDate dateSaisie = new JDate(true);
+
+        // listener permettant la mise à jour du numéro de facture en fonction de la date
+        // sélectionnée
+        dateSaisie.addValueListener(new PropertyChangeListener() {
+
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if (!isFilling() && dateSaisie.getValue() != null) {
+
+                    final String nextNumero = NumerotationAutoSQLElement.getNextNumero(SaisieVenteFactureSQLElement.class, dateSaisie.getValue());
+
+                    if (textNumeroUnique.getText().trim().length() > 0 && !nextNumero.equalsIgnoreCase(textNumeroUnique.getText())) {
+
+                        int answer = JOptionPane.showConfirmDialog(SaisieVenteFactureSQLComponent.this, "Voulez vous actualiser le numéro de la facture?", "Changement du numéro de facture",
+                                JOptionPane.YES_NO_OPTION);
+                        if (answer == JOptionPane.NO_OPTION) {
+                            return;
+                        }
+                    }
+
+                    textNumeroUnique.setText(nextNumero);
+
+                }
+
+            }
+        });
         this.add(dateSaisie, c);
 
         // Ligne 2 : reference
@@ -431,11 +454,12 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             c.weightx = 1;
             this.add(boxTarif, c);
             this.addView(boxTarif, "ID_TARIF");
-            boxTarif.addValueListener(new PropertyChangeListener() {
+            boxTarif.addModelListener("wantedID", new PropertyChangeListener() {
 
                 @Override
                 public void propertyChange(PropertyChangeEvent evt) {
-                    tableFacture.setTarif(boxTarif.getSelectedRow(), false);
+                    SQLRow selectedRow = boxTarif.getRequest().getPrimaryTable().getRow(boxTarif.getWantedID());
+                    tableFacture.setTarif(selectedRow, false);
                 }
             });
         }
@@ -597,9 +621,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         c.anchor = GridBagConstraints.NORTHEAST;
         this.add(this.panelOO, c);
 
-        this.addSQLObject(this.textSource, "SOURCE");
         this.addSQLObject(this.textAvoirTTC, "T_AVOIR_TTC");
-        this.addSQLObject(this.textIdSource, "IDSOURCE");
 
         this.addRequiredSQLObject(dateSaisie, "DATE");
         this.addRequiredSQLObject(this.comboClient, "ID_CLIENT");
@@ -663,7 +685,6 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         this.changeClientListener = new PropertyChangeListener() {
 
             public void propertyChange(PropertyChangeEvent evt) {
-                // compteSel.removeValueListener(changeCompteListener);
 
                 if (SaisieVenteFactureSQLComponent.this.comboClient.getValue() != null) {
                     Integer id = SaisieVenteFactureSQLComponent.this.comboClient.getValue();
@@ -698,7 +719,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
                     }
                     SaisieVenteFactureSQLComponent.this.previousClient = id;
                 }
-                // compteSel.addValueListener(changeCompteListener);
+
             }
         };
 
@@ -754,13 +775,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
                         } else {
                             boxTarif.setValue(foreignRow.getID());
                         }
-                        // if (foreignRow.isUndefined() &&
-                        // !row.getForeignRow("ID_DEVISE").isUndefined()) {
-                        // SQLRowValues rowValsD = new SQLRowValues(foreignRow.getTable());
-                        // rowValsD.put("ID_DEVISE", row.getObject("ID_DEVISE"));
-                        // foreignRow = rowValsD;
-                        //
-                        // }
+
                     }
 
                     int idCpt = row.getInt("ID_COMPTE_PCE");
@@ -822,7 +837,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
     }
 
     private void refreshText() {
-        Number n = (Number) this.fieldTTC.getUncheckedValue();
+        Number n = this.fieldTTC.getValue();
         if (this.selAvoir.getSelectedId() > 1) {
             SQLTable tableAvoir = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT").getTable();
             if (n != null) {
@@ -841,47 +856,26 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
                 long l = ttc - totalAvoir;
                 if (l < 0) {
                     l = 0;
-                    this.textAvoirTTC.setValue(GestionDevise.currencyToString(ttc));
+                    this.textAvoirTTC.setValue(ttc);
                 } else {
-                    this.textAvoirTTC.setValue(GestionDevise.currencyToString(totalAvoir));
+                    this.textAvoirTTC.setValue(totalAvoir);
                 }
-                this.textTotalAvoir.setValue(GestionDevise.currencyToString(l));
+                this.textTotalAvoir.setValue(l);
 
             } else {
-                this.textTotalAvoir.setValue(GestionDevise.currencyToString(0));
+                this.textTotalAvoir.setValue(0l);
             }
         } else {
             if (n != null) {
-                this.textTotalAvoir.setValue(GestionDevise.currencyToString(n.longValue()));
+                this.textTotalAvoir.setValue(n.longValue());
             } else {
-                this.textTotalAvoir.setValue(GestionDevise.currencyToString(0));
+                this.textTotalAvoir.setValue(0l);
             }
-            this.textAvoirTTC.setValue(GestionDevise.currencyToString(0));
+            this.textAvoirTTC.setValue(0l);
         }
     }
 
-    // @Override
-    // public synchronized boolean isValidated() {
-    // // TODO Auto-generated method stub
-    // boolean b = true;
-    // if (fieldTTC != null && fieldTTC.getUncheckedValue() != null) {
-    //
-    // long l = ((Long) fieldTTC.getUncheckedValue());
-    //
-    // if (this.selAvoir != null && !this.selAvoir.isEmpty() && this.selAvoir.getSelectedId() >
-    // 1) {
-    // SQLElement eltAvoir =
-    // Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
-    // SQLRow rowAvoir = eltAvoir.getTable().getRow(this.selAvoir.getSelectedId());
-    // l -= ((Number) rowAvoir.getObject("MONTANT_TTC")).longValue();
-    // }
-    // b = l >= 0;
-    // }
-    // return super.isValidated() && b;
-    // }
-
     public int insert(SQLRow order) {
-
         return commit(order);
     }
 
@@ -914,8 +908,8 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             super.select(r);
 
         if (r != null) {
-            this.tableFacture.getModel().clearRows();
-            this.tableFacture.insertFrom("ID_SAISIE_VENTE_FACTURE", r.getID());
+            // this.tableFacture.getModel().clearRows();
+            // this.tableFacture.insertFrom("ID_SAISIE_VENTE_FACTURE", r.getID());
             Boolean b = (Boolean) r.getObject("ACOMPTE");
             if (b != null) {
                 setAcompte(b);
@@ -957,155 +951,149 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         SQLRow rowFacture = null;
         SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
         if (this.textNumeroUnique.checkValidation()) {
+            try {
+                if (getMode() == Mode.INSERTION) {
+                    idSaisieVF = super.insert(order);
+                    rowFacture = getTable().getRow(idSaisieVF);
+                    // incrémentation du numéro auto
+                    if (NumerotationAutoSQLElement.getNextNumero(SaisieVenteFactureSQLElement.class, rowFacture.getDate("DATE").getTime()).equalsIgnoreCase(this.textNumeroUnique.getText().trim())) {
+                        SQLRowValues rowVals = new SQLRowValues(this.tableNum);
 
-            if (getMode() == Mode.INSERTION) {
-                idSaisieVF = super.insert(order);
-                rowFacture = getTable().getRow(idSaisieVF);
-                // incrémentation du numéro auto
-                if (NumerotationAutoSQLElement.getNextNumero(SaisieVenteFactureSQLElement.class, rowFacture.getDate("DATE").getTime()).equalsIgnoreCase(this.textNumeroUnique.getText().trim())) {
-                    SQLRowValues rowVals = new SQLRowValues(this.tableNum);
-
-                    String labelNumberFor = NumerotationAutoSQLElement.getLabelNumberFor(SaisieVenteFactureSQLElement.class);
-                    int val = this.tableNum.getRow(2).getInt(labelNumberFor);
-                    val++;
-                    rowVals.put(labelNumberFor, Integer.valueOf(val));
-
-                    try {
+                        String labelNumberFor = NumerotationAutoSQLElement.getLabelNumberFor(SaisieVenteFactureSQLElement.class);
+                        int val = this.tableNum.getRow(2).getInt(labelNumberFor);
+                        val++;
+                        rowVals.put(labelNumberFor, Integer.valueOf(val));
                         rowVals.update(2);
-                    } catch (SQLException e) {
-                        e.printStackTrace();
                     }
-                }
-            } else {
-                if (JOptionPane.showConfirmDialog(this, "Attention en modifiant cette facture, vous supprimerez les chéques et les échéances associés. Continuer?", "Modification de facture",
-                        JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
-                    SQLPreferences prefs = SQLPreferences.getMemCached(getTable().getDBRoot());
-                    if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
-                        // On efface les anciens mouvements de stocks
-                        SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
-                        sel.addSelect(eltMvtStock.getTable().getField("ID"));
-                        Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", getSelectedID());
-                        Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
-                        sel.setWhere(w.and(w2));
+                } else {
+                    if (JOptionPane.showConfirmDialog(this, "Attention en modifiant cette facture, vous supprimerez les chéques et les échéances associés. Continuer?", "Modification de facture",
+                            JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                        SQLPreferences prefs = SQLPreferences.getMemCached(getTable().getDBRoot());
+                        if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
+                            // On efface les anciens mouvements de stocks
+                            SQLSelect sel = new SQLSelect();
+                            sel.addSelect(eltMvtStock.getTable().getField("ID"));
+                            Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", getSelectedID());
+                            Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+                            sel.setWhere(w.and(w2));
 
-                        List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
-                        if (l != null) {
-                            for (int i = 0; i < l.size(); i++) {
-                                Object[] tmp = (Object[]) l.get(i);
-                                try {
-                                    eltMvtStock.archive(((Number) tmp[0]).intValue());
-                                } catch (SQLException e) {
-                                    e.printStackTrace();
+                            List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+                            if (l != null) {
+                                for (int i = 0; i < l.size(); i++) {
+                                    Object[] tmp = (Object[]) l.get(i);
+                                    try {
+                                        eltMvtStock.archive(((Number) tmp[0]).intValue());
+                                    } catch (SQLException e) {
+                                        e.printStackTrace();
+                                    }
                                 }
                             }
                         }
-                    }
-                    // On recupere l'ancien total HT
-                    rowFactureOld = this.getTable().getRow(getSelectedID());
-                    lFactureOld = ((Number) rowFactureOld.getObject("T_HT")).longValue();
+                        // On recupere l'ancien total HT
+                        rowFactureOld = this.getTable().getRow(getSelectedID());
+                        lFactureOld = ((Number) rowFactureOld.getObject("T_HT")).longValue();
 
-                    super.update();
+                        super.update();
 
-                    idSaisieVF = getSelectedID();
-                } else {
-                    // Annulation par l'utilisateur
-                    return idSaisieVF;
-                }
-            }
-
-            rowFacture = getTable().getRow(idSaisieVF);
-            final ComptaPropsConfiguration comptaPropsConfiguration = ((ComptaPropsConfiguration) Configuration.getInstance());
-
-            // Mise à jour des tables liées
-            this.tableFacture.updateField("ID_SAISIE_VENTE_FACTURE", idSaisieVF);
-
-
-            createDocument(rowFacture);
-
-            int idMvt = -1;
-            if (getMode() == Mode.MODIFICATION) {
-
-                idMvt = rowFacture.getInt("ID_MOUVEMENT");
-
-                // on supprime tout ce qui est lié à la facture
-                System.err.println("Archivage des fils");
-                EcritureSQLElement eltEcr = (EcritureSQLElement) Configuration.getInstance().getDirectory().getElement("ECRITURE");
-                eltEcr.archiveMouvementProfondeur(idMvt, false);
-            }
-
-            if (!this.checkPrevisionnelle.isSelected()) {
-                System.err.println("Regeneration des ecritures");
-                if (idMvt > 1) {
-                    new GenerationMvtSaisieVenteFacture(idSaisieVF, idMvt);
-                } else {
-                    new GenerationMvtSaisieVenteFacture(idSaisieVF);
-                }
-                System.err.println("Fin regeneration");
-
-                // Mise à jour des stocks
-
-                updateStock(idSaisieVF);
-
-                // On retire l'avoir
-                if (rowFactureOld != null && rowFactureOld.getInt("ID_AVOIR_CLIENT") > 1) {
-
-                    SQLRow rowAvoir = rowFactureOld.getForeignRow("ID_AVOIR_CLIENT");
-
-                    Long montantSolde = (Long) rowAvoir.getObject("MONTANT_SOLDE");
-                    Long avoirTTC = (Long) rowFactureOld.getObject("T_AVOIR_TTC");
-
-                    long montant = montantSolde - avoirTTC;
-                    if (montant < 0) {
-                        montant = 0;
-                    }
-
-                    SQLRowValues rowVals = rowAvoir.createEmptyUpdateRow();
-
-                    // Soldé
-                    rowVals.put("SOLDE", Boolean.FALSE);
-                    rowVals.put("MONTANT_SOLDE", montant);
-                    Long restant = (Long) rowAvoir.getObject("MONTANT_TTC") - montantSolde;
-                    rowVals.put("MONTANT_RESTANT", restant);
-                    try {
-                        rowVals.update();
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
-                }
-
-                final int idAvoir = rowFacture.getInt("ID_AVOIR_CLIENT");
-                // on solde l'avoir
-                if (idAvoir > 1) {
-
-                    SQLRow rowAvoir = rowFacture.getForeignRow("ID_AVOIR_CLIENT");
-
-                    Long montantTTC = (Long) rowAvoir.getObject("MONTANT_TTC");
-                    Long montantSolde = (Long) rowAvoir.getObject("MONTANT_SOLDE");
-                    Long factTTC = (Long) rowFacture.getObject("T_TTC");
-
-                    long restant = montantTTC - montantSolde;
-
-                    SQLRowValues rowVals = rowAvoir.createEmptyUpdateRow();
-                    final long l2 = factTTC - restant;
-                    // Soldé
-                    if (l2 >= 0) {
-                        rowVals.put("SOLDE", Boolean.TRUE);
-                        rowVals.put("MONTANT_SOLDE", montantTTC);
-                        rowVals.put("MONTANT_RESTANT", 0);
+                        idSaisieVF = getSelectedID();
                     } else {
-                        // Il reste encore de l'argent pour l'avoir
-                        final long m = montantSolde + factTTC;
-                        rowVals.put("MONTANT_SOLDE", m);
-                        rowVals.put("MONTANT_RESTANT", montantTTC - m);
-                    }
-                    try {
-                        rowVals.update();
-                    } catch (SQLException e) {
-                        e.printStackTrace();
+                        // Annulation par l'utilisateur
+                        return idSaisieVF;
                     }
                 }
 
+                rowFacture = getTable().getRow(idSaisieVF);
+                final ComptaPropsConfiguration comptaPropsConfiguration = ((ComptaPropsConfiguration) Configuration.getInstance());
 
+                // Mise à jour des tables liées
+                this.tableFacture.updateField("ID_SAISIE_VENTE_FACTURE", idSaisieVF);
+
+
+                createDocument(rowFacture);
+
+                int idMvt = -1;
+                if (getMode() == Mode.MODIFICATION) {
+
+                    idMvt = rowFacture.getInt("ID_MOUVEMENT");
+
+                    // on supprime tout ce qui est lié à la facture
+                    System.err.println("Archivage des fils");
+                    EcritureSQLElement eltEcr = (EcritureSQLElement) Configuration.getInstance().getDirectory().getElement("ECRITURE");
+                    eltEcr.archiveMouvementProfondeur(idMvt, false);
+                }
+
+                if (!this.checkPrevisionnelle.isSelected()) {
+                    System.err.println("Regeneration des ecritures");
+                    if (idMvt > 1) {
+                        new GenerationMvtSaisieVenteFacture(idSaisieVF, idMvt);
+                    } else {
+                        new GenerationMvtSaisieVenteFacture(idSaisieVF);
+                    }
+                    System.err.println("Fin regeneration");
+
+                    // Mise à jour des stocks
+
+                    updateStock(idSaisieVF);
+
+                    // On retire l'avoir
+                    if (rowFactureOld != null && rowFactureOld.getInt("ID_AVOIR_CLIENT") > 1) {
+
+                        SQLRow rowAvoir = rowFactureOld.getForeignRow("ID_AVOIR_CLIENT");
+
+                        Long montantSolde = (Long) rowAvoir.getObject("MONTANT_SOLDE");
+                        Long avoirTTC = (Long) rowFactureOld.getObject("T_AVOIR_TTC");
+
+                        long montant = montantSolde - avoirTTC;
+                        if (montant < 0) {
+                            montant = 0;
+                        }
+
+                        SQLRowValues rowVals = rowAvoir.createEmptyUpdateRow();
+
+                        // Soldé
+                        rowVals.put("SOLDE", Boolean.FALSE);
+                        rowVals.put("MONTANT_SOLDE", montant);
+                        Long restant = (Long) rowAvoir.getObject("MONTANT_TTC") - montantSolde;
+                        rowVals.put("MONTANT_RESTANT", restant);
+
+                        rowVals.update();
+
+                    }
+
+                    final int idAvoir = rowFacture.getInt("ID_AVOIR_CLIENT");
+                    // on solde l'avoir
+                    if (idAvoir > 1) {
+
+                        SQLRow rowAvoir = rowFacture.getForeignRow("ID_AVOIR_CLIENT");
+
+                        Long montantTTC = (Long) rowAvoir.getObject("MONTANT_TTC");
+                        Long montantSolde = (Long) rowAvoir.getObject("MONTANT_SOLDE");
+                        Long factTTC = (Long) rowFacture.getObject("T_TTC");
+
+                        long restant = montantTTC - montantSolde;
+
+                        SQLRowValues rowVals = rowAvoir.createEmptyUpdateRow();
+                        final long l2 = factTTC - restant;
+                        // Soldé
+                        if (l2 >= 0) {
+                            rowVals.put("SOLDE", Boolean.TRUE);
+                            rowVals.put("MONTANT_SOLDE", montantTTC);
+                            rowVals.put("MONTANT_RESTANT", 0);
+                        } else {
+                            // Il reste encore de l'argent pour l'avoir
+                            final long m = montantSolde + factTTC;
+                            rowVals.put("MONTANT_SOLDE", m);
+                            rowVals.put("MONTANT_RESTANT", montantTTC - m);
+                        }
+
+                        rowVals.update();
+
+                    }
+
+
+                }
+            } catch (Exception e) {
+                ExceptionHandler.handle("", e);
             }
         } else {
             ExceptionHandler.handle("Impossible d'ajouter, numéro de facture existant.");
@@ -1440,9 +1428,6 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
      * @param b
      */
     public void setAcompte(boolean b) {
-
-        // boolean bOld = this.checkAcompte.isSelected();
-        // System.err.println("---> Set acompte " + b + " Old Value " + bOld);
         this.checkAcompte.setSelected(b);
         this.checkAcompte.firePropertyChange("ValueChanged", !b, b);
     }
@@ -1461,8 +1446,10 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
 
     /**
      * Mise à jour des stocks pour chaque article composant la facture
+     * 
+     * @throws SQLException
      */
-    private void updateStock(int id) {
+    private void updateStock(int id) throws SQLException {
 
         SQLPreferences prefs = SQLPreferences.getMemCached(getTable().getDBRoot());
         if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
@@ -1478,4 +1465,10 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
 
         }
     }
+
+    @Override
+    protected RowValuesTable getRowValuesTable() {
+        return this.tableFacture.getRowValuesTable();
+    }
+
 }

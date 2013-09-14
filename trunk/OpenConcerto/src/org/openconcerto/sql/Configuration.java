@@ -76,12 +76,23 @@ public abstract class Configuration {
 
     public abstract File getWD();
 
-    public String getAppName() {
-        return "unnamed application";
-    }
+    // abstract :
+    // - we can't return a default name as we don't know how to localize it
+    // - avoid that 2 different application share the same name (and perhaps configuration)
+    public abstract String getAppName();
 
+    /**
+     * A string that should be unique to an application and this configuration. E.g. allow to store
+     * different settings for different uses of a same application.
+     * 
+     * @return a string beginning with {@link #getAppName()}, <code>null</code> if appName is
+     *         <code>null</code> or empty.
+     */
     public final String getAppID() {
-        return this.getAppName() + getAppIDSuffix();
+        final String appName = this.getAppName();
+        if (appName == null || appName.length() == 0)
+            return null;
+        return appName + getAppIDSuffix();
     }
 
     protected String getAppIDSuffix() {

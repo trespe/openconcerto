@@ -68,12 +68,19 @@ public class EmptyObjFromVO<V> implements EmptyObj {
         });
     }
 
+    @Override
     public final boolean isEmpty() {
         return this.testEmptiness.evaluateChecked(this.vo.getValue());
     }
 
+    @Override
     public void addEmptyListener(EmptyListener l) {
         this.supp.addEmptyListener(l);
+    }
+
+    @Override
+    public void removeEmptyListener(EmptyListener l) {
+        this.supp.removeEmptyListener(l);
     }
 
     private void valueChanged() {

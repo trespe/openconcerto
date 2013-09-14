@@ -13,13 +13,9 @@
  
  package org.openconcerto.erp.core.sales.order.element;
 
-import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
-import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.order.component.CommandeClientSQLComponent;
-import org.openconcerto.erp.core.sales.order.ui.CommandeClientRenderer;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
-import org.openconcerto.erp.core.sales.shipment.component.BonDeLivraisonSQLComponent;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
@@ -29,11 +25,8 @@ import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.view.EditFrame;
-import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.utils.CollectionMap;
-import org.openconcerto.utils.cc.IClosure;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -41,10 +34,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-
-import javax.swing.ImageIcon;
-import javax.swing.JFrame;
-import javax.swing.table.TableColumn;
 
 public class CommandeClientSQLElement extends ComptaSQLConfElement {
 
@@ -58,7 +47,7 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
      * @see org.openconcerto.devis.BaseSQLElement#getComboFields()
      */
     protected List<String> getComboFields() {
-        List<String> l = new ArrayList<String>();
+        final List<String> l = new ArrayList<String>();
         l.add("NUMERO");
         return l;
     }
@@ -69,7 +58,7 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
      * @see org.openconcerto.devis.BaseSQLElement#getListFields()
      */
     protected List<String> getListFields() {
-        List<String> l = new ArrayList<String>();
+        final List<String> l = new ArrayList<String>();
         l.add("NUMERO");
         l.add("DATE");
         l.add("ID_CLIENT");
@@ -83,34 +72,30 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
 
     @Override
     protected Set<String> getChildren() {
-        Set<String> set = new HashSet<String>();
+        final Set<String> set = new HashSet<String>();
         set.add("COMMANDE_CLIENT_ELEMENT");
         return set;
     }
 
     @Override
     public Set<String> getReadOnlyFields() {
-        Set<String> s = new HashSet<String>();
+        final Set<String> s = new HashSet<String>();
         s.add("ID_DEVIS");
         return s;
     }
 
     @Override
     protected SQLTableModelSourceOnline createTableSource() {
-        SQLTableModelSourceOnline source = super.createTableSource();
-
-        final CommandeClientRenderer rend = CommandeClientRenderer.getInstance();
-
-        for (SQLTableModelColumn col : source.getColumns()) {
-            col.setColumnInstaller(new IClosure<TableColumn>() {
-
-                @Override
-                public void executeChecked(TableColumn input) {
-                    input.setCellRenderer(rend);
-
-                }
-            });
-        }
+        final SQLTableModelSourceOnline source = super.createTableSource();
+        // TODO: refaire un renderer pour les commandes transférées en BL
+        // final CommandeClientRenderer rend = CommandeClientRenderer.getInstance();
+        // final SQLTableModelColumn col = source.getColumn(getTable().getField("T_HT"));
+        // col.setColumnInstaller(new IClosure<TableColumn>() {
+        // @Override
+        // public void executeChecked(TableColumn input) {
+        // input.setCellRenderer(rend);
+        // }
+        // });
         return source;
     }
 
@@ -124,67 +109,12 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
     }
 
     /**
-     * Transfert d'un commande en BL
-     * 
-     * @param commandeID
-     */
-    public void transfertBonLivraison(int commandeID) {
-
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement("BON_DE_LIVRAISON");
-        EditFrame editBonFrame = new EditFrame(elt);
-        editBonFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-
-        BonDeLivraisonSQLComponent comp = (BonDeLivraisonSQLComponent) editBonFrame.getSQLComponent();
-
-        // comp.setDefaults();
-        comp.loadCommande(commandeID);
-
-        editBonFrame.pack();
-        editBonFrame.setState(JFrame.NORMAL);
-        editBonFrame.setVisible(true);
-    }
-
-    /**
-     * Transfert d'une commande en facture
-     * 
-     * @param commandeID
-     */
-    public void transfertFacture(int commandeID) {
-
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-        EditFrame editFactureFrame = new EditFrame(elt);
-        editFactureFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-
-        SaisieVenteFactureSQLComponent comp = (SaisieVenteFactureSQLComponent) editFactureFrame.getSQLComponent();
-
-        // comp.setDefaults();
-        comp.loadCommande(commandeID);
-
-        editFactureFrame.pack();
-        editFactureFrame.setState(JFrame.NORMAL);
-        editFactureFrame.setVisible(true);
-    }
-
-    /**
      * Transfert d'une commande en commande fournisseur
      * 
      * @param commandeID
      */
     public void transfertCommande(int commandeID) {
 
-        // SQLElement elt = Configuration.getInstance().getDirectory().getElement("COMMANDE");
-        // EditFrame editFactureFrame = new EditFrame(elt);
-        // editFactureFrame.setIconImage(new
-        // ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-        //
-        // CommandeSQLComponent comp = (CommandeSQLComponent) editFactureFrame.getSQLComponent();
-        //
-        // // comp.setDefaults();
-        // comp.loadCommande(commandeID);
-        //
-        // editFactureFrame.pack();
-        // editFactureFrame.setState(JFrame.NORMAL);
-        // editFactureFrame.setVisible(true);
         SQLElement elt = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT_ELEMENT");
         SQLTable tableCmdElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT").getTable();
         SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
@@ -199,7 +129,7 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
                     rowArticle.put(field.getName(), sqlRow.getObject(field.getName()));
                 }
             }
-            // rowArticle.loadAllSafe(rowEltFact);
+
             int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
             SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
             SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
@@ -207,7 +137,6 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
             rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
             rowValsElt.put("QTE", sqlRow.getObject("QTE"));
             rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
-
             rowValsElt.put("T_PA_HT", ((BigDecimal) rowValsElt.getObject("PA_HT")).multiply(new BigDecimal(rowValsElt.getInt("QTE")), MathContext.DECIMAL128));
             rowValsElt.put("T_PA_TTC",
                     ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal((rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0)), MathContext.DECIMAL128));

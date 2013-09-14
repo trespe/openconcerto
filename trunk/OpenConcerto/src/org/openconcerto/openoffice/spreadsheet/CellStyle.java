@@ -42,6 +42,7 @@ import java.util.regex.Pattern;
 
 import org.jdom.Attribute;
 import org.jdom.Element;
+import org.jdom.Namespace;
 
 public class CellStyle extends StyleStyle {
 
@@ -124,7 +125,6 @@ public class CellStyle extends StyleStyle {
         return castedValue;
     }
 
-    private StyleTableCellProperties cellProps;
     private StyleTextProperties textProps;
     private StyleParagraphProperties pProps;
 
@@ -230,14 +230,26 @@ public class CellStyle extends StyleStyle {
         }
     }
 
+    @Deprecated
     public final Color getBackgroundColor() {
         return getTableCellProperties().getBackgroundColor();
     }
 
+    public final Color getBackgroundColor(final Cell<?> styledNode) {
+        return getTableCellProperties(styledNode).getBackgroundColor();
+    }
+
+    @Deprecated
     public final StyleTableCellProperties getTableCellProperties() {
-        if (this.cellProps == null)
-            this.cellProps = new StyleTableCellProperties(this);
-        return this.cellProps;
+        return this.getTableCellProperties(null);
+    }
+
+    // MAYBE add getWriteOnlyTableCellProperties() and enforce it in
+    // StyleProperties.getAttributeValue(). That way getTableCellProperties() can check for non null
+    // parameter.
+    public final StyleTableCellProperties getTableCellProperties(final Cell<?> styledNode) {
+        // no longer cache since the result depends on the passed node (a simple ICache is slower)
+        return new StyleTableCellProperties(this, styledNode);
     }
 
     public final StyleTextProperties getTextProperties() {
@@ -259,13 +271,52 @@ public class CellStyle extends StyleStyle {
      */
     public static class StyleTableCellProperties extends SideStyleProperties {
 
-        public StyleTableCellProperties(StyleStyle style) {
-            super(style, DESC.getFamily());
+        public <S extends StyleStyle> StyleTableCellProperties(S style, StyledNode<S, ?> styledNode) {
+            super(style, DESC.getFamily(), styledNode);
+        }
+
+        protected String getAttributeValueInAncestors(final Cell<?> cell, final TableCalcNode<?, ?> calcNode, String attrName, Namespace attrNS) {
+            final Element elem = calcNode.getElement();
+            final String cellStyleName = elem.getAttributeValue("default-cell-style-name", elem.getNamespace("table"));
+            if (cellStyleName == null) {
+                return null;
+            } else {
+                final CellStyle style = cell.getStyleDesc().findStyleForNode(calcNode.getODDocument().getPackage(), elem.getDocument(), cell, cellStyleName);
+                return this.getAttributeValueInAncestors(style, true, attrName, attrNS);
+            }
+        }
+
+        @Override
+        protected String getAttributeValueNotInAncestors(String attrName, Namespace attrNS) {
+            String res = null;
+            // from §16.2 of OpenDocument v1.2 (LO ignores it)
+            if (Style.isStandardStyleResolution() && this.getEnclosingStyle() instanceof CellStyle && this.getStyledNode() instanceof Cell) {
+                if (!(this.getStyledNode() instanceof MutableCell))
+                    // MAYBE pass the column alongside the cell in the constructor (from
+                    // Table.getTableCellPropertiesAt())
+                    throw new UnsupportedOperationException("Missing column for " + getStyledNode());
+                final Cell<?> cell = (Cell<?>) this.getStyledNode();
+                res = this.getAttributeValueInAncestors(cell, cell.getRow(), attrName, attrNS);
+                if (res != null)
+                    return res;
+                res = this.getAttributeValueInAncestors(cell, cell.getRow().getSheet().getColumn(((MutableCell<?>) cell).getX()), attrName, attrNS);
+            }
+            return res;
+        }
+
+        @Override
+        protected boolean fallbackToDefaultStyle(String attrName, Namespace attrNS) {
+            // all properties that I've test are ignored by LO
+            return false;
         }
 
         public final int getRotationAngle() {
             final String s = this.getAttributeValue("rotation-angle", this.getElement().getNamespace("style"));
             return parseInt(s, 0);
+        }
+
+        public final void setRotationAngle(final Integer angle) {
+            this.setAttributeValue(angle, "rotation-angle");
         }
 
         public final boolean isContentPrinted() {
@@ -280,12 +331,21 @@ public class CellStyle extends StyleStyle {
             return parseBoolean(this.getAttributeValue("shrink-to-fit", this.getElement().getNamespace("style")), false);
         }
 
-        public final Integer getDecimalPlaces() {
-            return parseInteger(this.getAttributeValue("decimal-places", this.getElement().getNamespace("style")));
+        // *maximum* number of decimal places to display (number:decimal-places is the *exact*
+        // number to display)
+        public final int getDecimalPlaces() {
+            // see §20.250 style:decimal-places of OpenDocument v1.2
+            if (!getEnclosingStyle().getElement().getName().equals(StyleStyleDesc.ELEMENT_DEFAULT_NAME))
+                throw new IllegalStateException("Not on a default style : " + this.getEnclosingStyle());
+            return parseInt(this.getRawDecimalPlaces(), DataStyle.DEFAULT_DECIMAL_PLACES);
+        }
+
+        public final String getRawDecimalPlaces() {
+            return this.getAttributeValue("decimal-places", this.getElement().getNamespace("style"));
         }
 
         public final boolean isWrapping() {
-            final String val = this.getAttributeValue("wrap-option", this.getElement().getNamespace("fo"));
+            final String val = this.getAttributeValue("wrap-option", this.getNS("fo"));
             if (val == null || val.equals("no-wrap"))
                 return false;
             else if (val.equals("wrap"))
@@ -295,7 +355,7 @@ public class CellStyle extends StyleStyle {
         }
 
         public final void setWrapping(final boolean b) {
-            this.getElement().setAttribute("wrap-option", b ? "wrap" : "no-wrap", this.getElement().getNamespace("fo"));
+            this.setAttributeValue(b ? "wrap" : "no-wrap", "wrap-option", getNS("fo"));
         }
     }
 

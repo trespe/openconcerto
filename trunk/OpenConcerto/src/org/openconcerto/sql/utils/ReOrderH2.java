@@ -21,6 +21,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,11 +32,12 @@ final class ReOrderH2 extends ReOrder {
         super(t, spec);
     }
 
-    public List<String> getSQL(Connection conn) {
+    @Override
+    public List<String> getSQL(Connection conn, BigDecimal inc) {
         final SQLField oF = this.t.getOrderField();
 
         final List<String> res = new ArrayList<String>();
-        res.add("SET @inc to SELECT " + getInc() + ";");
+        res.add("SET @inc to SELECT " + inc.toPlainString() + ";");
         res.add(this.t.getBase().quote("UPDATE %f SET %n =  -%n " + this.getWhere(), this.t, oF, oF));
 
         final String alias = "T";
@@ -49,7 +51,7 @@ final class ReOrderH2 extends ReOrder {
         idsToReorder.addFrom(this.t, alias);
         idsToReorder.addSelect(tID);
         final Where updateNulls = this.isAll() ? new Where(tOrder, "is", (Object) null) : null;
-        final Where w = new Where(tOrder, "<=", this.getFirstToReorder().negate()).or(updateNulls);
+        final Where w = new Where(tOrder, this.isFirstToReorderInclusive() ? "<=" : "<", this.getFirstToReorder().negate()).or(updateNulls);
         idsToReorder.setWhere(w);
         idsToReorder.addFieldOrder(tOrder, Order.desc(), Order.nullsLast());
         idsToReorder.addFieldOrder(tID, Order.asc());

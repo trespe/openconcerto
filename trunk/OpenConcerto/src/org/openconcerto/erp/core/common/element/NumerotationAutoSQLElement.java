@@ -334,17 +334,31 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
 
     }
 
-    private static boolean isNumeroExist(SQLElement elt, int num) {
+    private static boolean isNumeroExist(SQLElement element, int num) {
         if (num < 0) {
             return true;
         }
-        SQLSelect sel = new SQLSelect(elt.getTable().getBase());
-        sel.addSelect(elt.getTable().getKey());
 
-        sel.setWhere(new Where(elt.getTable().getField("NUMERO"), "LIKE", getPattern(elt, num)));
-        System.err.println("NumerotationAutoSQLElement.isNumeroExist() " + sel.asString());
-        List<SQLRow> liste = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(elt.getTable(), true));
-        return liste.size() > 0;
+        String s = map.get(element.getClass());
+
+        for (Class<? extends SQLElement> e : map.keySet()) {
+            String prefix = map.get(e);
+            if (prefix.equals(s)) {
+                SQLSelect sel = new SQLSelect();
+
+                SQLElement elt = Configuration.getInstance().getDirectory().getElement(e);
+
+                sel.addSelect(elt.getTable().getKey());
+
+                sel.setWhere(new Where(elt.getTable().getField("NUMERO"), "LIKE", getPattern(elt, num)));
+                System.err.println("NumerotationAutoSQLElement.isNumeroExist() " + sel.asString());
+                List<SQLRow> liste = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(elt.getTable(), true));
+                if (liste.size() > 0) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     protected static final SQLTable TABLE_NUM = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("NUMEROTATION_AUTO");
@@ -444,24 +458,26 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
 
         SQLRow rowNum = TABLE_NUM.getRow(2);
         String s = map.get(elt.getClass());
-        int start = rowNum.getInt(s + START);
+        if (!rowNum.getTable().contains(s + AUTO_MONTH) || !rowNum.getBoolean(s + AUTO_MONTH)) {
+            int start = rowNum.getInt(s + START);
 
-        // si le numero precedent n'existe pas
-        if (!isNumeroExist(elt, start - 1)) {
+            // si le numero precedent n'existe pas
+            if (!isNumeroExist(elt, start - 1)) {
 
-            int i = 2;
+                int i = 2;
 
-            while (!isNumeroExist(elt, start - i)) {
-                i++;
-            }
+                while (!isNumeroExist(elt, start - i)) {
+                    i++;
+                }
 
-            if (start - i >= 0) {
-                SQLRowValues rowVals = rowNum.createEmptyUpdateRow();
-                rowVals.put(s + START, start - i + 1);
-                try {
-                    rowVals.update();
-                } catch (SQLException e) {
-                    e.printStackTrace();
+                if (start - i >= 0) {
+                    SQLRowValues rowVals = rowNum.createEmptyUpdateRow();
+                    rowVals.put(s + START, start - i + 1);
+                    try {
+                        rowVals.update();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         }

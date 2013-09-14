@@ -15,11 +15,11 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
+import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
-import org.openconcerto.erp.core.sales.credit.component.AvoirClientSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
@@ -47,11 +47,11 @@ import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
-import org.openconcerto.sql.view.EditPanelListener;
 import org.openconcerto.sql.view.EditPanel.EditMode;
+import org.openconcerto.sql.view.EditPanelListener;
 import org.openconcerto.sql.view.list.IListe;
-import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.CollectionMap;
@@ -105,16 +105,14 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
         List<RowAction> l = new ArrayList<RowAction>(5);
             PredicateRowAction actionBL = new PredicateRowAction(new AbstractAction() {
                 public void actionPerformed(ActionEvent e) {
-                    SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                    elt.transfertBL(IListe.get(e).getSelectedId());
+                    TransfertBaseSQLComponent.openTransfertFrame(IListe.get(e).copySelectedRows(), "BON_DE_LIVRAISON");
                 }
             }, false, "sales.invoice.create.delivery");
             actionBL.setPredicate(IListeEvent.getSingleSelectionPredicate());
             l.add(actionBL);
         PredicateRowAction actionAvoir = new PredicateRowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                SaisieVenteFactureSQLElement elt = (SaisieVenteFactureSQLElement) Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
-                elt.transfertAvoir(IListe.get(e).getSelectedId());
+                TransfertBaseSQLComponent.openTransfertFrame(IListe.get(e).copySelectedRows(), "AVOIR_CLIENT");
             }
         }, false, "sales.invoice.create.credit");
         actionAvoir.setPredicate(IListeEvent.getSingleSelectionPredicate());
@@ -162,6 +160,13 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
         getRowActions().addAll(mouseSheetXmlListeListener.getRowActions());
         // this.frame.getPanel().getListe().addRowActions(mouseListener.getRowActions());
 
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        CollectionMap<String, String> map = new CollectionMap<String, String>();
+        map.put(null, "NUMERO");
+        return map;
     }
 
     protected List<String> getListFields() {
@@ -319,37 +324,10 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
     }
 
-    public void transfertAvoir(int idFacture) {
-        final SQLElement elt = Configuration.getInstance().getDirectory().getElement("AVOIR_CLIENT");
-        final EditFrame editAvoirFrame = new EditFrame(elt);
-        editAvoirFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-
-        final AvoirClientSQLComponent comp = (AvoirClientSQLComponent) editAvoirFrame.getSQLComponent();
-        final SQLInjector inject = SQLInjector.getInjector(this.getTable(), elt.getTable());
-        comp.select(inject.createRowValuesFrom(idFacture));
-        comp.loadFactureItem(idFacture);
-
-        editAvoirFrame.pack();
-        editAvoirFrame.setState(JFrame.NORMAL);
-        editAvoirFrame.setVisible(true);
-
-    }
-
+    /**
+     * Transfert en commande fournisseur
+     * */
     public void transfertCommande(int idFacture) {
-        // final SQLElement elt = Configuration.getInstance().getDirectory().getElement("COMMANDE");
-        // final EditFrame editAvoirFrame = new EditFrame(elt);
-        // editAvoirFrame.setIconImage(new
-        // ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-        //
-        // final CommandeSQLComponent comp = (CommandeSQLComponent)
-        // editAvoirFrame.getSQLComponent();
-        // final SQLInjector inject = SQLInjector.getInjector(this.getTable(), elt.getTable());
-        // comp.select(inject.createRowValuesFrom(idFacture));
-        // comp.loadFacture(idFacture);
-        //
-        // editAvoirFrame.pack();
-        // editAvoirFrame.setState(JFrame.NORMAL);
-        // editAvoirFrame.setVisible(true);
 
         SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
         SQLTable tableCmdElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT").getTable();
@@ -365,7 +343,7 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
                     rowArticle.put(field.getName(), sqlRow.getObject(field.getName()));
                 }
             }
-            // rowArticle.loadAllSafe(rowEltFact);
+
             int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
             SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
             SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);

@@ -13,8 +13,6 @@
  
  package org.openconcerto.ui.preferences;
 
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.Date;
 
 public class BackupProps extends AbstractProps {
@@ -53,17 +51,11 @@ public class BackupProps extends AbstractProps {
         setProperty("Destination", value);
     }
 
-    DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy 'à' HH:mm");
-
-    public String getLastBackup() {
-
-        String value = getProperty("LastBackup");
+    public Date getLastBackup() {
+        final String value = getProperty("LastBackup");
         if (value != null && value.trim().length() > 0) {
-            long l = Long.valueOf(value);
-            Date d = new Date(l);
-            return this.dateFormat.format(d);
+            return new Date(Long.valueOf(value));
         } else {
-
             return null;
         }
     }

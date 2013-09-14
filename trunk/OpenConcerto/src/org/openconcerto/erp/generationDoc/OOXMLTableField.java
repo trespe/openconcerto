@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.Nombre;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -181,7 +182,7 @@ public class OOXMLTableField extends OOXMLField {
     private String getMontantRevise(SQLRowAccessor row) {
         long indice0 = (Long) row.getObject("INDICE_0");
         long indiceN = (Long) row.getObject("INDICE_N");
-        long montantInit = (Long) row.getObject("MONTANT_INITIAL");
+        BigDecimal montantInit = row.getBigDecimal("MONTANT_INITIAL");
 
         if (indice0 == indiceN || indice0 == 0) {
             return null;

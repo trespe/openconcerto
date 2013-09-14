@@ -55,6 +55,8 @@ public class ModeDeReglementSQLElement extends ComptaSQLConfElement {
             protected void customizeToFetch(SQLRowValues graphToFetch) {
                 super.customizeToFetch(graphToFetch);
                 graphToFetch.put("AJOURS", null);
+                graphToFetch.put("COMPTANT", null);
+                graphToFetch.put("DATE_FACTURE", null);
                 graphToFetch.put("LENJOUR", null);
             }
         };
@@ -83,6 +85,7 @@ public class ModeDeReglementSQLElement extends ComptaSQLConfElement {
      * @param currentDate
      * @return la date d'échéance
      */
+
     public static final Date calculDate(int aJ, int nJ, Date currentDate) {
 
         if (aJ == 0 && nJ == 0) {

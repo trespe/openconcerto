@@ -37,6 +37,7 @@ public abstract class BaseRowItemView implements MutableRowItemView {
         this.fields = new ArrayList<SQLField>();
     }
 
+    @Override
     public final void init(String sqlName, Set<SQLField> fields) {
         this.sqlName = sqlName;
         this.fields.addAll(fields);
@@ -45,8 +46,6 @@ public abstract class BaseRowItemView implements MutableRowItemView {
 
         if (this.getComp() instanceof RowItemViewComponent)
             ((RowItemViewComponent) this.getComp()).init(this);
-
-        this.resetValue();
     }
 
     protected abstract void init();
@@ -55,17 +54,19 @@ public abstract class BaseRowItemView implements MutableRowItemView {
         return this.fields;
     }
 
+    @Override
     public String toString() {
         return this.getClass().getName() + " on " + this.getFields();
     }
 
     // *** by default, insert is the same as update
+    @Override
     public void insert(SQLRowValues vals) {
         this.update(vals);
     }
 
+    @Override
     public final String getSQLName() {
         return this.sqlName;
     }
-
 }

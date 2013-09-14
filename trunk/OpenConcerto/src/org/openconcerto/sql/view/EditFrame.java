@@ -13,6 +13,7 @@
  
  package org.openconcerto.sql.view;
 
+import static org.openconcerto.sql.TM.getTM;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -29,6 +30,7 @@ import java.awt.event.HierarchyListener;
 import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.io.File;
 
 import javax.swing.JFrame;
 import javax.swing.SwingUtilities;
@@ -37,6 +39,18 @@ import javax.swing.SwingUtilities;
  * @author ilm Created on 8 oct. 2003
  */
 public class EditFrame extends JFrame implements IListener, EditPanelListener, Documented {
+
+    static public final String getCreateMessage(SQLElement element) {
+        return getTM().trM("editFrame.create", "element", element.getName());
+    }
+
+    static public final String getReadOnlyMessage(SQLElement element) {
+        return getTM().trM("editFrame.look", "element", element.getName());
+    }
+
+    static public final String getModifyMessage(SQLElement element) {
+        return getTM().trM("editFrame.modify", "element", element.getName());
+    }
 
     public static final EditMode MODIFICATION = EditPanel.MODIFICATION;
     public static final EditMode CREATION = EditPanel.CREATION;
@@ -161,19 +175,21 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
 
         this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
-        new WindowStateManager(this, IListFrame.getConfigFile(this.getPanel().getSQLComponent(), this.getClass())).loadState();
+        final File configFile = IListFrame.getConfigFile(this.getPanel().getSQLComponent(), this.getClass());
+        if (configFile != null)
+            new WindowStateManager(this, configFile).loadState();
     }
 
     private final void initTitle(SQLElement element, EditMode mode) {
         switch (mode) {
         case CREATION:
-            this.setTitle("Créer " + element.getSingularName());
+            this.setTitle(getCreateMessage(element));
             break;
         case MODIFICATION:
-            this.setTitle("Modifier " + element.getSingularName());
+            this.setTitle(getModifyMessage(element));
             break;
         case READONLY:
-            this.setTitle("Détail d'" + element.getSingularName());
+            this.setTitle(getReadOnlyMessage(element));
             break;
         default:
             throw new IllegalArgumentException("unknown mode : " + mode);

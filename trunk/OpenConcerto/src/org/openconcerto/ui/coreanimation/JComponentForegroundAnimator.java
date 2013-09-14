@@ -18,27 +18,24 @@ import java.awt.Color;
 import javax.swing.JComponent;
 
 public class JComponentForegroundAnimator extends JComponentAnimator implements Pulse {
+
+    static private final Color[] COLORS = new Color[a.length];
+    static {
+        for (int i = 0; i < a.length; i++) {
+            COLORS[i] = new Color(a[i], a[i] / 2, 0);
+        }
+    }
+
     private final Color fgColor;
 
     public JComponentForegroundAnimator(final JComponent f) {
         super(f);
-        fgColor = f.getForeground();
+        this.fgColor = f.isForegroundSet() ? f.getForeground() : null;
     }
 
-    public void pulse() {
-        if (wait > 0) {
-            if (wait > 4) {
-                wait = -1;
-            }
-            wait++;
-        } else {
-            chk.setForeground(yellowFG[i]);
-            i++;
-            if (i >= JComponentBackGroundAnimator.a.length) {
-                i = 0;
-                wait++;
-            }
-        }
+    @Override
+    protected void setColor(int i) {
+        this.chk.setForeground(COLORS[i]);
     }
 
     @Override
@@ -46,7 +43,8 @@ public class JComponentForegroundAnimator extends JComponentAnimator implements 
         return "FGA:" + this.chk.getClass();
     }
 
+    @Override
     public void resetState() {
-        chk.setForeground(fgColor);
+        this.chk.setForeground(this.fgColor);
     }
 }
