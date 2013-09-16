@@ -8,47 +8,46 @@ public class LeadGroup extends Group {
     public LeadGroup() {
         super("customerrelationship.lead.default");
         final Group g = new Group("customerrelationship.lead.identifier");
-        g.add("NUMBER");
-        g.add("DATE");
-        g.add("COMPANY", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        g.addItem("NUMBER");
+        g.addItem("DATE");
+        g.addItem("COMPANY", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
         this.add(g);
 
-        final Group gContact = new Group("customerrelationship.lead.person");
-        gContact.add("NAME");
-        gContact.add("FIRSTNAME");
-        this.add(gContact, LayoutHints.DEFAULT_SEPARATED_GROUP_HINTS);
+        final Group gContact = new Group("customerrelationship.lead.person", LayoutHints.DEFAULT_SEPARATED_GROUP_HINTS);
+        gContact.addItem("NAME");
+        gContact.addItem("FIRSTNAME");
+        this.add(gContact);
 
-        final Group gCustomer = new Group("customerrelationship.lead.contact");
-        gCustomer.add("PHONE");
-        gCustomer.add("MOBILE");
-        gCustomer.add("FAX");
-        gCustomer.add("EMAIL", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
-        gCustomer.add("WEBSITE", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
-        this.add(gCustomer, LayoutHints.DEFAULT_SEPARATED_GROUP_HINTS);
+        final Group gCustomer = new Group("customerrelationship.lead.contact", LayoutHints.DEFAULT_SEPARATED_GROUP_HINTS);
+        gCustomer.addItem("PHONE");
+        gCustomer.addItem("MOBILE");
+        gCustomer.addItem("FAX");
+        gCustomer.addItem("EMAIL", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        gCustomer.addItem("WEBSITE", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
+        this.add(gCustomer);
 
-        final Group gAddress = new Group("customerrelationship.lead.address");
-        gAddress.add("ID_ADRESSE");
-        this.add(gAddress, LayoutHints.DEFAULT_SEPARATED_GROUP_HINTS);
+        final Group gAddress = new Group("customerrelationship.lead.address", LayoutHints.DEFAULT_SEPARATED_GROUP_HINTS);
+        gAddress.addItem("ID_ADRESSE");
+        this.add(gAddress);
 
         final Group gInfos = new Group("customerrelationship.lead.info");
-        gInfos.add("INFORMATION", new LayoutHints(true, true, true, true, true, true));
-        gInfos.add("INDUSTRY");
-        gInfos.add("REVENUE");
-        gInfos.add("EMPLOYEES");
+        gInfos.addItem("INFORMATION", new LayoutHints(true, true, true, true, true, true));
+        gInfos.addItem("INDUSTRY");
+        gInfos.addItem("REVENUE");
+        gInfos.addItem("EMPLOYEES");
         this.add(gInfos);
 
         final Group gState = new Group("customerrelationship.lead.state");
-        gState.add("RATING");
-        gState.add("SOURCE");
-        gState.add("STATUS");
-        gState.add("ID_COMMERCIAL");
+        gState.addItem("RATING");
+        gState.addItem("SOURCE");
+        gState.addItem("STATUS");
+        gState.addItem("ID_COMMERCIAL");
         this.add(gState);
 
     }
 
     public static void main(String[] args) {
         final LeadGroup leadGroup = new LeadGroup();
-        leadGroup.dumpTwoColumn();
-        leadGroup.dumpOneColumn();
+        System.out.println(leadGroup.printTwoColumns());
     }
 }

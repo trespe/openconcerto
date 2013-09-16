@@ -17,6 +17,7 @@ import org.openconcerto.erp.config.MainFrame;
 import org.openconcerto.erp.modules.AbstractModule;
 import org.openconcerto.erp.modules.ComponentsContext;
 import org.openconcerto.erp.modules.DBContext;
+import org.openconcerto.erp.modules.MenuContext;
 import org.openconcerto.erp.modules.ModuleFactory;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.modules.ModulePackager;
@@ -72,7 +73,11 @@ public final class Module extends AbstractModule {
 
     @Override
     protected void setupComponents(ComponentsContext ctxt) {
+        ctxt.addListAction("CLIENT", new CallActionFactory());
+    }
 
+    @Override
+    protected void setupMenu(MenuContext ctxt) {
         ctxt.addMenuItem(new SQLElementListAction(ctxt.getElement(TABLE_NAME)) {
 
             @Override
@@ -82,8 +87,6 @@ public final class Module extends AbstractModule {
             }
 
         }, MainFrame.LIST_MENU);
-        ctxt.addListAction("CLIENT", new CallActionFactory());
-
     }
 
     @Override
