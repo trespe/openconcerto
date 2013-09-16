@@ -1,0 +1,5 @@
+<translation lang="fr">
+	<action id="subscription.validate" label="Valider" />
+	<action id="subscription.modify" label="Modifier l'abonnement" />
+	<action id="subscription.check" label="Vérification des abonnements" />
+</translation>

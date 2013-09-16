@@ -1,0 +1,5 @@
+<translation lang="fr">
+	<action id="timetracking.customer.report.email.send" label="Envoyer les temps par mail" />
+	<action id="timetracking.task.create" label="Saisir un temps" />
+	<action id="timetracking.task.report.create" label="Reporting"/>
+</translation>
