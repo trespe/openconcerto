@@ -11,6 +11,7 @@ import org.openconcerto.erp.modules.AbstractModule;
 import org.openconcerto.erp.modules.AlterTableRestricted;
 import org.openconcerto.erp.modules.ComponentsContext;
 import org.openconcerto.erp.modules.DBContext;
+import org.openconcerto.erp.modules.MenuContext;
 import org.openconcerto.erp.modules.ModuleFactory;
 import org.openconcerto.erp.modules.ModulePreferencePanel;
 import org.openconcerto.erp.modules.ModulePreferencePanelDesc;
@@ -50,7 +51,7 @@ public final class ModuleCard extends AbstractModule {
     @Override
     protected void setupElements(SQLElementDirectory dir) {
         super.setupElements(dir);
-        final ComptaSQLConfElement fidCardElement = new ComptaSQLConfElement(TABLE_NAME, "une carte de fidélité", "cartes de fidélité") {
+        ComptaSQLConfElement fidCardElement = new ComptaSQLConfElement(TABLE_NAME) {
 
             @Override
             protected List<String> getListFields() {
@@ -75,7 +76,7 @@ public final class ModuleCard extends AbstractModule {
             }
 
             @Override
-            public SQLComponent createComponent() {
+            protected SQLComponent createComponent() {
                 return new UISQLComponent(this) {
                     @Override
                     protected void addViews() {
@@ -86,6 +87,7 @@ public final class ModuleCard extends AbstractModule {
                 };
             }
         };
+
         dir.addSQLElement(fidCardElement);
         final SQLTable clientT = fidCardElement.getTable().findReferentTable("CLIENT");
         // do not delete a client
@@ -95,6 +97,10 @@ public final class ModuleCard extends AbstractModule {
     @Override
     protected void setupComponents(ComponentsContext ctxt) {
         ctxt.putAdditionalField("CLIENT", "ID_FIDELITY_CARD");
+    }
+
+    @Override
+    protected void setupMenu(MenuContext ctxt) {
         ctxt.addMenuItem(ctxt.createListAction(TABLE_NAME), MainFrame.LIST_MENU);
     }
 

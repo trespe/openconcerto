@@ -241,7 +241,7 @@ public class BadgeListener implements Runnable {
         List<SQLRow> list = (List<SQLRow>) base.getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
 
         String motif = "";
-
+        Boolean onlyAdmin = ModuleManager.getInstance().getFactory("org.openconcerto.modules.badge").getSQLPreferences(tableAdh.getDBRoot()).getBoolean(Module.ENTREE_PREF, false);
         boolean allow = false;
         SQLRow adh = null;
         // Aucun adhérent assigné à cette carte
@@ -263,6 +263,11 @@ public class BadgeListener implements Runnable {
                 if (sqlRow.getBoolean("ADMIN")) {
                     allow = true;
                     motif = "Administrateur toujours autorisé";
+                    break;
+                }
+
+                if (onlyAdmin) {
+                    motif = "Seul les membres administrateurs sont autorisés!";
                     break;
                 }
 
