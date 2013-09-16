@@ -1,0 +1,4 @@
+<translations>
+	<element refid="org.openconcerto.modules.card/FIDELITY_CARD" nameClass="feminine" name="carte de fidélité"
+		namePlural="cartes de fidélité" />
+</translations>

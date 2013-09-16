@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
@@ -18,6 +19,7 @@ import javax.swing.JTable;
 import javax.swing.table.DefaultTableCellRenderer;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
+import org.openconcerto.erp.action.PreferencesAction;
 import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.config.MainFrame;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
@@ -25,10 +27,14 @@ import org.openconcerto.erp.core.common.ui.ListeViewPanel;
 import org.openconcerto.erp.modules.AbstractModule;
 import org.openconcerto.erp.modules.ComponentsContext;
 import org.openconcerto.erp.modules.DBContext;
+import org.openconcerto.erp.modules.MenuContext;
 import org.openconcerto.erp.modules.ModuleFactory;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.modules.ModulePackager;
+import org.openconcerto.erp.modules.ModulePreferencePanel;
+import org.openconcerto.erp.modules.ModulePreferencePanelDesc;
 import org.openconcerto.erp.modules.RuntimeModuleFactory;
+import org.openconcerto.erp.modules.ModulePreferencePanel.SQLPrefView;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
@@ -49,6 +55,7 @@ import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.PanelFrame;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.PrefType;
 import org.openconcerto.utils.cc.IClosure;
 
 public final class Module extends AbstractModule {
@@ -262,6 +269,11 @@ public final class Module extends AbstractModule {
                 return n.endsWith(".xls") || n.endsWith(".ods");
             }
         });
+
+    }
+
+    @Override
+    protected void setupMenu(MenuContext ctxt) {
         ctxt.addMenuItem(new CreateFrameAbstractAction("Liste des adhérents") {
 
             @Override
@@ -279,7 +291,7 @@ public final class Module extends AbstractModule {
                 return new IListFrame(getPanelEntree(false));
             }
         }, MainFrame.LIST_MENU);
-
+        ctxt.addMenuItem(new PreferencesAction(), MainFrame.FILE_MENU);
     }
 
     @Override
@@ -306,4 +318,23 @@ public final class Module extends AbstractModule {
         Gestion.main(args);
 
     }
+
+    public final static String ENTREE_PREF = "entreeAdmin";
+
+    @Override
+    public List<ModulePreferencePanelDesc> getPrefDescriptors() {
+        return Arrays.<ModulePreferencePanelDesc> asList(new ModulePreferencePanelDesc("Gestion des entrées") {
+            @Override
+            protected ModulePreferencePanel createPanel() {
+                return new ModulePreferencePanel("Gestion des entrées") {
+                    @Override
+                    protected void addViews() {
+
+                        this.addView(new SQLPrefView<Boolean>(PrefType.BOOLEAN_TYPE, "N'autoriser que les administrateurs à entrer ", ENTREE_PREF));
+                    }
+                };
+            }
+        }.setLocal(false).setKeywords("entrée"));
+    }
+
 }

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+	<TABLE name="CLIENT">
+		<FIELD name="ID_FIDELITY_CARD" label="Fidelity card" />
+	</TABLE>
+	<TABLE name="FIDELITY_CARD">
+		<FIELD name="POINTS" label="Points" />
+		<FIELD name="SERIAL" label="Serial number" />
+		<FIELD name="EXPIRATION_DATE" label="Expiration date" />
+	</TABLE>
+</ROOT>
