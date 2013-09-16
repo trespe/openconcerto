@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+
+
+
+	<TABLE name="TYPE_AFFAIRE">
+		<FIELD name="NOM" label="Type d'affaire" />
+	</TABLE>
+
+	<TABLE name="AFFAIRE">
+		<FIELD name="NUMERO" label="Numéro d'affaire" />
+		<FIELD name="ID_CLIENT" label="Client" />
+		<FIELD name="ID_DEVIS" label="Devis" />
+		<FIELD name="DATE" label="Date" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" />
+		<FIELD name="ID_ETAT_AFFAIRE" label="Etat de l'affaire" />
+		<FIELD name="ID_TYPE_AFFAIRE" label="Type d'affaire" />
+		<FIELD name="INFOS" label="Informations complémentaires" />
+	</TABLE>
+
+	<TABLE name="ETAT_AFFAIRE">
+		<FIELD name="NOM" label="Etat de l'affaire" />
+	</TABLE>
+
+	<TABLE name="DEVIS">
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+	</TABLE>
+	<TABLE name="SAISIE_VENTE_FACTURE">
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+	</TABLE>
+	<TABLE name="BON_DE_LIVRAISON">
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+	</TABLE>
+	<TABLE name="COMMANDE">
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+	</TABLE>
+	<TABLE name="COMMANDE_CLIENT">
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+	</TABLE>
+	<TABLE name="BON_RECEPTION">
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+	</TABLE>
+	<TABLE name="SAISIE_ACHAT">
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+	</TABLE>
+
+	<TABLE name="AVOIR_FOURNISSEUR">
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+	</TABLE>
+
+</ROOT>
