@@ -8,6 +8,7 @@ import org.openconcerto.erp.config.MainFrame;
 import org.openconcerto.erp.modules.AbstractModule;
 import org.openconcerto.erp.modules.ComponentsContext;
 import org.openconcerto.erp.modules.DBContext;
+import org.openconcerto.erp.modules.MenuContext;
 import org.openconcerto.erp.modules.ModuleFactory;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.modules.ModulePackager;
@@ -30,7 +31,7 @@ public final class Module extends AbstractModule {
     protected void install(DBContext ctxt) {
         super.install(ctxt);
         // TODO use version to upgrade
-        if (!ctxt.getTablesPreviouslyCreated().contains(TABLE_LEAD)) {
+        if (ctxt.getRoot().getTable(TABLE_LEAD) == null) {
             final SQLCreateTable createTable = ctxt.getCreateTable(TABLE_LEAD);
 
             createTable.addVarCharColumn("NUMBER", 20);
@@ -73,6 +74,11 @@ public final class Module extends AbstractModule {
 
     @Override
     protected void setupComponents(ComponentsContext ctxt) {
+
+    }
+
+    @Override
+    protected void setupMenu(MenuContext ctxt) {
         ctxt.addMenuItem(ctxt.createListAction(TABLE_LEAD), MainFrame.LIST_MENU);
     }
 
