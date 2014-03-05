@@ -44,10 +44,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.RandomAccess;
 import java.util.Set;
 import java.util.Stack;
-import java.util.Map.Entry;
 
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -75,7 +75,10 @@ public class XMLCodecUtils {
     private static PersistenceDelegate defaultPersistenceDelegate = new DefaultPersistenceDelegate();
     private static final Map<Class, PersistenceDelegate> persDelegates = new HashMap<Class, PersistenceDelegate>();
 
-    private static final ExceptionListener EXCEPTION_LISTENER = new ExceptionListener() {
+    /**
+     * Just throws an {@link IllegalStateException}.
+     */
+    public static final ExceptionListener EXCEPTION_LISTENER = new ExceptionListener() {
         @Override
         public void exceptionThrown(Exception e) {
             throw new IllegalStateException(e);

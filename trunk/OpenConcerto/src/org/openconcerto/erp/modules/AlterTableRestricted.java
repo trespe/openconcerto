@@ -22,6 +22,7 @@ import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.sql.utils.SQLCreateTableBase;
 import org.openconcerto.utils.CollectionUtils;
 
+import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -45,6 +46,10 @@ public final class AlterTableRestricted {
         this.alter = new AlterTable(this.table);
         this.addedColumns = new HashSet<String>();
         this.removedColumns = new HashSet<String>();
+    }
+
+    public final SQLTable getTable() {
+        return this.table;
     }
 
     final AlterTable getAlter() {
@@ -99,6 +104,28 @@ public final class AlterTableRestricted {
     public final AlterTable addIntegerColumn(String name, int defaultVal) {
         addCol(name);
         return this.alter.addIntegerColumn(name, defaultVal);
+    }
+
+    /**
+     * Adds a decimal column.
+     * 
+     * @param name the name of the column.
+     * @param precision the total number of digits.
+     * @param scale the number of digits after the decimal point.
+     * @param defaultVal the default value of the column, can be <code>null</code>, e.g. 3.14.
+     * @param nullable whether the column accepts NULL.
+     * @return this.
+     * @see SQLSyntax#getDecimal(int, int)
+     * @see SQLSyntax#getDecimalIntPart(int, int)
+     */
+    public final AlterTable addDecimalColumn(String name, int precision, int scale, BigDecimal defaultVal, boolean nullable) {
+        addCol(name);
+        return this.alter.addDecimalColumn(name, precision, scale, defaultVal, nullable);
+    }
+
+    public final AlterTable addBooleanColumn(String name, Boolean defaultVal, boolean nullable) {
+        addCol(name);
+        return this.alter.addBooleanColumn(name, defaultVal, nullable);
     }
 
     public AlterTable addForeignColumn(String fk, String table) {

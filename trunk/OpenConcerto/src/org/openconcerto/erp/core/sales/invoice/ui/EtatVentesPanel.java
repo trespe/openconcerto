@@ -20,13 +20,13 @@ import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.utils.Tuple2;
 
+import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.Date;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 import javax.swing.DefaultComboBoxModel;
 import javax.swing.JButton;
@@ -46,7 +46,7 @@ public class EtatVentesPanel extends JPanel implements ActionListener {
         super(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridwidth = GridBagConstraints.REMAINDER;
-        c.anchor = GridBagConstraints.CENTER;
+        c.anchor = GridBagConstraints.EAST;
         this.add(new JLabelBold("Etat des Ventes"), c);
 
         c.gridwidth = 1;
@@ -56,16 +56,21 @@ public class EtatVentesPanel extends JPanel implements ActionListener {
         // Période pédéfini
         final Map<String, Tuple2<Date, Date>> map = IListFilterDatePanel.getDefaultMap();
         if (map != null && map.keySet().size() > 0) {
-            DefaultComboBoxModel model = new DefaultComboBoxModel();
-            model.addElement("Tous");
+            final JPanel p = new JPanel();
+            p.setLayout(new FlowLayout(FlowLayout.CENTER, 0, 1));
+            final DefaultComboBoxModel model = new DefaultComboBoxModel();
             for (String s : map.keySet()) {
                 model.addElement(s);
             }
 
             final JComboBox combo = new JComboBox(model);
             c.weightx = 0;
-            this.add(combo, c);
-
+            c.gridwidth = 4;
+            p.add(new JLabel("Période "));
+            p.add(combo);
+            c.fill = GridBagConstraints.NONE;
+            this.add(p, c);
+            c.gridy++;
             combo.addActionListener(new ActionListener() {
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -74,19 +79,23 @@ public class EtatVentesPanel extends JPanel implements ActionListener {
                 }
             });
         }
+        c.gridwidth = 1;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel("Du"), c);
 
         c.gridx++;
-        this.add(new JLabel("du"), c);
-
-        c.gridx++;
-        this.du = new JDate(true);
+        c.weightx = 1;
+        this.du = new JDate(false);
         this.add(this.du, c);
 
         c.gridx++;
+        c.weightx = 0;
         this.add(new JLabel("au"), c);
 
         c.gridx++;
-        this.au = new JDate(true);
+        c.weightx = 1;
+        this.au = new JDate(false);
         this.add(this.au, c);
 
         c.gridy++;
@@ -97,8 +106,8 @@ public class EtatVentesPanel extends JPanel implements ActionListener {
         panelButton.add(this.buttonClose);
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.CENTER;
-        c.weightx = 0;
+        c.anchor = GridBagConstraints.SOUTHEAST;
+        c.weightx = 1;
         this.add(panelButton, c);
         this.buttonGen.addActionListener(this);
         this.buttonClose.addActionListener(this);
@@ -108,25 +117,27 @@ public class EtatVentesPanel extends JPanel implements ActionListener {
         if (t == null) {
             setPeriode(null, null);
         } else {
-
             setPeriode(t.get0(), t.get1());
         }
     }
 
     public void setDateDu(Date d) {
-        d.setHours(0);
-        d.setMinutes(0);
+        if (d != null) {
+            d.setHours(0);
+            d.setMinutes(0);
+        }
         this.du.setValue(d);
     }
 
     public void setDateAu(Date d) {
-        d.setHours(23);
-        d.setMinutes(59);
+        if (d != null) {
+            d.setHours(23);
+            d.setMinutes(59);
+        }
         this.au.setValue(d);
     }
 
     private void setPeriode(Date du, Date au) {
-
         setDateAu(au);
         setDateDu(du);
     }
@@ -134,8 +145,9 @@ public class EtatVentesPanel extends JPanel implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == this.buttonGen) {
-
-            EtatVentesXmlSheet sheet = new EtatVentesXmlSheet(this.du.getDate(), this.au.getDate());
+            final Date start = this.du.getDate();
+            final Date stop = this.au.getDate();
+            final EtatVentesXmlSheet sheet = new EtatVentesXmlSheet(start, stop);
             try {
                 // FIXME probleme de rendu avec le viewer
                 sheet.createDocumentAsynchronous().get();

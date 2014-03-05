@@ -115,18 +115,20 @@ public class Map2033A extends Thread {
         // S014=201...205+208+237+232
         long v014 = this.sommeCompte.sommeCompteFils("109", this.dateDebut, this.dateFin) + this.sommeCompte.sommeCompteFils("201", this.dateDebut, this.dateFin)
                 + this.sommeCompte.sommeCompteFils("203", this.dateDebut, this.dateFin) + this.sommeCompte.sommeCompteFils("232", this.dateDebut, this.dateFin)
-                + this.sommeCompte.sommeCompteFils("205", this.dateDebut, this.dateFin) + this.sommeCompte.sommeCompteFils("208", this.dateDebut, this.dateFin)
-                + this.sommeCompte.sommeCompteFils("237", this.dateDebut, this.dateFin);
+                + this.sommeCompte.sommeCompteFils("205", this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompte(2088, 2089, true, this.dateDebut, this.dateFin)
+                + this.sommeCompte.soldeCompte(2080, 2086, true, this.dateDebut, this.dateFin) + this.sommeCompte.sommeCompteFils("237", this.dateDebut, this.dateFin);
         this.m.put("ACTIF1.1", GestionDevise.currencyToString(v014, false));
 
         // 016 -SommeSolde( 280, 280* ) - SommeSolde(2905) - SommeSolde (2908)
         // RacineDap = "2800, 2801, 2803, 2805, 2808, 2908, 2905"
         // S016=-2801-2803-2805-2905-2808-2908-2932
+        // remove 26/11/13 present en case "012" - this.sommeCompte.sommeCompteFils("2807",
+        // this.dateDebut, this.dateFin)
         long v016 = -this.sommeCompte.sommeCompteFils("2801", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("2803", this.dateDebut, this.dateFin)
-                - this.sommeCompte.sommeCompteFils("2805", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("2807", this.dateDebut, this.dateFin)
-                - this.sommeCompte.sommeCompteFils("2808", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("2905", this.dateDebut, this.dateFin)
-                - this.sommeCompte.sommeCompteFils("2906", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("2907", this.dateDebut, this.dateFin)
-                - this.sommeCompte.sommeCompteFils("2908", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("2932", this.dateDebut, this.dateFin);
+                - this.sommeCompte.sommeCompteFils("2805", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("2808", this.dateDebut, this.dateFin)
+                - this.sommeCompte.sommeCompteFils("2905", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("2906", this.dateDebut, this.dateFin)
+                - this.sommeCompte.sommeCompteFils("2907", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("2908", this.dateDebut, this.dateFin)
+                - this.sommeCompte.sommeCompteFils("2932", this.dateDebut, this.dateFin);
 
         this.m.put("ACTIF2.1", GestionDevise.currencyToString(v016, false));
 

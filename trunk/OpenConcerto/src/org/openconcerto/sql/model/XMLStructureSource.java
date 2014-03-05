@@ -43,7 +43,7 @@ public class XMLStructureSource extends StructureSource<IOException> {
      * Date format used in xml files.
      */
     public static final DateFormat XMLDATE_FMT = new SimpleDateFormat("yyyyMMdd-HHmmss.SSSZ");
-    public static final String version = "20121123-1059";
+    public static final String version = "20140213-1231";
 
     private final Map<String, Element> xmlSchemas;
 

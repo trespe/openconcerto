@@ -99,7 +99,7 @@ public class ListeDesReferencesAction extends CreateFrameAbstractAction {
                 // TODO Auto-generated method stub
 
                 if (source == this.buttonEffacer) {
-                    SQLRow row = this.getListe().getSelectedRow();
+                    SQLRow row = this.getListe().fetchSelectedRow();
                     if (row != null && row.getID() > 1) {
 
                         final SQLTable table = row.getTable();

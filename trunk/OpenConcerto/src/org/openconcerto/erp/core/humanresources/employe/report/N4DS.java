@@ -14,7 +14,6 @@
  package org.openconcerto.erp.core.humanresources.employe.report;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
@@ -23,6 +22,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.utils.StringUtils;
 
 import java.io.File;
 import java.io.IOException;
@@ -33,7 +33,6 @@ import java.text.DecimalFormatSymbols;
 import java.text.Normalizer;
 import java.text.Normalizer.Form;
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
@@ -107,8 +106,7 @@ public class N4DS {
 
     private void writeS80(PrintStream stream, SQLRow rowSociete) throws IOException {
 
-        String siren = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(0, 9);
-        String nic = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(9);
+        final String nic = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
 
         // // SIREN
         // write("S80.G01.00.001.001", siren);
@@ -222,7 +220,7 @@ public class N4DS {
         // FIXME ne pas inclure les intérimaires
         SQLElement eltSalarie = this.conf.getDirectory().getElement("SALARIE");
         SQLElement eltInfos = this.conf.getDirectory().getElement("INFOS_SALARIE_PAYE");
-        SQLSelect sel = new SQLSelect(eltSalarie.getTable().getBase());
+        SQLSelect sel = new SQLSelect();
         sel.addSelect(eltSalarie.getTable().getKey());
         Date d2 = new Date(112, 11, 31);
         Where w = new Where(eltSalarie.getTable().getField("ID_INFOS_SALARIE_PAYE"), "=", eltInfos.getTable().getKey());
@@ -246,18 +244,18 @@ public class N4DS {
 
         // Siren
 
-        String siren = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(0, 9);
-        String nic = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(9);
+        String siren = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
+        String nic = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
         write("S20.G01.00.001", siren);
 
         // Raison sociale
         write("S20.G01.00.002", rowSociete.getString("NOM"));
 
         // FIXME Debut periode
-        write("S20.G01.00.003.001", "01012012");
+        write("S20.G01.00.003.001", "01012013");
 
         // FIXME Fin periode
-        write("S20.G01.00.003.002", "31122012");
+        write("S20.G01.00.003.002", "31122013");
 
         // Code nature
         write("S20.G01.00.004.001", "01");
@@ -327,8 +325,8 @@ public class N4DS {
 
         // Siren
 
-        String siren = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(0, 9);
-        String nic = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(9);
+        String siren = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
+        String nic = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
         write("S10.G01.00.001.001", siren);
 
         // NIC
@@ -396,7 +394,7 @@ public class N4DS {
         write("S10.G01.00.010", "02");
 
         // Norme utilisée
-        write("S10.G01.00.011", "V01X07");
+        write("S10.G01.00.011", "V01X08");
 
         // Code table char
         write("S10.G01.00.012", "01");

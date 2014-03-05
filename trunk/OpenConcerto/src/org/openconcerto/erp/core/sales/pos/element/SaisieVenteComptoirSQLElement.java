@@ -17,6 +17,7 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
+import org.openconcerto.erp.core.sales.product.element.UniteVenteArticleSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.erp.generationEcritures.GenerationMvtSaisieVenteComptoir;
 import org.openconcerto.erp.model.PrixTTC;
@@ -34,7 +35,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.ISQLElementWithCodeSelector;
-import org.openconcerto.sql.sqlobject.SQLTextCombo;
+import org.openconcerto.sql.sqlobject.SQLSearchableTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
@@ -65,8 +66,10 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -90,6 +93,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
         l.add("DATE");
         l.add("NOM");
         l.add("ID_CLIENT");
+        l.add("ID_MODE_REGLEMENT");
         l.add("MONTANT_HT");
         l.add("MONTANT_TTC");
         return l;
@@ -115,8 +119,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
      */
     public SQLComponent createComponent() {
         return new BaseSQLComponent(this) {
-
-            private SQLTextCombo textNom;
+            private final JCheckBox checkService = new JCheckBox("dont ");
+            private SQLSearchableTextCombo textNom;
             private DeviseField textMontantTTC;
             private DeviseField textMontantService;
             private ElementComboBox comboFournisseur;
@@ -142,7 +146,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 public void propertyChange(PropertyChangeEvent evt) {
 
-                    if ((nomArticle.getValidState().isValid()) && (!nomArticle.isEmpty())) {
+                    if ((nomArticle.getValidState().isValid()) && (!nomArticle.isEmpty()) && !isFilling()) {
                         int idArticle = nomArticle.getValue().intValue();
 
                         SQLTable tableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
@@ -195,7 +199,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.weightx = 0;
                 this.add(labelNom, c);
 
-                this.textNom = new SQLTextCombo();
+                this.textNom = new SQLSearchableTextCombo();
                 c.gridx++;
                 c.weightx = 1;
                 c.gridwidth = 2;
@@ -206,7 +210,9 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 this.dateSaisie = new JDate(true);
                 c.gridwidth = 1;
-                c.gridx += 2;
+                // c.gridx += 2;
+                c.gridx = 0;
+                c.gridy++;
                 c.weightx = 0;
                 labelDate.setHorizontalAlignment(SwingConstants.RIGHT);
                 this.add(labelDate, c);
@@ -225,12 +231,12 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 JLabel labelNomArticle = new JLabel(getLabelFor("ID_ARTICLE"));
                 c.weightx = 0;
                 labelNomArticle.setHorizontalAlignment(SwingConstants.RIGHT);
-                this.add(labelNomArticle, c);
+                // this.add(labelNomArticle, c);
 
                 c.gridx++;
                 c.weightx = 0;
                 c.gridwidth = GridBagConstraints.REMAINDER;
-                this.add(this.nomArticle, c);
+                // this.add(this.nomArticle, c);
 
                 this.nomArticle.addValueListener(this.propertyChangeListener);
 
@@ -270,12 +276,12 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.gridwidth = 1;
                 c.weightx = 0;
                 labelAvoirClient.setHorizontalAlignment(SwingConstants.RIGHT);
-                this.add(labelAvoirClient, c);
+                // this.add(labelAvoirClient, c);
 
                 c.gridx++;
                 c.gridwidth = GridBagConstraints.REMAINDER;
                 c.weightx = 0;
-                this.add(this.comboAvoir, c);
+                // this.add(this.comboAvoir, c);
 
                 /***********************************************************************************
                  * * MONTANT
@@ -291,66 +297,52 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 c.gridwidth = 1;
 
-                // Montant TTC
-                JLabel labelMontantTTC = new JLabel(getLabelFor("MONTANT_TTC"));
-                c.gridy++;
-                c.gridx = 0;
-                c.weightx = 0;
+                final JLabel labelMontantHT = new JLabel(getLabelFor("MONTANT_HT"));
+                labelMontantHT.setHorizontalAlignment(SwingConstants.RIGHT);
+                this.textMontantHT = new DeviseField();
+                this.textMontantHT.setEditable(false);
+                this.textMontantHT.setEnabled(false);
+                this.textMontantHT.setFocusable(false);
+
+                final JLabel labelMontantTTC = new JLabel(getLabelFor("MONTANT_TTC"));
                 labelMontantTTC.setHorizontalAlignment(SwingConstants.RIGHT);
-                this.add(labelMontantTTC, c);
-
                 this.textMontantTTC = new DeviseField();
-                c.gridx++;
-                c.weightx = 0;
-                this.add(this.textMontantTTC, c);
-
                 this.textMontantTTC.getDocument().addDocumentListener(this.docTTCListen);
-
-                // Choix TVA
-                c.gridx++;
-                c.weightx = 0;
-                c.gridwidth = 1;
-                this.comboTaxe = new ElementComboBox(false);
-
-                c.fill = GridBagConstraints.NONE;
-
-                this.add(this.comboTaxe, c);
 
                 // Montant HT
                 c.fill = GridBagConstraints.HORIZONTAL;
-                JLabel labelMontantHT = new JLabel(getLabelFor("MONTANT_HT"));
                 c.weightx = 0;
                 c.gridy++;
                 c.gridx = 0;
                 c.gridwidth = 1;
-                labelMontantHT.setHorizontalAlignment(SwingConstants.RIGHT);
                 this.add(labelMontantHT, c);
 
-                this.textMontantHT = new DeviseField();
                 c.gridx++;
                 c.weightx = 1;
                 this.add(this.textMontantHT, c);
 
-                this.textMontantHT.setEditable(false);
-                this.textMontantHT.setEnabled(false);
-
                 // Montant Service
-                final JCheckBox checkService = new JCheckBox("dont ");
-                c.gridx = 0;
-                c.gridy++;
+
+                c.gridx++;
+
                 c.weightx = 0;
                 this.add(checkService, c);
 
                 checkService.addActionListener(new ActionListener() {
 
                     public void actionPerformed(java.awt.event.ActionEvent e) {
+                        if (isFilling())
+                            return;
                         boolean b = checkService.isSelected();
                         textMontantService.setEditable(b);
                         textMontantService.setEnabled(b);
+                        textMontantService.setFocusable(b);
 
                         if (!b) {
                             textMontantService.setText("");
                             // montantServiceValide = true;
+                        } else {
+                            textMontantService.setText(textMontantHT.getText());
                         }
                     };
                 });
@@ -369,6 +361,35 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.gridwidth = GridBagConstraints.REMAINDER;
                 this.add(this.labelWarning, c);
                 this.labelWarning.setVisible(false);
+
+                // Choix TVA
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                c.gridwidth = 1;
+
+                final JLabel labelTaxe = new JLabel(getLabelFor("ID_TAXE"));
+                labelTaxe.setHorizontalAlignment(SwingUtilities.RIGHT);
+                this.add(labelTaxe, c);
+
+                c.gridx++;
+                this.comboTaxe = new ElementComboBox(false);
+
+                c.fill = GridBagConstraints.NONE;
+
+                this.add(this.comboTaxe, c);
+
+                c.fill = GridBagConstraints.HORIZONTAL;
+
+                // Montant TTC
+                c.gridy++;
+                c.gridx = 0;
+                c.weightx = 0;
+                this.add(labelMontantTTC, c);
+
+                c.gridx++;
+                c.weightx = 0;
+                this.add(this.textMontantTTC, c);
 
                 /***********************************************************************************
                  * * MODE DE REGLEMENT
@@ -405,7 +426,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.gridy++;
                 c.weightx = 0;
                 c.gridwidth = 2;
-                this.add(this.checkCommande, c);
+                // this.add(this.checkCommande, c);
 
                 this.checkCommande.addActionListener(new ActionListener() {
 
@@ -427,14 +448,15 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.gridy++;
                 c.weightx = 0;
                 c.gridwidth = 1;
-                this.add(labelFournisseur, c);
+                labelFournisseur.setHorizontalAlignment(SwingConstants.RIGHT);
+                // this.add(labelFournisseur, c);
 
                 this.comboFournisseur = new ElementComboBox();
 
                 c.gridx++;
                 c.weightx = 1;
                 c.gridwidth = 4;
-                this.add(this.comboFournisseur, c);
+                // this.add(this.comboFournisseur, c);
 
                 // Echeance
                 JLabel labelEcheance = new JLabel("Echeance");
@@ -443,12 +465,12 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.weightx = 0;
                 c.gridwidth = 1;
                 labelEcheance.setHorizontalAlignment(SwingConstants.RIGHT);
-                this.add(labelEcheance, c);
+                // this.add(labelEcheance, c);
 
                 c.gridx++;
                 c.weightx = 1;
                 this.textEcheance = new JTextField();
-                this.add(this.textEcheance, c);
+                // this.add(this.textEcheance, c);
                 this.textEcheance.addKeyListener(new KeyAdapter() {
 
                     public void keyReleased(KeyEvent e) {
@@ -458,7 +480,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 c.gridx++;
                 c.weightx = 0;
-                this.add(this.labelEcheancejours, c);
+                // this.add(this.labelEcheancejours, c);
 
                 /***********************************************************************************
                  * * INFORMATIONS COMPLEMENTAIRES
@@ -468,7 +490,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.gridy++;
                 sep = new TitledSeparator("Informations complémentaires");
                 c.insets = new Insets(10, 2, 1, 2);
-                this.add(sep, c);
+                // this.add(sep, c);
                 c.insets = new Insets(2, 2, 1, 2);
 
                 ITextArea textInfos = new ITextArea();
@@ -480,7 +502,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.weightx = 1;
                 c.weighty = 1;
                 c.fill = GridBagConstraints.BOTH;
-                this.add(textInfos, c);
+                // this.add(textInfos, c);
 
                 this.addSQLObject(this.textNom, "NOM");
                 this.addRequiredSQLObject(this.comboClient, "ID_CLIENT");
@@ -542,31 +564,46 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
             }
 
+            @Override
+            public Set<String> getPartialResetNames() {
+                Set<String> s = new HashSet<String>();
+                s.addAll(super.getPartialResetNames());
+                s.add("MONTANT_TTC");
+                s.add("NOM");
+                s.add("ID_AVOIR_CLIENT");
+                s.add("ID_ARTICLE");
+                s.add("INFOS");
+                return s;
+            }
+
             private void calculMontant() {
 
-                float taux;
-                // PrixHT pHT;
-                PrixTTC pTTC;
-                // taux de la TVA selectionnee
-                int idTaxe = this.comboTaxe.getSelectedId();
-                if (idTaxe > 1) {
-                    SQLRow ligneTaxe = getTable().getBase().getTable("TAXE").getRow(idTaxe);
-                    if (ligneTaxe != null) {
-                        taux = (ligneTaxe.getFloat("TAUX")) / 100.0F;
+                if (!isFilling()) {
 
-                        // calcul des montants HT ou TTC
-                        if (this.textMontantTTC.getText().trim().length() > 0) {
+                    float taux;
+                    // PrixHT pHT;
+                    PrixTTC pTTC;
+                    // taux de la TVA selectionnee
+                    int idTaxe = this.comboTaxe.getSelectedId();
+                    if (idTaxe > 1) {
+                        SQLRow ligneTaxe = getTable().getBase().getTable("TAXE").getRow(idTaxe);
+                        if (ligneTaxe != null) {
+                            taux = (ligneTaxe.getFloat("TAUX")) / 100.0F;
 
-                            if (this.textMontantTTC.getText().trim().equals("-")) {
-                                pTTC = new PrixTTC(0);
+                            // calcul des montants HT ou TTC
+                            if (this.textMontantTTC.getText().trim().length() > 0) {
+
+                                if (this.textMontantTTC.getText().trim().equals("-")) {
+                                    pTTC = new PrixTTC(0);
+                                } else {
+                                    pTTC = new PrixTTC(GestionDevise.parseLongCurrency(this.textMontantTTC.getText()));
+                                }
+
+                                // affichage
+                                updateTextHT(GestionDevise.currencyToString(pTTC.calculLongHT(taux)));
                             } else {
-                                pTTC = new PrixTTC(GestionDevise.parseLongCurrency(this.textMontantTTC.getText()));
+                                updateTextHT("");
                             }
-
-                            // affichage
-                            updateTextHT(GestionDevise.currencyToString(pTTC.calculLongHT(taux)));
-                        } else {
-                            updateTextHT("");
                         }
                     }
                 }
@@ -715,8 +752,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                     createArticle();
                 }
 
-                if (this.textNom.getTextComp().getText().trim().length() <= 0) {
-                    this.textNom.getTextComp().setText(this.nomArticle.getTextMain());
+                if (this.textNom.getValue() == null || this.textNom.getValue().trim().length() <= 0) {
+                    this.textNom.setValue(this.nomArticle.getTextMain());
                 }
                 final int id = super.insert(order);
                 // on verifie si le produit est à commander
@@ -724,34 +761,38 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                     createCommande(id);
                 }
 
-                Configuration.getInstance().getNonInteractiveSQLExecutor().execute(new Runnable() {
+                SQLRow rowArt = getTable().getRow(id).getForeignRow("ID_ARTICLE");
+                if (rowArt != null && !rowArt.isUndefined() && rowArt.getBoolean("GESTION_STOCK")) {
+                    Configuration.getInstance().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
-                    @Override
-                    public void run() {
+                        @Override
+                        public void run() {
 
-                        final SQLRow rowVC = getTable().getRow(id);
-                        // Mise à jour des stocks
-                        final SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-                        final SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
-                        rowVals.put("QTE", -1);
-                        rowVals.put("NOM", "Saisie vente comptoir");
-                        rowVals.put("IDSOURCE", id);
-                        rowVals.put("SOURCE", getTable().getName());
-                        rowVals.put("ID_ARTICLE", rowVC.getInt("ID_ARTICLE"));
-                        rowVals.put("DATE", rowVC.getObject("DATE"));
+                            final SQLRow rowVC = getTable().getRow(id);
+                            // Mise à jour des stocks
+                            final SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+                            final SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
+                            rowVals.put("QTE", -1);
+                            rowVals.put("NOM", "Saisie vente comptoir");
+                            rowVals.put("IDSOURCE", id);
+                            rowVals.put("SOURCE", getTable().getName());
+                            rowVals.put("ID_ARTICLE", rowVC.getInt("ID_ARTICLE"));
+                            rowVals.put("DATE", rowVC.getObject("DATE"));
 
-                        try {
-                            final SQLRow row = rowVals.insert();
-                            CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
-                                    Arrays.asList(row.getID()), false);
-                            MouvementStockSQLElement.createCommandeF(map, null);
-                            new GenerationMvtSaisieVenteComptoir(id);
-                        } catch (SQLException e) {
-                            ExceptionHandler.handle("Erreur lors de la création des mouvements", e);
+                            try {
+                                final SQLRow row = rowVals.insert();
+                                CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
+                                        Arrays.asList(row.getID()), false);
+                                MouvementStockSQLElement.createCommandeF(map, null);
+
+                            } catch (SQLException e) {
+                                ExceptionHandler.handle("Erreur lors de la création des mouvements de stock", e);
+                            }
                         }
-                    }
-                });
+                    });
 
+                }
+                new GenerationMvtSaisieVenteComptoir(id);
                 return id;
             }
 
@@ -790,12 +831,18 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             private void createArticle() {
                 System.out.println("Création de l'article");
 
-                SQLTable articleTable = getTable().getBase().getTable("ARTICLE");
                 String tNomArticle = this.nomArticle.getTextMain();
                 String codeArticle = this.nomArticle.getTextOpt();
+
+                if (tNomArticle.trim().length() == 0 && codeArticle.trim().length() == 0) {
+                    return;
+                }
+
+                SQLTable articleTable = getTable().getBase().getTable("ARTICLE");
+
                 int idTaxe = this.comboTaxe.getSelectedId();
-                BigDecimal prix = new BigDecimal(this.textMontantHT.getText());
-                BigDecimal prixTTC = new BigDecimal(this.textMontantTTC.getText());
+                BigDecimal prix = new BigDecimal(this.textMontantHT.getText().replaceAll(",", "."));
+                BigDecimal prixTTC = new BigDecimal(this.textMontantTTC.getText().replaceAll(",", "."));
 
                 if (tNomArticle.trim().length() == 0) {
                     tNomArticle = "Nom Indefini";
@@ -809,9 +856,13 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 vals.put("CODE", codeArticle);
                 vals.put("PA_HT", prix);
                 vals.put("PV_HT", prix);
+                vals.put("PRIX_METRIQUE_VT_1", prix);
+                vals.put("PRIX_METRIQUE_HA_1", prix);
                 vals.put("PV_TTC", prixTTC);
+                vals.put("ID_UNITE_VENTE", UniteVenteArticleSQLElement.A_LA_PIECE);
                 vals.put("ID_TAXE", new Integer(idTaxe));
                 vals.put("CREATION_AUTO", Boolean.TRUE);
+                vals.put("GESTION_STOCK", Boolean.FALSE);
 
                 try {
                     SQLRow row = vals.insert();
@@ -827,10 +878,11 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 if (JOptionPane.showConfirmDialog(this, "Attention en modifiant cette vente comptoir, vous supprimerez les chéques et les échéances associés. Continuer?",
                         "Modification de vente comptoir", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+
                     // on efface les mouvements de stocks associés
                     SQLRow row = getTable().getRow(this.getSelectedID());
                     SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-                    SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
+                    SQLSelect sel = new SQLSelect();
                     sel.addSelect(eltMvtStock.getTable().getField("ID"));
                     Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
                     Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
@@ -848,8 +900,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                         }
                     }
 
-                    if (this.textNom.getTextComp().getText().trim().length() <= 0) {
-                        this.textNom.getTextComp().setText(this.nomArticle.getTextMain());
+                    if (this.textNom.getValue().trim().length() <= 0) {
+                        this.textNom.setValue(this.nomArticle.getTextMain());
                     }
 
                     // On teste si l'article n'existe pas, on le crée
@@ -869,24 +921,36 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                     EcritureSQLElement eltEcr = (EcritureSQLElement) Configuration.getInstance().getDirectory().getElement("ECRITURE");
                     eltEcr.archiveMouvementProfondeur(idMvt, false);
 
-                    // Mise à jour des stocks
-                    SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
-                    rowVals.put("QTE", -1);
-                    rowVals.put("NOM", "Saisie vente comptoir");
-                    rowVals.put("IDSOURCE", getSelectedID());
-                    rowVals.put("SOURCE", getTable().getName());
-                    rowVals.put("ID_ARTICLE", row.getInt("ID_ARTICLE"));
-                    rowVals.put("DATE", row.getObject("DATE"));
-                    try {
-                        SQLRow rowNew = rowVals.insert();
-                        CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
-                                Arrays.asList(rowNew.getID()), false);
-                        MouvementStockSQLElement.createCommandeF(map, null);
-                    } catch (SQLException e) {
-                        e.printStackTrace();
-                    }
+                    SQLRow rowArt = row.getForeignRow("ID_ARTICLE");
+                    if (rowArt != null && !rowArt.isUndefined() && rowArt.getBoolean("GESTION_STOCK")) {
+                        // Mise à jour des stocks
+                        SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
+                        rowVals.put("QTE", -1);
+                        rowVals.put("NOM", "Saisie vente comptoir");
+                        rowVals.put("IDSOURCE", getSelectedID());
+                        rowVals.put("SOURCE", getTable().getName());
+                        rowVals.put("ID_ARTICLE", row.getInt("ID_ARTICLE"));
+                        rowVals.put("DATE", row.getObject("DATE"));
+                        try {
+                            SQLRow rowNew = rowVals.insert();
+                            final CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
+                                    Arrays.asList(rowNew.getID()), false);
+                            ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
-                    new GenerationMvtSaisieVenteComptoir(this.getSelectedID(), idMvt);
+                                @Override
+                                public void run() {
+                                    MouvementStockSQLElement.createCommandeF(map, null);
+                                }
+                            });
+                        } catch (SQLException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    if (idMvt > 1) {
+                        new GenerationMvtSaisieVenteComptoir(this.getSelectedID(), idMvt);
+                    } else {
+                        new GenerationMvtSaisieVenteComptoir(this.getSelectedID());
+                    }
                 }
             }
 
@@ -896,6 +960,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 this.nomArticle.removeValueListener(this.propertyChangeListener);
 
                 super.select(r);
+
+                checkService.setSelected(r != null && r.getLong("MONTANT_SERVICE") > 0);
 
                 this.textMontantTTC.getDocument().addDocumentListener(this.docTTCListen);
                 this.nomArticle.addValueListener(this.propertyChangeListener);

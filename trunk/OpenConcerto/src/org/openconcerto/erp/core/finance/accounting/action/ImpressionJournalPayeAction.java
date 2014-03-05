@@ -29,6 +29,9 @@ public class ImpressionJournalPayeAction extends CreateFrameAbstractAction {
 
     @Override
     public JFrame createFrame() {
-        return new PanelFrame(new ImpressionJournalPayePanel(), "Impression du journal de paye");
+        final PanelFrame panelFrame = new PanelFrame(new ImpressionJournalPayePanel(), "Impression du journal de paye");
+        panelFrame.pack();
+        panelFrame.setResizable(false);
+        return panelFrame;
     }
 }

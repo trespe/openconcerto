@@ -171,7 +171,7 @@ public class JXMonthView extends JComponent {
     private int _monthBoxHeight;
     private int _calendarWidth;
     private int _calendarHeight;
-    private int _firstDayOfWeek = Calendar.getInstance().getFirstDayOfWeek();
+    private int _firstDayOfWeek;
     private int _startX;
     private int _startY;
     private int _dropShadowMask = 0;
@@ -224,7 +224,7 @@ public class JXMonthView extends JComponent {
 
         // Set up calendar instance.
         _cal = Calendar.getInstance(getLocale());
-        _cal.setFirstDayOfWeek(_firstDayOfWeek);
+        _firstDayOfWeek = _cal.getFirstDayOfWeek();
         _cal.setMinimalDaysInFirstWeek(1);
 
         // Keep track of today.

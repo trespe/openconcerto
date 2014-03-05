@@ -14,13 +14,13 @@
  package org.openconcerto.erp.core.humanresources.employe.report;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.StringUtils;
 
 import java.io.IOException;
 import java.text.DateFormat;
@@ -43,8 +43,8 @@ public class N4DSSalarie {
     private ComptaPropsConfiguration conf = ((ComptaPropsConfiguration) Configuration.getInstance());
     private N4DS n4ds;
 
-    Date d = new Date(112, 0, 1);
-    Date d2 = new Date(112, 11, 31);
+    Date d = new Date(113, 0, 1);
+    Date d2 = new Date(113, 11, 31);
 
     DecimalFormat decimalFormat = new DecimalFormat("0.00");
 
@@ -192,14 +192,6 @@ public class N4DSSalarie {
     }
 
     private void writeS65(SQLRow rowSalarie) throws IOException {
-        final double baseBrute = getBaseBrute(rowSalarie);
-
-        if ((baseBrute / 12.0 / 151.6667) < (1.6 * 9.22)) {
-            double COEFF_FILLON = (0.281 / 0.6) * ((1.6 * 9.22 * 12 * 151.6667 / (rowSalarie.getForeign("ID_INFOS_SALARIE_PAYE").getFloat("SALAIRE_MOIS") * 12.0)) - 1.0);
-            n4ds.write("S65.G30.40.001", String.valueOf("9.22"));
-            n4ds.write("S65.G30.40.002", decimalFormat.format(baseBrute));
-            n4ds.write("S65.G30.40.003", decimalFormat.format(baseBrute * COEFF_FILLON));
-        }
 
         // Section prudhomme
         n4ds.write("S65.G40.05.009", "01");
@@ -230,8 +222,7 @@ public class N4DSSalarie {
         n4ds.write("S40.G01.00.004.001", "098");
 
         // Nic de l'établissment du d'affectation du salarié
-        String siren = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(0, 9);
-        String nic = rowSociete.getString("NUM_SIRET").replaceAll(" ", "").substring(9);
+        String nic = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
         n4ds.write("S40.G01.00.005", nic);
 
         /**
@@ -391,6 +382,21 @@ public class N4DSSalarie {
 
         // FIXME CRDS ...
         n4ds.write("S40.G30.04.002", decimalFormat.format(getCSG(rowSalarie)));
+
+        // final double baseBrute = getBaseBrute(rowSalarie);
+        if ((baseBrute) < (2.5 * 9.43 * 12 * 151.6667)) {
+
+            n4ds.write("S40.G30.40.001", String.valueOf("17162.64"));
+            n4ds.write("S40.G30.40.002", decimalFormat.format(baseBrute));
+        }
+        if ((baseBrute / 12.0 / 151.6667) < (1.6 * 9.43)) {
+            double COEFF_FILLON = (0.281 / 0.6) * ((1.6 * 9.43 * 12 * 151.6667 / (rowSalarie.getForeign("ID_INFOS_SALARIE_PAYE").getFloat("SALAIRE_MOIS") * 12.0)) - 1.0);
+            n4ds.write("S40.G30.40.003", decimalFormat.format(baseBrute * COEFF_FILLON));
+        } else {
+            n4ds.write("S40.G30.40.003", String.valueOf("0.00"));
+        }
+
+        n4ds.write("S40.G30.40.004", String.valueOf("0.00"));
 
         // FIXME base brute fiscale
         n4ds.write("S40.G40.00.035.001", decimalFormat.format(baseBrute));

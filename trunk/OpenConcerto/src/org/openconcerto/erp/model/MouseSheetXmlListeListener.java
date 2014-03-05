@@ -239,7 +239,7 @@ public class MouseSheetXmlListeListener {
                 RowAction action = new RowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent ev) {
                         System.err.println("");
-                        createAbstractSheet(IListe.get(ev).getSelectedRow()).openDocument(false);
+                        createAbstractSheet(IListe.get(ev).fetchSelectedRow()).openDocument(false);
                     }
 
                 }, this.previewHeader, "document.modify") {
@@ -258,7 +258,7 @@ public class MouseSheetXmlListeListener {
                 l.add(new RowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent ev) {
                         try {
-                            createAbstractSheet(IListe.get(ev).getSelectedRow()).showPreviewDocument();
+                            createAbstractSheet(IListe.get(ev).fetchSelectedRow()).showPreviewDocument();
                         } catch (Exception e) {
                             ExceptionHandler.handle("Impossilbe d'ouvrir le fichier", e);
                         }
@@ -288,7 +288,7 @@ public class MouseSheetXmlListeListener {
             if (this.showIsVisible) {
                 l.add(new RowAction(new AbstractAction() {
                     public void actionPerformed(ActionEvent ev) {
-                        createAbstractSheet(IListe.get(ev).getSelectedRow()).openDocument(false);
+                        createAbstractSheet(IListe.get(ev).fetchSelectedRow()).openDocument(false);
                     }
                 }, this.showHeader, "document.modify") {
                     @Override
@@ -303,7 +303,7 @@ public class MouseSheetXmlListeListener {
 
             l.add(new RowAction(new AbstractAction() {
                 public void actionPerformed(ActionEvent ev) {
-                    createAbstractSheet(IListe.get(ev).getSelectedRow()).fastPrintDocument();
+                    createAbstractSheet(IListe.get(ev).fetchSelectedRow()).fastPrintDocument();
                 }
 
             }, this.printHeader, "document.quickprint") {
@@ -316,7 +316,7 @@ public class MouseSheetXmlListeListener {
 
             l.add(new RowAction(new AbstractAction() {
                 public void actionPerformed(ActionEvent ev) {
-                    createAbstractSheet(IListe.get(ev).getSelectedRow()).printDocument();
+                    createAbstractSheet(IListe.get(ev).fetchSelectedRow()).printDocument();
                 }
             }, false, "document.print") {
                 @Override
@@ -343,7 +343,7 @@ public class MouseSheetXmlListeListener {
 
             l.add(new RowAction(new AbstractAction() {
                 public void actionPerformed(ActionEvent ev) {
-                    sendMail(createAbstractSheet(IListe.get(ev).getSelectedRow()), true);
+                    sendMail(createAbstractSheet(IListe.get(ev).fetchSelectedRow()), true);
                 }
             }, false, "document.pdf.send.email") {
                 @Override
@@ -354,7 +354,7 @@ public class MouseSheetXmlListeListener {
 
             l.add(new RowAction(new AbstractAction() {
                 public void actionPerformed(ActionEvent ev) {
-                    sendMail(createAbstractSheet(IListe.get(ev).getSelectedRow()), false);
+                    sendMail(createAbstractSheet(IListe.get(ev).fetchSelectedRow()), false);
                 }
             }, false, "document.send.email") {
                 @Override
@@ -383,7 +383,7 @@ public class MouseSheetXmlListeListener {
     }
 
     private void createDocument(ActionEvent ev) {
-        final AbstractSheetXml sheet = createAbstractSheet(IListe.get(ev).getSelectedRow());
+        final AbstractSheetXml sheet = createAbstractSheet(IListe.get(ev).fetchSelectedRow());
         if (sheet.getGeneratedFile().exists()) {
             int a = JOptionPane.showConfirmDialog(null, "Voulez vous remplacer le document existant?", "Génération de documents", JOptionPane.YES_NO_OPTION);
             if (a == JOptionPane.YES_OPTION) {
@@ -411,7 +411,7 @@ public class MouseSheetXmlListeListener {
     public RowAction getDefaultRowAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent ev) {
-                final AbstractSheetXml sheet = createAbstractSheet(IListe.get(ev).getSelectedRow().asRow());
+                final AbstractSheetXml sheet = createAbstractSheet(IListe.get(ev).fetchSelectedRow().asRow());
                 try {
                     sheet.getOrCreateDocumentFile();
                     sheet.showPrintAndExportAsynchronous(true, false, true);

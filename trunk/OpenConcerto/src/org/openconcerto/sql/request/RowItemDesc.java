@@ -50,4 +50,9 @@ public class RowItemDesc {
     public String getDocumentation() {
         return this.documentation;
     }
+
+    @Override
+    public String toString() {
+        return this.getClass().getSimpleName() + " " + (this.getLabel() == null ? "<empty>" : this.getLabel());
+    }
 }

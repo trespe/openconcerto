@@ -16,24 +16,21 @@
 import org.openconcerto.sql.changer.Changer;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 
 import java.util.EnumSet;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class FixSerial extends Changer<SQLTable> {
-
-    // nextVal('"SCHEMA"."seqName"'::regclass);
-    private final static Pattern seqPattern = Pattern.compile("nextval\\('(.+)'.*\\)");
 
     public FixSerial(DBSystemRoot b) {
         super(b);
     }
 
     protected EnumSet<SQLSystem> getCompatibleSystems() {
+        // not needed on H2, see Column.updateSequenceIfRequired()
         return EnumSet.of(SQLSystem.POSTGRESQL);
     }
 
@@ -49,9 +46,9 @@ public class FixSerial extends Changer<SQLTable> {
         if (!t.isRowable()) {
             getStream().println("not rowable");
         } else {
-            final String seqName = getPrimaryKeySeq(t);
+            final SQLName seqName = getPrimaryKeySeq(t);
             if (seqName != null) {
-                final SQLSelect sel = new SQLSelect(t.getBase(), true);
+                final SQLSelect sel = new SQLSelect(true);
                 sel.addSelect(t.getKey(), "max");
                 final Number maxID = (Number) this.getDS().executeScalar(sel.asString());
                 // begin at 1 if table is empty
@@ -59,7 +56,7 @@ public class FixSerial extends Changer<SQLTable> {
                 // for some reason this doesn't always work (maybe a cache pb ?):
                 // final String s = "SELECT setval('" + seqName + "', " + maxID + ")";
                 // while this does
-                final String s = "ALTER SEQUENCE " + seqName + " RESTART " + nextID;
+                final String s = "ALTER SEQUENCE " + seqName.quote() + " RESTART WITH " + nextID;
                 this.getDS().executeScalar(s);
                 getStream().println("done");
             } else
@@ -67,36 +64,16 @@ public class FixSerial extends Changer<SQLTable> {
         }
     }
 
-    static public String getPrimaryKeySeq(SQLTable t) throws IllegalStateException {
+    static public SQLName getPrimaryKeySeq(SQLTable t) throws IllegalStateException {
         if (!t.isRowable()) {
             return null;
         } else {
-            return getSeq(t.getKey());
-        }
-    }
-
-    /**
-     * Return the name of the sequence for the default value of <code>f</code>.
-     * 
-     * @param f a field.
-     * @return the name of the sequence or <code>null</code> if the default is not a sequence, eg
-     *         "schema"."table_id_seq".
-     * @throws IllegalStateException if the sequence couldn't be parsed.
-     */
-    static public String getSeq(SQLField f) throws IllegalStateException {
-        if (f == null) {
-            return null;
-        } else {
-            final String def = ((String) f.getDefaultValue()).trim();
-            if (def.startsWith("nextval")) {
-                final Matcher matcher = seqPattern.matcher(def);
-                if (matcher.matches()) {
-                    return matcher.group(1);
-                } else
-                    throw new IllegalStateException("could not parse: " + def + " with " + seqPattern.pattern());
-            } else
+            final SQLField key = t.getKey();
+            if (key == null) {
                 return null;
+            } else {
+                return key.getOwnedSequence();
+            }
         }
     }
-
 }

@@ -58,20 +58,22 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
     public EtatVentesXmlSheet(Date du, Date au) {
         super();
         this.printer = PrinterNXProps.getInstance().getStringProperty("BonPrinter");
-        final Calendar c1 = Calendar.getInstance();
-        c1.setTime(du);
-        c1.set(Calendar.HOUR_OF_DAY, 0);
-        c1.set(Calendar.MINUTE, 0);
-        c1.set(Calendar.SECOND, 0);
-
-        final Calendar c2 = Calendar.getInstance();
-        c2.setTime(au);
-        c2.set(Calendar.HOUR_OF_DAY, 23);
-        c2.set(Calendar.MINUTE, 59);
-        c2.set(Calendar.SECOND, 59);
-        this.du = new Timestamp(c1.getTimeInMillis());
-        this.au = new Timestamp(c2.getTimeInMillis());
-
+        if (du != null) {
+            final Calendar c1 = Calendar.getInstance();
+            c1.setTime(du);
+            c1.set(Calendar.HOUR_OF_DAY, 0);
+            c1.set(Calendar.MINUTE, 0);
+            c1.set(Calendar.SECOND, 0);
+            this.du = new Timestamp(c1.getTimeInMillis());
+        }
+        if (au != null) {
+            final Calendar c2 = Calendar.getInstance();
+            c2.setTime(au);
+            c2.set(Calendar.HOUR_OF_DAY, 23);
+            c2.set(Calendar.MINUTE, 59);
+            c2.set(Calendar.SECOND, 59);
+            this.au = new Timestamp(c2.getTimeInMillis());
+        }
     }
 
     @Override
@@ -136,7 +138,10 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
 
         Where w3 = new Where(tableTicket.getField("DATE"), this.du, this.au);
         Where w4 = new Where(tableFacture.getField("DATE"), this.du, this.au);
-        sel.setWhere(w3.or(w4));
+        if (this.du != null && this.au != null) {
+            sel.setWhere(w3.or(w4));
+        }
+        // FIXME traiter le cas du!=null et au==null et vice versa
         sel.addGroupBy(tableFactureElement.getField("NOM"));
         sel.addGroupBy(tableFactureElement.getField("CODE"));
         System.err.println(sel.asString());
@@ -151,7 +156,9 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
         selQte.addSelect(tableFactureElement.getField("T_PV_TTC"), "SUM");
         selQte.addJoin("LEFT", tableFactureElement.getField("ID_SAISIE_VENTE_FACTURE")).setWhere(w);
         selQte.addJoin("LEFT", tableFactureElement.getField("ID_TICKET_CAISSE"), "ticket").setWhere(w2);
-        selQte.setWhere(w3.or(w4));
+        if (this.du != null && this.au != null) {
+            selQte.setWhere(w3.or(w4)); // FIXME traiter le cas du!=null et au==null et vice versa
+        }
         selQte.addGroupBy(tableFactureElement.getField("NOM"));
         selQte.addGroupBy(tableFactureElement.getField("CODE"));
 
@@ -211,9 +218,15 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
         selVC.addSelect(venteComptoirT.getField("MONTANT_HT"), "SUM");
         selVC.addSelect(venteComptoirT.getField("MONTANT_TTC"), "SUM");
         selVC.addSelect(venteComptoirT.getField("NOM"), "COUNT");
-        Where wVC = new Where(venteComptoirT.getField("DATE"), this.du, this.au);
-        wVC = wVC.and(new Where(venteComptoirT.getField("ID_ARTICLE"), "=", venteComptoirT.getForeignTable("ID_ARTICLE").getKey()));
-        selVC.setWhere(wVC);
+
+        if (this.du != null && this.au != null) {
+            Where wVC = new Where(venteComptoirT.getField("DATE"), this.du, this.au);
+            wVC = wVC.and(new Where(venteComptoirT.getField("ID_ARTICLE"), "=", venteComptoirT.getForeignTable("ID_ARTICLE").getKey()));
+            selVC.setWhere(wVC);
+        } else {
+            selVC.setWhere(new Where(venteComptoirT.getField("ID_ARTICLE"), "=", venteComptoirT.getForeignTable("ID_ARTICLE").getKey()));
+        }
+        // FIXME traiter le cas du!=null et au==null et vice versa
         selVC.addGroupBy(venteComptoirT.getField("NOM"));
         List<Object[]> listVC = (List<Object[]>) venteComptoirT.getDBSystemRoot().getDataSource().execute(selVC.asString(), new ArrayListHandler());
         long totalVCInCents = 0;
@@ -335,8 +348,15 @@ public class EtatVentesXmlSheet extends AbstractListeSheetXml {
         valuesE.put("TOTAL_GLOBAL", totalTPVTTC.add(new BigDecimal(totalAchatInCents).movePointLeft(2)));
         values.put("TOTAL_PA", totalTPA);
         values.put("TOTAL_PV_TTC", totalTPVTTC);
+        String periode = "";
+        if (this.du != null && this.au != null) {
+            periode = "Période du " + DATE_FORMAT.format(this.du) + " au " + DATE_FORMAT.format(this.au);
+        } else if (du == null && au != null) {
+            periode = "Période jusqu'au " + DATE_FORMAT.format(this.au);
+        } else if (du != null && du != null) {
+            periode = "Période depuis le " + DATE_FORMAT.format(this.du);
+        }
 
-        String periode = "Période Du " + DATE_FORMAT.format(this.du) + " au " + DATE_FORMAT.format(this.au);
         values.put("DATE", periode);
         valuesAchat.put("DATE", periode);
         valuesE.put("DATE", periode);

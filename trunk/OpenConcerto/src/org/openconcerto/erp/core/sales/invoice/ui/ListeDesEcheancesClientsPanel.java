@@ -233,7 +233,7 @@ public class ListeDesEcheancesClientsPanel extends JPanel {
                 // Mise à jour de l'echeance sur la frame de reglement
                 // si cette derniere est cree
                 final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-                final SQLRow row = panelEcheances.getListe().getSelectedRow();
+                final SQLRow row = panelEcheances.getListe().getSelectedRow().asRow();
                 if (mE.getButton() == MouseEvent.BUTTON1) {
 
                     if (ListeDesEcheancesClientsPanel.this.editEncaisse != null) {
@@ -284,7 +284,7 @@ public class ListeDesEcheancesClientsPanel extends JPanel {
         SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
         SQLElement relanceElt = Configuration.getInstance().getDirectory().getElement("RELANCE");
 
-        this.rowSource = this.panelEcheances.getListe().getSelectedRow();
+        this.rowSource = this.panelEcheances.getListe().fetchSelectedRow();
 
         if (this.rowSource != null) {
             int idMvtSource = MouvementSQLElement.getSourceId(rowSource.getInt("ID_MOUVEMENT"));

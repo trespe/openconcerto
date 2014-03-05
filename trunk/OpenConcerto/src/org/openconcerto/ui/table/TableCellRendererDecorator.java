@@ -16,9 +16,11 @@
 import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
 
+import java.awt.Component;
 import java.lang.reflect.Constructor;
 
 import javax.swing.JTable;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 
@@ -166,6 +168,22 @@ public abstract class TableCellRendererDecorator implements TableCellRenderer {
         }
     }
 
+    // Allow to use <code>renderer</code> for more than one column : ignore unselectedForeground &&
+    // unselectedBackground.
+    static public TableCellRendererDecorator tableColorsRenderer(DefaultTableCellRenderer renderer) {
+        if (renderer == null)
+            throw new NullPointerException();
+        return new TableCellRendererDecorator(renderer) {
+            @Override
+            public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                final Component comp = getRenderer(table, column).getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+                if (table.getDropLocation() == null && !isSelected)
+                    TableCellRendererUtils.setColors(comp, table, isSelected);
+                return comp;
+            }
+        };
+    }
+
     private TableCellRenderer renderer;
 
     public TableCellRendererDecorator() {
@@ -176,6 +194,9 @@ public abstract class TableCellRendererDecorator implements TableCellRenderer {
         this.renderer = renderer;
     }
 
+    // ATTN do not use the same DefaultTableCellRenderer (like the defaults in JTable) decorated and
+    // bare. DefaultTableCellRenderer overload set*Color() to store unselected colors, so if a
+    // decorator modify them, the bare one will use the same colors. See tableColorsRenderer().
     protected final TableCellRenderer getRenderer(JTable table, int column) {
         return this.renderer == null ? table.getDefaultRenderer(table.getColumnClass(column)) : this.renderer;
     }

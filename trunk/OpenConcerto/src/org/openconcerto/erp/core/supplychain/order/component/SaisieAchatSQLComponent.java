@@ -18,6 +18,7 @@ import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.MontantPanel;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.generationEcritures.GenerationMvtSaisieAchat;
 import org.openconcerto.erp.model.ISQLCompteSelector;
 import org.openconcerto.erp.preferences.ModeReglementDefautPrefPanel;
@@ -48,8 +49,9 @@ import java.awt.Insets;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
+import java.util.HashSet;
+import java.util.Set;
 
-import javax.swing.ButtonGroup;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -73,21 +75,17 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
     final ISQLCompteSelector compteSel = new ISQLCompteSelector();
 
     private JCheckBox checkImmo;
-    // private JRadioButton radioButtonNumeroFacture;
-    // private JRadioButton radioButtonNumeroCmd;
-    private ButtonGroup grp1;
+
     private MontantPanel montant;
     private ElementComboBox nomFournisseur;
     private ElementComboBox comboAvoir;
     protected ElementSQLObject eltModeRegl;
-    private int idFournSelect = 1;
+
     private PropertyChangeListener listenerModeReglDefaut = new PropertyChangeListener() {
 
         public void propertyChange(PropertyChangeEvent evt) {
 
             SQLRow rowFourn = SaisieAchatSQLComponent.this.nomFournisseur.getRequest().getPrimaryTable().getRow(nomFournisseur.getWantedID());
-
-            // System.err.println("Select Fournisseur " + idSeleted);
 
             if (!isFilling() && rowFourn != null && !rowFourn.isUndefined()) {
                 SaisieAchatSQLComponent.this.montant.setUE(rowFourn.getBoolean("UE"));
@@ -96,8 +94,7 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
                 if (rowCharge != null && !rowCharge.isUndefined()) {
                     compteSel.setValue(rowCharge);
                 }
-                // if (getSelectedID() <= 1 || SaisieAchatSQLComponent.this.idFournSelect !=
-                // idSeleted) {
+
                 int idModeRegl = rowFourn.getInt("ID_MODE_REGLEMENT");
                 if (idModeRegl > 1 && SaisieAchatSQLComponent.this.eltModeRegl != null && getMode() == Mode.INSERTION) {
                     SQLElement sqlEltModeRegl = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
@@ -109,7 +106,7 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
                 }
                 // }
             }
-            // / SaisieAchatSQLComponent.this.idFournSelect = (idSeleted == null) ? 1 : idSeleted;
+
         }
 
     };
@@ -128,8 +125,6 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
 
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.gridheight = 1;
-        TitledSeparator sep = new TitledSeparator("Renseignements");
-        this.add(sep, c);
 
         c.gridy++;
         c.gridwidth = 1;
@@ -187,21 +182,10 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         this.add(compteSel, c);
 
         c.gridwidth = 1;
-
-        // Ligne 4 : Numero facture fournisseur
-        // this.radioButtonNumeroFacture = new JRadioButton(getLabelFor("NUMERO_FACTURE"));
-        // this.radioButtonNumeroFacture.addActionListener(new ActionListener() {
-        // public void actionPerformed(ActionEvent e) {
-        // SaisieAchatSQLComponent.this.textNumeroFacture.setEnabled(true);
-        // SaisieAchatSQLComponent.this.textNumeroCmd.setEnabled(false);
-        // }
-        // });
-
         c.weightx = 0;
         c.gridx = 0;
         c.gridy++;
         c.gridwidth = 1;
-        // this.add(this.radioButtonNumeroFacture, c);
         this.add(new JLabel(getLabelFor("NUMERO_FACTURE"), SwingConstants.RIGHT), c);
 
         this.textNumeroFacture = new JTextField(16);
@@ -218,26 +202,16 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         this.add(new JLabel("Date"), c);
         c.gridx++;
         c.weightx = 1;
-        JDate dateSaisie = new JDate(true);
+        JDate dateSaisie = new JDate();
         c.fill = GridBagConstraints.NONE;
 
         this.add(dateSaisie, c);
 
-        // Ligne 5 : numéro commande fournisseur
-        // this.radioButtonNumeroCmd = new JRadioButton(getLabelFor("NUMERO_COMMANDE"));
-        // this.radioButtonNumeroCmd.addActionListener(new ActionListener() {
-        // public void actionPerformed(ActionEvent e) {
-        // // numeroCmd.setValue(textNumeroCmd.getText());
-        // // numeroFact.setValue("");
-        // SaisieAchatSQLComponent.this.textNumeroFacture.setEnabled(false);
-        // SaisieAchatSQLComponent.this.textNumeroCmd.setEnabled(true);
-        // }
-        // });
         c.gridx = 0;
         c.gridy++;
         c.fill = GridBagConstraints.HORIZONTAL;
         c.gridwidth = 1;
-        // this.add(this.radioButtonNumeroCmd, c);
+
         this.add(new JLabel(getLabelFor("NUMERO_COMMANDE"), SwingConstants.RIGHT), c);
 
         this.textNumeroCmd = new JTextField(16);
@@ -254,33 +228,16 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         this.add(this.checkImmo, c);
         c.anchor = GridBagConstraints.WEST;
 
-        // textNumeroCmd
-        // this.grp1 = new ButtonGroup();
-        // this.grp1.add(this.radioButtonNumeroCmd);
-        // this.grp1.add(this.radioButtonNumeroFacture);
-        //
-        // this.radioButtonNumeroFacture.setSelected(true);
-        // this.textNumeroFacture.setEnabled(true);
-        // this.textNumeroCmd.setEnabled(false);
-
         // MONTANT
-
         c.gridx = 0;
         c.gridy++;
-        c.insets = new Insets(10, 2, 1, 2);
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.fill = GridBagConstraints.BOTH;
-        sep = new TitledSeparator("Montant en euros");
-        this.add(sep, c);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridwidth = 1;
+        c.weightx = 0;
+        this.add(new JLabel("Montant", SwingConstants.RIGHT), c);
 
-        c.insets = new Insets(2, 2, 1, 2);
-        c.gridwidth = 4;
-
-        // Montant
-
-        c.gridx = 0;
-        c.gridy++;
-        c.gridwidth = 4;
+        c.gridx = 1;
+        c.gridwidth = 3;
         c.weightx = 1;
         c.anchor = GridBagConstraints.WEST;
         c.fill = GridBagConstraints.NONE;
@@ -290,18 +247,21 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         // Avoir
         JPanel panelAvoir = new JPanel();
         this.comboAvoir = new ElementComboBox(true);
-        panelAvoir.add(new JLabel(getLabelFor("ID_AVOIR_FOURNISSEUR")));
+
         this.comboAvoir.setAddIconVisible(false);
         panelAvoir.add(this.comboAvoir);
 
         panelAvoir.add(new JLabel("Montant réglé"));
         panelAvoir.add(this.fieldMontantRegle);
         this.fieldMontantRegle.setEditable(false);
-
         c.gridx = 0;
         c.gridy++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.gridwidth = 1;
         c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel(getLabelFor("ID_AVOIR_FOURNISSEUR"), SwingConstants.RIGHT), c);
+        c.gridx++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
         c.fill = GridBagConstraints.NONE;
         this.add(panelAvoir, c);
 
@@ -315,7 +275,7 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         c.gridy++;
         c.insets = new Insets(10, 2, 1, 2);
         c.fill = GridBagConstraints.HORIZONTAL;
-        sep = new TitledSeparator("Mode de règlement");
+        TitledSeparator sep = new TitledSeparator("Mode de règlement");
 
         this.add(sep, c);
 
@@ -369,7 +329,7 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         this.addSQLObject(this.comboAvoir, "ID_AVOIR_FOURNISSEUR");
         this.addSQLObject(this.checkImmo, "IMMO");
 
-        this.montant.setChoixTaxe(2);
+        this.montant.setChoixTaxe(TaxeCache.getCache().getFirstTaxe().getID());
 
         this.nomFournisseur.addModelListener("wantedID", this.listenerModeReglDefaut);
 
@@ -466,6 +426,17 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         return id;
     }
 
+    @Override
+    public Set<String> getPartialResetNames() {
+        Set<String> s = new HashSet<String>();
+        s.addAll(super.getPartialResetNames());
+        s.add("INFOS");
+        s.add("NUMERO_FACTURE");
+        s.add("NUMERO_COMMANDE");
+        s.add("MONTANT_HT");
+        return s;
+    }
+
     public void select(SQLRowAccessor r) {
 
         // FIXME probleme selection du mode de reglement par defaut -> l'id est celui du défaut dans
@@ -475,7 +446,6 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
 
         if (r != null) {
             System.err.println(r);
-            // System.err.println("Select Mode regl " + r.getInt("ID_MODE_REGLEMENT"));
             this.montant.calculMontant();
             Object idF = r.getObject("ID_FOURNISSEUR");
             System.err.println("Founisseur " + idF);
@@ -484,16 +454,12 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
 
                 if (idSeleted > 1) {
                     SQLElement fournisseur = Configuration.getInstance().getDirectory().getElement("FOURNISSEUR");
-
                     SQLRow rowFourn = fournisseur.getTable().getRow(idSeleted);
-
-                    this.idFournSelect = rowFourn.getID();
                     this.montant.setUE(rowFourn.getBoolean("UE"));
                 }
             }
             System.out.println("select id Saisie Achat " + r.getID());
         }
-
     }
 
     final SQLTable tablePrefCompte = getTable().getTable("PREFS_COMPTE");
@@ -532,7 +498,8 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
             }
         }
         vals.put("ID_COMPTE_PCE", idCompteAchat);
-        vals.put("ID_TAXE", 2);
+        vals.put("ID_TAXE", TaxeCache.getCache().getFirstTaxe().getID());
+
         return vals;
     }
 

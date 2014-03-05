@@ -23,6 +23,8 @@ import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.ThreadFactory;
 import org.openconcerto.utils.cache.CacheResult;
 
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -102,6 +104,9 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     static public final int loginTimeOut = 15;
     static public final int socketTimeOut = 8 * 60;
 
+    // in milliseconds
+    static public int QUERY_TUNING = 0;
+
     static public interface IgnoringRowProcessor extends RowProcessor {
 
         @Override
@@ -155,13 +160,14 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     private SQLCache<List<?>, Object> cache;
     @GuardedBy("this")
     private boolean cacheEnabled;
+    private final PropertyChangeListener descL;
     // tables that can be used in queries (and thus can impact the cache)
     @GuardedBy("this")
     private Set<SQLTable> tables;
 
     private static int count = 0; // compteur de requetes
 
-    private final SQLServer server;
+    private final DBSystemRoot sysRoot;
     // no need to synchronize multiple call to this attribute since we only access the
     // Thread.currentThread() key
     @GuardedBy("handlers")
@@ -198,14 +204,14 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
 
     private final ReentrantLock testLock = new ReentrantLock();
 
-    public SQLDataSource(SQLServer server, String base, String login, String pass) {
-        this(server, server.getURL(base), login, pass, Collections.<SQLTable> emptySet());
+    public SQLDataSource(DBSystemRoot sysRoot, String base, String login, String pass) {
+        this(sysRoot, sysRoot.getServer().getURL(base), login, pass, Collections.<SQLTable> emptySet());
     }
 
-    private SQLDataSource(SQLServer server, String url, String login, String pass, Set<SQLTable> tables) {
-        this(server);
+    private SQLDataSource(DBSystemRoot sysRoot, String url, String login, String pass, Set<SQLTable> tables) {
+        this(sysRoot);
 
-        final SQLSystem system = server.getSQLSystem();
+        final SQLSystem system = getSystem();
         if (!DRIVERS.containsKey(system))
             throw new IllegalArgumentException("unknown database system: " + system);
 
@@ -216,14 +222,12 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         this.setPassword(pass);
         this.setTables(tables);
 
-        if (this.server.getSQLSystem() == SQLSystem.MYSQL) {
+        if (system == SQLSystem.MYSQL) {
             this.addConnectionProperty("transformedBitIsBoolean", "true");
             // by default allowMultiQueries, since it's more convenient (i.e. pass String around
             // instead of List<String>) and faster (less trips to the server, allow
             // SQLUtils.executeMultiple())
             this.addConnectionProperty("allowMultiQueries", "true");
-        } else if (this.server.getSQLSystem() == SQLSystem.H2) {
-            this.addConnectionProperty("CACHE_SIZE", "32000");
         }
         this.setLoginTimeout(loginTimeOut);
         this.setSocketTimeout(socketTimeOut);
@@ -235,19 +239,19 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
 
     @Override
     public final void setLoginTimeout(int timeout) {
-        if (this.server.getSQLSystem() == SQLSystem.MYSQL) {
+        if (this.getSystem() == SQLSystem.MYSQL) {
             this.addConnectionProperty("connectTimeout", timeout + "000");
-        } else if (this.server.getSQLSystem() == SQLSystem.POSTGRESQL) {
+        } else if (this.getSystem() == SQLSystem.POSTGRESQL) {
             this.addConnectionProperty("loginTimeout", timeout + "");
         }
     }
 
     public final void setSocketTimeout(int timeout) {
-        if (this.server.getSQLSystem() == SQLSystem.MYSQL) {
+        if (this.getSystem() == SQLSystem.MYSQL) {
             this.addConnectionProperty("socketTimeout", timeout + "000");
-        } else if (this.server.getSQLSystem() == SQLSystem.H2) {
+        } else if (this.getSystem() == SQLSystem.H2) {
             this.addConnectionProperty("QUERY_TIMEOUT", timeout + "000");
-        } else if (this.server.getSQLSystem() == SQLSystem.POSTGRESQL) {
+        } else if (this.getSystem() == SQLSystem.POSTGRESQL) {
             this.addConnectionProperty("socketTimeout", timeout + "");
         }
     }
@@ -303,8 +307,8 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     }
 
     /* pour le clonage */
-    private SQLDataSource(SQLServer server) {
-        this.server = server;
+    private SQLDataSource(DBSystemRoot sysRoot) {
+        this.sysRoot = sysRoot;
         // on a besoin d'une implementation synchronisée
         this.handlers = new Hashtable<Thread, HandlersStack>();
         // weak, since this is only a hint to avoid initializing the connection
@@ -344,6 +348,16 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
 
         // see #createDataSource() for properties not supported by this class
         this.tables = Collections.emptySet();
+        this.descL = new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                if (evt.getPropertyName().equals("descendants")) {
+                    // the dataSource must always have all tables, to listen to them for its cache
+                    setTables(((DBSystemRoot) evt.getSource()).getDescs(SQLTable.class));
+                }
+            }
+        };
+        this.sysRoot.addListener(this.descL);
         this.cache = null;
         this.cacheEnabled = false;
     }
@@ -891,7 +905,17 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             State.INSTANCE.beginRequest(query);
 
         // test before calling JDBC methods and creating threads
-        if (Thread.currentThread().isInterrupted()) {
+        boolean interrupted = false;
+        if (QUERY_TUNING > 0) {
+            try {
+                Thread.sleep(QUERY_TUNING);
+            } catch (InterruptedException e1) {
+                interrupted = true;
+            }
+        } else {
+            interrupted = Thread.currentThread().isInterrupted();
+        }
+        if (interrupted) {
             throw new RTInterruptedException("request interrupted : " + query);
         }
 
@@ -899,7 +923,8 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         ResultSet rs = null;
         try {
             // MAYBE un truc un peu plus formel
-            if (query.startsWith("INSERT") || query.startsWith("UPDATE") || query.startsWith("DELETE") || query.startsWith("ALTER") || query.startsWith("DROP") || query.startsWith("SET")) {
+            if (query.startsWith("INSERT") || query.startsWith("UPDATE") || query.startsWith("DELETE") || query.startsWith("CREATE") || query.startsWith("ALTER") || query.startsWith("DROP")
+                    || query.startsWith("SET")) {
                 final boolean returnGenK = (query.startsWith("INSERT") || query.startsWith("UPDATE")) && stmt.getConnection().getMetaData().supportsGetGeneratedKeys();
                 stmt.executeUpdate(query, returnGenK ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
                 rs = returnGenK ? stmt.getGeneratedKeys() : null;
@@ -1015,6 +1040,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      * @throws SQLException if a database error occurs
      */
     public synchronized void close() throws SQLException {
+        this.sysRoot.rmListener(this.descL);
         @SuppressWarnings("rawtypes")
         final GenericObjectPool pool = this.connectionPool;
         super.close();
@@ -1037,7 +1063,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     }
 
     private synchronized void noConnectionIsOpen() {
-        assert this.connectionPool.getNumIdle() + this.connectionPool.getNumActive() == 0;
+        assert this.connectionPool == null || (this.connectionPool.getNumIdle() + this.getBorrowedConnectionCount()) == 0;
         if (this.cache != null)
             this.cache.clear();
     }
@@ -1174,7 +1200,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     }
 
     public final int getBorrowedConnectionCount() {
-        return this.connectionPool.getNumActive();
+        return this.connectionPool == null ? 0 : this.connectionPool.getNumActive();
     }
 
     public synchronized boolean blocksWhenExhausted() {
@@ -1501,9 +1527,9 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
      *        default schema.
      */
     public void setInitialSchema(String schemaName) {
-        if (schemaName != null || this.server.getSQLSystem().isClearingPathSupported()) {
+        if (schemaName != null || this.getSystem().isClearingPathSupported()) {
             this.setInitialSchema(true, schemaName);
-        } else if (this.server.getSQLSystem().isDBPathEmpty()) {
+        } else if (this.getSystem().isDBPathEmpty()) {
             this.unsetInitialSchema();
         } else
             throw new IllegalArgumentException(this + " cannot have no default schema");
@@ -1636,11 +1662,11 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     }
 
     private final SQLSystem getSystem() {
-        return this.server.getSQLSystem();
+        return this.sysRoot.getServer().getSQLSystem();
     }
 
     public Object clone() {
-        SQLDataSource ds = new SQLDataSource(this.server);
+        SQLDataSource ds = new SQLDataSource(this.sysRoot);
         ds.setUrl(this.getUrl());
         ds.setUsername(this.getUsername());
         ds.setPassword(this.getPassword());

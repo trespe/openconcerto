@@ -66,15 +66,19 @@ import java.awt.Dimension;
 import java.awt.Rectangle;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
@@ -112,6 +116,8 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     }
 
     private final SQLRowView requete;
+    // whether the application (as opposed to us, the framework) allow the edition
+    private final Map<String, Boolean> allowEditable;
 
     private final Set<SQLRowItemView> required;
     // contains the SQL name of required SQLRowItemView
@@ -124,6 +130,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     private boolean alwaysEditable;
     private final Set<SQLField> hide;
     private FormLayouter additionalFieldsPanel;
+    private boolean displayFieldName;
 
     public BaseSQLComponent(SQLElement element) {
         super(element);
@@ -144,13 +151,23 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         this.editable = true;
         this.setNonExistantEditable(false);
         this.requete = new SQLRowView(this.getTable());
+        // enable or disable our views and forward event
+        this.requete.addListener(new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                updateChildrenEditable();
+                firePropertyChange(evt.getPropertyName(), evt.getOldValue(), evt.getNewValue());
+            }
+        }, SQLComponent.READ_ONLY_PROP);
+        this.allowEditable = new HashMap<String, Boolean>();
+        this.displayFieldName = false;
     }
 
     private final SQLRowView getRequest() {
         return this.requete;
     }
 
-    private SQLField getField(String field) {
+    protected final SQLField getField(String field) {
         return this.getTable().getField(field);
     }
 
@@ -408,7 +425,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                 this.addView(comp, e.getKey(), spec);
         }
         // assure that added views are consistent with our editable status
-        this.setChildrenEditable(this.isEditable());
+        this.updateChildrenEditable();
         for (final SQLRowItemView v : this.getRequest().getViews()) {
             v.addEmptyListener(new EmptyListener() {
                 public void emptyChange(EmptyObj src, boolean newValue) {
@@ -454,6 +471,10 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
 
     protected final void setAdditionalFieldsPanel(FormLayouter panel) {
         this.additionalFieldsPanel = panel;
+    }
+
+    public final void setViewsOrder(final Collection<String> names) {
+        this.getRequest().setViewsOrder(names);
     }
 
     public final SQLRowItemView getView(String name) {
@@ -527,41 +548,89 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     // not public since desc could be different from getRIVDesc(itemName)
     protected final Tuple2<String, Boolean> getDesc(final String itemName, final RowItemDesc desc) {
         final boolean emptyLabel = desc.getLabel() == null || desc.getLabel().trim().length() == 0;
-        return Tuple2.create(emptyLabel ? itemName : getLabel(itemName, desc), !emptyLabel);
+        final String l;
+        if (emptyLabel) {
+            l = itemName;
+        } else {
+            l = getLabel(itemName, desc) + (this.displayFieldName ? " [" + itemName + "]" : "");
+        }
+        return Tuple2.create(l, !emptyLabel);
+    }
+
+    protected final void toggleDisplayFieldsNames() {
+        this.displayFieldName = !this.displayFieldName;
+        this.updateUIAll();
     }
 
     protected String getLabel(final String itemName, final RowItemDesc desc) {
         return desc.getLabel();
     }
 
-    /*
-     * (non-Javadoc)
+    /**
+     * Allow the views of this component to be edited. For this to be editable other framework
+     * predicates must be <code>true</code> (e.g. {@link #isSelectionReadOnly()}).
      * 
-     * @see org.openconcerto.sql.SQLComponent#setEditable(boolean)
+     * @param b true if the application allow the views to be edited.
      */
+    @Override
     public void setEditable(boolean b) {
         if (b != this.editable) {
             this.editable = b;
-            this.setChildrenEditable(b);
+            this.updateChildrenEditable();
         }
     }
 
-    private final void setChildrenEditable(boolean b) {
+    private final void updateChildrenEditable() {
         for (final SQLRowItemView o : this.getRequest().getViews()) {
-            // already taken care in addInitedView()
-            if (!this.dontEdit(o))
-                // a view can only be editable if its parent is too
-                o.setEditable(this.isEditable() && b);
+            updateEditable(o);
         }
     }
 
-    private final boolean isEditable() {
+    public final boolean isEditable() {
         return this.editable;
+    }
+
+    public void allowEditable(final String name, final boolean b) {
+        final SQLRowItemView view = this.getView(name);
+        if (view == null)
+            throw new IllegalArgumentException("No view named " + name);
+        this.allowEditable(view, b);
+    }
+
+    /**
+     * Allow the passed view to be edited. For the view to be editable other framework predicates
+     * must be <code>true</code> (e.g. {@link #isEditable()}).
+     * 
+     * @param view the view.
+     * @param b true if the application allow the view to be edited.
+     */
+    public void allowEditable(final SQLRowItemView view, final boolean b) {
+        if (view == null)
+            throw new NullPointerException();
+        this.allowEditable.put(view.getSQLName(), b);
+        updateEditable(view);
+    }
+
+    private void updateEditable(final SQLRowItemView o) {
+        // already taken care in addInitedView()
+        if (!this.dontEdit(o)) {
+            // a view can only be editable if its parent is too and if the selected row is
+            // if nonExistantEditable : always editable, otherwise id must exist
+            // a view can be disabled for other arbitrary application (non framework) reasons
+            o.setEditable(this.isEditable() && !this.isSelectionReadOnly() && (this.isNonExistantEditable() || this.getSelectedID() != SQLRow.NONEXISTANT_ID)
+                    && this.allowEditable.get(o.getSQLName()) != Boolean.FALSE);
+        }
     }
 
     // final : overload select() if need be
     public final void resetValue() {
         this.select(null);
+    }
+
+    public final void partialReset() {
+        final Set<String> names = this.getPartialResetNames();
+        if (names == null || names.size() > 0)
+            this.select(null, names);
     }
 
     public final int insert() {
@@ -582,11 +651,17 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         }
     }
 
+    @Override
     public final void select(int id) {
         this.select(this.getTable().getRow(id));
     }
 
+    @Override
     public void select(SQLRowAccessor r) {
+        this.select(r, null);
+    }
+
+    public void select(SQLRowAccessor r, Set<String> views) {
         try {
             // allow null to pass, ease some code (eg new ListOfSomething().getTable() even if we
             // can't see the table)
@@ -594,17 +669,15 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                 throw new IllegalStateException("forbidden");
             // MAYBE prevent repaints of each SQLObject with
             // this.setIgnoreRepaint(true) or RepaintManager
-            this.getRequest().select(r);
-            // if nonExistantEditable : always editable,
-            // otherwise id must exist
-            this.setChildrenEditable(this.isNonExistantEditable() || (r != null && r.getID() != SQLRow.NONEXISTANT_ID));
+            this.getRequest().select(r, views);
+            this.updateChildrenEditable();
 
             // don't put defaults if non-editable (eg bottom part of ListeModifyPanel)
             if (r == null && this.isNonExistantEditable()) {
                 // selectDefaults() after select() so that we have the final word
                 // eg default DESIGNATION of OBS is "ok", but default DESIGNATION of TRANSFO.ID_OBS
                 // is "good".
-                this.selectDefaults();
+                this.selectDefaults(views);
             }
         } catch (RowNotFound e) {
             // l'id demandé n'existe pas : prévenir tout le monde
@@ -616,10 +689,10 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     }
 
     // private since it only changes views having default values : use #resetValue()
-    private final void selectDefaults() {
+    private final void selectDefaults(Set<String> views) {
         final SQLRowValues defaults = this.createDefaults();
         if (defaults != null && defaults.getFields().size() > 0)
-            this.getRequest().select(defaults);
+            this.getRequest().select(defaults, views);
     }
 
     public final void addFillingListener(final PropertyChangeListener l) {
@@ -657,6 +730,11 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         return this.getRequest().getSelectedID();
     }
 
+    @Override
+    public final boolean isSelectionReadOnly() {
+        return this.getRequest().isReadOnlySelection();
+    }
+
     public void update() {
         try {
             if (!UserRightsManager.getCurrentUserRights().canModify(getTable()))
@@ -671,6 +749,8 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         try {
             if (!UserRightsManager.getCurrentUserRights().canDelete(getTable()))
                 throw new SQLException("forbidden");
+            if (this.isSelectionReadOnly())
+                throw new SQLException("read only");
             // MAYBE for performance (avoid searching for references to cut):
             // if (this.isPrivate()) {
             // ((BaseSQLComponent) this.getSQLParent().getSQLParent()).getSelectedID();
@@ -680,6 +760,16 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         } catch (SQLException e) {
             ExceptionHandler.handle(this, TM.tr("sqlComp.archiveError", this), e);
         }
+    }
+
+    /**
+     * The SQL names that are always reset after an insert. This implementation returns an empty set
+     * : the component is only reset on {@link #getResetMode() visibility change}.
+     * 
+     * @return the names to reset, <code>null</code> meaning all.
+     */
+    public Set<String> getPartialResetNames() {
+        return Collections.emptySet();
     }
 
     // ** required
@@ -758,6 +848,13 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         if (emptyLabelColor != null && !tuple.get1())
             label.setForeground(emptyLabelColor);
         label.repaint();
+    }
+
+    protected final void updateUIAll() {
+        for (final SQLRowItemView v : this.getRequest().getViews()) {
+            final String sqlName = v.getSQLName();
+            updateUI(sqlName, getRIVDesc(sqlName));
+        }
     }
 
     public void doNotShow(SQLField f) {

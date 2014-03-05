@@ -117,7 +117,7 @@ public abstract class FilteredFillSQLRequest extends BaseFillSQLRequest {
             if (w == null || p == null) {
                 this.filterInfo = Tuple2.create(null, null);
             } else {
-                this.filterInfo = Tuple2.create((Set<SQLRow>) new HashSet<SQLRow>(w), new Path(p));
+                this.filterInfo = Tuple2.create((Set<SQLRow>) new HashSet<SQLRow>(w), p);
             }
             fireWhereChange();
         }

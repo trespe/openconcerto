@@ -18,12 +18,12 @@ public class ListToolbarLine extends LightUILine {
         this.setGridAlignment(ALIGN_RIGHT);
         LightUIElement modify = new LightUIElement();
         modify.setId("modify");
-        modify.setType(LightUIElement.TYPE_BUTTON_WITH_CONTEXT);
+        modify.setType(LightUIElement.TYPE_BUTTON_WITH_SELECTION_CONTEXT);
         modify.setLabel("Modifier");
         add(modify);
         LightUIElement add = new LightUIElement();
         add.setId("add");
-        add.setType(LightUIElement.TYPE_BUTTON_WITH_CONTEXT);
+        add.setType(LightUIElement.TYPE_BUTTON_WITH_SELECTION_CONTEXT);
         add.setLabel("Ajouter");
         add(add);
     }

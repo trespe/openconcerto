@@ -13,7 +13,9 @@
  
  package org.openconcerto.erp.core.common.ui;
 
+import org.openconcerto.erp.config.Log;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.utils.StringUtils;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
@@ -45,13 +47,18 @@ public class DeviseNumericHTConvertorCellEditor extends DeviseNumericCellEditor 
 
                 public void actionPerformed(ActionEvent e) {
 
-                    String s = textField.getText().trim();
+                    String s = StringUtils.removeNonDecimalChars(textField.getText());
                     if (s.length() > 0) {
-                        BigDecimal taux = new BigDecimal(taxe).movePointLeft(2).add(BigDecimal.ONE);
-                        BigDecimal prixTTC = new BigDecimal(s);
-                        BigDecimal divide = prixTTC.divide(taux, MathContext.DECIMAL128);
-                        divide = divide.setScale(precision, RoundingMode.HALF_UP);
-                        textField.setText(divide.toString());
+                        try {
+                            BigDecimal taux = new BigDecimal(taxe).movePointLeft(2).add(BigDecimal.ONE);
+                            BigDecimal prixTTC = new BigDecimal(s);
+                            BigDecimal divide = prixTTC.divide(taux, MathContext.DECIMAL128);
+                            divide = divide.setScale(precision, RoundingMode.HALF_UP);
+                            textField.setText(divide.toString());
+                        } catch (Exception ex) {
+                            Log.get().info("Cannot substract tax from " + s + " for tax " + taxe);
+                            ex.printStackTrace();
+                        }
                     }
                 }
             });

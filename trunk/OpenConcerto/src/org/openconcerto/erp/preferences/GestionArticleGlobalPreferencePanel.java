@@ -30,6 +30,7 @@ public class GestionArticleGlobalPreferencePanel extends JavaPrefPreferencePanel
     public static String CREATE_ARTICLE_AUTO = "CreateArticleAuto";
     public static String SUPPLIER_PRODUCT_CODE = "SupplierProductCode";
     public static String SHOW_PRODUCT_BAR_CODE = "ShowProductBarCode";
+    public static String ITEM_PACKAGING = "ItemPackaging";
 
     public GestionArticleGlobalPreferencePanel() {
         super("Gestion des articles", null);
@@ -50,6 +51,10 @@ public class GestionArticleGlobalPreferencePanel extends JavaPrefPreferencePanel
         PrefView<Boolean> view2 = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Gérer différentes unités de vente", UNITE_VENTE);
         view2.setDefaultValue(Boolean.TRUE);
         this.addView(view2);
+
+        PrefView<Boolean> view6 = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Gérer les colis", ITEM_PACKAGING);
+        view6.setDefaultValue(Boolean.FALSE);
+        this.addView(view6);
 
         PrefView<Boolean> view3 = new PrefView<Boolean>(PrefType.BOOLEAN_TYPE, "Utiliser uniquement des articles existant", USE_CREATED_ARTICLE);
         view3.setDefaultValue(Boolean.FALSE);

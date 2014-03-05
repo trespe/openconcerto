@@ -62,7 +62,7 @@ public final class TableCellRendererUtils {
     }
 
     public static Component setForegroundColor(final Component comp, final JTable table, boolean isSelected) {
-        return setBackgroundColor(comp, table, isSelected, null);
+        return setForegroundColor(comp, table, isSelected, null);
     }
 
     protected static Component setForegroundColor(final Component comp, final JTable table, boolean isSelected, Color fgColor) {

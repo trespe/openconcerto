@@ -23,6 +23,7 @@ import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.table.AlternateTableCellRenderer;
 
 import java.awt.GridBagConstraints;
@@ -110,7 +111,7 @@ public class ProfilPayeSQLElement extends ConfSQLElement {
                 c.gridy = 0;
 
                 // Liste des rubriques du profil
-                JLabel labelContenu = new JLabel("Contenu du profil");
+                JLabel labelContenu = new JLabelBold("Contenu du profil");
                 panelRight.add(labelContenu, c);
 
                 // Bouton de gestion des rubriques du profil

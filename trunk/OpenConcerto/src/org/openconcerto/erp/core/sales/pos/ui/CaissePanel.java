@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.sales.pos.ui;
 
+import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.erp.core.sales.pos.model.Article;
 import org.openconcerto.erp.core.sales.pos.model.Categorie;
 import org.openconcerto.sql.Configuration;
@@ -65,7 +66,10 @@ public class CaissePanel extends JPanel implements CaisseListener {
                     // Valider
                     try {
                         CaissePanel.this.controler.printTicket();
-                        CaissePanel.this.controler.printTicket();
+                        if (Caisse.isCopyActive())
+                            CaissePanel.this.controler.printTicket();
+                    } catch (UnsatisfiedLinkError ex) {
+                        ExceptionHandler.handle("Erreur de configuration de la liaison à l'imprimante", ex);
                     } catch (Throwable ex) {
                         ExceptionHandler.handle("Erreur d'impression du ticket", ex);
                     }
@@ -114,6 +118,7 @@ public class CaissePanel extends JPanel implements CaisseListener {
         this.controler.addCaisseListener(this);
     }
 
+    @SuppressWarnings("unchecked")
     private void loadArticles() {
 
         Map<Integer, Categorie> m = new HashMap<Integer, Categorie>();
@@ -145,17 +150,22 @@ public class CaissePanel extends JPanel implements CaisseListener {
         selArticle.addSelectStar(eltArticle.getTable());
         List<SQLRow> l2 = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(selArticle.asString(), SQLRowListRSH.createFromSelect(selArticle, eltArticle.getTable()));
 
+        final Categorie cUnclassified = new Categorie("Non classés", true);
         for (SQLRow row : l2) {
 
-            final Categorie s1 = m.get(row.getInt("ID_FAMILLE_ARTICLE"));
-            if (s1 != null) {
-                Article a = new Article(s1, row.getString("NOM"), row.getID());
+            Categorie s1 = m.get(row.getInt("ID_FAMILLE_ARTICLE"));
+            if (s1 == null) {
+                s1 = cUnclassified;
+                m.put(row.getID(), cUnclassified);
+            }
+            final String name = row.getString("NOM").trim();
+            if (name.length() > 0) {
+                final Article a = new Article(s1, name, row.getID());
                 a.setBarCode(row.getString("CODE_BARRE"));
                 a.setCode(row.getString("CODE"));
                 a.setIdTaxe(row.getInt("ID_TAXE"));
                 a.setPriceHTInCents((BigDecimal) row.getObject("PV_HT"));
                 a.setPriceInCents((BigDecimal) row.getObject("PV_TTC"));
-
             }
         }
 

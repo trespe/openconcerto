@@ -64,34 +64,40 @@ abstract class AbstractUpdateOneRunnable extends UpdateRunnable {
                     // keep only what has changed, eg CONTACT.NOM
                     proto.retainAll(getModifedFields());
                 }
-                // fetch the changed rowValues
-                // ATTN this doesn't use the original fetcher that was used in the updateAll
-                // MAYBE add a slower but accurate mode using the updateAll fetcher (and thus
-                // reloading rows from the primary table and not just the changed rows)
-                final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(proto);
-                BaseFillSQLRequest.setupForeign(fetcher);
-                final ITransformer<SQLSelect, SQLSelect> transf = new ITransformer<SQLSelect, SQLSelect>() {
-                    @Override
-                    public SQLSelect transformChecked(SQLSelect input) {
-                        if (ListSQLRequest.getDefaultLockSelect())
-                            input.addWaitPreviousWriteTXTable(getTable().getName());
-                        return input.setWhere(new Where(getTable().getKey(), "=", getID()));
-                    }
-                };
-                fetcher.setSelTransf(transf);
-                final List<SQLRowValues> fetched = fetcher.fetch();
-                if (fetched.size() > 1)
-                    throw new IllegalStateException("more than one row fetched for " + this + " with " + fetcher.getReq() + " :\n" + fetched);
+                // the modified fields aren't used at the path (e.g. if we display a row and its
+                // same-table origin, the event was added by UpdateQueue.rowModified() since the
+                // the modified fields are displayed for the primary row, but might not for the
+                // origin)
+                if (!proto.getFields().isEmpty()) {
+                    // fetch the changed rowValues
+                    // ATTN this doesn't use the original fetcher that was used in the updateAll
+                    // MAYBE add a slower but accurate mode using the updateAll fetcher (and thus
+                    // reloading rows from the primary table and not just the changed rows)
+                    final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(proto);
+                    BaseFillSQLRequest.setupForeign(fetcher);
+                    final ITransformer<SQLSelect, SQLSelect> transf = new ITransformer<SQLSelect, SQLSelect>() {
+                        @Override
+                        public SQLSelect transformChecked(SQLSelect input) {
+                            if (ListSQLRequest.getDefaultLockSelect())
+                                input.addWaitPreviousWriteTXTable(getTable().getName());
+                            return input.setWhere(new Where(getTable().getKey(), "=", getID()));
+                        }
+                    };
+                    fetcher.setSelTransf(transf);
+                    final List<SQLRowValues> fetched = fetcher.fetch();
+                    if (fetched.size() > 1)
+                        throw new IllegalStateException("more than one row fetched for " + this + " with " + fetcher.getReq() + " :\n" + fetched);
 
-                // OK if lastReferentField != null : a referent row has been deleted
-                if (fetched.size() == 0 && lastReferentField == null) {
-                    Log.get().fine("no row fetched for " + this + ", lines have been changed without the TableModel knowing : " + lines + " req :\n" + fetcher.getReq());
-                    getModel().updateAll();
-                } else {
-                    final SQLRowValues soleFetched = CollectionUtils.getSole(fetched);
-                    // copy it to each affected lines
-                    for (final ListSQLLine line : lines) {
-                        line.loadAt(getID(), soleFetched, p);
+                    // OK if lastReferentField != null : a referent row has been deleted
+                    if (fetched.size() == 0 && lastReferentField == null) {
+                        Log.get().fine("no row fetched for " + this + ", lines have been changed without the TableModel knowing : " + lines + " req :\n" + fetcher.getReq());
+                        getModel().updateAll();
+                    } else {
+                        final SQLRowValues soleFetched = CollectionUtils.getSole(fetched);
+                        // copy it to each affected lines
+                        for (final ListSQLLine line : lines) {
+                            line.loadAt(getID(), soleFetched, p);
+                        }
                     }
                 }
             }

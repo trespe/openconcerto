@@ -79,10 +79,10 @@ public class ListPanelEcritures extends ListeAddPanel {
      */
     protected void handleAction(JButton source, ActionEvent e) {
         if (source == this.buttonModifier) {
-            final SQLRow ecritureRow = new EcritureSQLElement().getTable().getRow(this.getListe().getSelectedId());
+            final SQLRow ecritureRow = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("ECRITURE").getRow(this.getListe().getSelectedId());
             MouvementSQLElement.showSource(ecritureRow.getInt("ID_MOUVEMENT"));
         } else if (source == this.buttonEffacer) {
-            SQLRow row = this.getListe().getSelectedRow();
+            SQLRow row = this.getListe().fetchSelectedRow();
 
             PanelFrame frame = new PanelFrame(new SuppressionEcrituresPanel(row.getInt("ID_MOUVEMENT")), "Suppression");
             frame.pack();

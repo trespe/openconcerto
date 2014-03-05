@@ -82,6 +82,19 @@ public class CompareUtils {
         }
     }
 
+    static private final Comparator<Comparable<Object>> NATURAL_COMPARATOR = new Comparator<Comparable<Object>>() {
+        @Override
+        public int compare(Comparable<Object> o1, Comparable<Object> o2) {
+            return o1.compareTo(o2);
+        }
+    };
+
+    // added in Comparator in Java 8
+    @SuppressWarnings("unchecked")
+    static public final <T extends Comparable<? super T>> Comparator<T> naturalOrder() {
+        return (Comparator<T>) NATURAL_COMPARATOR;
+    }
+
     /**
      * Renvoie un comparateur qui utilise successivement la liste passée tant que les objets sont
      * égaux.

@@ -30,6 +30,7 @@ import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 
+import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -101,11 +102,11 @@ public class DefaultElementSQLObject extends ElementSQLObject {
             }
         });
 
-        this.supprBtn = new JButton(new ImageIcon(this.getClass().getResource("delete.png")));
+        this.supprBtn = new JButton(new ImageIcon(DefaultElementSQLObject.class.getResource("delete.png")));
         this.supprBtn.setToolTipText(getTM().translate("remove"));
         this.supprBtn.setOpaque(false);
         if (isPlastic)
-            this.supprBtn.setBorder(null);
+            this.supprBtn.setBorder(BorderFactory.createEmptyBorder());
         this.supprBtn.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {

@@ -13,18 +13,23 @@
  
  package org.openconcerto.erp.core.finance.payment.element;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.payment.component.EncaisserMontantSQLComponent;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.TreesOfSQLRows;
+import org.openconcerto.sql.model.FieldPath;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.view.list.BaseSQLTableModelColumn;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -70,6 +75,7 @@ public class EncaisserMontantSQLElement extends ComptaSQLConfElement {
 
         return Collections.singleton("ID_CLIENT");
     }
+
 
     /*
      * (non-Javadoc)

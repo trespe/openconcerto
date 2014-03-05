@@ -13,27 +13,33 @@
  
  package org.openconcerto.erp.core.supplychain.supplier.ui;
 
-import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
+import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
+import org.openconcerto.erp.core.common.ui.IListTotalPanel;
+import org.openconcerto.erp.core.finance.payment.element.ReglerMontantSQLComponent;
 import org.openconcerto.erp.core.supplychain.order.ui.ListPanelEcheancesFourn;
+import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
-import javax.swing.AbstractAction;
 import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.event.TableModelEvent;
@@ -42,7 +48,6 @@ import javax.swing.event.TableModelListener;
 public class ListeDesEcheancesFournPanel extends JPanel implements TableModelListener {
 
     private ListPanelEcheancesFourn panelEcheances;
-    private EditFrame edit = null;
     private JButton regler;
     private SQLElement eltRegler = Configuration.getInstance().getDirectory().getElement("REGLER_MONTANT");
 
@@ -55,14 +60,52 @@ public class ListeDesEcheancesFournPanel extends JPanel implements TableModelLis
         // PANEL AVEC LA LISTE DES ECHEANCES
         c.weightx = 1;
         c.weighty = 1;
-        c.gridwidth = 2;
+        c.gridwidth = 3;
         c.fill = GridBagConstraints.BOTH;
         this.add(this.panelEcheances, c);
 
-        // Bouton Encaisser
+        final IListe liste = this.panelEcheances.getListe();
+        IListFilterDatePanel datePanel = new IListFilterDatePanel(liste, liste.getRequest().getPrimaryTable().getField("DATE"), IListFilterDatePanel.getDefaultMap());
+
+        c.weighty = 0;
+        c.gridy++;
+        c.weightx = 1;
+        this.add(datePanel, c);
+
+        IListTotalPanel totalPanel = new IListTotalPanel(liste, Arrays.asList(this.panelEcheances.getElement().getTable().getField("MONTANT")));
+
+        c.weighty = 0;
+        c.gridy++;
         c.anchor = GridBagConstraints.EAST;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
+        this.add(totalPanel, c);
+
+        c.anchor = GridBagConstraints.WEST;
         c.gridx = 0;
         c.gridy++;
+        c.gridwidth = 1;
+
+        c.weighty = 0;
+        c.fill = GridBagConstraints.NONE;
+        c.weightx = 0;
+        final JCheckBox checkRegCompta = new JCheckBox("Voir les régularisations de comptabilité");
+        if (UserRightsManager.getCurrentUserRights().haveRight(ComptaUserRight.MENU)) {
+            this.add(checkRegCompta, c);
+        }
+
+        checkRegCompta.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                panelEcheances.setShowRegCompta(checkRegCompta.isSelected());
+
+            }
+        });
+
+        // Bouton Encaisser
+        c.anchor = GridBagConstraints.EAST;
+
+        c.gridx++;
         c.gridwidth = 1;
         c.weightx = 1;
         c.weighty = 0;
@@ -74,19 +117,58 @@ public class ListeDesEcheancesFournPanel extends JPanel implements TableModelLis
         this.regler.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent e) {
+                List<Integer> selectedIds = ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelection().getSelectedIDs();
+                List<SQLRow> selectedRows = new ArrayList<SQLRow>(selectedIds.size());
+                int idCpt = -1;
+                int idFournisseur = -1;
+                boolean showMessage = false;
 
-                if (ListeDesEcheancesFournPanel.this.edit == null) {
+                String numeroFact = "";
+                for (Integer integer : selectedIds) {
+                    final SQLRow row = ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSource().getPrimaryTable().getRow(integer);
+                    selectedRows.add(row);
 
-                    ListeDesEcheancesFournPanel.this.edit = new EditFrame(eltRegler);
+                    String nom = row.getForeignRow("ID_MOUVEMENT").getForeignRow("ID_PIECE").getString("NOM");
+                    numeroFact += " " + nom;
+
+                    SQLRow rowFournisseur = row.getForeignRow("ID_FOURNISSEUR");
+                    int idTmp = rowFournisseur.getInt("ID_COMPTE_PCE");
+                    int idCliTmp = rowFournisseur.getID();
+                    if (idCpt > -1 && idCpt != idTmp) {
+                        JOptionPane.showMessageDialog(null, "Impossible d'effectuer un encaissement sur plusieurs factures ayant des fournisseurs avec des comptes différents.");
+                        return;
+                    } else {
+                        idCpt = idTmp;
+                    }
+
+                    if (idFournisseur > -1 && idFournisseur != idCliTmp) {
+                        showMessage = true;
+                    } else {
+                        idFournisseur = idCliTmp;
+                    }
                 }
+                if (showMessage) {
+                    int answer = JOptionPane.showConfirmDialog(null, "Attention vous avez sélectionné des factures ayant des fournisseurs différents. Voulez vous continuer?");
+                    if (answer != JOptionPane.YES_OPTION) {
+                        return;
+                    }
 
-                SQLRowValues rowVals = new SQLRowValues(eltRegler.getTable());
+                }
+                SQLElement encaisseElt = Configuration.getInstance().getDirectory().getElement("REGLER_MONTANT");
+                EditFrame edit = new EditFrame(encaisseElt);
 
-                rowVals.put("ID_ECHEANCE_FOURNISSEUR", ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelectedId());
+                SQLRowValues rowVals = new SQLRowValues(encaisseElt.getTable());
 
-                ListeDesEcheancesFournPanel.this.edit.getSQLComponent().select(rowVals);
-                ListeDesEcheancesFournPanel.this.edit.pack();
-                ListeDesEcheancesFournPanel.this.edit.setVisible(true);
+                rowVals.put("ID_FOURNISSEUR", idFournisseur);
+                rowVals.put("NOM", numeroFact);
+
+                final ReglerMontantSQLComponent sqlComponent = (ReglerMontantSQLComponent) edit.getSQLComponent();
+
+                sqlComponent.resetValue();
+                sqlComponent.select(rowVals);
+                sqlComponent.loadEcheancesFromRows(selectedRows);
+                edit.pack();
+                edit.setVisible(true);
             }
         });
 
@@ -107,63 +189,6 @@ public class ListeDesEcheancesFournPanel extends JPanel implements TableModelLis
         });
 
         this.panelEcheances.getListe().addListener(this);
-        // Gestion de la souris
-        this.panelEcheances.getJTable().addMouseListener(new MouseAdapter() {
-
-            public void mousePressed(MouseEvent mE) {
-
-                // Mise à jour de l'echeance sur la frame de reglement
-                // si cette derniere est cree
-                if (mE.getButton() == MouseEvent.BUTTON1) {
-
-                    if (ListeDesEcheancesFournPanel.this.edit != null) {
-                        SQLRowValues rowVals = new SQLRowValues(eltRegler.getTable());
-
-                        int id = ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelectedId();
-
-                        rowVals.put("ID_ECHEANCE_FOURNISSEUR", id);
-
-                        ListeDesEcheancesFournPanel.this.edit.getSQLComponent().select(rowVals);
-                        ListeDesEcheancesFournPanel.this.edit.pack();
-                    }
-                }
-
-                // Gestion du clic droit
-                if (mE.getButton() == MouseEvent.BUTTON3) {
-                    JPopupMenu menuDroit = new JPopupMenu();
-
-                    menuDroit.add(new AbstractAction("Voir la source") {
-
-                        public void actionPerformed(ActionEvent e) {
-                            SQLRow row = ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelectedRow();
-                            MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
-                        }
-                    });
-
-                    /*
-                     * menuDroit.add(new AbstractAction("Encaisser") {
-                     * 
-                     * public void actionPerformed(ActionEvent e) { if (edit == null) {
-                     * ReglerMontantSQLElement encaisseElt = new ReglerMontantSQLElement(); edit =
-                     * new EditFrame(encaisseElt); }
-                     * 
-                     * SQLRowValues rowVals = new SQLRowValues(new
-                     * ReglerMontantSQLElement().getTable());
-                     * 
-                     * int id =
-                     * ListeDesEcheancesFournPanel.this.panelEcheances.getListe().getSelectedId();
-                     * 
-                     * rowVals.put("ID_ECHEANCE_FOURNISSEUR", id);
-                     * 
-                     * edit.getSQLComponent().select(rowVals); edit.pack(); edit.setVisible(true); }
-                     * });
-                     */
-
-                    menuDroit.show(mE.getComponent(), mE.getX(), mE.getY());
-                }
-            }
-        });
-
     }
 
     public ListPanelEcheancesFourn getListPanelEcheanceFourn() {

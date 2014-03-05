@@ -29,14 +29,20 @@ import java.util.TimeZone;
 import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.Duration;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.Immutable;
+
 /**
  * The null date of an OpenDocument.
  */
+@Immutable
 public final class ODEpoch {
 
     static private final BigDecimal MS_PER_DAY = BigDecimal.valueOf(24l * 60l * 60l * 1000l);
+    @GuardedBy("DATE_FORMAT")
     static private final DateFormat DATE_FORMAT;
     static private final ODEpoch DEFAULT_EPOCH;
+    @GuardedBy("cache")
     static private final Map<String, ODEpoch> cache = new LinkedHashMap<String, ODEpoch>(4, 0.75f, true) {
         @Override
         protected boolean removeEldestEntry(Map.Entry<String, ODEpoch> eldest) {
@@ -63,19 +69,23 @@ public final class ODEpoch {
         if (date == null || date.equals(DEFAULT_EPOCH.getDateString())) {
             return DEFAULT_EPOCH;
         } else {
-            ODEpoch res = cache.get(date);
-            if (res == null) {
-                res = new ODEpoch(date);
-                cache.put(date, res);
+            synchronized (cache) {
+                ODEpoch res = cache.get(date);
+                if (res == null) {
+                    res = new ODEpoch(date);
+                    cache.put(date, res);
+                }
+                return res;
             }
-            return res;
         }
     }
 
     static private final Calendar parse(final String date) throws ParseException {
-        final Calendar cal = (Calendar) DATE_FORMAT.getCalendar().clone();
-        cal.setTime(DATE_FORMAT.parse(date));
-        return cal;
+        synchronized (DATE_FORMAT) {
+            final Calendar cal = (Calendar) DATE_FORMAT.getCalendar().clone();
+            cal.setTime(DATE_FORMAT.parse(date));
+            return cal;
+        }
     }
 
     private final String dateString;
@@ -105,6 +115,7 @@ public final class ODEpoch {
     }
 
     public final Duration normalizeToDays(final Duration dur) {
+        // we have to convert to a date to know the duration of years and months
         final Duration res = dur.getYears() == 0 && dur.getMonths() == 0 ? dur : getDuration(getDays(dur));
         assert res.getYears() == 0 && res.getMonths() == 0;
         return res;
@@ -132,7 +143,7 @@ public final class ODEpoch {
     }
 
     public final Calendar getDate(final BigDecimal days) {
-        return getDate(days, Calendar.getInstance());
+        return getDate(days, ODValueType.getCalendar());
     }
 
     public final Calendar getDate(final BigDecimal days, final Calendar res) {

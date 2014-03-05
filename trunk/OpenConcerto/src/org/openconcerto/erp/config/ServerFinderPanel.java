@@ -17,13 +17,14 @@ import org.openconcerto.erp.core.sales.pos.ui.ConfigCaissePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLSchema;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.VFlowLayout;
 import org.openconcerto.utils.DesktopEnvironment;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
-import org.openconcerto.utils.ProductInfo;
 
 import java.awt.Component;
 import java.awt.Dimension;
@@ -44,6 +45,7 @@ import java.util.Properties;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JFileChooser;
@@ -79,14 +81,13 @@ public class ServerFinderPanel extends JPanel {
     private JTabbedPane tabbedPane;
 
     public static void main(String[] args) {
-        System.out.println("Reading configuration from: " + ComptaPropsConfiguration.getConfFile().getAbsolutePath());
-
         System.setProperty(org.openconcerto.sql.PropsConfiguration.REDIRECT_TO_FILE, "true");
         System.setProperty(SQLBase.ALLOW_OBJECT_REMOVAL, "true");
+        // this class is used to edit a configuration, not to modify the DB
+        System.setProperty(SQLSchema.NOAUTO_CREATE_METADATA, "true");
 
         ExceptionHandler.setForceUI(true);
         ExceptionHandler.setForumURL("http://www.openconcerto.org/forum");
-        ProductInfo.setInstance(new ProductInfo("OpenConcerto"));
         PropsConfiguration conf = new PropsConfiguration(new Properties()) {
             @Override
             protected File createWD() {
@@ -94,6 +95,9 @@ public class ServerFinderPanel extends JPanel {
             }
         };
         conf.setupLogging();
+
+        final File confFile = ComptaPropsConfiguration.getConfFile();
+        System.out.println("Reading configuration from: " + confFile.getAbsolutePath());
 
         SwingUtilities.invokeLater(new Runnable() {
             @Override
@@ -106,9 +110,8 @@ public class ServerFinderPanel extends JPanel {
                 JFrame f = new JFrame("Configuration OpenConcerto");
                 f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
                 final ServerFinderPanel panel = new ServerFinderPanel();
-                panel.setConfigFile(ComptaPropsConfiguration.getConfFile());
                 panel.uiInit();
-                panel.loadConfigFile();
+                panel.setConfigFile(confFile);
                 f.setContentPane(panel);
                 f.pack();
                 f.setMinimumSize(new Dimension(f.getWidth(), f.getHeight()));
@@ -128,7 +131,7 @@ public class ServerFinderPanel extends JPanel {
         return false;
     }
 
-    protected void loadConfigFile() {
+    private void loadConfigFile() {
         this.textMainProperties.setText(confFile.getAbsolutePath());
         if (!this.confFile.exists()) {
             System.out.println("Unable to find: " + this.confFile.getAbsolutePath());
@@ -151,39 +154,40 @@ public class ServerFinderPanel extends JPanel {
             if (!this.confFile.canWrite()) {
                 JOptionPane.showMessageDialog(null, "Vous n'avez pas les droits de modifier le fichier " + this.confFile);
             }
+            // defaults in constructor so that not every getProperty() needs to provide them (e.g.
+            // in new ComptaPropsConfiguration())
+            final Properties defaults = new Properties();
+            defaults.put("server.ip", "127.0.0.1");
+            defaults.put("server.driver", "postgresql");
+            defaults.put("systemRoot", "OpenConcerto");
+            this.props = new Properties(defaults);
             try {
                 this.props.load(new FileInputStream(this.confFile));
             } catch (Exception e) {
                 JOptionPane.showMessageDialog(null, "Impossible de lire le fichier " + this.confFile + " \n" + e.getLocalizedMessage());
             }
 
-            String serverIp = this.props.getProperty("server.ip", "127.0.0.1:5432");
-            String serverDriver = this.props.getProperty("server.driver", "postgresql").toLowerCase();
-            if (serverDriver.startsWith("h2")) {
-                updateUIForMode(ServerFinderConfig.H2);
-            } else if (serverDriver.startsWith("mysql")) {
-                updateUIForMode(ServerFinderConfig.MYSQL);
-                this.textPort.setText("3306");
-            } else {
+            try {
+                updateUIForMode(SQLSystem.get(this.props.getProperty("server.driver")));
+            } catch (Exception e) {
                 // Fallback on POSTGRESQL
-                updateUIForMode(ServerFinderConfig.POSTGRESQL);
-                this.textPort.setText("5432");
+                updateUIForMode(SQLSystem.POSTGRESQL);
             }
-            this.textBase.setText(this.props.getProperty("systemRoot", "OpenConcerto"));
-            if (serverIp.contains("file:")) {
-                this.textFile.setText(serverIp.substring(5));
+            final String serverIp = this.props.getProperty("server.ip");
+            if (serverIp.startsWith("file:")) {
+                // create conf to replace dataDir, clone since ComptaPropsConfiguration modify its
+                // parameter
+                this.textFile.setText(new ComptaPropsConfiguration(new Properties(this.props), false, false).getServerIp().substring(5));
             } else {
-                if (serverIp.contains(":")) {
-                    int i = serverIp.lastIndexOf(':');
-                    if (i > 0) {
-                        this.textIP.setText(serverIp.substring(0, i));
-                        this.textPort.setText(serverIp.substring(i + 1));
-                    }
+                final int i = serverIp.lastIndexOf(':');
+                if (i > 0) {
+                    this.textIP.setText(serverIp.substring(0, i));
+                    this.textPort.setText(serverIp.substring(i + 1));
                 } else {
                     this.textIP.setText(serverIp);
                 }
             }
-
+            this.textBase.setText(this.props.getProperty("systemRoot"));
         }
     }
 
@@ -211,44 +215,36 @@ public class ServerFinderPanel extends JPanel {
         }
         FileOutputStream out = null;
         try {
-            String serverIp;
-            String serverDriver;
-            if (this.comboMode.getSelectedItem().equals(ServerFinderConfig.H2)) {
-                serverDriver = "h2";
-                String filePath = this.textFile.getText();
-                if (filePath == null || filePath.trim().length() == 0) {
-                    filePath = "";
+            final ServerFinderConfig config = createServerFinderConfig();
+            final String serverDriver = config.getSystem().getJDBCName();
+            final String serverIp;
+            if (config.getSystem() == SQLSystem.H2) {
+                File file = config.getFile();
+                if (file == null)
+                    file = new File("");
+                final String filePath;
+                if (file.getPath().length() == 0) {
+                    filePath = ComptaPropsConfiguration.DATA_DIR_VAR;
                     JOptionPane.showMessageDialog(null, "Attention. Le dossier de données n'est pas rempli");
+                } else {
+                    // replace getDataDir() by ComptaPropsConfiguration.DATA_DIR_VAR
+                    final File canonFile = file.getCanonicalFile();
+                    final File dataDir = config.createConf().getDataDir().getCanonicalFile();
+                    if (canonFile.getPath().startsWith(dataDir.getPath())) {
+                        filePath = ComptaPropsConfiguration.DATA_DIR_VAR + canonFile.getPath().substring(dataDir.getPath().length());
+                    } else {
+                        filePath = file.getPath();
+                    }
                 }
-                if (!filePath.endsWith("/")) {
-                    filePath += "/";
-                }
-                serverIp = "file:" + filePath;
-            } else if (this.comboMode.getSelectedItem().equals(ServerFinderConfig.MYSQL)) {
-                serverDriver = "mysql";
-                String ip = this.textIP.getText();
-                if (ip == null || ip.trim().length() == 0) {
-                    ip = "127.0.0.1";
-                    JOptionPane.showMessageDialog(null, "Attention. L'adresse du serveur n'est pas remplie");
-                }
-                String port = this.textPort.getText();
-                if (port == null || port.trim().length() == 0) {
-                    port = "3306";
-                }
-                serverIp = ip + ":" + port;
+                serverIp = "file:" + filePath + (filePath.endsWith("/") ? "" : "/");
             } else {
-                // PostgreSQL
-                serverDriver = "postgresql";
-                String ip = this.textIP.getText();
+                String ip = config.getIp();
                 if (ip == null || ip.trim().length() == 0) {
                     ip = "127.0.0.1";
                     JOptionPane.showMessageDialog(null, "Attention. L'adresse du serveur n'est pas remplie");
                 }
-                String port = this.textPort.getText();
-                if (port == null || port.trim().length() == 0) {
-                    port = "5432";
-                }
-                serverIp = ip + ":" + port;
+                final String port = config.getPort().trim();
+                serverIp = ip + (port.length() > 0 ? (":" + port) : "");
             }
             this.props.put("server.driver", serverDriver);
             this.props.put("server.ip", serverIp);
@@ -288,16 +284,7 @@ public class ServerFinderPanel extends JPanel {
 
     protected void setConfigFile(File f) {
         this.confFile = f;
-
-        this.props = new Properties();
-        if (f.exists()) {
-            try {
-                this.props.load(new FileInputStream(this.confFile));
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(null, "Impossible de lire le fichier " + this.confFile + " \n" + e.getLocalizedMessage());
-            }
-        }
-
+        this.loadConfigFile();
     }
 
     private void uiInit() {
@@ -348,7 +335,7 @@ public class ServerFinderPanel extends JPanel {
         this.comboMode.addActionListener((new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                updateUIForMode(ServerFinderPanel.this.comboMode.getSelectedItem().toString());
+                updateUIForMode((SQLSystem) ServerFinderPanel.this.comboMode.getSelectedItem());
 
             }
         }
@@ -362,20 +349,20 @@ public class ServerFinderPanel extends JPanel {
         return configCaissePanel;
     }
 
-    public void updateUIForMode(String mode) {
-        if (mode.endsWith(ServerFinderConfig.H2)) {
+    public void updateUIForMode(SQLSystem mode) {
+        if (mode.equals(ServerFinderConfig.H2)) {
             this.comboMode.setSelectedItem(ServerFinderConfig.H2);
             this.textIP.setEnabled(false);
             this.textPort.setEnabled(false);
             this.textFile.setEnabled(true);
             this.buttonDir.setEnabled(true);
-        } else if (mode.endsWith(ServerFinderConfig.MYSQL)) {
+        } else if (mode.equals(ServerFinderConfig.MYSQL)) {
             this.comboMode.setSelectedItem(ServerFinderConfig.MYSQL);
             this.textIP.setEnabled(true);
             this.textPort.setEnabled(true);
             this.textFile.setEnabled(false);
             this.buttonDir.setEnabled(false);
-        } else if (mode.endsWith(ServerFinderConfig.POSTGRESQL)) {
+        } else if (mode.equals(ServerFinderConfig.POSTGRESQL)) {
             this.comboMode.setSelectedItem(ServerFinderConfig.POSTGRESQL);
             this.textIP.setEnabled(true);
             this.textPort.setEnabled(true);
@@ -410,7 +397,13 @@ public class ServerFinderPanel extends JPanel {
         c.gridx++;
         c.weightx = 1;
         c.fill = GridBagConstraints.NONE;
-        this.comboMode = new JComboBox(new String[] { ServerFinderConfig.H2, ServerFinderConfig.POSTGRESQL, ServerFinderConfig.MYSQL });
+        this.comboMode = new JComboBox(new SQLSystem[] { ServerFinderConfig.H2, ServerFinderConfig.POSTGRESQL, ServerFinderConfig.MYSQL });
+        this.comboMode.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                return super.getListCellRendererComponent(list, ((SQLSystem) value).getLabel(), index, isSelected, cellHasFocus);
+            }
+        });
         p.add(this.comboMode, c);
         // L2: IP, port
         c.gridy++;
@@ -691,12 +684,7 @@ public class ServerFinderPanel extends JPanel {
     }
 
     public ServerFinderConfig getServerConfig() {
-        final ServerFinderConfig conf = new ServerFinderConfig();
-        conf.setType(ServerFinderPanel.this.comboMode.getSelectedItem().toString());
-        conf.setIp(ServerFinderPanel.this.textIP.getText());
-        conf.setPort(ServerFinderPanel.this.textPort.getText());
-        conf.setSystemRoot(this.textBase.getText());
-        return conf;
+        return this.createServerFinderConfig();
     }
 
     private void useSelectedConfig(final JList l) {
@@ -724,10 +712,11 @@ public class ServerFinderPanel extends JPanel {
     }
 
     public ServerFinderConfig createServerFinderConfig() {
-        ServerFinderConfig conf = new ServerFinderConfig();
-        conf.setType(this.comboMode.getSelectedItem().toString());
+        ServerFinderConfig conf = new ServerFinderConfig(this.props);
+        conf.setType((SQLSystem) this.comboMode.getSelectedItem());
         conf.setSystemRoot(this.textBase.getText());
         if (!conf.getType().equals(ServerFinderConfig.H2)) {
+            conf.resetFile();
             conf.setIp(this.textIP.getText());
             conf.setPort(this.textPort.getText());
         } else {

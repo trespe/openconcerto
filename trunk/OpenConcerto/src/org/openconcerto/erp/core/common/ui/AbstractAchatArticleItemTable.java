@@ -25,6 +25,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.sqlobject.ITextWithCompletion;
@@ -217,7 +218,10 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         this.tableElementTotalTTC.setRenderer(new DeviseTableCellRenderer());
         list.add(this.tableElementTotalTTC);
 
-        this.model = new RowValuesTableModel(e, list, e.getTable().getField("NOM"), false, null);
+        SQLRowValues defautRow = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(e.getTable()));
+        defautRow.put("ID_TAXE", TaxeCache.getCache().getFirstTaxe().getID());
+
+        this.model = new RowValuesTableModel(e, list, e.getTable().getField("NOM"), false, defautRow);
 
         this.table = new RowValuesTable(this.model, getConfigurationFile());
         ToolTipManager.sharedInstance().unregisterComponent(this.table);

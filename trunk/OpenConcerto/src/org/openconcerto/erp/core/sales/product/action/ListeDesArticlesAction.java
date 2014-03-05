@@ -77,16 +77,14 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
         // DeviseNiceTableCellRenderer());
         final SQLElement elt = Configuration.getInstance().getDirectory().getElement(this.sqlTableArticle);
         final SQLTableModelSourceOnline createTableSource = elt.createTableSource(getWhere(panelFam));
-        createTableSource.getColumns().add(new BaseSQLTableModelColumn("Valeur HT du stock", Double.class) {
-
-            Double zero = new Double(0D);
+        createTableSource.getColumns().add(new BaseSQLTableModelColumn("Valeur HT du stock", BigDecimal.class) {
 
             @Override
             protected Object show_(SQLRowAccessor r) {
 
                 SQLRowAccessor stock = r.getForeign("ID_STOCK");
                 if (stock == null || stock.isUndefined()) {
-                    return zero;
+                    return BigDecimal.ZERO;
                 } else {
                     float qte = stock.getFloat("QTE_REEL");
                     BigDecimal ha = r.getBigDecimal("PA_HT");
@@ -104,8 +102,7 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
             public Set<FieldPath> getPaths() {
                 final SQLTable table = elt.getTable();
                 Path p = new Path(table);
-                Path p2 = new Path(table);
-                p2.add(table.getField("ID_STOCK"));
+                Path p2 = new Path(table).addForeignField("ID_STOCK");
                 return CollectionUtils.createSet(new FieldPath(p, "PA_HT"), new FieldPath(p2, "QTE_REEL"));
             }
         });

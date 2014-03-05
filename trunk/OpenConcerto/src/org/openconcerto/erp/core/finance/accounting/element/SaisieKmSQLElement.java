@@ -226,7 +226,7 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
             this.textNom = new JTextField();
             this.labelTotalCredit = new JLabel("0.00", SwingConstants.RIGHT);
             this.labelTotalDebit = new JLabel("0.00", SwingConstants.RIGHT);
-            this.date = new JDate(true);
+            this.date = new JDate();
 
             this.comboJrnl = new ElementComboBox(false, 20);
 
@@ -420,14 +420,12 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
         }
 
         public void select(SQLRowAccessor r) {
-
             if (r == null) {
                 this.dTemp = this.date.getDate();
             }
-
             super.select(r);
             if (r != null) {
-                this.tableKm.insertFrom("ID_SAISIE_KM", r.getID());
+                this.tableKm.insertFrom(r);
             }
         }
 
@@ -442,13 +440,12 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
 
         @Override
         protected SQLRowValues createDefaults() {
-
+            assert SwingUtilities.isEventDispatchThread();
             SQLRowValues rowVals = new SQLRowValues(this.getTable());
 
-            if (this.dTemp == null) {
-                this.dTemp = new Date();
+            if (this.dTemp != null) {
+                rowVals.put("DATE", this.dTemp);
             }
-            rowVals.put("DATE", this.dTemp);
             this.tableKm.getModel().clearRows();
             this.tableKm.revalidate();
             this.tableKm.repaint();
@@ -537,10 +534,12 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
 
         @Override
         public synchronized ValidState getValidState() {
+            assert SwingUtilities.isEventDispatchThread();
             return super.getValidState().and(this.validState);
         }
 
         private void updateValidState() {
+            assert SwingUtilities.isEventDispatchThread();
             ValidState state = ValidState.create(!this.labelMotifWarning.isVisible(), this.labelMotifWarning.getText());
             if (!this.isCompteExist && !this.checkCreateCompte.isSelected())
                 state = state.and(ValidState.createCached(false, "Certains comptes n'existent pas"));
@@ -550,6 +549,7 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
         }
 
         private void setValidState(final ValidState state) {
+            assert SwingUtilities.isEventDispatchThread();
             if (!state.equals(this.validState)) {
                 this.validState = state;
                 fireValidChange();
@@ -557,6 +557,7 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
         }
 
         private void setTotals(final long totalCred, final long totalDeb) {
+            assert SwingUtilities.isEventDispatchThread();
             this.totalCred = totalCred;
             this.totalDeb = totalDeb;
             this.labelTotalCredit.setText(GestionDevise.currencyToString(this.totalCred));
@@ -577,6 +578,7 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
         }
 
         private void tableChanged(TableModelEvent e) {
+            assert SwingUtilities.isEventDispatchThread();
             long totalCred = 0;
             long totalDeb = 0;
             long totalCredWithNoValid = 0;

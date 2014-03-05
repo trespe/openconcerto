@@ -14,9 +14,9 @@
  package org.openconcerto.erp.core.finance.accounting.ui;
 
 import org.openconcerto.erp.generationDoc.gestcomm.JournalPaieXmlSheet;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.event.ActionEvent;
-import java.util.concurrent.ExecutionException;
 
 public class ImpressionJournalPayePanel extends ImpressionPayePanel {
 
@@ -29,12 +29,8 @@ public class ImpressionJournalPayePanel extends ImpressionPayePanel {
         try {
             bSheet.createDocument();
             bSheet.showPrintAndExport(true, false, false);
-        } catch (InterruptedException exn) {
-            // TODO Bloc catch auto-généré
-            exn.printStackTrace();
-        } catch (ExecutionException exn) {
-            // TODO Bloc catch auto-généré
-            exn.printStackTrace();
+        } catch (Exception originalExn) {
+            ExceptionHandler.handle("Erreur lors de l'impression du journal de paye", originalExn);
         }
     }
 

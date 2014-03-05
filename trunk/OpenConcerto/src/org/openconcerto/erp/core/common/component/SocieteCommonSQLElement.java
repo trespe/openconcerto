@@ -14,7 +14,6 @@
  package org.openconcerto.erp.core.common.component;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.panel.ChargementCreationSocietePanel;
 import org.openconcerto.sql.Configuration;
@@ -22,19 +21,25 @@ import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.ElementSQLObject;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.TitledSeparator;
+import org.openconcerto.utils.CollectionMap;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 
@@ -50,8 +55,34 @@ import javax.swing.SwingConstants;
  */
 public class SocieteCommonSQLElement extends ConfSQLElement {
 
+    private static final String TABLE_NAME = "SOCIETE_COMMON";
+
+    static public final DBRoot getRoot(final SQLRow company) {
+        try {
+            return getRoot(company, false);
+        } catch (SQLException e) {
+            // shouldn't happen since we don't allow refresh
+            throw new IllegalStateException(e);
+        }
+    }
+
+    static public final DBRoot getRoot(final SQLRow company, final boolean allowRefresh) throws SQLException {
+        final String rootName = company.getString("DATABASE_NAME");
+        final DBSystemRoot sysRoot = company.getTable().getDBSystemRoot();
+        if (allowRefresh && !sysRoot.contains(rootName)) {
+            sysRoot.addRootToMap(rootName);
+            sysRoot.refresh(TablesMap.createFromTables(rootName, Collections.singleton(TABLE_NAME)), true);
+        }
+        return sysRoot.getRoot(rootName);
+    }
+
     public SocieteCommonSQLElement() {
-        super("SOCIETE_COMMON", "une société", "sociétés");
+        super(TABLE_NAME, "une société", "sociétés");
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        return CollectionMap.singleton(null, getListFields());
     }
 
     protected List<String> getListFields() {
@@ -351,6 +382,11 @@ public class SocieteCommonSQLElement extends ConfSQLElement {
                 c.insets = new Insets(2, 2, 1, 2);
                 c.fill = GridBagConstraints.NONE;
                 this.add(panelPlan, c);
+
+                c.gridy++;
+                final JPanel additionalPanel = new JPanel();
+                this.add(additionalPanel, c);
+                this.setAdditionalFieldsPanel(new FormLayouter(additionalPanel, 2, 1));
 
                 this.addRequiredSQLObject(this.textNom, "NOM");
                 // this.addSQLObject(this.textAdresse, "ADRESSE");

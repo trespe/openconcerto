@@ -65,14 +65,14 @@ public abstract class SQLRowAccessor implements SQLData {
     }
 
     /**
-     * Creates an SQLRow from these values, without any db access.
+     * Creates an SQLRow from these values, without any DB access.
      * 
      * @return an SQLRow with the same values as this.
      */
     public abstract SQLRow asRow();
 
     /**
-     * Creates an SQLRowValues from these values, without any db access.
+     * Creates an SQLRowValues from these values, without any DB access.
      * 
      * @return an SQLRowValues with the same values as this.
      */
@@ -184,6 +184,16 @@ public abstract class SQLRowAccessor implements SQLData {
      * @throws IllegalArgumentException if fieldName is not a foreign field.
      */
     public abstract SQLRowAccessor getForeign(String fieldName);
+
+    /**
+     * Return the ID of a foreign row.
+     * 
+     * @param fieldName name of the foreign field.
+     * @return the value of <code>fieldName</code>, {@link SQLRow#NONEXISTANT_ID} if
+     *         <code>null</code>.
+     * @throws IllegalArgumentException if fieldName is not a foreign field.
+     */
+    public abstract int getForeignID(String fieldName) throws IllegalArgumentException;
 
     public abstract boolean isForeignEmpty(String fieldName);
 

@@ -214,4 +214,66 @@ public class NumberUtils {
             return n.doubleValue() / d;
         }
     }
+
+    static public Number negate(Number n) {
+        if (n == null)
+            return null;
+        final Number res;
+        final Class<? extends Number> clazz = n.getClass();
+        if (n instanceof BigDecimal) {
+            res = ((BigDecimal) n).negate();
+        } else if (n instanceof BigInteger) {
+            res = ((BigInteger) n).negate();
+        } else if (clazz == Short.class) {
+            // cast needed since '-' widens to int
+            res = (short) -n.shortValue();
+        } else if (clazz == Integer.class) {
+            res = -n.intValue();
+        } else if (clazz == Long.class) {
+            res = -n.longValue();
+        } else if (clazz == Byte.class) {
+            // cast needed since '-' widens to int
+            res = (byte) -n.byteValue();
+        } else if (clazz == AtomicInteger.class) {
+            res = new AtomicInteger(-n.intValue());
+        } else if (clazz == AtomicLong.class) {
+            res = new AtomicLong(-n.longValue());
+        } else if (clazz == Double.class) {
+            res = -n.doubleValue();
+        } else if (clazz == Float.class) {
+            res = -n.floatValue();
+        } else {
+            // fallback for unknown class
+            res = new BigDecimal(n.toString()).negate();
+        }
+        return res;
+    }
+
+    static public int signum(Number n) {
+        if (n == null)
+            throw new NullPointerException();
+        final int res;
+        final Class<? extends Number> clazz = n.getClass();
+        if (n instanceof BigDecimal) {
+            res = ((BigDecimal) n).signum();
+        } else if (n instanceof BigInteger) {
+            res = ((BigInteger) n).signum();
+        } else if (clazz == Double.class) {
+            res = (int) Math.signum(n.doubleValue());
+        } else if (clazz == Float.class) {
+            res = (int) Math.signum(n.floatValue());
+        } else if (clazz == Byte.class || clazz == Short.class || clazz == Integer.class || clazz == Long.class || clazz == AtomicInteger.class || clazz == AtomicLong.class) {
+            final long l = n.longValue();
+            if (l == 0)
+                res = 0;
+            else if (l < 0)
+                res = -1;
+            else
+                res = 1;
+        } else {
+            // limit overflow for unknown class
+            res = (int) Math.signum(n.doubleValue());
+        }
+        return res;
+    }
 }

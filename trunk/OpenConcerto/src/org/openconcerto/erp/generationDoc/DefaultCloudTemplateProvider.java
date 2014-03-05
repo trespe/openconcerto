@@ -14,6 +14,7 @@
  package org.openconcerto.erp.generationDoc;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.Log;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.sync.FileProperty;
@@ -69,21 +70,30 @@ public class DefaultCloudTemplateProvider extends AbstractLocalTemplateProvider 
         }
     }
 
-    private SyncClient createSyncClient(ComptaPropsConfiguration config) {
-        final SyncClient client = new SyncClient("https://" + config.getStorageServer());
+    private SyncClient createSyncClient(ComptaPropsConfiguration configuration) {
+        if (configuration == null) {
+            throw new NullPointerException("null configuration");
+        }
+        final SyncClient client = new SyncClient("https://" + configuration.getStorageServer());
         client.setVerifyHost(false);
         return client;
     }
 
     @Override
     public boolean isSynced(String templateId, String language, String type) {
+        if (templateId == null) {
+            throw new NullPointerException("null templateId");
+        }
         return !getLocalFile(templateId + ".ods", language, type).exists();
     }
 
     @Override
     public File getTemplateFromLocalFile(String templateIdWithExtension, String language, String type) {
+        if (templateIdWithExtension == null) {
+            throw new NullPointerException("null templateIdWithExtension");
+        }
         File f = getLocalFile(templateIdWithExtension, language, type);
-        if (!f.exists()) {
+        if (f == null || !f.exists()) {
             f = getCloudFile(templateIdWithExtension, language, type);
         }
         return f;
@@ -91,14 +101,19 @@ public class DefaultCloudTemplateProvider extends AbstractLocalTemplateProvider 
 
     private File getLocalFile(String templateIdWithExtension, String language, String type) {
         String path = templateIdWithExtension;
-
+        if (templateIdWithExtension == null) {
+            throw new NullPointerException("null templateIdWithExtension");
+        }
         if (type != null) {
             path = insertBeforeExtenstion(path, type);
         }
         if (language != null && language.trim().length() > 0) {
             path = language + "/" + path;
         }
-
+        if (path == null) {
+            Log.get().info("null path for " + templateIdWithExtension + " " + language + " " + type);
+            return null;
+        }
         File dir = getLocalDir();
         File out = new File(dir, path);
 
@@ -113,6 +128,10 @@ public class DefaultCloudTemplateProvider extends AbstractLocalTemplateProvider 
         }
         if (language != null && language.trim().length() > 0) {
             path = language + "/" + path;
+        }
+        if (path == null) {
+            Log.get().info("null path for " + templateIdWithExtension + " " + language + " " + type);
+            return null;
         }
 
         File dir = getCloudDir();

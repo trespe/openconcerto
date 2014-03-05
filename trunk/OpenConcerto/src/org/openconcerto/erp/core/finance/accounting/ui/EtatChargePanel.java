@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.finance.accounting.ui;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.MoisSQLElement;
 import org.openconcerto.erp.core.finance.accounting.model.EtatChargeModel;
 import org.openconcerto.erp.core.humanresources.payroll.element.CaisseCotisationSQLElement;
@@ -69,9 +70,8 @@ public class EtatChargePanel extends JPanel {
         final GridBagConstraints c = new DefaultGridBagConstraints();
 
         // Periode
-        SQLElement eltMois = new MoisSQLElement();
+        final SQLElement eltMois = ComptaPropsConfiguration.getInstanceCompta().getDirectory().getElement(MoisSQLElement.class);
         this.selMoisDu = new ElementComboBox(false, 15);
-
         this.selMoisDu.init(eltMois);
         this.selMoisDu.setButtonsVisible(false);
         this.selMoisAu = new ElementComboBox(false, 15);
@@ -79,14 +79,13 @@ public class EtatChargePanel extends JPanel {
         this.selMoisAu.init(eltMois);
         this.selMoisAu.setButtonsVisible(false);
 
-        JLabel labelAnnee = new JLabel("Année");
+        JLabel labelAnnee = new JLabel("pour l'année");
         this.textAnnee = new JTextField(5);
 
-        JLabel labelMoisDu = new JLabel("De");
+        JLabel labelMoisDu = new JLabel("Période de");
         JLabel labelMoisAu = new JLabel("à");
         {
             JPanel pDate = new JPanel();
-            pDate.setBorder(BorderFactory.createTitledBorder("Période"));
             pDate.setOpaque(false);
             pDate.add(labelMoisDu);
             pDate.add(this.selMoisDu);
@@ -111,6 +110,8 @@ public class EtatChargePanel extends JPanel {
             this.textAnnee.setText(s);
 
             c.weightx = 1;
+            c.fill = GridBagConstraints.NONE;
+            c.anchor = GridBagConstraints.WEST;
             c.gridwidth = GridBagConstraints.REMAINDER;
             this.add(pDate, c);
         }
@@ -235,7 +236,7 @@ public class EtatChargePanel extends JPanel {
         panel.add(scrollPane, c);
 
         // cotisation salariale
-        c.fill = GridBagConstraints.HORIZONTAL;
+        c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.NORTHWEST;
         c.weightx = 1;
         c.weighty = 0;
@@ -243,7 +244,7 @@ public class EtatChargePanel extends JPanel {
         final JPanel panelTotal = new JPanel();
         panelTotal.setOpaque(false);
 
-        final JLabel labelCotSal = new JLabel("Cotisations Sal.");
+        final JLabel labelCotSal = new JLabel("Cotisations salariales");
         panelTotal.add(labelCotSal);
         final JTextField textCotS = new JTextField(10);
         panelTotal.add(textCotS);
@@ -251,7 +252,7 @@ public class EtatChargePanel extends JPanel {
         textCotS.setEnabled(false);
 
         // cotisation patronale
-        final JLabel labelCotPat = new JLabel("Cotisations Pat");
+        final JLabel labelCotPat = new JLabel("Cotisations patronales");
         panelTotal.add(labelCotPat);
         final JTextField textCotP = new JTextField(10);
         panelTotal.add(textCotP);

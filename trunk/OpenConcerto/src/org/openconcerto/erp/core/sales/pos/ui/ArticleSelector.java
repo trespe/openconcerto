@@ -147,8 +147,8 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
         Object sel = list.getSelectedValue();
         if (sel != null && !e.getValueIsAdjusting()) {
             Article article = (Article) sel;
-            controller.addArticle(article);
             controller.setArticleSelected(article);
+            controller.addArticle(article);
         }
     }
 

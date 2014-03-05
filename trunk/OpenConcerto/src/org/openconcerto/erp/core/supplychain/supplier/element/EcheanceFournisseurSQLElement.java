@@ -15,24 +15,136 @@
 
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
+import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
+import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.sql.users.rights.UserRightsManager;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
+import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.GestionDevise;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.event.ActionEvent;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.AbstractAction;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 
 public class EcheanceFournisseurSQLElement extends ComptaSQLConfElement {
 
     public EcheanceFournisseurSQLElement() {
         super("ECHEANCE_FOURNISSEUR", "une échéance fournisseur", "échéances fournisseurs");
+
+        PredicateRowAction actionShowSource = new PredicateRowAction(new AbstractAction("Voir la source") {
+
+            public void actionPerformed(ActionEvent e) {
+                SQLRow row = IListe.get(e).fetchSelectedRow();
+                MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
+            }
+        }, false);
+        actionShowSource.setPredicate(IListeEvent.getNonEmptySelectionPredicate());
+        getRowActions().add(actionShowSource);
+        if (UserRightsManager.getCurrentUserRights().haveRight(ComptaUserRight.MENU)) {
+
+            RowAction actionCancel = new RowAction(new AbstractAction("Annuler la régularisation en comptabilité") {
+
+                public void actionPerformed(ActionEvent e) {
+
+                    int answer = JOptionPane.showConfirmDialog(null, "Etes vous sûr de vouloir annuler la régularisation ?");
+                    if (answer == JOptionPane.YES_OPTION) {
+                        SQLRow row = IListe.get(e).getSelectedRow().asRow();
+                        SQLRowValues rowVals = row.createEmptyUpdateRow();
+                        rowVals.put("REG_COMPTA", Boolean.FALSE);
+                        try {
+                            rowVals.commit();
+                        } catch (SQLException e1) {
+                            ExceptionHandler.handle("Une erreur est survenue lors de l'annulation de la régularisation.", e1);
+                        }
+                    }
+                }
+            }, false) {
+                @Override
+                public boolean enabledFor(List<SQLRowAccessor> selection) {
+                    if (selection != null && selection.size() == 1) {
+                        SQLRowAccessor row = selection.get(0);
+                        return row.getBoolean("REG_COMPTA");
+                    } else {
+                        return true;
+                    }
+                }
+            };
+            getRowActions().add(actionCancel);
+
+            RowAction actionRegul = new RowAction(new AbstractAction("Régularisation en comptabilité") {
+
+                public void actionPerformed(ActionEvent e) {
+
+                    SQLRow row = IListe.get(e).fetchSelectedRow();
+                    String price = GestionDevise.currencyToString(row.getLong("MONTANT"));
+                    SQLRow rowFournisseur = row.getForeignRow("ID_FOURNISSEUR");
+
+                    String nomFour = rowFournisseur.getString("NOM");
+                    String piece = "";
+                    SQLRow rowMvt = row.getForeignRow("ID_MOUVEMENT");
+                    if (rowMvt != null) {
+                        SQLRow rowPiece = rowMvt.getForeignRow("ID_PIECE");
+                        piece = rowPiece.getString("NOM");
+                    }
+                    int answer = JOptionPane.showConfirmDialog(null, "Etes vous sûr de vouloir régulariser l'échéance de " + nomFour + " d'un montant de " + price
+                            + "€ avec une saisie au kilometre?\nNom de la piéce : " + piece + ".");
+                    if (answer == JOptionPane.YES_OPTION) {
+
+                        SQLRowValues rowVals = row.createEmptyUpdateRow();
+                        rowVals.put("REG_COMPTA", Boolean.TRUE);
+                        try {
+                            rowVals.commit();
+                        } catch (SQLException e1) {
+                            ExceptionHandler.handle("Une erreur est survenue lors de la régularisation.", e1);
+                        }
+                    }
+                }
+            }, false) {
+                @Override
+                public boolean enabledFor(List<SQLRowAccessor> selection) {
+                    if (selection != null && selection.size() == 1) {
+                        SQLRowAccessor row = selection.get(0);
+                        return !row.getBoolean("REG_COMPTA");
+                    } else {
+                        return true;
+                    }
+                }
+            };
+            getRowActions().add(actionRegul);
+
+        }
+    }
+
+    @Override
+    public synchronized ListSQLRequest createListRequest() {
+        return new ListSQLRequest(this.getTable(), this.getListFields()) {
+            @Override
+            protected void customizeToFetch(SQLRowValues graphToFetch) {
+                super.customizeToFetch(graphToFetch);
+                graphToFetch.put("REG_COMPTA", null);
+                graphToFetch.put("REGLE", null);
+            }
+        };
     }
 
     protected List<String> getListFields() {

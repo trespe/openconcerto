@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.core.sales.product.ui;
 
-import org.openconcerto.erp.core.common.ui.DeviseNumericCellEditor;
 import org.openconcerto.erp.core.common.ui.DeviseNumericHTConvertorCellEditor;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.component.ReferenceArticleSQLComponent;
@@ -21,6 +20,7 @@ import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElemen
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
@@ -29,7 +29,6 @@ import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.RowValuesTablePanel;
 import org.openconcerto.sql.view.list.SQLTableElement;
-import org.openconcerto.utils.ExceptionHandler;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -160,15 +159,9 @@ public class ArticleTarifTable extends RowValuesTablePanel {
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(idTaux);
 
                 if (resultTaux == null) {
-
-                    Integer i = TaxeCache.getCache().getFirstTaxe();
-                    if (i == null) {
-                        ExceptionHandler.handle("Aucune taxe définie!");
-                        System.err.println("Aucune Taxe");
-                    } else {
-                        rowValuesArticleCompile.put("ID_TAXE", i);
-                        resultTaux = TaxeCache.getCache().getTauxFromId(i.intValue());
-                    }
+                    final SQLRow i = TaxeCache.getCache().getFirstTaxe();
+                    rowValuesArticleCompile.put("ID_TAXE", i.getID());
+                    resultTaux = i.getFloat("TAUX");
                 }
 
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();

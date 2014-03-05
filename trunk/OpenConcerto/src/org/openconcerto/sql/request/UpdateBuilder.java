@@ -16,6 +16,7 @@
 import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableMap;
 import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSyntax;
@@ -66,9 +67,25 @@ public class UpdateBuilder {
             throw new IllegalArgumentException("unknown " + field + " in " + this.getTable().getSQLName());
     }
 
+    private final void checkField(final SQLField field) {
+        if (this.getTable() != field.getTable())
+            throw new IllegalArgumentException(field + " not in " + this.getTable().getSQLName());
+    }
+
     public final UpdateBuilder set(final String field, final String value) {
         this.checkField(field);
         this.fields.put(field, value);
+        return this;
+    }
+
+    public final UpdateBuilder setObject(final String fieldName, final Object value) {
+        this.fields.put(fieldName, getTable().getField(fieldName).getType().toString(value));
+        return this;
+    }
+
+    public final UpdateBuilder setObject(final SQLField field, final Object value) {
+        this.checkField(field);
+        this.fields.put(field.getName(), field.getType().toString(value));
         return this;
     }
 

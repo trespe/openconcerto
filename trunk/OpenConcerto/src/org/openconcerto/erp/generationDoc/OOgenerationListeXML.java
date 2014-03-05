@@ -59,6 +59,9 @@ public class OOgenerationListeXML {
         final SAXBuilder builder = new SAXBuilder();
         try {
             InputStream xmlConfiguration = TemplateManager.getInstance().getTemplateConfiguration(templateId, rowLanguage != null ? rowLanguage.getString("CHEMIN") : null, null);
+            if (xmlConfiguration == null) {
+                throw new IllegalStateException("Template configuration " + templateId + " not found");
+            }
             Document doc = builder.build(xmlConfiguration);
 
             // On initialise un nouvel élément racine avec l'élément racine du

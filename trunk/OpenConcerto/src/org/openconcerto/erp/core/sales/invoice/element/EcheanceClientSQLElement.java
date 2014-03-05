@@ -22,22 +22,28 @@ import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.model.FieldPath;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.model.graph.PathBuilder;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.users.rights.UserRightsManager;
+import org.openconcerto.sql.view.list.BaseSQLTableModelColumn;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.EmailComposer;
 import org.openconcerto.ui.JDate;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.GestionDevise;
 
 import java.awt.GridBagConstraints;
@@ -71,7 +77,7 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
                 @Override
                 public void actionPerformed(ActionEvent arg0) {
 
-                    SQLRow row = IListe.get(arg0).getSelectedRow();
+                    SQLRow row = IListe.get(arg0).fetchSelectedRow();
                     MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
                 }
             }, false);
@@ -85,7 +91,7 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
                 @Override
                 public void actionPerformed(ActionEvent arg0) {
 
-                    SQLRow row = IListe.get(arg0).getSelectedRow();
+                    SQLRow row = IListe.get(arg0).fetchSelectedRow();
                     sendMail(row);
                 }
             }, false);
@@ -100,7 +106,7 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
 
                     int answer = JOptionPane.showConfirmDialog(null, "Etes vous sûr de vouloir annuler la régularisation ?");
                     if (answer == JOptionPane.YES_OPTION) {
-                        SQLRow row = IListe.get(e).getSelectedRow();
+                        SQLRow row = IListe.get(e).getSelectedRow().asRow();
                         SQLRowValues rowVals = row.createEmptyUpdateRow();
                         rowVals.put("REG_COMPTA", Boolean.FALSE);
                         try {
@@ -128,7 +134,7 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
 
                 public void actionPerformed(ActionEvent e) {
 
-                    SQLRow row = IListe.get(e).getSelectedRow();
+                    SQLRow row = IListe.get(e).fetchSelectedRow();
                     String price = GestionDevise.currencyToString(row.getLong("MONTANT"));
                     SQLRow rowClient = row.getForeignRow("ID_CLIENT");
                     String nomClient = rowClient.getString("NOM");
@@ -167,6 +173,7 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
         }
 
     }
+
 
     private void sendMail(SQLRow row) {
 
@@ -293,6 +300,7 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
         l.add("DATE");
         l.add("MONTANT");
         l.add("ID_CLIENT");
+        l.add("ID_SAISIE_VENTE_FACTURE");
             l.add("NOMBRE_RELANCE");
         l.add("INFOS");
         l.add("DATE_LAST_RELANCE");

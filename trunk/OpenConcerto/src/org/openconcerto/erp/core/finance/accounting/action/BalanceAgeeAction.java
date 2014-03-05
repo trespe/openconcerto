@@ -28,6 +28,9 @@ public class BalanceAgeeAction extends CreateFrameAbstractAction {
     }
 
     public JFrame createFrame() {
-        return new PanelFrame(new BalanceAgeePanel(), "Balance agée client");
+        final PanelFrame panelFrame = new PanelFrame(new BalanceAgeePanel(), "Balance âgée client");
+        panelFrame.pack();
+        panelFrame.setResizable(false);
+        return panelFrame;
     }
 }

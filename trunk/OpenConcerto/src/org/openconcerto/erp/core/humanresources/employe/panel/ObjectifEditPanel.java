@@ -18,6 +18,8 @@ package org.openconcerto.erp.core.humanresources.employe.panel;
 
 import org.openconcerto.erp.core.common.ui.DeviseCellEditor;
 import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
+import org.openconcerto.erp.core.common.ui.DeviseNumericCellEditor;
+import org.openconcerto.erp.core.common.ui.DeviseTableCellRenderer;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
@@ -25,7 +27,8 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
-import org.openconcerto.utils.model.DefaultIListModel;
+import org.openconcerto.ui.table.AlternateTableCellRenderer;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -42,19 +45,15 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.event.CellEditorListener;
-import javax.swing.event.ChangeEvent;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
-import javax.swing.event.TableModelEvent;
-import javax.swing.event.TableModelListener;
 
 public class ObjectifEditPanel extends JPanel {
 
-    int idCommercial;
-    SQLTable tableObjectif = Configuration.getInstance().getRoot().findTable("OBJECTIF_COMMERCIAL");
-    final ListAnneeModel<Integer> listModel = new ListAnneeModel<Integer>();
-    final ObjectifTableModel tableModel = new ObjectifTableModel();
+    private int idCommercial;
+    private final SQLTable tableObjectif = Configuration.getInstance().getRoot().findTable("OBJECTIF_COMMERCIAL");
+    private final ListAnneeModel<Integer> listModel = new ListAnneeModel<Integer>();
+    private final ObjectifTableModel tableModel = new ObjectifTableModel();
 
     public ObjectifEditPanel(int idCommercial) {
         super(new GridBagLayout());
@@ -90,25 +89,22 @@ public class ObjectifEditPanel extends JPanel {
         c.weightx = 0.8;
 
         final JTable table = new JTable(tableModel);
-        DeviseCellEditor cellEditor = new DeviseCellEditor();
-        DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
 
-        table.getColumnModel().getColumn(1).setCellEditor(cellEditor)
+        for (int i = 1; i < 4; i += 2) {
+            final DeviseNiceTableCellRenderer rend = new DeviseNiceTableCellRenderer();
+            final DeviseCellEditor cellEditor = new DeviseCellEditor();
+            table.getColumnModel().getColumn(i).setCellEditor(cellEditor);
+            table.getColumnModel().getColumn(i).setCellRenderer(rend);
+        }
+        table.getColumnModel().getColumn(2).setCellEditor(new DeviseNumericCellEditor(tableObjectif.getField("POURCENT_MARGE")));
+        table.getColumnModel().getColumn(2).setCellRenderer(new DeviseTableCellRenderer());
 
-        ;
-        table.getColumnModel().getColumn(1).setCellRenderer(rend);
-
-        table.getColumnModel().getColumn(3).setCellEditor(cellEditor)
-
-        ;
-        table.getColumnModel().getColumn(3).setCellRenderer(rend);
-
+        AlternateTableCellRenderer.UTILS.setAllColumns(table);
         this.add(new JScrollPane(table), c);
         jList.addListSelectionListener(new ListSelectionListener() {
 
             @Override
             public void valueChanged(ListSelectionEvent e) {
-                // TODO Raccord de méthode auto-généré
                 Integer annee = listModel.getElementAt(jList.getSelectedIndex());
                 tableModel.loadData(idCommercial, annee);
             }
@@ -122,15 +118,20 @@ public class ObjectifEditPanel extends JPanel {
 
             @Override
             public void actionPerformed(ActionEvent e) {
-                addYear();
+                try {
+                    addYear();
+                } catch (SQLException e1) {
+                    ExceptionHandler.handle("Erreur lors de la création d'une nouvelle année", e1);
+                }
             }
         }), c);
 
     }
 
-    private void addYear() {
+    private void addYear() throws SQLException {
         // FIXME à mettre dans une transaction
-        SQLSelect sel = new SQLSelect(tableObjectif.getBase());
+        // FIXME remove SQL from EDT
+        SQLSelect sel = new SQLSelect();
         sel.addSelect(tableObjectif.getField("ANNEE"), "MAX");
         sel.setWhere(new Where(tableObjectif.getField("ID_COMMERCIAL"), "=", this.idCommercial));
 
@@ -152,12 +153,7 @@ public class ObjectifEditPanel extends JPanel {
             rowVals.put("POURCENT_MARGE", BigDecimal.ZERO);
             rowVals.put("CHIFFRE_AFFAIRE", Long.valueOf(0));
             rowVals.put("ID_COMMERCIAL", this.idCommercial);
-            try {
-                rowVals.insert();
-            } catch (SQLException exn) {
-                // TODO Bloc catch auto-généré
-                exn.printStackTrace();
-            }
+            rowVals.insert();
         }
         listModel.addElement(annee);
     }

@@ -54,7 +54,7 @@ public class ModuleLauncher {
         FileUtils.mkdir_p(Gestion.MODULES_DIR);
         FileUtils.copyFile(jar, new File(Gestion.MODULES_DIR, jar.getName()));
 
-        final ModuleFactory factory;
+        final PropsModuleFactory factory;
         if (launchFromPackage) {
             factory = new JarModuleFactory(jar);
         } else {

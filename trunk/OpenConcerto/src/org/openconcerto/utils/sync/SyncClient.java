@@ -49,6 +49,8 @@ import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLSession;
 
+import sun.misc.HexDumpEncoder;
+
 public class SyncClient {
     private long byteSent;
     private long byteReceived;
@@ -255,21 +257,24 @@ public class SyncClient {
             data += "&" + URLEncoder.encode("tk", "UTF-8") + "=" + URLEncoder.encode(token, "UTF-8");
         }
         this.byteSent += data.getBytes().length;
-        // Send data
+        // Send the path, file name and token
         URLConnection conn = getConnection(this.baseUrl + "/getHash");
         conn.setDoOutput(true);
         OutputStreamWriter wr = new OutputStreamWriter(conn.getOutputStream());
         wr.write(data);
         wr.flush();
         wr.close();
+        // Get the info about the remote file
         byte[] localFileHash = null;
         int localFileSize = (int) localFile.length();
         RangeList rangesOk = new RangeList(localFileSize);
         MoveOperationList moves = new MoveOperationList();
         this.byteSyncUpload = localFileSize;
         try {
-            // Get the response
+            // Process the response
             DataInputStream in = new DataInputStream(new BufferedInputStream(conn.getInputStream()));
+
+            // Remote file size
             int remoteFileSize = in.readInt();
             this.byteReceived += 4;
 
@@ -285,10 +290,12 @@ public class SyncClient {
                 // System.out.print("Known hash " + r32 + " : ");
                 in.read(b);
                 this.byteReceived += 4 + 16;
-
+                // MD5 hash
                 map.put(r32, b);
+                //
                 mapBlock.put(r32, i);
             }
+            // The hash (SHA256) of the remote file
             byte[] remoteFileHash = new byte[32];
             in.read(remoteFileHash);
             this.byteReceived += 32;
@@ -297,62 +304,63 @@ public class SyncClient {
             if (localFileSize == remoteFileSize) {
                 localFileHash = HashWriter.getHash(localFile);
                 if (HashWriter.compareHash(localFileHash, remoteFileHash)) {
-
                     // Already in sync
                     return;
                 }
             }
 
-            // compare delta
-            RollingChecksum32 checksum = new RollingChecksum32();
-            byte[] buffer = new byte[HashWriter.blockSize];
+            if (localFileSize > 0) {
 
-            BufferedInputStream fb = new BufferedInputStream(new FileInputStream(localFile));
-            final int read = fb.read(buffer);
-            this.byteReceived += read;
-            checksum.check(buffer, 0, read);
-            int v = 0;
-            int start = 0;
+                // compare delta
+                RollingChecksum32 checksum = new RollingChecksum32();
+                byte[] buffer = new byte[HashWriter.blockSize];
 
-            MessageDigest md5Digest = MessageDigest.getInstance("MD5");
+                BufferedInputStream fb = new BufferedInputStream(new FileInputStream(localFile));
+                final int read = fb.read(buffer);
+                this.byteReceived += read;
+                checksum.check(buffer, 0, read);
+                int v = 0;
+                int start = 0;
 
-            do {
+                MessageDigest md5Digest = MessageDigest.getInstance("MD5");
 
-                int r32 = checksum.getValue();
+                do {
 
-                byte[] md5 = map.get(r32);
-                if (md5 != null) {
-                    // local block maybe exists in the remote file
-                    // let's check if true with md5
-                    md5Digest.reset();
-                    md5Digest.update(buffer);
-                    byte[] localMd5 = md5Digest.digest();
-                    if (HashWriter.compareHash(md5, localMd5)) {
+                    int r32 = checksum.getValue();
 
-                        // Block found!!!
-                        // Copy block to: mapBlock.get(r32)*blockSize;
-                        int offset = mapBlock.get(r32) * HashWriter.blockSize;
-                        //
-                        MoveOperation m = new MoveOperation(offset, start, HashWriter.blockSize);
-                        moves.add(m);
-                        //
-                        rangesOk.add(new Range(start, start + HashWriter.blockSize));
+                    byte[] md5 = map.get(r32);
+                    if (md5 != null) {
+                        // local block maybe exists in the remote file
+                        // let's check if true with md5
+                        md5Digest.reset();
+                        md5Digest.update(buffer);
+                        byte[] localMd5 = md5Digest.digest();
+                        if (HashWriter.compareHash(md5, localMd5)) {
+
+                            // Block found!!!
+                            // Copy block to: mapBlock.get(r32)*blockSize;
+                            int offset = mapBlock.get(r32) * HashWriter.blockSize;
+                            //
+                            MoveOperation m = new MoveOperation(offset, start, HashWriter.blockSize);
+                            moves.add(m);
+                            //
+                            rangesOk.add(new Range(start, start + HashWriter.blockSize));
+                        }
+
                     }
 
-                }
+                    // read
+                    v = fb.read();
 
-                // read
-                v = fb.read();
+                    start++;
+                    // Update
+                    System.arraycopy(buffer, 1, buffer, 0, buffer.length - 1);
+                    buffer[buffer.length - 1] = (byte) v;
+                    checksum.roll((byte) v);
 
-                start++;
-                // Update
-                System.arraycopy(buffer, 1, buffer, 0, buffer.length - 1);
-                buffer[buffer.length - 1] = (byte) v;
-                checksum.roll((byte) v);
-
-            } while (v >= 0);
-            fb.close();
-
+                } while (v >= 0);
+                fb.close();
+            }
         } catch (FileNotFoundException e) {
             // System.out.println("Sending the complete file");
         }
@@ -431,7 +439,13 @@ public class SyncClient {
     }
 
     public void retrieveDirectory(File dir, String remotePath, String token) throws Exception {
-        ArrayList<FileProperty> list = getList(remotePath, token);
+
+        ArrayList<FileProperty> list = null;
+        try {
+            list = getList(remotePath, token);
+        } catch (Exception e) {
+            throw new IllegalStateException("Unable to retrieve the file list of " + remotePath, e);
+        }
         // Check locally
         for (int i = 0; i < list.size(); i++) {
             final FileProperty fp = list.get(i);

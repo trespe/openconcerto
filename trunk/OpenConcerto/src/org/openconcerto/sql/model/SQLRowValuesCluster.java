@@ -16,6 +16,7 @@
 import org.openconcerto.sql.model.SQLRowValues.ForeignCopyMode;
 import org.openconcerto.sql.model.SQLRowValues.ReferentChangeEvent;
 import org.openconcerto.sql.model.SQLRowValues.ReferentChangeListener;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.utils.CollectionMap;
@@ -31,6 +32,7 @@ import org.openconcerto.utils.cc.IdentitySet;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EventObject;
@@ -237,8 +239,11 @@ public class SQLRowValuesCluster {
 
         // and link them together
         for (final SQLRowValues n : this.getItems()) {
-            for (final Entry<String, SQLRowValues> e : n.getForeigns().entrySet())
-                noLinkCopy.get(n).put(e.getKey(), noLinkCopy.get(e.getValue()));
+            // use referents instead of foreigns to copy order
+            for (final Entry<SQLField, Collection<SQLRowValues>> e : n.getReferents().entrySet())
+                for (final SQLRowValues ref : e.getValue()) {
+                    noLinkCopy.get(ref).put(e.getKey().getName(), noLinkCopy.get(n));
+                }
         }
 
         return noLinkCopy.get(v);
@@ -393,16 +398,16 @@ public class SQLRowValuesCluster {
      * @return the exception that stopped the recursion, <code>null</code> if none was thrown.
      */
     public final <T> StopRecurseException walk(final SQLRowValues start, T acc, ITransformer<State<T>, T> closure, RecursionType recType) {
-        return this.walk(start, acc, closure, recType, true);
+        return this.walk(start, acc, closure, recType, Direction.FOREIGN);
     }
 
-    public final <T> StopRecurseException walk(final SQLRowValues start, T acc, ITransformer<State<T>, T> closure, RecursionType recType, final Boolean foreign) {
+    public final <T> StopRecurseException walk(final SQLRowValues start, T acc, ITransformer<State<T>, T> closure, RecursionType recType, final Direction foreign) {
         return this.walk(start, acc, closure, recType, foreign, true);
     }
 
-    final <T> StopRecurseException walk(final SQLRowValues start, T acc, ITransformer<State<T>, T> closure, RecursionType recType, final Boolean foreign, final boolean includeStart) {
+    final <T> StopRecurseException walk(final SQLRowValues start, T acc, ITransformer<State<T>, T> closure, RecursionType recType, final Direction foreign, final boolean includeStart) {
         this.containsCheck(start);
-        return this.walk(new State<T>(Collections.singletonList(start), new Path(start.getTable()), acc, closure), recType, foreign, includeStart);
+        return this.walk(new State<T>(Collections.singletonList(start), Path.get(start.getTable()), acc, closure), recType, foreign, includeStart);
     }
 
     /**
@@ -411,13 +416,12 @@ public class SQLRowValuesCluster {
      * @param <T> type of acc.
      * @param state the current position in the graph.
      * @param recType how to recurse.
-     * @param foreign <code>true</code> to follow foreign keys, <code>false</code> to go the other
-     *        way, <code>null</code> for both.
+     * @param direction how to cross foreign keys.
      * @param computeThisState <code>false</code> if the <code>state</code> should not be
      *        {@link State#compute() computed}.
      * @return the exception that stopped the recursion, <code>null</code> if none was thrown.
      */
-    private final <T> StopRecurseException walk(final State<T> state, RecursionType recType, final Boolean foreign, final boolean computeThisState) {
+    private final <T> StopRecurseException walk(final State<T> state, RecursionType recType, final Direction direction, final boolean computeThisState) {
         if (computeThisState && recType == RecursionType.BREADTH_FIRST) {
             final StopRecurseException e = state.compute();
             if (e != null)
@@ -425,13 +429,13 @@ public class SQLRowValuesCluster {
         }
         // get the foreign or referents rowValues
         StopRecurseException res = null;
-        if (foreign == null || Boolean.TRUE.equals(foreign)) {
-            res = rec(state, recType, foreign, true);
+        if (direction != Direction.REFERENT) {
+            res = rec(state, recType, direction, Direction.FOREIGN);
         }
         if (res != null)
             return res;
-        if (foreign == null || Boolean.FALSE.equals(foreign)) {
-            res = rec(state, recType, foreign, false);
+        if (direction != Direction.FOREIGN) {
+            res = rec(state, recType, direction, Direction.REFERENT);
         }
         if (res != null)
             return res;
@@ -444,16 +448,18 @@ public class SQLRowValuesCluster {
         return null;
     }
 
-    private <T> StopRecurseException rec(final State<T> state, RecursionType recType, final Boolean foreign, final boolean actualForeign) {
+    private <T> StopRecurseException rec(final State<T> state, RecursionType recType, final Direction direction, final Direction actualDirection) {
         final SQLRowValues current = state.getCurrent();
         final List<SQLRowValues> currentValsPath = state.getValsPath();
         final CollectionMap<SQLField, SQLRowValues> nextVals;
-        if (actualForeign) {
+        if (actualDirection == Direction.FOREIGN) {
             final Map<SQLField, SQLRowValues> foreigns = current.getForeignsBySQLField();
             nextVals = new CollectionMap<SQLField, SQLRowValues>(new ArrayList<SQLRowValues>(), foreigns.size());
             nextVals.putAll(foreigns);
-        } else
+        } else {
+            assert actualDirection == Direction.REFERENT;
             nextVals = current.getReferents();
+        }
         // predictable and repeatable order
         final List<SQLField> keys = new ArrayList<SQLField>(nextVals.keySet());
         Collections.sort(keys, FIELD_COMPARATOR);
@@ -461,11 +467,10 @@ public class SQLRowValuesCluster {
             for (final SQLRowValues v : nextVals.getNonNull(f)) {
                 // avoid infinite loop (don't use equals so that we can go over several equals rows)
                 if (!state.identityContains(v)) {
-                    final Path path = new Path(state.getPath());
-                    path.add(f, actualForeign);
+                    final Path path = state.getPath().add(f, actualDirection);
                     final List<SQLRowValues> valsPath = new ArrayList<SQLRowValues>(currentValsPath);
                     valsPath.add(v);
-                    final StopRecurseException e = this.walk(new State<T>(valsPath, path, state.getAcc(), state.closure), recType, foreign, true);
+                    final StopRecurseException e = this.walk(new State<T>(valsPath, path, state.getAcc(), state.closure), recType, direction, true);
                     if (e != null && e.isCompletely())
                         return e;
                 }
@@ -475,7 +480,7 @@ public class SQLRowValuesCluster {
     }
 
     final void walkFields(final SQLRowValues start, IClosure<FieldPath> closure, final boolean includeFK) {
-        walkFields(start, new Path(start.getTable()), Collections.singletonList(start), closure, includeFK);
+        walkFields(start, Path.get(start.getTable()), Collections.singletonList(start), closure, includeFK);
     }
 
     private void walkFields(final SQLRowValues current, final Path p, final List<SQLRowValues> currentValsPath, IClosure<FieldPath> closure, final boolean includeFK) {
@@ -488,8 +493,7 @@ public class SQLRowValuesCluster {
                 final SQLRowValues newVals = foreigns.get(field);
                 // avoid infinite loop
                 if (!currentValsPath.contains(newVals)) {
-                    final Path newP = new Path(p);
-                    newP.add(current.getTable().getField(field), true);
+                    final Path newP = p.add(current.getTable().getField(field), Direction.FOREIGN);
                     final List<SQLRowValues> newValsPath = new ArrayList<SQLRowValues>(currentValsPath);
                     newValsPath.add(newVals);
                     this.walkFields(newVals, newP, newValsPath, closure, includeFK);
@@ -649,7 +653,7 @@ public class SQLRowValuesCluster {
                     });
                 }
             }
-        }, RecursionType.DEPTH_FIRST, false);
+        }, RecursionType.DEPTH_FIRST, Direction.REFERENT);
 
         return matrix.print(cellLength, new ITransformer<SQLRowValues, String>() {
             @Override
@@ -684,15 +688,17 @@ public class SQLRowValuesCluster {
         return sb.toString();
     }
 
-    final boolean equals(final SQLRowValues vals, final SQLRowValues other) {
+    final String getFirstDifference(final SQLRowValues vals, final SQLRowValues other) {
         this.containsCheck(vals);
         if (this == other.getGraph())
-            return true;
+            return null;
         // don't call walk() if we can avoid as it is quite costly
-        if (this.size() != other.getGraph().size() || !vals.equalsJustThis(other))
-            return false;
+        if (this.size() != other.getGraph().size())
+            return "different size : " + this.size() + " != " + other.getGraph().size();
+        else if (!vals.equalsJustThis(other))
+            return "unequal :\n" + vals + " !=\n" + other;
         if (this.size() == 1)
-            return true;
+            return null;
         // BREADTH_FIRST no need to go deep if the first values are not equals
         final List<SQLRowValues> flatList = new ArrayList<SQLRowValues>();
         this.walk(vals, flatList, new ITransformer<State<List<SQLRowValues>>, List<SQLRowValues>>() {
@@ -701,7 +707,7 @@ public class SQLRowValuesCluster {
                 input.getAcc().add(input.getCurrent());
                 return input.getAcc();
             }
-        }, RecursionType.BREADTH_FIRST, null);
+        }, RecursionType.BREADTH_FIRST, Direction.ANY);
         assert flatList.size() == this.size() : "missing rows";
         // now walk the other graph, checking that each row is equal
         // (this works because walk() always goes with the same order, see #FIELD_COMPARATOR)
@@ -709,12 +715,14 @@ public class SQLRowValuesCluster {
         final StopRecurseException stop = other.getGraph().walk(other, null, new ITransformer<State<Object>, Object>() {
             @Override
             public Object transformChecked(State<Object> input) {
-                if (!input.getCurrent().equalsJustThis(flatList.get(index.getAndIncrement())))
-                    throw new StopRecurseException("unequal at " + input.getPath());
+                final SQLRowValues thisVals = flatList.get(index.getAndIncrement());
+                final SQLRowValues oVals = input.getCurrent();
+                if (!thisVals.equalsJustThis(oVals))
+                    throw new StopRecurseException("unequal at " + input.getPath() + " :\n" + thisVals + " !=\n" + oVals);
                 return input.getAcc();
             }
-        }, RecursionType.BREADTH_FIRST, null);
-        return stop == null;
+        }, RecursionType.BREADTH_FIRST, Direction.ANY);
+        return stop == null ? null : stop.getMessage();
     }
 
     static public final class StopRecurseException extends RuntimeException {

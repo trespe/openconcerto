@@ -51,6 +51,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 
 public class FournisseurSQLComponent extends BaseSQLComponent {
 
@@ -70,16 +71,14 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         final GridBagConstraints c = new DefaultGridBagConstraints();
 
         // Code
-        JLabel labelCode = new JLabel("Code");
+        JLabel labelCode = new JLabel("Code", SwingConstants.RIGHT);
         JTextField textCode = new JTextField();
         c.gridx = 0;
         c.gridy++;
         c.weightx = 0;
         c.weighty = 0;
-        c.gridwidth = 1;
         this.add(labelCode, c);
         c.gridx++;
-        c.gridwidth = 1;
         c.weightx = 0.5;
         this.add(textCode, c);
 
@@ -87,7 +86,7 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         c.gridx = 0;
         c.weightx = 0;
         // Raison sociale
-        JLabel labelRS = new JLabel("Forme juridique");
+        JLabel labelRS = new JLabel("Forme juridique", SwingConstants.RIGHT);
         SQLTextCombo textType = new SQLTextCombo();
         JTextField textNom = new JTextField();
 
@@ -97,15 +96,15 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         this.add(textType, c);
 
         // Tel
-        JLabel labelTel = new JLabel(getLabelFor("TEL"));
-        JTextField textTel = new JTextField();
+        JLabel labelTel = new JLabel(getLabelFor("TEL"), SwingConstants.RIGHT);
+        JTextField textTel = new JTextField(15);
         c.gridx++;
         c.weightx = 0;
         c.weighty = 0;
-        c.gridwidth = 1;
+
         this.add(labelTel, c);
         c.gridx++;
-        c.gridwidth = 1;
+
         c.weightx = 0.5;
         this.add(textTel, c);
 
@@ -117,9 +116,9 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         if (getTable().contains("NOM_SOCIETE")) {
             fieldNom = "NOM_SOCIETE";
         }
-        this.add(new JLabel(getLabelFor(fieldNom)), c);
+        this.add(new JLabel(getLabelFor(fieldNom), SwingConstants.RIGHT), c);
         c.gridx++;
-        c.gridwidth = 1;
+
         c.weightx = 0.5;
         this.add(textNom, c);
         this.addRequiredSQLObject(textNom, fieldNom);
@@ -127,9 +126,9 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         // Fax
         c.gridx++;
         c.weightx = 0;
-        this.add(new JLabel(getLabelFor("FAX")), c);
+        this.add(new JLabel(getLabelFor("FAX"), SwingConstants.RIGHT), c);
         c.gridx++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
+
         c.weightx = 0.5;
         JTextField textFax = new JTextField();
         this.add(textFax, c);
@@ -138,9 +137,10 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         c.gridy++;
         c.gridx = 0;
         c.weightx = 0;
-        this.add(new JLabel(getLabelFor("MAIL")), c);
-        c.gridx++;
         c.gridwidth = 1;
+        this.add(new JLabel(getLabelFor("MAIL"), SwingConstants.RIGHT), c);
+        c.gridx++;
+
         c.weightx = 0.5;
         JTextField textMail = new JTextField();
         this.add(textMail, c);
@@ -149,9 +149,9 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         // Tel P
         c.gridx++;
         c.weightx = 0;
-        this.add(new JLabel(getLabelFor("TEL_P")), c);
+
+        this.add(new JLabel(getLabelFor("TEL_P"), SwingConstants.RIGHT), c);
         c.gridx++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
         c.weightx = 0.5;
         JTextField textTelP = new JTextField();
         this.add(textTelP, c);
@@ -160,9 +160,8 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         c.gridy++;
         c.gridx = 0;
         c.weightx = 0;
-        this.add(new JLabel(getLabelFor("ID_LANGUE")), c);
+        this.add(new JLabel(getLabelFor("ID_LANGUE"), SwingConstants.RIGHT), c);
         c.gridx++;
-        c.gridwidth = 1;
         c.weightx = 0.5;
         ElementComboBox langue = new ElementComboBox(true, 35);
         this.add(langue, c);
@@ -171,17 +170,14 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         // Resp
         c.gridx++;
         c.weightx = 0;
-        this.add(new JLabel(getLabelFor("RESPONSABLE")), c);
+        this.add(new JLabel(getLabelFor("RESPONSABLE"), SwingConstants.RIGHT), c);
         c.gridx++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
         c.weightx = 0.5;
         JTextField textResp = new JTextField();
         this.add(textResp, c);
         this.addView(textResp, "RESPONSABLE");
-
-        c.gridx = 0;
+        c.gridx = 1;
         c.gridy++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
         JCheckBox boxUE = new JCheckBox(getLabelFor("UE"));
         this.add(boxUE, c);
 
@@ -268,7 +264,6 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         c.anchor = GridBagConstraints.WEST;
         c.fill = GridBagConstraints.BOTH;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        c.weighty = 0.8;
         this.add(this.table, c);
 
         // Mode de régelement
@@ -280,6 +275,7 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
 
         c.gridy++;
         c.gridx = 0;
+        c.fill = GridBagConstraints.NONE;
         this.addView("ID_MODE_REGLEMENT", REQ + ";" + DEC + ";" + SEP);
         ElementSQLObject eltModeRegl = (ElementSQLObject) this.getView("ID_MODE_REGLEMENT");
         this.add(eltModeRegl, c);
@@ -290,60 +286,40 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         c.gridy++;
         c.weightx = 1;
         c.weighty = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        TitledSeparator sepCompte = new TitledSeparator("Compte associé");
-        this.add(sepCompte, c);
+        TitledSeparator sepCompteCharge = new TitledSeparator("Comptes associés");
+        this.add(sepCompteCharge, c);
 
-        JPanel panel = new JPanel(new GridBagLayout());
-        GridBagConstraints c2 = new DefaultGridBagConstraints();
-
-        panel.add(new JLabel(getLabelFor("ID_COMPTE_PCE")), c2);
+        final JPanel panel = new JPanel(new GridBagLayout());
+        final GridBagConstraints c2 = new DefaultGridBagConstraints();
+        panel.add(new JLabel("Compte fournisseur associé", SwingConstants.RIGHT), c2);
         ISQLCompteSelector compteSel = new ISQLCompteSelector(true);
         c2.gridx++;
         c2.weightx = 1;
         panel.add(compteSel, c2);
-
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.gridy++;
-        c.gridx = 0;
-        c.weightx = 1;
-        c.weighty = 1;
-        c.anchor = GridBagConstraints.NORTHWEST;
-        this.add(panel, c);
-
-        // Compte charge par défaut
-
-        c.gridx = 0;
-        c.gridy++;
-        c.weightx = 1;
-        c.weighty = 0;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        TitledSeparator sepCompteCharge = new TitledSeparator("Compte de charge par défaut");
-        this.add(sepCompteCharge, c);
-
-        JPanel panel2 = new JPanel(new GridBagLayout());
-        GridBagConstraints c3 = new DefaultGridBagConstraints();
-
-        panel2.add(new JLabel(getLabelFor("ID_COMPTE_PCE_CHARGE")), c3);
+        c2.gridx = 0;
+        c2.gridy++;
+        c2.weightx = 0;
+        panel.add(new JLabel(getLabelFor("ID_COMPTE_PCE_CHARGE"), SwingConstants.RIGHT), c2);
         ISQLCompteSelector compteSelCharge = new ISQLCompteSelector(true);
-        c3.gridx++;
-        c3.weightx = 1;
-        panel2.add(compteSelCharge, c3);
+        c2.gridx++;
+        c2.weightx = 1;
+        panel.add(compteSelCharge, c2);
+
         addView(compteSelCharge, "ID_COMPTE_PCE_CHARGE");
 
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.gridy++;
         c.gridx = 0;
         c.weightx = 1;
-        c.weighty = 1;
         c.anchor = GridBagConstraints.NORTHWEST;
-        this.add(panel2, c);
+        this.add(panel, c);
 
         // INfos
         c.gridx = 0;
         c.gridy++;
         c.gridheight = 1;
-        c.weighty = 0;
         c.weightx = 1;
         c.anchor = GridBagConstraints.WEST;
         c.gridwidth = GridBagConstraints.REMAINDER;

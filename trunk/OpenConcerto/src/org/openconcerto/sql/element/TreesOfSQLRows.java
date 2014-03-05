@@ -25,6 +25,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.graph.Link;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.RecursionType;
 import org.openconcerto.utils.Tuple2;
@@ -229,7 +230,7 @@ public final class TreesOfSQLRows {
                         res.put(input.getCurrent().getTable(), input.getCurrent());
                     return null;
                 }
-            }, RecursionType.BREADTH_FIRST, false);
+            }, RecursionType.BREADTH_FIRST, Direction.REFERENT);
         }
         return res;
     }
@@ -250,7 +251,7 @@ public final class TreesOfSQLRows {
                     res.add(input.getCurrent());
                     return null;
                 }
-            }, RecursionType.DEPTH_FIRST, false);
+            }, RecursionType.DEPTH_FIRST, Direction.REFERENT);
         }
         return res;
     }

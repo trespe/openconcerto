@@ -32,6 +32,8 @@ import org.openconcerto.utils.change.CollectionChangeEventCreator;
 import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -271,19 +273,25 @@ public class SQLBase extends SQLIdentifier {
             final Set<String> newSchemas = src.getTotalSchemas();
             final Set<String> currentSchemas = src.getExistingSchemasToRefresh();
             mustContain(this, newSchemas, currentSchemas, "schemas");
+            final CollectionChangeEventCreator c = this.createChildrenCreator();
             // remove all schemas that are not there anymore
             for (final String schema : CollectionUtils.substract(currentSchemas, newSchemas)) {
-                final CollectionChangeEventCreator c = this.createChildrenCreator();
                 this.schemas.remove(schema).dropped();
-                this.fireChildrenChanged(c);
             }
             // delete the saved schemas that we could have fetched, but haven't
             // (schemas that are not in scope are simply ignored, NOT deleted)
-            for (final DBItemFileCache savedSchema : this.getSavedCaches(false)) {
-                if (src.isInTotalScope(savedSchema.getName()) && !newSchemas.contains(savedSchema.getName())) {
-                    savedSchema.delete();
+            AccessController.doPrivileged(new PrivilegedAction<Object>() {
+                @Override
+                public Object run() {
+                    for (final DBItemFileCache savedSchema : getSavedCaches(false)) {
+                        if (src.isInTotalScope(savedSchema.getName()) && !newSchemas.contains(savedSchema.getName())) {
+                            savedSchema.delete();
+                        }
+                    }
+                    return null;
                 }
-            }
+            });
+
             // clearNonPersistent (will be recreated by fillTables())
             for (final String schema : CollectionUtils.inter(currentSchemas, newSchemas)) {
                 this.getSchema(schema).clearNonPersistent();
@@ -317,6 +325,7 @@ public class SQLBase extends SQLIdentifier {
             // fill with columns
             src.fillTables();
 
+            this.fireChildrenChanged(c);
             // don't signal our systemRoot if our server doesn't yet reference us,
             // otherwise the server will create another instance and enter an infinite loop
             assert this.getServer().getBase(this.getName()) == this;
@@ -332,7 +341,7 @@ public class SQLBase extends SQLIdentifier {
                     byRoot = toRefresh;
                 }
             }
-            this.getDBSystemRoot().descendantsChanged(byRoot, src.hasExternalStruct(), true);
+            this.getDBSystemRoot().descendantsChanged(byRoot, src.hasExternalStruct());
         }
         src.save();
         return src;
@@ -490,9 +499,7 @@ public class SQLBase extends SQLIdentifier {
         SQLSchema res = this.getSchema(name);
         if (res == null) {
             res = new SQLSchema(this, name);
-            final CollectionChangeEventCreator c = this.createChildrenCreator();
             this.schemas.put(name, res);
-            this.fireChildrenChanged(c);
         }
         return res;
     }
@@ -699,37 +706,42 @@ public class SQLBase extends SQLIdentifier {
         }
     }
 
-    boolean save(String schemaName) {
+    boolean save(final String schemaName) {
         final DBItemFileCache schemaFileCache = this.getSchemaFileCache(schemaName);
         if (schemaFileCache == null) {
             return false;
         } else {
             final File schemaFile = schemaFileCache.getFile(FILENAME);
-            Writer pWriter = null;
-            try {
-                final String schema = this.getSchema(schemaName).toXML();
-                if (schema == null)
-                    return false;
-                FileUtils.mkdir_p(schemaFile.getParentFile());
-                // Might save garbage if two threads open the same file
-                synchronized (this) {
-                    pWriter = FileUtils.createXMLWriter(schemaFile);
-                    pWriter.write("<root codecVersion=\"" + XMLStructureSource.version + "\" >\n" + schema + "\n</root>\n");
-                }
-
-                return true;
-            } catch (Exception e) {
-                Log.get().log(Level.WARNING, "unable to save files in " + schemaFile, e);
-                return false;
-            } finally {
-                if (pWriter != null) {
+            return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
+                @Override
+                public Boolean run() {
+                    Writer pWriter = null;
                     try {
-                        pWriter.close();
-                    } catch (IOException e) {
-                        e.printStackTrace();
+                        final String schema = getSchema(schemaName).toXML();
+                        if (schema == null)
+                            return false;
+                        FileUtils.mkdir_p(schemaFile.getParentFile());
+                        // Might save garbage if two threads open the same file
+                        synchronized (this) {
+                            pWriter = FileUtils.createXMLWriter(schemaFile);
+                            pWriter.write("<root codecVersion=\"" + XMLStructureSource.version + "\" >\n" + schema + "\n</root>\n");
+                        }
+
+                        return true;
+                    } catch (Exception e) {
+                        Log.get().log(Level.WARNING, "unable to save files in " + schemaFile, e);
+                        return false;
+                    } finally {
+                        if (pWriter != null) {
+                            try {
+                                pWriter.close();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
                     }
                 }
-            }
+            });
         }
     }
 
@@ -778,7 +790,7 @@ public class SQLBase extends SQLIdentifier {
                     else
                         replacement = quoteIdentifier(param.toString());
                 } else {
-                    final SQLIdentifier ident = (SQLIdentifier) ((DBStructureItem) param).getJDBC();
+                    final SQLIdentifier ident = (SQLIdentifier) ((DBStructureItem<?>) param).getJDBC();
                     if (modifier == 'f') {
                         replacement = ident.getSQLName().quote();
                     } else if (modifier == 'n')

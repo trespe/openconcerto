@@ -32,7 +32,7 @@ public class TextStyle extends StyleStyle {
 
         {
             // from section 19.876 in v1.2-part1-cd04
-            this.getRefElementsMap().putAll("text:style-name", asList("text:linenumbering-configuration", "text:list-level-style-number", "text:ruby-text", "text:span"));
+            this.getRefElementsMap().addAll("text:style-name", asList("text:linenumbering-configuration", "text:list-level-style-number", "text:ruby-text", "text:span"));
         }
 
         @Override

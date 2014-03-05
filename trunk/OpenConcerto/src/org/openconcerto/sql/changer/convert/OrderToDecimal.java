@@ -48,6 +48,7 @@ public class OrderToDecimal extends Changer<SQLTable> {
             } else
                 throw new IllegalStateException("not implemented for " + system);
             this.getDS().execute(update);
+            t.getSchema().updateVersion();
             getStream().println("done");
         }
     }

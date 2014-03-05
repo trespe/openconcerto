@@ -159,9 +159,6 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
                 c.gridwidth = 3;
                 JLabel labelMois = new JLabel("Fiche de paye du mois de");
                 this.selMois = new ElementComboBox(true, 20);
-                // this.selMois.setEditable(true);
-                // /this.selMois.setEnabled(true);
-
                 JLabel labelDu = new JLabel("Du");
                 JLabel labelAu = new JLabel("Au");
                 this.dateDu = new JDate();

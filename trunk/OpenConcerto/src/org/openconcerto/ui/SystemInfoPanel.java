@@ -30,6 +30,7 @@ import java.util.Enumeration;
 import java.util.Formatter;
 import java.util.List;
 
+import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JEditorPane;
 import javax.swing.JLabel;
@@ -101,8 +102,8 @@ public class SystemInfoPanel extends JPanel {
                         msg += " (couldn't be loaded)";
                     }
                     final JTextComponent txtComp = new ITextArea(msg, 3, 50);
-                    txtComp.setEditable(false);
-                    txtComp.setBorder(null);
+                    txtComp.setEditable(false);                    
+                    txtComp.setBorder(BorderFactory.createEmptyBorder());
                     txtComp.setOpaque(false);
 
                     JOptionPane.showMessageDialog(src, txtComp, "Class name", JOptionPane.INFORMATION_MESSAGE);

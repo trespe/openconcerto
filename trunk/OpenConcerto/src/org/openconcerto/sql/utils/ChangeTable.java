@@ -21,6 +21,7 @@ import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTable.Index;
+import org.openconcerto.sql.model.SQLType;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.model.graph.SQLKey;
@@ -29,6 +30,7 @@ import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ReflectUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -210,6 +212,78 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
 
     public static String catToString(List<? extends ChangeTable<?>> cts, final String r) {
         return cat(cts, new ChangeRootNameTransformer(r), true).get(0);
+    }
+
+    // allow to factor column name from table and FCSpec
+    public static final class ForeignColSpec {
+
+        static public ForeignColSpec fromCreateTable(SQLCreateTableBase<?> createTable) {
+            final List<String> primaryKey = createTable.getPrimaryKey();
+            if (primaryKey.size() != 1)
+                throw new IllegalArgumentException("Not exactly one field in the foreign primary key : " + primaryKey);
+            return new ForeignColSpec(null, new SQLName(createTable.getName()), primaryKey.get(0), null);
+        }
+
+        static public ForeignColSpec fromTable(SQLTable foreignTable) {
+            return fromTable(foreignTable, true);
+        }
+
+        static public ForeignColSpec fromTable(SQLTable foreignTable, final boolean absolute) {
+            if (foreignTable == null)
+                throw new NullPointerException("null table");
+            final String defaultVal = foreignTable.getKey().getType().toString(foreignTable.getUndefinedIDNumber());
+            final SQLName n = absolute ? foreignTable.getSQLName() : new SQLName(foreignTable.getName());
+            return new ForeignColSpec(null, n, foreignTable.getKey().getName(), defaultVal);
+        }
+
+        private String fk;
+        private final SQLName table;
+        private final String pk;
+        private final String defaultVal;
+
+        public ForeignColSpec(String fk, SQLName table, String pk, String defaultVal) {
+            super();
+            this.table = table;
+            this.setColumnName(fk);
+            this.pk = pk;
+            this.defaultVal = defaultVal;
+        }
+
+        public final ForeignColSpec setColumnNameFromTable() {
+            return this.setColumnNameWithSuffix("");
+        }
+
+        public final ForeignColSpec setColumnNameWithSuffix(final String suffix) {
+            return this.setColumnName(SQLKey.PREFIX + getTable().getName() + (suffix.length() == 0 ? "" : "_" + suffix));
+        }
+
+        public final ForeignColSpec setColumnName(final String fk) {
+            if (fk == null)
+                this.setColumnNameFromTable();
+            else
+                this.fk = fk;
+            return this;
+        }
+
+        public final String getColumnName() {
+            return this.fk;
+        }
+
+        public final SQLName getTable() {
+            return this.table;
+        }
+
+        public final String getPrimaryKeyName() {
+            return this.pk;
+        }
+
+        public final String getDefaultVal() {
+            return this.defaultVal;
+        }
+
+        public final FCSpec createFCSpec(final Rule updateRule, final Rule deleteRule) {
+            return new FCSpec(Collections.singletonList(this.getColumnName()), this.getTable(), Collections.singletonList(this.getPrimaryKeyName()), updateRule, deleteRule);
+        }
     }
 
     public static final class FCSpec {
@@ -409,7 +483,31 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         final Set<String> typeNames = getSyntax().getTypeNames(javaType);
         if (typeNames.size() == 0)
             throw new IllegalArgumentException(javaType + " isn't supported by " + getSyntax());
-        return this.addColumn(name, typeNames.iterator().next(), defaultVal == null ? null : defaultVal.toString(), nullable);
+        return this.addColumn(name, typeNames.iterator().next(), getNumberDefault(defaultVal), nullable);
+    }
+
+    final String getNumberDefault(final Number defaultVal) {
+        return defaultVal == null ? null : defaultVal.toString();
+    }
+
+    /**
+     * Adds a decimal column.
+     * 
+     * @param name the name of the column.
+     * @param precision the total number of digits.
+     * @param scale the number of digits after the decimal point.
+     * @param defaultVal the default value of the column, can be <code>null</code>, e.g. 3.14.
+     * @param nullable whether the column accepts NULL.
+     * @return this.
+     * @see SQLSyntax#getDecimal(int, int)
+     * @see SQLSyntax#getDecimalIntPart(int, int)
+     */
+    public final T addDecimalColumn(String name, int precision, int scale, BigDecimal defaultVal, boolean nullable) {
+        return this.addColumn(name, getSyntax().getDecimal(precision, scale), getNumberDefault(defaultVal), nullable);
+    }
+
+    public final T addBooleanColumn(String name, Boolean defaultVal, boolean nullable) {
+        return this.addColumn(name, getSyntax().getBooleanType(), SQLType.getBoolean(getSyntax()).toString(defaultVal), nullable);
     }
 
     /**
@@ -491,7 +589,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     // * addForeignColumn = addColumn + addForeignConstraint
 
     public T addForeignColumn(SQLCreateTableBase<?> createTable) {
-        return this.addForeignColumnWithSuffix("", createTable);
+        return this.addForeignColumn(ForeignColSpec.fromCreateTable(createTable));
     }
 
     /**
@@ -504,8 +602,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @see #addForeignColumn(String, SQLCreateTableBase)
      */
     public T addForeignColumnWithSuffix(String suffix, SQLCreateTableBase<?> createTable) {
-        final String fk = SQLKey.PREFIX + createTable.getName() + (suffix.length() == 0 ? "" : "_" + suffix);
-        return this.addForeignColumn(fk, createTable);
+        return this.addForeignColumn(ForeignColSpec.fromCreateTable(createTable).setColumnNameWithSuffix(suffix));
     }
 
     /**
@@ -519,10 +616,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @see #addForeignColumn(String, SQLName, String, String)
      */
     public T addForeignColumn(String fk, SQLCreateTableBase<?> createTable) {
-        final List<String> primaryKey = createTable.getPrimaryKey();
-        if (primaryKey.size() != 1)
-            throw new IllegalArgumentException("Not exactly one field in the foreign primary key : " + primaryKey);
-        return this.addForeignColumn(fk, new SQLName(createTable.getName()), primaryKey.get(0), null);
+        return this.addForeignColumn(ForeignColSpec.fromCreateTable(createTable).setColumnName(fk));
     }
 
     /**
@@ -536,8 +630,16 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @return this.
      */
     public T addForeignColumn(String fk, SQLName table, String pk, String defaultVal) {
-        this.addColumn(fk, this.getSyntax().getIDType() + " DEFAULT " + defaultVal);
-        return this.addForeignConstraint(fk, table, pk);
+        return this.addForeignColumn(new ForeignColSpec(fk, table, pk, defaultVal));
+    }
+
+    public T addForeignColumn(final ForeignColSpec spec) {
+        return this.addForeignColumn(spec, null, null);
+    }
+
+    public T addForeignColumn(final ForeignColSpec spec, final Rule updateRule, final Rule deleteRule) {
+        this.addColumn(spec.getColumnName(), this.getSyntax().getIDType() + " DEFAULT " + spec.getDefaultVal());
+        return this.addForeignConstraint(spec.createFCSpec(updateRule, deleteRule), true);
     }
 
     public T addForeignColumn(String fk, SQLTable foreignTable) {
@@ -555,11 +657,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @see #addForeignColumn(String, SQLName, String, String)
      */
     public T addForeignColumn(String fk, SQLTable foreignTable, final boolean absolute) {
-        if (foreignTable == null)
-            throw new NullPointerException("null table for " + fk);
-        final String defaultVal = foreignTable.getKey().getType().toString(foreignTable.getUndefinedIDNumber());
-        final SQLName n = absolute ? foreignTable.getSQLName() : new SQLName(foreignTable.getName());
-        return this.addForeignColumn(fk, n, foreignTable.getKey().getName(), defaultVal);
+        return this.addForeignColumn(ForeignColSpec.fromTable(foreignTable, absolute).setColumnName(fk));
     }
 
     public T addUniqueConstraint(final String name, final List<String> cols) {

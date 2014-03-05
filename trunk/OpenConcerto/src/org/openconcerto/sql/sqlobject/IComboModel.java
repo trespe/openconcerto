@@ -105,7 +105,8 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
 
         this.search = null;
         this.runnables = new ArrayList<Runnable>();
-        this.setWillUpdate(null);
+        this.willUpdate = null;
+        this.updating = false;
         this.itemsByID = new HashMap<Integer, IComboSelectionItem>();
         this.addMissingItem = true;
 
@@ -155,6 +156,8 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
             }
         };
 
+        // ATTN this listener is notified last (see fireContentsChanged()) but this OK as it merely
+        // fire and doesn't update our state
         this.addListDataListener(new ListDataListener() {
             @Override
             public void intervalRemoved(ListDataEvent e) {
@@ -168,14 +171,24 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
 
             @Override
             public void contentsChanged(ListDataEvent e) {
-                if (e.getIndex0() == -1 && e.getIndex1() == -1) {
-                    // selection change
-                    comboValueChanged();
-                } else {
+                if (e.getIndex0() != -1 || e.getIndex1() != -1) {
                     itemsChanged();
-                }
+                } // else selection change
             }
         });
+    }
+
+    @Override
+    protected void fireContentsChanged(Object source, int index0, int index1) {
+        // Our superclass notifies the listeners in reverse order, i.e. our listener is notified
+        // last. Thus if a listener access getWantedID() it will get the previous value. To avoid
+        // that we overload the fire() to change our state before notifying other listeners.
+        if (index0 == -1 && index1 == -1) {
+            // selection change
+            comboValueChanged();
+        }
+
+        super.fireContentsChanged(source, index0, index1);
     }
 
     void setRunning(final boolean b) {
@@ -522,9 +535,10 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     }
 
     private final void comboValueChanged() {
-        this.propSupp.firePropertyChange("selectedValue", null, getSelectedValue());
+        // update our state before firing
         if (!this.isUpdating())
             this.setWantedID(this.getSelectedId());
+        this.propSupp.firePropertyChange("selectedValue", null, getSelectedValue());
     }
 
     private void selectID(int id) {

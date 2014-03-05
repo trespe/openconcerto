@@ -56,7 +56,7 @@ public final class ListItemSQLView extends JPanel {
         c.weightx = 0;
         // Minimize/Maximize
         if (this.enableMinimize) {
-            final JImageToggleButton expandButton = new JImageToggleButton(this.getClass().getResource("down.png"), this.getClass().getResource("right.png"));
+            final JImageToggleButton expandButton = new JImageToggleButton(ListItemSQLView.class.getResource("down.png"), ListItemSQLView.class.getResource("right.png"));
             this.add(expandButton, c);
             c.gridx++;
             expandButton.addActionListener(new ActionListener() {
@@ -81,7 +81,7 @@ public final class ListItemSQLView extends JPanel {
         this.add(separator, c);
         c.gridx++;
         // Close
-        this.supprBtn = new JButton(new ImageIcon(this.getClass().getResource("/ilm/sql/element/delete.png")));
+        this.supprBtn = new JButton(new ImageIcon(ListItemSQLView.class.getResource("/ilm/sql/element/delete.png")));
         this.supprBtn.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 ListItemSQLView.this.parent.removeItem(ListItemSQLView.this);

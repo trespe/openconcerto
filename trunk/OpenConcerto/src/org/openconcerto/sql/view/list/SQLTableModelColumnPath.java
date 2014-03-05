@@ -37,12 +37,14 @@ import java.util.Set;
  */
 public class SQLTableModelColumnPath extends SQLTableModelColumn {
 
+    // try to find a RowItemDesc, fall back to SQLFieldTranslator.getDefaultDesc()
     private static final RowItemDesc getDescFor(SQLField field) {
         final Configuration conf = Configuration.getInstance();
-        if (conf == null)
+        final RowItemDesc res = conf == null ? SQLFieldTranslator.NULL_DESC : conf.getTranslator().getDescFor(field.getTable(), field.getName());
+        if (res.equals(SQLFieldTranslator.NULL_DESC))
             return SQLFieldTranslator.getDefaultDesc(field);
         else
-            return conf.getTranslator().getDescFor(field.getTable(), field.getName());
+            return res;
     }
 
     private static final String getLabelFor(SQLField field) {

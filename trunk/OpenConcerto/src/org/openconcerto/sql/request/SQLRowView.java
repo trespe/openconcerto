@@ -14,6 +14,7 @@
  package org.openconcerto.sql.request;
 
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -31,6 +32,9 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -57,7 +61,9 @@ public class SQLRowView extends BaseSQLRequest {
     private int selectedID;
     // les valeurs affichées
     private final Map<String, SQLRowItemView> views;
+    private final List<SQLRowItemView> viewsOrdered;
 
+    private boolean readOnly;
     private boolean filling;
     private boolean updating;
 
@@ -73,6 +79,8 @@ public class SQLRowView extends BaseSQLRequest {
         this.supp = new PropertyChangeSupport(this);
         this.table = t;
         this.views = new HashMap<String, SQLRowItemView>();
+        this.viewsOrdered = new LinkedList<SQLRowItemView>();
+        this.readOnly = false;
         this.filling = false;
         this.updating = false;
         this.selectedID = SQLRow.NONEXISTANT_ID;
@@ -115,6 +123,23 @@ public class SQLRowView extends BaseSQLRequest {
         };
     }
 
+    private synchronized void setReadOnlySelection(final boolean b) {
+        if (this.readOnly != b) {
+            this.readOnly = b;
+            this.supp.firePropertyChange(SQLComponent.READ_ONLY_PROP, !b, b);
+        }
+    }
+
+    // false if no ID
+    public synchronized boolean isReadOnlySelection() {
+        return this.readOnly;
+    }
+
+    private final void checkRO() throws SQLException {
+        if (this.isReadOnlySelection())
+            throw new SQLException("Read only selection");
+    }
+
     public synchronized boolean isUpdating() {
         return this.updating;
     }
@@ -140,6 +165,27 @@ public class SQLRowView extends BaseSQLRequest {
         if (this.views.containsKey(obj.getSQLName()))
             throw new IllegalStateException("2 views named " + obj.getSQLName() + ": " + this.views.get(obj.getSQLName()) + " " + obj);
         this.views.put(obj.getSQLName(), obj);
+        this.viewsOrdered.add(obj);
+        assert this.viewsOrdered.size() == this.views.size();
+    }
+
+    /**
+     * Set the order of the views. Useful when some views depend on others.
+     * 
+     * @param names names of the {@link SQLRowItemView}.
+     */
+    public final void setViewsOrder(final Collection<String> names) {
+        final LinkedHashSet<String> nameSet = new LinkedHashSet<String>(names);
+        if (!this.views.keySet().equals(nameSet))
+            throw new IllegalArgumentException("Names mismatch " + this.views.keySet() + " != " + nameSet);
+
+        final LinkedList<SQLRowItemView> l = new LinkedList<SQLRowItemView>();
+        for (final String n : nameSet) {
+            l.add(this.views.get(n));
+        }
+        this.viewsOrdered.clear();
+        this.viewsOrdered.addAll(l);
+        assert this.viewsOrdered.size() == this.views.size();
     }
 
     /**
@@ -156,19 +202,25 @@ public class SQLRowView extends BaseSQLRequest {
         });
     }
 
+    public void select(SQLRowAccessor r) {
+        this.select(r, null);
+    }
+
     /**
      * Fill the item views with values from <code>r</code>. If r is <code>null</code> this will be
      * reset. If r has no ID, the selectedID doesn't change.
      * 
      * @param r the row to display, can be <code>null</code>.
+     * @param views the subset of views to fill, <code>null</code> meaning all.
      */
-    public void select(SQLRowAccessor r) {
+    public void select(final SQLRowAccessor r, final Set<String> views) {
         this.setFilling(true);
         try {
             if (r == null) {
                 this.setSelectedID(SQLRow.NONEXISTANT_ID);
                 for (final SQLRowItemView view : this.getViewsFast()) {
-                    view.resetValue();
+                    if (views == null || views.contains(view.getSQLName()))
+                        view.resetValue();
                 }
             } else {
                 if (!this.getTable().equals(r.getTable()))
@@ -177,7 +229,23 @@ public class SQLRowView extends BaseSQLRequest {
                 if (r.getID() != SQLRow.NONEXISTANT_ID)
                     this.setSelectedID(r.getID());
                 for (final SQLRowItemView view : this.getViewsFast()) {
-                    view.show(r);
+                    if (views == null || views.contains(view.getSQLName()))
+                        view.show(r);
+                }
+            }
+
+            if (this.getTable().contains(SQLComponent.READ_ONLY_FIELD)) {
+                final Boolean readOnlySel;
+                if (r == null) {
+                    readOnlySel = false;
+                } else if (r.getIDNumber() == null) {
+                    // don't change the row => same value
+                    readOnlySel = null;
+                } else {
+                    readOnlySel = SQLComponent.isReadOnly(r);
+                }
+                if (readOnlySel != null) {
+                    this.setReadOnlySelection(readOnlySel);
                 }
             }
         } finally {
@@ -187,6 +255,7 @@ public class SQLRowView extends BaseSQLRequest {
 
     public final void detach() {
         this.setSelectedID(SQLRow.NONEXISTANT_ID);
+        this.setReadOnlySelection(false);
     }
 
     /**
@@ -195,6 +264,7 @@ public class SQLRowView extends BaseSQLRequest {
      * @throws SQLException if the update couldn't complete.
      */
     public void update() throws SQLException {
+        checkRO();
         // this ship is sailed, don't accept updates from the db anymore
         // this allows to archive a private (thus changing our fk) without
         // overwriting our values
@@ -231,7 +301,8 @@ public class SQLRowView extends BaseSQLRequest {
         return fillVals().insert();
     }
 
-    private SQLRowValues fillVals() {
+    private SQLRowValues fillVals() throws SQLException {
+        checkRO();
         final SQLRowValues vals = new SQLRowValues(this.getTable());
         for (final SQLRowItemView view : this.getViewsFast()) {
             view.insert(vals);
@@ -250,11 +321,11 @@ public class SQLRowView extends BaseSQLRequest {
     }
 
     public Set<SQLRowItemView> getViews() {
-        return new HashSet<SQLRowItemView>(this.getViewsFast());
+        return new LinkedHashSet<SQLRowItemView>(this.getViewsFast());
     }
 
     private final Collection<SQLRowItemView> getViewsFast() {
-        return this.views.values();
+        return this.viewsOrdered;
     }
 
     public String toString() {
@@ -278,7 +349,7 @@ public class SQLRowView extends BaseSQLRequest {
      * @return the corresponding view, or <code>null</code> if none exists.
      */
     public SQLRowItemView getView(Component comp) {
-        for (final SQLRowItemView view : this.views.values()) {
+        for (final SQLRowItemView view : this.getViewsFast()) {
             if (SwingUtilities.isDescendingFrom(comp, view.getComp()))
                 return view;
         }

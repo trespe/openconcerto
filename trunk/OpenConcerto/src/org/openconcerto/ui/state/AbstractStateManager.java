@@ -15,7 +15,12 @@
 
 import java.io.File;
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 
+// TODO use FilePermission just for this.configFile
 public abstract class AbstractStateManager<T> {
 
     private File configFile;
@@ -51,7 +56,13 @@ public abstract class AbstractStateManager<T> {
 
     public final void deleteState() {
         check();
-        this.configFile.delete();
+        AccessController.doPrivileged(new PrivilegedAction<Object>() {
+            @Override
+            public Object run() {
+                getConfigFile().delete();
+                return null;
+            }
+        });
     }
 
     private void check() {
@@ -61,18 +72,28 @@ public abstract class AbstractStateManager<T> {
 
     public final void saveState() throws IOException {
         check();
-        this.saveState(this.configFile);
+        this.saveState(this.getConfigFile());
     }
 
-    public final void saveState(File file) throws IOException {
+    public final void saveState(final File file) throws IOException {
         if (file == null) {
             throw new IllegalArgumentException("null File specified");
         }
-        if (file.getParentFile() != null && !file.getParentFile().exists()) {
-            file.getParentFile().mkdirs();
-        }
+        try {
+            AccessController.doPrivileged(new PrivilegedExceptionAction<Object>() {
+                @Override
+                public Object run() throws IOException {
+                    if (file.getParentFile() != null && !file.getParentFile().exists()) {
+                        file.getParentFile().mkdirs();
+                    }
 
-        writeState(file);
+                    writeState(file);
+                    return null;
+                }
+            });
+        } catch (PrivilegedActionException e) {
+            throw (IOException) e.getCause();
+        }
     }
 
     /**
@@ -85,7 +106,7 @@ public abstract class AbstractStateManager<T> {
 
     public final boolean loadState() {
         check();
-        return loadState(this.configFile);
+        return loadState(this.getConfigFile());
     }
 
     /**
@@ -94,13 +115,18 @@ public abstract class AbstractStateManager<T> {
      * @param file the file from which to load.
      * @return if the state was restored.
      */
-    public final boolean loadState(File file) {
-        if (file.exists() && file.length() > 0) {
-            this.configFile = file;
-            return this.readState(file);
-        } else {
-            return false;
-        }
+    public final boolean loadState(final File file) {
+        return AccessController.doPrivileged(new PrivilegedAction<Boolean>() {
+            @Override
+            public Boolean run() {
+                if (file.exists() && file.length() > 0) {
+                    setConfigFile(file);
+                    return readState(file);
+                } else {
+                    return false;
+                }
+            }
+        });
     }
 
     /**

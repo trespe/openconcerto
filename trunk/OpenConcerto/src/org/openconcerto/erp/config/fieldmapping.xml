@@ -1,21 +1,80 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <fieldmapping>
 	<table id="sales.invoice" name="SAISIE_VENTE_FACTURE">
-		<field id="sales.invoice.number" name="NUMERO"/>
-		<field id="sales.invoice.date" name="DATE"/>
-		<field id="sales.invoice.label" name="NOM"/>
-		<field id="sales.invoice.customer" name="ID_CLIENT"/>
-		<field id="sales.invoice.saleman" name="ID_COMMERCIAL"/>
-		<field id="sales.invoice.address.alternative" name="ID_ADRESSE"/>
-		<field id="sales.invoice.info.general" name="INFO"/>
+		<field id="sales.invoice.number" name="NUMERO" />
+		<field id="sales.invoice.date" name="DATE" />
+		<field id="sales.invoice.label" name="NOM" />
+		<field id="sales.invoice.customer" name="ID_CLIENT" />
+		<field id="sales.invoice.saleman" name="ID_COMMERCIAL" />
+		<field id="sales.invoice.address.alternative" name="ID_ADRESSE" />
+		<field id="sales.invoice.info.general" name="INFOS" />
+		<field id="sales.invoice.total.ht" name="T_HT" />
+		<field id="sales.invoice.total.service" name="T_SERVICE" />
+		<field id="sales.invoice.total.supply" name="T_HA" />
+		<field id="sales.invoice.total.devise" name="T_DEVISE" />
+		<field id="sales.invoice.total.weight" name="T_POIDS" />
+		<field id="sales.invoice.total.ttc" name="T_TTC" />
+		<field id="sales.invoice.total.vat" name="T_TVA" />
 	</table>
 	<table id="sales.quote" name="DEVIS">
-		<field id="sales.quote.number" name="NUMERO"/>
-		<field id="sales.quote.date" name="DATE"/>
-		<field id="sales.quote.label" name="OBJET"/>
-		<field id="sales.quote.customer" name="ID_CLIENT"/>
-		<field id="sales.quote.saleman" name="ID_COMMERCIAL"/>
-		<field id="sales.quote.address.alternative" name="ID_ADRESSE"/>
-		<field id="sales.quote.info.general" name="INFOS"/>
+		<field id="sales.quote.number" name="NUMERO" />
+		<field id="sales.quote.date" name="DATE" />
+		<field id="sales.quote.label" name="OBJET" />
+		<field id="sales.quote.customer" name="ID_CLIENT" />
+		<field id="sales.quote.saleman" name="ID_COMMERCIAL" />
+		<field id="sales.quote.address.alternative" name="ID_ADRESSE" />
+		<field id="sales.quote.info.general" name="INFOS" />
+	</table>
+	<table id="sales.product" name="ARTICLE">
+		<field id="sales.product.code" name="CODE" />
+		<field id="sales.product.label" name="NOM" />
+		<field id="sales.product.description.text" name="DESCRIPTIF" />
+		<field id="sales.product.barcode" name="CODE_BARRE" />
+		<field id="sales.product.purchase.price" name="PA_HT" />
+		<field id="sales.product.purchase.quantity" name="QTE_ACHAT" />
+		<field id="sales.product.sales.price" name="PV_HT" />
+		<field id="sales.product.sales.price.total" name="PV_TTC" />
+		<field id="sales.product.sales.unit" name="ID_MODE_VENTE_ARTICLE" />
+		<field id="sales.product.weight" name="POIDS" />
+		<field id="sales.product.unit1" name="ID_METRIQUE_1" />
+		<field id="sales.product.unit2" name="ID_METRIQUE_2" />
+		<field id="sales.product.unit3" name="ID_METRIQUE_3" />
+		<field id="sales.product.purchase.unit.price1" name="PRIX_METRIQUE_HA_1" />
+		<field id="sales.product.purchase.unit.price2" name="PRIX_METRIQUE_HA_2" />
+		<field id="sales.product.purchase.unit.price3" name="PRIX_METRIQUE_HA_3" />
+		<field id="sales.product.tax" name="ID_TAXE" />
+		<field id="sales.product.service" name="SERVICE" />
+		<field id="sales.product.autocreate" name="CREATION_AUTO" />
+		<field id="sales.product.inventory" name="ID_STOCK" />
+		<field id="sales.product.manufacturing.country" name="ID_PAYS" />
+		<field id="sales.product.unit" name="ID_UNITE_VENTE" />
+		<field id="sales.product.sales.account" name="ID_COMPTE_PCE" />
+		<field id="sales.product.purchase.account" name="ID_COMPTE_PCE_ACHAT" />
+		<field id="sales.product.deprecated" name="OBSOLETE" />
+		<field id="sales.product.family" name="ID_FAMILLE_ARTICLE" />
+		<field id="sales.product.info" name="INFOS" />
+		<field id="sales.product.price1" name="PRIX_METRIQUE_VT_1" />
+		<field id="sales.product.price2" name="PRIX_METRIQUE_VT_2" />
+		<field id="sales.product.price3" name="PRIX_METRIQUE_VT_3" />
+		<field id="sales.product.length" name="VALEUR_METRIQUE_1" />
+		<field id="sales.product.width" name="VALEUR_METRIQUE_2" />
+		<field id="sales.product.weight2" name="VALEUR_METRIQUE_3" />
+		<field id="sales.product.stockable" name="GESTION_STOCK" />
+		<field id="sales.product.quantity.min" name="QTE_MIN" />
+		<field id="sales.product.currency" name="ID_DEVISE" />
+		<field id="sales.product.supplier" name="ID_FOURNISSEUR" />
+		<field id="sales.product.aa" name="PV_U_DEVISE" />
+		<field id="sales.product.bb" name="ID_DEVISE_HA" />
+		<field id="sales.product.cc" name="PA_DEVISE" />
+		<field id="sales.product.customs.code" name="CODE_DOUANIER" />
+		<field id="sales.product.ecotax" name="ECOTAXE" />
+		<field id="sales.product.margin.min" name="MARGE_HT_MIN" />
+		<field id="sales.product.purchase.shipment" name="PORT_ACHAT" />
+		<field id="sales.product.sales.shipment" name="PORT_VENTE" />
+		<field id="sales.product.quantity.max" name="QTE_MAX" />
+		<field id="sales.product.needserial" name="GESTION_NUMERO_SERIE" />
+		<field id="sales.product.bom.merge" name="GROUPE_NOMENCLATURE" />
+		<field id="sales.product.purchase.frombom" name="AUTO_PRIX_ACHAT_NOMENCLATURE" />
+		<field id="sales.product.comment" name="COMMENTAIRE" />
 	</table>
 </fieldmapping>	

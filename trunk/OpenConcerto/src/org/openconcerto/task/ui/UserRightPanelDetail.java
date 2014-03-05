@@ -153,7 +153,7 @@ public class UserRightPanelDetail extends JPanel {
         c.gridx = 0;
         c.gridwidth = 4;
         JLabel labelHelp = new JLabel("Une autorisation désactivée apparait en gris clair");
-        labelHelp.setIcon(new ImageIcon(this.getClass().getResource("toc_open.gif")));
+        labelHelp.setIcon(new ImageIcon(UserRightPanelDetail.class.getResource("toc_open.gif")));
         this.add(labelHelp, c);
 
         this.addHierarchyListener(new DisplayabilityListener() {

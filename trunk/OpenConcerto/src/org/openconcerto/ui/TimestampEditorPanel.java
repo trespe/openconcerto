@@ -96,7 +96,7 @@ public class TimestampEditorPanel extends JPanel implements ActionListener, Chan
          * final JButton button = new JButton("Demain matin"); this.add(button, c);
          */
         // c.gridx++;
-        final JButton buttonClose = new JButton(new ImageIcon(this.getClass().getResource("close_popup.png")));
+        final JButton buttonClose = new JButton(new ImageIcon(TimestampEditorPanel.class.getResource("close_popup.png")));
         buttonClose.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent e) {

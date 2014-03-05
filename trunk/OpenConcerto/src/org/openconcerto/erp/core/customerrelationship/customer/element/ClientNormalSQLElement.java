@@ -48,7 +48,7 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
 
                     @Override
                     public void actionPerformed(ActionEvent e) {
-                        final SQLRowAccessor row = IListe.get(e).getSelectedRow();
+                        final SQLRowAccessor row = IListe.get(e).fetchSelectedRow();
                         final LabelCreator c = new LabelCreator(720);
                         c.setLeftMargin(10);
                         c.setTopMargin(10);
@@ -116,6 +116,7 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
         l.add("RESPONSABLE");
         l.add("ID_ADRESSE");
         l.add("TEL");
+        l.add("TEL_P");
         l.add("FAX");
         l.add("MAIL");
             l.add("NUMERO_TVA");

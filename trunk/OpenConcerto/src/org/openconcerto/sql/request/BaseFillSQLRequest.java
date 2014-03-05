@@ -168,7 +168,7 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
     }
 
     protected List<Path> getOrder() {
-        return Collections.singletonList(new Path(getPrimaryTable()));
+        return Collections.singletonList(Path.get(getPrimaryTable()));
     }
 
     public final void setWhere(final Where w) {

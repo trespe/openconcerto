@@ -13,13 +13,16 @@
  
  package org.openconcerto.openoffice;
 
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Set;
+
+import net.jcip.annotations.GuardedBy;
 
 import org.jdom.Document;
 import org.jdom.Element;
@@ -42,15 +45,12 @@ public abstract class StyleDesc<S extends Style> {
             final StyleDesc<C> res = (StyleDesc<C>) StyleStyleDesc.copy((StyleStyleDesc<?>) toClone, version);
             return res;
         } else {
-            final StyleDesc<C> res = new StyleDesc<C>(toClone.getStyleClass(), version, toClone.getElementName(), toClone.getBaseName()) {
+            final StyleDesc<C> res = new StyleDesc<C>(toClone, version) {
                 @Override
                 public C create(ODPackage pkg, Element e) {
                     return toClone.create(pkg, e);
                 }
             };
-            res.setElementNS(version.getNS(toClone.getElementNS().getPrefix()));
-            res.getRefElementsMap().putAll(toClone.getRefElementsMap());
-            res.getMultiRefElementsMap().putAll(toClone.getMultiRefElementsMap());
             return res;
         }
     }
@@ -62,10 +62,10 @@ public abstract class StyleDesc<S extends Style> {
         }
     };
 
-    static private final String getXPath(Collection<Entry<String, Collection<String>>> entries) {
-        return CollectionUtils.join(entries, " or ", new ITransformer<Entry<String, Collection<String>>, String>() {
+    static private final String getXPath(Collection<Entry<String, Set<String>>> entries) {
+        return CollectionUtils.join(entries, " or ", new ITransformer<Entry<String, Set<String>>, String>() {
             @Override
-            public String transformChecked(Entry<String, Collection<String>> e) {
+            public String transformChecked(Entry<String, Set<String>> e) {
                 final String nameTest = CollectionUtils.join(e.getValue(), " or ", Q_NAME_TRANSF);
                 return "( @" + e.getKey() + " = $name  and ( " + nameTest + " ))";
             }
@@ -79,13 +79,22 @@ public abstract class StyleDesc<S extends Style> {
     private Namespace elemNS;
     private final String elemName, baseName;
     // { attribute -> element }
-    private final CollectionMap<String, String> refElements;
-    private final CollectionMap<String, String> multiRefElements;
+    private final SetMap<String, String> refElements;
+    private final SetMap<String, String> multiRefElements;
+    @GuardedBy("this")
     private XPath refXPath;
 
     protected StyleDesc(final Class<S> clazz, final XMLVersion version, String elemName, String baseName, String ns, final List<String> refQNames) {
         this(clazz, version, elemName, baseName);
-        this.getRefElementsMap().putAll(ns + ":style-name", refQNames);
+        this.getRefElementsMap().addAll(ns + ":style-name", refQNames);
+    }
+
+    // factor cloning with subclass, allow to modify the maps only in the constructor
+    protected StyleDesc(final StyleDesc<S> toClone, final XMLVersion version) {
+        this(toClone.getStyleClass(), version, toClone.getElementName(), toClone.getBaseName());
+        this.setElementNS(version.getNS(toClone.getElementNS().getPrefix()));
+        this.getRefElementsMap().putAll(toClone.getRefElementsMap());
+        this.getMultiRefElementsMap().putAll(toClone.getMultiRefElementsMap());
     }
 
     protected StyleDesc(final Class<S> clazz, final XMLVersion version, String elemName, String baseName) {
@@ -95,9 +104,9 @@ public abstract class StyleDesc<S extends Style> {
         this.elemNS = version.getSTYLE();
         this.elemName = elemName;
         this.baseName = baseName;
-        this.refElements = new CollectionMap<String, String>();
+        this.refElements = new SetMap<String, String>();
         // 4 since they are not common
-        this.multiRefElements = new CollectionMap<String, String>(4);
+        this.multiRefElements = new SetMap<String, String>(4);
         this.refXPath = null;
     }
 
@@ -132,7 +141,7 @@ public abstract class StyleDesc<S extends Style> {
         return this.baseName;
     }
 
-    private final XPath getRefXPath() {
+    private synchronized final XPath getRefXPath() {
         if (this.refXPath == null) {
             final String attrOr = "( $includeSingle and " + getXPath(getRefElementsMap().entrySet()) + " )";
             final String multiOr;
@@ -170,19 +179,19 @@ public abstract class StyleDesc<S extends Style> {
      * @return a list of qualified names, e.g. ["text:h", "text:p"].
      */
     protected final Collection<String> getRefElements() {
-        return this.getRefElementsMap().values();
+        return this.getRefElementsMap().allValues();
     }
 
     // e.g. { "text:style-name" -> ["text:h", "text:p"] }
     // if a property of the style is changed it will affect only the referent element
-    protected final CollectionMap<String, String> getRefElementsMap() {
+    protected final SetMap<String, String> getRefElementsMap() {
         return this.refElements;
     }
 
     // e.g. { "table:default-cell-style-name" -> ["table:table-column", "table:table-row"] }
     // if a property of the style is changed it will affect multiple cells even if only one element
     // (e.g. a column) references the style
-    protected final CollectionMap<String, String> getMultiRefElementsMap() {
+    protected final SetMap<String, String> getMultiRefElementsMap() {
         return this.multiRefElements;
     }
 

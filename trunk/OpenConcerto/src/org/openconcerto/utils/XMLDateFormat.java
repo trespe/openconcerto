@@ -14,42 +14,54 @@
  package org.openconcerto.utils;
 
 import java.text.FieldPosition;
-import java.text.Format;
 import java.text.ParsePosition;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.Locale;
+import java.util.TimeZone;
 
-import javax.xml.datatype.DatatypeConfigurationException;
-import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.DatatypeConstants;
 import javax.xml.datatype.XMLGregorianCalendar;
 
 /**
- * Format a {@link Date} according to <a href="http://www.w3.org/TR/xmlschema-2/#dateTime">W3C XML
- * Schema 1.0 Part 2, Section 3.2.7-14</a>.
+ * Format an absolute {@link Date} according to <a
+ * href="http://www.w3.org/TR/xmlschema-2/#dateTime">W3C XML Schema 1.0 Part 2, Section
+ * 3.2.7-14</a>. I.e. {@link #format(Object)} always write a time zone part and
+ * {@link #parseObject(String)} will only use the {@link #getTimeZone() default time zone} if none
+ * is specified.
  * 
  * @author Sylvain CUAZ
  * @see XMLGregorianCalendar
+ * @see XMLCalendarFormat
  */
-public class XMLDateFormat extends Format {
+public class XMLDateFormat extends AbstractXMLDateFormat {
 
-    private final static DatatypeFactory factory;
-    static {
-        try {
-            factory = DatatypeFactory.newInstance();
-        } catch (DatatypeConfigurationException e) {
-            // shouldn't happen since an implementation is provided with the jre
-            throw new IllegalStateException(e);
-        }
+    public XMLDateFormat() {
+        this(null, null);
+    }
+
+    public XMLDateFormat(final TimeZone timezone, final Locale aLocale) {
+        super(timezone, aLocale);
     }
 
     @Override
     public StringBuffer format(Object obj, StringBuffer toAppendTo, FieldPosition pos) {
         final GregorianCalendar cal;
-        if (obj instanceof GregorianCalendar)
+        if (obj instanceof GregorianCalendar) {
             cal = (GregorianCalendar) obj;
-        else {
-            cal = new GregorianCalendar();
-            cal.setTime((Date) obj);
+        } else {
+            final Date d;
+            final TimeZone tz;
+            if (obj instanceof Calendar) {
+                d = ((Calendar) obj).getTime();
+                tz = ((Calendar) obj).getTimeZone();
+            } else {
+                d = (Date) obj;
+                tz = this.getTimeZone();
+            }
+            cal = new GregorianCalendar(tz, this.getLocale());
+            cal.setTime(d);
         }
         return toAppendTo.append(factory.newXMLGregorianCalendar(cal).toXMLFormat());
     }
@@ -59,7 +71,9 @@ public class XMLDateFormat extends Format {
         try {
             final XMLGregorianCalendar res = factory.newXMLGregorianCalendar(source.substring(pos.getIndex()));
             pos.setIndex(source.length());
-            return res.toGregorianCalendar().getTime();
+            // pass time zone if source lacks it
+            final TimeZone tz = res.getTimezone() == DatatypeConstants.FIELD_UNDEFINED ? this.tz : null;
+            return res.toGregorianCalendar(tz, this.locale, null).getTime();
         } catch (Exception e) {
             e.printStackTrace();
             pos.setErrorIndex(pos.getIndex());

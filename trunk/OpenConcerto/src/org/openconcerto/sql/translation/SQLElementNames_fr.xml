@@ -1,11 +1,11 @@
 <translations>
-	<element refid="ilm.sql.users.UserCommonSQLElement-USER_COMMON">
+	<element refid="org.openconcerto.sql.users.UserCommonSQLElement-USER_COMMON">
 		<name base="utilisateur" nounClass="masculine" />
 	</element>
-	<element refid="ilm.sql.users.rights.RightSQLElement-RIGHT">
+	<element refid="org.openconcerto.sql.users.rights.RightSQLElement-RIGHT">
 		<name base="droit" nounClass="masculine" />
 	</element>
-	<element refid="ilm.sql.users.rights.UserRightSQLElement-USER_RIGHT">
+	<element refid="org.openconcerto.sql.users.rights.UserRightSQLElement-USER_RIGHT">
 		<name base="droit utilisateur" nounClass="masculine">
 			<variant refids="plural" value="droits utilisateurs" />
 		</name>

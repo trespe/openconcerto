@@ -46,59 +46,67 @@ public abstract class SQLType {
 
     private static Class<?> getClass(int type, final int size) {
         switch (type) {
-        case Types.BIT:
-            // As of MySQL 5.0.3, BIT is for storing bit-field values
-            // As of Connector/J 3.1.9, transformedBitIsBoolean can be used
-            // MAYBE remove Boolean after testing it works against 4.1 servers
-            if (size == 1) {
+            case Types.BIT:
+                // As of MySQL 5.0.3, BIT is for storing bit-field values
+                // As of Connector/J 3.1.9, transformedBitIsBoolean can be used
+                // MAYBE remove Boolean after testing it works against 4.1 servers
+                if (size == 1) {
+                    return Boolean.class;
+                } else if (size <= Integer.SIZE) {
+                    return Integer.class;
+                } else if (size <= Long.SIZE) {
+                    return Long.class;
+                } else
+                    return BigInteger.class;
+            case Types.BOOLEAN:
                 return Boolean.class;
-            } else if (size <= Integer.SIZE) {
+            case Types.DOUBLE:
+                return Double.class;
+            case Types.FLOAT:
+            case Types.REAL:
+                return Float.class;
+            case Types.TIMESTAMP:
+                return Timestamp.class;
+            case Types.DATE:
+                return java.util.Date.class;
+            case Types.TIME:
+                return java.sql.Time.class;
+            case Types.INTEGER:
+            case Types.SMALLINT:
+            case Types.TINYINT:
                 return Integer.class;
-            } else if (size <= Long.SIZE) {
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+            case Types.BLOB:
+                return Blob.class;
+            case Types.CLOB:
+                return Clob.class;
+            case Types.BIGINT:
+                // 8 bytes
                 return Long.class;
-            } else
-                return BigInteger.class;
-        case Types.BOOLEAN:
-            return Boolean.class;
-        case Types.DOUBLE:
-            return Double.class;
-        case Types.FLOAT:
-        case Types.REAL:
-            return Float.class;
-        case Types.TIMESTAMP:
-            return Timestamp.class;
-        case Types.DATE:
-            return java.util.Date.class;
-        case Types.TIME:
-            return java.sql.Time.class;
-        case Types.INTEGER:
-        case Types.SMALLINT:
-        case Types.TINYINT:
-            return Integer.class;
-        case Types.BINARY:
-        case Types.VARBINARY:
-        case Types.LONGVARBINARY:
-        case Types.BLOB:
-            return Blob.class;
-        case Types.CLOB:
-            return Clob.class;
-        case Types.BIGINT:
-            // 8 bytes
-            return Long.class;
-        case Types.DECIMAL:
-        case Types.NUMERIC:
-            return BigDecimal.class;
-        case Types.CHAR:
-        case Types.VARCHAR:
-        case Types.LONGVARCHAR:
-            return String.class;
-        default:
-            // eg view columns are OTHER
-            return Object.class;
+            case Types.DECIMAL:
+            case Types.NUMERIC:
+                return BigDecimal.class;
+            case Types.CHAR:
+            case Types.VARCHAR:
+            case Types.LONGVARCHAR:
+                return String.class;
+            default:
+                // eg view columns are OTHER
+                return Object.class;
         }
     }
 
     static private final Map<List<String>, SQLType> instances = new HashMap<List<String>, SQLType>();
+
+    // useful when no SQLBase is known
+    public static SQLType getBoolean(final SQLSyntax s) {
+        // TODO use get() once it accepts a SQLSyntax
+        final SQLType res = new BooleanType(Types.BOOLEAN, 1, null, Boolean.class);
+        res.setSyntax(s);
+        return res;
+    }
 
     public static SQLType get(final int type, final int size) {
         return get(null, type, size, null, null);
@@ -214,21 +222,34 @@ public abstract class SQLType {
         return this.typeName;
     }
 
+    // TODO remove once quoteString() is in SQLSyntax
     private final void setBase(SQLBase base) {
         // set only once
         assert this.base == null;
         if (base != null) {
             this.base = base;
-            this.syntax = this.base.getServer().getSQLSystem().getSyntax();
+            this.setSyntax(this.base.getServer().getSQLSystem().getSyntax());
         }
     }
 
-    public final SQLBase getBase() {
+    private final void setSyntax(SQLSyntax s) {
+        // set only once
+        assert this.syntax == null;
+        if (s != null) {
+            this.syntax = s;
+        }
+    }
+
+    private final SQLBase getBase() {
         return this.base;
     }
 
     public final SQLSyntax getSyntax() {
         return this.syntax;
+    }
+
+    protected final String quoteString(String s) {
+        return SQLBase.quoteString(this.getBase(), s);
     }
 
     @Override
@@ -355,8 +376,10 @@ public abstract class SQLType {
      * @throws IllegalArgumentException if o is not valid.
      */
     public final void check(Object o) {
-        if (!isValid(o))
-            throw new IllegalArgumentException(o + " is not valid for " + this);
+        if (!isValid(o)) {
+            final String className = o == null ? "" : "(" + o.getClass() + ")";
+            throw new IllegalArgumentException(o + className + " is not valid for " + this);
+        }
     }
 
     /**
@@ -421,7 +444,7 @@ public abstract class SQLType {
         protected String toStringRaw(Object o) {
             if (this.getSyntax().getSystem() == SQLSystem.MSSQL) {
                 // 'true'
-                return this.getBase().quoteString(o.toString());
+                return this.quoteString(o.toString());
             } else
                 return super.toStringRaw(o);
         }
@@ -525,7 +548,7 @@ public abstract class SQLType {
 
         @Override
         protected String toStringRaw(Object o) {
-            return SQLBase.quoteString(this.getBase(), (String) o);
+            return this.quoteString((String) o);
         }
 
         @Override

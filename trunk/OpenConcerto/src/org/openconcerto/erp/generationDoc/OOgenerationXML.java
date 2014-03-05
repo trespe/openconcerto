@@ -352,6 +352,27 @@ public class OOgenerationXML {
         }
         List<Element> listElts = tableau.getChildren("element");
 
+        if (row.getTable().contains("ID_TAXE_PORT") && row.getTable().contains("PORT_HT")) {
+
+            SQLRowAccessor rowTaxe = getForeignRow(row, row.getTable().getField("ID_TAXE_PORT"));
+            BigDecimal ht = BigDecimal.ZERO;
+            if (row.getTable().getFieldRaw("PORT_HT") != null) {
+                ht = new BigDecimal((Long) row.getObject("PORT_HT")).movePointLeft(2);
+                if (ht.signum() != 0) {
+                    if (taxe.get(rowTaxe) != null) {
+
+                        final Object object = taxe.get(rowTaxe).get("MONTANT_HT");
+                        BigDecimal montant = (object == null) ? BigDecimal.ZERO : (BigDecimal) object;
+                        taxe.get(rowTaxe).put("MONTANT_HT", montant.add(ht));
+                    } else {
+                        Map<String, Object> m = new HashMap<String, Object>();
+                        m.put("MONTANT_HT", ht);
+                        taxe.put(rowTaxe, m);
+                    }
+                }
+            }
+        }
+
         // on remplit chaque ligne à partir des rows recuperées
         int numeroRef = 0;
         for (SQLRowAccessor rowElt : rowsEltCache.get(ref)) {

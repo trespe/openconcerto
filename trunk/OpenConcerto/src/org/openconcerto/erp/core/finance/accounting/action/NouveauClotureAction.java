@@ -29,6 +29,9 @@ public class NouveauClotureAction extends CreateFrameAbstractAction {
 
     @Override
     public JFrame createFrame() {
-        return new PanelFrame(new CloturePanel(), "Assistant Clôture");
+        final PanelFrame panelFrame = new PanelFrame(new CloturePanel(), "Assistant Clôture");
+        panelFrame.pack();
+        panelFrame.setResizable(false);
+        return panelFrame;
     }
 }

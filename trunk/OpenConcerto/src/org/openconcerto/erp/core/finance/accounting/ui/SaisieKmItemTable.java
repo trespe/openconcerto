@@ -21,6 +21,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
@@ -51,6 +52,7 @@ import javax.swing.AbstractAction;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
+import javax.swing.SwingUtilities;
 import javax.swing.ToolTipManager;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
@@ -89,7 +91,7 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
         this.credit = new SQLTableElement(tableElement.getField("CREDIT"), Long.class, this.deviseCellEditor);
         list.add(this.credit);
 
-        final RowValuesTableModel model = new RowValuesTableModel(elt, list, tableElement.getField("NUMERO"), true, defaultRowVals) {
+        final RowValuesTableModel model = new RowValuesTableModel(elt, list, tableElement.getField("NUMERO"), false, defaultRowVals) {
             @Override
             public void setValueAt(final Object aValue, final int rowIndex, final int columnIndex) {
                 super.setValueAt(aValue, rowIndex, columnIndex);
@@ -172,7 +174,7 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
      * @param contrePasser contrePasser l'ecriture
      */
     private void loadEcriture(final SQLRow ecrRow, final boolean contrePasser) {
-
+        assert SwingUtilities.isEventDispatchThread();
         final SQLRow compteRow = ecrRow.getForeignRow("ID_COMPTE_PCE");
         final Map<String, Object> m = new HashMap<String, Object>();
 
@@ -201,7 +203,7 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
      * @param contrePasser contrePasser le mouvement
      */
     public void loadMouvement(final int idMvt, final boolean contrePasser) {
-
+        assert SwingUtilities.isEventDispatchThread();
         // FIXME load analytique
         final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
         final SQLTable ecrTable = base.getTable("ECRITURE");
@@ -232,6 +234,10 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
         this.table.insertFrom(field, id);
     }
 
+    public void insertFrom(final SQLRowAccessor row) {
+        this.table.insertFrom(row);
+    }
+
     public RowValuesTableModel getModel() {
         return this.table.getRowValuesTableModel();
     }
@@ -260,12 +266,14 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
     }
 
     public void editCellAt(final int row, final int column) {
+        assert SwingUtilities.isEventDispatchThread();
         this.table.setColumnSelectionInterval(column, column);
         this.table.setRowSelectionInterval(row, row);
         this.table.editCellAt(row, column);
     }
 
     private long getContrepartie() {
+        assert SwingUtilities.isEventDispatchThread();
         long totalCred = 0;
         long totalDeb = 0;
         final RowValuesTableModel model = this.table.getRowValuesTableModel();
@@ -287,6 +295,7 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
     }
 
     private long getSoldeRow(final int index) {
+        assert SwingUtilities.isEventDispatchThread();
         if (index >= 0 && index < this.table.getRowCount()) {
             final SQLRowValues rowVals = this.table.getRowValuesTableModel().getRowValuesAt(index);
             return rowVals.getLong("DEBIT") - rowVals.getLong("CREDIT");
@@ -296,6 +305,7 @@ public class SaisieKmItemTable extends JPanel implements MouseListener {
     }
 
     public void fillEmptyEntryLabel(String previousText, String text) {
+        assert SwingUtilities.isEventDispatchThread();
         if (text == null)
             return;
         RowValuesTableModel model = table.getRowValuesTableModel();

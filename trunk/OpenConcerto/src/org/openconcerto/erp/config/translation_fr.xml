@@ -2,7 +2,7 @@
 	<!-- File -->
 	<menu id="menu.file" label="Fichier" />
 	<menu id="backup" label="Sauvegarde" />
-	<menu id="export.accounting" label="Export relation expert" />
+	<menu id="export.accounting" label="Export des écritures" />
 	<menu id="modules" label="Modules" />
 	<menu id="preferences" label="Préférences" />
 	<menu id="quit" label="Quitter" />
@@ -73,7 +73,7 @@
 	<!-- Accounting -->
 	<menu id="menu.accounting" label="Etats" />
 	<menu id="accounting.balance" label="Balance" />
-	<menu id="accounting.client.balance" label="Balance agée" />
+	<menu id="accounting.client.balance" label="Balance âgée" />
 	<menu id="accounting.analytical.result" label="Compte de résultat analytique" />
 	<menu id="accounting.ledger" label="Journaux" />
 	<menu id="accounting.general.ledger" label="Grand livre" />
@@ -129,6 +129,7 @@
 	<menu id="menu.organization" label="Structure" />
 	<menu id="accounting.chart" label="Plan comptable de l'entreprise" />
 	<menu id="accounting.journal" label="Gestion des journaux comptables" />
+	<menu id="accounting.checkDB" label="Vérifier la structure de la base" />
 	<menu id="user.list" label="Liste des utilisateurs" />
 	<menu id="user.right.list" label="Gestion des droits" />
 	<menu id="user.task.right" label="Autorisations liées aux tâches" />

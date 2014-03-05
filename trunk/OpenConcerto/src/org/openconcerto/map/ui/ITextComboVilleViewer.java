@@ -39,6 +39,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 
+import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JComponent;
@@ -69,7 +70,7 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<Ville>
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.insets = new Insets(0, 0, 0, 2);
 
-        this.buttonAdd = new JButton(new ImageIcon(this.getClass().getResource("add.png")));
+        this.buttonAdd = new JButton(new ImageIcon(ITextComboVilleViewer.class.getResource("add.png")));
         this.supp = new ValueChangeSupport<Ville>(this);
         this.cache = new ITextComboCacheVille();
 
@@ -127,7 +128,7 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<Ville>
         this.add(this.button, c);
         c.gridx++;
         this.buttonAdd.setPreferredSize(new Dimension(24, 16));
-        this.buttonAdd.setBorder(null);
+        this.buttonAdd.setBorder(BorderFactory.createEmptyBorder());
         this.buttonAdd.setOpaque(false);
         this.buttonAdd.setContentAreaFilled(false);
         this.buttonAdd.setFocusPainted(false);

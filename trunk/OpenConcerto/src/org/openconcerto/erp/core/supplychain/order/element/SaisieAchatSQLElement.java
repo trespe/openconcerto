@@ -21,11 +21,18 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLInjector;
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.EditPanel;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.RowAction;
 
+import java.awt.event.ActionEvent;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 
@@ -33,6 +40,7 @@ public class SaisieAchatSQLElement extends ComptaSQLConfElement {
 
     public SaisieAchatSQLElement() {
         super("SAISIE_ACHAT", "une saisie d'achat", "saisies d'achats");
+        this.getRowActions().add(getCloneAction());
     }
 
     protected List<String> getListFields() {
@@ -89,4 +97,26 @@ public class SaisieAchatSQLElement extends ComptaSQLConfElement {
         editAvoirFrame.setVisible(true);
 
     }
+
+    public RowAction getCloneAction() {
+        return new RowAction(new AbstractAction("Dupliquer") {
+
+            public void actionPerformed(ActionEvent e) {
+                SQLRow selectedRow = IListe.get(e).fetchSelectedRow();
+                EditFrame editFrame = new EditFrame(SaisieAchatSQLElement.this, EditPanel.CREATION);
+
+                final SQLRowValues copy = SaisieAchatSQLElement.this.createCopy(selectedRow.getID());
+                copy.put("ID_MOUVEMENT", null);
+                copy.put("DATE", null);
+                editFrame.getSQLComponent().select(copy);
+
+                editFrame.setVisible(true);
+            }
+        }, true, "purchase.clone") {
+            public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
+                return (selection != null && selection.size() == 1);
+            };
+        };
+    }
+
 }

@@ -14,6 +14,7 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.Log;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.request.MultipleSQLSelectExecutor;
 import org.openconcerto.utils.ExceptionHandler;
@@ -46,9 +47,11 @@ public class UndefinedRowValuesCache {
         if (rv == null) {
             rv = new SQLRowValues(t);
             final SQLRow undefRow = t.getRow(t.getUndefinedID());
-            if (undefRow == null)
-                throw new IllegalStateException(t.getSQLName() + " doesn't contain undef ID " + t.getUndefinedID());
-            getDirectory().getElement(t).loadAllSafe(rv, undefRow);
+            if (undefRow == null) {
+                Log.get().warning(t.getSQLName() + " doesn't contain undef ID " + t.getUndefinedID());
+            } else {
+                getDirectory().getElement(t).loadAllSafe(rv, undefRow);
+            }
             this.map.put(t, rv);
         }
         return rv;

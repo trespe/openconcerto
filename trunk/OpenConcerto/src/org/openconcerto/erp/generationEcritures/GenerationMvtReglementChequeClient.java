@@ -39,10 +39,16 @@ public class GenerationMvtReglementChequeClient extends GenerationEcritures {
         this.date = d;
         this.idMvt = idMvt;
         this.idCheque = idCheque;
+        SQLRow chequeRow = base.getTable("CHEQUE_A_ENCAISSER").getRow(this.idCheque);
+        String num = "";
+        if (chequeRow != null && !chequeRow.isUndefined() && chequeRow.getString("NUMERO").trim().length() > 0) {
+            num = " N° " + chequeRow.getString("NUMERO");
+        }
+
         if (s != null && s.trim().length() > 0) {
-            this.nom = s;
+            this.nom = s + (num.trim().length() > 0 ? " - Cheque" + num : "");
         } else {
-            this.nom = "Reglement cheque client";
+            this.nom = "Reglement cheque client" + num;
         }
     }
 

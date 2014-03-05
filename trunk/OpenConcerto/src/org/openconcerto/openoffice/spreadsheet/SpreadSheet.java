@@ -30,8 +30,10 @@ import java.awt.Point;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -84,12 +86,7 @@ public class SpreadSheet extends ODDocument {
     public static SpreadSheet create(final XMLFormatVersion ns, final int sheetCount, final int colCount, final int rowCount) {
         final ContentTypeVersioned ct = ContentType.SPREADSHEET.getVersioned(ns.getXMLVersion());
         final SpreadSheet spreadSheet = ct.createPackage(ns).getSpreadSheet();
-        // create auto style with display=true (LO always generates one, and Google Docs expects it)
-        final TableStyle tableStyle = Style.getStyleStyleDesc(TableStyle.class, ns.getXMLVersion()).createAutoStyle(spreadSheet.getPackage());
-        tableStyle.getTableProperties().setDisplayed(true);
-        for (int i = 0; i < sheetCount; i++) {
-            spreadSheet.getBody().addContent(Sheet.createEmpty(ns.getXMLVersion(), colCount, rowCount, tableStyle.getName()));
-        }
+        spreadSheet.addSheets(0, Collections.<String> nCopies(sheetCount, null), colCount, rowCount);
         return spreadSheet;
     }
 
@@ -321,19 +318,46 @@ public class SpreadSheet extends ODDocument {
      * @return the newly created sheet.
      */
     public final Sheet addSheet(final int index, String name) {
-        if (name == null)
-            throw new NullPointerException("null name");
-        final Element newElem = Table.createEmpty(getVersion());
-        return this.addSheet(index, newElem, name);
+        return this.addSheets(index, Collections.singletonList(name)).get(0);
+    }
+
+    public final List<Sheet> addSheets(final int index, final List<String> names) {
+        return this.addSheets(index, names, 1, 1);
+    }
+
+    public final List<Sheet> addSheets(final int index, final List<String> names, final int colCount, final int rowCount) {
+        // create auto style with display=true (LO always generates one, and Google Docs expects it)
+        final TableStyle tableStyle = Style.getStyleStyleDesc(TableStyle.class, this.getVersion()).createAutoStyle(this.getPackage());
+        tableStyle.getTableProperties().setDisplayed(true);
+        final int sheetCount = names.size();
+        final List<Element> newElems = new ArrayList<Element>(sheetCount);
+        for (int i = 0; i < sheetCount; i++) {
+            newElems.add(Sheet.createEmpty(this.getVersion(), colCount, rowCount, tableStyle.getName()));
+        }
+        return this.addSheets(index, newElems, names);
     }
 
     final Sheet addSheet(final int index, final Element newElem, final String name) {
-        this.getBody().addContent(getContentIndex(index), newElem);
+        return addSheets(index, Collections.singletonList(newElem), Collections.singletonList(name)).get(0);
+    }
 
-        final Sheet res = this.getSheet(newElem);
-        if (name != null)
-            res.setName(name);
-        assert res.getName() != null;
+    final List<Sheet> addSheets(final int index, final List<Element> newElems, final List<String> names) {
+        final int size = newElems.size();
+        if (size != names.size())
+            throw new IllegalArgumentException("Size mismatch " + newElems + " / " + names);
+        this.getBody().addContent(getContentIndex(index), newElems);
+
+        final List<Sheet> res = new ArrayList<Sheet>(size);
+        final Iterator<String> iter = names.iterator();
+        for (final Element newElem : newElems) {
+            final Sheet newSheet = this.getSheet(newElem);
+            res.add(newSheet);
+            final String name = iter.next();
+            // name is optional
+            if (name != null)
+                newSheet.setName(name);
+        }
+        assert !iter.hasNext();
         return res;
     }
 
@@ -344,15 +368,18 @@ public class SpreadSheet extends ODDocument {
             throw new IndexOutOfBoundsException("Negative index: " + tableIndex);
         // copy since we will modify it (plus JDOM uses an iterator)
         final List<Element> tables = new ArrayList<Element>(this.getTables());
-        if (tableIndex > tables.size())
-            throw new IndexOutOfBoundsException("index (" + tableIndex + ") > count (" + tables.size() + ")");
+        final int tablesCount = tables.size();
+        if (tableIndex > tablesCount)
+            throw new IndexOutOfBoundsException("index (" + tableIndex + ") > count (" + tablesCount + ")");
         // the following statement fails when adding after the last table:table :
         // this.getTables().add(index, newElem);
         // it add at the end of its parent element (e.g. after table:named-expressions).
         // so use the fact that there's always at least one sheet (all sheets aren't grouped there
         // can be Text or Comment in between them)
         final int contentIndex;
-        if (tableIndex == tables.size()) {
+        if (tablesCount == 0) {
+            contentIndex = 0;
+        } else if (tableIndex == tablesCount) {
             // after last table
             contentIndex = this.getBody().indexOf(tables.get(tableIndex - 1)) + 1;
         } else {

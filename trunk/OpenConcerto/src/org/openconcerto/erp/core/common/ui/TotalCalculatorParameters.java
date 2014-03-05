@@ -99,6 +99,7 @@ public class TotalCalculatorParameters {
         final SQLRowValues rowValsF = new SQLRowValues(familleArticleTable);
         rowValsF.put("NOM", null);
         rowValsF.put("ID", null);
+        rowValsF.put("ID_FAMILLE_ARTICLE_PERE", null);
         rowValsF.put("ID_COMPTE_PCE", rowValsC2);
 
         final SQLRowValues rowVals = new SQLRowValues(articleTable);

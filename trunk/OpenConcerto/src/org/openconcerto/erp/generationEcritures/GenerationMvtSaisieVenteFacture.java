@@ -252,6 +252,7 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
 
         if (valSasieVF.getInvalid() == null) {
             valSasieVF.update(this.idSaisieVenteFacture);
+            displayMvtNumber();
         }
 
     }

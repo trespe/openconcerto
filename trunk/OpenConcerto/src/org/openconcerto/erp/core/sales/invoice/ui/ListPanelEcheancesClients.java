@@ -77,7 +77,7 @@ public class ListPanelEcheancesClients extends ListeAddPanel {
             this.editFrame.pack();
             this.editFrame.setVisible(true);
 
-            SQLRow ecritureRow = new EcritureSQLElement().getTable().getRow(this.getListe().getSelectedId());
+            SQLRow ecritureRow = Configuration.getInstance().getDirectory().getElement(EcritureSQLElement.class).getTable().getRow(this.getListe().getSelectedId());
 
             MouvementSQLElement.showSource(ecritureRow.getInt("ID_MOUVEMENT"));
 

@@ -21,44 +21,25 @@ import org.openconcerto.utils.CollectionUtils;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+
+import net.jcip.annotations.Immutable;
 
 /**
  * Un chemin dans une base de donnée. Un chemin est composé de tables, d'autre part les tables sont
- * relées entre elle par un sous-ensemble des champs les reliant dans le graphe.
+ * reliées entre elle par un sous-ensemble des champs les reliant dans le graphe. This class is
+ * immutable and thus thread-safe. Also methods that modify a path always return a new instance. If
+ * a few modifications are needed consider using {@link #toBuilder()}.
  * 
  * @author ILM Informatique 4 oct. 2004
  */
-public class Path {
-
-    /**
-     * Crée un chemin à partir d'une liste de String.
-     * 
-     * @param base la base du chemin.
-     * @param path le chemin sous forme de String
-     * @return le chemin correspondant.
-     * @deprecated use {@link #createFromTables(DBRoot, List)} instead or the other methods with
-     *             String parameters (see {@link #add(String)}
-     */
-    static Path create(DBRoot base, List<String> path) {
-        if (path.size() == 0)
-            throw new IllegalArgumentException("path is empty");
-
-        // le premier doit etre une table car un champ est ambigu.
-        final SQLTable first = base.getTable(path.get(0));
-        if (first == null)
-            throw new IllegalArgumentException("first item must be a table");
-        Path res = new Path(first);
-        for (int i = 1; i < path.size(); i++) {
-            res.add(path.get(i));
-        }
-
-        return res;
-    }
+@Immutable
+public final class Path extends AbstractPath<Path> {
 
     /**
      * Create a path from tables.
@@ -70,7 +51,28 @@ public class Path {
      */
     static public Path createFromTables(DBRoot root, List<String> path) {
         final SQLTable first = root.getTable(path.get(0));
-        return new Path(first).addTables(path.subList(1, path.size()));
+        return new PathBuilder(first).addTables(path.subList(1, path.size())).build();
+    }
+
+    private static final int CACHE_INITIAL_CAPACITY = 8;
+    private static final float CACHE_LOAD_FACTOR = 0.75f;
+    private static final int CACHE_MAX_SIZE = (int) (CACHE_LOAD_FACTOR * CACHE_INITIAL_CAPACITY * 8);
+    static private final Map<SQLTable, Path> EMPTY_PATHS = new LinkedHashMap<SQLTable, Path>(CACHE_INITIAL_CAPACITY, CACHE_LOAD_FACTOR, true) {
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<SQLTable, Path> eldest) {
+            return size() > CACHE_MAX_SIZE;
+        }
+    };
+
+    static public Path get(SQLTable first) {
+        synchronized (EMPTY_PATHS) {
+            Path res = EMPTY_PATHS.get(first);
+            if (res == null) {
+                res = new Path(first);
+                EMPTY_PATHS.put(first, res);
+            }
+            return res;
+        }
     }
 
     /**
@@ -84,68 +86,66 @@ public class Path {
         // besoin de spécifier le premier, eg BATIMENT.ID_SITE => quel sens ?
         if (links == null)
             return null;
-        final Path res = new Path(first);
-        for (final Link link : links) {
-            res.add(link);
-        }
-        return res;
+        final PathBuilder builder = new PathBuilder(first);
+        for (final Link l : links)
+            builder.add(l);
+        return builder.build();
     }
 
-    private final DBRoot base;
+    static private final <T> List<T> copy(List<T> l) {
+        return Collections.unmodifiableList(new ArrayList<T>(l));
+    }
+
+    // arguments not checked for coherence
+    static Path create(final List<SQLTable> tables, final List<Step> steps, final List<SQLField> singleFields) {
+        return new Path(copy(tables), copy(steps), copy(singleFields));
+    }
+
     private final List<SQLTable> tables;
     private final List<Step> fields;
     // after profiling: doing getStep().iterator().next() costs a lot
     private final List<SQLField> singleFields;
 
     public Path(SQLTable start) {
-        this.tables = new ArrayList<SQLTable>();
-        this.fields = new ArrayList<Step>();
-        this.singleFields = new ArrayList<SQLField>();
-        this.base = start.getDBRoot();
-        this.tables.add(start);
+        this.tables = Collections.singletonList(start);
+        this.fields = Collections.emptyList();
+        this.singleFields = Collections.emptyList();
     }
 
-    public Path(Path p) {
-        this.tables = new ArrayList<SQLTable>(p.tables);
-        // ok since Step is immutable
-        this.fields = new ArrayList<Step>(p.fields);
-        this.singleFields = new ArrayList<SQLField>(p.singleFields);
-        this.base = p.base;
+    public Path(Step step) {
+        this.tables = Arrays.asList(step.getFrom(), step.getTo());
+        this.fields = Collections.singletonList(step);
+        this.singleFields = Collections.singletonList(step.getSingleField());
+    }
+
+    // arguments not checked for coherence, nor immutability
+    private Path(final List<SQLTable> tables, final List<Step> steps, final List<SQLField> singleFields) {
+        this.tables = tables;
+        this.fields = steps;
+        this.singleFields = singleFields;
+    }
+
+    public final PathBuilder toBuilder() {
+        return new PathBuilder(this);
     }
 
     public final Path reverse() {
-        final Path res = new Path(getLast());
-        for (int i = this.fields.size() - 1; i >= 0; i--) {
-            res.add(this.fields.get(i).reverse());
+        final int stepsCount = this.fields.size();
+        if (stepsCount == 0)
+            return this;
+
+        final List<SQLTable> tables = new ArrayList<SQLTable>(stepsCount + 1);
+        final List<Step> steps = new ArrayList<Step>(stepsCount);
+        final List<SQLField> singleFields = new ArrayList<SQLField>(stepsCount);
+
+        for (int i = stepsCount - 1; i >= 0; i--) {
+            final Step reversedStep = this.fields.get(i).reverse();
+            tables.add(reversedStep.getFrom());
+            steps.add(reversedStep);
+            singleFields.add(reversedStep.getSingleField());
         }
-        return res;
-    }
-
-    /**
-     * La longueur de ce chemin.
-     * 
-     * @return la longueur de ce chemin.
-     */
-    public int length() {
-        return this.fields.size();
-    }
-
-    public SQLTable getFirst() {
-        return this.getTable(0);
-    }
-
-    public SQLTable getLast() {
-        return this.getTable(this.tables.size() - 1);
-    }
-
-    /**
-     * La table se trouvant à la position demandée dans ce chemin.
-     * 
-     * @param i l'index, entre 0 et length() inclus.
-     * @return la table se trouvant à la position demandée.
-     */
-    public SQLTable getTable(int i) {
-        return this.tables.get(i);
+        tables.add(this.getFirst());
+        return new Path(Collections.unmodifiableList(tables), Collections.unmodifiableList(steps), Collections.unmodifiableList(singleFields));
     }
 
     public Path minusFirst() {
@@ -177,253 +177,77 @@ public class Path {
     public Path subPath(int fromIndex, int toIndex) {
         fromIndex = CollectionUtils.getValidIndex(this.fields, fromIndex);
         toIndex = CollectionUtils.getValidIndex(this.fields, toIndex);
-        final Path p = new Path(this.getTable(fromIndex));
-        // +1 since we've passed the first to the ctor
-        // +1 since there's one more table than fields
-        p.tables.addAll(this.tables.subList(fromIndex + 1, toIndex + 1));
-        p.fields.addAll(this.fields.subList(fromIndex, toIndex));
-        p.singleFields.addAll(this.singleFields.subList(fromIndex, toIndex));
-        return p;
+        if (fromIndex == 0 && toIndex == this.length())
+            return this;
+        return new Path(this.tables.subList(fromIndex, toIndex + 1), this.fields.subList(fromIndex, toIndex), this.singleFields.subList(fromIndex, toIndex));
     }
 
     public Path justFirst() {
-        final Path p = new Path(this.getFirst());
-        p.add(this.fields.get(0));
-        return p;
+        return subPath(0, 1);
     }
 
+    @Override
     public List<SQLTable> getTables() {
-        return Collections.unmodifiableList(this.tables);
+        return this.tables;
     }
 
     /**
      * Append <code>p</code> to this path.
      * 
      * @param p the path to append.
-     * @return this.
+     * @return a new path.
      * @throws IllegalArgumentException if <code>p</code> doesn't begin where this ends.
      */
-    public final Path append(Path p) {
-        if (this.getLast() != p.getFirst())
-            throw new IllegalArgumentException("this ends at " + this.getLast() + " while the other begins at " + p.getFirst());
-        this.fields.addAll(p.fields);
-        this.singleFields.addAll(p.singleFields);
-        this.tables.addAll(p.tables.subList(1, p.tables.size()));
-        return this;
+    @Override
+    protected final Path _append(Path p) {
+        final int thisLength = this.length();
+        final int oLength = p.length();
+        if (thisLength == 0)
+            return p;
+        else if (oLength == 0)
+            return this;
+
+        final int stepsCount = thisLength + oLength;
+        final List<SQLTable> tables = new ArrayList<SQLTable>(stepsCount + 1);
+        final List<Step> steps = new ArrayList<Step>(stepsCount);
+        final List<SQLField> singleFields = new ArrayList<SQLField>(stepsCount);
+
+        // subList() since the last table will be added from p
+        tables.addAll(this.tables.subList(0, thisLength));
+        tables.addAll(p.tables);
+        steps.addAll(this.fields);
+        steps.addAll(p.fields);
+        singleFields.addAll(this.singleFields);
+        singleFields.addAll(p.singleFields);
+
+        return new Path(Collections.unmodifiableList(tables), Collections.unmodifiableList(steps), Collections.unmodifiableList(singleFields));
     }
 
-    private Path add(Step step) {
-        assert step.getFrom() == this.getLast() : "broken path";
-        this.fields.add(step);
-        this.singleFields.add(step.getSingleField());
-        this.tables.add(step.getTo());
-        return this;
+    @Override
+    final Path add(Step step) {
+        return this.append(new Path(step));
     }
 
-    /**
-     * Ajoute un maillon a la chaine. item doit être soit le nom d'une table, soit le nom complet
-     * d'un champ (TABLE.FIELD_NAME).
-     * 
-     * @param item le nouveau maillon.
-     * @return this.
-     * @deprecated use {@link #addForeignField(String)}, {@link #addForeignTable(String)} or similar
-     */
-    private Path add(String item) {
-        int dot = item.indexOf('.');
-        if (dot < 0) {
-            return add(this.base.getTable(item));
-        } else {
-            return add(this.base.getDesc(item, SQLField.class));
-        }
+    @Override
+    public final List<Step> getSteps() {
+        return this.fields;
     }
 
-    /**
-     * Add a table at the end of the path. NOTE: the step will be composed of all the foreign fields
-     * between {@link #getLast()} and <code>destTable</code>.
-     * 
-     * @param destTable the table to add.
-     * @return this.
-     * @throws IllegalArgumentException if <code>destTable</code> has no foreign fields between
-     *         itself and the current end of this path.
-     */
-    public final Path add(final SQLTable destTable) {
-        return this.add(destTable, Direction.ANY);
-    }
-
-    public final Path add(final SQLTable destTable, final Direction dir) {
-        return this.add(Step.create(getLast(), destTable, dir));
-    }
-
-    /**
-     * Add a table at the end of the path. NOTE: the step will be composed of all the foreign fields
-     * between {@link #getLast()} and <code>tableName</code>.
-     * 
-     * @param tableName the table name.
-     * @return this.
-     */
-    public final Path addTable(final String tableName) {
-        return this.addTable(tableName, Direction.ANY, false);
-    }
-
-    public final Path addTable(final String tableName, final Direction dir, final boolean onlyOne) {
-        return this.add(dir, null, tableName, null, onlyOne);
-    }
-
-    public Path addTables(String... names) {
-        return this.addTables(Arrays.asList(names));
-    }
-
+    @Override
     public Path addTables(List<String> names) {
-        for (final String name : names)
-            this.addTable(name);
-        return this;
-    }
-
-    public final Path addForeignTable(final String tableName) {
-        return this.addForeignTable(tableName, null);
-    }
-
-    /**
-     * Add a table at the end of the path if there's only one <b>foreign<b> link between the end and
-     * it.
-     * 
-     * @param tableName the table name.
-     * @param rootName the name of the table root, <code>null</code> to not use.
-     * @return this.
-     */
-    public final Path addForeignTable(final String tableName, final String rootName) {
-        return this.add(Direction.FOREIGN, null, tableName, rootName, true);
-    }
-
-    /**
-     * Add a step to the path.
-     * 
-     * @param fField a foreign field.
-     * @return this.
-     * @throws IllegalArgumentException if <code>fField</code> is not a foreign field or if neither
-     *         of its ends are the current end of this path.
-     */
-    public final Path add(final SQLField fField) {
-        return this.add(fField, Direction.ANY);
-    }
-
-    /**
-     * Add a step to the path.
-     * 
-     * @param fField a foreign field.
-     * @param direction <code>true</code> to cross from the source of <code>fField</code> to its
-     *        destination, <code>null</code> to infer it.
-     * @return this.
-     * @throws IllegalArgumentException if <code>fField</code> is not a foreign field or if neither
-     *         of its ends are the current end of this path.
-     * @deprecated use {@link #add(SQLField, Direction)}
-     */
-    public final Path add(final SQLField fField, final Boolean direction) {
-        return this.add(fField, Direction.fromForeign(direction));
-    }
-
-    public final Path add(final SQLField fField, final Direction direction) {
-        return this.add(Step.create(getLast(), fField, direction));
-    }
-
-    /**
-     * Add a step to the path.
-     * 
-     * @param fields fields between the last table and another.
-     * @return this.
-     */
-    public final Path addStepWithFields(final Collection<SQLField> fields) {
-        final Set<Link> links = new HashSet<Link>(fields.size());
-        final DatabaseGraph graph = getFirst().getDBSystemRoot().getGraph();
-        for (final SQLField f : fields) {
-            links.add(graph.getForeignLink(f));
-        }
-        return this.add(links);
+        return toBuilder().addTables(names).build();
     }
 
     /**
      * Add multiple steps to the path.
      * 
      * @param fieldsNames foreign fields.
-     * @return this.
+     * @return a new path.
      * @see #addForeignField(String)
      */
+    @Override
     public final Path addForeignFields(final String... fieldsNames) {
-        for (final String name : fieldsNames)
-            this.addForeignField(name);
-        return this;
-    }
-
-    public final Path addForeignField(final String fieldName) {
-        return this.add(this.getLast().getField(fieldName));
-    }
-
-    public final Path addReferentField(final String fieldName) {
-        return this.addReferent(fieldName, null, null);
-    }
-
-    public final Path addReferentTable(final String tableName) {
-        return this.addReferent(null, tableName, null);
-    }
-
-    /**
-     * Add a table at the end of this path if there's only one link matching the parameters.
-     * 
-     * @param fieldName the field name, <code>null</code> to not use.
-     * @param tableName the name of the added table, <code>null</code> to not use.
-     * @param rootName the name of the root of the added table, <code>null</code> to not use.
-     * @return this.
-     */
-    public final Path addReferent(final String fieldName, final String tableName, final String rootName) {
-        return this.add(Direction.REFERENT, fieldName, tableName, rootName, true);
-    }
-
-    /**
-     * Add a step to the path.
-     * 
-     * @param dir the direction of the new step.
-     * @param fieldName the field name, <code>null</code> to not use.
-     * @param tableName the name of the added table, <code>null</code> to not use.
-     * @param rootName the name of the root of the added table, <code>null</code> to not use.
-     * @param onlyOne <code>true</code> if one and only one link should match.
-     * @return this.
-     * @throws IllegalStateException if <code>onlyOne</code> is <code>true</code> and not one and
-     *         only one link matching.
-     */
-    public final Path add(final Direction dir, final String fieldName, final String tableName, final String rootName, final boolean onlyOne) {
-        return this.add(this.getLast().getDBSystemRoot().getGraph().getLinks(getLast(), dir, onlyOne, new Link.NamePredicate(getLast(), rootName, tableName, fieldName)));
-    }
-
-    /**
-     * Add a step to the path.
-     * 
-     * @param links links from the current end of this path to another table.
-     * @return this.
-     * @throws IllegalArgumentException if <code>links</code> are not all between the current end
-     *         and the same other table.
-     */
-    public final Path add(final Collection<Link> links) {
-        return this.add(Step.create(getLast(), links));
-    }
-
-    /**
-     * Ajoute un maillon a la chaine.
-     * 
-     * @param item un lien.
-     * @return this.
-     * @throws IllegalArgumentException si aucune des extremités de item n'est connectée à ce
-     *         chemin.
-     */
-    public Path add(Link item) {
-        return this.add(item, Direction.ANY);
-    }
-
-    public Path add(Link l, Direction direction) {
-        return this.add(Step.create(getLast(), l, direction));
-    }
-
-    public final List<Step> getSteps() {
-        return Collections.unmodifiableList(this.fields);
+        return toBuilder().addForeignFields(fieldsNames).build();
     }
 
     /**
@@ -466,7 +290,7 @@ public class Path {
      * @see #getSingleStep(int)
      */
     public final List<SQLField> getSingleSteps() {
-        return Collections.unmodifiableList(this.singleFields);
+        return this.singleFields;
     }
 
     /**
@@ -484,12 +308,12 @@ public class Path {
 
     public final Set<Path> getSingleLinkPaths() {
         if (this.length() == 0)
-            return Collections.singleton(new Path(this));
+            return Collections.singleton(this);
 
         final Set<Path> res = new HashSet<Path>();
         for (final Path p : this.subPath(1).getSingleLinkPaths()) {
             for (final Step s : this.getStep(0).getSingleSteps()) {
-                res.add(new Path(this.getFirst()).add(s).append(p));
+                res.add(new PathBuilder(s).append(p).build());
             }
         }
         return res;
@@ -585,7 +409,7 @@ public class Path {
             final Path o = (Path) obj;
             // no need to compare tables, starting from the same point the same fields lead to the
             // same table
-            return this.base.equals(o.base) && this.getFirst().equals(o.getFirst()) && this.fields.equals(o.fields);
+            return this.getFirst().equals(o.getFirst()) && this.fields.equals(o.fields);
         } else
             return false;
     }

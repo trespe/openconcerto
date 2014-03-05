@@ -16,50 +16,49 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.DBRoot;
-import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.ExceptionHandler;
 
-import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.apache.commons.dbutils.ResultSetHandler;
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
-
 public final class TaxeCache {
 
     static private final SQLSelect getSel() {
+        // FIXME récupérer les comptes de TVA pour eviter les fetchs
         final DBRoot root = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete();
         final SQLTable table = root.getTable("TAXE");
-        final SQLSelect sel = new SQLSelect(table.getBase());
+        final SQLSelect sel = new SQLSelect();
         sel.addSelect(table.getField("ID_TAXE"));
         sel.addSelect(table.getField("TAUX"));
+        sel.addSelect(table.getField("DEFAULT"));
         return sel;
     }
 
     private transient final Map<Integer, Float> mapTaux = new HashMap<Integer, Float>();
+    private transient final Map<SQLRowAccessor, Float> mapRowTaux = new LinkedHashMap<SQLRowAccessor, Float>();
     private static TaxeCache instance;
-    private transient Integer firstIdTaxe = null;
+    private transient SQLRow firstIdTaxe = null;
 
     private TaxeCache() {
         final SQLSelect sel = getSel();
-        final String req = sel.asString();
-        sel.getSelectFields().get(0).getDBSystemRoot().getDataSource().execute(req, new ResultSetHandler() {
 
-            public Object handle(final ResultSet resultSet) throws SQLException {
-                while (resultSet.next()) {
-                    final int idTaxe = resultSet.getInt(1);
-                    final Float resultTaux = Float.valueOf(resultSet.getFloat(2));
-                    TaxeCache.this.mapTaux.put(Integer.valueOf(idTaxe), resultTaux);
-                }
-                return null;
+        final List<SQLRow> l = SQLRowListRSH.execute(sel);
+        for (SQLRow sqlRow : l) {
+            this.mapRowTaux.put(sqlRow, sqlRow.getFloat("TAUX"));
+            this.mapTaux.put(sqlRow.getID(), sqlRow.getFloat("TAUX"));
+            if (sqlRow.getBoolean("DEFAULT")) {
+                this.firstIdTaxe = sqlRow;
             }
-        });
-
+        }
     }
 
     synchronized public static TaxeCache getCache() {
@@ -73,19 +72,21 @@ public final class TaxeCache {
         return this.mapTaux.get(Integer.valueOf(idTaux));
     }
 
-    public Integer getFirstTaxe() {
+    public SQLRow getFirstTaxe() {
         if (this.firstIdTaxe == null) {
-            final SQLBase table = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
             final SQLSelect sel = getSel();
-            final String req = sel.asString();
-            final List<Object[]> list = (List<Object[]>) table.getDataSource().execute(req, new ArrayListHandler());
-            if (list != null && !list.isEmpty()) {
-                final Object[] tmp = list.get(0);
-                this.firstIdTaxe = Integer.parseInt(tmp[0].toString());
+            sel.setWhere(new Where(sel.getTable("TAXE").getField("DEFAULT"), "=", Boolean.TRUE));
+            final List<SQLRow> rows = SQLRowListRSH.execute(sel);
+            if (rows != null && !rows.isEmpty()) {
+
+                this.firstIdTaxe = rows.get(0);
+            } else {
+                ExceptionHandler.handle("Aucune TVA par défaut définie!", new IllegalArgumentException("Aucune TVA par défaut définie!"));
+                return mapRowTaux.keySet().iterator().next().asRow();
             }
+
         }
         return this.firstIdTaxe;
-
     }
 
     public Integer getIdFromTaux(Float tax) {

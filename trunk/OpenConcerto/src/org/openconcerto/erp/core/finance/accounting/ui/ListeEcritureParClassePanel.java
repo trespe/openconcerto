@@ -156,7 +156,7 @@ public class ListeEcritureParClassePanel extends JPanel {
                     menuDroit.add(new AbstractAction("Voir la source") {
                         public void actionPerformed(ActionEvent e) {
 
-                            SQLRow row = panel.getListe().getSelectedRow();
+                            SQLRow row = panel.getListe().fetchSelectedRow();
 
                             MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
                         }

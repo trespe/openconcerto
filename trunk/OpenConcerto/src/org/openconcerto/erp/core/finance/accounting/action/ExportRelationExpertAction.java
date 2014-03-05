@@ -15,11 +15,10 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
-import org.openconcerto.erp.panel.compta.ExportRelationExpertPanel;
+import org.openconcerto.erp.panel.compta.ExportPanel;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
-
 
 public class ExportRelationExpertAction extends CreateFrameAbstractAction {
     public ExportRelationExpertAction() {
@@ -27,9 +26,8 @@ public class ExportRelationExpertAction extends CreateFrameAbstractAction {
         this.putValue(Action.NAME, "Export relation expert");
     }
 
+    @Override
     public JFrame createFrame() {
-
-        return new PanelFrame(new ExportRelationExpertPanel(), "Export relation expert");
-
+        return new PanelFrame(new ExportPanel(), "Export des écritures");
     }
 }

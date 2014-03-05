@@ -52,6 +52,12 @@ public class ListeAddPanel extends IListPanel {
             super.handleAction(source, evt);
         }
     }
+    
+    @Override
+    protected boolean modifyIsImmediate() {
+        // EditFrame is displayed
+        return false;
+    }
 
     @Override
     public SQLComponent getModifComp() {

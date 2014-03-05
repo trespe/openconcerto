@@ -45,9 +45,8 @@ public class SpreadSheetGeneratorCompta extends SpreadSheetGenerator {
 
         final Map<String, Map<Integer, String>> mapStyleDef = StyleSQLElement.getMapAllStyle();
 
-        System.err.println("GET first sheet");
         final Sheet sheet = ssheet.getSheet(0);
-        System.err.println("get sheet 0, print ranges --> " + sheet.getPrintRanges());
+
         // on parcourt chaque ligne de la feuille pour recuperer les styles
         String s = (sheet.getPrintRanges() == null) ? "" : sheet.getPrintRanges().toString();
         String[] range = s.split(":");
@@ -68,13 +67,12 @@ public class SpreadSheetGeneratorCompta extends SpreadSheetGenerator {
         }
         searchStyle(sheet, mapStyleDef, colEnd, rowEnd);
 
-        System.err.println("Duplicate page Nombre de page : " + this.nbPage + "  nombre de rows par page " + this.nbRowsPerPage);
         if (colEnd > 0) {
             System.err.println("Set Column Count to :: " + (colEnd + 1));
             sheet.setColumnCount(colEnd + 1);
         }
         sheet.duplicateFirstRows(this.nbRowsPerPage, this.nbPage);
-        System.err.println("End Duplicate");
+
         Object printRangeObj = sheet.getPrintRanges();
         if (printRangeObj != null) {
             String[] range2 = printRangeObj.toString().split(":");
@@ -98,8 +96,6 @@ public class SpreadSheetGeneratorCompta extends SpreadSheetGenerator {
 
         // on place les valeurs
         fill(sheet, mapStyleDef);
-
-        System.err.println("SAVE");
 
         return save(ssheet);
     }

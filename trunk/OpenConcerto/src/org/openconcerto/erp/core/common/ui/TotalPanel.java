@@ -193,7 +193,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.gridx = 1;
         c.weightx = 0;
         c.fill = GridBagConstraints.HORIZONTAL;
-        this.add(getLabelBoldFor(textTotalHT.getField()), c);
+        this.add(getLabelBoldFor(textTotalHT.getField(), "Total HT"), c);
 
         c.gridx++;
         c.weightx = 1;
@@ -214,7 +214,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.gridx = 1;
         c.gridy++;
         c.weightx = 0;
-        this.add(getLabelFor(textTotalTVA.getField()), c);
+        this.add(getLabelFor(textTotalTVA.getField(), "Total TVA"), c);
         c.gridx++;
         c.weightx = 1;
         this.add(this.textTotalTVASel, c);
@@ -232,7 +232,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
             c.gridy++;
             c.weightx = 0;
             c.fill = GridBagConstraints.HORIZONTAL;
-            this.add(getLabelFor(textTotalDevise.getField()), c);
+            this.add(getLabelFor(textTotalDevise.getField(), "Total Devise"), c);
             c.gridx++;
             c.weightx = 1;
             this.add(this.textTotalDeviseSel, c);
@@ -243,7 +243,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.gridy++;
         c.weightx = 0;
         c.fill = GridBagConstraints.HORIZONTAL;
-        this.add(getLabelFor(textTotalTTC.getField()), c);
+        this.add(getLabelFor(textTotalTTC.getField(), "Total TTC"), c);
         c.gridx++;
         c.weightx = 1;
         this.add(this.textTotalTTCSel, c);
@@ -304,7 +304,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.gridy++;
         c.gridx = 4;
         c.weightx = 0;
-        this.add(getLabelBoldFor(textTotalHT.getField()), c);
+        this.add(getLabelBoldFor(textTotalHT.getField(), "Total HT"), c);
 
         c.gridx++;
         c.weightx = 1;
@@ -324,7 +324,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.gridx = 4;
         c.gridy++;
         c.weightx = 0;
-        this.add(getLabelBoldFor(textTotalTVA.getField()), c);
+        this.add(getLabelBoldFor(textTotalTVA.getField(), "Total TVA"), c);
         c.gridx++;
         c.weightx = 1;
         this.add(textTotalTVA, c);
@@ -344,7 +344,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
             c.gridy++;
             c.weightx = 0;
             c.fill = GridBagConstraints.HORIZONTAL;
-            this.add(getLabelBoldFor(textTotalDevise.getField()), c);
+            this.add(getLabelBoldFor(textTotalDevise.getField(), "Total Devise"), c);
             c.gridx++;
             c.weightx = 1;
             textTotalDevise.setFont(textTotalHT.getFont());
@@ -356,7 +356,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
         c.gridy++;
         c.weightx = 0;
         c.fill = GridBagConstraints.HORIZONTAL;
-        this.add(getLabelBoldFor(textTotalTTC.getField()), c);
+        this.add(getLabelBoldFor(textTotalTTC.getField(), "Total TTC"), c);
         c.gridx++;
         c.weightx = 1;
         textTotalTTC.setFont(textTotalHT.getFont());
@@ -369,6 +369,12 @@ public class TotalPanel extends JPanel implements TableModelListener {
                 updateTotal();
             }
         });
+    }
+
+    private boolean achat = false;
+
+    public void setAchat(boolean b) {
+        this.achat = b;
     }
 
     private void reconfigure(JTextField field) {
@@ -492,7 +498,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
                 SQLTableElement tableElementTotalHT = articleTable.getPrixTotalHTElement();
                 String fieldHT = (tableElementTotalHT == null ? null : tableElementTotalHT.getField().getName());
 
-                final TotalCalculator calc = new TotalCalculator(fieldHA, fieldHT, fieldDevise);
+                final TotalCalculator calc = new TotalCalculator(fieldHA, fieldHT, fieldDevise, achat, null);
                 calc.setSelectedRows(selectedRows);
 
                 // Calcul avant remise
@@ -628,12 +634,22 @@ public class TotalPanel extends JPanel implements TableModelListener {
         worker.execute();
     }
 
-    private static final JLabel getLabelFor(SQLField field) {
+    public long getTotalHT() {
+        return GestionDevise.parseLongCurrency(this.textTotalHT.getText());
+    }
+
+    private static final JLabel getLabelFor(SQLField field, String defaultLabel) {
+        if (field == null) {
+            return new JLabel(defaultLabel);
+        }
         return new JLabel(Configuration.getInstance().getTranslator().getLabelFor(field));
 
     }
 
-    private static final JLabel getLabelBoldFor(SQLField field) {
+    private static final JLabel getLabelBoldFor(SQLField field, String defaultLabel) {
+        if (field == null) {
+            return new JLabelBold(defaultLabel);
+        }
         return new JLabelBold(Configuration.getInstance().getTranslator().getLabelFor(field));
 
     }

@@ -20,6 +20,7 @@ import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.MontantPanel;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.supplychain.credit.element.AvoirFournisseurSQLElement;
 import org.openconcerto.erp.generationEcritures.GenerationMvtAvoirFournisseur;
 import org.openconcerto.erp.model.ISQLCompteSelector;
@@ -45,7 +46,6 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.sql.SQLException;
 import java.util.Date;
 
 import javax.swing.JCheckBox;
@@ -110,7 +110,7 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
             }
         }
         vals.put("ID_COMPTE_PCE", idCompteAchat);
-        vals.put("ID_TAXE", 2);
+        vals.put("ID_TAXE", TaxeCache.getCache().getFirstTaxe().getID());
         vals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(AvoirFournisseurSQLElement.class, new Date()));
         return vals;
     }
@@ -191,10 +191,13 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
 
         c.gridx = 0;
         c.gridy++;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridwidth = 1;
+        this.add(new JLabel("Montant", SwingConstants.RIGHT), c);
         c.weighty = 0;
         c.anchor = GridBagConstraints.WEST;
         c.gridwidth = GridBagConstraints.REMAINDER;
-
+        c.gridx++;
         this.montantPanel = new MontantPanel();
         this.add(this.montantPanel, c);
 
@@ -225,7 +228,7 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
 
         c.anchor = GridBagConstraints.WEST;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        c.gridx = 0;
+        c.gridx = 1;
         c.gridy++;
         c.weighty = 0;
         this.add(this.boxImmo, c);
@@ -259,8 +262,9 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
         c.gridheight = 1;
         c.gridx = 0;
         c.gridy++;
+        c.fill = GridBagConstraints.HORIZONTAL;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        this.add(new JLabel(getLabelFor("INFOS")), c);
+        this.add(new TitledSeparator(getLabelFor("INFOS")), c);
 
         c.gridy++;
         c.fill = GridBagConstraints.BOTH;
@@ -296,7 +300,7 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
         this.selectFournisseur.addValueListener(this.listenerModeReglDefaut);
         // this.boxAdeduire.addActionListener(this);
 
-        this.montantPanel.setChoixTaxe(2);
+        this.montantPanel.setChoixTaxe(TaxeCache.getCache().getFirstTaxe().getID());
     }
 
     @Override

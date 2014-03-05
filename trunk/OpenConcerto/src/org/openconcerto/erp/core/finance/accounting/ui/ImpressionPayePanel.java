@@ -13,7 +13,9 @@
  
  package org.openconcerto.erp.core.finance.accounting.ui;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.MoisSQLElement;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
@@ -52,14 +54,14 @@ public abstract class ImpressionPayePanel extends JPanel implements ActionListen
         final GridBagConstraints c = new DefaultGridBagConstraints();
         Calendar cal = Calendar.getInstance();
         // Période
-        final MoisSQLElement moisElt = new MoisSQLElement();
-        this.selMoisDeb = new ElementComboBox(true, 25);
+        final SQLElement moisElt = ComptaPropsConfiguration.getInstanceCompta().getDirectory().getElement(MoisSQLElement.class);
+        this.selMoisDeb = new ElementComboBox(true, 12);
         this.selMoisDeb.init(moisElt);
         this.selMoisDeb.setButtonsVisible(false);
 
         this.selMoisDeb.setAddIconVisible(false);
 
-        this.selMoisEnd = new ElementComboBox(true, 25);
+        this.selMoisEnd = new ElementComboBox(true, 12);
         this.selMoisEnd.init(moisElt);
         this.selMoisEnd.setButtonsVisible(false);
 
@@ -82,7 +84,7 @@ public abstract class ImpressionPayePanel extends JPanel implements ActionListen
         this.textAnnee = new JTextField(5);
         c.gridx++;
         c.weightx = 0;
-        this.add(new JLabel("Année"), c);
+        this.add(new JLabel("de l'année"), c);
         c.gridx++;
         c.weightx = 1;
         this.textAnnee.setText(this.format.format(cal.getTime()));

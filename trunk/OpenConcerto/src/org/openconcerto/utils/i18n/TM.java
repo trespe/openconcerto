@@ -47,6 +47,12 @@ import com.ibm.icu.text.MessagePattern.Part.Type;
  */
 public class TM {
 
+    static public enum MissingMode {
+        EXCEPTION, NULL, STRING
+    }
+
+    static private final MissingMode DEFAULT_MISSING_MODE = MissingMode.STRING;
+
     static private final TM INSTANCE = new TM();
     static private final Pattern splitPtrn = Pattern.compile("__", Pattern.LITERAL);
     static private boolean USE_DYNAMIC_MAP = true;
@@ -135,7 +141,7 @@ public class TM {
         return this.translationsLocale;
     }
 
-    protected final String getBaseName() {
+    protected String getBaseName() {
         return I18nUtils.getBaseName(this.getClass());
     }
 
@@ -145,7 +151,7 @@ public class TM {
     }
 
     public final String translate(final String key, final Object... args) {
-        return translate(true, key, args);
+        return translate(DEFAULT_MISSING_MODE, key, args);
     }
 
     // translate map
@@ -158,22 +164,24 @@ public class TM {
     }
 
     public final String trM(final String key, final Map<String, ?> args) {
-        return trM(true, key, args);
+        return trM(DEFAULT_MISSING_MODE, key, args);
     }
 
-    public final String trM(final boolean lenient, final String key, Map<String, ?> map) throws MissingResourceException {
-        return translate(lenient, key, new MessageArgs(map));
+    public final String trM(final MissingMode mode, final String key, Map<String, ?> map) throws MissingResourceException {
+        return translate(mode, key, new MessageArgs(map));
     }
 
-    public final String translate(final boolean lenient, final String key, final Object... args) throws MissingResourceException {
-        return translate(lenient, key, new MessageArgs(args));
+    public final String translate(final MissingMode mode, final String key, final Object... args) throws MissingResourceException {
+        return translate(mode, key, new MessageArgs(args));
     }
 
-    private final String translate(final boolean lenient, final String key, MessageArgs args) throws MissingResourceException {
+    private final String translate(final MissingMode mode, final String key, MessageArgs args) throws MissingResourceException {
         final String res = this.translations.translate(key, args);
         if (res == null) {
-            if (lenient)
+            if (mode == MissingMode.STRING)
                 return '!' + key + '!';
+            else if (mode == MissingMode.NULL)
+                return null;
             else
                 throw new MissingResourceException("Missing translation", this.getBaseName(), key);
         }
@@ -182,22 +190,25 @@ public class TM {
 
     protected MessageArgs replaceMap(final MessageArgs args, final String msg) {
         final MessageArgs res;
-        if (args.getAll() instanceof Map) {
+        if (args.isMapPrimary()) {
             final Map<String, ?> map = args.getMap();
-            Map<String, Object> newMap;
+            final Map<String, Object> copy;
             if (MessageArgs.isOrdered(map)) {
-                newMap = new LinkedHashMap<String, Object>(map);
+                copy = new LinkedHashMap<String, Object>(map);
             } else {
-                newMap = new HashMap<String, Object>(map);
+                copy = new HashMap<String, Object>(map);
             }
+            final Object[] array = args.getArray();
+            final Map<String, Object> newMap;
             if (useDynamicMap()) {
-                newMap = new DynamicMap<Object>(newMap) {
+                newMap = new DynamicMap<Object>(copy) {
                     @Override
                     protected Object createValueNonNull(String key) {
-                        return TM.this.createValue(this, key);
+                        return TM.this.createValue(this, array, key);
                     }
                 };
             } else {
+                newMap = copy;
                 final MessagePattern messagePattern = new MessagePattern(msg);
                 if (messagePattern.hasNamedArguments()) {
                     final int countParts = messagePattern.countParts();
@@ -205,7 +216,7 @@ public class TM {
                     for (int i = 0; i < countParts; i++) {
                         final Part part = messagePattern.getPart(i);
                         if (part.getType() == Type.ARG_NAME && !newMap.containsKey(argName = messagePattern.getSubstring(part))) {
-                            final Object createValue = this.createValue(newMap, argName);
+                            final Object createValue = this.createValue(newMap, array, argName);
                             if (createValue != null)
                                 newMap.put(argName, createValue);
                         }
@@ -228,10 +239,21 @@ public class TM {
      * <code>count</code> else <code>null</code>.
      * 
      * @param map the current map.
+     * @param objects the original map as an array.
      * @param key the missing key.
      * @return its value, or <code>null</code> to leave the map unmodified.
      */
-    protected Object createValue(final Map<String, Object> map, final String key) {
+    protected Object createValue(final Map<String, Object> map, final Object[] objects, final String key) {
+        if (key.length() == 1 && Character.isDigit(key.charAt(0))) {
+            final int index = Integer.parseInt(key);
+            if (index < objects.length) {
+                return objects[index];
+            } else {
+                Log.get().warning("Only " + objects.length + " arguments : " + index);
+                return null;
+            }
+        }
+
         final Matcher m = splitPtrn.matcher(key);
         final String pattern = splitPtrn.pattern();
         final int patternL = pattern.length();

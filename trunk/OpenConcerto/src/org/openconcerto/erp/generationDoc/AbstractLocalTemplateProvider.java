@@ -25,6 +25,9 @@ public abstract class AbstractLocalTemplateProvider implements TemplateProvider 
 
     @Override
     public InputStream getTemplate(String templateId, String language, String type) {
+        if (templateId == null) {
+            throw new NullPointerException("null templateId");
+        }
         final File file = getFileTemplate(templateId, language, type);
         return (file == null ? null : getInputStream(file));
     }
@@ -40,6 +43,9 @@ public abstract class AbstractLocalTemplateProvider implements TemplateProvider 
     }
 
     public File getFileTemplate(String templateId, String language, String type) {
+        if (templateId == null) {
+            throw new NullPointerException("null templateId");
+        }
         File templateFile = getTemplateFromLocalFile(templateId, language, type);
         if (templateFile != null && templateFile.exists()) {
             return templateFile;
@@ -57,22 +63,34 @@ public abstract class AbstractLocalTemplateProvider implements TemplateProvider 
 
     @Override
     public InputStream getTemplatePrintConfiguration(String templateId, String language, String type) {
+        if (templateId == null) {
+            throw new NullPointerException("null templateId");
+        }
         final File file = getFileTemplatePrintConfiguration(templateId, language, type);
         return getInputStream(file);
     }
 
     public File getFileTemplatePrintConfiguration(String templateId, String language, String type) {
+        if (templateId == null) {
+            throw new NullPointerException("null templateId");
+        }
         final File file = getTemplateFromLocalFile(templateId + ".odsp", language, type);
         return file;
     }
 
     @Override
     public InputStream getTemplateConfiguration(String templateId, String language, String type) {
+        if (templateId == null) {
+            throw new NullPointerException("null templateId");
+        }
         final File file = getFileTemplateConfiguration(templateId, language, type);
         return getInputStream(file);
     }
 
     public File getFileTemplateConfiguration(String templateId, String language, String type) {
+        if (templateId == null) {
+            throw new NullPointerException("null templateId");
+        }
         final File file = getTemplateFromLocalFile(templateId + ".xml", language, type);
         return file;
     }
@@ -83,6 +101,13 @@ public abstract class AbstractLocalTemplateProvider implements TemplateProvider 
     public abstract String getTemplatePath(String templateId, String language, String type);
 
     public static String insertBeforeExtenstion(String fileName, String text) {
+        if (fileName == null) {
+            throw new NullPointerException("null fileName");
+        }
+        if (text == null) {
+            throw new NullPointerException("null text");
+        }
+
         final int index = fileName.lastIndexOf('.');
         if (index < 0) {
             return null;

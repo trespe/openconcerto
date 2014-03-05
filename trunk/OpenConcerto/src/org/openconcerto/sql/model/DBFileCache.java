@@ -14,12 +14,15 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.graph.DatabaseGraph;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StringUtils;
 
 import java.io.File;
-import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -28,6 +31,12 @@ import java.util.List;
 /**
  * A file cache for any data pertaining to a DBStructureItem. Obtained through
  * {@link SQLServer#getFileCache()}.
+ * <p>
+ * Note: this class (and {@link DBItemFileCache}) use privileged blocks for read operations, but not
+ * for write operations (e.g. {@link #delete()}) : callers should handle it (e.g.
+ * {@link SQLBase#fetchTables(org.openconcerto.sql.model.graph.TablesMap)},
+ * {@link DatabaseGraph#refresh(org.openconcerto.sql.model.graph.TablesMap, boolean)}).
+ * </p>
  * 
  * @author Sylvain
  * @see #getChild(DBStructureItem)
@@ -109,8 +118,15 @@ public final class DBFileCache {
             throw new NullPointerException("null server");
         this.server = s;
         try {
-            FileUtils.mkdir_p(this.getSystemDir());
-        } catch (IOException e) {
+            // TODO limit to file write permission
+            AccessController.doPrivileged(new PrivilegedExceptionAction<Object>() {
+                @Override
+                public Object run() throws Exception {
+                    FileUtils.mkdir_p(getSystemDir());
+                    return null;
+                }
+            });
+        } catch (PrivilegedActionException e) {
             throw new IllegalArgumentException("could not create dirs", e);
         }
         this.serverCache = getChildFrom(this.getSystemDir(), Collections.singletonList(this.server.getID()));

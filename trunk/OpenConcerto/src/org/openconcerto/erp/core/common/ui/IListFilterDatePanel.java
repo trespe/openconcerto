@@ -60,10 +60,10 @@ public class IListFilterDatePanel extends JPanel {
 
     private EventListenerList listeners = new EventListenerList();
 
-    private final ActionListener listener = new ActionListener() {
+    private final PropertyChangeListener listener = new PropertyChangeListener() {
 
         @Override
-        public void actionPerformed(ActionEvent e) {
+        public void propertyChange(PropertyChangeEvent evt) {
             combo.setSelectedItem(CUSTOM_COMBO_ITEM);
             fireDateChanged();
         }
@@ -245,8 +245,8 @@ public class IListFilterDatePanel extends JPanel {
         this.add(this.dateDu, c);
         this.add(new JLabel("Au"), c);
         this.add(this.dateAu, c);
-        this.dateAu.addActionListener(this.listener);
-        this.dateDu.addActionListener(this.listener);
+        this.dateAu.addValueListener(this.listener);
+        this.dateDu.addValueListener(this.listener);
 
         IListFilterDateStateManager stateManager = new IListFilterDateStateManager(this, getConfigFile(mapList), true);
         stateManager.loadState();

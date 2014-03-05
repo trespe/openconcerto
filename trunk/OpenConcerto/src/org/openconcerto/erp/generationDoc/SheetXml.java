@@ -205,35 +205,39 @@ public abstract class SheetXml {
     }
 
     public static void createPDF(final File generatedFile, final File pdfFile, final OpenDocument doc, String storagePath) {
+        if (pdfFile == null) {
+            throw new IllegalArgumentException("null PDF file");
+        }
         try {
             SheetUtils.convert2PDF(doc, pdfFile);
-
         } catch (Throwable e) {
-            ExceptionHandler.handle("Impossible de créer le PDF.", e);
+            ExceptionHandler.handle("Impossible de créer le PDF " + pdfFile.getAbsolutePath(), e);
+        }
+        if (!pdfFile.canRead()) {
+            ExceptionHandler.handle("Le fichier PDF " + pdfFile.getAbsolutePath() + " ne peut être lu.");
         }
         List<StorageEngine> engines = StorageEngines.getInstance().getActiveEngines();
         for (StorageEngine storageEngine : engines) {
             if (storageEngine.isConfigured() && storageEngine.allowAutoStorage()) {
+                final String path = storagePath;
                 try {
                     storageEngine.connect();
                     final BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(pdfFile));
-                    final String path = storagePath;
                     storageEngine.store(inStream, path, pdfFile.getName(), true);
                     inStream.close();
                     storageEngine.disconnect();
                 } catch (IOException e) {
-                    ExceptionHandler.handle("Impossible de sauvegarder le PDF", e);
+                    ExceptionHandler.handle("Impossible de sauvegarder le PDF " + pdfFile.getAbsolutePath() + " vers " + path + "(" + storageEngine + ")", e);
                 }
                 if (storageEngine instanceof CloudStorageEngine) {
                     try {
                         storageEngine.connect();
                         final BufferedInputStream inStream = new BufferedInputStream(new FileInputStream(generatedFile));
-                        final String path = storagePath;
                         storageEngine.store(inStream, path, generatedFile.getName(), true);
                         inStream.close();
                         storageEngine.disconnect();
                     } catch (IOException e) {
-                        ExceptionHandler.handle("Impossible de sauvegarder le fichier généré", e);
+                        ExceptionHandler.handle("Impossible de sauvegarder le fichier généré " + generatedFile.getAbsolutePath() + " vers " + path + "(" + storageEngine + ")", e);
                     }
                 }
             }
@@ -470,7 +474,7 @@ public abstract class SheetXml {
 
         } catch (Exception e) {
 
-            ExceptionHandler.handle("Impossible de charger le document OpentOffice", e);
+            ExceptionHandler.handle("Impossible de charger le document OpenOffice", e);
             e.printStackTrace();
         }
     }

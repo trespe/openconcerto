@@ -186,7 +186,7 @@ public class MontantPanel extends JPanel {
     }
 
     private void setHT(boolean b) {
-
+        System.err.println("MontantPanel.setHT()" + b);
         if (b) {
             this.textHT.setEditable(true);
             this.textHT.setEnabled(true);
@@ -213,8 +213,8 @@ public class MontantPanel extends JPanel {
             int idTaxe = this.comboTaxe.getSelectedId();
             System.out.println("ID_TAXE =  " + idTaxe);
             if (idTaxe > 1) {
-                SQLRow ligneTaxe = SQLBackgroundTableCache.getInstance().getCacheForTable(((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("TAXE")).getRowFromId(
-                        idTaxe);
+                SQLRow ligneTaxe = SQLBackgroundTableCache.getInstance().getCacheForTable(((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("TAXE"))
+                        .getRowFromId(idTaxe);
                 taux = (ligneTaxe.getFloat("TAUX")) / 100.0F;
 
                 // calcul des montants HT ou TTC
@@ -222,8 +222,12 @@ public class MontantPanel extends JPanel {
 
                     if (this.textHT.getText().trim().length() > 0) {
                         pHT = new PrixHT(0);
-                        if (!this.textHT.getText().trim().equals("-")) {
-                            pHT = new PrixHT(GestionDevise.parseLongCurrency(this.textHT.getText()));
+                        try {
+                            if (!this.textHT.getText().trim().equals("-")) {
+                                pHT = new PrixHT(GestionDevise.parseLongCurrency(this.textHT.getText()));
+                            }
+                        } catch (Exception e) {
+                            // text is not corret, default to 0
                         }
                         // affichage
                         String tva = GestionDevise.currencyToString(pHT.calculLongTVA(taux));
@@ -234,18 +238,21 @@ public class MontantPanel extends JPanel {
                         } else {
                             ttc = GestionDevise.currencyToString(pHT.calculLongTTC(taux));
                         }
-                        updateText(tva, ttc, pHT.toString(), false);
+                        updateText(tva, ttc, pHT.toString(), true);
                     } else
-                        updateText("", "", "", false);
+                        updateText("", "", "", true);
                 } else {
 
                     if (this.textTTC.getText().trim().length() > 0) {
 
                         pTTC = new PrixTTC(0);
-                        if (!this.textTTC.getText().trim().equals("-")) {
-                            pTTC = new PrixTTC(GestionDevise.parseLongCurrency(this.textTTC.getText()));
+                        try {
+                            if (!this.textTTC.getText().trim().equals("-")) {
+                                pTTC = new PrixTTC(GestionDevise.parseLongCurrency(this.textTTC.getText()));
+                            }
+                        } catch (Exception e) {
+                            // text is not corret, default to 0
                         }
-
                         String tva;
                         // affichage
                         if (this.ue) {
@@ -260,28 +267,29 @@ public class MontantPanel extends JPanel {
                         } else {
                             ht = GestionDevise.currencyToString(pTTC.calculLongHT(taux));
                         }
-                        updateText(tva, pTTC.toString(), ht, true);
+                        updateText(tva, pTTC.toString(), ht, false);
                     } else
-                        updateText("", "", "", true);
+                        updateText("", "", "", false);
                 }
             }
         }
     }
 
-    private void updateText(final String prixTVA, final String prixTTC, final String prixHT, final boolean HT) {
+    private void updateText(final String prixTVA, final String prixTTC, final String prixHT, final boolean isHT) {
         SwingUtilities.invokeLater(new Runnable() {
 
             public void run() {
                 MontantPanel.this.textHT.getDocument().removeDocumentListener(MontantPanel.this.listenerTextHT);
                 MontantPanel.this.textTTC.getDocument().removeDocumentListener(MontantPanel.this.listenerTextTTC);
 
-                if (HT) {
+                // Update text with formated values
+                if (!isHT) {
                     MontantPanel.this.textHT.setText(prixHT);
                 } else {
                     MontantPanel.this.textTTC.setText(prixTTC);
                 }
                 MontantPanel.this.textTaxe.setText(prixTVA);
-
+                setHT(isHT);
                 MontantPanel.this.textHT.getDocument().addDocumentListener(MontantPanel.this.listenerTextHT);
                 MontantPanel.this.textTTC.getDocument().addDocumentListener(MontantPanel.this.listenerTextTTC);
             }
@@ -292,24 +300,18 @@ public class MontantPanel extends JPanel {
         this.enabled = b;
         this.checkHT.setEnabled(b);
         this.checkTTC.setEnabled(b);
-        this.textHT.setEnabled(b);
-        this.textTTC.setEnabled(b);
-        this.textTaxe.setEnabled(b);
-        this.comboTaxe.setEnabled(b);
+        this.setHT(checkHT.isSelected());
     }
 
     public DeviseField getMontantTTC() {
-
         return this.textTTC;
     }
 
     public DeviseField getMontantHT() {
-
         return this.textHT;
     }
 
     public DeviseField getMontantTVA() {
-
         return this.textTaxe;
     }
 

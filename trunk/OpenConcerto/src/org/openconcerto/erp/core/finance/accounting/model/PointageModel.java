@@ -85,15 +85,16 @@ public class PointageModel extends AbstractTableModel {
 
                 if (row != null) {
 
-                    if (row.getString("POINTEE").trim().length() == 0) {
-                        this.debitSelection += ((Long) row.getObject("DEBIT")).longValue();
-                        this.creditSelection += ((Long) row.getObject("CREDIT")).longValue();
-                    } /*
-                       * else {
-                       * 
-                       * this.debitSelection -= row.getFloat("DEBIT"); this.creditSelection -=
-                       * row.getFloat("CREDIT"); }
-                       */
+                    // if (row.getString("POINTEE").trim().length() == 0) {
+                    this.debitSelection += ((Long) row.getObject("DEBIT")).longValue();
+                    this.creditSelection += ((Long) row.getObject("CREDIT")).longValue();
+                    // }
+                    /*
+                     * else {
+                     * 
+                     * this.debitSelection -= row.getFloat("DEBIT"); this.creditSelection -=
+                     * row.getFloat("CREDIT"); }
+                     */
                 }
             }
         }

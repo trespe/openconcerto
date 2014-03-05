@@ -29,20 +29,20 @@ public class ParagraphStyle extends TextStyle {
 
         {
             // from section 18.876 in v1.2-part1
-            this.getRefElementsMap().putAll(
+            this.getRefElementsMap().addAll(
                     "text:style-name",
                     asList("text:alphabetical-index-entry-template", "text:bibliography-entry-template", "text:h", "text:p", "text:illustration-index-entry-template", "text:index-source-style",
                             "text:object-index-entry-template", "text:table-index-entry-template", "text:table-of-content-entry-template", "text:user-index-entry-template"));
             // 19.229
-            this.getRefElementsMap().putAll(
+            this.getRefElementsMap().addAll(
                     "draw:text-style-name",
                     asList("draw:caption", "draw:circle", "draw:connector", "draw:control", "draw:custom-shape", "draw:ellipse", "draw:frame", "draw:line", "draw:measure", "draw:path",
                             "draw:polygon", "draw:polyline", "draw:rect", "draw:regular-polygon", "office:annotation"));
             // 19.314
-            this.getRefElementsMap().putAll("form:text-style-name", asList("form:column"));
+            this.getRefElementsMap().addAll("form:text-style-name", asList("form:column"));
             // 19.690 (apparently not implemented by OpenOffice 3.2 - or any older version)
             this.getRefElementsMap()
-                    .putAll("table:paragraph-style-name",
+                    .addAll("table:paragraph-style-name",
                             asList("table:body", "table:even-columns", "table:even-rows", "table:first-column", "table:first-row", "table:last-column", "table:last-row", "table:odd-columns",
                                     "table:odd-rows"));
         }

@@ -61,12 +61,14 @@ class SQLSyntaxH2 extends SQLSyntax {
             return false;
 
         final String def = ((String) f.getDefaultValue()).toUpperCase();
-        return f.getType().getJavaType() == Long.class && def.contains("NEXT VALUE") && def.contains("SYSTEM_SEQUENCE");
+        // we used to use IDENTITY which translate to long
+        return (f.getType().getJavaType() == Integer.class || f.getType().getJavaType() == Long.class) && def.contains("NEXT VALUE") && def.contains("SYSTEM_SEQUENCE");
     }
 
     @Override
     public String getAuto() {
-        return " IDENTITY";
+        // IDENTITY means long
+        return " SERIAL";
     }
 
     @Override
@@ -102,7 +104,11 @@ class SQLSyntaxH2 extends SQLSyntax {
             // MAYBE implement AlterTableAlterColumn.CHANGE_ONLY_TYPE
             final String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, type);
             final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
-            res.add("ALTER COLUMN " + f.getQuotedName() + " " + getFieldDecl(type, newDef, newNullable));
+            final SQLName seqName = f.getOwnedSequence();
+            // sequence is used for the default so if default change, remove it (same behaviour than
+            // H2)
+            final String seqSQL = seqName == null || toAlter.contains(Properties.DEFAULT) ? "" : " SEQUENCE " + seqName.quote();
+            res.add("ALTER COLUMN " + f.getQuotedName() + " " + getFieldDecl(type, newDef, newNullable) + seqSQL);
         } else {
             if (toAlter.contains(Properties.DEFAULT))
                 res.add(this.setDefault(f, defaultVal));
@@ -233,7 +239,7 @@ class SQLSyntaxH2 extends SQLSyntax {
     @Override
     public String getColumnsQuery(SQLBase b, TablesMap tables) {
         return "SELECT \"" + INFO_SCHEMA_NAMES_KEYS.get(0) + "\", \"" + INFO_SCHEMA_NAMES_KEYS.get(1) + "\", \"" + INFO_SCHEMA_NAMES_KEYS.get(2)
-                + "\" , \"CHARACTER_SET_NAME\", \"COLLATION_NAME\" from INFORMATION_SCHEMA.\"COLUMNS\" " + getTablesMapJoin(b, tables) + " where " + getInfoSchemaWhere(b);
+                + "\" , \"CHARACTER_SET_NAME\", \"COLLATION_NAME\", \"SEQUENCE_NAME\" from INFORMATION_SCHEMA.\"COLUMNS\" " + getTablesMapJoin(b, tables) + " where " + getInfoSchemaWhere(b);
     }
 
     @Override

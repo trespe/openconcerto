@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.FieldExpander;
+import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
@@ -107,13 +108,16 @@ public class ListSQLRequest extends FilteredFillSQLRequest {
         addField(graphToFetch, getPrimaryTable().getCreationUserField());
         addField(graphToFetch, getPrimaryTable().getModifDateField());
         addField(graphToFetch, getPrimaryTable().getModifUserField());
+        addField(graphToFetch, getPrimaryTable().getFieldRaw(SQLComponent.READ_ONLY_FIELD));
+        addField(graphToFetch, getPrimaryTable().getFieldRaw(SQLComponent.READ_ONLY_USER_FIELD));
     }
 
     private void addField(SQLRowValues graphToFetch, final SQLField f) {
-        if (f != null)
+        if (f != null && !graphToFetch.getFields().contains(f.getName())) {
             if (f.isKey())
-                graphToFetch.put(f.getName(), new SQLRowValues(f.getTable().getForeignTable(f.getName())).put("NOM", null).put("PRENOM", null));
+                graphToFetch.putRowValues(f.getName()).putNulls("NOM", "PRENOM");
             else
                 graphToFetch.put(f.getName(), null);
+        }
     }
 }

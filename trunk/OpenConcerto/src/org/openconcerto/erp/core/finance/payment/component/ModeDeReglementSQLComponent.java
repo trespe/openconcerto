@@ -13,8 +13,8 @@
  
  package org.openconcerto.erp.core.finance.payment.component;
 
-import static org.openconcerto.utils.CollectionUtils.createSet;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.Log;
 import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
 import org.openconcerto.erp.model.BanqueModifiedListener;
 import org.openconcerto.sql.Configuration;
@@ -22,7 +22,6 @@ import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
@@ -33,6 +32,7 @@ import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.component.ITextCombo;
+import org.openconcerto.utils.CollectionUtils;
 
 import java.awt.Dimension;
 import java.awt.GridBagConstraints;
@@ -43,6 +43,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import javax.swing.ButtonGroup;
 import javax.swing.JCheckBox;
@@ -54,98 +55,86 @@ import javax.swing.event.EventListenerList;
 
 public class ModeDeReglementSQLComponent extends BaseSQLComponent {
 
-    private ElementComboBox boxBanque = new ElementComboBox(true, 20);
-    private JPanel panelBanque = new JPanel(new GridBagLayout());
-    private JPanel panelEcheance = new JPanel(new GridBagLayout());
+    static private enum Mode {
+        ECHEANCE, CHEQUE, VIREMENT
+    }
+
+    static public final int MONTH_END = 31;
+    static public final int AT_INVOICE_DATE = 0;
+
+    private final ElementComboBox boxBanque = new ElementComboBox(true, 20);
+    private final JPanel panelBanque = new JPanel(new GridBagLayout());
+    private final JPanel panelEcheance = new JPanel(new GridBagLayout());
     private final EventListenerList banqueModifiedListenerList = new EventListenerList();
     private final SQLRequestComboBox comboTypeReglement = new SQLRequestComboBox();
     private ITextCombo comboA;
-    private ITextCombo comboLe = new SQLTextCombo();
-    private SQLSearchableTextCombo comboBanque = new SQLSearchableTextCombo();
-    private JRadioButton buttonFinMois = new JRadioButton("fin de mois");
-    private JRadioButton buttonDateFacture = new JRadioButton("date de facturation");
-    private JRadioButton buttonLe = new JRadioButton("le");
-    private JCheckBox checkboxComptant = new JCheckBox("Comptant");
-    private JDate dateDepot = new JDate(false);
-    private JDate dateVirt = new JDate(false);
-    private JDate dateCheque = new JDate(false);
-    private JTextField numeroChq = new JTextField();
-    private JTextField nom = new JTextField(30);
-    private static final int MODE_VIRT = 3;
-    private static final int MODE_CHEQUE = 2;
-    private static final int MODE_ECHEANCE = 1;
+    private final ITextCombo comboLe = new SQLTextCombo();
+    private final SQLSearchableTextCombo comboBanque = new SQLSearchableTextCombo();
+    private final JRadioButton buttonFinMois = new JRadioButton("fin de mois");
+    private final JRadioButton buttonDateFacture = new JRadioButton("date de facturation");
+    private final JRadioButton buttonLe = new JRadioButton("le");
+    private final JCheckBox checkboxComptant = new JCheckBox("Comptant");
+    private final JDate dateDepot = new JDate(false);
+    private final JDate dateVirt = new JDate(false);
+    private final JDate dateCheque = new JDate(false);
+    private final JTextField numeroChq = new JTextField();
+    private final JTextField nom = new JTextField(30);
     private JPanel panelActive = null;
-    private Map<Integer, JPanel> m = new HashMap<Integer, JPanel>();
+    private final Map<Mode, JPanel> m = new HashMap<Mode, JPanel>();
 
     private int rowIdMode;
 
-    private void setComponentModeEnabled(SQLRow rowTypeRegl) {
+    private void setComponentModeEnabled(final SQLRow rowTypeRegl) {
 
-        if (rowTypeRegl != null && rowIdMode != rowTypeRegl.getID()) {
-            rowIdMode = rowTypeRegl.getID();
-            System.err.println("ModeDeReglementNGSQLComponent.setComponentModeEnabled() " + rowIdMode);
+        if (rowTypeRegl != null && this.rowIdMode != rowTypeRegl.getID()) {
+            this.rowIdMode = rowTypeRegl.getID();
+            System.err.println("ModeDeReglementNGSQLComponent.setComponentModeEnabled() " + this.rowIdMode);
         } else {
 
             return;
         }
 
-        ButtonGroup group = new ButtonGroup();
+        final ButtonGroup group = new ButtonGroup();
         group.add(this.buttonFinMois);
         group.add(this.buttonDateFacture);
         group.add(this.buttonLe);
 
-        final Boolean boolean1 = rowTypeRegl.getBoolean("ECHEANCE");
+        final Boolean forceLater = rowTypeRegl.getBoolean("ECHEANCE");
+        final Boolean forceNow = rowTypeRegl.getBoolean("COMPTANT");
+        if (forceLater && forceNow)
+            Log.get().warning("Force opposite for " + rowTypeRegl);
 
-        final Boolean boolean2 = rowTypeRegl.getBoolean("COMPTANT");
+        this.allowEditable(this.getView(this.checkboxComptant), !forceLater && !forceNow);
 
-        this.checkboxComptant.setEnabled(!(boolean1 || boolean2));
-
-        if (boolean1) {
+        if (forceLater) {
             this.checkboxComptant.setSelected(false);
         }
-        if (boolean2) {
+        if (forceNow) {
             this.checkboxComptant.setSelected(true);
         }
 
-        setEcheanceEnabled(!this.checkboxComptant.isSelected());
-
-        // Si cheque et comptant
-        boolean chequeComptant = (rowTypeRegl.getID() == TypeReglementSQLElement.CHEQUE && this.checkboxComptant.isSelected());
-        // if (isTCP) {
-        int mode = MODE_ECHEANCE;
-        if (chequeComptant) {
-            mode = MODE_CHEQUE;
-        } else {
-            boolean virtComptant = (rowTypeRegl.getID() == TypeReglementSQLElement.TRAITE && this.checkboxComptant.isSelected());
-            if (virtComptant) {
-                mode = MODE_VIRT;
-            }
-        }
-
-        replacePanel(mode);
-
+        updatePanel();
     }
 
-    public ModeDeReglementSQLComponent(SQLElement elt) {
+    public ModeDeReglementSQLComponent(final SQLElement elt) {
         super(elt);
     }
 
     // private
-    private JPanel infosCheque = new JPanel(new GridBagLayout());
-    private JPanel infosVirt = new JPanel(new GridBagLayout());
-    final ItemListener listenerComptant = new ItemListener() {
-        @Override
-        public void itemStateChanged(ItemEvent e) {
-            // System.err.println("Comptant");
-            setEcheanceEnabled(!ModeDeReglementSQLComponent.this.checkboxComptant.isSelected());
-        }
-    };
+    private final JPanel infosCheque = new JPanel(new GridBagLayout());
+    private final JPanel infosVirt = new JPanel(new GridBagLayout());
 
+    @Override
+    protected Set<String> createRequiredNames() {
+        return CollectionUtils.createSet("ID_TYPE_REGLEMENT");
+    }
+
+    @Override
     public void addViews() {
 
         this.setLayout(new GridBagLayout());
 
-        GridBagConstraints c = new DefaultGridBagConstraints();
+        final GridBagConstraints c = new DefaultGridBagConstraints();
 
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.WEST;
@@ -183,30 +172,35 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
         createPanelEcheance();
         this.add(this.panelEcheance, c);
 
+        this.addView(this.comboTypeReglement, "ID_TYPE_REGLEMENT");
+        this.addView(this.checkboxComptant, "COMPTANT");
+
+        // cheque
         this.addSQLObject(this.comboBanque, "ETS");
-        this.addSQLObject(this.dateCheque, "DATE");
         this.addSQLObject(this.numeroChq, "NUMERO");
-        this.addSQLObject(this.nom, "NOM");
-        this.addRequiredSQLObject(this.comboA, "AJOURS");
-        this.addRequiredSQLObject(this.comboLe, "LENJOUR");
-        this.addSQLObject(this.buttonFinMois, "FIN_MOIS");
-        this.addSQLObject(this.buttonDateFacture, "DATE_FACTURE");
+        this.addSQLObject(this.dateCheque, "DATE");
         this.addSQLObject(this.dateDepot, "DATE_DEPOT");
+
+        // virement
+        this.addSQLObject(this.nom, "NOM");
         this.addSQLObject(this.dateVirt, "DATE_VIREMENT");
-        this.addSQLObject(this.checkboxComptant, "COMPTANT");
-        this.addRequiredSQLObject(this.comboTypeReglement, "ID_TYPE_REGLEMENT");
+
+        this.addRequiredSQLObject(this.comboA, "AJOURS");
+        this.addSQLObject(this.buttonDateFacture, "DATE_FACTURE");
+        this.addSQLObject(this.buttonFinMois, "FIN_MOIS");
+        this.addRequiredSQLObject(this.comboLe, "LENJOUR");
 
         // Listeners
 
         this.comboTypeReglement.addValueListener(new PropertyChangeListener() {
 
             @Override
-            public void propertyChange(PropertyChangeEvent evt) {
-                Integer id = ModeDeReglementSQLComponent.this.comboTypeReglement.getValue();
+            public void propertyChange(final PropertyChangeEvent evt) {
+                final Integer id = ModeDeReglementSQLComponent.this.comboTypeReglement.getValue();
                 // System.err.println("value changed to " + id);
                 if (id != null && id > 1) {
 
-                    SQLRow ligneTypeReg = SQLBackgroundTableCache.getInstance().getCacheForTable(getTable().getBase().getTable("TYPE_REGLEMENT")).getRowFromId(id);
+                    final SQLRow ligneTypeReg = SQLBackgroundTableCache.getInstance().getCacheForTable(getTable().getBase().getTable("TYPE_REGLEMENT")).getRowFromId(id);
 
                     setComponentModeEnabled(ligneTypeReg);
 
@@ -216,36 +210,56 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
             }
         });
 
+        this.buttonLe.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(final ItemEvent e) {
+                allowEditable(getView(ModeDeReglementSQLComponent.this.comboLe), e.getStateChange() == ItemEvent.SELECTED && !ModeDeReglementSQLComponent.this.checkboxComptant.isSelected());
+            }
+        });
+        // initial value
+        this.allowEditable(this.getView(this.comboLe), false);
+
         this.buttonFinMois.addItemListener(new ItemListener() {
             @Override
-            public void itemStateChanged(ItemEvent e) {
+            public void itemStateChanged(final ItemEvent e) {
                 // System.err.println("Fin de mois");
-                if (ModeDeReglementSQLComponent.this.buttonFinMois.isSelected()) {
-                    ModeDeReglementSQLComponent.this.comboLe.setValue("31");
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    ModeDeReglementSQLComponent.this.comboLe.setValue(String.valueOf(MONTH_END));
                 }
-                boolean activeComboLe = !ModeDeReglementSQLComponent.this.buttonFinMois.isSelected() && !ModeDeReglementSQLComponent.this.checkboxComptant.isSelected();
-                ModeDeReglementSQLComponent.this.comboLe.setEnabled(activeComboLe);
             }
         });
 
         this.buttonDateFacture.addItemListener(new ItemListener() {
             @Override
-            public void itemStateChanged(ItemEvent e) {
+            public void itemStateChanged(final ItemEvent e) {
                 // System.err.println("Date de facturation");
-                if (ModeDeReglementSQLComponent.this.buttonDateFacture.isSelected()) {
-                    ModeDeReglementSQLComponent.this.comboLe.setValue("0");
+                if (e.getStateChange() == ItemEvent.SELECTED) {
+                    ModeDeReglementSQLComponent.this.comboLe.setValue(String.valueOf(AT_INVOICE_DATE));
                 }
-                boolean activeComboLe = !ModeDeReglementSQLComponent.this.buttonDateFacture.isSelected() && !ModeDeReglementSQLComponent.this.checkboxComptant.isSelected();
-                ModeDeReglementSQLComponent.this.comboLe.setEnabled(activeComboLe);
             }
         });
 
-        this.checkboxComptant.addItemListener(listenerComptant);
+        this.getView(this.comboLe).addValueListener(new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                final Number newVal = (Number) evt.getNewValue();
+                if (newVal != null && newVal.intValue() != AT_INVOICE_DATE && newVal.intValue() != MONTH_END) {
+                    ModeDeReglementSQLComponent.this.buttonLe.setSelected(true);
+                }
+            }
+        });
+
+        this.checkboxComptant.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(final ItemEvent e) {
+                setEcheanceEnabled(e.getStateChange() == ItemEvent.DESELECTED);
+            }
+        });
     }
 
     private void createPanelEcheance() {
 
-        GridBagConstraints c = new DefaultGridBagConstraints();
+        final GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.NONE;
         this.panelEcheance.setOpaque(false);
         this.panelEcheance.add(new JLabel("A"), c);
@@ -280,15 +294,15 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
         this.comboLe.setMaximumSize(new Dimension(60, this.comboLe.getMinimumSize().height));
         this.panelEcheance.add(this.comboLe, c);
         this.panelActive = this.panelEcheance;
-        this.m.put(MODE_ECHEANCE, this.panelEcheance);
+        this.m.put(Mode.ECHEANCE, this.panelEcheance);
 
-        DefaultGridBagConstraints.lockMinimumSize(panelEcheance);
+        DefaultGridBagConstraints.lockMinimumSize(this.panelEcheance);
 
     }
 
     public void createPanelChequeComptant() {
         // this.infosCheque.setBorder(BorderFactory.createTitledBorder("Informations Chèque"));
-        GridBagConstraints cCheque = new DefaultGridBagConstraints();
+        final GridBagConstraints cCheque = new DefaultGridBagConstraints();
         this.infosCheque.add(new JLabel("Banque"), cCheque);
         cCheque.gridx++;
 
@@ -305,21 +319,21 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
 
         this.infosCheque.add(this.dateCheque, cCheque);
 
-        JLabel labelDepot = new JLabel("A déposer après le");
+        final JLabel labelDepot = new JLabel("A déposer après le");
         cCheque.gridx++;
         DefaultGridBagConstraints.lockMinimumSize(this.infosCheque);
         this.infosCheque.add(labelDepot, cCheque);
 
         cCheque.gridx++;
         this.infosCheque.add(this.dateDepot, cCheque);
-        this.m.put(MODE_CHEQUE, this.infosCheque);
+        this.m.put(Mode.CHEQUE, this.infosCheque);
         this.infosCheque.setVisible(false);
-        DefaultGridBagConstraints.lockMinimumSize(infosCheque);
+        DefaultGridBagConstraints.lockMinimumSize(this.infosCheque);
     }
 
     public void createPanelVirementComptant() {
         // this.infosVirt.setBorder(BorderFactory.createTitledBorder("Informations Virement"));
-        GridBagConstraints cCheque = new DefaultGridBagConstraints();
+        final GridBagConstraints cCheque = new DefaultGridBagConstraints();
         cCheque.weightx = 1;
         this.infosVirt.add(new JLabel("Libellé"), cCheque);
         cCheque.gridx++;
@@ -333,120 +347,76 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
         cCheque.gridx++;
 
         this.infosVirt.add(this.dateVirt, cCheque);
-        this.m.put(MODE_VIRT, this.infosVirt);
+        this.m.put(Mode.VIREMENT, this.infosVirt);
         this.infosVirt.setVisible(false);
-        DefaultGridBagConstraints.lockMinimumSize(infosVirt);
+        DefaultGridBagConstraints.lockMinimumSize(this.infosVirt);
     }
 
-    private void replacePanel(int mode) {
-        JPanel panel = this.m.get(mode);
+    private void updatePanel() {
+        final Integer typeReglt = this.comboTypeReglement.getValue();
+        if (typeReglt == null)
+            return;
+        final boolean comptant = this.checkboxComptant.isSelected();
+
+        final Mode mode;
+        if (comptant && typeReglt == TypeReglementSQLElement.CHEQUE) {
+            mode = Mode.CHEQUE;
+        } else if (comptant && typeReglt == TypeReglementSQLElement.TRAITE) {
+            mode = Mode.VIREMENT;
+        } else {
+            mode = Mode.ECHEANCE;
+        }
+        replacePanel(mode);
+    }
+
+    private void replacePanel(final Mode mode) {
+        final JPanel panel = this.m.get(mode);
         if (panel != this.panelActive) {
             // System.err.println("replace panel " + mode);
             this.panelActive.setVisible(false);
-            clearFields();
             panel.setVisible(true);
             this.panelActive = panel;
         }
-
     }
 
-    private void clearFields() {
-        System.err.println("ModeDeReglementNGSQLComponent.clearFields()");
-        this.dateCheque.setValue(null);
-        this.dateDepot.setValue(null);
-        this.dateVirt.setValue(null);
-        this.nom.setText("");
-        this.numeroChq.setText("");
-        this.comboBanque.setValue("");
-    }
-
-    private void fireBanqueIdChange(int id) {
-        BanqueModifiedListener[] l = this.banqueModifiedListenerList.getListeners(BanqueModifiedListener.class);
-        for (BanqueModifiedListener banqueModifiedListener : l) {
+    private void fireBanqueIdChange(final int id) {
+        final BanqueModifiedListener[] l = this.banqueModifiedListenerList.getListeners(BanqueModifiedListener.class);
+        for (final BanqueModifiedListener banqueModifiedListener : l) {
             banqueModifiedListener.idChange(id);
         }
     }
 
-    @Override
-    public void select(SQLRowAccessor r) {
-        if (r != null) {
-            final SQLRowValues rVals = r.asRowValues();
-            final SQLRowValues vals = new SQLRowValues(r.getTable());
-
-            this.checkboxComptant.removeItemListener(this.listenerComptant);
-
-            vals.load(rVals, createSet("ID_TYPE_REGLEMENT", "COMPTANT"));
-            // // vals a besoin de l'ID sinon incohérence entre ID_AFFAIRE et ID (eg for
-            // reloadTable())
-            // // ne pas supprimer l'ID de rVals pour qu'on puisse UPDATE
-            vals.setID(rVals.getID());
-            super.select(vals);
-
-            ModeDeReglementSQLComponent.this.comboTypeReglement.setValue(vals.getInt("ID_TYPE_REGLEMENT"));
-            ModeDeReglementSQLComponent.this.checkboxComptant.setSelected(vals.getBoolean("COMPTANT"));
-            setComponentModeEnabled(SQLBackgroundTableCache.getInstance().getCacheForTable(r.getTable().getTable("TYPE_REGLEMENT")).getRowFromId(vals.getInt("ID_TYPE_REGLEMENT")));
-
-            setEcheanceEnabled(!vals.getBoolean("COMPTANT"), vals.getInt("ID_TYPE_REGLEMENT"));
-            super.select(rVals);
-            if (rVals.getObject("LENJOUR") != null && rVals.getInt("LENJOUR") != 0 && rVals.getInt("LENJOUR") != 31) {
-                this.buttonLe.setSelected(true);
-            }
-            this.checkboxComptant.addItemListener(this.listenerComptant);
-        } else {
-            super.select(r);
-        }
-    }
-
-    private void setEcheanceEnabled(boolean b) {
-        setEcheanceEnabled(b, this.comboTypeReglement.getValue());
-    }
-
     // Active/Desactive le panel pour specifie la date d'echeance
-    private void setEcheanceEnabled(boolean b, Integer typeReglt) {
+    private void setEcheanceEnabled(final boolean b) {
         // System.err.println("set echeance to " + b);
-        this.comboA.setEnabled(b);
-        this.comboLe.setEnabled(b);
-        this.buttonFinMois.setEnabled(b);
-        this.buttonDateFacture.setEnabled(b);
+        this.allowEditable(this.getView(this.comboA), b);
+        this.allowEditable(this.getView(this.comboLe), b && this.buttonLe.isSelected());
+        this.allowEditable(this.getView(this.buttonFinMois), b);
+        this.allowEditable(this.getView(this.buttonDateFacture), b);
         this.buttonLe.setEnabled(b);
         if (!b) {
-            this.buttonLe.setSelected(true);
             this.comboA.setValue("0");
-            this.comboLe.setValue("0");
-        } else {
-            this.comboA.setValue("30");
             this.buttonDateFacture.setSelected(true);
+        } else {
+            // TODO factor with createDefaults()
+            this.comboA.setValue("30");
+            this.buttonFinMois.setSelected(true);
         }
 
-        if (typeReglt != null) {
-
-            boolean chequeComptant = (typeReglt == TypeReglementSQLElement.CHEQUE && (!b));
-            int mode = MODE_ECHEANCE;
-            if (chequeComptant) {
-                mode = MODE_CHEQUE;
-            } else {
-                boolean virtComptant = (typeReglt == TypeReglementSQLElement.TRAITE && (!b));
-                if (virtComptant) {
-                    mode = MODE_VIRT;
-                }
-            }
-            replacePanel(mode);
-
-        }
-
-        this.panelActive.revalidate();
-        this.panelActive.repaint();
+        updatePanel();
     }
 
+    // ATTN sometimes overwritten by ModeReglementDefautPrefPanel.getDefaultRow(true);
+    @Override
     protected SQLRowValues createDefaults() {
         final SQLRowValues vals = new SQLRowValues(getTable());
+        vals.put("COMPTANT", Boolean.FALSE);
         vals.put("AJOURS", 30);
-        vals.put("LENJOUR", 31);
-        this.buttonLe.setSelected(true);
+        vals.put("FIN_MOIS", Boolean.TRUE);
         return vals;
     }
 
-    public void setWhereBanque(Where w) {
+    public void setWhereBanque(final Where w) {
         if (this.boxBanque != null && this.boxBanque.isShowing()) {
             final ComboSQLRequest request = this.boxBanque.getRequest();
             if (request != null) {
@@ -456,7 +426,7 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
         }
     }
 
-    public void setSelectedIdBanque(int id) {
+    public void setSelectedIdBanque(final int id) {
         this.boxBanque.setValue(id);
     }
 
@@ -464,7 +434,7 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
         return this.boxBanque.getSelectedId();
     }
 
-    public void addBanqueModifiedListener(BanqueModifiedListener e) {
+    public void addBanqueModifiedListener(final BanqueModifiedListener e) {
         this.banqueModifiedListenerList.add(BanqueModifiedListener.class, e);
     }
 }

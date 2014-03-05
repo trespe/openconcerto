@@ -18,6 +18,7 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.DBRoot;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -28,10 +29,11 @@ import java.util.Map;
 public abstract class AbstractModule {
 
     private final ModuleFactory factory;
+    private File localDir;
 
     public AbstractModule(final ModuleFactory f) throws IOException {
         this.factory = f;
-
+        this.localDir = null;
     }
 
     public final ModuleFactory getFactory() {
@@ -55,15 +57,22 @@ public abstract class AbstractModule {
         return this.getFactory().getMajorVersion();
     }
 
-    /**
-     * Should create permanent items. NOTE: all files created in
-     * {@link LocalContext#getLocalDirectory()} will be deleted automatically, i.e. no action is
-     * necessary in {@link #uninstall(DBRoot)}.
-     * 
-     * @param ctxt to create database objects.
-     */
-    protected void install(LocalContext ctxt) {
+    final void setLocalDirectory(final File f) {
+        if (f == null)
+            throw new NullPointerException("Null dir");
+        if (this.localDir != null)
+            throw new IllegalStateException("Already set to " + this.localDir);
+        this.localDir = f;
+    }
 
+    /**
+     * The directory this module should use while running. During installation use
+     * {@link DBContext#getLocalDirectory()}.
+     * 
+     * @return the directory for this module.
+     */
+    protected final File getLocalDirectory() {
+        return this.localDir;
     }
 
     /**

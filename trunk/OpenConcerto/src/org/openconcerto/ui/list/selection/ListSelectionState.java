@@ -173,7 +173,7 @@ public final class ListSelectionState implements ListSelection {
                 if (index != BaseListStateModel.INVALID_INDEX)
                     newIndexes.add(index);
             }
-            if (!this.getSelectedIndexes().equals(newIndexes)) {
+            if (!this.getSelectedIndexesFast().equals(newIndexes)) {
                 List<int[]> intervals = CollectionUtils.aggregate(new ArrayList<Number>(newIndexes));
                 if (this.getSelModel().getSelectionMode() != ListSelectionModel.MULTIPLE_INTERVAL_SELECTION && intervals.size() > 1) {
                     final String msg = "need MULTIPLE_INTERVAL_SELECTION to select " + CollectionUtils.join(intervals, ", ", new ITransformer<int[], String>() {
@@ -246,26 +246,31 @@ public final class ListSelectionState implements ListSelection {
      * 
      * @return all selected indexes, ascendant sorted.
      */
-    private Set<Integer> getSelectedIndexes() {
+    public final Set<Integer> getSelectedIndexes() {
+        return Collections.unmodifiableSet(getSelectedIndexesFast());
+    }
+
+    private Set<Integer> getSelectedIndexesFast() {
         return this.getSelection().keySet();
     }
 
     /**
      * The currently selected index, that is the lead if it is selected or the first index selected.
      * 
-     * @return the currently selected index.
+     * @return the currently selected index, {@link BaseListStateModel#INVALID_INDEX} if none, never
+     *         <code>null</code>.
      */
-    private Integer getSelectedIndex() {
-        final int res;
+    public final Integer getSelectedIndex() {
+        final Integer res;
         if (this.getSelection().isEmpty())
             res = INVALID_INDEX;
         else {
             // getLeadSelectionIndex() renvoie le dernier setSel y compris remove
-            final int lead = this.getSelModel().getLeadSelectionIndex();
-            if (this.getSelectedIndexes().contains(lead))
+            final Integer lead = this.getSelModel().getLeadSelectionIndex();
+            if (this.getSelectedIndexesFast().contains(lead))
                 res = lead;
             else
-                res = this.getSelectedIndexes().iterator().next();
+                res = this.getSelectedIndexesFast().iterator().next();
         }
         return res;
     }

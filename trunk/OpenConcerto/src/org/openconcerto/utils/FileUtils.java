@@ -13,6 +13,7 @@
  
  package org.openconcerto.utils;
 
+import org.openconcerto.utils.OSFamily.Unix;
 import org.openconcerto.utils.StringUtils.Escaper;
 import org.openconcerto.utils.cc.ExnTransformer;
 import org.openconcerto.utils.cc.IClosure;
@@ -91,6 +92,13 @@ public final class FileUtils {
         } else {
             openNative(f);
         }
+    }
+
+    // immutable, getAbsoluteFile() required otherwise list() returns null
+    static private final File WD = new File("").getAbsoluteFile();
+
+    static public final File getWD() {
+        return WD;
     }
 
     /**
@@ -707,10 +715,9 @@ public final class FileUtils {
      * @throws IOException if an error occurs.
      */
     public static final File ln(final File target, final File link) throws IOException {
-        final String os = System.getProperty("os.name");
         final Process ps;
         final File res;
-        if (os.startsWith("Windows")) {
+        if (OSFamily.getInstance() == OSFamily.Windows) {
             // using the .vbs since it doesn't depends on cygwin
             // and cygwin's ln is weird :
             // 1. needs CYGWIN=winsymlinks to create a shortcut, but even then "ln -f" doesn't work
@@ -747,9 +754,8 @@ public final class FileUtils {
      * @throws IOException if an error occurs.
      */
     public static final File readlink(final File link) throws IOException {
-        final String os = System.getProperty("os.name");
         final Process ps;
-        if (os.startsWith("Windows")) {
+        if (OSFamily.getInstance() == OSFamily.Windows) {
             ps = Runtime.getRuntime().exec(new String[] { "cscript", "//NoLogo", getShortCutFile().getAbsolutePath(), link.getAbsolutePath() });
         } else {
             // add -f to canonicalize
@@ -838,13 +844,13 @@ public final class FileUtils {
      * @throws IOException if f couldn't be opened.
      */
     private static final void openNative(File f) throws IOException {
-        final String os = System.getProperty("os.name");
+        final OSFamily os = OSFamily.getInstance();
         final String[] cmdarray;
-        if (os.startsWith("Windows")) {
+        if (os == OSFamily.Windows) {
             cmdarray = new String[] { "cmd", "/c", "start", "\"\"", f.getCanonicalPath() };
-        } else if (os.startsWith("Mac OS")) {
+        } else if (os == OSFamily.Mac) {
             cmdarray = new String[] { "open", f.getCanonicalPath() };
-        } else if (os.startsWith("Linux")) {
+        } else if (os instanceof Unix) {
             cmdarray = new String[] { "xdg-open", f.getCanonicalPath() };
         } else {
             throw new IOException("unknown way to open " + f);

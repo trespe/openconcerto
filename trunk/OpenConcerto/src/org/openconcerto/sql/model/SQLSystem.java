@@ -41,7 +41,7 @@ public enum SQLSystem {
      * 
      * @see <a href="http://www.postgresql.org/">PostgreSQL site</a>
      */
-    POSTGRESQL {
+    POSTGRESQL("PostgreSQL") {
         @Override
         void removeRootsToIgnore(Set<String> s) {
             super.removeRootsToIgnore(s);
@@ -67,6 +67,11 @@ public enum SQLSystem {
         public boolean isIndexFilterConditionSupported() {
             return true;
         }
+
+        @Override
+        public boolean isSequencesSupported() {
+            return true;
+        }
     },
 
     /**
@@ -80,7 +85,7 @@ public enum SQLSystem {
      * 
      * @see <a href="http://www.mysql.com/">MySQL site</a>
      */
-    MYSQL {
+    MYSQL("MySQL") {
         @Override
         EnumSet<HierarchyLevel> createLevels() {
             // mysql has no schema
@@ -127,7 +132,7 @@ public enum SQLSystem {
      * 
      * @see <a href="http://www.h2database.com/">H2 site</a>
      */
-    H2 {
+    H2("H2") {
 
         private static final String TCP_PREFIX = "tcp://";
         private static final String SSL_PREFIX = "ssl://";
@@ -166,6 +171,11 @@ public enum SQLSystem {
         public boolean isMultipleResultSetsSupported() {
             // https://groups.google.com/d/msg/h2-database/Is91FqarxDw/5x-xW3_IPwUJ
             return false;
+        }
+
+        @Override
+        public boolean isSequencesSupported() {
+            return true;
         }
 
         @Override
@@ -243,7 +253,7 @@ public enum SQLSystem {
         }
 
     },
-    MSSQL {
+    MSSQL("Microsoft SQL Server") {
         @Override
         public String getJDBCName() {
             return "sqlserver";
@@ -275,7 +285,7 @@ public enum SQLSystem {
             return false;
         }
     },
-    DERBY;
+    DERBY("Apache Derby");
 
     public static SQLSystem get(String name) {
         final String normalized = name.toUpperCase();
@@ -290,9 +300,11 @@ public enum SQLSystem {
         }
     }
 
+    private final String label;
     private final EnumOrderedSet<HierarchyLevel> levels;
 
-    {
+    private SQLSystem(final String label) {
+        this.label = label;
         this.levels = new EnumOrderedSet<HierarchyLevel>(this.createLevels());
     }
 
@@ -303,6 +315,10 @@ public enum SQLSystem {
      */
     public String getJDBCName() {
         return this.name().toLowerCase();
+    }
+
+    public final String getLabel() {
+        return this.label;
     }
 
     EnumSet<HierarchyLevel> createLevels() {
@@ -468,6 +484,10 @@ public enum SQLSystem {
      */
     public boolean isMultipleResultSetsSupported() {
         return true;
+    }
+
+    public boolean isSequencesSupported() {
+        return false;
     }
 
     public String getMDName(String name) {

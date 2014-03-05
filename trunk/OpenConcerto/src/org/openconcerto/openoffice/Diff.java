@@ -14,6 +14,10 @@
  package org.openconcerto.openoffice;
 
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.cc.IPredicate;
+import org.openconcerto.xml.SimpleXMLPath;
+import org.openconcerto.xml.Step;
+import org.openconcerto.xml.Step.Axis;
 
 import java.io.File;
 import java.io.IOException;
@@ -21,12 +25,13 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+import org.jdom.Attribute;
 import org.jdom.JDOMException;
 import org.jdom.output.Format;
 import org.jdom.output.XMLOutputter;
 
-import bmsi.util.DiffPrint;
 import bmsi.util.Diff.change;
+import bmsi.util.DiffPrint;
 
 public class Diff {
     private static final XMLOutputter OUTPUTTER;
@@ -60,19 +65,26 @@ public class Diff {
                     newFile = true;
             }
 
-            new Diff(rec, ignoreSpace, newFile).diff(filea, fileb);
+            new Diff(rec, ignoreSpace, newFile).setIgnoreStyles(Boolean.getBoolean("ignoreStyles")).diff(filea, fileb);
         }
     }
 
     final boolean recursive;
     final boolean ignoreSpaces;
+    private boolean ignoreStyles;
     final boolean newFile;
 
     public Diff(final boolean recursive, final boolean ignoreSpaces, final boolean newFile) {
         super();
         this.recursive = recursive;
         this.ignoreSpaces = ignoreSpaces;
+        this.ignoreStyles = false;
         this.newFile = newFile;
+    }
+
+    public Diff setIgnoreStyles(boolean ignoreStyles) {
+        this.ignoreStyles = ignoreStyles;
+        return this;
     }
 
     private void diff(final String filea, final String fileb) throws JDOMException, IOException {
@@ -116,6 +128,23 @@ public class Diff {
             final ODSingleXMLDocument oodoc = ODSingleXMLDocument.createFromPackage(f);
             // don't compare settings
             oodoc.getChild("settings").detach();
+            if (this.ignoreStyles) {
+                oodoc.getChild("styles").detach();
+                oodoc.getChild("automatic-styles").detach();
+                // keep master-styles since it contains footer content
+
+                // remove style references
+                final Set<String> attrs = Style.getAttr(oodoc.getVersion());
+                final SimpleXMLPath<Attribute> path = SimpleXMLPath.create(Step.createElementStep(Axis.descendantOrSelf, null), Step.createAttributeStep(null, null, new IPredicate<Attribute>() {
+                    @Override
+                    public boolean evaluateChecked(Attribute attr) {
+                        return attrs.contains(attr.getQualifiedName());
+                    }
+                }));
+                for (final Attribute attr : path.selectNodes(oodoc.getDocument().getRootElement())) {
+                    attr.detach();
+                }
+            }
             String contentS = OUTPUTTER.outputString(oodoc.getDocument());
             if (this.ignoreSpaces)
                 contentS = SPACES.matcher(contentS).replaceAll(" ");

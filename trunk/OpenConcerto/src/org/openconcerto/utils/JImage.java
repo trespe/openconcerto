@@ -62,6 +62,7 @@ public class JImage extends JComponent {
     public JImage(Image img) {
         this.image = img;
         this.icon = null;
+        this.setOpaque(true);
         this.addMouseListener(new MouseAdapter() {
             @Override
             public void mousePressed(MouseEvent e) {
@@ -94,18 +95,21 @@ public class JImage extends JComponent {
         }
     }
 
+    @Override
     protected void paintComponent(Graphics g) {
-        g.setColor(this.getBackground());
-        int imageW = this.image.getWidth(null);
-        if (!centered) {
-            g.fillRect(imageW, 0, this.getBounds().width - imageW, this.getBounds().height);
-            g.drawImage(this.image, 0, 0, null);
-        } else {
-            int dx = (this.getBounds().width - imageW) / 2;
-            g.fillRect(0, 0, dx, this.getBounds().height);
-            g.fillRect(0, 0, dx + imageW, this.getBounds().height);
-            g.drawImage(this.image, dx, 0, null);
+        if (this.isOpaque()) {
+            g.setColor(this.getBackground());
+            g.fillRect(0, 0, this.getWidth(), this.getHeight());
         }
+        final int dx;
+        final int dy;
+        if (!this.centered) {
+            dx = dy = 0;
+        } else {
+            dx = (this.getWidth() - this.image.getWidth(null)) / 2;
+            dy = (this.getHeight() - this.image.getHeight(null)) / 2;
+        }
+        g.drawImage(this.image, dx, dy, null);
     }
 
     public ImageIcon getImageIcon() {

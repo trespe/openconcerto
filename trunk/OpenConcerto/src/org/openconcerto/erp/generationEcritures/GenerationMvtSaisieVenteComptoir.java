@@ -73,8 +73,8 @@ public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implem
         // on calcule le nouveau numero de mouvement
         if (this.idMvt == 1) {
             this.idMvt = getNewMouvement(GenerationMvtSaisieVenteComptoir.source, this.idSaisieVenteComptoir, 1, string);
-            this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
         }
+        this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
         // generation des ecritures + maj des totaux du compte associe
 
@@ -158,6 +158,7 @@ public class GenerationMvtSaisieVenteComptoir extends GenerationEcritures implem
         if (valSaisieVC.getInvalid() == null) {
             // ajout de l'ecriture
             valSaisieVC.update(this.idSaisieVenteComptoir);
+            displayMvtNumber();
         }
 
     }

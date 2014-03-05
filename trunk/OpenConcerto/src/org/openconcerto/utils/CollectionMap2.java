@@ -14,11 +14,14 @@
  package org.openconcerto.utils;
 
 import java.util.AbstractCollection;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Set;
 
 /**
@@ -63,6 +66,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
 
     private final boolean emptyCollSameAsNoColl;
     private final Mode mode;
+    private Collection<V> allValues = null;
 
     public CollectionMap2() {
         this(DEFAULT_MODE);
@@ -147,6 +151,94 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
 
     public final C getCollection(Object key) {
         return this.get(key, !this.isEmptyCollSameAsNoColl(), true);
+    }
+
+    /**
+     * Returns a {@link Collection} view of all the values contained in this map. The collection is
+     * backed by the map, so changes to the map are reflected in the collection, and vice-versa. If
+     * the map is modified while an iteration over the collection is in progress (except through the
+     * iterator's own <tt>remove</tt> operation), the results of the iteration are undefined. The
+     * collection supports element removal, which removes the corresponding values from the map, via
+     * the <tt>Iterator.remove</tt>, <tt>Collection.remove</tt>, <tt>removeAll</tt>,
+     * <tt>retainAll</tt> and <tt>clear</tt> operations. Note that it doesn't remove entries only
+     * values : keySet() doesn't change, use {@link #removeAllEmptyCollections()} and
+     * {@link #removeAllNullCollections()} afterwards. It does not support the <tt>add</tt> or
+     * <tt>addAll</tt> operations.
+     * 
+     * @return a view all values in all entries, <code>null</code> collections are ignored.
+     */
+    public Collection<V> allValues() {
+        if (this.allValues == null)
+            this.allValues = new AllValues();
+        return this.allValues;
+    }
+
+    private final class AllValues extends AbstractCollection<V> {
+        @Override
+        public Iterator<V> iterator() {
+            return new AllValuesIterator();
+        }
+
+        @Override
+        public boolean isEmpty() {
+            return !iterator().hasNext();
+        }
+
+        @Override
+        public int size() {
+            int compt = 0;
+            final Iterator<V> it = iterator();
+            while (it.hasNext()) {
+                it.next();
+                compt++;
+            }
+            return compt;
+        }
+
+        // don't overload clear() to call Map.clear() as this would be incoherent with removeAll() :
+        // this last method only removes values, resulting in empty and null collections
+    }
+
+    private final class AllValuesIterator implements Iterator<V> {
+        private final Iterator<C> mapIterator;
+        private Iterator<V> tempIterator;
+
+        private AllValuesIterator() {
+            this.mapIterator = values().iterator();
+            this.tempIterator = null;
+        }
+
+        private boolean searchNextIterator() {
+            // tempIterator == null initially and when a collection is null
+            while (this.tempIterator == null || !this.tempIterator.hasNext()) {
+                if (!this.mapIterator.hasNext()) {
+                    return false;
+                }
+                final C nextCol = this.mapIterator.next();
+                this.tempIterator = nextCol == null ? null : nextCol.iterator();
+            }
+            return true;
+        }
+
+        @Override
+        public boolean hasNext() {
+            return searchNextIterator();
+        }
+
+        @Override
+        public V next() {
+            // search next iterator if necessary
+            if (!hasNext())
+                throw new NoSuchElementException();
+            return this.tempIterator.next();
+        }
+
+        @Override
+        public void remove() {
+            if (this.tempIterator == null)
+                throw new IllegalStateException();
+            this.tempIterator.remove();
+        }
     }
 
     @Override
@@ -269,6 +361,10 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         this.addAll(k, Collections.singleton(v));
     }
 
+    public final void addAll(K k, V... v) {
+        this.addAll(k, Arrays.asList(v));
+    }
+
     public final void addAll(K k, Collection<? extends V> v) {
         final boolean nullIsAll = getMode() == Mode.NULL_MEANS_ALL;
         if (v == null && !nullIsAll)
@@ -290,6 +386,10 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         for (final Map.Entry<? extends K, ? extends Collection<? extends V>> e : mm.entrySet()) {
             this.addAll(e.getKey(), e.getValue());
         }
+    }
+
+    public final void remove(K k, V v) {
+        this.removeAll(k, Collections.singleton(v));
     }
 
     public final void removeAll(K k, Collection<? extends V> v) {
@@ -356,22 +456,26 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
             this.remove(k);
     }
 
-    public final void removeAllEmptyCollections() {
-        this.removeAll(true);
+    public final Set<K> removeAllEmptyCollections() {
+        return this.removeAll(true);
     }
 
-    public final void removeAllNullCollections() {
-        this.removeAll(false);
+    public final Set<K> removeAllNullCollections() {
+        return this.removeAll(false);
     }
 
-    private final void removeAll(final boolean emptyOrNull) {
+    private final Set<K> removeAll(final boolean emptyOrNull) {
+        final Set<K> removed = new HashSet<K>();
         final Iterator<Map.Entry<K, C>> iter = this.entrySet().iterator();
         while (iter.hasNext()) {
             final Map.Entry<K, C> e = iter.next();
             final C val = e.getValue();
-            if ((emptyOrNull && val != null && val.isEmpty()) || (!emptyOrNull && val == null))
+            if ((emptyOrNull && val != null && val.isEmpty()) || (!emptyOrNull && val == null)) {
                 iter.remove();
+                removed.add(e.getKey());
+            }
         }
+        return removed;
     }
 
     protected abstract C createCollection(Collection<? extends V> v);

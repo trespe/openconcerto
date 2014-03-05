@@ -51,6 +51,12 @@ public class TabbedIListPanel extends IListPanel {
             super.handleAction(source, evt);
         }
     }
+    
+    @Override
+    protected boolean modifyIsImmediate() {
+        // tab is displayed
+        return false;
+    }
 
     @Override
     protected void listSelectionChanged(int id) {

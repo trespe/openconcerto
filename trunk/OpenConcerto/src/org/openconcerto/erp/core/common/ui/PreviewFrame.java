@@ -18,6 +18,7 @@ import java.awt.GraphicsEnvironment;
 import java.io.File;
 
 import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 
 import org.jopendocument.model.OpenDocument;
 import org.jopendocument.panel.ODSViewerPanel;
@@ -25,11 +26,9 @@ import org.jopendocument.print.DefaultXMLDocumentPrinter;
 
 public class PreviewFrame extends JFrame {
 
-    private PreviewFrame(File file) {
-        super();
-        final OpenDocument doc = new OpenDocument(file);
+    private PreviewFrame(OpenDocument doc, String title) {
+        super(title);
         this.setContentPane(new ODSViewerPanel(doc, new DefaultXMLDocumentPrinter()));
-        this.setTitle(file.getName());
         GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
         this.setMaximizedBounds(ge.getMaximumWindowBounds());
         Dimension maxD = ge.getMaximumWindowBounds().getSize();
@@ -48,8 +47,19 @@ public class PreviewFrame extends JFrame {
         this.setLocationRelativeTo(null);
     }
 
-    public static void show(File f) {
-        new PreviewFrame(f).setVisible(true);
+    public static void show(File file) {
+        final OpenDocument doc = new OpenDocument(file);
+        final String title = file.getName();
+        if (SwingUtilities.isEventDispatchThread()) {
+            new PreviewFrame(doc, title).setVisible(true);
+        } else {
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    new PreviewFrame(doc, title).setVisible(true);
+                }
+            });
+        }
     }
 
 }

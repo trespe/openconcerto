@@ -20,6 +20,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
@@ -34,6 +35,7 @@ import javax.swing.JTable;
 public class ListPanelEcheancesFourn extends ListeAddPanel {
 
     private EditFrame editFrame;
+    private boolean showRegCompta = false;
 
     public ListPanelEcheancesFourn() {
         this(Configuration.getInstance().getDirectory().getElement("ECHEANCE_FOURNISSEUR"));
@@ -43,6 +45,11 @@ public class ListPanelEcheancesFourn extends ListeAddPanel {
         super(elem, new IListe(elem.getTableSource(true)));
 
         // this.buttonAjouter.setVisible(false);
+        setListe();
+    }
+
+    public void setShowRegCompta(boolean b) {
+        this.showRegCompta = b;
         setListe();
     }
 
@@ -72,7 +79,11 @@ public class ListPanelEcheancesFourn extends ListeAddPanel {
     }
 
     private void setListe() {
-        Where wNotRegle = new Where(getListe().getSource().getPrimaryTable().getField("REGLE"), "=", Boolean.FALSE);
+        final SQLTable primaryTable = getListe().getSource().getPrimaryTable();
+        Where wNotRegle = new Where(primaryTable.getField("REGLE"), "=", Boolean.FALSE);
+        if (!showRegCompta) {
+            wNotRegle = wNotRegle.and(new Where(primaryTable.getField("REG_COMPTA"), "=", Boolean.FALSE));
+        }
         this.getListe().getRequest().setWhere(wNotRegle);
 
         this.getListe().setSQLEditable(false);

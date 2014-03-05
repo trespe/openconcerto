@@ -16,6 +16,7 @@
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.TotalCalculator;
 import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.erp.preferences.GestionPieceCommercialePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
@@ -32,9 +33,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
-
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 /**
  * Generation des ecritures comptables, permet l'ajout d'ecriture, la creation des mouvements
@@ -49,6 +49,7 @@ public class GenerationEcritures {
     protected static final SQLTable journalTable = base.getTable("JOURNAL");
     protected static final SQLTable ecritureTable = base.getTable("ECRITURE");
     protected static final SQLTable pieceTable = base.getTable("PIECE");
+    protected static final SQLTable mouvementTable = base.getTable("MOUVEMENT");
 
     protected int idMvt;
     protected int idPiece;
@@ -285,8 +286,13 @@ public class GenerationEcritures {
     }
 
     protected TotalCalculator getValuesFromElement(SQLRow row, SQLTable foreign, BigDecimal portHT, SQLRow rowTVAPort, SQLTable tableEchantillon) {
+        return getValuesFromElement(false, "T_PV_HT", row, foreign, portHT, rowTVAPort, tableEchantillon, null);
+    }
 
-        TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
+    protected TotalCalculator getValuesFromElement(boolean achat, String fieldTotalHT, SQLRow row, SQLTable foreign, BigDecimal portHT, SQLRow rowTVAPort, SQLTable tableEchantillon,
+            SQLRow defaultCompte) {
+
+        TotalCalculator calc = new TotalCalculator("T_PA_HT", fieldTotalHT, null, achat, defaultCompte);
         String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
         Boolean bServiceActive = Boolean.valueOf(val);
         calc.setServiceActive(bServiceActive != null && bServiceActive);
@@ -387,4 +393,18 @@ public class GenerationEcritures {
 
         return this.idMvt;
     }
+
+    protected void displayMvtNumber() {
+        if (DefaultNXProps.getInstance().getBooleanValue(GestionPieceCommercialePanel.SHOW_MOUVEMENT_NUMBER, false)) {
+            final int numero = mouvementTable.getRow(idMvt).getInt("NUMERO");
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    JOptionPane.showMessageDialog(null, "N° de mouvement associé : " + numero);
+                }
+            });
+        }
+
+    }
+
 }

@@ -82,22 +82,38 @@ public class LightUIDescriptor extends LightUIElement implements Serializable {
     }
 
     public void dumpControllers(PrintStream out) {
+        dumpControllers(out, 0);
+    }
+
+    public void dumpControllers(PrintStream out, int depth) {
+        addSpacer(out, depth);
         out.println("Contollers for id:" + this.getId() + " title: " + title);
         for (LightControler controler : this.controlers) {
+            addSpacer(out, depth);
             out.println(controler);
         }
         final int size = lines.size();
+        addSpacer(out, depth);
         out.println(getId() + " : " + title);
+        addSpacer(out, depth);
         out.println("LightUIDescriptor " + size + " lines ");
         for (int i = 0; i < size; i++) {
             final LightUILine line = lines.get(i);
             for (int j = 0; j < line.getSize(); j++) {
                 final LightUIElement e = line.getElement(j);
                 if (e instanceof LightUIDescriptor) {
-                    ((LightUIDescriptor) e).dumpControllers(out);
+                    ((LightUIDescriptor) e).dumpControllers(out, depth + 1);
 
                 }
             }
         }
     }
+
+    private void addSpacer(PrintStream out, int depth) {
+        for (int i = 0; i < depth; i++) {
+            out.print("  ");
+        }
+
+    }
+
 }

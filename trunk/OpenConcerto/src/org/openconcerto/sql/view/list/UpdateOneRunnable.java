@@ -38,7 +38,7 @@ final class UpdateOneRunnable extends AbstractUpdateOneRunnable {
             final CollectionMap<Path, ListSQLLine> affectedPaths = this.getAffectedPaths();
             // the line should be in the list (since SQLTableModelLinesSource.get()
             // returned it), so if not yet part of the list add it.
-            if (line != null && affectedPaths.getNonNull(new Path(getTable())).isEmpty())
+            if (line != null && affectedPaths.getNonNull(Path.get(getTable())).isEmpty())
                 line.clearCache();
             // then, update affectedPaths (it's not because the changed table is the primary
             // table, that it's not also referenced, e.g. CIRCUIT.ORIGINE)

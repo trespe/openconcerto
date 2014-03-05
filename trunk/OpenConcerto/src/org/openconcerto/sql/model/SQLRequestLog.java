@@ -26,6 +26,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.text.DateFormat;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -67,7 +68,7 @@ public class SQLRequestLog {
     private String threadId;
     private static List<ChangeListener> listeners = new ArrayList<ChangeListener>(2);
     private static JLabel textInfo = new JLabel("Total: ");
-    private static final SimpleDateFormat sdt = new SimpleDateFormat("HH:MM:ss.SS");
+    private static final DateFormat sdt = new SimpleDateFormat("HH:mm:ss.SS");
     private static final DecimalFormat dformat = new DecimalFormat("##0.00");
 
     private boolean isHighlighted = false;

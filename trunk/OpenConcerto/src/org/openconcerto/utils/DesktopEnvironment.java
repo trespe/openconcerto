@@ -13,6 +13,8 @@
  
  package org.openconcerto.utils;
 
+import org.openconcerto.utils.OSFamily.Unix;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
@@ -97,11 +99,11 @@ public abstract class DesktopEnvironment {
                 return true;
             for (int i = 0; i < len; i++) {
                 switch (s.charAt(i)) {
-                case ' ':
-                case '\t':
-                case '\\':
-                case '"':
-                    return true;
+                    case ' ':
+                    case '\t':
+                    case '\\':
+                    case '"':
+                        return true;
                 }
             }
             return false;
@@ -230,12 +232,12 @@ public abstract class DesktopEnvironment {
     }
 
     private static final DesktopEnvironment detectDE() {
-        final String os = System.getProperty("os.name");
-        if (os.startsWith("Windows")) {
+        final OSFamily os = OSFamily.getInstance();
+        if (os == OSFamily.Windows) {
             return new Windows();
-        } else if (os.startsWith("Mac OS")) {
+        } else if (os == OSFamily.Mac) {
             return new Mac();
-        } else if (os.startsWith("Linux")) {
+        } else if (os instanceof Unix) {
             // from redhat xdg-utils 1.0.2-14.20091016cvs
             if ("true".equalsIgnoreCase(System.getenv("KDE_FULL_SESSION")))
                 return new KDE();

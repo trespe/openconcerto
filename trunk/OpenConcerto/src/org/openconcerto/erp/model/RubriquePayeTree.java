@@ -20,6 +20,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableListener;
 
+import java.awt.Dimension;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,7 @@ import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.MutableTreeNode;
+import javax.swing.tree.TreePath;
 
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
@@ -52,16 +54,24 @@ public class RubriquePayeTree extends JTree {
     private static final Map mapNodeCotisation = new HashMap();
 
     public RubriquePayeTree() {
-
         super();
-
         this.setModel(model);
-
         DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
         renderer.setOpenIcon(null);
         renderer.setClosedIcon(null);
         renderer.setLeafIcon(null);
         this.setCellRenderer(renderer);
+        DefaultMutableTreeNode currentNode = ((DefaultMutableTreeNode) this.getModel().getRoot()).getNextNode();
+        do {
+            if (currentNode.getLevel() == 1)
+                this.expandPath(new TreePath(currentNode.getPath()));
+            currentNode = currentNode.getNextNode();
+        } while (currentNode != null);
+    }
+
+    @Override
+    public Dimension getPreferredSize() {
+        return new Dimension(200, 400);
     }
 
     private static void loadAllRubrique() {

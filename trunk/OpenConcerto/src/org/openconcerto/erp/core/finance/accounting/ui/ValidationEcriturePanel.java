@@ -23,8 +23,10 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 
+import java.awt.FlowLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
@@ -36,24 +38,27 @@ import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 
 public class ValidationEcriturePanel extends JPanel {
 
     private final JDate dateValid;
     private final JLabel labelNbValid;
-    private final JButton buttonValid;
+    private JButton buttonValid;
     private final JCheckBox checkCloture = new JCheckBox("Clôturer cette période");;
     private final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
 
     public ValidationEcriturePanel() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
-        c.gridx = GridBagConstraints.RELATIVE;
+        c.gridx = 0;
         // date limite
-        JLabel labelDate = new JLabel("Validation jusqu'au ");
+        JLabel labelDate = new JLabel("Validation jusqu'au", SwingConstants.RIGHT);
         this.add(labelDate, c);
 
+        c.gridx++;
+        c.weightx = 1;
         this.dateValid = new JDate();
         this.add(this.dateValid, c);
         this.dateValid.addValueListener(new PropertyChangeListener() {
@@ -61,45 +66,52 @@ public class ValidationEcriturePanel extends JPanel {
                 dateChanged();
             }
         });
-
+        //
         c.gridy++;
         c.gridx = 0;
-        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.weightx = 0;
+        c.gridwidth = 2;
         this.labelNbValid = new JLabel();
         this.labelNbValid.setText("Sélectionnez une date.");
         this.add(this.labelNbValid, c);
 
         // Cloture
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.gridx = 0;
         c.gridy++;
         this.add(this.checkCloture, c);
 
         c.gridy++;
-        c.gridwidth = 1;
-        c.gridx = 0;
-        this.buttonValid = new JButton("Valider");
-        this.add(this.buttonValid, c);
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.SOUTHEAST;
+        this.add(createActions(), c);
 
+    }
+
+    private JPanel createActions() {
+        final JPanel p = new JPanel();
+        p.setLayout(new FlowLayout(FlowLayout.CENTER, 4, 0));
+        this.buttonValid = new JButton("Valider");
+        p.add(this.buttonValid);
+        final JButton buttonClose = new JButton("Annuler");
+        p.add(buttonClose);
+
+        // Listeners
         this.buttonValid.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 validActionned();
             }
         });
 
-        c.gridx++;
-        JButton buttonClose = new JButton("Annuler");
-        this.add(buttonClose, c);
-
         buttonClose.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
-                JFrame f = (JFrame) SwingUtilities.getRoot(ValidationEcriturePanel.this);
-                f.dispose();
+                final Window window = (Window) SwingUtilities.getRoot(ValidationEcriturePanel.this);
+                window.dispose();
             }
         });
+        return p;
     }
 
-// TODO from UCDetector: Change visibility of Method "ValidationEcriturePanel.dateChanged()" to private
+    // TODO from UCDetector: Change visibility of Method "ValidationEcriturePanel.dateChanged()" to
+    // private
     protected final void dateChanged() { // NO_UCD
         if (this.dateValid.getDate() != null) {
             nbValidationEcriture(this.dateValid.getDate());
@@ -132,4 +144,5 @@ public class ValidationEcriturePanel extends JPanel {
             this.labelNbValid.setText("Aucune écritures à valider.");
         }
     }
+
 }

@@ -78,7 +78,7 @@ public class TextAreaTicketPanel extends JPanel {
     private Ticket createTicket(SQLRow row) {
         Ticket t = new Ticket(row.getInt("ID_CAISSE"));
         // t.setNumber(Integer.valueOf(row.getString("NUMERO")));
-        t.setDate(row.getDate("DATE").getTime());
+        t.setCreationCal(row.getDate("DATE"));
 
         SQLElement eltEncaisser = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
         List<SQLRow> l = row.getReferentRows(eltEncaisser.getTable());

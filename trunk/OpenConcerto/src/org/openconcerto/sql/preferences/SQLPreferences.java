@@ -78,31 +78,37 @@ public class SQLPreferences extends AbstractPreferences {
     private static final String PREF_NODE_TABLENAME = "PREF_NODE";
     private static final String PREF_VALUE_TABLENAME = "PREF_VALUE";
 
+    static private SQLCreateTable[] getCreateTables(final DBRoot root) throws SQLException {
+        final SQLCreateTable createNodeT = new SQLCreateTable(root, PREF_NODE_TABLENAME);
+        // don't need ORDER and ARCHIVE
+        createNodeT.setPlain(true);
+        createNodeT.addColumn(SQLSyntax.ID_NAME, createNodeT.getSyntax().getPrimaryIDDefinition());
+        // cannot use addForeignColumn() since it's a self-reference
+        createNodeT.addColumn("ID_PARENT", createNodeT.getSyntax().getIDType() + " NULL");
+        createNodeT.addVarCharColumn("NAME", Preferences.MAX_NAME_LENGTH);
+
+        createNodeT.addForeignConstraint("ID_PARENT", new SQLName(createNodeT.getName()), SQLSyntax.ID_NAME);
+        createNodeT.addUniqueConstraint("uniqNamePerParent", Arrays.asList("ID_PARENT", "NAME"));
+
+        final SQLCreateTable createValueT = new SQLCreateTable(root, PREF_VALUE_TABLENAME);
+        createValueT.setPlain(true);
+        createValueT.addColumn("ID_NODE", createValueT.getSyntax().getIDType() + " NOT NULL");
+        createValueT.addVarCharColumn("NAME", Preferences.MAX_KEY_LENGTH);
+        createValueT.addVarCharColumn("VALUE", Preferences.MAX_VALUE_LENGTH);
+        // unique name per node
+        createValueT.setPrimaryKey("ID_NODE", "NAME");
+        createValueT.addForeignConstraint("ID_NODE", new SQLName(createNodeT.getName()), SQLSyntax.ID_NAME);
+
+        return new SQLCreateTable[] { createNodeT, createValueT };
+    }
+
     static public SQLTable getPrefTable(final DBRoot root) throws SQLException {
-        if (!root.contains(PREF_VALUE_TABLENAME)) {
-            final SQLCreateTable createNodeT = new SQLCreateTable(root, PREF_NODE_TABLENAME);
-            // don't need ORDER and ARCHIVE
-            createNodeT.setPlain(true);
-            createNodeT.addColumn(SQLSyntax.ID_NAME, createNodeT.getSyntax().getPrimaryIDDefinition());
-            // cannot use addForeignColumn() since it's a self-reference
-            createNodeT.addColumn("ID_PARENT", createNodeT.getSyntax().getIDType() + " NULL");
-            createNodeT.addVarCharColumn("NAME", Preferences.MAX_NAME_LENGTH);
-
-            createNodeT.addForeignConstraint("ID_PARENT", new SQLName(createNodeT.getName()), SQLSyntax.ID_NAME);
-            createNodeT.addUniqueConstraint("uniqNamePerParent", Arrays.asList("ID_PARENT", "NAME"));
-
-            final SQLCreateTable createValueT = new SQLCreateTable(root, PREF_VALUE_TABLENAME);
-            createValueT.setPlain(true);
-            createValueT.addColumn("ID_NODE", createValueT.getSyntax().getIDType() + " NOT NULL");
-            createValueT.addVarCharColumn("NAME", Preferences.MAX_KEY_LENGTH);
-            createValueT.addVarCharColumn("VALUE", Preferences.MAX_VALUE_LENGTH);
-            // unique name per node
-            createValueT.setPrimaryKey("ID_NODE", "NAME");
-            createValueT.addForeignConstraint("ID_NODE", new SQLName(createNodeT.getName()), SQLSyntax.ID_NAME);
-
-            root.createTables(createNodeT, createValueT);
+        synchronized (root.getDBSystemRoot().getTreeMutex()) {
+            if (!root.contains(PREF_VALUE_TABLENAME)) {
+                root.createTables(getCreateTables(root));
+            }
+            return root.getTable(PREF_VALUE_TABLENAME);
         }
-        return root.getTable(PREF_VALUE_TABLENAME);
     }
 
     private static final Map<DBRoot, SQLPreferences> memCachedbyRoots = new IdentityHashMap<DBRoot, SQLPreferences>(8);

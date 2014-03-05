@@ -203,7 +203,7 @@ public class UpdateManager implements Runnable {
     private void update(int toVersion) {
 
         try {
-            SystemTray.getSystemTray().add(new TrayIcon(new ImageIcon(this.getClass().getResource("tray.png")).getImage()));
+            SystemTray.getSystemTray().add(new TrayIcon(new ImageIcon(UpdateManager.class.getResource("tray.png")).getImage()));
         } catch (AWTException e2) {
             e2.printStackTrace();
         }

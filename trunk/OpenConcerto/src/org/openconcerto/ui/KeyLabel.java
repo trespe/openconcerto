@@ -30,7 +30,7 @@ public class KeyLabel extends JPanel {
     public KeyLabel(String string) {
         this.setOpaque(false);
         this.setLayout(null);
-        im = new ImageIcon(this.getClass().getResource("f.png")).getImage();
+        im = new ImageIcon(KeyLabel.class.getResource("f.png")).getImage();
         setText(string);
         label.setLocation(9, 3);
         label.setSize(30, 10);

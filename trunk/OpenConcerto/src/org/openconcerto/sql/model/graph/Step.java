@@ -132,6 +132,14 @@ public class Step {
             return new List2<SQLTable>(l.getTarget(), l.getSource());
     }
 
+    /**
+     * Create a new step with the passed links.
+     * 
+     * @param links the links to cross, direction cannot be {@link Direction#ANY}.
+     * @return a new step.
+     * @throws IllegalArgumentException if <code>links</code> is empty, if {@link Direction#ANY} is
+     *         present, or if not all links share end points.
+     */
     public static final Step create(final Map<Link, Direction> links) {
         List2<SQLTable> startEnd = null;
         for (final Entry<Link, Direction> e : links.entrySet()) {

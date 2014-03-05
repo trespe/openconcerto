@@ -17,6 +17,7 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.openoffice.spreadsheet.Sheet;
 import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
@@ -65,11 +66,8 @@ public class DataImporter {
         this.table = table;
     }
 
-    /**
-     * @param args
-     */
     public static void main(String[] args) throws Exception {
-        System.setProperty("org.openconcerto.sql.structure.useXML", "true");
+        System.setProperty(SQLBase.STRUCTURE_USE_XML, "true");
         final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create();
         conf.setupLogging("Logs");
         Configuration.setInstance(conf);

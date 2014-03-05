@@ -39,9 +39,9 @@ import javax.swing.event.DocumentListener;
 
 public class CommercialSQLComponent extends BaseSQLComponent {
 
-    JTextField textInitiale;
-    JTextField textPrenom, textNom;
-    ObjectifEditPanel objectifPanel = new ObjectifEditPanel(getSelectedID());
+    private JTextField textInitiale;
+    private JTextField textPrenom, textNom;
+    private ObjectifEditPanel objectifPanel = new ObjectifEditPanel(getSelectedID());
 
     DocumentListener listener = new SimpleDocumentListener() {
 
@@ -57,7 +57,6 @@ public class CommercialSQLComponent extends BaseSQLComponent {
 
     @Override
     public void select(SQLRowAccessor r) {
-        // TODO Raccord de méthode auto-généré
         super.select(r);
         if (r == null) {
             objectifPanel.setIdCommercial(-1);

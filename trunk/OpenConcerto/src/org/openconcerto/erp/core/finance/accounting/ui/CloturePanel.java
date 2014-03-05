@@ -28,6 +28,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.utils.ExceptionHandler;
@@ -73,17 +74,13 @@ public class CloturePanel extends JPanel {
     private JButton annul = new JButton("Annuler");
     private static final DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
     private JLabel opEnCours = new JLabel("Etat: en attente de validation");
-    JCheckBox boxValid = new JCheckBox("Je confirme avoir effectué toutes les opérations nécessaires.");
+    private JCheckBox boxValid = new JCheckBox("Je confirme avoir effectué toutes les opérations nécessaires.");
 
     private JProgressBar bar = new JProgressBar(0, 4);
 
     public CloturePanel() {
-
-        super();
         this.setLayout(new GridBagLayout());
-
-        final GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(10, 2, 1, 2);
+        final GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.HORIZONTAL;
         c.anchor = GridBagConstraints.WEST;
         c.gridx = 0;
@@ -114,7 +111,7 @@ public class CloturePanel extends JPanel {
         Calendar dFin = this.rowExercice.getDate("DATE_FIN");
         JLabel labelAncienExercice = new JLabel("Clôture de l'exercice du " + dateFormat.format(dDebut.getTime()) + " au " + dateFormat.format(dFin.getTime()));
         this.add(labelAncienExercice, c);
-
+        c.insets = new Insets(10, 2, 1, 2);
         this.add(rappel, c);
         this.add(label, c);
         this.add(label2, c);
@@ -169,12 +166,7 @@ public class CloturePanel extends JPanel {
 
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.EAST;
-        c.gridx = GridBagConstraints.RELATIVE;
-        // c.gridy = GridBagConstraints.SOUTH;
-        this.add(this.valider, c);
-        this.add(this.annul, c);
         c.gridx = 0;
-
         this.add(buttonBar, c);
 
         final PropertyChangeListener listener = new PropertyChangeListener() {

@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
+import javax.swing.BorderFactory;
 import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListSelectionModel;
 import javax.swing.Icon;
@@ -192,7 +193,7 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
         this.list.setFont(fontText);
         this.list.setSelectionMode(this.getSelectionMode());
         JScrollPane scrollPane = new JScrollPane(this.list);
-        scrollPane.setBorder(null);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
         scrollPane.setMinimumSize(new Dimension(60, 100));
         this.normalPanel.add(scrollPane, c);
         // On ajoute la recherche
@@ -305,7 +306,7 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
         c2.insets = new Insets(0, 2, 1, 4);
         c2.weightx = 0;
         this.min = new JButton();
-        this.min.setBorder(null);
+        this.min.setBorder(BorderFactory.createEmptyBorder());
         this.min.setBorderPainted(false);
         this.min.setOpaque(false);
         this.min.setMargin(new Insets(0, 0, 0, 0));
@@ -315,7 +316,7 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
                 getParentBrowser().minimizeUntil(SQLBrowserColumn.this);
             }
         });
-        this.min.setIcon(new ImageIcon(this.getClass().getResource("minimize.png")));
+        this.min.setIcon(new ImageIcon(SQLBrowserColumn.class.getResource("minimize.png")));
         headerPanel.add(this.min, c2);
 
         c2.gridx++;
@@ -359,14 +360,14 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
     private void setTitleIcon() {
         final Icon icon;
         switch (this.getModel().getSortDirection()) {
-        case ASCENDING:
-            icon = iconUp;
-            break;
-        case DESCENDING:
-            icon = iconDown;
-            break;
-        default:
-            icon = null;
+            case ASCENDING:
+                icon = iconUp;
+                break;
+            case DESCENDING:
+                icon = iconDown;
+                break;
+            default:
+                icon = null;
         }
         this.title.setIcon(icon);
     }
@@ -392,7 +393,7 @@ public abstract class SQLBrowserColumn<T, L extends SQLListModel<T>> extends JPa
 
         c2.gridx++;
         final JButton del = new JButton(new ImageIcon(BaseSQLComponent.class.getResource("delete.png")));
-        del.setBorder(null);
+        del.setBorder(BorderFactory.createEmptyBorder());
         del.setOpaque(false);
         del.setContentAreaFilled(false);
         del.addActionListener(new ActionListener() {

@@ -15,12 +15,17 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
+// import org.openconcerto.erp.config.GestionLauncher;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.preferences.BackupNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.utils.BackupPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.UserExit;
+import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.ProcessStreams;
+import org.openconcerto.utils.ProcessStreams.Action;
+import org.openconcerto.utils.prog.VMLauncher;
 
 import java.awt.Frame;
 import java.awt.GridBagConstraints;
@@ -31,12 +36,11 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
@@ -47,7 +51,18 @@ import javax.swing.SwingUtilities;
 
 public class UserExitPanel extends JPanel {
 
-    public UserExitPanel() {
+    static private final AtomicBoolean CLOSING = new AtomicBoolean(false);
+
+    static public final boolean isClosing() {
+        return CLOSING.get();
+    }
+
+    private final UserExitConf conf;
+
+    public UserExitPanel(final UserExitConf conf) {
+        if (conf == null)
+            throw new NullPointerException("Null conf");
+        this.conf = conf;
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.anchor = GridBagConstraints.CENTER;
@@ -55,10 +70,15 @@ public class UserExitPanel extends JPanel {
         c.weightx = 1;
         c.gridwidth = 2;
 
-        final JLabel labelQuit = new JLabel("Voulez-vous vraiment quitter " + Configuration.getInstance().getAppName() + " ?");
+        String text = "Voulez-vous vraiment " + (this.conf.shouldRestart() ? "relancer " : "quitter ") + Configuration.getInstance().getAppName() + " ?";
+        if (this.conf.getMessage() != null) {
+            text = this.conf.getMessage() + "<br/>" + text;
+        }
+        final JLabel labelQuit = new JLabel("<html>" + text + "</html>");
         JButton buttonCancel = new JButton("Annuler");
-        JButton buttonBackup = new JButton("Sauvegarder et quitter");
-        JButton buttonExit = new JButton("Quitter");
+        final String verb = this.conf.shouldRestart() ? "Relancer" : "Quitter";
+        JButton buttonBackup = new JButton("Sauvegarder et " + verb.toLowerCase());
+        JButton buttonExit = new JButton(verb);
         this.add(labelQuit, c);
 
         c.gridy++;
@@ -130,7 +150,35 @@ public class UserExitPanel extends JPanel {
     PostgreSQLFrame pgFrame = null;
 
     private void closeGNx() {
+        assert SwingUtilities.isEventDispatchThread();
+        if (!CLOSING.compareAndSet(false, true)) {
+            // already closing
+            return;
+        }
         UserExit.closeAllWindows(null);
+        try {
+            final UserExitConf c = this.conf;
+            // add shutdown hook first, since the user already agreed to restart
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                @Override
+                public void run() {
+                    try {
+                        // MAYBE only run beforeShutdown() if afterWindowsClosed() is successful
+                        c.beforeShutdown();
+
+                        // if (c.shouldRestart())
+                        // VMLauncher.restart(ProcessStreams.Action.CLOSE, GestionLauncher.class);
+                    } catch (Exception e) {
+                        // in shutdown sequence : don't use the GUI
+                        e.printStackTrace();
+                    }
+                }
+            });
+            c.afterWindowsClosed();
+        } catch (Exception exn) {
+            // all windows already closed
+            ExceptionHandler.handle("Erreur lors de la fermeture", exn);
+        }
         ModuleManager.tearDown();
         ComptaPropsConfiguration.closeOOConnexion();
         // ((JFrame) SwingUtilities.getRoot(UserExitingPanel.this)).dispose();
@@ -147,10 +195,6 @@ public class UserExitPanel extends JPanel {
                     File f = new File(".\\PostgreSQL\\bin\\");
                     if (f.exists()) {
                         final Process p = runtime.exec(new String[] { "cmd.exe", "/C", "stopPostGres.bat" }, null, f);
-                        // Consommation de la sortie standard de l'application externe dans
-                        // un
-                        // Thread
-                        // separe
                         SwingUtilities.invokeLater(new Runnable() {
 
                             @Override
@@ -165,45 +209,7 @@ public class UserExitPanel extends JPanel {
                             }
                         });
                         System.err.println("Execute end postgres");
-                        new Thread() {
-                            public void run() {
-                                try {
-                                    BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
-                                    String line = "";
-                                    try {
-                                        while ((line = reader.readLine()) != null) {
-                                            System.out.println(line);
-                                        }
-                                    } finally {
-                                        reader.close();
-                                    }
-                                } catch (IOException ioe) {
-                                    ioe.printStackTrace();
-                                }
-                            }
-                        }.start();
-
-                        // Consommation de la sortie d'erreur de l'application externe dans
-                        // un
-                        // Thread
-                        // separe
-                        new Thread() {
-                            public void run() {
-                                try {
-                                    BufferedReader reader = new BufferedReader(new InputStreamReader(p.getErrorStream()));
-                                    String line = "";
-                                    try {
-                                        while ((line = reader.readLine()) != null) {
-                                            System.err.println(line);
-                                        }
-                                    } finally {
-                                        reader.close();
-                                    }
-                                } catch (IOException ioe) {
-                                    ioe.printStackTrace();
-                                }
-                            }
-                        }.start();
+                        ProcessStreams.handle(p, Action.REDIRECT);
                         p.waitFor();
 
                     }

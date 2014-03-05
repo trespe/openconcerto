@@ -15,6 +15,7 @@
 
 import org.openconcerto.openoffice.spreadsheet.CellStyle;
 import org.openconcerto.openoffice.spreadsheet.Row;
+import net.jcip.annotations.ThreadSafe;
 
 import org.jdom.Element;
 
@@ -23,6 +24,7 @@ import org.jdom.Element;
  * 
  * @author Sylvain
  */
+@ThreadSafe
 public class StyleStyle extends Style {
 
     private final String family;

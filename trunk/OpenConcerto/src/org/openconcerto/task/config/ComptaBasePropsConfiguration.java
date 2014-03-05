@@ -23,6 +23,7 @@ import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLFilter;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.users.CompanyAccessSQLElement;
 import org.openconcerto.sql.users.UserCommonSQLElement;
 import org.openconcerto.sql.users.rights.RightSQLElement;
 import org.openconcerto.sql.users.rights.UserRightSQLElement;
@@ -103,8 +104,11 @@ public abstract class ComptaBasePropsConfiguration extends PropsConfiguration {
 
         this.setProductInfo(productInfo);
         String name = "ilm";
-        this.setProperty("systemRoot.rootsToMap", name + "_Common");
-        this.setProperty("systemRoot.rootPath", name + "_Common");
+        // don't overwrite (allow to map no roots, just to test connection)
+        if (getProperty("systemRoot.rootsToMap") == null) {
+            this.setProperty("systemRoot.rootsToMap", name + "_Common");
+            this.setProperty("systemRoot.rootPath", name + "_Common");
+        }
     }
 
 
@@ -166,6 +170,7 @@ public abstract class ComptaBasePropsConfiguration extends PropsConfiguration {
         dir.addSQLElement(new TaskSQLElement());
 
         dir.addSQLElement(new UserCommonSQLElement());
+        dir.addSQLElement(new CompanyAccessSQLElement());
         dir.addSQLElement(UserRightSQLElement.class);
         dir.addSQLElement(RightSQLElement.class);
 

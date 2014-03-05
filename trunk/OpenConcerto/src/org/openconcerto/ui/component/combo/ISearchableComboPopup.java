@@ -39,6 +39,10 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
 
     private static final int MAXROW = 10;
 
+    static public final void setCurrentValueBG(final JList list, final Component rendererComp) {
+        rendererComp.setBackground(new Color((list.getBackground().getRGB() + list.getSelectionBackground().getRGB()) / 2));
+    }
+
     private final JList list;
     private int minWitdh = 150;
     private int maxVisibleRows;
@@ -57,7 +61,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
     final void setMaxVisibleRows(int maxVisibleRows) {
         this.maxVisibleRows = maxVisibleRows;
     }
-    
+
     final int getMaxVisibleRows() {
         return this.maxVisibleRows;
     }
@@ -97,6 +101,10 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
                     if (getCombo().isEmptyItem(val)) {
                         comp.setFont(comp.getFont().deriveFont(Font.ITALIC));
                     }
+                    // works because DefaultListCellRenderer reset the background (which is not the
+                    // case for DefaultTableCellRenderer)
+                    if (!isSelected && getCombo().getSelection() == value)
+                        setCurrentValueBG(list, comp);
                 }
                 // otherwise comp has a height of only 2 (the worst thing is, if index = 0, this is
                 // the blueprint used with VisibleRowCount to compute the height of the JList)
@@ -108,7 +116,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
         JScrollPane scroller = new JScrollPane(this.list, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scroller.setFocusable(false);
         scroller.getVerticalScrollBar().setFocusable(false);
-        scroller.setBorder(null);
+        scroller.setBorder(BorderFactory.createEmptyBorder());
         // Popup
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setBorderPainted(true);

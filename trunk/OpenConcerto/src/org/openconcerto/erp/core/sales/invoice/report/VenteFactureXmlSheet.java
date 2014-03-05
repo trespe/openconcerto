@@ -69,6 +69,8 @@ public class VenteFactureXmlSheet extends AbstractSheetXMLWithDate {
             type = "Complement";
         } else if (row.getBoolean("ACOMPTE")) {
             type = "Acompte";
+        } else if (row.getBoolean("PARTIAL") || row.getBoolean("SOLDE")) {
+            type = "Situation";
         } else {
             type = null;
 

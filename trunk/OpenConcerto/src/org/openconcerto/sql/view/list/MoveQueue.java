@@ -27,6 +27,7 @@ import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.SleepingQueue;
+import org.openconcerto.utils.Tuple2;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -74,6 +75,43 @@ public final class MoveQueue extends SleepingQueue {
                             }
                         });
                     }
+                } catch (Exception e) {
+                    throw ExceptionUtils.createExn(IllegalStateException.class, "move failed", e);
+                }
+            }
+        });
+    }
+
+    // row index as returned by JTable.DropLocation.getRow()
+    public void moveTo(final List<? extends SQLRowAccessor> rows, final int rowIndex) {
+        if (rows.size() == 0)
+            return;
+
+        this.put(new Runnable() {
+            public void run() {
+                final FutureTask<Tuple2<Boolean, ListSQLLine>> future = new FutureTask<Tuple2<Boolean, ListSQLLine>>(new Callable<Tuple2<Boolean, ListSQLLine>>() {
+                    @Override
+                    public Tuple2<Boolean, ListSQLLine> call() {
+                        assert rowIndex >= 0;
+                        final int rowCount = MoveQueue.this.tableModel.getRowCount();
+                        final boolean after = rowIndex >= rowCount;
+                        final int index = after ? rowCount - 1 : rowIndex;
+                        return Tuple2.create(after, MoveQueue.this.tableModel.getRow(index));
+                    }
+                });
+                MoveQueue.this.tableModel.invokeLater(future);
+                try {
+                    final Tuple2<Boolean, ListSQLLine> line = future.get();
+                    final boolean after = line.get0();
+                    final List<? extends SQLRowAccessor> l = new ArrayList<SQLRowAccessor>(rows);
+                    Collections.sort(l, after ? Collections.reverseOrder(OrderComparator.INSTANCE) : OrderComparator.INSTANCE);
+                    SQLUtils.executeAtomic(MoveQueue.this.tableModel.getTable().getDBSystemRoot().getDataSource(), new ConnectionHandlerNoSetup<Object, Exception>() {
+                        @Override
+                        public Object handle(SQLDataSource ds) throws Exception {
+                            moveQuick(l, after, line.get1().getRow().asRow());
+                            return null;
+                        }
+                    });
                 } catch (Exception e) {
                     throw ExceptionUtils.createExn(IllegalStateException.class, "move failed", e);
                 }
@@ -168,7 +206,7 @@ public final class MoveQueue extends SleepingQueue {
         // move out before general request as most DB systems haven't got DEFERRABLE constraints
         if (!after && !destRowReordered) {
             final UpdateBuilder updateDestRow = new UpdateBuilder(t);
-            updateDestRow.set(t.getOrderField().getName(), newOrder.toPlainString());
+            updateDestRow.setObject(t.getOrderField(), newOrder);
             updateDestRow.setWhere(destRow.getWhere());
             t.getDBSystemRoot().getDataSource().execute(updateDestRow.asString());
         }

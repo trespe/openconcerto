@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.generationDoc.SpreadSheetCellValueContext;
 import org.openconcerto.erp.generationDoc.SpreadSheetCellValueProviderManager;
-import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.model.SQLRowAccessor;
 
 public class AdresseFullClientValueProvider extends AdresseClientProvider {
@@ -28,7 +27,7 @@ public class AdresseFullClientValueProvider extends AdresseClientProvider {
 
     @Override
     public Object getValue(SpreadSheetCellValueContext context) {
-        SQLRowAccessor r = getAdresse(context.getRow(), this.type);
+        final SQLRowAccessor r = getAdresse(context.getRow(), this.type);
 
         String result = r.getString("RUE");
         result += "\n" + r.getString("CODE_POSTAL");

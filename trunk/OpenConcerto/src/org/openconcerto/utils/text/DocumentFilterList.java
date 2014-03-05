@@ -51,14 +51,39 @@ public final class DocumentFilterList extends DocumentFilter {
      * have a DocumentFilterList as its filter.
      * 
      * @param doc the document.
-     * @param df the filter to add
+     * @param df the filter to add, <code>null</code> meaning none.
      * @param t the type of filter <code>df</code> is, used to determine where to add.
      */
     public static void add(AbstractDocument doc, DocumentFilter df, FilterType t) {
+        // behave like Component.addListener()
+        if (df == null)
+            return;
         if (t == FilterType.SIMPLE_FILTER)
             get(doc).getFilters().add(0, df);
         else
             get(doc).getFilters().add(df);
+    }
+
+    /**
+     * Remove a filter from the filters for the passed doc. The document doesn't need to have a
+     * DocumentFilterList as its filter.
+     * 
+     * @param doc the document.
+     * @param df the filter to remove, <code>null</code> meaning none.
+     */
+    public static void remove(AbstractDocument doc, DocumentFilter df) {
+        // behave like Component.removeListener()
+        if (df == null)
+            return;
+        final DocumentFilter filter = doc.getDocumentFilter();
+        if (filter == null)
+            return;
+
+        if (filter.equals(df)) {
+            doc.setDocumentFilter(null);
+        } else if (filter instanceof DocumentFilterList) {
+            ((DocumentFilterList) filter).getFilters().remove(df);
+        }
     }
 
     /**

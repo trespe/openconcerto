@@ -13,12 +13,14 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.model.SQLRowValues.CreateMode;
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.model.graph.Step;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.RecursionType;
 import org.openconcerto.utils.Tuple2;
@@ -31,6 +33,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +45,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.dbutils.ResultSetHandler;
 
@@ -67,7 +71,7 @@ public class SQLRowValuesListFetcher {
         // path -> longest referent only path
         // i.e. map each path to the main fetcher or a referent graft
         final Map<Path, Path> handledPaths = new HashMap<Path, Path>();
-        final Path emptyPath = new Path(graph.getTable());
+        final Path emptyPath = Path.get(graph.getTable());
         handledPaths.put(emptyPath, emptyPath);
         // find out referent only paths (yellow in the diagram)
         graph.getGraph().walk(graph, null, new ITransformer<State<Object>, Object>() {
@@ -82,7 +86,7 @@ public class SQLRowValuesListFetcher {
                 }
                 return null;
             }
-        }, RecursionType.DEPTH_FIRST, false);
+        }, RecursionType.DEPTH_FIRST, Direction.REFERENT);
 
         // find out needed grafts
         final CollectionMap<Path, SQLRowValuesListFetcher> grafts = new CollectionMap<Path, SQLRowValuesListFetcher>();
@@ -127,7 +131,7 @@ public class SQLRowValuesListFetcher {
                 }
                 return null;
             }
-        }, RecursionType.BREADTH_FIRST, null, false);
+        }, RecursionType.BREADTH_FIRST, Direction.ANY, false);
 
         final Set<Path> refPaths = new HashSet<Path>(handledPaths.values());
         // remove the main fetcher
@@ -171,30 +175,29 @@ public class SQLRowValuesListFetcher {
     private static Path computePath(SQLRowValues graph) {
         // check that there's only one referent for each row
         // (otherwise huge joins, e.g. LOCAL<-CPI,SOURCE,RECEPTEUR,etc.)
-        final Path res = new Path(graph.getTable());
-        graph.getGraph().walk(graph, res, new ITransformer<State<Path>, Path>() {
+        final AtomicReference<Path> res = new AtomicReference<Path>(null);
+        graph.getGraph().walk(graph, null, new ITransformer<State<Path>, Path>() {
             @Override
             public Path transformChecked(State<Path> input) {
                 final Collection<SQLRowValues> referentRows = input.getCurrent().getReferentRows();
-                if (referentRows.size() > 1) {
+                final int size = referentRows.size();
+                if (size > 1) {
                     // remove the foreign rows which are all the same (since they point to
                     // current) so the exn is more legible
                     final List<SQLRowValues> toPrint = SQLRowValues.trim(referentRows);
                     throw new IllegalArgumentException(input.getCurrent() + " is referenced by " + toPrint + "\nat " + input.getPath());
-                } else if (referentRows.size() == 0) {
-                    input.getAcc().append(input.getPath());
+                } else if (size == 0) {
+                    if (res.get() == null)
+                        res.set(input.getPath());
+                    else
+                        throw new IllegalStateException();
                 }
                 return input.getAcc();
             }
-        }, RecursionType.BREADTH_FIRST, false);
-        return res;
-    }
-
-    private static Path createPath(final SQLTable t, SQLField... fields) {
-        final Path res = new Path(t);
-        for (final SQLField f : fields)
-            res.add(f);
-        return res;
+        }, RecursionType.BREADTH_FIRST, Direction.REFERENT, true);
+        // since includeStart=true
+        assert res.get() != null;
+        return res.get();
     }
 
     static private final CollectionMap<Tuple2<Path, Number>, SQLRowValues> createCollectionMap() {
@@ -248,10 +251,6 @@ public class SQLRowValuesListFetcher {
         this(graph, referents ? computePath(graph) : null);
     }
 
-    public SQLRowValuesListFetcher(SQLRowValues graph, final SQLField... fields) {
-        this(graph, createPath(graph.getTable(), fields));
-    }
-
     /**
      * Construct a new instance.
      * 
@@ -277,7 +276,7 @@ public class SQLRowValuesListFetcher {
     SQLRowValuesListFetcher(final SQLRowValues graph, final Path referentPath, final boolean prune) {
         super();
         this.graph = graph.deepCopy();
-        this.descendantPath = referentPath == null ? new Path(graph.getTable()) : referentPath;
+        this.descendantPath = referentPath == null ? Path.get(graph.getTable()) : referentPath;
         if (!this.descendantPath.isDirection(Direction.REFERENT))
             throw new IllegalArgumentException("path is not (exclusively) referent : " + this.descendantPath);
         final SQLRowValues descRow = this.graph.followPath(this.descendantPath);
@@ -297,7 +296,7 @@ public class SQLRowValuesListFetcher {
                     }
                     return null;
                 }
-            }, RecursionType.BREADTH_FIRST, true);
+            }, RecursionType.BREADTH_FIRST, Direction.FOREIGN);
         }
 
         // always need IDs
@@ -346,6 +345,10 @@ public class SQLRowValuesListFetcher {
 
     public SQLRowValues getGraph() {
         return this.graph;
+    }
+
+    public final Path getReferentPath() {
+        return this.descendantPath;
     }
 
     /**
@@ -425,7 +428,7 @@ public class SQLRowValuesListFetcher {
      * @return this.
      */
     public final SQLRowValuesListFetcher setOrdered(final boolean b) {
-        this.setOrder(b ? Collections.singleton(new Path(getGraph().getTable())) : Collections.<Path> emptySet(), true);
+        this.setOrder(b ? Collections.singleton(Path.get(getGraph().getTable())) : Collections.<Path> emptySet(), true);
         this.setReferentsOrdered(b, false);
         return this;
     }
@@ -477,7 +480,7 @@ public class SQLRowValuesListFetcher {
     }
 
     public final SQLRowValuesListFetcher graft(final SQLRowValuesListFetcher other) {
-        return this.graft(other, new Path(getGraph().getTable()));
+        return this.graft(other, Path.get(getGraph().getTable()));
     }
 
     public final SQLRowValuesListFetcher graft(final SQLRowValues other, Path graftPath) {
@@ -517,7 +520,8 @@ public class SQLRowValuesListFetcher {
         // same capacity (or any other predicate)
 
         if (!this.grafts.containsKey(graftPath)) {
-            this.grafts.put(graftPath, new HashMap<Path, SQLRowValuesListFetcher>(4));
+            // allow getFetchers() to use a list, easing tests and avoiding using equals()
+            this.grafts.put(graftPath, new LinkedHashMap<Path, SQLRowValuesListFetcher>(4));
         } else {
             final Map<Path, SQLRowValuesListFetcher> map = this.grafts.get(graftPath);
             // e.g. fetching *BATIMENT* <- LOCAL and *BATIMENT* <- LOCAL <- CPI (with different
@@ -541,7 +545,7 @@ public class SQLRowValuesListFetcher {
     }
 
     public final Collection<SQLRowValuesListFetcher> ungraft() {
-        return this.ungraft(new Path(getGraph().getTable()));
+        return this.ungraft(Path.get(getGraph().getTable()));
     }
 
     public final Collection<SQLRowValuesListFetcher> ungraft(final Path graftPath) {
@@ -558,6 +562,44 @@ public class SQLRowValuesListFetcher {
      */
     public final Map<Path, SQLRowValuesListFetcher> getGrafts(final Path graftPath) {
         return Collections.unmodifiableMap(this.grafts.get(graftPath));
+    }
+
+    /**
+     * Get instances which fetch the {@link Path#getLast() last table} of the passed path. E.g.
+     * useful if you want to add a where to a join. This method is recursively called on
+     * {@link #getGrafts(Path) grafts} thus the returned paths may be fetched by grafts.
+     * 
+     * @param fetchedPath a path starting by this table.
+     * @return all instances indexed by the graft path, i.e. <code>fetchedPath</code> is between
+     *         with it and (it+fetchers.{@link #getReferentPath()}).
+     */
+    public final ListMap<Path, SQLRowValuesListFetcher> getFetchers(final Path fetchedPath) {
+        final ListMap<Path, SQLRowValuesListFetcher> res = new ListMap<Path, SQLRowValuesListFetcher>();
+        if (this.getGraph().followPath(fetchedPath) != null)
+            res.add(Path.get(getGraph().getTable()), this);
+        // search grafts
+        for (final Entry<Path, Map<Path, SQLRowValuesListFetcher>> e : this.grafts.entrySet()) {
+            final Path graftPlace = e.getKey();
+            if (fetchedPath.startsWith(graftPlace) && fetchedPath.length() > graftPlace.length()) {
+                final Path rest = fetchedPath.subPath(graftPlace.length());
+                // we want requests that use the last step of fetchedPath
+                assert rest.length() > 0;
+                for (final Entry<Path, SQLRowValuesListFetcher> e2 : e.getValue().entrySet()) {
+                    final Path refPath = e2.getKey();
+                    final SQLRowValuesListFetcher graft = e2.getValue();
+                    if (refPath.startsWith(rest)) {
+                        res.add(graftPlace, graft);
+                    } else if (rest.startsWith(refPath)) {
+                        // otherwise rest == refPath and the above if would have been executed
+                        assert rest.length() > refPath.length();
+                        for (final Entry<Path, List<SQLRowValuesListFetcher>> e3 : graft.getFetchers(rest).entrySet()) {
+                            res.addAll(graftPlace.append(e3.getKey()), e3.getValue());
+                        }
+                    }
+                }
+            }
+        }
+        return res;
     }
 
     private final void addFields(final SQLSelect sel, final SQLRowValues vals, final String alias) {
@@ -630,7 +672,7 @@ public class SQLRowValuesListFetcher {
     // and the reading of the resultSet
     private <S> void walk(final S sel, final ITransformer<State<S>, S> transf) {
         // walk through foreign keys and never walk back (use graft())
-        this.getGraph().getGraph().walk(this.getGraph(), sel, transf, RecursionType.BREADTH_FIRST, true);
+        this.getGraph().getGraph().walk(this.getGraph(), sel, transf, RecursionType.BREADTH_FIRST, Direction.FOREIGN);
         // walk starting backwards but allowing forwards
         this.getGraph().getGraph().walk(this.getGraph(), sel, new ITransformer<State<S>, S>() {
             @Override
@@ -645,7 +687,7 @@ public class SQLRowValuesListFetcher {
                     throw new SQLRowValuesCluster.StopRecurseException().setCompletely(false);
                 return transf.transformChecked(input);
             }
-        }, RecursionType.BREADTH_FIRST, null, false);
+        }, RecursionType.BREADTH_FIRST, Direction.ANY, false);
     }
 
     // models the graph, so that we don't have to walk it for each row
@@ -867,7 +909,7 @@ public class SQLRowValuesListFetcher {
             for (final Entry<Path, Map<Path, SQLRowValuesListFetcher>> graftPlaceEntry : this.grafts.entrySet()) {
                 // e.g. BATIMENT
                 final Path graftPlace = graftPlaceEntry.getKey();
-                final Path mapPath = new Path(graftPlace.getLast());
+                final Path mapPath = Path.get(graftPlace.getLast());
                 // list of BATIMENT to only fetch what's necessary
                 final Set<Number> ids = new HashSet<Number>();
                 // byRows is common to all grafts to support CPI -> LOCAL -> BATIMENT and RECEPTEUR
@@ -877,9 +919,8 @@ public class SQLRowValuesListFetcher {
                 // children and if we want their DOSSIER they must be grafted on each line.
                 final CollectionMap<Tuple2<Path, Number>, SQLRowValues> byRows = createCollectionMap();
                 for (final SQLRowValues vals : merged) {
-                    final SQLRowValues graftPlaceVals = vals.followPath(graftPlace);
-                    // happens when grafting on optional row
-                    if (graftPlaceVals != null) {
+                    // can be empty when grafting on optional row
+                    for (final SQLRowValues graftPlaceVals : vals.followPath(graftPlace, CreateMode.CREATE_NONE, false)) {
                         ids.add(graftPlaceVals.getIDNumber());
                         byRows.put(Tuple2.create(mapPath, graftPlaceVals.getIDNumber()), graftPlaceVals);
                     }

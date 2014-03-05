@@ -182,17 +182,17 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
 
     private final void initTitle(SQLElement element, EditMode mode) {
         switch (mode) {
-        case CREATION:
-            this.setTitle(getCreateMessage(element));
-            break;
-        case MODIFICATION:
-            this.setTitle(getModifyMessage(element));
-            break;
-        case READONLY:
-            this.setTitle(getReadOnlyMessage(element));
-            break;
-        default:
-            throw new IllegalArgumentException("unknown mode : " + mode);
+            case CREATION:
+                this.setTitle(getCreateMessage(element));
+                break;
+            case MODIFICATION:
+                this.setTitle(getModifyMessage(element));
+                break;
+            case READONLY:
+                this.setTitle(getReadOnlyMessage(element));
+                break;
+            default:
+                throw new IllegalArgumentException("unknown mode : " + mode);
         }
     }
 
@@ -240,7 +240,11 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
 
     @Deprecated
     public void selectionId(int selectedId, int i) {
-        this.getPanel().selectionId(selectedId, i);
+        // otherwise when the user inserts, the component is partialReset(), then the row gets in
+        // the list and is selected, and this method overwrite the reset values.
+        if (!this.getPanel().alwaysVisible()) {
+            this.getPanel().selectionId(selectedId, i);
+        }
     }
 
     public void selectionId(int selectedId) {

@@ -20,16 +20,15 @@ import org.openconcerto.erp.core.sales.invoice.ui.GenListeVentePanel;
 import javax.swing.Action;
 import javax.swing.JFrame;
 
-
 public class GenListeVenteAction extends CreateFrameAbstractAction {
     public GenListeVenteAction() {
-        super();
         this.putValue(Action.NAME, "Journal des ventes");
     }
 
     public JFrame createFrame() {
-
-        return new PanelFrame(new GenListeVentePanel(), "Journal des ventes");
-
+        final PanelFrame panelFrame = new PanelFrame(new GenListeVentePanel(), "Journal des ventes");
+        panelFrame.pack();
+        panelFrame.setResizable(false);
+        return panelFrame;
     }
 }

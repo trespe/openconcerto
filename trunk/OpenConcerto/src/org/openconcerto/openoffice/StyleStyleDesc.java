@@ -36,15 +36,12 @@ public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> 
     }
 
     public static <C extends StyleStyle> StyleStyleDesc<C> copy(final StyleStyleDesc<C> toClone, final XMLVersion version) {
-        final StyleStyleDesc<C> res = new StyleStyleDesc<C>(toClone.getStyleClass(), version, toClone.getFamily(), toClone.getBaseName()) {
+        final StyleStyleDesc<C> res = new StyleStyleDesc<C>(toClone, version) {
             @Override
             public C create(ODPackage pkg, Element e) {
                 return toClone.create(pkg, e);
             }
         };
-        res.setElementNS(version.getNS(toClone.getElementNS().getPrefix()));
-        res.getRefElementsMap().putAll(toClone.getRefElementsMap());
-        res.getMultiRefElementsMap().putAll(toClone.getMultiRefElementsMap());
         return res;
     }
 
@@ -56,12 +53,17 @@ public abstract class StyleStyleDesc<S extends StyleStyle> extends StyleDesc<S> 
 
     protected StyleStyleDesc(final Class<S> clazz, final XMLVersion version, String family, String baseName, String ns, final List<String> refQNames) {
         this(clazz, version, family, baseName);
-        this.getRefElementsMap().putAll(ns + ":style-name", refQNames);
+        this.getRefElementsMap().addAll(ns + ":style-name", refQNames);
     }
 
     protected StyleStyleDesc(final Class<S> clazz, final XMLVersion version, String family, String baseName) {
         super(clazz, version, ELEMENT_NAME, baseName);
         this.family = family;
+    }
+
+    protected StyleStyleDesc(final StyleStyleDesc<S> toClone, final XMLVersion version) {
+        super(toClone, version);
+        this.family = toClone.getFamily();
     }
 
     public final String getFamily() {

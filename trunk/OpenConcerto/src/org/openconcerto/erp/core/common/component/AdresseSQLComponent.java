@@ -17,13 +17,17 @@ import org.openconcerto.erp.core.common.ui.VilleRowItemView;
 import org.openconcerto.map.ui.ITextComboVilleViewer;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.component.ITextArea;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.util.Arrays;
+import java.util.LinkedHashSet;
 
+import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -62,8 +66,9 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         this.add(textRue, c);
 
         // Ville
-        final JLabel labelVille = new JLabel(getLabelFor("VILLE"), SwingConstants.RIGHT);
-        final ITextComboVilleViewer textVille = new ITextComboVilleViewer();
+        final VilleRowItemView villeRIV = new VilleRowItemView(new ITextComboVilleViewer());
+        villeRIV.init("VILLE", new LinkedHashSet<SQLField>(Arrays.asList(getField("CODE_POSTAL"), getField("VILLE"))));
+        final JLabel labelVille = new JLabel(getLabelFor(villeRIV.getSQLName()), SwingConstants.RIGHT);
         c.gridy++;
         c.gridx = 0;
         c.weightx = 0;
@@ -74,8 +79,8 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         c.gridx++;
         c.weightx = 1;
         c.fill = GridBagConstraints.NONE;
-        DefaultGridBagConstraints.lockMinimumSize(textVille);
-        this.add(textVille, c);
+        DefaultGridBagConstraints.lockMinimumSize((JComponent) villeRIV.getComp());
+        this.add(villeRIV.getComp(), c);
 
         // Cedex
         final JLabel labelCedex = new JLabel(getLabelFor("CEDEX"), SwingConstants.RIGHT);
@@ -104,7 +109,7 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         this.add(pays, c);
 
         this.addSQLObject(textRue, "RUE");
-        this.addView(new VilleRowItemView(textVille), "CODE_POSTAL,VILLE", REQ);
+        this.addInitedView(villeRIV, REQ);
         this.addView(cedex, "CEDEX");
         this.addView(destinataire, "DEST");
 

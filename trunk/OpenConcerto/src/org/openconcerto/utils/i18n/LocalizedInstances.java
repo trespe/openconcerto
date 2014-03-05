@@ -69,8 +69,8 @@ public class LocalizedInstances<T> {
 
     /**
      * Create instances of the same language. For each candidate locale, this method first looks for
-     * {@link #getConstructor(Class) a class} and then for {@link #createInstance(String, Locale)
-     * other files}.
+     * {@link #getInstance(Class) a class} and then for
+     * {@link #createInstance(String, Locale, Class) other files}.
      * 
      * @param baseName the base name of the classes, e.g. "org.acme.MyClass".
      * @param locale the desired locale, e.g. fr_FR.

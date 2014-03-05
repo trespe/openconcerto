@@ -33,6 +33,8 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.jcip.annotations.ThreadSafe;
 
@@ -47,6 +49,9 @@ import org.jdom.Element;
  */
 @ThreadSafe
 public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
+
+    // nextVal('"SCHEMA"."seqName"'::regclass);
+    static private final Pattern SEQ_PATTERN = Pattern.compile("nextval\\('(.+)'.*\\)");
 
     static final SQLField create(SQLTable t, ResultSet rs) throws SQLException {
         final String fieldName = rs.getString("COLUMN_NAME");
@@ -232,6 +237,42 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         return Collections.unmodifiableMap(this.infoSchemaCols);
     }
 
+    /**
+     * The sequence linked to this field. I.e. that sequence will be dropped if this field is.
+     * 
+     * @return the quoted name of the sequence, <code>null</code> if none.
+     */
+    public final SQLName getOwnedSequence() {
+        return this.getOwnedSequence(false);
+    }
+
+    public final SQLName getOwnedSequence(final boolean allowRequest) {
+        final SQLSystem sys = getServer().getSQLSystem();
+        if (sys == SQLSystem.H2) {
+            final String name = (String) this.infoSchemaCols.get("SEQUENCE_NAME");
+            if (name != null)
+                return new SQLName(name);
+        } else if (sys == SQLSystem.POSTGRESQL) {
+            if (allowRequest) {
+                final String req = "SELECT pg_get_serial_sequence(" + getTable().getBase().quoteString(getTable().getSQLName().quote()) + ", " + getTable().getBase().quoteString(this.getName()) + ")";
+                final String name = (String) getDBSystemRoot().getDataSource().executeScalar(req);
+                if (name != null)
+                    return SQLName.parse(name);
+            } else {
+                final String def = ((String) this.getDefaultValue()).trim();
+                if (def.startsWith("nextval")) {
+                    final Matcher matcher = SEQ_PATTERN.matcher(def);
+                    if (matcher.matches()) {
+                        return SQLName.parse(matcher.group(1));
+                    } else {
+                        throw new IllegalStateException("could not parse: " + def + " with " + SEQ_PATTERN.pattern());
+                    }
+                }
+            }
+        }
+        return null;
+    }
+
     public synchronized Object getDefaultValue() {
         return this.defaultValue;
     }
@@ -250,8 +291,14 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         return this.getTable().getKeys().contains(this);
     }
 
+    /**
+     * Is this the one and only field in the primary key of its table.
+     * 
+     * @return <code>true</code> if this is part of the primary key, and the primary key has no
+     *         other fields.
+     */
     public boolean isPrimaryKey() {
-        return this.getTable().getKey() == this;
+        return this.getTable().getPrimaryKeys().equals(Collections.singleton(this));
     }
 
     public final SQLTable getForeignTable() {
@@ -372,7 +419,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
 
     @Override
     public Path getPath() {
-        return new Path(getTable());
+        return Path.get(getTable());
     }
 
 }

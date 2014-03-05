@@ -95,7 +95,7 @@ public class BonDeLivraisonItemSQLElement extends ComptaSQLConfElement {
 
                 int qteLivree = rowFact.getInt("QTE_LIVREE") + rowFact.getInt("QTE_LIVREE");
 
-                SQLRowValues rowVals = new SQLRowValues(new SaisieVenteFactureItemSQLElement().getTable());
+                SQLRowValues rowVals = new SQLRowValues(getDirectory().getElement(SaisieVenteFactureItemSQLElement.class).getTable());
                 rowVals.put("QTE_LIVREE", new Integer(qteLivree));
 
                 try {

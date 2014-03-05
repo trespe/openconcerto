@@ -26,6 +26,7 @@ import org.openconcerto.erp.preferences.GenerationDocumentComptaPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentGestCommPreferencePanel;
 import org.openconcerto.erp.preferences.GenerationDocumentPayePreferencePanel;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
+import org.openconcerto.erp.preferences.GestionPieceCommercialePanel;
 import org.openconcerto.erp.preferences.ImpressionGestCommPreferencePanel;
 import org.openconcerto.erp.preferences.ModeReglementDefautPrefPanel;
 import org.openconcerto.erp.preferences.NumerotationPreferencePanel;
@@ -91,9 +92,11 @@ public class ComptaPrefTreeNode extends DefaultMutableTreeNode {
 
         nsGlobale.add(new PrefTreeNode(PayeGlobalPreferencePanel.class, "Paye", new String[] { "paye", "csg" }));
 
-        // Gestion des articles
+        // Gestion commerciale
         final PrefTreeNode nGestionArticle = new PrefTreeNode(GestionArticlePreferencePanel.class, "Gestion des articles", new String[] { "articles", "gestion", "longueur", "largeur", "poids" });
+        final PrefTreeNode nGestionPiece = new PrefTreeNode(GestionPieceCommercialePanel.class, "Gestion des pièces commerciales", new String[] { "mouvements", "pieces", "facture" });
         nsPoste.add(nGestionArticle);
+        nsPoste.add(nGestionPiece);
 
         // Mode de règlement par défaut
         final PrefTreeNode nModeRegl = new PrefTreeNode(ModeReglementDefautPrefPanel.class, "Mode de règlement par défaut", new String[] { "mode", "règlement", "défaut" });

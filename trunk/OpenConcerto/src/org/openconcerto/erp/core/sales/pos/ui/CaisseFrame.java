@@ -21,7 +21,6 @@ import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.utils.ClassPathLoader;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.ProductInfo;
 
 import java.awt.Dimension;
 import java.awt.Toolkit;
@@ -55,11 +54,10 @@ public class CaisseFrame extends JFrame {
 
             ExceptionHandler.setForceUI(true);
             ExceptionHandler.setForumURL("http://www.openconcerto.org/forum");
-            ProductInfo.setInstance(new ProductInfo("OpenConcerto"));
 
             // SpeedUp Linux
             System.setProperty("sun.java2d.pmoffscreen", "false");
-            System.setProperty("org.openconcerto.sql.structure.useXML", "true");
+            System.setProperty(SQLBase.STRUCTURE_USE_XML, "true");
             System.setProperty(PropsConfiguration.REDIRECT_TO_FILE, "true");
             if (Caisse.isUsingJPos()) {
                 ClassPathLoader c = ClassPathLoader.getInstance();

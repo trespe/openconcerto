@@ -130,4 +130,13 @@ public class ColumnsSpec implements Externalizable {
         return null;
     }
 
+    public ColumnSpec getColumnWithEditor(String id) {
+        for (ColumnSpec c : this.columns) {
+            LightUIElement editor = c.getEditor();
+            if (editor != null && c.getEditor().getId().equals(id)) {
+                return c;
+            }
+        }
+        return null;
+    }
 }

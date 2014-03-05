@@ -33,6 +33,7 @@ public final class MessageArgs {
         return m instanceof LinkedHashMap;
     }
 
+    private final boolean mapPrimary;
     private Object[] array;
     private Map<String, ?> map;
 
@@ -48,15 +49,21 @@ public final class MessageArgs {
         super();
         if (map == null && array == null)
             throw new NullPointerException();
+        this.mapPrimary = map != null;
+        assert this.mapPrimary == (array == null);
         this.array = array;
         this.map = map;
     }
 
+    public final boolean isMapPrimary() {
+        return this.mapPrimary;
+    }
+    
     public final synchronized Object getAll() {
-        return this.array != null ? this.array : this.map;
+        return this.mapPrimary ? this.map : this.array;
     }
 
-    private synchronized Object[] getArray() {
+    protected synchronized Object[] getArray() {
         if (this.array == null) {
             this.array = new Object[this.map.size()];
             int i = 0;

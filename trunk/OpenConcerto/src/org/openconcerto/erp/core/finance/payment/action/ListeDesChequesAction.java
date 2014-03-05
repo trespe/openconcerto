@@ -43,7 +43,7 @@ public class ListeDesChequesAction extends CreateFrameAbstractAction {
             @Override
             protected void handleAction(JButton source, ActionEvent evt) {
                 if (this.getListe().getSelectedId() > 1) {
-                    SQLRow row = this.getListe().getSelectedRow();
+                    SQLRow row = this.getListe().fetchSelectedRow();
                     if (source == this.buttonModifier) {
                         MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
                     } else {

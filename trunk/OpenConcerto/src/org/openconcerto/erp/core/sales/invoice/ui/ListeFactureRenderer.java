@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.sales.invoice.ui;
 
+import org.openconcerto.erp.core.finance.payment.component.ModeDeReglementSQLComponent;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -102,8 +103,8 @@ public class ListeFactureRenderer extends TableCellRendererDecorator {
                         int ajours = (foreignRow.getObject("AJOURS") == null) ? 0 : foreignRow.getInt("AJOURS");
                         int njour = (foreignRow.getObject("LENJOUR") == null) ? 0 : foreignRow.getInt("LENJOUR");
 
-                        if (ajours == 0 && njour == 0) {
-                            if (foreignRow.getObject("COMPTANT") != null && !foreignRow.getBoolean("COMPTANT")) {
+                        if (ajours == 0 && njour == ModeDeReglementSQLComponent.AT_INVOICE_DATE) {
+                            if (foreignRow.getBoolean("COMPTANT") == Boolean.FALSE) {
                                 label.setText("Date de facture");
                             } else {
                                 label.setText("Comptant");
@@ -113,14 +114,12 @@ public class ListeFactureRenderer extends TableCellRendererDecorator {
                             if (ajours != 0) {
                                 s.append(ajours + ((ajours > 1) ? " jours" : " jour"));
                             }
-                            if (njour > 0 && njour < 31) {
-                                s.append(" le " + njour);
+                            if (njour == ModeDeReglementSQLComponent.AT_INVOICE_DATE) {
+                                s.append(" date de facture");
+                            } else if (njour == ModeDeReglementSQLComponent.MONTH_END) {
+                                s.append(" fin de mois");
                             } else {
-                                if (njour == 0) {
-                                    s.append(" date de facture");
-                                } else {
-                                    s.append(" fin de mois");
-                                }
+                                s.append(" le " + njour);
                             }
                             label.setText(s.toString());
                         }

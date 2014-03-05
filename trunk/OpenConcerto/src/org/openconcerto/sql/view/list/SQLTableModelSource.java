@@ -115,10 +115,10 @@ public abstract class SQLTableModelSource {
 
             @Override
             public Set<FieldPath> getPaths() {
-                return FieldPath.create(new Path(getPrimaryTable()), getPrimaryTable().getFieldsName());
+                return FieldPath.create(Path.get(getPrimaryTable()), getPrimaryTable().getFieldsName());
             }
         });
-        this.allCols.add(new SQLTableModelColumnPath(new Path(getPrimaryTable()), getPrimaryTable().getKey().getName(), "PrimaryKey"));
+        this.allCols.add(new SQLTableModelColumnPath(Path.get(getPrimaryTable()), getPrimaryTable().getKey().getName(), "PrimaryKey"));
 
         // at the end so that fireColsChanged() can use it
         this.inited = null;
@@ -220,6 +220,13 @@ public abstract class SQLTableModelSource {
         return Collections.unmodifiableList(this.allCols);
     }
 
+    public final void addDebugColumn(final SQLTableModelColumn col) {
+        this.init();
+        this.allCols.add(col);
+        colsChanged(new ListChangeIndex.Add<SQLTableModelColumn>(this.allCols.size() - 1, Collections.singleton(col)));
+        this.fireColsChanged();
+    }
+
     public final SQLTableModelColumn getColumn(int index) {
         return this.getAllColumns().get(index);
     }
@@ -254,6 +261,26 @@ public abstract class SQLTableModelSource {
                     res = col;
                 else
                     throw new IllegalArgumentException("Not exactly one column for " + f);
+            }
+        return res;
+    }
+
+    /**
+     * The column depending solely on the passed path.
+     * 
+     * @param fp the field path.
+     * @return the column needing only <code>fp</code>.
+     * @throws IllegalArgumentException if more than one column matches.
+     */
+    public final SQLTableModelColumn getColumn(FieldPath fp) {
+        final Set<FieldPath> singleton = Collections.singleton(fp);
+        SQLTableModelColumn res = null;
+        for (final SQLTableModelColumn col : this.getColumns())
+            if (col.getPaths().equals(singleton)) {
+                if (res == null)
+                    res = col;
+                else
+                    throw new IllegalArgumentException("Not exactly one column for " + fp);
             }
         return res;
     }

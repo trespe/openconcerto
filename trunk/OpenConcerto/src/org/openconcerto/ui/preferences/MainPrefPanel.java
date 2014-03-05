@@ -165,7 +165,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
         c.weightx = 0;
         c.gridx += 2;
         c.gridwidth = 1;
-        this.buttonLeft = new JButton(new ImageIcon(this.getClass().getResource("fleche_g.png")));
+        this.buttonLeft = new JButton(new ImageIcon(MainPrefPanel.class.getResource("fleche_g.png")));
         this.buttonLeft.setBorderPainted(false);
         this.buttonLeft.setFocusPainted(false);
         this.buttonLeft.setContentAreaFilled(false);
@@ -174,7 +174,7 @@ public class MainPrefPanel extends JPanel implements TreeSelectionListener, Acti
         this.buttonLeft.setEnabled(false);
         p.add(this.buttonLeft, c);
         c.gridx++;
-        this.buttonRight = new JButton(new ImageIcon(this.getClass().getResource("fleche_d.png")));
+        this.buttonRight = new JButton(new ImageIcon(MainPrefPanel.class.getResource("fleche_d.png")));
         this.buttonRight.setBorderPainted(false);
         this.buttonRight.setFocusPainted(false);
         this.buttonRight.setContentAreaFilled(false);

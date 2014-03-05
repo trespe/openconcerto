@@ -25,6 +25,7 @@ import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
+import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
@@ -55,12 +56,14 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.Set;
 import java.util.Vector;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
@@ -126,6 +129,17 @@ public class ListeHistoriquePanel extends JPanel {
 
                 Where w = null;
                 final SQLTable table = liste.getElement().getTable();
+                for (String key : ListeHistoriquePanel.this.whereList.keySet()) {
+                    Where wTmp = ListeHistoriquePanel.this.whereList.get(key);
+
+                    if (liste.getListe().getRequest().getAllFields().containsAll(wTmp.getFields())) {
+                        if (w == null) {
+                            w = wTmp;
+                        } else {
+                            w = w.and(wTmp);
+                        }
+                    }
+                }
 
                 if (id > 1) {
                     if (ListeHistoriquePanel.this.listFieldMap != null && ListeHistoriquePanel.this.listFieldMap.get(table) != null) {
@@ -237,7 +251,7 @@ public class ListeHistoriquePanel extends JPanel {
                         protected void handleAction(JButton source, ActionEvent evt) {
 
                             if (elt.getTable().contains("ID_MOUVEMENT")) {
-                                SQLRow row = getListe().getSelectedRow();
+                                SQLRow row = getListe().fetchSelectedRow();
                                 if (source == this.buttonModifier) {
                                     MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
                                 } else {
@@ -354,11 +368,10 @@ public class ListeHistoriquePanel extends JPanel {
             }
         });
 
-        this.jListePanel.addListSelectionListener(this.listListener);
         this.addAncestorListener(new AncestorListener() {
             @Override
             public void ancestorAdded(AncestorEvent event) {
-
+                jListePanel.addListSelectionListener(listListener);
             }
 
             @Override
@@ -371,6 +384,7 @@ public class ListeHistoriquePanel extends JPanel {
                 jListePanel.removeListSelectionListener(listListener);
             }
         });
+
     }
 
     public void selectIDinJList(int id) {
@@ -389,7 +403,6 @@ public class ListeHistoriquePanel extends JPanel {
                 rend = new DeviseNiceTableCellRenderer();
         }
         for (int j = 0; j < table.getColumnCount(); j++) {
-
             if (rend instanceof EtatDevisRenderer) {
                 table.getColumnModel().getColumn(j).setCellRenderer(rend);
             } else {
@@ -440,7 +453,6 @@ public class ListeHistoriquePanel extends JPanel {
         if (liste != null) {
             int size = liste.getRowCount();
             listeIds = new ArrayList<Integer>(size);
-
             for (int i = 0; i < size; i++) {
                 listeIds.add(liste.idFromIndex(i));
             }
@@ -507,7 +519,8 @@ public class ListeHistoriquePanel extends JPanel {
 
     public IListPanel getIListePanelFromTableName(String tableName) {
         IListPanel liste = null;
-        for (int i = 0; i < this.vectListePanel.size(); i++) {
+        final int size = this.vectListePanel.size();
+        for (int i = 0; i < size; i++) {
             IListPanel listeTmp = this.vectListePanel.get(i);
             // FIXME Null pointer Exception when client deleted
             if (listeTmp != null) {
@@ -532,10 +545,11 @@ public class ListeHistoriquePanel extends JPanel {
      * @return -1 si la table n'est pas dans le vecteur
      */
     private int getIndexFromTableName(String tableName) {
-
-        for (int i = 0; i < this.vectListePanel.size(); i++) {
-            IListPanel listeTmp = this.vectListePanel.get(i);
-            if (listeTmp.getListe().getModel().getTable().getName().equalsIgnoreCase(tableName)) {
+        final int size = this.vectListePanel.size();
+        for (int i = 0; i < size; i++) {
+            final IListPanel listeTmp = this.vectListePanel.get(i);
+            final String name = listeTmp.getListe().getModel().getTable().getName();
+            if (name.equalsIgnoreCase(tableName)) {
                 return i;
             }
         }
@@ -547,7 +561,6 @@ public class ListeHistoriquePanel extends JPanel {
     }
 
     public void fireListesChanged() {
-        System.err.println("ListeHistoriquePanel.fireListesChanged()");
         final int size = this.vectListePanel.size();
         for (int i = 0; i < size; i++) {
             final IListPanel listeTmp = this.vectListePanel.get(i);
@@ -558,27 +571,4 @@ public class ListeHistoriquePanel extends JPanel {
 
     }
 
-    // TODO Gestion de weakListener pour eviter de devoir supprimer les listeners pour le garbage
-
-    // public void addWeakListenerTable(TableModelListener listener, String tableName) {
-    // addListenerTable(new WeakListener(listener), tableName);
-    // }
-    //
-    // private final class WeakListener extends WeakReference<TableModelListener> implements
-    // TableModelListener {
-    // private WeakListener(TableModelListener referent) {
-    // super(referent);
-    // }
-    //
-    // @Override
-    // public void tableChanged(TableModelEvent e) {
-    //
-    // final TableModelListener l = this.get();
-    // if (l != null)
-    // l.tableChanged(e);
-    // // else
-    // //
-    // // this.rmListener_(this);
-    // }
-    // }
 }

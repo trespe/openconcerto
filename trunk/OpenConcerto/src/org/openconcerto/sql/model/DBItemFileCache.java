@@ -19,6 +19,8 @@ import org.openconcerto.utils.FileUtils;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -67,17 +69,24 @@ public final class DBItemFileCache {
         if (root == null)
             throw new NullPointerException("null parent");
         this.root = root;
-        if (f.exists() && !f.isDirectory())
-            throw new IllegalArgumentException("f is not a directory: " + f);
         this.f = f;
-        // pgsql_127.0.0.1/n_"Controle"/ is Base, mysql_127.0.0.1/n_"Ideation_2007"/n_ is Schema
-        final File rel;
-        try {
-            rel = new File(FileUtils.relative(root.getSystemDir(), f));
-        } catch (IOException e) {
-            throw new IllegalStateException("could not rel " + f + " to " + root, e);
-        }
-        final List<File> ancs = FileUtils.getAncestors(rel);
+        // TODO limit to read permission
+        final List<File> ancs = AccessController.doPrivileged(new PrivilegedAction<List<File>>() {
+            @Override
+            public List<File> run() {
+                if (f.exists() && !f.isDirectory())
+                    throw new IllegalArgumentException("f is not a directory: " + f);
+                // pgsql_127.0.0.1/n_"Controle"/ is Base, mysql_127.0.0.1/n_"Ideation_2007"/n_ is
+                // Schema
+                final File rel;
+                try {
+                    rel = new File(FileUtils.relative(root.getSystemDir(), f));
+                } catch (IOException e) {
+                    throw new IllegalStateException("could not rel " + f + " to " + root, e);
+                }
+                return FileUtils.getAncestors(rel);
+            }
+        });
         if (ancs.get(0).getName().equals(".."))
             throw new IllegalArgumentException(f + " is not beneath " + root);
         if (ancs.get(0).getName().equals("."))
@@ -210,7 +219,13 @@ public final class DBItemFileCache {
                 }
             };
         }
-        return FileUtils.list(this.getValidDir(), diff, fileFilter);
+        // TODO limit to read permission
+        return AccessController.doPrivileged(new PrivilegedAction<List<File>>() {
+            @Override
+            public List<File> run() {
+                return FileUtils.list(getValidDir(), diff, fileFilter);
+            }
+        });
     }
 
     private int getDiff(HierarchyLevel l) {

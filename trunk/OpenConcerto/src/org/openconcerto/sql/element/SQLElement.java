@@ -33,6 +33,7 @@ import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.request.SQLCache;
+import org.openconcerto.sql.request.SQLFieldTranslator;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.utils.SQLUtils;
@@ -134,8 +135,10 @@ public abstract class SQLElement {
      */
     static final public String DEFERRED_CODE = new String("deferred code");
 
+    @GuardedBy("this")
     private SQLElementDirectory directory;
     private String l18nPkgName;
+    private Class<?> l18nClass;
     private Phrase name;
     private final SQLTable primaryTable;
     // used as a key in SQLElementDirectory so it should be immutable
@@ -182,7 +185,7 @@ public abstract class SQLElement {
             throw new DBStructureItemNotFound("table is null for " + this.getClass());
         }
         this.primaryTable = primaryTable;
-        this.l18nPkgName = null;
+        this.setL18nPackageName(null);
         this.setDefaultName(name);
         this.code = code == null ? createCode() : code;
         this.combo = null;
@@ -364,7 +367,7 @@ public abstract class SQLElement {
 
     final void setDirectory(final SQLElementDirectory directory) {
         // since this method should only be called at the end of SQLElementDirectory.addSQLElement()
-        assert directory.getElement(this.getTable()) == this;
+        assert directory == null || directory.getElement(this.getTable()) == this;
         synchronized (this) {
             if (this.directory != directory) {
                 if (this.areRelationshipsInited())
@@ -374,7 +377,7 @@ public abstract class SQLElement {
         }
     }
 
-    protected final SQLElementDirectory getDirectory() {
+    public synchronized final SQLElementDirectory getDirectory() {
         return this.directory;
     }
 
@@ -407,12 +410,29 @@ public abstract class SQLElement {
         return this.l18nPkgName;
     }
 
-    public final void setL18nPackageName(Class<?> clazz) {
-        this.setL18nPackageName(clazz.getPackage().getName());
+    public final synchronized Class<?> getL18nClass() {
+        return this.l18nClass;
     }
 
-    public final synchronized void setL18nPackageName(String name) {
+    public final void setL18nLocation(Class<?> clazz) {
+        this.setL18nLocation(clazz.getPackage().getName(), clazz);
+    }
+
+    public final void setL18nPackageName(String name) {
+        this.setL18nLocation(name, null);
+    }
+
+    /**
+     * Set the location for the localized name.
+     * 
+     * @param name a package name, can be <code>null</code> :
+     *        {@link SQLElementDirectory#getL18nPackageName()} will be used.
+     * @param ctxt the class loader to load the resource, <code>null</code> meaning this class.
+     * @see SQLElementDirectory#getName(SQLElement)
+     */
+    public final synchronized void setL18nLocation(final String name, final Class<?> ctxt) {
         this.l18nPkgName = name;
+        this.l18nClass = ctxt == null ? this.getClass() : ctxt;
     }
 
     /**
@@ -734,6 +754,16 @@ public abstract class SQLElement {
         return this.primaryTable;
     }
 
+    /**
+     * A code identifying a specific meaning for the table and fields. I.e. it is used by
+     * {@link #getName() names} and {@link SQLFieldTranslator item metadata}. E.g. if two
+     * applications use the same table for different purposes (at different times, of course), their
+     * elements should not share a code. On the contrary, if one application merely adds a field to
+     * an existing table, the new element should keep the same code so that existing name and
+     * documentation remain.
+     * 
+     * @return a code for the table and its meaning.
+     */
     public synchronized final String getCode() {
         if (this.code == DEFERRED_CODE) {
             final String createCode = this.createCode();
@@ -1579,7 +1609,7 @@ public abstract class SQLElement {
     }
 
     @Override
-    public int hashCode() {
+    public synchronized int hashCode() {
         final int prime = 31;
         int result = 1;
         result = prime * result + this.primaryTable.hashCode();
@@ -1669,6 +1699,13 @@ public abstract class SQLElement {
             this.mdPath = Collections.unmodifiableList(newL);
     }
 
+    /**
+     * The variants searched to find item metadata by
+     * {@link SQLFieldTranslator#getDescFor(SQLTable, String, String)}. This allow to configure this
+     * element to choose between the simultaneously loaded metadata.
+     * 
+     * @return the variants path.
+     */
     public synchronized final List<String> getMDPath() {
         return this.mdPath;
     }

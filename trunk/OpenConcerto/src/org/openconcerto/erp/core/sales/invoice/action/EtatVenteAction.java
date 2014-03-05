@@ -28,7 +28,10 @@ public class EtatVenteAction extends CreateFrameAbstractAction {
     }
 
     public JFrame createFrame() {
-        return new PanelFrame(new EtatVentesPanel(), "Etat des ventes");
+        final PanelFrame panelFrame = new PanelFrame(new EtatVentesPanel(), "Etat des ventes");
+        panelFrame.pack();
+        panelFrame.setResizable(false);
+        return panelFrame;
 
     }
 }

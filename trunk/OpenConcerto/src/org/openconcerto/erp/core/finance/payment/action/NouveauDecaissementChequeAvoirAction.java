@@ -14,9 +14,10 @@
  package org.openconcerto.erp.core.finance.payment.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.finance.payment.ui.GestionChequeFrame;
+import org.openconcerto.erp.core.finance.payment.element.ChequeAvoirClientSQLElement;
 import org.openconcerto.erp.core.finance.payment.ui.ListeDesChequesAvoirADecaisserPanel;
-import org.openconcerto.erp.model.LoadingTableListener;
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.view.IListFrame;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -30,16 +31,7 @@ public class NouveauDecaissementChequeAvoirAction extends CreateFrameAbstractAct
 
     @Override
     public JFrame createFrame() {
-        final ListeDesChequesAvoirADecaisserPanel p = new ListeDesChequesAvoirADecaisserPanel();
-        final GestionChequeFrame gestionChequeFrame = new GestionChequeFrame(p, p.getModel(), "Chèques d'avoir à décaisser");
-        p.getModel().addLoadingListener(new LoadingTableListener() {
-
-            @Override
-            public void isLoading(boolean b) {
-                gestionChequeFrame.setIsLoading(b);
-            }
-        });
-        p.getModel().loadCheque();
-        return gestionChequeFrame;
+        ListeDesChequesAvoirADecaisserPanel panel = new ListeDesChequesAvoirADecaisserPanel(Configuration.getInstance().getDirectory().getElement(ChequeAvoirClientSQLElement.class));
+        return new IListFrame(panel);
     }
 }

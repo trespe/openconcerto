@@ -89,7 +89,7 @@ public class SQLRowMode {
         return this.check(r) ? r : null;
     }
 
-    public void filter(Collection rows) {
+    public void filter(Collection<SQLRow> rows) {
         CollectionUtils.filter(rows, new Predicate() {
             public boolean evaluate(Object object) {
                 return check((SQLRow) object);

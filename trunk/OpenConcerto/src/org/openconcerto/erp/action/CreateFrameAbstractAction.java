@@ -50,7 +50,7 @@ public abstract class CreateFrameAbstractAction extends AbstractAction {
         } else {
             System.err.println("Warning: no action name for action " + this + ", unable to use a window state manager.");
         }
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+
         frame.pack();
 
         Dimension d = Toolkit.getDefaultToolkit().getScreenSize();
@@ -61,6 +61,8 @@ public abstract class CreateFrameAbstractAction extends AbstractAction {
         if (mustLoadState && stateManager != null) {
             stateManager.loadState();
         }
+
+        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         FrameUtil.show(frame);
 
     }

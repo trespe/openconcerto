@@ -13,11 +13,15 @@
  
  package org.openconcerto.sql.element;
 
+import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.graph.SQLKey;
 import org.openconcerto.sql.request.SQLRowItemView;
+import org.openconcerto.sql.users.UserManager;
+import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.utils.cc.ConstantFactory;
 import org.openconcerto.utils.cc.IFactory;
 import org.openconcerto.utils.checks.ValidObject;
@@ -35,6 +39,33 @@ import javax.swing.JPanel;
 public abstract class SQLComponent extends JPanel implements ValidObject {
 
     private static final String NONINITED_CODE = new String("default " + SQLComponent.class.getName() + " code");
+
+    public static final String READ_ONLY_FIELD = "UI_LOCK";
+    public static final String READ_ONLY_VALUE = "ro";
+    public static final String READ_WRITE_VALUE = "";
+    public static final String READ_ONLY_USER_FIELD = SQLKey.PREFIX + "USER_UI_LOCK";
+    public static final String READ_ONLY_PROP = "readOnlySelection";
+
+    static public final AlterTable addLockFields(final SQLTable t) {
+        final AlterTable res = new AlterTable(t);
+        if (!t.contains(READ_ONLY_FIELD)) {
+            // writable by default
+            res.addColumn(READ_ONLY_FIELD, "varchar(16) default " + t.getBase().quoteString(READ_WRITE_VALUE) + " NOT NULL");
+            res.addForeignColumn(READ_ONLY_USER_FIELD, UserManager.getInstance().getTable());
+        }
+        return res;
+    }
+
+    static public final boolean isReadOnly(SQLRowAccessor r) {
+        final SQLRowAccessor roRow;
+        if (!r.getFields().contains(READ_ONLY_FIELD)) {
+            Log.get().warning(READ_ONLY_FIELD + " not provided : " + r);
+            roRow = r.getTable().getRow(r.getID());
+        } else {
+            roRow = r;
+        }
+        return READ_ONLY_VALUE.equals(roRow.getString(READ_ONLY_FIELD));
+    }
 
     public static enum Mode {
         INSERTION, MODIFICATION
@@ -139,6 +170,8 @@ public abstract class SQLComponent extends JPanel implements ValidObject {
     public abstract void detach();
 
     public abstract int getSelectedID();
+
+    public abstract boolean isSelectionReadOnly();
 
     public abstract void update();
 

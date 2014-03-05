@@ -18,6 +18,7 @@ import org.openconcerto.utils.Log;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,8 +60,13 @@ public class FieldMapper {
         if (fieldName == null) {
             return null;
         }
-        final SQLField field = this.root.getField(fieldName);
-        return field;
+        try {
+            final SQLField field = this.root.getField(fieldName);
+            return field;
+        } catch (Exception e) {
+            Log.get().warning("No field found " + fieldName + " (" + e.getMessage() + ")");
+        }
+        return null;
     }
 
     public SQLTable getSQLTableForItem(String id) {
@@ -151,4 +157,17 @@ public class FieldMapper {
         }
     }
 
+    public String getItemMapping() {
+        List<String> l = new ArrayList<String>();
+        l.addAll(this.itemMapping.keySet());
+        Collections.sort(l);
+        StringBuilder b = new StringBuilder(l.size() * 50);
+        for (String string : l) {
+            b.append(string);
+            b.append(" : ");
+            b.append(this.itemMapping.get(string));
+            b.append('\n');
+        }
+        return b.toString();
+    }
 }

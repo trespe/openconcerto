@@ -37,6 +37,7 @@ import org.openconcerto.erp.core.finance.accounting.action.GenerePointageAction;
 import org.openconcerto.erp.core.finance.accounting.action.GestionPlanComptableEAction;
 import org.openconcerto.erp.core.finance.accounting.action.ImpressionLivrePayeAction;
 import org.openconcerto.erp.core.finance.accounting.action.ListeDesEcrituresAction;
+import org.openconcerto.erp.core.finance.accounting.action.ListeDesJournauxAction;
 import org.openconcerto.erp.core.finance.accounting.action.ListeEcritureParClasseAction;
 import org.openconcerto.erp.core.finance.accounting.action.NouveauClotureAction;
 import org.openconcerto.erp.core.finance.accounting.action.NouveauJournalAction;
@@ -86,7 +87,6 @@ import org.openconcerto.erp.core.sales.invoice.action.NouveauSaisieVenteFactureA
 import org.openconcerto.erp.core.sales.order.action.ListeDesCommandesClientAction;
 import org.openconcerto.erp.core.sales.order.action.NouvelleCommandeClientAction;
 import org.openconcerto.erp.core.sales.pos.action.ListeDesCaissesTicketAction;
-import org.openconcerto.erp.core.sales.pos.action.ListeDesTicketsAction;
 import org.openconcerto.erp.core.sales.product.action.FamilleArticleAction;
 import org.openconcerto.erp.core.sales.product.action.ListeDesArticlesAction;
 import org.openconcerto.erp.core.sales.quote.action.ListeDesDevisAction;
@@ -98,9 +98,11 @@ import org.openconcerto.erp.core.sales.shipment.action.NouveauBonLivraisonAction
 import org.openconcerto.erp.core.supplychain.credit.action.ListeDesAvoirsFournisseurAction;
 import org.openconcerto.erp.core.supplychain.credit.action.NouvelAvoirFournisseurAction;
 import org.openconcerto.erp.core.supplychain.order.action.ListeDesCommandesAction;
+import org.openconcerto.erp.core.supplychain.order.action.ListeDesFacturesFournisseurAction;
 import org.openconcerto.erp.core.supplychain.order.action.ListeSaisieAchatAction;
 import org.openconcerto.erp.core.supplychain.order.action.NouveauSaisieAchatAction;
 import org.openconcerto.erp.core.supplychain.order.action.NouvelleCommandeAction;
+import org.openconcerto.erp.core.supplychain.order.action.NouvelleFactureFournisseurAction;
 import org.openconcerto.erp.core.supplychain.receipt.action.ListeDesBonsReceptionsAction;
 import org.openconcerto.erp.core.supplychain.receipt.action.NouveauBonReceptionAction;
 import org.openconcerto.erp.core.supplychain.stock.action.ListeDesMouvementsStockAction;
@@ -113,16 +115,22 @@ import org.openconcerto.erp.modules.ModuleFrame;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.erp.rights.NXRights;
+import org.openconcerto.erp.utils.correct.CorrectMouvement;
+import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.users.rights.LockAdminUserRight;
 import org.openconcerto.sql.users.rights.UserRights;
+import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.group.Group;
 import org.openconcerto.ui.group.LayoutHints;
 
-import java.awt.Dimension;
+import java.awt.Component;
 import java.awt.event.ActionEvent;
+import java.util.List;
 
 import javax.swing.AbstractAction;
+import javax.swing.JOptionPane;
 
 public class DefaultMenuConfiguration implements MenuConfiguration {
     public void registerMenuTranslations() {
@@ -226,6 +234,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
                 supplierGroup.addItem("supplier.order.create");
                 supplierGroup.addItem("supplier.receipt.create");
                 supplierGroup.addItem("supplier.purchase.create");
+                supplierGroup.addItem("supplier.invoice.purchase.create");
                 supplierGroup.addItem("supplier.credit.create");
                 group.addItem("stock.io.create");
             }
@@ -249,6 +258,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
             final Group gAccounting = new Group("menu.organization.accounting", LayoutHints.DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS);
             gAccounting.addItem("accounting.chart");
             gAccounting.addItem("accounting.journal");
+            gAccounting.addItem("accounting.checkDB");
             group.add(gAccounting);
         }
 
@@ -339,7 +349,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
 
     private Group createStatsDocumentsGroup() {
         final Group group = new Group(MainFrame.DECLARATION_MENU);
-        group.addItem("accounting.vat.report");
+        // group.addItem("accounting.vat.report");
         group.addItem("accounting.costs.report");
         group.addItem("accounting.balance.report");
         group.addItem("employe.social.report");
@@ -403,6 +413,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
                     gSupplier.addItem("supplier.order.list");
                 gSupplier.addItem("supplier.receipt.list");
                 gSupplier.addItem("supplier.purchase.list");
+                gSupplier.addItem("supplier.invoice.purchase.list");
                     gSupplier.addItem("supplier.credit.list");
             }
             group.add(gSupplier);
@@ -412,9 +423,6 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
             gProduct.addItem("stock.io.list");
             group.add(gProduct);
 
-            final Group gPos = new Group("menu.list.pos", LayoutHints.DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS);
-            gPos.addItem("pos.receipt.list");
-            group.add(gPos);
         return group;
     }
 
@@ -432,10 +440,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
         mManager.registerAction("modules", new AbstractAction() {
             @Override
             public void actionPerformed(ActionEvent e) {
-                final ModuleFrame frame = new ModuleFrame();
-                frame.setMinimumSize(new Dimension(480, 640));
-                frame.setLocationRelativeTo(null);
-                frame.setVisible(true);
+                FrameUtil.show(ModuleFrame.getInstance());
             }
         });
         if (!Gestion.MAC_OS_X) {
@@ -475,6 +480,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
             mManager.registerAction("supplier.order.create", new NouvelleCommandeAction());
             mManager.registerAction("supplier.receipt.create", new NouveauBonReceptionAction());
             mManager.registerAction("supplier.purchase.create", new NouveauSaisieAchatAction());
+            mManager.registerAction("supplier.invoice.purchase.create", new NouvelleFactureFournisseurAction());
             mManager.registerAction("supplier.credit.create", new NouvelAvoirFournisseurAction());
             mManager.registerAction("stock.io.create", new NouvelleSaisieMouvementStockAction());
         }
@@ -518,13 +524,13 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
                     mManager.registerAction("supplier.order.list", new ListeDesCommandesAction());
                 mManager.registerAction("supplier.receipt.list", new ListeDesBonsReceptionsAction());
                 mManager.registerAction("supplier.purchase.list", new ListeSaisieAchatAction());
+                mManager.registerAction("supplier.invoice.purchase.list", new ListeDesFacturesFournisseurAction());
                     mManager.registerAction("supplier.credit.list", new ListeDesAvoirsFournisseurAction());
             }
 
             mManager.registerAction("product.list", new ListeDesArticlesAction());
             mManager.registerAction("stock.io.list", new ListeDesMouvementsStockAction());
 
-            mManager.registerAction("pos.receipt.list", new ListeDesTicketsAction());
 
     }
 
@@ -540,7 +546,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
     }
 
     private void registerStatsDocumentsActions(final MenuAndActions mManager) {
-        mManager.registerAction("accounting.vat.report", new DeclarationTVAAction());
+        // mManager.registerAction("accounting.vat.report", new DeclarationTVAAction());
         mManager.registerAction("accounting.costs.report", new EtatChargeAction());
         mManager.registerAction("accounting.balance.report", new CompteResultatBilanAction());
         mManager.registerAction("employe.social.report", new N4DSAction());
@@ -605,7 +611,17 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
         if (rights.haveRight(ComptaUserRight.MENU)) {
             mManager.registerAction("accounting.chart", new GestionPlanComptableEAction());
-            mManager.registerAction("accounting.journal", new NouveauJournalAction());
+            mManager.registerAction("accounting.journal", new ListeDesJournauxAction());
+            mManager.putAction(new AbstractAction("Check DB") {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    final DBRoot rootSociete = ComptaPropsConfiguration.getInstanceCompta().getRootSociete();
+                    final SQLSelect sel = CorrectMouvement.createUnbalancedSelect(rootSociete);
+                    final List<?> ids = rootSociete.getDBSystemRoot().getDataSource().executeCol(sel.asString());
+                    JOptionPane.showMessageDialog((Component) e.getSource(), "Il y a " + ids.size() + " mouvement(s) non équilibré(s).", "Résultat", ids.size() == 0 ? JOptionPane.INFORMATION_MESSAGE
+                            : JOptionPane.WARNING_MESSAGE);
+                }
+            }, "accounting.checkDB");
         }
 
         if (rights.haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {

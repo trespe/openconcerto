@@ -100,6 +100,11 @@ public class ListeModifyPanel extends IListPanel implements ValidListener {
     }
 
     @Override
+    protected boolean modifyIsImmediate() {
+        return true;
+    }
+
+    @Override
     protected void listSelectionChanged(int id) {
         super.listSelectionChanged(id);
         // keep the current scrolling value, to restore it afterwards

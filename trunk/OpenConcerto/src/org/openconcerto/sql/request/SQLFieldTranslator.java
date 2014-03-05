@@ -33,6 +33,7 @@ import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.StringUtils;
+import org.openconcerto.utils.Tuple2;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -65,9 +66,18 @@ import org.jdom.input.SAXBuilder;
 public class SQLFieldTranslator {
 
     // OK since RowItemDesc is immutable
+    /**
+     * Instance representing "no description".
+     */
     public static final RowItemDesc NULL_DESC = new RowItemDesc(null, null);
 
     private static final String METADATA_TABLENAME = SQLSchema.FWK_TABLENAME_PREFIX + "RIV_METADATA";
+
+    /**
+     * Use the code and not the table name, since the same table might be used differently at
+     * different times (e.g. dropped then recreated some time later with a different purpose). Or
+     * conversely, a table might get renamed.
+     */
     private static final String ELEM_FIELDNAME = "ELEMENT_CODE";
     private static final String COMP_FIELDNAME = "COMPONENT_CODE";
     private static final String ITEM_FIELDNAME = "ITEM";
@@ -207,41 +217,63 @@ public class SQLFieldTranslator {
         this.load(b, CORE_VARIANT, inputStream);
     }
 
-    public Set<SQLTable> load(DBRoot b, final String variant, InputStream inputStream) {
+    /**
+     * Load translations from the passed stream.
+     * 
+     * @param b the default root for tables.
+     * @param variant the variant to use.
+     * @param inputStream the XML.
+     * @return the loaded tables and the names not found (and thus not loaded).
+     */
+    public Tuple2<Set<SQLTable>, Set<String>> load(DBRoot b, final String variant, InputStream inputStream) {
         if (inputStream == null)
             throw new NullPointerException("inputStream is null");
         final Set<SQLTable> res = new HashSet<SQLTable>();
+        final Set<String> notFound = new HashSet<String>();
         try {
             final Document doc = new SAXBuilder().build(inputStream);
             // System.out.println("Base de donnée:"+base);
             for (final Element elem : getChildren(doc.getRootElement())) {
                 final String elemName = elem.getName().toLowerCase();
+                final DBRoot root;
+                final List<Element> tableElems;
                 if (elemName.equals("table")) {
-                    res.add(load(b, variant, elem));
+                    root = b;
+                    tableElems = Collections.singletonList(elem);
                 } else if (elemName.equals("root")) {
-                    final DBRoot root = b.getDBSystemRoot().getRoot(elem.getAttributeValue("name"));
-                    for (final Element tableElem : getChildren(elem)) {
-                        res.add(load(root, variant, tableElem));
+                    root = b.getDBSystemRoot().getRoot(elem.getAttributeValue("name"));
+                    tableElems = getChildren(elem);
+                } else {
+                    root = null;
+                    tableElems = null;
+                }
+                if (tableElems != null) {
+                    for (final Element tableElem : tableElems) {
+                        final Tuple2<String, SQLTable> t = load(root, variant, tableElem, true);
+                        if (t.get1() == null) {
+                            notFound.add(t.get0());
+                        } else {
+                            res.add(t.get1());
+                        }
                     }
                 }
             }
+            // load() returns null if no table is found
+            assert !res.contains(null);
         } catch (JDOMException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        return res;
+        return Tuple2.create(res, notFound);
     }
 
-    private SQLTable load(DBRoot b, final String variant, final Element tableElem) {
+    private Tuple2<String, SQLTable> load(DBRoot b, final String variant, final Element tableElem, final boolean lenient) {
         final String tableName = tableElem.getAttributeValue("name");
         SQLTable table = b.getTable(tableName);
         if (table == null && this.dir != null && this.dir.getElement(tableName) != null)
             table = this.dir.getElement(tableName).getTable();
-        if (table == null) {
-            // allow to supply the union all tables and ignore those that aren't in a given base
-            Log.get().config("Ignore loading of inexistent table " + tableName);
-        } else {
+        if (table != null) {
             for (final Element elem : getChildren(tableElem)) {
                 final String elemName = elem.getName().toLowerCase();
                 if (elemName.equals("field")) {
@@ -253,8 +285,13 @@ public class SQLFieldTranslator {
                     }
                 }
             }
+        } else if (lenient) {
+            // allow to supply the union all tables and ignore those that aren't in a given base
+            Log.get().config("Ignore loading of inexistent table " + tableName);
+        } else {
+            throw new IllegalStateException("Table not found : " + tableName);
         }
-        return table;
+        return Tuple2.create(tableName, table);
     }
 
     private void load(final SQLTable table, final String compCode, final String variant, final Element fieldElem) {
@@ -377,6 +414,17 @@ public class SQLFieldTranslator {
         return getDescFor(t, SQLElement.DEFAULT_COMP_ID, name);
     }
 
+    /**
+     * Find the description for the passed item. This method will search for an SQLElement for
+     * <code>t</code> to get its {@link SQLElement#getMDPath() variants path}.
+     * 
+     * @param t the table.
+     * @param compCode the component code.
+     * @param name the item name.
+     * @return the first description that matches the parameters, never <code>null</code> but
+     *         {@link #NULL_DESC}.
+     * @see #getDescFor(SQLTable, String, List, String)
+     */
     public RowItemDesc getDescFor(SQLTable t, String compCode, String name) {
         final SQLElement element = this.dir == null ? null : this.dir.getElement(t);
         final List<String> variants = element == null ? Collections.<String> emptyList() : element.getMDPath();
@@ -394,6 +442,20 @@ public class SQLFieldTranslator {
         return this.getDescFor(elem.getTable(), compCode, variants, name);
     }
 
+    /**
+     * Find the description for the passed item. This method will try {compCode, variant, item}
+     * first with the DB variant, then with each passed variant and last with the default variant,
+     * until one description is found. If none is found, it will retry with the code
+     * {@link SQLElement#DEFAULT_COMP_ID}. If none is found, it will retry all the above after
+     * having refreshed its cache from the DB.
+     * 
+     * @param t the table.
+     * @param compCodeArg the component code.
+     * @param variants the variants to search, not <code>null</code> but can be empty.
+     * @param name the item name.
+     * @return the first description that matches the parameters, never <code>null</code> but
+     *         {@link #NULL_DESC}.
+     */
     public RowItemDesc getDescFor(SQLTable t, String compCodeArg, List<String> variants, String name) {
         RowItemDesc labeledField = this.getTranslation(t, compCodeArg, variants, name);
         // if nothing found, re-fetch from the DB

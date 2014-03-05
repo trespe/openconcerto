@@ -32,7 +32,7 @@ public class PostgreSQLFrame extends JFrame {
         this.setBackground(Color.white);
         JPanel p = new JPanel(new BorderLayout());
         p.setBackground(Color.white);
-        p.add(new JImage(this.getClass().getResource("logo_postgresql.png")), BorderLayout.CENTER);
+        p.add(new JImage(PostgreSQLFrame.class.getResource("logo_postgresql.png")), BorderLayout.CENTER);
         p.add(new JLabel(title), BorderLayout.SOUTH);
         this.setContentPane(p);
         this.pack();

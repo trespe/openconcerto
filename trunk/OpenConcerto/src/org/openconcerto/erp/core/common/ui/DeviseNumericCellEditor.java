@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.common.ui;
 
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.utils.StringUtils;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -108,6 +109,7 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
         try {
             getCellEditorValue();
         } catch (Exception e) {
+            e.printStackTrace();
             this.textField.setBorder(new LineBorder(Color.RED));
             return false;
         }
@@ -126,15 +128,16 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
     }
 
     public Object getCellEditorValue() {
-        if (this.textField.getText().trim().length() > 0) {
-            return new BigDecimal(this.textField.getText());
+        final String text = StringUtils.removeNonDecimalChars(this.textField.getText());
+        if (text.length() > 0) {
+            return new BigDecimal(text);
         } else {
             return BigDecimal.ZERO;
         }
     }
 
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-        this.textField.setText((value == null ? "0" : ((BigDecimal) value).toString()));
+        this.textField.setText((value == null ? "0" : this.decimalFormat.format((BigDecimal) value)));
         this.textField.selectAll();
         this.textField.grabFocus();
         return this.textField;

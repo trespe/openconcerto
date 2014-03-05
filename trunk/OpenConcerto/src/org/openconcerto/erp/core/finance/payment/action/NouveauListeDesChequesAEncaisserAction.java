@@ -14,9 +14,10 @@
  package org.openconcerto.erp.core.finance.payment.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
-import org.openconcerto.erp.core.finance.payment.ui.GestionChequeFrame;
+import org.openconcerto.erp.core.finance.payment.element.ChequeAEncaisserSQLElement;
 import org.openconcerto.erp.core.finance.payment.ui.ListeDesChequesAEncaisserPanel;
-import org.openconcerto.erp.model.LoadingTableListener;
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.view.IListFrame;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -29,18 +30,8 @@ public class NouveauListeDesChequesAEncaisserAction extends CreateFrameAbstractA
     }
 
     public JFrame createFrame() {
-        ListeDesChequesAEncaisserPanel panel = new ListeDesChequesAEncaisserPanel();
-        final GestionChequeFrame gestionChequeFrame = new GestionChequeFrame(panel, panel.getModel(), "Liste des chéques à encaisser");
-
-        panel.getModel().addLoadingListener(new LoadingTableListener() {
-
-            @Override
-            public void isLoading(boolean b) {
-                gestionChequeFrame.setIsLoading(b);
-            }
-        });
-        panel.getModel().loadCheque();
-        return gestionChequeFrame;
+        ListeDesChequesAEncaisserPanel panel = new ListeDesChequesAEncaisserPanel(Configuration.getInstance().getDirectory().getElement(ChequeAEncaisserSQLElement.class));
+        return new IListFrame(panel);
     }
 
 }

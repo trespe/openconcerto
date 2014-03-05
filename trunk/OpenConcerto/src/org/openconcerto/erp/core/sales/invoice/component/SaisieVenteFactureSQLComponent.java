@@ -347,10 +347,12 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             c.gridx = 0;
             c.gridwidth = 1;
             c.weightx = 0;
+            c.fill = GridBagConstraints.HORIZONTAL;
             labelAdresse.setHorizontalAlignment(SwingConstants.RIGHT);
             this.add(labelAdresse, c);
 
             c.gridx++;
+            c.fill = GridBagConstraints.NONE;
             c.gridwidth = GridBagConstraints.REMAINDER;
             c.weightx = 1;
             this.add(this.comboAdresse, c);
@@ -447,10 +449,11 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             c.weightx = 0;
             c.weighty = 0;
             c.gridwidth = 1;
+            c.fill = GridBagConstraints.HORIZONTAL;
             this.add(new JLabel("Tarif à appliquer", SwingConstants.RIGHT), c);
             c.gridx++;
             c.gridwidth = GridBagConstraints.REMAINDER;
-
+            c.fill = GridBagConstraints.NONE;
             c.weightx = 1;
             this.add(boxTarif, c);
             this.addView(boxTarif, "ID_TARIF");
@@ -572,6 +575,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         addRequiredSQLObject(fieldService, "T_SERVICE");
         JTextField poids = new JTextField();
         addSQLObject(poids, "T_POIDS");
+
         totalTTC = new TotalPanel(this.tableFacture, fieldHT, fieldTVA, this.fieldTTC, this.textPortHT, this.textRemiseHT, fieldService, fieldTHA, fieldDevise, poids, null, (getTable().contains(
                 "ID_TAXE_PORT") ? boxTaxePort : null));
         DefaultGridBagConstraints.lockMinimumSize(totalTTC);
@@ -767,13 +771,13 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
                     SaisieVenteFactureSQLComponent.this.defaultContactRowValues.put("ID_CLIENT", row.getIDNumber());
                     if (SaisieVenteFactureSQLComponent.this.client.getTable().contains("ID_TARIF")) {
                         SQLRowAccessor foreignRow = row.getForeignRow("ID_TARIF");
-                        if (!foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
+                        if (foreignRow != null && !foreignRow.isUndefined() && (boxTarif.getSelectedRow() == null || boxTarif.getSelectedId() != foreignRow.getID())
                                 && JOptionPane.showConfirmDialog(null, "Appliquer les tarifs associés au client?") == JOptionPane.YES_OPTION) {
                             boxTarif.setValue(foreignRow.getID());
                             // SaisieVenteFactureSQLComponent.this.tableFacture.setTarif(foreignRow,
                             // true);
                         } else {
-                            boxTarif.setValue(foreignRow.getID());
+                            boxTarif.setValue(foreignRow);
                         }
 
                     }
@@ -879,22 +883,33 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         return commit(order);
     }
 
-    private void createCompteServiceAuto(int id) {
+    private void createCompteServiceAuto(int id) throws SQLException {
         SQLRow rowPole = this.comboCommercial.getSelectedRow();
         SQLRow rowVerif = this.comboVerificateur.getSelectedRow();
         String verifInitiale = getInitialesFromVerif(rowVerif);
         int idCpt = ComptePCESQLElement.getId("706" + rowPole.getString("CODE") + verifInitiale, "Service " + rowPole.getString("NOM") + " " + rowVerif.getString("NOM"));
         SQLRowValues rowVals = this.getTable().getRow(id).createEmptyUpdateRow();
         rowVals.put("ID_COMPTE_PCE_SERVICE", idCpt);
-        try {
-            rowVals.update();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+        rowVals.update();
     }
 
     @Override
     public void select(SQLRowAccessor r) {
+
+        boolean isPartial = false;
+        if (r != null && r.getBoolean("PARTIAL") != null) {
+            isPartial = r.getBoolean("PARTIAL").booleanValue();
+        }
+
+        boolean isSolde = false;
+        if (r != null && r.getBoolean("SOLDE") != null) {
+            isSolde = r.getBoolean("SOLDE").booleanValue();
+        }
+
+        if (r != null && !r.isUndefined() && (isPartial || isSolde)) {
+            throw new IllegalArgumentException("Impossible de modifier une facturation intermédiaire");
+        }
+
         if (compteSel != null) {
             this.compteSel.rmValueListener(this.changeCompteListener);
         }
@@ -903,7 +918,30 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
         this.rowSelected = r;
         if (r != null) {
             this.textNumeroUnique.setIdSelected(r.getID());
+            if (!r.isUndefined() && r.getObject("ID_MOUVEMENT") != null && !r.isForeignEmpty("ID_MOUVEMENT")) {
+                SQLSelect sel = new SQLSelect();
+                SQLTable tableEcr = getTable().getTable("ECRITURE");
+                SQLTable tableMvt = getTable().getTable("MOUVEMENT");
+                SQLTable tablePiece = getTable().getTable("PIECE");
+                sel.addSelect(tableEcr.getKey(), "COUNT");
+                int idPiece = r.getForeign("ID_MOUVEMENT").getInt("ID_PIECE");
+                Where w = new Where(tableMvt.getKey(), "=", tableEcr.getField("ID_MOUVEMENT"));
+                w = w.and(new Where(tablePiece.getKey(), "=", tableMvt.getField("ID_PIECE")));
+                w = w.and(new Where(tablePiece.getKey(), "=", idPiece));
+                w = w.and(new Where(tableEcr.getField("POINTEE"), "!=", "").or(new Where(tableEcr.getField("LETTRAGE"), "!=", "")));
+                sel.setWhere(w);
+                Object o = Configuration.getInstance().getRoot().getBase().getDataSource().executeScalar(sel.asString());
+                if (o != null && ((Number) o).longValue() > 0) {
+                    SwingUtilities.invokeLater(new Runnable() {
 
+                        @Override
+                        public void run() {
+                            JOptionPane.showMessageDialog(null, "Attention cette facture est pointée ou lettrée en comptabilité. \nToute modification écrasera ces informations comptables.");
+                        }
+                    });
+                }
+
+            }
         }
             super.select(r);
 
@@ -1013,9 +1051,7 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
 
                 int idMvt = -1;
                 if (getMode() == Mode.MODIFICATION) {
-
                     idMvt = rowFacture.getInt("ID_MOUVEMENT");
-
                     // on supprime tout ce qui est lié à la facture
                     System.err.println("Archivage des fils");
                     EcritureSQLElement eltEcr = (EcritureSQLElement) Configuration.getInstance().getDirectory().getElement("ECRITURE");
@@ -1377,10 +1413,8 @@ public class SaisieVenteFactureSQLComponent extends TransfertBaseSQLComponent {
             }
         }
         if (getTable().contains("ID_TAXE_PORT")) {
-            Integer idFromTaux = TaxeCache.getCache().getIdFromTaux(19.6F);
-            if (idFromTaux != null) {
-                vals.put("ID_TAXE_PORT", idFromTaux);
-            }
+            SQLRow taxeDefault = TaxeCache.getCache().getFirstTaxe();
+            vals.put("ID_TAXE_PORT", taxeDefault.getID());
         }
         vals.put("ID_COMPTE_PCE_SERVICE", idCompteVenteService);
         System.err.println("Defaults " + vals);

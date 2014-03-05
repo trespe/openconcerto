@@ -17,9 +17,11 @@ import static org.openconcerto.sql.view.list.ITableModel.SleepState.AWAKE;
 import static org.openconcerto.sql.view.list.ITableModel.SleepState.HIBERNATING;
 import static org.openconcerto.sql.view.list.ITableModel.SleepState.SLEEPING;
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLFieldsSet;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.users.rights.TableAllRights;
@@ -36,6 +38,7 @@ import java.beans.PropertyChangeSupport;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -44,6 +47,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 
 import javax.swing.SwingUtilities;
+import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.TableModel;
@@ -114,6 +118,7 @@ public class ITableModel extends AbstractTableModel {
     private boolean filledOnce;
 
     private final PropertyChangeSupport supp;
+    private List<TableModelListener> fullListeners;
 
     private final UpdateQueue updateQ;
     private boolean loading;
@@ -134,6 +139,7 @@ public class ITableModel extends AbstractTableModel {
 
     public ITableModel(SQLTableModelSource src) {
         this.supp = new PropertyChangeSupport(this);
+        this.fullListeners = new LinkedList<TableModelListener>();
 
         this.liste = new ArrayList<ListSQLLine>(100);
         this.updating = false;
@@ -309,9 +315,7 @@ public class ITableModel extends AbstractTableModel {
                 this.fireTableRowsUpdated(index, index);
             else
                 for (final Integer i : modifiedFields) {
-                    // only fire for currently displaying cells
-                    if (i < this.getColumnCount())
-                        this.fireTableCellUpdated(index, i);
+                    this.fireTableCellUpdated(index, i);
                 }
         }
 
@@ -329,6 +333,18 @@ public class ITableModel extends AbstractTableModel {
         }
 
         this.setUpdating(false);
+    }
+
+    @Override
+    public void fireTableChanged(TableModelEvent e) {
+        // only fire for currently displaying cells
+        if (e.getColumn() == TableModelEvent.ALL_COLUMNS || e.getColumn() < this.getColumnCount()) {
+            super.fireTableChanged(e);
+        } else {
+            for (final TableModelListener l : this.fullListeners) {
+                l.tableChanged(e);
+            }
+        }
     }
 
     // *** tableModel
@@ -381,16 +397,26 @@ public class ITableModel extends AbstractTableModel {
         return this.getReq().getColumn(columnIndex).getValueClass();
     }
 
-    public void setEditable(boolean b) {
+    public final void setEditable(boolean b) {
         this.editable = b;
     }
 
+    public final boolean isEditable() {
+        return this.editable;
+    }
+
+    @Override
     public boolean isCellEditable(int rowIndex, int columnIndex) {
         if (!this.editable)
             return false;
         final SQLTableModelColumn col = this.getReq().getColumn(columnIndex);
         // hasRight is expensive so put it last
-        return col.isEditable() && hasRight(col);
+        return col.isEditable() && !isReadOnly(rowIndex) && hasRight(col);
+    }
+
+    private boolean isReadOnly(int rowIndex) {
+        final SQLRowValues r = getRow(rowIndex).getRow();
+        return r.getTable().contains(SQLComponent.READ_ONLY_FIELD) && SQLComponent.isReadOnly(r);
     }
 
     private boolean hasRight(final SQLTableModelColumn col) {
@@ -478,6 +504,10 @@ public class ITableModel extends AbstractTableModel {
 
     public void moveBy(final List<? extends SQLRowAccessor> rows, final int inc) {
         this.moveQ.move(rows, inc);
+    }
+
+    public void moveTo(final List<? extends SQLRowAccessor> rows, final int rowIndex) {
+        this.moveQ.moveTo(rows, rowIndex);
     }
 
     /**
@@ -707,13 +737,29 @@ public class ITableModel extends AbstractTableModel {
         return this.getClass().getSimpleName() + "@" + this.hashCode() + " for " + this.getTable();
     }
 
+    @Override
     public synchronized void addTableModelListener(TableModelListener l) {
+        this.addTableModelListener(l, false);
+    }
+
+    /**
+     * Adds a listener that's notified each time a change to the data model occurs.
+     * 
+     * @param l the listener.
+     * @param full if <code>true</code> <code>l</code> will be notified even if the data changed
+     *        isn't displayed ({@link #setDebug(boolean) debug columns}).
+     */
+    public synchronized void addTableModelListener(TableModelListener l, final boolean full) {
         if (this.isDead())
             throw new IllegalStateException("dead tableModel: " + this);
+        if (full)
+            this.fullListeners.add(l);
         super.addTableModelListener(l);
     }
 
+    @Override
     public synchronized void removeTableModelListener(TableModelListener l) {
+        this.fullListeners.remove(l);
         super.removeTableModelListener(l);
         // nobody listens to us so we die
         if (this.listenerList.getListenerCount() == 0) {
