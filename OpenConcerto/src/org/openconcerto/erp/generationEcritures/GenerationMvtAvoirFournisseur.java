@@ -142,6 +142,7 @@ public class GenerationMvtAvoirFournisseur extends GenerationEcritures {
         if (valAvoir.getInvalid() == null) {
 
             valAvoir.update(this.idAvoirFourn);
+            displayMvtNumber();
         }
 
         // if (avoirRow.getInt("ID_MODE_REGLEMENT") > 1) {

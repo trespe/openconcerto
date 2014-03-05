@@ -31,6 +31,31 @@ import java.util.concurrent.Future;
  */
 public class ProcessStreams {
 
+    static public enum Action {
+        /**
+         * Redirect process streams to ours.
+         */
+        REDIRECT,
+        /**
+         * Close process streams.
+         */
+        CLOSE,
+        /**
+         * Do nothing, which is dangerous as the process will hang until its output is read.
+         */
+        DO_NOTHING
+    }
+
+    static public final Process handle(final Process p, final Action action) throws IOException {
+        if (action == Action.CLOSE) {
+            p.getInputStream().close();
+            p.getErrorStream().close();
+        } else if (action == Action.REDIRECT) {
+            new ProcessStreams(p);
+        }
+        return p;
+    }
+
     private final ExecutorService exec = Executors.newFixedThreadPool(2);
     private final CountDownLatch latch;
     private final Future<?> out;
@@ -40,7 +65,7 @@ public class ProcessStreams {
         this.latch = new CountDownLatch(2);
         this.out = writeToAsync(p.getInputStream(), System.out);
         this.err = writeToAsync(p.getErrorStream(), System.err);
-        new Thread(new Runnable() {
+        this.exec.submit(new Runnable() {
             public void run() {
                 try {
                     ProcessStreams.this.latch.await();
@@ -51,7 +76,7 @@ public class ProcessStreams {
                     ProcessStreams.this.exec.shutdown();
                 }
             }
-        }).start();
+        });
     }
 
     protected final void stopOut() {

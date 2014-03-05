@@ -36,9 +36,16 @@ public class Range {
         }
     }
 
+    public void setStart(int start) {
+        this.start = start;
+        if (stop <= start) {
+            throw new IllegalArgumentException("Invalid range " + start + " - " + stop);
+        }
+    }
+
     @Override
     public String toString() {
-        return "[" + start + "-" + stop + "]";
+        return "[" + start + "-" + stop + "[";
     }
 
     public boolean isEmpty() {
@@ -48,4 +55,5 @@ public class Range {
     public int size() {
         return stop - start;
     }
+
 }

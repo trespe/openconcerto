@@ -53,7 +53,7 @@ public class NumberStyle extends DataStyle {
                 if (value instanceof Calendar) {
                     cal = (Calendar) value;
                 } else {
-                    cal = Calendar.getInstance();
+                    cal = ODValueType.getCalendar();
                     cal.setTime((Date) value);
                 }
                 res = epoch.getDays(cal);

@@ -65,6 +65,7 @@ import java.awt.event.MouseListener;
 import java.awt.event.MouseMotionListener;
 import java.awt.image.BufferedImage;
 import java.awt.image.ColorConvertOp;
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -146,6 +147,8 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
     private final MouseMotionListener dragL;
     // to display or hide the popup
     private final MouseListener clickL;
+    // to set up our text component
+    private final PropertyChangeListener uiListener;
 
     private static Image imageSelectorEnabled;
     private static Image imageSelectorDisabled;
@@ -319,6 +322,12 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                 if (ISearchableCombo.this.popupCompletion.isShowing() && !this.isClickTarget(e)) {
                     ISearchableCombo.this.popupCompletion.validateSelection();
                 }
+            }
+        };
+        this.uiListener = new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                setupText();
             }
         };
 
@@ -968,19 +977,16 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         if (this.text != null) {
             this.text.removeMouseMotionListener(this.dragL);
             this.text.removeMouseListener(this.clickL);
+            this.text.removePropertyChangeListener("UI", this.uiListener);
             this.remove(this.text);
             this.text.removeAll();
         }
 
         // customize the new one
         this.text = atext;
+        // margins are not handled by l&f
         this.textMargin = (Insets) this.text.getMargin().clone();
-        // remove font from our private textField, thus the font can be set on us
-        this.setFont(this.text.getFont());
-        this.text.setFont(null);
-        // don't set opaque since some laf use it for border (Nimbus uses the background to compute
-        // borders so if we set it to true there will be a white outer line)
-
+        this.text.addPropertyChangeListener("UI", this.uiListener);
         // add it
         this.getTextComp().setLayout(new LayoutManager2() {
 
@@ -1042,10 +1048,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                 return Component.CENTER_ALIGNMENT;
             }
         });
-
-        this.text.add(this.getLabel());
-        this.text.add(this.getBtn());
-        this.updateMargin();
+        setupText();
         this.add(this.text);
         // needed otherwise it grows but never shrinks
         this.setMinimumSize(new Dimension(this.getMinimumSize()));
@@ -1150,6 +1153,23 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         });
         this.text.addMouseListener(this.clickL);
         this.text.addMouseMotionListener(this.dragL);
+    }
+
+    private final void setupText() {
+        if (this.text == null)
+            return;
+
+        // remove font from our private textField, thus the font can be set on us
+        this.setFont(this.text.getFont());
+        this.text.setFont(null);
+        // don't set opaque since some laf use it for border (Nimbus uses the background to compute
+        // borders so if we set it to true there will be a white outer line)
+
+        this.text.removeAll();
+        this.text.add(this.getLabel());
+        this.text.add(this.getBtn());
+        this.text.revalidate();
+        this.updateMargin();
     }
 
     public void setMinimumSearch(final int j) {

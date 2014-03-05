@@ -18,6 +18,7 @@ import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.TM;
+import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLField;
@@ -28,6 +29,9 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ListSQLRequest;
+import org.openconcerto.sql.request.UpdateBuilder;
+import org.openconcerto.sql.users.User;
+import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.FileTransfertHandler;
 import org.openconcerto.sql.view.IListener;
 import org.openconcerto.sql.view.list.IListeAction.ButtonsBuilder;
@@ -42,6 +46,7 @@ import org.openconcerto.ui.FormatEditor;
 import org.openconcerto.ui.MenuUtils;
 import org.openconcerto.ui.PopupMouseListener;
 import org.openconcerto.ui.SwingThreadUtils;
+import org.openconcerto.ui.list.selection.BaseListStateModel;
 import org.openconcerto.ui.list.selection.ListSelection;
 import org.openconcerto.ui.list.selection.ListSelectionState;
 import org.openconcerto.ui.state.JTableStateManager;
@@ -102,6 +107,7 @@ import java.util.concurrent.ExecutionException;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
+import javax.swing.DropMode;
 import javax.swing.InputMap;
 import javax.swing.JButton;
 import javax.swing.JCheckBoxMenuItem;
@@ -121,6 +127,7 @@ import javax.swing.event.AncestorListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableColumnModelEvent;
+import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellRenderer;
@@ -136,11 +143,62 @@ import javax.swing.table.TableModel;
  */
 public final class IListe extends JPanel {
 
+    static private final class LockAction extends RowAction {
+        public LockAction(final boolean lock) {
+            super(new AbstractAction(TM.tr(lock ? "ilist.lockRows" : "ilist.unlockRows")) {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    final IListe list = IListe.get(e);
+                    final List<Integer> ids = list.getSelection().getSelectedIDs();
+                    final SQLTable t = list.getSource().getPrimaryTable();
+                    final UpdateBuilder update = new UpdateBuilder(t);
+                    update.setObject(SQLComponent.READ_ONLY_FIELD, lock ? SQLComponent.READ_ONLY_VALUE : SQLComponent.READ_WRITE_VALUE);
+                    final User user = UserManager.getUser();
+                    if (user != null)
+                        update.setObject(SQLComponent.READ_ONLY_USER_FIELD, user.getId());
+                    update.setWhere(new Where(t.getKey(), ids));
+                    t.getDBSystemRoot().getDataSource().execute(update.asString());
+                    // don't fire too many times, as each one will cause UpdateQueue to issue a
+                    // request
+                    final Collection<? extends Number> fireIDs = ids.size() < 12 ? ids : Collections.singleton(SQLRow.NONEXISTANT_ID);
+                    for (final Number fireID : fireIDs)
+                        t.fireTableModified(fireID.intValue(), update.getFieldsNames());
+                }
+            }, false, true);
+        }
+
+        @Override
+        public boolean enabledFor(IListeEvent evt) {
+            // TODO use right
+            return evt.getSelectedRows().size() > 0;
+        }
+    }
+
+    private static LockAction LOCK_ACTION;
+    private static LockAction UNLOCK_ACTION;
+
+    private static final LockAction getLockAction() {
+        assert SwingUtilities.isEventDispatchThread();
+        // don't create too early as we might not have the localisation available. Further some
+        // applications will never use it.
+        if (LOCK_ACTION == null)
+            LOCK_ACTION = new LockAction(true);
+        return LOCK_ACTION;
+    }
+
+    private static final LockAction getUnlockAction() {
+        assert SwingUtilities.isEventDispatchThread();
+        if (UNLOCK_ACTION == null)
+            UNLOCK_ACTION = new LockAction(false);
+        return UNLOCK_ACTION;
+    }
+
     /**
      * When this system property is set, table {@link JTableStateManager state} is never read nor
      * written. I.e. the user can change the table state but it will be reset at each launch.
      */
     public static final String STATELESS_TABLE_PROP = "org.openconcerto.sql.list.statelessTable";
+    private static final String SELECTION_DATA_PROPNAME = "selectionData";
 
     static private final class FormatRenderer extends DefaultTableCellRenderer {
         private final Format fmt;
@@ -158,9 +216,20 @@ public final class IListe extends JPanel {
 
     private static boolean FORCE_ALT_CELL_RENDERER = false;
     static final String SEP = " ► ";
-    public static final TableCellRenderer DATE_RENDERER = new FormatRenderer(DateFormat.getDateInstance(DateFormat.MEDIUM));
-    public static final TableCellRenderer TIME_RENDERER = new FormatRenderer(DateFormat.getTimeInstance(DateFormat.SHORT));
-    public static final TableCellRenderer DATETIME_RENDERER = new FormatRenderer(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT));
+
+    // DefaultTableCellRenderer is stateful, so safer to not share (JTable also has private
+    // instances, see createDefaultRenderers())
+    public static final TableCellRenderer createDateRenderer() {
+        return new FormatRenderer(DateFormat.getDateInstance(DateFormat.MEDIUM));
+    }
+
+    public static final TableCellRenderer createTimeRenderer() {
+        return new FormatRenderer(DateFormat.getTimeInstance(DateFormat.SHORT));
+    }
+
+    public static final TableCellRenderer createDateTimeRenderer() {
+        return new FormatRenderer(DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT));
+    }
 
     private static final Map<Class<?>, FormatGroup> FORMATS;
     static {
@@ -225,6 +294,7 @@ public final class IListe extends JPanel {
     private final PropertyChangeSupport supp;
     // for not adjusting listeners
     private final ListSelectionListener selectionListener;
+    private final TableModelListener selectionDataListener;
     // filter
     private final PropertyChangeListener filterListener;
     // listen on model's properties
@@ -291,6 +361,7 @@ public final class IListe extends JPanel {
                 final String modif = getLine(false, row, getSource().getPrimaryTable().getModifUserField(), getSource().getPrimaryTable().getModifDateField());
                 if (modif != null)
                     infoL.add(modif);
+                // TODO locked by
 
                 final String info;
                 if (infoL.size() == 0)
@@ -336,6 +407,11 @@ public final class IListe extends JPanel {
         this.debugFilter = false;
         this.filterWorker = null;
 
+        // DnD
+        this.jTable.setDragEnabled(true);
+        this.jTable.setDropMode(DropMode.INSERT_ROWS);
+        this.jTable.setTransferHandler(new IListeTransferHandler());
+
         // do not handle F2, let our application use it :
         // remove F2 keybinding, use space
         final InputMap tm = this.jTable.getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
@@ -370,6 +446,38 @@ public final class IListe extends JPanel {
                     fireNASelectionId();
                     updateButtons();
                 }
+            }
+        };
+        this.selectionDataListener = new TableModelListener() {
+            @Override
+            public void tableChanged(TableModelEvent e) {
+                // assert we're not listening to the sorter since we're interested in data change
+                // not sort order
+                assert e.getSource() instanceof ITableModel;
+                boolean fire = false;
+                // insert or delete don't change the content of current selection (e.g. if the
+                // deleted row was part of the selection "selectedIDs" will change)
+                // a change in the name or order of columns doesn't mean the SQL values are updated
+                if (e.getType() == TableModelEvent.UPDATE && e.getFirstRow() != TableModelEvent.HEADER_ROW) {
+                    // see TableModelEvent(TableModel) constructor
+                    if (e.getLastRow() == Integer.MAX_VALUE) {
+                        // since JTable uses a regular listener to update its selection and the
+                        // listeners are called in reverse order, the selection isn't yet cleared by
+                        // JTable.tableChanged(). Thus if the table was just shrunk, the selection
+                        // might be out of bounds. So don't fire now, let
+                        // JTable.clearSelectionAndLeadAnchor() do it.
+                        fire = false;
+                    } else {
+                        // do fire if only some rows were updated as in this case, no selection
+                        // change will occur.
+                        for (int i = e.getFirstRow(); !fire && i <= e.getLastRow(); i++) {
+                            if (getJTable().getSelectionModel().isSelectedIndex(IListe.this.sorter.viewIndex(i)))
+                                fire = true;
+                        }
+                    }
+                }
+                if (fire)
+                    IListe.this.supp.firePropertyChange(SELECTION_DATA_PROPNAME, null, null);
             }
         };
         this.filterListener = new PropertyChangeListener() {
@@ -407,6 +515,13 @@ public final class IListe extends JPanel {
         this.state.addPropertyChangeListener("selectedID", new PropertyChangeListener() {
             public void propertyChange(PropertyChangeEvent evt) {
                 fireSelectionId(((Number) evt.getNewValue()).intValue(), IListe.this.jTable.getSelectedColumn());
+            }
+        });
+        // don't use userSelectedIDs as we need to fire when the whole list is changed, see
+        // this.selectionDataListener
+        this.state.addPropertyChangeListener("selectedIDs", new PropertyChangeListener() {
+            public void propertyChange(PropertyChangeEvent evt) {
+                IListe.this.supp.firePropertyChange(SELECTION_DATA_PROPNAME, null, null);
             }
         });
         // this.jTable.setEnabled(!updating) ne sert à rien
@@ -654,9 +769,9 @@ public final class IListe extends JPanel {
                 return super.getTableCellRendererComponent(table, StringClobConvertor.INSTANCE.unconvert((Clob) value), isSelected, hasFocus, row, column);
             }
         });
-        this.jTable.setDefaultRenderer(Date.class, DATE_RENDERER);
-        this.jTable.setDefaultRenderer(Time.class, TIME_RENDERER);
-        this.jTable.setDefaultRenderer(Timestamp.class, DATETIME_RENDERER);
+        this.jTable.setDefaultRenderer(Date.class, createDateRenderer());
+        this.jTable.setDefaultRenderer(Time.class, createTimeRenderer());
+        this.jTable.setDefaultRenderer(Timestamp.class, createDateTimeRenderer());
         for (final Map.Entry<Class<?>, FormatGroup> e : this.getFormats().entrySet())
             this.jTable.setDefaultEditor(e.getKey(), new FormatEditor(e.getValue()));
         this.sorter.setTableHeader(this.jTable.getTableHeader());
@@ -733,6 +848,11 @@ public final class IListe extends JPanel {
 
         this.setOpaque(false);
         this.setTransferHandler(new FileTransfertHandler(getSource().getPrimaryTable()));
+
+        if (this.getSource().getPrimaryTable().getFieldRaw(SQLComponent.READ_ONLY_FIELD) != null) {
+            this.addIListeAction(getUnlockAction());
+            this.addIListeAction(getLockAction());
+        }
     }
 
     protected synchronized final void invertDebug() {
@@ -915,19 +1035,51 @@ public final class IListe extends JPanel {
         return ITableModel.getLine(this.getJTable().getModel(), viewIndex);
     }
 
-    private SQLRow getRow(int id) {
+    // protect our internal values
+    private <R> R getRow(int index, final Class<R> clazz) {
+        final SQLRowValues internalRow = this.getLine(index).getRow();
+        final SQLRowAccessor toCast;
+        if (clazz == SQLRowValues.class) {
+            toCast = internalRow.deepCopy();
+        } else if (clazz == SQLRow.class) {
+            toCast = internalRow.asRow();
+        } else {
+            toCast = new SQLImmutableRowValues(internalRow);
+        }
+        return clazz.cast(toCast);
+    }
+
+    private SQLRow fetchRow(int id) {
         if (id < SQLRow.MIN_VALID_ID) {
             return null;
         } else
             return this.getSource().getPrimaryTable().getRow(id);
     }
 
-    public SQLRow getSelectedRow() {
-        return this.getRow(this.getSelectedId());
+    public SQLRow fetchSelectedRow() {
+        return this.fetchRow(this.getSelectedId());
+    }
+
+    public SQLRowAccessor getSelectedRow() {
+        return this.getSelectedRow(SQLRowAccessor.class);
+    }
+
+    public SQLRowValues copySelectedRow() {
+        return this.getSelectedRow(SQLRowValues.class);
+    }
+
+    // selected row cannot be inferred from iterateSelectedRows() since the user might have selected
+    // the last row anywhere in the selection
+    private final <R extends SQLRowAccessor> R getSelectedRow(final Class<R> clazz) {
+        final int selectedIndex = this.state.getSelectedIndex().intValue();
+        if (selectedIndex == BaseListStateModel.INVALID_INDEX)
+            return null;
+        else
+            return this.getRow(selectedIndex, clazz);
     }
 
     public final SQLRow getDesiredRow() {
-        return this.getRow(this.getSelection().getUserSelectedID());
+        return this.fetchRow(this.getSelection().getUserSelectedID());
     }
 
     public final List<SQLRowAccessor> getSelectedRows() {
@@ -948,8 +1100,7 @@ public final class IListe extends JPanel {
         final List<R> res = new ArrayList<R>();
         for (int i = start; i <= stop; i++) {
             if (selectionModel.isSelectedIndex(i)) {
-                final SQLRowValues internalRow = this.getLine(i).getRow();
-                res.add(clazz.cast(clazz == SQLRowValues.class ? internalRow.deepCopy() : new SQLImmutableRowValues(internalRow)));
+                res.add(getRow(i, clazz));
             }
         }
         return res;
@@ -984,8 +1135,20 @@ public final class IListe extends JPanel {
         this.naListeners.add(l);
     }
 
+    /**
+     * Adds a listener to the list that's notified each time a change to the data model occurs. This
+     * includes when this is not displayable and the model becomes empty.
+     * 
+     * @param l the listener.
+     * @see #retain()
+     */
     public void addListener(TableModelListener l) {
-        this.jTable.getModel().addTableModelListener(l);
+        // sorter is final, only its own model (ITableModel) changes
+        this.sorter.addTableModelListener(l);
+    }
+
+    public void removeListener(TableModelListener l) {
+        this.sorter.removeTableModelListener(l);
     }
 
     /**
@@ -1007,6 +1170,14 @@ public final class IListe extends JPanel {
      */
     public boolean isSorted() {
         return this.sorter.isSorting();
+    }
+
+    public final void setSortingEnabled(final boolean b) {
+        this.sorter.setSortingEnabled(b);
+    }
+
+    public final boolean isSortingEnabled() {
+        return this.sorter.isSortingEnabled();
     }
 
     private void fireSelectionId(int id, int selectedColumn) {
@@ -1050,6 +1221,21 @@ public final class IListe extends JPanel {
             getModel().rmPropertyChangeListener(l);
     }
 
+    /**
+     * Listen to the content of the selection, i.e. both selection ID change and data change of the
+     * current selection. Note: <code>l</code> is called for each selection change, even when
+     * {@link ListSelectionEvent#getValueIsAdjusting()} is <code>true</code>.
+     * 
+     * @param l the listener.
+     */
+    public final void addSelectionDataListener(final PropertyChangeListener l) {
+        this.supp.addPropertyChangeListener(SELECTION_DATA_PROPNAME, l);
+    }
+
+    public final void removeSelectionDataListener(final PropertyChangeListener l) {
+        this.supp.removePropertyChangeListener(SELECTION_DATA_PROPNAME, l);
+    }
+
     protected final void visibilityChanged() {
         // test isDead() since in JComponent.removeNotify() first setDisplayable(false) (in super)
         // then firePropertyChange("ancestor", null).
@@ -1087,6 +1273,7 @@ public final class IListe extends JPanel {
         if (old != null) {
             for (final PropertyChangeListener l : this.modelPCListeners)
                 old.rmPropertyChangeListener(l);
+            old.removeTableModelListener(this.selectionDataListener);
             if (this.hasRequest())
                 this.getRequest().rmWhereListener(this.filterListener);
         }
@@ -1101,6 +1288,9 @@ public final class IListe extends JPanel {
                 // signal to the listeners that the model has changed (ie all of its properties)
                 l.propertyChange(new PropertyChangeEvent(t, null, null, null));
             }
+            // listen to the SQL model and not this.sorter since change in sorting doesn't change
+            // the selection nor its data. Full listener since not all values are displayed.
+            t.addTableModelListener(this.selectionDataListener, true);
             if (this.hasRequest()) {
                 this.getRequest().addWhereListener(this.filterListener);
                 // the where might have changed since we last listened

@@ -14,6 +14,8 @@
  package org.openconcerto.ui.coreanimation;
 
 import java.awt.Color;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 
 import javax.swing.JComponent;
 
@@ -58,8 +60,49 @@ public class JComponentBackGroundAnimator extends JComponentAnimator implements 
 
     @Override
     public void resetState() {
+        // FIXME see constructor, here reset the possibly UIResource background
         this.chk.setBackground(this.bgColor);
+
+        boolean hadFocus = this.chk.hasFocus();
+        // then force refresh, so that ComponentUI has a chance to set the correct background
+        if (this.chk.isEnabled()) {
+            this.chk.setEnabled(false);
+            this.chk.setEnabled(true);
+        } else {
+            this.chk.setEnabled(true);
+            this.chk.setEnabled(false);
+        }
         if (this.opaque != null)
             this.chk.setOpaque(this.opaque);
+
+        // MAYBE use setEditable()
+        if (hadFocus) {
+            // Megatrick to avoid focus listeners to do bad things like selecting text...
+            final FocusListener[] listeners = this.chk.getFocusListeners();
+            for (int i = 0; i < listeners.length; i++) {
+                FocusListener focusListener = listeners[i];
+                this.chk.removeFocusListener(focusListener);
+            }
+
+            this.chk.addFocusListener(new FocusListener() {
+
+                @Override
+                public void focusLost(FocusEvent e) {
+
+                }
+
+                @Override
+                public void focusGained(FocusEvent e) {
+                    JComponentBackGroundAnimator.this.chk.removeFocusListener(this);
+                    for (int i = 0; i < listeners.length; i++) {
+                        FocusListener focusListener = listeners[i];
+                        JComponentBackGroundAnimator.this.chk.addFocusListener(focusListener);
+                    }
+
+                }
+            });
+            this.chk.requestFocus();
+
+        }
     }
 }

@@ -53,7 +53,11 @@ public class CloudStorageEngine implements StorageEngine {
             client.setVerifyHost(false);
             StreamUtils.copy(inStream, localFile);
             Log.get().info("Sending file:" + localFile.getCanonicalPath() + " to " + remotePath + " " + title + " size:" + localFile.length());
-            client.sendFile(localFile, remotePath, title, config.getToken());
+            if (localFile.length() > 0) {
+                client.sendFile(localFile, remotePath, title, config.getToken());
+            } else {
+                Log.get().warning("Skiping empty file:" + localFile.getCanonicalPath() + " to " + remotePath + " " + title);
+            }
         } catch (Exception e) {
             throw new IOException(e);
         } finally {

@@ -18,6 +18,9 @@ import org.openconcerto.utils.CompareUtils;
 import java.util.HashMap;
 import java.util.Map;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
 import org.jdom.Document;
 import org.jdom.Element;
 
@@ -26,9 +29,11 @@ import org.jdom.Element;
  * 
  * @author Sylvain CUAZ
  */
+@ThreadSafe
 public final class XMLFormatVersion {
     // not an enum to support any version (be forward compatible)
 
+    @GuardedBy("instances")
     static private Map<XMLFormatVersion, XMLFormatVersion> instances = new HashMap<XMLFormatVersion, XMLFormatVersion>();
     static private final XMLFormatVersion OOo = get(XMLVersion.OOo, "1.0");
 
@@ -59,16 +64,19 @@ public final class XMLFormatVersion {
 
     public static XMLFormatVersion get(XMLVersion xmlVersion, String officeVersion) {
         final XMLFormatVersion key = new XMLFormatVersion(xmlVersion, officeVersion);
-        XMLFormatVersion res = instances.get(key);
-        if (res == null) {
-            res = key;
-            instances.put(res, res);
+        synchronized (instances) {
+            XMLFormatVersion res = instances.get(key);
+            if (res == null) {
+                res = key;
+                instances.put(res, res);
+            }
+            return res;
         }
-        return res;
     }
 
     private final XMLVersion xmlVersion;
     private final String officeVersion;
+    @GuardedBy("this")
     private OOXML xml;
 
     private XMLFormatVersion(XMLVersion xmlVersion, String officeVersion) {
@@ -90,7 +98,7 @@ public final class XMLFormatVersion {
         return this.officeVersion;
     }
 
-    public final OOXML getXML() {
+    public synchronized final OOXML getXML() {
         if (this.xml == null)
             this.xml = OOXML.get(this);
         return this.xml;

@@ -148,6 +148,7 @@ public abstract class SQLSyntax {
 
     public abstract boolean isAuto(SQLField f);
 
+    // should return an int4 not null with automatic values
     public abstract String getAuto();
 
     public String getIDType() {
@@ -327,7 +328,7 @@ public abstract class SQLSyntax {
      * @return the part after "CREATE UNIQUE INDEX foo ".
      */
     protected String getCreateIndex(final String cols, final SQLName tableName, Index i) {
-        return i.getTable().getBase().quote("ON %i" + cols, tableName);
+        return "ON " + tableName.quote() + cols;
     }
 
     /**
@@ -659,10 +660,27 @@ public abstract class SQLSyntax {
     // cannot rename since some systems won't allow it in the same ALTER TABLE
     public abstract List<String> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable);
 
+    /**
+     * The decimal, arbitrary precision, SQL type.
+     * 
+     * @param precision the total number of digits.
+     * @param scale the number of digits after the decimal point.
+     * @return the SQL type.
+     * @see #getDecimalIntPart(int, int)
+     */
     public String getDecimal(int precision, int scale) {
         return " DECIMAL(" + precision + "," + scale + ")";
     }
 
+    /**
+     * The decimal, arbitrary precision, SQL type.
+     * 
+     * @param intPart the number of digits before the decimal point; NOTE this is not the precision
+     *        as in SQL.
+     * @param fractionalPart the number of digits after the decimal point.
+     * @return the SQL type.
+     * @see #getDecimal(int, int)
+     */
     public final String getDecimalIntPart(int intPart, int fractionalPart) {
         return getDecimal(intPart + fractionalPart, fractionalPart);
     }

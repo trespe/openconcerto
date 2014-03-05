@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.core.customerrelationship.customer.element;
 
+import org.openconcerto.erp.config.Gestion;
+
 public class ContactSQLElement extends ContactSQLElementBase {
 
     static public class ContactFournisseurSQLElement extends ContactSQLElement {
@@ -33,6 +35,6 @@ public class ContactSQLElement extends ContactSQLElementBase {
 
     protected ContactSQLElement(String tableName) {
         super(tableName);
-        // TODO call this.setL18nPackageName()
+        this.setL18nLocation(Gestion.class);
     }
 }

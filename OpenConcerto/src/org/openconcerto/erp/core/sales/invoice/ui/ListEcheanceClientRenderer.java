@@ -28,6 +28,7 @@ import java.util.Date;
 import java.util.Locale;
 
 import javax.swing.JTable;
+import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableCellRenderer;
 
 public class ListEcheanceClientRenderer extends DefaultTableCellRenderer {
@@ -74,6 +75,7 @@ public class ListEcheanceClientRenderer extends DefaultTableCellRenderer {
                 && (value.getClass() == Long.class || value.getClass() == BigInteger.class)) {
 
             this.setText(GestionDevise.currencyToString(((Long) value).longValue()));
+            this.setHorizontalAlignment(SwingConstants.RIGHT);
         }
 
             final ListSQLLine line = ITableModel.getLine(table.getModel(), row);

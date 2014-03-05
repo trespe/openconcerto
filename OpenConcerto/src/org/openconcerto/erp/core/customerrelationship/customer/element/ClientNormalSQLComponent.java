@@ -16,36 +16,9 @@
  */
 package org.openconcerto.erp.core.customerrelationship.customer.element;
 
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
-import java.awt.Insets;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
-import java.sql.SQLException;
-import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.List;
-
-import javax.swing.ButtonGroup;
-import javax.swing.Icon;
-import javax.swing.JCheckBox;
-import javax.swing.JComponent;
-import javax.swing.JLabel;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
-import javax.swing.JTextField;
-import javax.swing.SwingConstants;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
+import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.customerrelationship.customer.ui.AdresseClientItemTable;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
@@ -72,17 +45,45 @@ import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.ITextWithCompletion;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
-import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 
+import java.awt.Component;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.Insets;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.sql.SQLException;
+import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Date;
+import java.util.List;
+
+import javax.swing.ButtonGroup;
+import javax.swing.Icon;
+import javax.swing.JCheckBox;
+import javax.swing.JComponent;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
+import javax.swing.SwingConstants;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
+
 public class ClientNormalSQLComponent extends BaseSQLComponent {
 
     int idDefaultCompteClient = 1;
     JCheckBox checkAdrLivraison, checkAdrFacturation;
-
+    private final SQLTable tableNum = getTable().getBase().getTable("NUMEROTATION_AUTO");
     private ElementComboBox boxPays = null;
     final ElementComboBox boxTarif = new ElementComboBox();
 
@@ -683,7 +684,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         String compte = "411" + initialClient;
 
         SQLTable table = Configuration.getInstance().getDirectory().getElement("COMPTE_PCE").getTable();
-        SQLSelect selCompte = new SQLSelect(this.getTable().getBase());
+        SQLSelect selCompte = new SQLSelect();
         selCompte.addSelectFunctionStar("COUNT");
         selCompte.setArchivedPolicy(SQLSelect.BOTH);
         selCompte.setWhere(new Where(table.getField("NUMERO"), "LIKE", compte + "%"));
@@ -708,7 +709,22 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
     @Override
     public int insert(SQLRow order) {
 
+        // incrémentation du numéro auto
+        if (NumerotationAutoSQLElement.getNextNumero(ClientNormalSQLElement.class, new Date()).equalsIgnoreCase(this.textCode.getText().trim())) {
+            SQLRowValues rowVals = new SQLRowValues(this.tableNum);
+            int val = this.tableNum.getRow(2).getInt("CLIENT_START");
+            val++;
+            rowVals.put("CLIENT_START", new Integer(val));
+
+            try {
+                rowVals.update(2);
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
         int id = super.insert(order);
+
         this.table.updateField("ID_CLIENT", id);
         this.adresseTable.updateField("ID_CLIENT", id);
         if (this.boxGestionAutoCompte.isSelected()) {
@@ -723,6 +739,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         SQLRow r;
 
         vals.put("MARCHE_PUBLIC", Boolean.TRUE);
+        vals.put("CODE", NumerotationAutoSQLElement.getNextNumero(ClientNormalSQLElement.class, new Date()));
 
         // Mode de règlement par defaut
         try {

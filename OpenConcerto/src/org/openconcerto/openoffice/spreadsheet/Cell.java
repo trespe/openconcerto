@@ -25,6 +25,10 @@ import org.openconcerto.openoffice.text.TextNode;
 import org.openconcerto.utils.Tuple2.List2;
 import org.openconcerto.utils.Tuple3;
 
+import java.text.ParseException;
+import java.util.Calendar;
+import java.util.Locale;
+import java.util.TimeZone;
 import java.util.regex.Pattern;
 
 import org.jdom.Element;
@@ -109,6 +113,11 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
         return this.getElement().getAttributeValue("value-type", getValueNS());
     }
 
+    /**
+     * The value type of this cell.
+     * 
+     * @return the value type of this cell, <code>null</code> if not specified.
+     */
     public final ODValueType getValueType() {
         final String type = this.getType();
         return type == null ? null : ODValueType.get(type);
@@ -130,6 +139,21 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
         return this.getElement().getAttributeValue(attrName, getValueNS());
     }
 
+    public final String getRawValue(final ODValueType requiredType) {
+        final ODValueType vt = this.getValueType();
+        if (requiredType != null && vt != requiredType)
+            throw new IllegalStateException("Wrong type : " + vt + "!= " + requiredType);
+        return this.getValue(vt.getValueAttribute());
+    }
+
+    /**
+     * The value of this cell. If the value type is <code>null</code> this method assumes
+     * {@link ODValueType#STRING}. If the {@link ODValueType#getValueAttribute() string value} is
+     * <code>null</code> returns {@link #getTextValue()}.
+     * 
+     * @return the value of this cell, never <code>null</code>.
+     * @see #getValueType()
+     */
     public Object getValue() {
         final ODValueType vt = this.getValueType();
         if (vt == null || vt == ODValueType.STRING) {
@@ -143,6 +167,32 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
         } else {
             return vt.parse(this.getValue(vt.getValueAttribute()));
         }
+    }
+
+    /**
+     * Get the date as a Calendar.
+     * 
+     * @return a calendar with the local time of this cell.
+     * @throws ParseException if the value couldn't be parsed.
+     * @see ODValueType#getCalendar()
+     */
+    public final Calendar getDateValue() throws ParseException {
+        return this.getDateValue(null, null);
+    }
+
+    /**
+     * Get the date as a Calendar with the passed parameters.
+     * 
+     * @param tz the time zone of the returned calendar, <code>null</code> meaning
+     *        {@link ODValueType#getTimeZone()}.
+     * @param locale the locale of the returned calendar, <code>null</code> meaning
+     *        {@link ODValueType#getLocale()}.
+     * @return a calendar with the local time of this cell.
+     * @throws ParseException if the value couldn't be parsed.
+     * @see ODValueType#parseDateValue(String, TimeZone, Locale, Boolean)
+     */
+    public final Calendar getDateValue(final TimeZone tz, final Locale locale) throws ParseException {
+        return ODValueType.parseDateValue(getRawValue(ODValueType.DATE), tz, locale, null);
     }
 
     /**
@@ -210,7 +260,7 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
      * @return the namespace (can be <code>null</code> if not included in this document), the text,
      *         the namespace prefix (can be <code>null</code>), e.g.
      *         [urn:oasis:names:tc:opendocument:xmlns:of:1.2, "sum(A1:A2)", null].
-     * @see {@link #getFormula()}
+     * @see #getFormula()
      */
     public final Tuple3<Namespace, String, String> getFormulaAndNamespace() {
         final String raw = getRawFormula();

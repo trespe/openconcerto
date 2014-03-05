@@ -15,16 +15,20 @@
 
 import org.openconcerto.sql.element.RIVPanel;
 import org.openconcerto.sql.element.SQLComponentItem;
+import org.openconcerto.sql.model.SQLImmutableRowValues;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.ComboSQLRequest;
+import org.openconcerto.sql.request.ComboSQLRequest.KeepMode;
 import org.openconcerto.sql.request.SQLForeignRowItemView;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.view.search.SearchSpec;
 import org.openconcerto.ui.FontUtils;
 import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.combo.ISearchableCombo;
+import org.openconcerto.ui.component.combo.SearchMode;
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.coreanimation.Pulseable;
 import org.openconcerto.ui.valuewrapper.ValueChangeSupport;
@@ -173,6 +177,10 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
 
     private boolean hasModel() {
         return this.req != null;
+    }
+
+    public final IComboModel getModel() {
+        return this.req;
     }
 
     public final void uiInit(final IComboModel req) {
@@ -420,6 +428,24 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         }
     }
 
+    /**
+     * The currently selected row in the UI. The result depends on the
+     * {@link ComboSQLRequest#keepRows(KeepMode) keep mode} of the {@link #getRequest() request}.
+     * 
+     * @return the currently selected row, <code>null</code> if none or for {@link KeepMode#NONE}.
+     */
+    public final SQLRowAccessor getSelectedRowAccessor() {
+        final IComboSelectionItem selectedValue = this.req.getSelectedValue();
+        if (selectedValue == null)
+            return null;
+
+        final SQLRowAccessor res = selectedValue.getRow();
+        if (res == null || res instanceof SQLRow)
+            return res;
+        else
+            return new SQLImmutableRowValues((SQLRowValues) res);
+    }
+
     private void modelValueChanged() {
         final IComboSelectionItem newValue = this.req.getSelectedValue();
         // user makes invalid edit => combo invalid=true and value=null => model value=null
@@ -550,9 +576,9 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         } else {
             final int flag = value.getFlag();
             if (flag == IComboSelectionItem.WARNING_FLAG)
-                i = new ImageIcon(this.getClass().getResource("warning.png"));
+                i = new ImageIcon(SQLRequestComboBox.class.getResource("warning.png"));
             else if (flag == IComboSelectionItem.ERROR_FLAG)
-                i = new ImageIcon(this.getClass().getResource("error.png"));
+                i = new ImageIcon(SQLRequestComboBox.class.getResource("error.png"));
             else
                 i = null;
         }
@@ -581,4 +607,10 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     public final boolean isUpdating() {
         return this.req.isUpdating();
     }
+
+    // completion
+    public final void setCompletionMode(SearchMode m) {
+        this.combo.setCompletionMode(m);
+    }
+
 }

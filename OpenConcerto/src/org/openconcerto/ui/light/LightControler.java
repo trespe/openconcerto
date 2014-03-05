@@ -23,7 +23,11 @@ public class LightControler implements Serializable {
     private final String type, src, dest;
     public static final String TYPE_ACTIVATION_ON_SELECTION = "activationOnSelection";
     public static final String TYPE_ADD_DEFAULT = "addDefault";
+    public static final String TYPE_INSERT_DEFAULT = "insertDefault";
+    public static final String TYPE_COPY = "copy";
     public static final String TYPE_REMOVE = "remove";
+    public static final String TYPE_UP = "up";
+    public static final String TYPE_DOWN = "down";
 
     public LightControler(String type, String src, String dest) {
         this.type = type;

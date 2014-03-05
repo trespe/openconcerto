@@ -18,7 +18,6 @@ import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
-import org.openconcerto.erp.core.sales.order.component.CommandeClientSQLComponent;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.sales.quote.component.DevisSQLComponent;
 import org.openconcerto.erp.core.sales.quote.report.DevisXmlSheet;
@@ -30,14 +29,20 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValuesListFetcher;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.event.ActionEvent;
 import java.math.BigDecimal;
@@ -51,6 +56,8 @@ import java.util.Set;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
+import javax.swing.SwingWorker;
 
 public class DevisSQLElement extends ComptaSQLConfElement {
 
@@ -116,7 +123,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
             private EditFrame editFrame;
 
             public void actionPerformed(ActionEvent e) {
-                SQLRow selectedRow = IListe.get(e).getSelectedRow();
+                SQLRowAccessor selectedRow = IListe.get(e).getSelectedRow();
 
                 if (this.editFrame == null) {
                     SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("DEVIS");
@@ -136,7 +143,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public RowAction getRefuseAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
+                SQLRowValues rowVals = IListe.get(e).getSelectedRow().asRow().createEmptyUpdateRow();
                 rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.REFUSE);
                 try {
                     rowVals.update();
@@ -144,7 +151,6 @@ public class DevisSQLElement extends ComptaSQLConfElement {
                     // TODO Auto-generated catch block
                     e1.printStackTrace();
                 }
-                IListe.get(e).getSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
             }
         }, false, "sales.quote.refuse") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
@@ -161,7 +167,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public RowAction getAcceptAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                SQLRow selectedRow = IListe.get(e).getSelectedRow();
+                SQLRow selectedRow = IListe.get(e).getSelectedRow().asRow();
                 SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
                 rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
                 try {
@@ -170,7 +176,6 @@ public class DevisSQLElement extends ComptaSQLConfElement {
                     // TODO Auto-generated catch block
                     e1.printStackTrace();
                 }
-                selectedRow.getTable().fireTableModified(IListe.get(e).getSelectedId());
             }
         }, false, "sales.quote.accept") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
@@ -204,7 +209,7 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public RowAction getDevis2CmdFournAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                final SQLRow selectedRow = IListe.get(e).getSelectedRow();
+                final SQLRow selectedRow = IListe.get(e).fetchSelectedRow();
                 ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
                     @Override
@@ -230,8 +235,11 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public RowAction getDevis2CmdCliAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                TransfertBaseSQLComponent.openTransfertFrame(IListe.get(e).copySelectedRows(), "COMMANDE_CLIENT");
+
+                final List<SQLRowValues> copySelectedRows = IListe.get(e).copySelectedRows();
+                transfertCommandeClient(copySelectedRows);
             }
+
         }, true, "sales.quote.create.customer.order") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
                 if (selection != null && selection.size() == 1) {
@@ -247,18 +255,16 @@ public class DevisSQLElement extends ComptaSQLConfElement {
     public RowAction getAcceptAndCmdClientAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                SQLRow selectedRow = IListe.get(e).getSelectedRow();
+                SQLRow selectedRow = IListe.get(e).fetchSelectedRow();
                 SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
                 rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
                 try {
                     rowVals.update();
                 } catch (SQLException e1) {
-                    // TODO Auto-generated catch block
-                    e1.printStackTrace();
+                    ExceptionHandler.handle("Erreur la de la mise à jour de l'état du devis!", e1);
+
                 }
-                selectedRow.getTable().fireTableModified(IListe.get(e).getSelectedId());
-                DevisSQLElement elt = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
-                elt.transfertCommandeClient(selectedRow.getID());
+                transfertCommandeClient(IListe.get(e).copySelectedRows());
             }
         }, false, "sales.quote.accept.create.customer.order") {
             public boolean enabledFor(java.util.List<org.openconcerto.sql.model.SQLRowAccessor> selection) {
@@ -270,6 +276,79 @@ public class DevisSQLElement extends ComptaSQLConfElement {
                 return false;
             };
         };
+    }
+
+    private void transfertCommandeClient(final List<SQLRowValues> copySelectedRows) {
+
+        SwingWorker<Boolean, Object> worker = new SwingWorker<Boolean, Object>() {
+            @Override
+            protected Boolean doInBackground() throws Exception {
+
+                final SQLTable tableTransfert = getTable().getTable("TR_DEVIS");
+                SQLRowValues rowVals = new SQLRowValues(tableTransfert);
+                rowVals.put("ID_DEVIS", new SQLRowValues(getTable()).put("NUMERO", null));
+                rowVals.put("ID_COMMANDE", null);
+                rowVals.put("ID", null);
+
+                final List<Number> lID = new ArrayList<Number>();
+                for (SQLRowValues sqlRowValues : copySelectedRows) {
+                    lID.add(sqlRowValues.getID());
+                }
+
+                SQLRowValuesListFetcher fetch = SQLRowValuesListFetcher.create(rowVals);
+                fetch.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
+
+                    @Override
+                    public SQLSelect transformChecked(SQLSelect input) {
+                        Where w = new Where(tableTransfert.getField("ID_DEVIS"), lID);
+                        w = w.and(new Where(tableTransfert.getField("ID_COMMANDE_CLIENT"), "IS NOT", (Object) null));
+                        input.setWhere(w);
+                        return input;
+                    }
+                });
+
+                List<SQLRowValues> rows = fetch.fetch();
+                if (rows != null && rows.size() > 0) {
+                    String numero = "";
+
+                    for (SQLRowValues sqlRow : rows) {
+                        numero += sqlRow.getForeign("ID_DEVIS").getString("NUMERO") + " ,";
+                    }
+
+                    numero = numero.substring(0, numero.length() - 2);
+                    String label = "Attention ";
+                    if (rows.size() > 1) {
+                        label += " les devis " + numero + " ont déjà été transféré en commande!";
+                    } else {
+                        label += " le devis " + numero + " a déjà été transféré en commande!";
+                    }
+                    label += "\n Voulez vous continuer?";
+
+                    int ans = JOptionPane.showConfirmDialog(null, label, "Transfert devis en commande", JOptionPane.YES_NO_OPTION);
+                    if (ans == JOptionPane.NO_OPTION) {
+                        return Boolean.FALSE;
+                    }
+
+                }
+                return Boolean.TRUE;
+
+            }
+
+            @Override
+            protected void done() {
+
+                try {
+                    Boolean b = get();
+                    if (b != null && b) {
+                        TransfertBaseSQLComponent.openTransfertFrame(copySelectedRows, "COMMANDE_CLIENT");
+                    }
+                } catch (Exception e) {
+                    ExceptionHandler.handle("Erreur lors du transfert des devis en commande!", e);
+                }
+                super.done();
+            }
+        };
+        worker.execute();
     }
 
     protected List<String> getComboFields() {
@@ -377,50 +456,6 @@ public class DevisSQLElement extends ComptaSQLConfElement {
         editFactureFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
 
         SaisieVenteFactureSQLComponent comp = (SaisieVenteFactureSQLComponent) editFactureFrame.getSQLComponent();
-
-        comp.setDefaults();
-        comp.loadDevis(devisID);
-
-        editFactureFrame.pack();
-        editFactureFrame.setState(JFrame.NORMAL);
-        editFactureFrame.setVisible(true);
-    }
-
-    // /**
-    // * Transfert d'un devis en commande
-    // *
-    // * @param devisID
-    // * @deprecated
-    // */
-    // public void transfertCommande(int devisID) {
-    //
-    // SQLElement elt = Configuration.getInstance().getDirectory().getElement("COMMANDE");
-    // EditFrame editFactureFrame = new EditFrame(elt);
-    // editFactureFrame.setIconImage(new
-    // ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-    //
-    // CommandeSQLComponent comp = (CommandeSQLComponent) editFactureFrame.getSQLComponent();
-    //
-    // comp.setDefaults();
-    // comp.loadDevis(devisID);
-    //
-    // editFactureFrame.pack();
-    // editFactureFrame.setState(JFrame.NORMAL);
-    // editFactureFrame.setVisible(true);
-    // }
-
-    /**
-     * Transfert d'un devis en commande
-     * 
-     * @param devisID
-     */
-    public void transfertCommandeClient(int devisID) {
-
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
-        EditFrame editFactureFrame = new EditFrame(elt);
-        editFactureFrame.setIconImage(new ImageIcon(Gestion.class.getResource("frameicon.png")).getImage());
-
-        CommandeClientSQLComponent comp = (CommandeClientSQLComponent) editFactureFrame.getSQLComponent();
 
         comp.setDefaults();
         comp.loadDevis(devisID);

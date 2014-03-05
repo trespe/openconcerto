@@ -38,6 +38,20 @@ import java.util.List;
  */
 public class CorrectMouvement extends Changer<DBRoot> {
 
+    static public final SQLSelect createUnbalancedSelect(final DBRoot societeRoot) {
+        return createUnbalancedSelect(societeRoot.getTable("ECRITURE").getField("ID_MOUVEMENT"));
+    }
+
+    static private final SQLSelect createUnbalancedSelect(final SQLField ecritureMvtFF) {
+        final SQLTable ecritureT = ecritureMvtFF.getTable();
+
+        final SQLSelect selUnbalanced = new SQLSelect();
+        selUnbalanced.addSelect(ecritureMvtFF);
+        selUnbalanced.addGroupBy(ecritureMvtFF);
+        selUnbalanced.setHaving(Where.quote(ecritureT.getBase().quote("SUM(%n) != SUM(%n)", ecritureT.getField("DEBIT"), ecritureT.getField("CREDIT"))));
+        return selUnbalanced;
+    }
+
     public CorrectMouvement(DBSystemRoot b) {
         super(b);
     }
@@ -50,10 +64,7 @@ public class CorrectMouvement extends Changer<DBRoot> {
         // find MOUVEMENT that would be balanced if we unarchived all of its ECRITURE
         {
             final SQLField ecritureMvtFF = ecritureT.getField("ID_MOUVEMENT");
-            final SQLSelect selUnbalanced = new SQLSelect(societeRoot.getBase());
-            selUnbalanced.addSelect(ecritureMvtFF);
-            selUnbalanced.addGroupBy(ecritureMvtFF);
-            selUnbalanced.setHaving(Where.quote(societeRoot.getBase().quote("SUM(%n) != SUM(%n)", ecritureT.getField("DEBIT"), ecritureT.getField("CREDIT"))));
+            final SQLSelect selUnbalanced = createUnbalancedSelect(ecritureMvtFF);
 
             final SQLSelect selUnfixable = new SQLSelect(selUnbalanced);
             selUnfixable.setArchivedPolicy(ArchiveMode.BOTH);
@@ -74,7 +85,7 @@ public class CorrectMouvement extends Changer<DBRoot> {
             final SQLTable saisieKmT = saisieKmElemT.getForeignTable("ID_SAISIE_KM");
             // select ECRITURE which can be identified in a MOUVEMENT by its CREDIT/DEBIT and isn't
             // already linked to a SAISIE_KM_ELEMENT
-            final SQLSelect selIdentifiableNonUsed = new SQLSelect(societeRoot.getBase());
+            final SQLSelect selIdentifiableNonUsed = new SQLSelect();
             final List<String> uniqueFields = Arrays.asList("ID_MOUVEMENT", "DEBIT", "CREDIT");
             selIdentifiableNonUsed.addAllSelect(ecritureT, uniqueFields);
             final String quotedID = ecritureT.getKey().getSQLName(ecritureT).quote();

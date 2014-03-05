@@ -414,6 +414,12 @@ public class SQLRow extends SQLRowAccessor {
     }
 
     @Override
+    public int getForeignID(String fieldName) {
+        final SQLRow foreignRow = this.getForeignRow(fieldName, SQLRowMode.NO_CHECK);
+        return foreignRow == null ? SQLRow.NONEXISTANT_ID : foreignRow.getID();
+    }
+
+    @Override
     public boolean isForeignEmpty(String fieldName) {
         final SQLRow foreignRow = this.getForeignRow(fieldName, SQLRowMode.NO_CHECK);
         return foreignRow == null || foreignRow.isUndefined();
@@ -547,7 +553,7 @@ public class SQLRow extends SQLRowAccessor {
      * @see #getDistantRows(List)
      */
     public SQLRow getDistantRow(List<String> path) {
-        return this.getDistantRow(new Path(this.getTable()).addTables(path));
+        return this.getDistantRow(Path.get(this.getTable()).addTables(path));
     }
 
     public SQLRow getDistantRow(final Path path) {
@@ -565,7 +571,7 @@ public class SQLRow extends SQLRowAccessor {
      * @throws IllegalArgumentException si le path est mauvais.
      */
     public Set<SQLRow> getDistantRows(List<String> path) {
-        return this.getDistantRows(new Path(this.getTable()).addTables(path));
+        return this.getDistantRows(Path.get(this.getTable()).addTables(path));
     }
 
     public Set<SQLRow> getDistantRows(final Path path) {
@@ -594,7 +600,7 @@ public class SQLRow extends SQLRowAccessor {
      * @return un ensemble de List de SQLRow.
      */
     public Set<List<SQLRow>> getRowsOnPath(final List<String> path, final List<? extends Collection<String>> fields) {
-        return this.getRowsOnPath(new Path(this.getTable()).addTables(path), fields);
+        return this.getRowsOnPath(Path.get(this.getTable()).addTables(path), fields);
     }
 
     public Set<List<SQLRow>> getRowsOnPath(final Path p, final List<? extends Collection<String>> fields) {
@@ -612,7 +618,7 @@ public class SQLRow extends SQLRowAccessor {
         // ne pas oublier de sélectionner notre ligne
         where = where.and(this.getWhere());
 
-        final SQLSelect select = new SQLSelect(this.getTable().getBase());
+        final SQLSelect select = new SQLSelect();
 
         final List<Collection<String>> fieldsCols = new ArrayList<Collection<String>>(pathSize);
         for (int i = 0; i < pathSize; i++) {
@@ -750,7 +756,7 @@ public class SQLRow extends SQLRowAccessor {
         }
 
         final SQLTable src = refField.getTable();
-        final SQLSelect sel = new SQLSelect(this.getTable().getBase());
+        final SQLSelect sel = new SQLSelect();
         if (fields == null)
             sel.addSelectStar(src);
         else {
@@ -784,7 +790,7 @@ public class SQLRow extends SQLRowAccessor {
     public Collection<SQLRow> followLink(Link l, Direction direction) {
         // Path checks that one end of l is this table and that direction is valid (e.g. not ANY for
         // self-reference links)
-        final boolean backwards = new Path(getTable()).add(l, direction).isBackwards(0);
+        final boolean backwards = Path.get(getTable()).add(l, direction).isBackwards(0);
         if (backwards)
             return getReferentRows(l.getSingleField());
         else

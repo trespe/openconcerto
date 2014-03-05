@@ -54,6 +54,9 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JSeparator;
+import javax.swing.SwingUtilities;
+
+import net.jcip.annotations.GuardedBy;
 
 public class MainFrame extends JFrame {
 
@@ -70,13 +73,26 @@ public class MainFrame extends JFrame {
     public static final String HELP_MENU = "menu.help";
 
     static private final List<Runnable> runnables = new ArrayList<Runnable>();
+    @GuardedBy("MainFrame")
     static private MainFrame instance = null;
 
-    public static MainFrame getInstance() {
+    // thread safe
+    public synchronized static MainFrame getInstance() {
         return instance;
     }
 
-    private static void setInstance(MainFrame f) {
+    public synchronized static MainFrame resetInstance() {
+        final MainFrame res = instance;
+        setInstance(null);
+        if (res != null) {
+            res.setVisible(false);
+            res.dispose();
+        }
+        return res;
+    }
+
+    private synchronized static void setInstance(MainFrame f) {
+        assert SwingUtilities.isEventDispatchThread();
         if (f != null && instance != null)
             throw new IllegalStateException("More than one main frame");
         instance = f;
@@ -98,7 +114,7 @@ public class MainFrame extends JFrame {
         SwingThreadUtils.invoke(new Runnable() {
             @Override
             public void run() {
-                if (instance == null) {
+                if (getInstance() == null) {
                     runnables.add(r);
                 } else {
                     r.run();
@@ -118,7 +134,7 @@ public class MainFrame extends JFrame {
     public MainFrame() {
         super();
 
-        this.setIconImage(new ImageIcon(this.getClass().getResource("frameicon.png")).getImage());
+        this.setIconImage(new ImageIcon(MainFrame.class.getResource("frameicon.png")).getImage());
 
         Container co = this.getContentPane();
         co.setLayout(new GridBagLayout());
@@ -163,7 +179,8 @@ public class MainFrame extends JFrame {
         }
         this.setMinimumSize(minSize);
 
-        final File confFile = new File(Configuration.getInstance().getConfDir(), "Configuration" + File.separator + "Frame" + File.separator + "mainFrame" + confSuffix + ".xml");
+        final Configuration conf = Configuration.getInstance();
+        final File confFile = new File(conf.getConfDir(), "Configuration" + File.separator + "Frame" + File.separator + "mainFrame" + confSuffix + ".xml");
         new WindowStateManager(this, confFile).loadState();
 
         registerForMacOSXEvents();
@@ -177,7 +194,7 @@ public class MainFrame extends JFrame {
 
         setInstance(this);
         // Overrive logo
-        Image im = ComptaPropsConfiguration.getInstanceCompta().getCustomLogo();
+        final Image im = conf instanceof ComptaPropsConfiguration ? ((ComptaPropsConfiguration) conf).getCustomLogo() : null;
         if (im != null) {
             image.setImage(im);
         }

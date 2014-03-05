@@ -40,6 +40,7 @@ import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
+import javax.swing.BorderFactory;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -158,7 +159,7 @@ public class SearchItemComponent extends JPanel {
         // supprime un element de recherche
         c.gridx++;
         this.buttonRemove.setIcon(new ImageIcon(BaseSQLComponent.class.getResource("delete.png")));
-        this.buttonRemove.setBorder(null);
+        this.buttonRemove.setBorder(BorderFactory.createEmptyBorder());
         this.buttonRemove.setOpaque(false);
         this.buttonRemove.setBorderPainted(false);
         this.buttonRemove.setFocusPainted(false);

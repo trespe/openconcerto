@@ -14,6 +14,7 @@
  package org.openconcerto.openoffice.style;
 
 import static java.util.Arrays.asList;
+import org.openconcerto.openoffice.Length;
 import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.Style;
@@ -21,7 +22,6 @@ import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
 
 import java.awt.Color;
-import java.math.BigDecimal;
 
 import org.jdom.Element;
 
@@ -31,7 +31,7 @@ public class PageLayoutStyle extends Style {
     private static final StyleDesc<PageLayoutStyle> DESC = new StyleDesc<PageLayoutStyle>(PageLayoutStyle.class, XMLVersion.OD, "page-layout", "pm") {
         {
             // from section 19.506 in v1.2-part1-cd04
-            this.getRefElementsMap().putAll("style:page-layout-name", asList("presentation:notes", "style:handout-master", "style:master-page"));
+            this.getRefElementsMap().addAll("style:page-layout-name", asList("presentation:notes", "style:handout-master", "style:master-page"));
         }
 
         @Override
@@ -42,7 +42,7 @@ public class PageLayoutStyle extends Style {
     private static final StyleDesc<PageLayoutStyle> DESC_OO = new StyleDesc<PageLayoutStyle>(PageLayoutStyle.class, XMLVersion.OOo, "page-master", "pm") {
         {
             // from DTD
-            this.getRefElementsMap().putAll("style:page-master-name", asList("presentation:notes", "style:handout-master", "style:master-page"));
+            this.getRefElementsMap().addAll("style:page-master-name", asList("presentation:notes", "style:handout-master", "style:master-page"));
         }
 
         @Override
@@ -88,23 +88,22 @@ public class PageLayoutStyle extends Style {
          * Get the margin of one of the side.
          * 
          * @param s which side.
-         * @param in the desired unit.
          * @return the margin.
          */
-        public final BigDecimal getMargin(final Side s, final LengthUnit in) {
-            return LengthUnit.parseLength(getRawMargin(s), in);
+        public final Length getMargin(final Side s) {
+            return LengthUnit.parseLength(getRawMargin(s));
         }
 
-        public final BigDecimal getPageWidth(final LengthUnit in) {
-            return getLengthAttr("page-width", "fo", in);
+        public final Length getPageWidth() {
+            return getLengthAttr("page-width", "fo");
         }
 
-        public final BigDecimal getPageHeight(final LengthUnit in) {
-            return getLengthAttr("page-height", "fo", in);
+        public final Length getPageHeight() {
+            return getLengthAttr("page-height", "fo");
         }
 
-        private final BigDecimal getLengthAttr(final String attrName, final String attrNS, final LengthUnit in) {
-            return LengthUnit.parseLength(getAttributeValue(attrName, this.getNS(attrNS)), in);
+        private final Length getLengthAttr(final String attrName, final String attrNS) {
+            return LengthUnit.parseLength(getAttributeValue(attrName, this.getNS(attrNS)));
         }
     }
 }

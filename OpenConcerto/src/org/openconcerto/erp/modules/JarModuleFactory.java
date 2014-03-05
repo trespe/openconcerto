@@ -13,13 +13,25 @@
  
  package org.openconcerto.erp.modules;
 
+import org.openconcerto.erp.config.Log;
+
+import java.awt.AWTPermission;
 import java.io.File;
+import java.io.FilePermission;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
+import java.security.CodeSource;
+import java.security.Permission;
+import java.security.PermissionCollection;
+import java.security.cert.Certificate;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.PropertyPermission;
 import java.util.jar.JarFile;
 
 import net.jcip.annotations.ThreadSafe;
@@ -30,7 +42,7 @@ import net.jcip.annotations.ThreadSafe;
  * @author Sylvain CUAZ
  */
 @ThreadSafe
-public final class JarModuleFactory extends ModuleFactory {
+public final class JarModuleFactory extends PropsModuleFactory {
 
     private static Properties getProperties(final File jar) throws IOException {
         final JarFile jarFile = new JarFile(jar);
@@ -43,18 +55,58 @@ public final class JarModuleFactory extends ModuleFactory {
      * @author Sylvain CUAZ
      */
     private final class ModuleClassLoader extends URLClassLoader {
+        private final List<Permission> perms;
         private final ClassLoader[] dependencies;
 
-        public ModuleClassLoader(Map<String, AbstractModule> alreadyCreated) {
+        public ModuleClassLoader(File moduleDir, Map<Object, AbstractModule> alreadyCreated) {
             super(getClassPath(), JarModuleFactory.class.getClassLoader());
-            this.dependencies = new ClassLoader[getRequiredIDs().size()];
+            this.perms = new ArrayList<Permission>();
+            this.perms.add(new PropertyPermission("*", "read"));
+            final String absolutePath = moduleDir.getAbsolutePath().endsWith(File.separator) ? moduleDir.getAbsolutePath() : moduleDir.getAbsolutePath() + File.separator;
+            this.perms.add(new FilePermission(absolutePath + "-", "read,write,delete"));
+            // do not display a warning sign for each window created by a module
+            this.perms.add(new AWTPermission("showWindowWithoutWarningBanner"));
+            // URLClassLoader treats classes and resources differently, so that a class can be
+            // allowed but a call to getResource() in it will be denied. This is because findClass()
+            // only uses a doPrivileged(), whereas findResource() also checks the current protection
+            // domains.
+            // So we need to add all jars in the class path (we could also replace the system class
+            // loader with "java.system.class.loader")
+            ClassLoader current = getParent();
+            while (current != null) {
+                loadPerms(current);
+                current = current.getParent();
+            }
+
+            this.dependencies = new ClassLoader[getDependencies().size()];
             int i = 0;
-            for (final String requiredID : getRequiredIDs()) {
+            for (final Object requiredID : getDependencies().keySet()) {
                 final AbstractModule m = alreadyCreated.get(requiredID);
                 if (m == null)
                     throw new IllegalStateException("Missing required module : " + requiredID);
                 this.dependencies[i++] = m.getClass().getClassLoader();
             }
+        }
+
+        private final void loadPerms(final ClassLoader cl) {
+            if (cl instanceof URLClassLoader) {
+                for (final URL url : ((URLClassLoader) cl).getURLs()) {
+                    final Enumeration<Permission> permissions = super.getPermissions(new CodeSource(url, (Certificate[]) null)).elements();
+                    while (permissions.hasMoreElements())
+                        this.perms.add(permissions.nextElement());
+                }
+            } else {
+                Log.get().warning("Unknown type of class loader : " + cl + ", cannot be sure that this protection domain will be allowed to read resources from it");
+            }
+        }
+
+        @Override
+        protected PermissionCollection getPermissions(CodeSource codesource) {
+            final PermissionCollection res = super.getPermissions(codesource);
+            for (final Permission perm : this.perms) {
+                res.add(perm);
+            }
+            return res;
         }
 
         @Override
@@ -106,8 +158,8 @@ public final class JarModuleFactory extends ModuleFactory {
     }
 
     @Override
-    public AbstractModule createModule(Map<String, AbstractModule> alreadyCreated) throws Exception {
-        return createModule(new ModuleClassLoader(alreadyCreated).loadClass(this.getMainClass()));
+    public AbstractModule createModule(final File moduleDir, final Map<Object, AbstractModule> alreadyCreated) throws Exception {
+        return createModule(new ModuleClassLoader(moduleDir, alreadyCreated).loadClass(this.getMainClass()), moduleDir);
     }
 
     @Override

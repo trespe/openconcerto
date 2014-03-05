@@ -1,0 +1,5 @@
+<translations>
+	<element refid="CONTACT" nameClass="masculine" name="contact" />
+	<element refid="CONTACT_FOURNISSEUR" nameClass="masculine" name="contact fournisseur" namePlural="contacts fournisseurs" />
+	<element refid="CONTACT_ADMINISTRATIF" nameClass="masculine" name="contact administratif" namePlural="contacts administratifs" />
+</translations>

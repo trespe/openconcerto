@@ -129,6 +129,7 @@
 	<menu id="menu.organization" label="Structure" />
 	<menu id="accounting.chart" label="Accounting chart" />
 	<menu id="accounting.journal" label="Acounting journals" />
+	<menu id="accounting.checkDB" label="Check database structure" />
 	<menu id="user.list" label="Users" />
 	<menu id="user.right.list" label="User rights" />
 	<menu id="user.task.right" label="Task rigths" />

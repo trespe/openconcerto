@@ -37,7 +37,7 @@ public class TotalCalculator {
     private static String FIELD_POIDS = "T_POIDS";
     private final String fieldHT, fieldHA, fieldDevise;
 
-    private SQLRowAccessor rowDefaultCptProduit, rowDefaultCptService, rowDefaultCptTVA;
+    private SQLRowAccessor rowDefaultCptProduit, rowDefaultCptService, rowDefaultCptTVACollecte, rowDefaultCptTVADeductible, rowDefaultCptAchat;
     private static final SQLTable tablePrefCompte = Configuration.getInstance().getRoot().findTable("PREFS_COMPTE");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
@@ -48,6 +48,7 @@ public class TotalCalculator {
     private BigDecimal totalService, totalServiceSel;
     private BigDecimal totalTTC, totalTTCSel;
     private long remiseHT, remiseRestante;
+    private final boolean achat;
 
     // Total des HT par comptes
     private Map<SQLRowAccessor, BigDecimal> mapHt = new HashMap<SQLRowAccessor, BigDecimal>();
@@ -61,9 +62,13 @@ public class TotalCalculator {
     private Boolean bServiceActive;
     private BigDecimal totalHTAvantRemise;
 
-    // TODO Gestion des achats
     public TotalCalculator(String fieldHA, String fieldHT, String fieldDeviseTotal) {
+        this(fieldHA, fieldHT, fieldDeviseTotal, false, null);
+    }
 
+    public TotalCalculator(String fieldHA, String fieldHT, String fieldDeviseTotal, boolean achat, SQLRowAccessor defaultCompte) {
+
+        this.achat = achat;
         initValues();
 
         this.fieldDevise = fieldDeviseTotal;
@@ -89,13 +94,35 @@ public class TotalCalculator {
             }
         }
 
-        this.rowDefaultCptTVA = rowPrefsCompte.getForeign("ID_COMPTE_PCE_TVA_VENTE");
-        if (this.rowDefaultCptTVA == null || this.rowDefaultCptTVA.isUndefined()) {
+        this.rowDefaultCptTVACollecte = rowPrefsCompte.getForeign("ID_COMPTE_PCE_TVA_VENTE");
+        if (this.rowDefaultCptTVACollecte == null || this.rowDefaultCptTVACollecte.isUndefined()) {
             try {
-                this.rowDefaultCptTVA = ComptePCESQLElement.getRowComptePceDefault("TVACollectee");
+                this.rowDefaultCptTVACollecte = ComptePCESQLElement.getRowComptePceDefault("TVACollectee");
             } catch (Exception e) {
                 e.printStackTrace();
             }
+        }
+
+        this.rowDefaultCptTVADeductible = rowPrefsCompte.getForeign("ID_COMPTE_PCE_TVA_ACHAT");
+        if (this.rowDefaultCptTVADeductible == null || this.rowDefaultCptTVADeductible.isUndefined()) {
+            try {
+                this.rowDefaultCptTVADeductible = ComptePCESQLElement.getRowComptePceDefault("TVADeductible");
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (defaultCompte == null || defaultCompte.isUndefined()) {
+            this.rowDefaultCptAchat = rowPrefsCompte.getForeign("ID_COMPTE_PCE_ACHAT");
+            if (this.rowDefaultCptAchat == null || this.rowDefaultCptAchat.isUndefined()) {
+                try {
+                    this.rowDefaultCptAchat = ComptePCESQLElement.getRowComptePceDefault("Achats");
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        } else {
+            this.rowDefaultCptAchat = defaultCompte;
         }
 
     }
@@ -177,8 +204,13 @@ public class TotalCalculator {
         rowValsC1.put("NUMERO", null);
         rowValsC1.put("ID", null);
 
+        SQLRowValues rowValsC2 = new SQLRowValues(compteTable);
+        rowValsC2.put("NUMERO", null);
+        rowValsC2.put("ID", null);
+
         rowVals.put(tvaTable.getKey().getName(), null);
         rowVals.put("ID_COMPTE_PCE", rowValsC1);
+        rowVals.put("ID_COMPTE_PCE_DED", rowValsC2);
 
         SQLRowValuesListFetcher fetch = SQLRowValuesListFetcher.create(rowVals);
         List<SQLRowValues> rowValsList = fetch.fetch();
@@ -203,9 +235,17 @@ public class TotalCalculator {
         }
 
         if (tva != null && !tva.isUndefined()) {
-            SQLRowAccessor rowCptTva = tva.getForeign("ID_COMPTE_PCE");
-            if (rowCptTva == null || rowCptTva.isUndefined()) {
-                rowCptTva = this.rowDefaultCptTVA;
+            SQLRowAccessor rowCptTva;
+            if (this.achat) {
+                rowCptTva = tva.getForeign("ID_COMPTE_PCE_DED");
+                if (rowCptTva == null || rowCptTva.isUndefined()) {
+                    rowCptTva = this.rowDefaultCptTVADeductible;
+                }
+            } else {
+                rowCptTva = tva.getForeign("ID_COMPTE_PCE");
+                if (rowCptTva == null || rowCptTva.isUndefined()) {
+                    rowCptTva = this.rowDefaultCptTVACollecte;
+                }
             }
             if (mapHtTVA.get(rowCptTva) == null) {
                 mapHtTVA.put(rowCptTva, totalTVA);
@@ -288,9 +328,10 @@ public class TotalCalculator {
             }
         }
 
-        SQLRowAccessor cpt = this.rowDefaultCptProduit;
+        SQLRowAccessor cpt = (achat ? this.rowDefaultCptAchat : this.rowDefaultCptProduit);
         if (article != null && !article.isUndefined()) {
-            SQLRowAccessor compteArticle = article.getForeign("ID_COMPTE_PCE");
+            String suffix = (this.achat ? "_ACHAT" : "");
+            SQLRowAccessor compteArticle = article.getForeign("ID_COMPTE_PCE" + suffix);
             if (compteArticle != null && !compteArticle.isUndefined()) {
                 cpt = compteArticle;
             } else {
@@ -299,7 +340,7 @@ public class TotalCalculator {
                 while (familleArticle != null && !familleArticle.isUndefined() && !unique.contains(familleArticle)) {
 
                     unique.add(familleArticle);
-                    SQLRowAccessor compteFamilleArticle = familleArticle.getForeign("ID_COMPTE_PCE");
+                    SQLRowAccessor compteFamilleArticle = familleArticle.getForeign("ID_COMPTE_PCE" + suffix);
                     if (compteFamilleArticle != null && !compteFamilleArticle.isUndefined()) {
                         cpt = compteFamilleArticle;
                         break;

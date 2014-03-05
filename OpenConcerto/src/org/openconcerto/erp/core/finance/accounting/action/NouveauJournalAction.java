@@ -29,6 +29,9 @@ public class NouveauJournalAction extends CreateFrameAbstractAction {
 
     @Override
     public JFrame createFrame() {
-        return new EditFrame(Configuration.getInstance().getDirectory().getElement("JOURNAL"));
+        final EditFrame editFrame = new EditFrame(Configuration.getInstance().getDirectory().getElement("JOURNAL"));
+        editFrame.pack();
+        editFrame.setResizable(false);
+        return editFrame;
     }
 }

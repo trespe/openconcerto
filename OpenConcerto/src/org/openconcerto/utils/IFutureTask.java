@@ -24,6 +24,29 @@ import java.util.concurrent.FutureTask;
  */
 public class IFutureTask<V> extends FutureTask<V> {
 
+    static private final Runnable NOOP_RUNNABLE = new Runnable() {
+        @Override
+        public void run() {
+        }
+    };
+
+    static public final Runnable getNoOpRunnable() {
+        return NOOP_RUNNABLE;
+    }
+
+    /**
+     * A task that does nothing and return <code>null</code>.
+     * 
+     * @return a task doing nothing.
+     */
+    static public final <V> FutureTask<V> createNoOp() {
+        return createNoOp(null);
+    }
+
+    static public final <V> FutureTask<V> createNoOp(final V result) {
+        return new IFutureTask<V>(getNoOpRunnable(), result);
+    }
+
     private final Runnable runnable;
     private final String detail;
 

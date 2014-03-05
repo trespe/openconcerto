@@ -22,17 +22,25 @@ import java.beans.PropertyChangeSupport;
 import javax.swing.Action;
 
 public class MenuManager {
-    private static final MenuManager instance = new MenuManager();
+    private static MenuManager instance = null;
 
-    public static final MenuManager getInstance() {
+    public static synchronized final void setInstance(final MenuAndActions baseMA) {
+        instance = new MenuManager(baseMA);
+    }
+
+    public static synchronized final MenuManager getInstance() {
+        if (instance == null)
+            throw new IllegalStateException("Not inited");
         return instance;
     }
 
+    private MenuAndActions baseMA;
     private MenuAndActions menuAndActions;
     private Group group;
     private final PropertyChangeSupport supp = new PropertyChangeSupport(this);
 
-    {
+    public MenuManager(final MenuAndActions baseMA) {
+        this.baseMA = baseMA;
         this.setMenuAndActions(this.createBaseMenuAndActions());
         assert this.group != null;
     }
@@ -56,7 +64,7 @@ public class MenuManager {
     }
 
     public final MenuAndActions createBaseMenuAndActions() {
-        return (Gestion.isMinimalMode() ? new MinimalMenuConfiguration() : new DefaultMenuConfiguration()).createMenuAndActions();
+        return this.baseMA.copy();
     }
 
     public final MenuAndActions copyMenuAndActions() {

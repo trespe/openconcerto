@@ -3,6 +3,7 @@ package org.jopenchart.sample.devguide;
 import java.awt.Container;
 import java.awt.Dimension;
 
+import javax.swing.BorderFactory;
 import javax.swing.JFrame;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
@@ -50,7 +51,7 @@ public class GuideFrame extends JFrame {
         guidePanel2
                 .addURL("http://chart.apis.google.com/chart?cht=s&chd=s:984sttvuvkQIBLKNCAIi,DEJPgq0uov17zwopQODS,AFLPTXaflptx159gsDrn&chxt=x,y&chxl=0:|0|2|3|4|5|6|7|8|9|10|1:|0|25|50|75|100&chs=200x125");
         JScrollPane scrollPane = new JScrollPane(guidePanel2);
-        scrollPane.setBorder(null);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
         tabbedPane.add("Charts type", scrollPane);
 
     }

@@ -23,6 +23,7 @@ import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.sqlobject.SQLRequestComboBox;
 import org.openconcerto.sql.users.rights.TableAllRights;
@@ -128,7 +129,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         final JButton res = new JButton(i);
         res.setMargin(new Insets(1, 1, 1, 1));
         res.setModel(new ContinuousButtonModel(300));
-        res.setBorder(null);
+        res.setBorder(BorderFactory.createEmptyBorder());
         res.setOpaque(false);
         res.setFocusPainted(true);
         res.setContentAreaFilled(false);
@@ -205,6 +206,13 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                 IListPanel.this.listSelectionChanged(id);
             }
         });
+        this.liste.addSelectionDataListener(new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                listSelectionDataChanged();
+            }
+        });
+
         this.liste.addModelListener(new PropertyChangeListener() {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
@@ -265,16 +273,16 @@ abstract public class IListPanel extends JPanel implements ActionListener {
 
         this.buttonModifier = new JButton(TM.tr("modify"));
         this.buttonModifier.setOpaque(false);
-        this.btnMngr.addBtn(this.buttonModifier, "noRightToModify", TableAllRights.MODIFY_ROW_TABLE, true);
+        this.btnMngr.addBtn(this.buttonModifier, "noRightToModify", TableAllRights.MODIFY_ROW_TABLE, true, modifyIsImmediate());
         this.buttonEffacer = new JButton(TM.tr("remove"));
         this.buttonEffacer.setOpaque(false);
         this.btnMngr.addBtn(this.buttonEffacer, "noRightToDel", TableAllRights.DELETE_ROW_TABLE, true);
         this.buttonAjouter = new JButton(TM.tr("add"));
         this.buttonAjouter.setOpaque(false);
-        this.btnMngr.addBtn(this.buttonAjouter, "noRightToAdd", TableAllRights.ADD_ROW_TABLE, false);
+        this.btnMngr.addBtn(this.buttonAjouter, "noRightToAdd", TableAllRights.ADD_ROW_TABLE, false, false);
         this.buttonClone = new JButton(TM.tr("duplicate"));
         this.buttonClone.setOpaque(false);
-        this.btnMngr.addBtn(this.buttonClone, "noRightToClone", TableAllRights.ADD_ROW_TABLE, true);
+        this.btnMngr.addBtn(this.buttonClone, "noRightToClone", TableAllRights.ADD_ROW_TABLE, true, false);
         this.btnMngr.setOKToolTip(this.buttonClone, TM.tr("listPanel.cloneToolTip"));
 
         this.saveBtn = new JButton(new ImageIcon(IListPanel.class.getResource("save.png")));
@@ -334,6 +342,8 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         this.searchPanel.add(this.searchComponent, c);
 
     }
+
+    protected abstract boolean modifyIsImmediate();
 
     /**
      * Permet aux sous classes d'ajouter d'autres composants.
@@ -420,7 +430,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
     }
 
     private final JPanel createClonePanel(final int selectedLines, final boolean rec, final SQLRequestComboBox combo) {
-        final String msg = TM.tr("listPanel.cloneRows", selectedLines, rec ? 1 : 0);
+        final String msg = TM.getInstance().trM("listPanel.cloneRows", "rowCount", selectedLines, "rec", rec);
 
         final JPanel p = new JPanel(new GridBagLayout());
         final GridBagConstraints c = new GridBagConstraints();
@@ -559,6 +569,11 @@ abstract public class IListPanel extends JPanel implements ActionListener {
 
     // notre liste a changé de sélection
     protected void listSelectionChanged(int id) {
+    }
+
+    // selection or selection content changed
+    protected void listSelectionDataChanged() {
+        // even if the same row is selected, its content can change (e.g. get locked)
         this.btnMngr.updateBtns();
     }
 
@@ -566,7 +581,7 @@ abstract public class IListPanel extends JPanel implements ActionListener {
     protected final class BtnTooltipMnger {
 
         private final Map<JButton, Tuple2<String, String>> code;
-        private final Set<JButton> needSelection;
+        private final Set<JButton> needSelection, needRWSelection;
         // btn -> tooltip
         private final Map<JButton, ITransformer<JButton, String>> additional;
         private final Map<JButton, String> okTooltip;
@@ -574,18 +589,25 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         public BtnTooltipMnger() {
             super();
             this.needSelection = new HashSet<JButton>();
+            this.needRWSelection = new HashSet<JButton>();
             this.code = new HashMap<JButton, Tuple2<String, String>>();
             this.additional = new HashMap<JButton, ITransformer<JButton, String>>();
             this.okTooltip = new HashMap<JButton, String>();
         }
 
         public void addBtn(final JButton btn, String desc, String rightCode, final boolean needSelection) {
+            this.addBtn(btn, desc, rightCode, needSelection, true);
+        }
+
+        public void addBtn(final JButton btn, String desc, String rightCode, final boolean needSelection, final boolean needRWSelection) {
             // otherwise have to remove from other attributes
             if (this.code.containsKey(btn))
                 throw new IllegalStateException("already in");
             this.code.put(btn, Tuple2.create(desc, rightCode));
             if (needSelection)
                 this.needSelection.add(btn);
+            if (needRWSelection && getElement().getTable().contains(SQLComponent.READ_ONLY_FIELD))
+                this.needRWSelection.add(btn);
         }
 
         public void setAdditional(final JButton btn, ITransformer<JButton, String> additional) {
@@ -623,6 +645,9 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                 if (!TableAllRights.hasRight(rights, t.get1(), getElement().getTable())) {
                     ok = false;
                     tooltip = TM.tr(t.get0());
+                } else if (this.needRWSelection.contains(btn) && isRO()) {
+                    ok = false;
+                    tooltip = TM.tr("editPanel.readOnlySelection");
                 } else if (this.needSelection.contains(btn) && !hasSelection) {
                     ok = false;
                     tooltip = TM.tr("noSelection");
@@ -636,6 +661,11 @@ abstract public class IListPanel extends JPanel implements ActionListener {
                 btn.setToolTipText(tooltip);
                 btn.setEnabled(ok);
             }
+        }
+
+        private boolean isRO() {
+            final SQLRowAccessor r = getListe().getSelectedRow();
+            return r != null && SQLComponent.isReadOnly(r);
         }
     }
 
@@ -681,7 +711,8 @@ abstract public class IListPanel extends JPanel implements ActionListener {
     public void setUpAndDownVisible(boolean b) {
         this.buttonPlus.setVisible(b);
         this.buttonMoins.setVisible(b);
-
+        // also disable move by drag and drop
+        this.getListe().getJTable().setDragEnabled(b);
     }
 
     public void setAddVisible(boolean b) {
@@ -716,11 +747,19 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         this.buttonClone.setVisible(b);
     }
 
+    public void setReadWriteButtonsVisible(final boolean b) {
+        this.setUpAndDownVisible(b);
+        this.setAddVisible(b);
+        this.setDeleteVisible(b);
+        this.setModifyVisible(b);
+        this.setCloneVisible(b);
+    }
+
     public void setSearchFullMode(boolean b) {
         if (b)
             this.searchPanel.setBorder(BorderFactory.createEtchedBorder());
         else
-            this.searchPanel.setBorder(null);
+            this.searchPanel.setBorder(BorderFactory.createEmptyBorder());
         this.searchComponent.setSearchFullMode(b);
     }
 

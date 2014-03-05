@@ -13,16 +13,14 @@
  
  package org.openconcerto.erp.core.sales.pos.ui;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.ServerFinderConfig;
 import org.openconcerto.erp.config.ServerFinderPanel;
 import org.openconcerto.erp.core.sales.pos.Caisse;
 import org.openconcerto.sql.model.DBRoot;
-import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
-import org.openconcerto.sql.model.SQLServer;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
 
@@ -288,25 +286,18 @@ public class ConfigCaissePanel extends JPanel {
             return;
         }
 
+        System.out.println("Reloading POS information from: " + config);
+        ComptaPropsConfiguration conf = config.createConf();
         try {
-            System.out.println("Reloading POS information from: " + config);
-            SQLServer server = config.createServer("Common");
-            DBSystemRoot r = server.getSystemRoot(config.getSystemRoot());
-            DBRoot root = r.getRoot("Common");
             // Sociétés
-            final SQLTable societeT = root.getTable("SOCIETE_COMMON");
-            final SQLRow societe = societeT.getValidRow(id);
-            server.destroy();
+            conf.setUpSocieteStructure(id);
+            final SQLRow societe = conf.getRowSociete();
             if (societe != null) {
                 final String name = societe.getString("DATABASE_NAME");
-                server = config.createServer(name);
-                r = server.getSystemRoot(config.getSystemRoot());
-                root = r.getRoot(name);
                 // Caisses
-                SQLSelect sel = new SQLSelect(root.getBase());
-                sel.addSelectStar(root.getTable("CAISSE"));
+                final SQLSelect sel = new SQLSelect();
+                sel.addSelectStar(conf.getRootSociete().getTable("CAISSE"));
                 final List<SQLRow> caisses = SQLRowListRSH.execute(sel);
-                server.destroy();
                 // Stock l'id de la caisse pour que la reslectionne soit correcte
                 final int idCaisseToSelect = this.caisseId;
                 SwingUtilities.invokeLater(new Runnable() {
@@ -339,9 +330,10 @@ public class ConfigCaissePanel extends JPanel {
             } else {
                 JOptionPane.showMessageDialog(this, "Impossible de trouver la société d'ID " + id);
             }
-
         } catch (final Exception e) {
             e.printStackTrace();
+        } finally {
+            conf.destroy();
         }
     }
 
@@ -389,22 +381,19 @@ public class ConfigCaissePanel extends JPanel {
                             JOptionPane.showMessageDialog(ConfigCaissePanel.this, "Impossible de se connecter au serveur");
                             return;
                         }
+                        final ComptaPropsConfiguration server = config.createConf();
                         try {
+                            final DBRoot root = server.getRoot();
 
-                            final SQLServer server = config.createServer("Common");
-                            final DBSystemRoot r = server.getSystemRoot(config.getSystemRoot());
-                            final DBRoot root = r.getRoot("Common");
                             // Sociétés
-                            SQLSelect sel = new SQLSelect(root.getBase());
-                            sel.addSelectStar(root.getTable("SOCIETE_COMMON"));
+                            SQLSelect sel = new SQLSelect();
+                            sel.addSelectStar(root.findTable("SOCIETE_COMMON"));
                             final List<SQLRow> societes = SQLRowListRSH.execute(sel);
 
                             // Utilisateurs
-                            sel = new SQLSelect(root.getBase());
-                            sel.addSelectStar(root.getTable("USER_COMMON"));
+                            sel = new SQLSelect();
+                            sel.addSelectStar(root.findTable("USER_COMMON"));
                             final List<SQLRow> utilisateurs = SQLRowListRSH.execute(sel);
-
-                            server.destroy();
 
                             SwingUtilities.invokeLater(new Runnable() {
                                 @Override
@@ -459,8 +448,9 @@ public class ConfigCaissePanel extends JPanel {
 
                         } catch (final Exception e) {
                             e.printStackTrace();
+                        } finally {
+                            server.destroy();
                         }
-
                     }
                 });
                 t.setDaemon(true);

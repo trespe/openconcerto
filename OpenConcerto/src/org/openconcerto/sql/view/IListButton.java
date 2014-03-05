@@ -22,6 +22,7 @@ package org.openconcerto.sql.view;
 import java.awt.Dimension;
 
 import javax.swing.Action;
+import javax.swing.BorderFactory;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
@@ -86,7 +87,7 @@ public class IListButton extends JButton {
     }
 
     public static final void initButton(JButton b) {
-        b.setBorder(null);
+        b.setBorder(BorderFactory.createEmptyBorder());
         b.setOpaque(false);
         b.setContentAreaFilled(false);
         b.setFocusPainted(false);

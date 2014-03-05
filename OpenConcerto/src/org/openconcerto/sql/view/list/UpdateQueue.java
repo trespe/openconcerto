@@ -19,6 +19,7 @@ import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.view.list.UpdateRunnable.RmAllRunnable;
 import org.openconcerto.utils.IFutureTask;
@@ -135,7 +136,7 @@ final class UpdateQueue extends SleepingQueue {
                     input.getAcc().add(input.getCurrent().getTable());
                 return input.getAcc();
             }
-        }, RecursionType.BREADTH_FIRST, null);
+        }, RecursionType.BREADTH_FIRST, Direction.ANY);
         return res;
     }
 

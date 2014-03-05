@@ -45,6 +45,7 @@ import org.openconcerto.utils.text.SimpleDocumentListener;
 import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.awt.Insets;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
@@ -301,9 +302,12 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             this.add(new JLabel(getLabelFor("ID_UNITE_VENTE"), SwingConstants.RIGHT), c);
             c.gridx++;
             c.weightx = 1;
+            c.fill = GridBagConstraints.NONE;
             ElementComboBox boxUnite = new ElementComboBox();
+            DefaultGridBagConstraints.lockMinimumSize(boxUnite);
             this.add(boxUnite, c);
             this.addView(boxUnite, "ID_UNITE_VENTE");
+            c.fill = GridBagConstraints.HORIZONTAL;
         }
         DefaultProps props = DefaultNXProps.getInstance();
 
@@ -780,11 +784,16 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     }
 
     protected void getMontantPanel(final GridBagConstraints c, DefaultProps props) {
-
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = 1;
         // PA devise
         JPanel pDevise = new JPanel(new GridBagLayout());
         GridBagConstraints cDevise = new DefaultGridBagConstraints();
-        pDevise.add(new JLabel("Devise du fournisseur"), cDevise);
+        cDevise.insets = new Insets(0, 0, 0, 4);
+        c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel("Devise du fournisseur"), c);
         final ElementComboBox boxDevise = new ElementComboBox(true, 15);
         cDevise.gridx++;
         cDevise.weightx = 1;
@@ -802,8 +811,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.addView(fieldHAD, "PA_DEVISE");
         DefaultGridBagConstraints.lockMinimumSize(fieldHAD);
 
-        c.gridx = 0;
-        c.gridy++;
+        c.gridx++;
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.anchor = GridBagConstraints.WEST;
         c.weightx = 1;
@@ -831,7 +839,13 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         // PA
         JPanel p = new JPanel(new GridBagLayout());
         GridBagConstraints cAchat = new DefaultGridBagConstraints();
-        p.add(new JLabel(getLabelFor("PA_HT")), cAchat);
+        cAchat.insets = new Insets(0, 0, 0, 4);
+        c.gridx = 0;
+        c.gridy++;
+        c.weightx = 0;
+        c.gridwidth = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(new JLabel(getLabelFor("PA_HT"), SwingConstants.RIGHT), c);
         cAchat.gridx++;
         cAchat.weightx = 1;
         p.add(this.textPAHT, cAchat);
@@ -869,8 +883,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             p.add(this.boxService, cAchat);
         }
 
-        c.gridx = 0;
-        c.gridy++;
+        c.gridx++;
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.anchor = GridBagConstraints.WEST;
         c.weightx = 1;
@@ -879,11 +892,20 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         this.add(p, c);
 
         // PV HT
+        c.gridx = 0;
+        c.gridy++;
+
         JPanel p2 = new JPanel(new GridBagLayout());
         GridBagConstraints cVT = new DefaultGridBagConstraints();
-        p2.add(new JLabel(getLabelFor("PV_HT")), cVT);
+        cVT.insets = new Insets(0, 0, 0, 4);
+
+        c.weightx = 0;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.gridwidth = 1;
+        this.add(new JLabel(getLabelFor("PV_HT"), SwingConstants.RIGHT), c);
         cVT.gridx++;
         cVT.weightx = 1;
+
         p2.add(this.textPVHT, cVT);
 
         // Taxe
@@ -904,8 +926,8 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         cVT.gridx++;
         cVT.weightx = 1;
         p2.add(this.textPVTTC, cVT);
-        c.gridx = 0;
-        c.gridy++;
+        c.gridx = 1;
+
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.anchor = GridBagConstraints.WEST;
         c.weightx = 1;
@@ -917,6 +939,7 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         DefaultGridBagConstraints.lockMinimumSize(this.textPVHT);
         this.addRequiredSQLObject(this.comboSelTaxe, "ID_TAXE");
         DefaultGridBagConstraints.lockMinimumSize(this.comboSelTaxe);
+        DefaultGridBagConstraints.lockMaximumSize(this.comboSelTaxe);
         this.addRequiredSQLObject(this.textPVTTC, "PV_TTC");
         DefaultGridBagConstraints.lockMinimumSize(this.textPVTTC);
         DefaultGridBagConstraints.lockMinimumSize(this.textPAHT);

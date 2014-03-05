@@ -28,6 +28,7 @@ import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.openoffice.style.data.DateStyle;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.TimeUtils;
+import org.openconcerto.utils.TimeUtils.DurationNullsChanger;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
 
@@ -88,6 +89,25 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
         }
     }
 
+    static private boolean LO_MODE = true;
+    // no date part, all time part to zero
+    static private final DurationNullsChanger TIME_NULLS = new TimeUtils.DurationNullsBuilder(TimeUtils.EmptyFieldPolicy.SET_TO_ZERO).setToNull(TimeUtils.getDateFields()).build();
+
+    public static void setTimeValueMode(boolean loMode) {
+        LO_MODE = loMode;
+    }
+
+    /**
+     * Whether {@link #setValue(Object)} formats {@link Duration} using the standard way or using
+     * the LibreOffice way. LibreOffice does not support years, months and days in cells ; even set
+     * to 0 (it does in user meta fields). The initial value is <code>true</code>.
+     * 
+     * @return <code>true</code> if durations should be formatted the LibO way.
+     */
+    public static boolean getTimeValueMode() {
+        return LO_MODE;
+    }
+
     MutableCell(Row<D> parent, Element elem, StyleDesc<CellStyle> styleDesc) {
         super(parent, elem, styleDesc);
     }
@@ -144,6 +164,12 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
         }
         // Like LO, do not generate string-value
         if (type != null && type != ODValueType.STRING) {
+            // LO cells don't support the full syntax of a duration (user meta fields do)
+            // instead it support only values without nYnMnD
+            if (type == ODValueType.TIME && getTimeValueMode()) {
+                final Duration d = val instanceof Duration ? (Duration) val : TimeUtils.timePartToDuration((Calendar) val);
+                val = TIME_NULLS.apply(getODDocument().getEpoch().normalizeToHours(d));
+            }
             this.getElement().setAttribute(type.getValueAttribute(), type.format(val), valueNS);
         }
     }

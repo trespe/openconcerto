@@ -14,6 +14,8 @@
  package org.openconcerto.sql.element;
 
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.PropsConfiguration;
+import org.openconcerto.sql.model.FieldMapper;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLType;
 import org.openconcerto.sql.request.RowItemDesc;
@@ -24,8 +26,10 @@ import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.group.Group;
 import org.openconcerto.ui.group.Item;
 import org.openconcerto.ui.group.LayoutHints;
+import org.openconcerto.utils.i18n.TranslationManager;
 
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -42,7 +46,10 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
@@ -52,10 +59,18 @@ public class GroupSQLComponent extends BaseSQLComponent {
     private final int columns = 2;
     private final Map<String, JComponent> labels = new HashMap<String, JComponent>();
     private final Map<String, JComponent> editors = new HashMap<String, JComponent>();
+    private String startTabAfter = null;
+    private boolean tabGroup;
+    private int tabDepth;
+    private JTabbedPane pane;
 
     public GroupSQLComponent(final SQLElement element, final Group group) {
         super(element);
         this.group = group;
+    }
+
+    public void startTabGroupAfter(String id) {
+        startTabAfter = id;
     }
 
     @Override
@@ -63,11 +78,14 @@ public class GroupSQLComponent extends BaseSQLComponent {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.NONE;
-        layout(this.group, 0, 0, 0, c);
+        this.tabGroup = false;
+        this.tabDepth = 0;
+        layout(this.group, 0, 0, 0, c, this);
     }
 
-    public void layout(final Item currentItem, final Integer order, int x, final int level, final GridBagConstraints c) {
+    public void layout(final Item currentItem, final Integer order, int x, final int level, GridBagConstraints c, JPanel panel) {
         final String id = currentItem.getId();
+
         final LayoutHints size = currentItem.getLocalHint();
         if (!size.isVisible()) {
             return;
@@ -81,21 +99,44 @@ public class GroupSQLComponent extends BaseSQLComponent {
         if (currentItem instanceof Group) {
             final Group currentGroup = (Group) currentItem;
             final int stop = currentGroup.getSize();
-            if (size.showLabel() && getLabel(id) != null) {
+            c.weighty = 0;
+            if (this.tabGroup && level == this.tabDepth) {
+                panel = new JPanel();
+                panel.setLayout(new GridBagLayout());
+                panel.setOpaque(false);
+                c = new DefaultGridBagConstraints();
                 x = 0;
-                c.gridy++;
-                c.fill = GridBagConstraints.HORIZONTAL;
-                c.gridx = 0;
-                c.weightx = 1;
-                c.gridwidth = 4;
-                this.add(getLabel(id), c);
-                c.gridy++;
+                c.fill = GridBagConstraints.NONE;
+                String label = TranslationManager.getInstance().getTranslationForItem(id);// getRIVDescForId(id).getLabel();
+                if (label == null) {
+                    label = id;
+                }
+                this.pane.addTab(label, panel);
+            } else {
+                if (size.showLabel() && getLabel(id) != null) {
+                    x = 0;
+                    c.gridy++;
+                    c.fill = GridBagConstraints.HORIZONTAL;
+                    c.gridx = 0;
+                    c.weightx = 1;
+                    c.gridwidth = 4;
+                    panel.add(getLabel(id), c);
+                    c.gridy++;
+                }
             }
             for (int i = 0; i < stop; i++) {
                 final Item subGroup = currentGroup.getItem(i);
                 final Integer subGroupOrder = currentGroup.getOrder(i);
-                layout(subGroup, subGroupOrder, x, level + 1, c);
+                layout(subGroup, subGroupOrder, x, level + 1, c, panel);
             }
+            if (this.tabGroup && level == this.tabDepth) {
+                JPanel spacer = new JPanel();
+                spacer.setOpaque(false);
+                c.gridy++;
+                c.weighty = 0.0001;
+                panel.add(spacer, c);
+            }
+
         } else {
             c.gridwidth = 1;
             if (size.showLabel()) {
@@ -104,11 +145,12 @@ public class GroupSQLComponent extends BaseSQLComponent {
                 // Label
                 if (size.isSeparated()) {
                     c.gridwidth = 4;
+                    c.weightx = 1;
                     c.fill = GridBagConstraints.NONE;
                 } else {
                     c.fill = GridBagConstraints.HORIZONTAL;
                 }
-                this.add(getLabel(id), c);
+                panel.add(getLabel(id), c);
                 if (size.isSeparated()) {
                     c.gridy++;
                     c.gridx = 0;
@@ -150,9 +192,16 @@ public class GroupSQLComponent extends BaseSQLComponent {
             if (c.gridx % 2 == 1) {
                 c.weightx = 1;
             }
-            this.add(editor, c);
+
+            panel.add(editor, c);
+
             try {
-                this.addView(editor, id);
+                JComponent comp = editor;
+                if (editor instanceof JScrollPane) {
+                    JScrollPane pane = (JScrollPane) editor;
+                    comp = (JComponent) pane.getViewport().getView();
+                }
+                this.addView(comp, id);
             } catch (final Exception e) {
                 Log.get().warning(e.getMessage());
             }
@@ -174,6 +223,34 @@ public class GroupSQLComponent extends BaseSQLComponent {
             }
 
         }
+        if (id.equals(startTabAfter)) {
+            tabGroup = true;
+            tabDepth = level;
+            pane = new JTabbedPane();
+            c.gridx = 0;
+            c.gridy++;
+            c.weightx = 1;
+            c.weighty = 1;
+            c.fill = GridBagConstraints.BOTH;
+            c.gridwidth = 4;
+            panel.add(pane, c);
+        }
+
+    }
+
+    @Override
+    public Component addView(JComponent comp, String id) {
+        final FieldMapper fieldMapper = PropsConfiguration.getInstance().getFieldMapper();
+        SQLField field = null;
+        if (fieldMapper != null) {
+            field = fieldMapper.getSQLFieldForItem(id);
+        }
+        // Maybe the id is a field name (deprecated)
+        if (field == null) {
+            field = this.getTable().getFieldRaw(id);
+
+        }
+        return super.addView(comp, field.getName());
     }
 
     public JComponent createEditor(final String id) {
@@ -181,7 +258,6 @@ public class GroupSQLComponent extends BaseSQLComponent {
             try {
                 final String table = id.substring(1, id.length() - 2).trim();
                 final String idEditor = GlobalMapper.getInstance().getIds(table).get(0) + ".editor";
-                System.out.println("Editor: " + idEditor);
                 final Class<?> cl = (Class<?>) GlobalMapper.getInstance().get(idEditor);
                 return (JComponent) cl.newInstance();
             } catch (final Exception e) {
@@ -189,7 +265,16 @@ public class GroupSQLComponent extends BaseSQLComponent {
             }
         }
 
-        final SQLField field = this.getTable().getFieldRaw(id);
+        final FieldMapper fieldMapper = PropsConfiguration.getInstance().getFieldMapper();
+        SQLField field = null;
+        if (fieldMapper != null) {
+            field = fieldMapper.getSQLFieldForItem(id);
+        }
+        // Maybe the id is a field name (deprecated)
+        if (field == null) {
+            field = this.getTable().getFieldRaw(id);
+
+        }
         if (field == null) {
             final JLabel jLabel = new JLabelBold("No field " + id);
             jLabel.setForeground(Color.RED.darker());
@@ -219,7 +304,16 @@ public class GroupSQLComponent extends BaseSQLComponent {
             comp = dobj;
         } else if (field.isKey()) {
             // foreign
-            comp = new ElementComboBox();
+
+            final SQLElement foreignElement = getElement().getForeignElement(field.getName());
+            if (foreignElement == null) {
+                comp = new JLabelBold("no element for foreignd " + id);
+                comp.setForeground(Color.RED.darker());
+                Log.get().severe("no element for foreign " + field.getName());
+            } else {
+                comp = new ElementComboBox();
+                ((ElementComboBox) comp).init(foreignElement);
+            }
             comp.setOpaque(false);
         } else {
             if (Boolean.class.isAssignableFrom(type.getJavaType())) {
@@ -288,9 +382,31 @@ public class GroupSQLComponent extends BaseSQLComponent {
         if (label == null) {
             label = createLabel(id);
             this.labels.put(id, label);
-            updateUI(id, getRIVDesc(id));
+
+            final RowItemDesc rivDesc = getRIVDescForId(id);
+            updateUI(id, rivDesc);
         }
         return label;
+    }
+
+    private RowItemDesc getRIVDescForId(final String id) {
+        final FieldMapper fieldMapper = PropsConfiguration.getInstance().getFieldMapper();
+        String t = TranslationManager.getInstance().getTranslationForItem(id);
+        if (t != null) {
+            return new RowItemDesc(t, t);
+        }
+        String fieldName = null;
+        if (fieldMapper != null) {
+            final SQLField sqlFieldForItem = fieldMapper.getSQLFieldForItem(id);
+            if (sqlFieldForItem != null) {
+                fieldName = sqlFieldForItem.getName();
+            }
+        }
+        if (fieldName == null) {
+            fieldName = id;
+        }
+        final RowItemDesc rivDesc = getRIVDesc(fieldName);
+        return rivDesc;
     }
 
     public JComponent getEditor(final String id) {

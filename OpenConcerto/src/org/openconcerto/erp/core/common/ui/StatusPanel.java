@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.common.ui;
 
+import org.openconcerto.sql.users.User;
 import org.openconcerto.sql.users.UserManager;
 
 import java.awt.GridLayout;
@@ -28,7 +29,7 @@ public class StatusPanel extends JPanel {
         this.setOpaque(false);
         this.setLayout(new GridLayout(1, 1));
         this.add(this.l);
-        this.l.setText("Vous êtes connecté en tant que : " + UserManager.getInstance().getCurrentUser().getFullName());
+        this.fireStatusChanged();
     }
 
     public void setText(String text) {
@@ -44,6 +45,12 @@ public class StatusPanel extends JPanel {
     }
 
     public void fireStatusChanged() {
-        this.l.setText("Vous êtes connecté en tant que : " + UserManager.getInstance().getCurrentUser().getFullName());
+        final String txt;
+        final User user = UserManager.getUser();
+        if (user == null)
+            txt = "Pas d'utilisateurs";
+        else
+            txt = "Vous êtes connecté en tant que : " + user.getFullName();
+        this.l.setText(txt);
     }
 }

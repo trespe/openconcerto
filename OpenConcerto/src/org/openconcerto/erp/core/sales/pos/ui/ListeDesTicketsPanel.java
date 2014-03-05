@@ -18,6 +18,7 @@ import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
 import org.openconcerto.erp.core.sales.pos.model.Ticket;
 import org.openconcerto.ui.DefaultListModel;
 import org.openconcerto.ui.touch.ScrollableList;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -31,6 +32,7 @@ import java.awt.Image;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.awt.geom.Rectangle2D;
+import java.io.IOException;
 import java.util.Vector;
 
 import javax.swing.ImageIcon;
@@ -190,7 +192,12 @@ public class ListeDesTicketsPanel extends JPanel implements ListSelectionListene
             if (selectedValue != null) {
                 ticketLlistModel.removeElement(selectedValue);
                 ticketList.clearSelection();
-                ((Ticket) selectedValue).deleteTicket();
+                final Ticket receipt = (Ticket) selectedValue;
+                try {
+                    receipt.deleteTicket();
+                } catch (IOException e1) {
+                    ExceptionHandler.handle(this, "Impossible d'effacer le ticket " + receipt.getCode(), e1);
+                }
             }
         } else if (selectedIndex == 3) {
             // Retour

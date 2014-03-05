@@ -18,17 +18,29 @@ import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValuesListFetcher;
+import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.itemview.SimpleRowItemView;
 import org.openconcerto.sql.ui.Login;
+import org.openconcerto.sql.view.QuickAssignPanel;
+import org.openconcerto.sql.view.list.RowValuesTableModel;
+import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.ISpinner;
 import org.openconcerto.ui.ISpinnerIntegerModel;
+import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.valuewrapper.TextValueWrapper;
 import org.openconcerto.ui.warning.JLabelWarning;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.i18n.I18nUtils;
 import org.openconcerto.utils.text.SimpleDocumentListener;
@@ -36,6 +48,11 @@ import org.openconcerto.utils.text.SimpleDocumentListener;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -101,9 +118,16 @@ public class UserCommonSQLElement extends ConfSQLElement {
 
             private JPasswordField passField, passFieldConfirm;
             private JPanel panelWarning;
-            private AccesSocieteTable table;
+            private final SQLElement accessSocieteElem;
+            private QuickAssignPanel table;
             // TODO transform into real SQLRowItemView
             private final JTextField encryptedPass = new JTextField();
+            private JCheckBox noCompanyLimitCheckBox;
+
+            {
+                final SQLTable t = getTable().getDBSystemRoot().getGraph().findReferentTable(getTable(), "ACCES_SOCIETE");
+                this.accessSocieteElem = t == null ? null : getDirectory().getElement(t);
+            }
 
             protected final JPasswordField getPassField() {
                 return this.passField;
@@ -125,7 +149,7 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 c.anchor = GridBagConstraints.WEST;
 
                 this.panelWarning = new JPanel(new GridBagLayout());
-                this.panelWarning.setBorder(null);
+                this.panelWarning.setBorder(BorderFactory.createEmptyBorder());
                 final JLabelWarning labelWarning = new JLabelWarning();
                 // labelWarning.setBorder(null);
                 this.panelWarning.add(labelWarning, c);
@@ -220,10 +244,10 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 this.add(textSurnom, c);
 
                 if (this.getTable().contains("ADMIN")) {
+                    final JCheckBox checkAdmin = new JCheckBox(getLabelFor("ADMIN"));
                     c.gridx++;
                     c.gridwidth = GridBagConstraints.REMAINDER;
                     c.weightx = 0;
-                    final JCheckBox checkAdmin = new JCheckBox(getLabelFor("ADMIN"));
                     this.add(checkAdmin, c);
                     this.addView(checkAdmin, "ADMIN");
                 }
@@ -242,7 +266,6 @@ public class UserCommonSQLElement extends ConfSQLElement {
                     final JTextField textMail = new JTextField();
                     c.gridwidth = GridBagConstraints.REMAINDER;
                     c.weightx = 1;
-                    c.weighty = 1;
 
                     this.add(textMail, c);
                     this.addView(textMail, "MAIL");
@@ -265,11 +288,44 @@ public class UserCommonSQLElement extends ConfSQLElement {
                     c.weighty = 0;
                     panelHoraires.setBorder(BorderFactory.createTitledBorder("Horaires"));
                     this.add(panelHoraires, c);
+                }
+
+                if (this.accessSocieteElem != null) {
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.gridwidth = 4;
+
+                    this.add(new JLabelBold("Accés aux sociétés"), c);
+                    c.gridy++;
+                    noCompanyLimitCheckBox = new JCheckBox("ne pas limiter l'accès à certaines sociétés");
+                    this.add(noCompanyLimitCheckBox, c);
 
                     c.gridy++;
                     c.weighty = 1;
-                    this.table = new AccesSocieteTable();
+                    c.fill = GridBagConstraints.BOTH;
+                    final SQLElement companyElement = this.accessSocieteElem.getForeignElement("ID_SOCIETE_COMMON");
+                    final List<SQLTableElement> tableElements = new ArrayList<SQLTableElement>();
+                    tableElements.add(new SQLTableElement(companyElement.getTable().getField("NOM")));
+                    final RowValuesTableModel model = new RowValuesTableModel(companyElement, tableElements, companyElement.getTable().getKey(), false);
+                    this.table = new QuickAssignPanel(companyElement, "ID", model);
                     this.add(this.table, c);
+
+                    noCompanyLimitCheckBox.addItemListener(new ItemListener() {
+                        @Override
+                        public void itemStateChanged(ItemEvent e) {
+                            table.setEnabled(e.getStateChange() == ItemEvent.DESELECTED);
+                        }
+                    });
+                    getView("ADMIN").addValueListener(new PropertyChangeListener() {
+                        @Override
+                        public void propertyChange(PropertyChangeEvent evt) {
+                            final boolean selected = evt.getNewValue() == Boolean.TRUE;
+                            noCompanyLimitCheckBox.setEnabled(!selected);
+                            if (selected)
+                                noCompanyLimitCheckBox.setSelected(true);
+                        }
+                    });
+                    noCompanyLimitCheckBox.setSelected(true);
                 }
 
                 this.addRequiredSQLObject(textLogin, "LOGIN");
@@ -358,12 +414,33 @@ public class UserCommonSQLElement extends ConfSQLElement {
                 // so that this.encryptedPass (which will be updated by updateEncrypted() and thus
                 // have a bogus value) will be changed to its database value and thus the user can
                 // update any field without changing the password.
+                if (table != null) {
+                    table.getModel().clearRows();
+                }
                 if (row != null) {
                     final String bogusPass = "bogusPass!";
                     this.getPassField().setText(bogusPass);
                     this.getPassFieldConfirm().setText(bogusPass);
-                    if (this.table != null) {
-                        this.table.insertFrom("ID_USER_COMMON", row.getID());
+                    // Allowed companies
+                    if (this.accessSocieteElem != null) {
+                        final SQLTable tableCompanyAccess = this.accessSocieteElem.getTable();
+                        SQLRowValues graph = new SQLRowValues(tableCompanyAccess);
+                        graph.put("ID", null);
+                        graph.putRowValues("ID_SOCIETE_COMMON").put("NOM", null);
+                        SQLRowValuesListFetcher f = new SQLRowValuesListFetcher(graph);
+                        f.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
+                            @Override
+                            public SQLSelect transformChecked(SQLSelect input) {
+                                input.setWhere(new Where(tableCompanyAccess.getField("ID_USER_COMMON"), "=", row.getID()));
+                                return input;
+                            }
+                        });
+                        List<SQLRowValues> companies = f.fetch();
+
+                        for (SQLRowValues r : companies) {
+                            table.getModel().addRow(r.getForeign("ID_SOCIETE_COMMON").asRowValues());
+                        }
+                        noCompanyLimitCheckBox.setSelected(companies.isEmpty());
                     }
                 }
                 super.select(row);
@@ -372,17 +449,38 @@ public class UserCommonSQLElement extends ConfSQLElement {
             @Override
             public int insert(SQLRow order) {
                 int id = super.insert(order);
-                if (this.table != null) {
-                    this.table.updateField("ID_USER_COMMON", id);
+                if (this.table != null && !noCompanyLimitCheckBox.isSelected()) {
+                    insertCompanyAccessForUser(id);
                 }
                 return id;
+            }
+
+            private void insertCompanyAccessForUser(int id) {
+                final SQLTable tableCompanyAccess = this.getDirectory().getElement("ACCES_SOCIETE").getTable();
+                int stop = table.getModel().getRowCount();
+                for (int i = 0; i < stop; i++) {
+                    SQLRowValues rCompany = table.getModel().getRowValuesAt(i);
+                    SQLRowValues rAccess = new SQLRowValues(tableCompanyAccess);
+                    rAccess.put("ID_USER_COMMON", id);
+                    rAccess.put("ID_SOCIETE_COMMON", rCompany.getID());
+                    try {
+                        rAccess.commit();
+                    } catch (SQLException e) {
+                        ExceptionHandler.handle("Unable to store company access", e);
+                    }
+                }
             }
 
             @Override
             public void update() {
                 super.update();
                 if (this.table != null) {
-                    this.table.updateField("ID_USER_COMMON", getSelectedID());
+                    final SQLTable tableCompanyAccess = this.getDirectory().getElement("ACCES_SOCIETE").getTable();
+                    String query = "DELETE FROM " + tableCompanyAccess.getSQL() + " WHERE \"ID_USER_COMMON\" = " + getSelectedID();
+                    tableCompanyAccess.getDBSystemRoot().getDataSource().execute(query);
+                    if (!noCompanyLimitCheckBox.isSelected()) {
+                        insertCompanyAccessForUser(getSelectedID());
+                    }
                 }
             }
         };

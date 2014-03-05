@@ -22,11 +22,13 @@ import org.openconcerto.xml.Validator;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
@@ -36,7 +38,12 @@ import javax.xml.XMLConstants;
 import javax.xml.validation.Schema;
 import javax.xml.validation.SchemaFactory;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.Immutable;
+import net.jcip.annotations.ThreadSafe;
+
 import org.jdom.Content;
+import org.jdom.DocType;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -60,9 +67,12 @@ public abstract class OOXML implements Comparable<OOXML> {
      */
     public static final String LAST_FOR_UNKNOWN_PROP = OOXML.class.getPackage().getName() + ".lastOOXMLForUnknownVersion";
     private static final XML_OO instanceOO = new XML_OO();
+    @GuardedBy("OOXML")
     private static final SortedMap<String, XML_OD> instancesODByDate = new TreeMap<String, XML_OD>();
+    @GuardedBy("OOXML")
     private static final Map<String, XML_OD> instancesODByVersion = new HashMap<String, XML_OD>();
     private static final List<OOXML> values;
+    @GuardedBy("OOXML")
     private static OOXML defaultInstance;
     private static final Pattern WHITE_SPACE_TO_ENCODE = Pattern.compile("\n|\t| {2,}");
 
@@ -70,14 +80,16 @@ public abstract class OOXML implements Comparable<OOXML> {
         register(new XML_OD_1_0());
         register(new XML_OD_1_1());
         register(new XML_OD_1_2());
-        values = new ArrayList<OOXML>(instancesODByDate.size() + 1);
-        values.add(instanceOO);
-        values.addAll(instancesODByDate.values());
+
+        final List<OOXML> tmp = new ArrayList<OOXML>(instancesODByDate.size() + 1);
+        tmp.add(instanceOO);
+        tmp.addAll(instancesODByDate.values());
+        values = Collections.unmodifiableList(tmp);
 
         setDefault(getLast());
     }
 
-    private static void register(XML_OD xml) {
+    private static synchronized void register(XML_OD xml) {
         assert xml.getVersion() == XMLVersion.OD;
         instancesODByDate.put(xml.getDateString(), xml);
         instancesODByVersion.put(xml.getFormatVersion().getOfficeVersion(), xml);
@@ -94,7 +106,7 @@ public abstract class OOXML implements Comparable<OOXML> {
         return get(version, Boolean.getBoolean(LAST_FOR_UNKNOWN_PROP));
     }
 
-    public static OOXML get(XMLFormatVersion version, final boolean lastForUnknown) {
+    public static synchronized OOXML get(XMLFormatVersion version, final boolean lastForUnknown) {
         if (version.getXMLVersion() == XMLVersion.OOo) {
             return instanceOO;
         } else {
@@ -124,23 +136,19 @@ public abstract class OOXML implements Comparable<OOXML> {
         return CollectionUtils.getLast(values);
     }
 
-    static public final OOXML getLast(XMLVersion version) {
+    static public synchronized final OOXML getLast(XMLVersion version) {
         if (version == XMLVersion.OOo)
             return instanceOO;
         else
             return instancesODByDate.get(instancesODByDate.lastKey());
     }
 
-    public static void setDefault(OOXML ns) {
+    public static synchronized void setDefault(OOXML ns) {
         defaultInstance = ns;
     }
 
-    public static OOXML getDefault() {
+    public static synchronized OOXML getDefault() {
         return defaultInstance;
-    }
-
-    static private final String rt2oo(String content, String tagName, String styleName) {
-        return content.replaceAll("\\[" + tagName + "\\]", "<text:span text:style-name=\"" + styleName + "\">").replaceAll("\\[/" + tagName + "\\]", "</text:span>");
     }
 
     // from OpenDocument-v1.2-schema.rng : a coordinate is a length
@@ -203,6 +211,8 @@ public abstract class OOXML implements Comparable<OOXML> {
      */
     public abstract Validator getValidator(Document doc);
 
+    public abstract Document createManifestDoc();
+
     /**
      * Return the names of font face declarations.
      * 
@@ -244,18 +254,49 @@ public abstract class OOXML implements Comparable<OOXML> {
 
     public abstract Element createFormattingProperties(final String family);
 
-    protected final List encodeRT_L(String content, Map<String, String> styles) {
-        String res = JDOMUtils.OUTPUTTER.escapeElementEntities(content);
-        for (final Entry<String, String> e : styles.entrySet()) {
-            res = rt2oo(res, e.getKey(), e.getValue());
+    protected final Element encodeRT_L(final Element root, final String s, final Map<String, String> styles) {
+        final List<String> quotedCodes = new ArrayList<String>(styles.size());
+        for (final String code : styles.keySet()) {
+            if (code.length() == 0 || code.indexOf('/') >= 0 || code.indexOf('[') >= 0 || code.indexOf(']') >= 0)
+                throw new IllegalArgumentException("Invalid code : " + code);
+            quotedCodes.add(Pattern.quote(code));
         }
-        try {
-            return JDOMUtils.parseString(res, getVersion().getALL());
-        } catch (JDOMException e) {
-            // should not happpen as we did escapeElementEntities which gives valid xml and then
-            // rt2oo which introduce only static xml
-            throw new IllegalStateException("could not parse " + res, e);
+        final Pattern p = Pattern.compile("\\[/?(" + CollectionUtils.join(quotedCodes, "|") + ")\\]");
+        final Matcher m = p.matcher(s);
+
+        final Deque<Element> elements = new LinkedList<Element>();
+        final Deque<String> codes = new LinkedList<String>();
+        elements.addFirst(root);
+        codes.addFirst(null);
+        final Namespace testNS = getVersion().getTEXT();
+        int last = 0;
+        while (m.find()) {
+            assert elements.size() == codes.size();
+            final Element current = elements.getFirst();
+            // null if root
+            final String currentCode = codes.getFirst();
+            current.addContent(new Text(s.substring(last, m.start())));
+            assert m.group().charAt(0) == '[';
+            final boolean closing = m.group().charAt(1) == '/';
+            final String code = m.group(1);
+            if (closing) {
+                if (!code.equals(currentCode))
+                    throw new IllegalArgumentException("Mismatch current " + currentCode + " but closing " + code);
+                elements.removeFirst();
+                codes.removeFirst();
+            } else {
+                final Element newElem = new Element("span", testNS).setAttribute("style-name", styles.get(code), testNS);
+                current.addContent(newElem);
+                elements.addFirst(newElem);
+                codes.addFirst(code);
+            }
+            last = m.end();
         }
+        if (elements.size() != 1)
+            throw new IllegalArgumentException("Some tags weren't closed : " + elements);
+        assert elements.peekFirst() == root;
+        root.addContent(new Text(s.substring(last)));
+        return root;
     }
 
     /**
@@ -267,7 +308,7 @@ public abstract class OOXML implements Comparable<OOXML> {
      * @return the corresponding element.
      */
     public final Element encodeRT(String content, Map<String, String> styles) {
-        return new Element("span", getVersion().getTEXT()).addContent(encodeRT_L(content, styles));
+        return encodeRT_L(new Element("span", getVersion().getTEXT()), content, styles);
     }
 
     // create the necessary <text:s c="n"/>
@@ -478,7 +519,13 @@ public abstract class OOXML implements Comparable<OOXML> {
         return new BigDecimal[] { startX, startY, endX, endY };
     }
 
+    @Immutable
     private static final class XML_OO extends OOXML {
+
+        private static final DocType createManifestDocType() {
+            return new DocType("manifest:manifest", "-//OpenOffice.org//DTD Manifest 1.0//EN", "Manifest.dtd");
+        }
+
         public XML_OO() {
             super(XMLFormatVersion.getOOo(), "20020501");
         }
@@ -492,9 +539,16 @@ public abstract class OOXML implements Comparable<OOXML> {
         public Validator getValidator(Document doc) {
             // DTDs are stubborn, xmlns have to be exactly where they want
             // in this case the root element
-            for (final Namespace n : getVersion().getALL())
-                doc.getRootElement().addNamespaceDeclaration(n);
+            if (!doc.getRootElement().getQualifiedName().equals("manifest:manifest")) {
+                for (final Namespace n : getVersion().getALL())
+                    doc.getRootElement().addNamespaceDeclaration(n);
+            }
             return new Validator.DTDValidator(doc, OOUtils.getBuilderLoadDTD());
+        }
+
+        @Override
+        public Document createManifestDoc() {
+            return new Document(new Element("manifest", this.getVersion().getManifest()), createManifestDocType());
         }
 
         @Override
@@ -538,36 +592,59 @@ public abstract class OOXML implements Comparable<OOXML> {
         }
     }
 
+    @ThreadSafe
     private static class XML_OD extends OOXML {
-        private final String schemaFile;
-        private Schema schema = null;
+        private final String schemaFile, manifestSchemaFile;
+        @GuardedBy("this")
+        private Schema schema, manifestSchema;
 
-        public XML_OD(final String dateString, final String versionString, final String schemaFile) {
+        public XML_OD(final String dateString, final String versionString, final String schemaFile, final String manifestSchemaFile) {
             super(XMLFormatVersion.get(XMLVersion.OD, versionString), dateString);
             this.schemaFile = schemaFile;
+            this.manifestSchemaFile = manifestSchemaFile;
+            this.schema = this.manifestSchema = null;
         }
 
         @Override
         public boolean canValidate() {
-            return this.schemaFile != null;
+            return this.schemaFile != null && this.manifestSchemaFile != null;
         }
 
-        private Schema getSchema() throws SAXException {
+        private Schema createSchema(final String name) throws SAXException {
+            return SchemaFactory.newInstance(XMLConstants.RELAXNG_NS_URI).newSchema(getClass().getResource("oofficeDTDs/" + name));
+        }
+
+        private synchronized Schema getSchema() throws SAXException {
             if (this.schema == null && this.schemaFile != null) {
-                this.schema = SchemaFactory.newInstance(XMLConstants.RELAXNG_NS_URI).newSchema(getClass().getResource("oofficeDTDs/" + this.schemaFile));
+                this.schema = this.createSchema(this.schemaFile);
             }
             return this.schema;
+        }
+
+        private synchronized Schema getManifestSchema() throws SAXException {
+            if (this.manifestSchema == null && this.manifestSchemaFile != null) {
+                this.manifestSchema = this.createSchema(this.manifestSchemaFile);
+            }
+            return this.manifestSchema;
         }
 
         @Override
         public Validator getValidator(Document doc) {
             final Schema schema;
             try {
-                schema = this.getSchema();
+                if (doc.getRootElement().getQualifiedName().equals("manifest:manifest"))
+                    schema = this.getManifestSchema();
+                else
+                    schema = this.getSchema();
             } catch (SAXException e) {
                 throw new IllegalStateException("relaxNG schemas pb", e);
             }
             return schema == null ? null : new Validator.JAXPValidator(doc, schema);
+        }
+
+        @Override
+        public Document createManifestDoc() {
+            return new Document(new Element("manifest", this.getVersion().getManifest()), null);
         }
 
         @Override
@@ -613,19 +690,26 @@ public abstract class OOXML implements Comparable<OOXML> {
 
     private static final class XML_OD_1_0 extends XML_OD {
         public XML_OD_1_0() {
-            super("20061130", "1.0", null);
+            super("20061130", "1.0", null, null);
         }
     }
 
     private static final class XML_OD_1_1 extends XML_OD {
         public XML_OD_1_1() {
-            super("20070201", "1.1", "OpenDocument-strict-schema-v1.1.rng");
+            super("20070201", "1.1", "OpenDocument-strict-schema-v1.1.rng", "OpenDocument-manifest-schema-v1.1.rng");
         }
     }
 
     private static final class XML_OD_1_2 extends XML_OD {
         public XML_OD_1_2() {
-            super("20110317", "1.2", "OpenDocument-v1.2-schema.rng");
+            super("20110317", "1.2", "OpenDocument-v1.2-schema.rng", "OpenDocument-v1.2-manifest-schema.rng");
+        }
+
+        @Override
+        public Document createManifestDoc() {
+            final Document res = super.createManifestDoc();
+            res.getRootElement().setAttribute("version", getFormatVersion().getOfficeVersion(), res.getRootElement().getNamespace());
+            return res;
         }
     }
 }

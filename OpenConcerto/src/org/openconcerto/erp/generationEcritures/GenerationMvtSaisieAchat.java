@@ -161,6 +161,7 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
         if (valEcriture.getInvalid() == null) {
             // ajout de l'ecriture
             valEcriture.update(this.idSaisieAchat);
+            displayMvtNumber();
         }
 
     }

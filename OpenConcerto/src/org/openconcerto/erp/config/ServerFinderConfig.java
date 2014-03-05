@@ -13,36 +13,45 @@
  
  package org.openconcerto.erp.config;
 
+import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLServer;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.PropertiesUtils;
 import org.openconcerto.utils.cc.IClosure;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Properties;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 public class ServerFinderConfig {
-    public static final String H2 = "H2";
-    public static final String POSTGRESQL = "PostgreSQL";
-    public static final String MYSQL = "MySQL";
-    public String type = POSTGRESQL;
+    public static final SQLSystem H2 = SQLSystem.H2;
+    public static final SQLSystem POSTGRESQL = SQLSystem.POSTGRESQL;
+    public static final SQLSystem MYSQL = SQLSystem.MYSQL;
+
+    private final Properties props;
+    private SQLSystem type = POSTGRESQL;
     private String ip;
     private File file;
     private String port;
     private String systemRoot = "OpenConcerto";
 
-    private String dbLogin;
-    private String dbPassword;
+    private String dbLogin = "openconcerto";
+    private String dbPassword = "openconcerto";
 
-    private String openconcertoLogin = "openconcerto";
-    private String openconcertoPassword = "openconcerto";
     private String product;
     private String error;
+
+    public ServerFinderConfig() {
+        this(new Properties());
+    }
+
+    public ServerFinderConfig(final Properties props) {
+        this.props = props;
+    }
 
     public String getSystemRoot() {
         return systemRoot;
@@ -52,15 +61,15 @@ public class ServerFinderConfig {
         this.systemRoot = systemRoot;
     }
 
-    public String getType() {
-        return type;
+    public SQLSystem getType() {
+        return this.getSystem();
     }
 
     public SQLSystem getSystem() {
-        return SQLSystem.get(this.getType());
+        return this.type;
     }
 
-    public void setType(String type) {
+    public void setType(SQLSystem type) {
         this.type = type;
     }
 
@@ -74,6 +83,10 @@ public class ServerFinderConfig {
 
     public File getFile() {
         return file;
+    }
+
+    public void resetFile() {
+        this.file = null;
     }
 
     public void setFile(File file) {
@@ -116,22 +129,6 @@ public class ServerFinderConfig {
         this.dbPassword = dbPassword;
     }
 
-    public String getOpenconcertoLogin() {
-        return openconcertoLogin;
-    }
-
-    public void setOpenconcertoLogin(String openconcertoLogin) {
-        this.openconcertoLogin = openconcertoLogin;
-    }
-
-    public String getOpenconcertoPassword() {
-        return openconcertoPassword;
-    }
-
-    public void setOpenconcertoPassword(String openconcertoPassword) {
-        this.openconcertoPassword = openconcertoPassword;
-    }
-
     public void setProduct(String string) {
         this.product = string;
 
@@ -170,60 +167,72 @@ public class ServerFinderConfig {
         return error;
     }
 
-    //
+    // test that the DB exists and is non empty
     public String test() {
         String result = "Erreur de connexion. \n";
+        final ComptaPropsConfiguration conf = createConf();
         try {
-            SQLServer server = createServer("Common");
-            DBSystemRoot r = server.getSystemRoot("OpenConcerto");
+            DBSystemRoot r = conf.getSystemRoot();
             final boolean ok = CompareUtils.equals(1, r.getDataSource().executeScalar("SELECT 1"));
             if (ok) {
-                result = "Connexion réussie sur la base OpenConcerto.";
+                result = "Connexion réussie sur la base " + conf.getSystemRootName() + ".";
                 if (r.getChildrenNames().size() == 0) {
-                    result = "Attention: la base OpenConcerto est vide";
+                    result = "Attention: la base " + conf.getSystemRootName() + " est vide";
                 }
             }
-            server.destroy();
         } catch (Exception e) {
+            e.printStackTrace();
             result += e.getMessage();
+        } finally {
+            conf.destroy();
         }
         return getFixedString(result);
     }
 
     public boolean isOnline() {
-
+        final ComptaPropsConfiguration server = createConf(true);
         try {
-            SQLServer server = createServer("public");
-            DBSystemRoot r = server.getSystemRoot("OpenConcerto");
-            return CompareUtils.equals(1, r.getDataSource().executeScalar("SELECT 1"));
+            final DBSystemRoot sysRoot = server.getSystemRoot();
+            assert sysRoot.isMappingNoRoots();
+            return CompareUtils.equals(1, sysRoot.getDataSource().executeScalar("SELECT 1"));
         } catch (Exception e) {
+            e.printStackTrace();
             return false;
+        } finally {
+            server.destroy();
         }
 
     }
 
-    public SQLServer createServer(final String root) {
+    public ComptaPropsConfiguration createConf() {
+        return this.createConf(false);
+    }
+
+    private ComptaPropsConfiguration createConf(final boolean mapNoRoots) {
+        final Properties props = new Properties(ComptaPropsConfiguration.createDefaults());
+        PropertiesUtils.load(props, this.props);
+        props.setProperty("server.driver", this.getSystem().name());
+        props.setProperty("server.ip", getHost());
+        props.setProperty("server.login", this.getDbLogin());
+        props.setProperty("server.password", this.getDbPassword());
+        props.setProperty("systemRoot", this.getSystemRoot());
+
+        if (mapNoRoots) {
+            props.setProperty("base.root", PropsConfiguration.EMPTY_PROP_VALUE);
+            props.setProperty("systemRoot.rootsToMap", "");
+        }
+
+        return new ComptaPropsConfiguration(props, false, false);
+    }
+
+    private String getHost() {
         final String host;
         if (this.getType().equals(ServerFinderConfig.H2)) {
             host = "file:" + this.getFile().getAbsolutePath() + "/";
         } else {
-            host = this.getIp();
+            host = this.getIp() + ":" + this.getPort();
         }
-        final SQLServer server = new SQLServer(this.getSystem(), host, String.valueOf(this.getPort()), getOpenconcertoLogin(), getOpenconcertoPassword(), new IClosure<DBSystemRoot>() {
-            @Override
-            public void executeChecked(DBSystemRoot input) {
-                // don't map all the database
-                final List<String> asList = new ArrayList<String>(2);
-                if (!root.equals("Common")) {
-                    asList.add("Common");
-                }
-                asList.add(root);
-                input.setRootsToMap(asList);
-
-            }
-        }, null);
-
-        return server;
+        return host;
     }
 
     /**
@@ -271,8 +280,7 @@ public class ServerFinderConfig {
 
     @Override
     public String toString() {
-        return this.getType() + ":" + this.getIp() + ":" + this.getPort() + " file:" + this.getFile() + " " + this.getOpenconcertoLogin() + "/" + this.getOpenconcertoPassword() + " ["
-                + this.getDbLogin() + "/" + this.getDbPassword() + "] systemRoot:" + systemRoot;
+        return this.getType() + ":" + this.getHost() + " [" + this.getDbLogin() + "/" + this.getDbPassword() + "] systemRoot:" + getSystemRoot();
     }
 
 }

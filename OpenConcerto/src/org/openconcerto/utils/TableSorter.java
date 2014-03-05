@@ -111,12 +111,14 @@ public class TableSorter extends AbstractTableModel {
     private Map columnComparators = new HashMap();
     private List sortingColumns = new ArrayList();
 
+    private boolean enabled;
     private boolean sorting;
     private final PropertyChangeSupport supp;
 
     public TableSorter() {
         this.mouseListener = new MouseHandler();
         this.tableModelListener = new TableModelHandler();
+        this.enabled = true;
         this.sorting = false;
         this.supp = new PropertyChangeSupport(this);
     }
@@ -158,6 +160,29 @@ public class TableSorter extends AbstractTableModel {
             fireTableStructureChanged();
     }
 
+    public final void setSortingEnabled(final boolean b) {
+        this.setSortingEnabled(b, true);
+    }
+
+    // this prevent the user from changing the sort, but setSortingStatus() still works (like
+    // JTextComponent.setEnabled()/setText())
+    public final void setSortingEnabled(final boolean b, final boolean cancelSort) {
+        if (this.enabled != b) {
+            this.enabled = b;
+            if (this.enabled) {
+                this.tableHeader.addMouseListener(mouseListener);
+            } else {
+                this.tableHeader.removeMouseListener(mouseListener);
+            }
+            if (cancelSort && this.isSorting())
+                this.cancelSorting(true);
+        }
+    }
+
+    public final boolean isSortingEnabled() {
+        return this.enabled;
+    }
+
     public JTableHeader getTableHeader() {
         return tableHeader;
     }
@@ -172,7 +197,8 @@ public class TableSorter extends AbstractTableModel {
         }
         this.tableHeader = tableHeader;
         if (this.tableHeader != null) {
-            this.tableHeader.addMouseListener(mouseListener);
+            if (this.isSortingEnabled())
+                this.tableHeader.addMouseListener(mouseListener);
             this.tableHeader.setDefaultRenderer(new SortableHeaderRenderer(this.tableHeader.getDefaultRenderer()));
         }
     }
@@ -408,14 +434,14 @@ public class TableSorter extends AbstractTableModel {
 
             // We can map a cell event through to the view without widening
             // when the following conditions apply:
-            // 
+            //
             // a) all the changes are on one row (e.getFirstRow() == e.getLastRow()) and,
             // b) all the changes are in one column (column != TableModelEvent.ALL_COLUMNS) and,
             // c) we are not sorting on that column (getSortingStatus(column) == NOT_SORTED) and,
             // d) a reverse lookup will not trigger a sort (modelToView != null)
             //
             // Note: INSERT and DELETE events fail this test as they have column == ALL_COLUMNS.
-            // 
+            //
             // The last check, for (modelToView != null) is to see if modelToView
             // is already allocated. If we don't do this check; sorting can become
             // a performance bottleneck for applications where cells

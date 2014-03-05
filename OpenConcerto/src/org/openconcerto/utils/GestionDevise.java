@@ -97,12 +97,10 @@ public class GestionDevise {
             if (decpl == -1 || decpl == 0) {
                 num *= 100;
             } else {
-                // FIXME
-                if (decpl == 2) {
-                    /* it is fine as is */
-                } else {
-                    ExceptionHandler.handle(numStr + " wrong number of decimal places.");
-                    return 0;
+                if (decpl > 2) {
+                    for (int i = 2; i < decpl; i++) {
+                        num /= 10;
+                    }
                 }
             }
             if (negative) {

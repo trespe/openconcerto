@@ -13,6 +13,7 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
+import org.openconcerto.openoffice.Length;
 import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.Style;
@@ -214,15 +215,31 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      * <code>duplicateRows(2, 4, 1)</code>.
      * 
      * @param start the first row to clone.
-     * @param count the number of rows after <code>start</code> to clone.
-     * @param copies the number of copies of the range to make.
+     * @param count the number of rows after <code>start</code> to clone, i.e. 1 means clone one
+     *        row, must be greater or equal to 0.
+     * @param copies the number of copies of the range to make, must be greater or equal to 0.
+     * @throws IllegalArgumentException if arguments are not valid.
      */
-    public final synchronized void duplicateRows(int start, int count, int copies) {
+    public final void duplicateRows(final int start, final int count, final int copies) throws IllegalArgumentException {
         this.duplicateRows(start, count, copies, true);
     }
 
-    public final synchronized void duplicateRows(int start, int count, int copies, boolean updateCellAddresses) {
+    public final synchronized void duplicateRows(final int start, final int count, final int copies, final boolean updateCellAddresses) throws IllegalArgumentException {
+        if (start < 0)
+            throw new IllegalArgumentException("Negative start index : " + start);
+        if (count < 0)
+            throw new IllegalArgumentException("Negative count : " + count);
+        else if (count == 0)
+            return;
+        if (copies < 0)
+            throw new IllegalArgumentException("Negative copies : " + copies);
+        else if (copies == 0)
+            return;
+        // stop is excluded
         final int stop = start + count;
+        if (stop > this.getRowCount())
+            throw new IllegalArgumentException("Last row to duplicate (" + (stop - 1) + ") doesn't exist, there's only : " + getRowCount());
+
         // should not change merged status
         final Map<Point, Integer> coverOrigins = new HashMap<Point, Integer>();
         final List<Point> coverOriginsToUpdate = new ArrayList<Point>();
@@ -502,9 +519,14 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
     }
 
     /**
-     * @param row la ligne (0 a lineCount-1)
-     * @param column la colonnee (0 a colonneCount-1)
-     * @return la valeur de la cellule spécifiée.
+     * The value of the cell at the passed coordinates.
+     * 
+     * @param row row index from <code>0</code> to <code>{@link #getRowCount() row count}-1</code>
+     * @param column column index from <code>0</code> to
+     *        <code>{@link #getColumnCount() column count}-1</code>
+     * @return the value at the passed coordinates.
+     * @see #getValueAt(String)
+     * @see Cell#getValue()
      */
     public final Object getValueAt(int column, int row) {
         return this.getImmutableCellAt(column, row).getValue();
@@ -598,10 +620,12 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
     }
 
     /**
-     * Retourne la valeur de la cellule spécifiée.
+     * The value of the cell at the passed coordinates.
      * 
-     * @param ref une référence de la forme "A3".
-     * @return la valeur de la cellule spécifiée.
+     * @param ref a reference, e.g. "A3".
+     * @return the value at the passed coordinates.
+     * @see #getValueAt(int, int)
+     * @see Cell#getValue()
      */
     public final Object getValueAt(String ref) {
         return this.getImmutableCellAt(ref).getValue();
@@ -799,30 +823,35 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
         }
     }
 
-    private void updateWidth(final boolean keepTableWidth) {
-        final Float currentWidth = getWidth();
-        float newWidth = 0;
+    void updateWidth(final boolean keepTableWidth) {
+        // tables widths must have a lower precision than columns since they can't be the exact sum
+        // of them.
+        final Length currentWidth = getWidth().roundDecimalAmount();
+        Length newWidth = Length.ZERO;
         Column<?> nullWidthCol = null;
         // columns are flattened in ctor: no repeated
         for (final Column<?> col : this.cols) {
-            final Float colWidth = col.getWidth();
-            if (colWidth != null) {
-                assert colWidth >= 0;
-                newWidth += colWidth;
+            final Length colWidth = col.getWidth();
+            if (colWidth.isDefined()) {
+                assert colWidth.signum() >= 0;
+                newWidth = newWidth.add(colWidth);
             } else {
                 // we cannot compute the newWidth
-                newWidth = -1;
+                newWidth = Length.getNone();
                 nullWidthCol = col;
                 break;
             }
         }
+        // tables widths must have a lower precision than columns since they can't be the exact sum
+        // of them.
+        newWidth = newWidth.roundDecimalAmount();
         // remove all rel-column-width, simpler and Spreadsheet doesn't use them
         // SpreadSheets have no table width
-        if (keepTableWidth && currentWidth != null) {
+        if (keepTableWidth && currentWidth.isDefined()) {
             if (nullWidthCol != null)
                 throw new IllegalStateException("Cannot keep width since a column has no width : " + nullWidthCol);
             // compute column-width from table width
-            final float ratio = currentWidth / newWidth;
+            final Number ratio = currentWidth.divide(newWidth);
             // once per style not once per col, otherwise if multiple columns with same styles they
             // all will be affected multiple times
             final Set<ColumnStyle> colStyles = new HashSet<ColumnStyle>();
@@ -830,7 +859,7 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
                 colStyles.add(col.getStyle());
             }
             for (final ColumnStyle colStyle : colStyles) {
-                colStyle.setWidth(colStyle.getWidth() * ratio);
+                colStyle.setWidth(colStyle.getWidth().multiply(ratio));
             }
         } else {
             // compute table width from column-width
@@ -838,12 +867,12 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
             if (style != null) {
                 if (nullWidthCol == null)
                     style.setWidth(newWidth);
-                else if (currentWidth != null)
+                else if (currentWidth.isDefined())
                     throw new IllegalStateException("Cannot update table width since a column has no width : " + nullWidthCol);
-                // else currentWidth == null, no inconsistency, nothing to update
+                // else currentWidth undefined, no inconsistency, nothing to update
             }
             // either there's no table width or it's positive and equal to the sum of its columns
-            assert style == null || style.getWidth() == null || (newWidth >= 0 && style.getWidth() == newWidth);
+            assert style == null || style.getWidth().isNone() || (!newWidth.isNone() && newWidth.compareTo(style.getWidth()) == 0);
             for (final Column<?> col : this.cols) {
                 final ColumnStyle colStyle = col.getStyle();
                 // if no style, nothing to remove
@@ -859,9 +888,8 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      * @return the table width, can be <code>null</code> (table has no style or style has no width,
      *         eg in SpreadSheet).
      */
-    public final Float getWidth() {
-        final TableStyle style = this.getStyle();
-        return style == null ? null : style.getWidth();
+    public final Length getWidth() {
+        return this.getStyle().getWidth();
     }
 
     /**
@@ -872,8 +900,12 @@ public class Table<D extends ODDocument> extends TableCalcNode<TableStyle, D> {
      * @return the newly added style.
      */
     public final ColumnStyle createColumnStyle(final Number amount, final LengthUnit unit) {
+        return createColumnStyle(amount == null ? Length.getNone() : Length.create(amount, unit));
+    }
+
+    public final ColumnStyle createColumnStyle(final Length l) {
         final ColumnStyle colStyle = this.getStyleDesc(ColumnStyle.class).createAutoStyle(this.getODDocument().getPackage());
-        colStyle.setWidth(amount, unit);
+        colStyle.setWidth(l);
         return colStyle;
     }
 

@@ -13,7 +13,6 @@
  
  package org.openconcerto.erp.modules;
 
-import org.openconcerto.erp.config.Log;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
@@ -25,6 +24,7 @@ import org.openconcerto.sql.utils.SQLCreateTableBase;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.cc.IClosure;
 
+import java.io.File;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -41,6 +41,7 @@ import java.util.Set;
  */
 public final class DBContext {
 
+    private final File dir;
     private final ModuleVersion localVersion;
     private final ModuleVersion lastInstalledVersion;
     private final DBRoot root;
@@ -52,8 +53,9 @@ public final class DBContext {
     private final Set<String> tables;
     private final CollectionMap<String, SQLField> fields;
 
-    DBContext(final ModuleVersion localVersion, final DBRoot root, final ModuleVersion dbVersion, final Set<String> tables, final Set<SQLName> fields) {
-
+    DBContext(final File dir, final ModuleVersion localVersion, final DBRoot root, final ModuleVersion dbVersion, final Set<String> tables, final Set<SQLName> fields) {
+        super();
+        this.dir = dir;
         this.localVersion = localVersion;
         this.lastInstalledVersion = dbVersion;
         this.root = root;
@@ -66,6 +68,10 @@ public final class DBContext {
         this.changeTables = new ArrayList<ChangeTable<?>>();
         this.alterTables = new ArrayList<AlterTableRestricted>();
         this.dm = new ArrayList<IClosure<? super DBRoot>>();
+    }
+
+    public final File getLocalDirectory() {
+        return this.dir;
     }
 
     public final ModuleVersion getLocalVersion() {
@@ -88,25 +94,22 @@ public final class DBContext {
         return (Set<SQLField>) this.fields.getNonNull(tableName);
     }
 
-    final List<String> getSQL() {
+    private final List<String> getSQL() {
         return ChangeTable.cat(this.changeTables, this.root.getName());
     }
 
     final void execute() throws SQLException {
-        Log.get().info("executing database changes");
         final List<String> sql = this.getSQL();
         // refetch() is costly
         if (sql.size() > 0) {
-            for (final String s : sql) {
-                Log.get().info("executing " + s);
+            for (final String s : sql)
                 getRoot().getDBSystemRoot().getDataSource().execute(s);
-            }
+
             // perhaps add a Map parameter to getCreateTable() for the undefined row
             // for now OK to not use an undefined row since we can't modify List/ComboSQLRequet
-            for (final String addedTable : getAddedTables()) {
-                Log.get().info("setting null undefined for table " + addedTable);
+            for (final String addedTable : getAddedTables())
                 SQLTable.setUndefID(getRoot().getSchema(), addedTable, null);
-            }
+
             // always updateVersion() after setUndefID(), see DBRoot.createTables()
             getRoot().getSchema().updateVersion();
             getRoot().refetch();

@@ -13,6 +13,8 @@
  
  package org.openconcerto.erp.core.finance.accounting.action;
 
+import java.awt.Dimension;
+
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.ui.ValidationEcriturePanel;
@@ -30,6 +32,7 @@ public class NouvelleValidationAction extends CreateFrameAbstractAction {
     @Override
     public JFrame createFrame() {
         final PanelFrame panelFrame = new PanelFrame(new ValidationEcriturePanel(), "Validation des écritures");
+        panelFrame.setPreferredSize(new Dimension(panelFrame.getPreferredSize().width + 50, panelFrame.getPreferredSize().height));
         panelFrame.pack();
         panelFrame.setResizable(false);
         return panelFrame;

@@ -13,10 +13,12 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
+import org.openconcerto.openoffice.Length;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.StyledNode;
 import org.openconcerto.openoffice.XMLVersion;
+import org.openconcerto.openoffice.text.TextDocument;
 
 import org.jdom.Element;
 
@@ -29,16 +31,24 @@ public class Column<D extends ODDocument> extends TableCalcNode<ColumnStyle, D> 
         return res;
     }
 
+    private final Table<D> parent;
+
     public Column(final Table<D> parent, Element tableColElem, StyleStyleDesc<ColumnStyle> colStyleDesc) {
         super(parent.getODDocument(), tableColElem, colStyleDesc);
+        this.parent = parent;
     }
 
-    public final Float getWidth() {
+    public final Length getWidth() {
         final ColumnStyle style = this.getStyle();
-        return style == null ? null : style.getWidth();
+        return style == null ? Length.getNone() : style.getWidth();
     }
 
-    public final void setWidth(final Number w) {
-        this.getPrivateStyle().setWidth(w, TableStyle.DEFAULT_UNIT);
+    public final void setWidth(final Length l) {
+        this.setWidth(l, getODDocument() instanceof TextDocument);
+    }
+
+    public final void setWidth(final Length l, final boolean keepTableWidth) {
+        this.getPrivateStyle().setWidth(l);
+        this.parent.updateWidth(keepTableWidth);
     }
 }

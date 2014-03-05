@@ -89,7 +89,6 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
     @Override
     protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
         super.archive(row, cutLinks);
-        updateStock(Arrays.asList(row.getID()), true);
     }
 
     @Override
@@ -165,31 +164,30 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                         rowArticleAssocie = rowElt.getTable().getTable("ARTICLE").getRow(idArticle);
                     }
 
-                    // FIXME Voir avec Guillaume Article déjà créé sans gestion de stock??
-                    // if (rowArticleAssocie.getBoolean("GESTION_STOCK")) {
+                    if (rowArticleAssocie.getBoolean("GESTION_STOCK")) {
 
-                    // on crée un mouvement de stock pour chacun des articles
-                    SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-                    SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
+                        // on crée un mouvement de stock pour chacun des articles
+                        SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+                        SQLRowValues rowVals = new SQLRowValues(eltMvtStock.getTable());
 
-                    final int qte = rowElt.getInt("QTE");
-                    final BigDecimal qteUV = rowElt.getBigDecimal("QTE_UNITAIRE");
-                    double qteFinal = qteUV.multiply(new BigDecimal(qte), MathContext.DECIMAL128).doubleValue();
-                    if (entry) {
-                        rowVals.put("QTE", qteFinal);
-                    } else {
-                        rowVals.put("QTE", -qteFinal);
+                        final int qte = rowElt.getInt("QTE");
+                        final BigDecimal qteUV = rowElt.getBigDecimal("QTE_UNITAIRE");
+                        double qteFinal = qteUV.multiply(new BigDecimal(qte), MathContext.DECIMAL128).doubleValue();
+                        if (entry) {
+                            rowVals.put("QTE", qteFinal);
+                        } else {
+                            rowVals.put("QTE", -qteFinal);
+                        }
+
+                        rowVals.put("NOM", label.getLabel(rowOrigin, rowElt));
+                        rowVals.put("IDSOURCE", rowOrigin.getID());
+                        rowVals.put("SOURCE", rowOrigin.getTable().getName());
+                        rowVals.put("ID_ARTICLE", rowArticleAssocie.getID());
+                        rowVals.put("DATE", rowOrigin.getObject("DATE"));
+                        SQLRow row = rowVals.insert();
+                        l.add(row.getID());
+
                     }
-
-                    rowVals.put("NOM", label.getLabel(rowOrigin, rowElt));
-                    rowVals.put("IDSOURCE", rowOrigin.getID());
-                    rowVals.put("SOURCE", rowOrigin.getTable().getName());
-                    rowVals.put("ID_ARTICLE", rowArticleAssocie.getID());
-                    rowVals.put("DATE", rowOrigin.getObject("DATE"));
-                    SQLRow row = rowVals.insert();
-                    l.add(row.getID());
-
-                    // }
                 }
             }
             final CollectionMap<SQLRow, List<SQLRowValues>> map = updateStock(l, false);
@@ -282,20 +280,23 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
             String stockMin = props.getStringProperty("ArticleStockMin");
             Boolean bStockMin = !stockMin.equalsIgnoreCase("false");
             boolean gestionStockMin = (bStockMin == null || bStockMin.booleanValue());
-            if (!archive && rowArticle.getTable().getFieldsName().contains("QTE_MIN") && gestionStockMin && qteNvlle < rowArticle.getInt("QTE_MIN")) {
+            if (!archive && rowArticle.getTable().getFieldsName().contains("QTE_MIN") && gestionStockMin && rowArticle.getObject("QTE_MIN") != null && qteNvlle < rowArticle.getInt("QTE_MIN")) {
                 // final float qteShow = qteNvlle;
                 SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
                 SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticle));
                 rowValsElt.put("ID_STYLE", 2);
                 final SQLRow unite = rowArticle.getForeign("ID_UNITE_VENTE");
+                final float qteElt = rowArticle.getInt("QTE_MIN") - qteNvlle;
                 if (unite.isUndefined() || unite.getBoolean("A_LA_PIECE")) {
-                    rowValsElt.put("QTE", Math.round(rowArticle.getInt("QTE_MIN") - qteNvlle));
+                    rowValsElt.put("QTE", Math.round(qteElt));
+                    rowValsElt.put("QTE_UNITAIRE", BigDecimal.ONE);
                 } else {
-                    rowValsElt.put("QTE_UNITAIRE", new BigDecimal(rowArticle.getInt("QTE_MIN") - qteNvlle));
+                    rowValsElt.put("QTE", 1);
+                    rowValsElt.put("QTE_UNITAIRE", new BigDecimal(qteElt));
                 }
                 rowValsElt.put("ID_TAXE", rowValsElt.getObject("ID_TAXE"));
-                rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
-                rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * rowValsElt.getInt("QTE"));
+                rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * qteElt);
+                rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * qteElt);
                 rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
 
                 map.put(rowArticle.getForeignRow("ID_FOURNISSEUR"), rowValsElt);

@@ -55,6 +55,7 @@ import org.openconcerto.erp.core.finance.payment.element.ChequeFournisseurSQLEle
 import org.openconcerto.erp.core.finance.payment.element.EncaisserMontantElementSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.EncaisserMontantSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
+import org.openconcerto.erp.core.finance.payment.element.ReglerMontantElementSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.ReglerMontantSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
 import org.openconcerto.erp.core.finance.tax.element.EcoTaxeSQLElement;
@@ -129,6 +130,8 @@ import org.openconcerto.erp.core.sales.shipment.element.TransferShipmentSQLEleme
 import org.openconcerto.erp.core.supplychain.credit.element.AvoirFournisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeElementSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
+import org.openconcerto.erp.core.supplychain.order.element.FactureFournisseurElementSQLElement;
+import org.openconcerto.erp.core.supplychain.order.element.FactureFournisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.SaisieAchatSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.TransferPurchaseSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.TransferSupplierOrderSQLElement;
@@ -147,10 +150,16 @@ import org.openconcerto.erp.generationDoc.provider.AdresseRueClientValueProvider
 import org.openconcerto.erp.generationDoc.provider.AdresseVilleCPClientValueProvider;
 import org.openconcerto.erp.generationDoc.provider.AdresseVilleClientValueProvider;
 import org.openconcerto.erp.generationDoc.provider.AdresseVilleNomClientValueProvider;
+import org.openconcerto.erp.generationDoc.provider.FacturableValueProvider;
+import org.openconcerto.erp.generationDoc.provider.FormatedGlobalQtyTotalProvider;
+import org.openconcerto.erp.generationDoc.provider.LabelAccountInvoiceProvider;
+import org.openconcerto.erp.generationDoc.provider.MergedGlobalQtyTotalProvider;
 import org.openconcerto.erp.generationDoc.provider.ModeDeReglementDetailsProvider;
 import org.openconcerto.erp.generationDoc.provider.PrixUnitaireRemiseProvider;
 import org.openconcerto.erp.generationDoc.provider.QteTotalProvider;
 import org.openconcerto.erp.generationDoc.provider.RefClientValueProvider;
+import org.openconcerto.erp.generationDoc.provider.TotalAcompteProvider;
+import org.openconcerto.erp.generationDoc.provider.TotalCommandeClientProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCreateInitialsValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCurrentInitialsValueProvider;
 import org.openconcerto.erp.generationDoc.provider.UserModifyInitialsValueProvider;
@@ -172,6 +181,7 @@ import org.openconcerto.erp.injector.DevisCommandeSQLInjector;
 import org.openconcerto.erp.injector.DevisEltFactureEltSQLInjector;
 import org.openconcerto.erp.injector.DevisFactureSQLInjector;
 import org.openconcerto.erp.injector.EcheanceEncaisseSQLInjector;
+import org.openconcerto.erp.injector.EcheanceRegleSQLInjector;
 import org.openconcerto.erp.injector.FactureAvoirSQLInjector;
 import org.openconcerto.erp.injector.FactureBonSQLInjector;
 import org.openconcerto.erp.injector.FactureCommandeSQLInjector;
@@ -191,6 +201,7 @@ import org.openconcerto.sql.model.LoadingListener;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLServer;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.task.TacheActionManager;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
@@ -244,6 +255,13 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     public static final ProductInfo productInfo = ProductInfo.getInstance();
     public static final String APP_NAME = productInfo.getName();
     private static final String DEFAULT_ROOT = "Common";
+
+    static final Properties createDefaults() {
+        final Properties defaults = new Properties();
+        defaults.setProperty("base.root", DEFAULT_ROOT);
+        return defaults;
+    }
+
     // the properties path from this class
     private static final String PROPERTIES = "main.properties";
 
@@ -301,8 +319,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         // Log pour debug demarrage
         System.out.println("Loading configuration from:" + (confFile == null ? "null" : confFile.getAbsolutePath()));
         final boolean inWebStart = Gestion.inWebStart();
-        final Properties defaults = new Properties();
-        defaults.setProperty("base.root", DEFAULT_ROOT);
+        final Properties defaults = createDefaults();
         // Ordre de recherche:
         // a/ fichier de configuration
         // b/ dans le jar
@@ -321,7 +338,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
                 else
                     throw new IOException("found neither " + confFile + " nor embedded " + PROPERTIES);
             }
-            return new ComptaPropsConfiguration(props, inWebStart);
+            return new ComptaPropsConfiguration(props, inWebStart, true);
         } catch (final IOException e) {
             e.printStackTrace();
             ExceptionHandler.die("Impossible de lire le fichier de configuration.", e);
@@ -333,13 +350,15 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     // *** instance
 
+    private final boolean isMain;
     private final boolean inWebstart;
     private final boolean isServerless;
     private boolean isOnCloud;
-    private FieldMapper fieldMapper;
 
-    ComptaPropsConfiguration(Properties props, final boolean inWebstart) {
+    // isMain=true also set up some VM wide settings
+    ComptaPropsConfiguration(Properties props, final boolean inWebstart, final boolean main) {
         super(props, productInfo);
+        this.isMain = main;
         this.inWebstart = inWebstart;
         this.setProperty("wd", DesktopEnvironment.getDE().getDocumentsFolder().getAbsolutePath() + File.separator + this.getAppName());
         if (this.getProperty("version.date") != null) {
@@ -396,17 +415,17 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             // Local database
             setProperty("server.login", "openconcerto");
             setProperty("server.password", "openconcerto");
-            this.isServerless = getProperty("server.ip", "").contains(DATA_DIR_VAR);
-            if (this.isServerless) {
-                this.setProperty("server.ip", getProperty("server.ip").replace(DATA_DIR_VAR, getDataDir().getPath()));
-            }
+            this.setProperty("server.ip", getProperty("server.ip").replace(DATA_DIR_VAR, getDataDir().getPath()));
+            final SQLSystem system = getSystem();
+            this.isServerless = system == SQLSystem.H2 && system.getHostname(getServerIp()) == null;
         }
-
-        // ATTN this works because this is executed last (i.e. if you put this in a superclass
-        // this won't work since e.g. app.name won't have its correct value)
-        this.setupLogging("logs");
-        registerAccountingProvider();
-        registerCellValueProvider();
+        if (this.isMain) {
+            // ATTN this works because this is executed last (i.e. if you put this in a superclass
+            // this won't work since e.g. app.name won't have its correct value)
+            this.setupLogging("logs");
+            registerAccountingProvider();
+            registerCellValueProvider();
+        }
     }
 
     private void registerAccountingProvider() {
@@ -420,6 +439,10 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         UserModifyInitialsValueProvider.register();
         UserCurrentInitialsValueProvider.register();
         PrixUnitaireRemiseProvider.register();
+        TotalAcompteProvider.register();
+        FacturableValueProvider.register();
+        TotalCommandeClientProvider.register();
+        LabelAccountInvoiceProvider.register();
         AdresseRueClientValueProvider.register();
         AdresseVilleClientValueProvider.register();
         AdresseVilleCPClientValueProvider.register();
@@ -428,6 +451,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         QteTotalProvider.register();
         RefClientValueProvider.register();
         ModeDeReglementDetailsProvider.register();
+        FormatedGlobalQtyTotalProvider.register();
+        MergedGlobalQtyTotalProvider.register();
     }
 
     @Override
@@ -495,7 +520,9 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     @Override
     public void destroy() {
         // since we used setupLogging() in the constructor (allows to remove confDir)
-        this.tearDownLogging(true);
+        if (this.isMain) {
+            this.tearDownLogging(true);
+        }
         super.destroy();
     }
 
@@ -751,9 +778,12 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new RelanceSQLElement());
         dir.addSQLElement(new ReglementPayeSQLElement());
         dir.addSQLElement(new ReglerMontantSQLElement());
+        dir.addSQLElement(ReglerMontantElementSQLElement.class);
         dir.addSQLElement(RepartitionAnalytiqueSQLElement.class);
 
         dir.addSQLElement(new SaisieAchatSQLElement());
+        dir.addSQLElement(new FactureFournisseurSQLElement());
+        dir.addSQLElement(new FactureFournisseurElementSQLElement());
         dir.addSQLElement(new TransferPurchaseSQLElement());
         dir.addSQLElement(new SaisieKmSQLElement());
         dir.addSQLElement(new SaisieVenteComptoirSQLElement());
@@ -819,6 +849,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         new CommandeBrSQLInjector(rootSociete);
         new CommandeFactureAchatSQLInjector(rootSociete);
         new EcheanceEncaisseSQLInjector(rootSociete);
+        new EcheanceRegleSQLInjector(rootSociete);
         new BrFactureAchatSQLInjector(rootSociete);
         new DevisEltFactureEltSQLInjector(rootSociete);
     }
@@ -831,6 +862,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.show("ACTIVITE", "CODE_ACTIVITE");
         showAs.show("ADRESSE", SQLRow.toList("RUE,CODE_POSTAL,VILLE"));
         final DBRoot root = this.getRootSociete();
+
         showAs.show("AXE_ANALYTIQUE", "NOM");
 
         showAs.show("CHEQUE_A_ENCAISSER", "MONTANT", "ID_CLIENT");
@@ -882,7 +914,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.show("MODELE_COURRIER_CLIENT", "NOM", "CONTENU");
 
         showAs.show("NATURE_COMPTE", "NOM");
-
         showAs.show("POSTE_ANALYTIQUE", "NOM");
         showAs.show("PAYS", "CODE", "NOM");
         showAs.show("PIECE", "ID", "NOM");
@@ -920,15 +951,20 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     }
 
-    public void setUpSocieteDataBaseConnexion(int base) {
+    public String setUpSocieteStructure(int base) {
         setRowSociete(base);
 
         // find customer
         String customerName = "openconcerto";
-        final DBRoot rootSociete = this.getRootSociete();
-        final String dbMD = rootSociete.getMetadata("CUSTOMER");
+        final String dbMD = getRootSociete().getMetadata("CUSTOMER");
         if (dbMD != null && !dbMD.equals(customerName))
             throw new IllegalStateException("customer is '" + customerName + "' but db says '" + dbMD + "'");
+        return customerName;
+    }
+
+    public void setUpSocieteDataBaseConnexion(int base) {
+        final String customerName = setUpSocieteStructure(base);
+        final DBRoot rootSociete = this.getRootSociete();
         closeSocieteConnexion();
         setSocieteDirectory();
         NumerotationAutoSQLElement.addListeners();
@@ -942,12 +978,9 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     }
 
     private void setMapper() {
-        fieldMapper = new FieldMapper(this.getRootSociete());
+        FieldMapper fieldMapper = new FieldMapper(this.getRootSociete());
         fieldMapper.addMapperStreamFromClass(Gestion.class);
-    }
-
-    public FieldMapper getFieldMapper() {
-        return fieldMapper;
+        setFieldMapper(fieldMapper);
     }
 
     private void closeSocieteConnexion() {

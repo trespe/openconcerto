@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Vector;
 
 import javax.swing.AbstractAction;
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
@@ -66,6 +67,7 @@ import javax.swing.border.Border;
  * @author ilm Created on 8 oct. 2003
  */
 public class EditPanel extends JPanel implements IListener, ActionListener, Documented {
+
     public static enum EditMode {
         CREATION {
             @Override
@@ -93,6 +95,14 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
      * Otherwise they're added after the selection.
      */
     public final static String ADD_AT_THE_END = "org.openconcerto.sql.editPanel.endAdd";
+    /**
+     * If this system property is true, then the scroll pane won't have a border.
+     */
+    public static final String NOBORDER = "org.openconcerto.editpanel.noborder";
+    /**
+     * If this system property is true, add a separator before the buttons.
+     */
+    public static final String ADD_SEPARATOR = "org.openconcerto.editpanel.separator";
 
     public final static EditMode CREATION = EditMode.CREATION;
     public final static EditMode MODIFICATION = EditMode.MODIFICATION;
@@ -142,7 +152,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
      * <li>to modify if MODIFICATION</li>
      * <li>to view if READONLY</li>
      * </ul>
-     * use "org.openconcerto.editpanel.noborder" and "org.openconcerto.editpanel.separator" for custom style
+     * use {@value #NOBORDER} and {@value #ADD_SEPARATOR} for custom style
      * 
      * @param e the element to display.
      * @param mode the edit mode, one of CREATION, MODIFICATION or READONLY.
@@ -181,19 +191,23 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
                         updateBtns();
                     }
                 });
-                ((BaseSQLComponent) this.component).addSelectionListener(new PropertyChangeListener() {
+                final PropertyChangeListener updateBtnsListener = new PropertyChangeListener() {
                     @Override
                     public void propertyChange(PropertyChangeEvent evt) {
                         updateBtns();
                     }
-                });
+                };
+                // update buttons if the selection changes of row or if the current row changes
+                ((BaseSQLComponent) this.component).addSelectionListener(updateBtnsListener);
+                this.getSQLComponent().addPropertyChangeListener(SQLComponent.READ_ONLY_PROP, updateBtnsListener);
             }
 
             this.uiInit();
             this.component.uiInit();
 
-            if (Boolean.getBoolean("org.openconcerto.editpanel.noborder")) {
-                this.setInnerBorder(null);
+            if (Boolean.getBoolean(NOBORDER)) {
+                // don't use null, it will be replaced by updateUI()
+                this.setInnerBorder(BorderFactory.createEmptyBorder());
             }
         } catch (Exception ex) {
             ExceptionHandler.handle(TM.tr("init.error"), ex);
@@ -213,12 +227,15 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
             final UserRights rights = UserRightsManager.getCurrentUserRights();
             if (!TableAllRights.hasRight(rights, code, getSQLComponent().getElement().getTable())) {
                 res = ValidState.createCached(false, TM.tr(desc));
-            } else if (needID && !idOK)
+            } else if (this.getSQLComponent().isSelectionReadOnly()) {
+                res = ValidState.createCached(false, TM.tr("editPanel.readOnlySelection"));
+            } else if (needID && !idOK) {
                 res = ValidState.createCached(false, TM.tr("editPanel.inexistentElement"));
-            else if (needValid && !this.valid.isValid())
+            } else if (needValid && !this.valid.isValid()) {
                 res = this.valid;
-            else
+            } else {
                 res = ValidState.getTrueInstance();
+            }
             updateBtn(b, res);
         }
     }
@@ -227,10 +244,10 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         this.fill();
 
         // les raccourcis claviers
-        this.component.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.CTRL_DOWN_MASK), "add");
-        this.component.getActionMap().put("add", new AbstractAction() {
+        this.component.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, KeyEvent.CTRL_DOWN_MASK), "apply");
+        this.component.getActionMap().put("apply", new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                ajouter();
+                apply();
             }
         });
     }
@@ -264,7 +281,7 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         container.add(this.p, c);
 
         // Separator, if needed
-        if (Boolean.getBoolean("org.openconcerto.editpanel.separator")) {
+        if (Boolean.getBoolean(ADD_SEPARATOR)) {
             c.gridy++;
             c.weightx = 1;
             c.weighty = 0;
@@ -292,7 +309,6 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
             if (!Boolean.getBoolean("org.openconcerto.editpanel.hideKeepOpen")) {
                 container.add(this.keepOpen, c);
             }
-            this.keepOpen.addActionListener(this);
             c.fill = GridBagConstraints.NONE;
             c.gridx = 2;
             c.anchor = GridBagConstraints.EAST;
@@ -316,7 +332,6 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
                     }
                 }
             });
-
         } else if (this.mode == MODIFICATION) {
             c.gridx = 1;
             c.anchor = GridBagConstraints.EAST;
@@ -383,6 +398,21 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         }
     }
 
+    protected final void apply() {
+        final JButton b;
+        if (this.mode == CREATION)
+            b = this.jButtonAjouter;
+        else if (this.mode == MODIFICATION)
+            b = this.jButtonModifier;
+        else if (this.mode == READONLY)
+            b = this.jButtonAnnuler;
+        else
+            b = null;
+
+        if (b != null)
+            b.doClick();
+    }
+
     /*
      * (non-Javadoc)
      * 
@@ -443,6 +473,10 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
                 id = this.component.insert();
             if (this.l != null)
                 this.l.selectID(id);
+            // otherwise full reset on visibility change.
+            if (this.alwaysVisible()) {
+                ((BaseSQLComponent) this.getSQLComponent()).partialReset();
+            }
             this.fireInserted(id);
         }
     }

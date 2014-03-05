@@ -38,6 +38,7 @@ public class ODTPrinterNX extends ODTPrinterXML {
     public void print(final String printerName, final int copies) {
         final PrinterJob printJob = PrinterJob.getPrinterJob();
         printJob.setPrintable(this);
+        printJob.setCopies(copies);
 
         // Set the printer
         PrintService myService = null;
@@ -74,7 +75,7 @@ public class ODTPrinterNX extends ODTPrinterXML {
                 public void run() {
                     if (printJob.printDialog(pras)) {
                         try {
-                            printJob.print();
+                            printJob.print(pras);
                         } catch (PrinterException e) {
                             e.printStackTrace();
                         }

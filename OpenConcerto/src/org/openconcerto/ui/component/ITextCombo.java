@@ -18,6 +18,7 @@ package org.openconcerto.ui.component;
 
 import static org.openconcerto.ui.component.ComboLockedMode.LOCKED;
 import static org.openconcerto.ui.component.ComboLockedMode.UNLOCKED;
+import org.openconcerto.ui.component.combo.ISearchableComboPopup;
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueChangeSupport;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
@@ -37,19 +38,28 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 import javax.swing.ComboBoxEditor;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
+import javax.swing.JList;
+import javax.swing.SwingUtilities;
 import javax.swing.event.DocumentEvent;
 import javax.swing.text.AbstractDocument;
 import javax.swing.text.BadLocationException;
+import javax.swing.text.DocumentFilter;
 import javax.swing.text.DocumentFilter.FilterBypass;
 import javax.swing.text.JTextComponent;
+
+import net.jcip.annotations.GuardedBy;
 
 /**
  * A comboBox that can be editable or not, and whose values are taken from a ITextComboCache.
@@ -64,18 +74,25 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
      */
     public static final String SIMPLE_TRAVERSAL = "org.openconcerto.ui.simpleTraversal";
 
+    private static final Pattern DIGIT_PATTERN = Pattern.compile("\\d+");
+
     private static final String DEFAULTVALUE = "";
 
     private final String defaultValue;
     private final ComboLockedMode locked;
     private final ValueChangeSupport<String> supp;
+    private KeyListener keyListener = null;
+    private DocumentFilter docFilter = null;
     protected final boolean autoComplete;
     protected boolean keyPressed;
     private boolean completing;
 
     // cache
+    @GuardedBy("EDT")
     private boolean cacheLoading;
+    // only valid while cache is loading
     private String objToSelect;
+    @GuardedBy("EDT")
     private boolean modeToSet;
     protected boolean modifyingDoc;
 
@@ -117,7 +134,6 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
         this.setMinimumSize(new Dimension(80, 22));
         // Test de Preferred Size pour ne pas exploser les GridBagLayouts
         this.setPreferredSize(new Dimension(120, 22));
-        this.objToSelect = defaultValue;
         // argument is ignored
         this.setEditable(true);
 
@@ -131,21 +147,67 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
         } else {
             // pour écouter quand notre contenu change
             // marche à la fois pour edition du texte et la sélection d'un élément
-            this.getTextComp().getDocument().addDocumentListener(new SimpleDocumentListener() {
+            final SimpleDocumentListener docListener = new SimpleDocumentListener() {
                 public void update(DocumentEvent e) {
                     // if we are responsible for this event, ignore it
                     if (!ITextCombo.this.modifyingDoc)
-                        setValue(getTextComp().getText());
+                        setValue(SimpleDocumentListener.getText(e.getDocument()));
                     ITextCombo.this.supp.fireValueChange();
+                }
+            };
+            // listen to editor changes as BasicComboBoxUI.uninstallUI() removes it (happens when
+            // changing l&f or locking windows pro)
+            this.addPropertyChangeListener("editor", new PropertyChangeListener() {
+                {
+                    // init
+                    changeListener(getTextComp(), true);
+                    assert ITextCombo.this.keyListener == null && ITextCombo.this.docFilter == null;
+                }
+
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    final JTextComponent oldTextComp = getTextComp((ComboBoxEditor) evt.getOldValue());
+                    if (oldTextComp != null) {
+                        changeListener(oldTextComp, false);
+                        oldTextComp.removeKeyListener(ITextCombo.this.keyListener);
+                        DocumentFilterList.remove((AbstractDocument) oldTextComp.getDocument(), ITextCombo.this.docFilter);
+                    }
+
+                    final JTextComponent newTextComp = getTextComp((ComboBoxEditor) evt.getNewValue());
+                    if (newTextComp != null) {
+                        changeListener(newTextComp, true);
+                        addCompletionListeners(newTextComp);
+                    }
+                }
+
+                private final void changeListener(final JTextComponent textComp, final boolean add) {
+                    if (add)
+                        textComp.getDocument().addDocumentListener(docListener);
+                    else
+                        textComp.getDocument().removeDocumentListener(docListener);
                 }
             });
         }
+        this.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+                final Component res = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                // works because DefaultListCellRenderer reset the background (which is not the
+                // case for DefaultTableCellRenderer)
+                if (!isSelected && value != null && value.equals(getValue()))
+                    ISearchableComboPopup.setCurrentValueBG(list, res);
+                return res;
+            }
+        });
 
-        if (Boolean.getBoolean(SIMPLE_TRAVERSAL))
+        if (Boolean.getBoolean(SIMPLE_TRAVERSAL)) {
             for (final Component child : this.getComponents()) {
                 if (child instanceof JButton || child instanceof Button)
                     child.setFocusable(false);
             }
+        }
+        // set default value
+        this.resetValue();
     }
 
     public void configureEditor(ComboBoxEditor anEditor, Object anItem) {
@@ -185,6 +247,7 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
             throw new IllegalStateException("cache already set " + this.cache);
 
         this.cache = cache;
+        assert this.hasCache();
 
         new MutableListComboPopupListener(new MutableListCombo() {
             public ComboLockedMode getMode() {
@@ -218,7 +281,7 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
 
         // ATTN marche car locked est final
         if (!this.isLocked()) {
-            this.getTextComp().addKeyListener(new KeyAdapter() {
+            this.keyListener = new KeyAdapter() {
                 @Override
                 public void keyTyped(KeyEvent e) {
                     // not keyPressed() else we activate the completion as soon as any key is
@@ -230,8 +293,8 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
                 public void keyReleased(KeyEvent e) {
                     ITextCombo.this.keyPressed = false;
                 }
-            });
-            DocumentFilterList.add((AbstractDocument) this.getTextComp().getDocument(), new SimpleDocumentFilter() {
+            };
+            this.docFilter = new SimpleDocumentFilter() {
                 @Override
                 protected boolean change(FilterBypass fb, String newText, Mode mode) throws BadLocationException {
                     // do not complete a remove (otherwise impossible to remove the last char for
@@ -243,8 +306,14 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
                     else
                         return true;
                 }
-            });
+            };
+            addCompletionListeners(this.getTextComp());
         }
+    }
+
+    protected final void addCompletionListeners(final JTextComponent textComp) {
+        textComp.addKeyListener(ITextCombo.this.keyListener);
+        DocumentFilterList.add((AbstractDocument) textComp.getDocument(), ITextCombo.this.docFilter);
     }
 
     protected final boolean complete(FilterBypass fb, final String originalText) throws BadLocationException {
@@ -254,7 +323,7 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
         if (!this.completing) {
             this.completing = true;
             // ne completer que si le texte fait plus de 2 char et n'est pas que des chiffres
-            if (originalText.length() > 2 && !originalText.matches("^\\d*$")) {
+            if (originalText.length() > 2 && !DIGIT_PATTERN.matcher(originalText).matches()) {
                 String completion = this.getCompletion(originalText);
                 if (completion != null && !originalText.trim().equalsIgnoreCase(completion.trim())) {
                     fb.replace(0, fb.getDocument().getLength(), completion, null);
@@ -306,6 +375,7 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
 
     @Override
     public void setEnabled(boolean b) {
+        assert SwingUtilities.isEventDispatchThread();
         if (this.cacheLoading)
             this.modeToSet = b;
         else {
@@ -316,10 +386,12 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
     // *** cache
 
     // charge les elements de completion si besoin
-    private synchronized final void loadCache(final boolean force) {
+    public synchronized final void loadCache(final boolean force) {
+        assert SwingUtilities.isEventDispatchThread();
         if (!this.cacheLoading) {
             this.modeToSet = this.isEnabled();
             this.setEnabled(false);
+            // value cannot be changed by user since this UI is disabled
             this.objToSelect = this.getValue();
             this.cacheLoading = true;
             final SwingWorker2<List<String>, Object> sw = new SwingWorker2<List<String>, Object>() {
@@ -404,14 +476,21 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
         this.supp.rmValueListener(l);
     }
 
+    final boolean isCacheLoading() {
+        return this.cacheLoading;
+    }
+
     synchronized public final void setValue(String val) {
-        if (this.cacheLoading)
-            this.objToSelect = val;
-        else if (!CompareUtils.equals(this.getSelectedItem(), val)) {
-            // complete only user input, not programmatic
-            this.completing = true;
-            this.setSelectedItem(makeObj(val));
-            this.completing = false;
+        if (!CompareUtils.equals(this.getValue(), val)) {
+            if (this.cacheLoading) {
+                this.objToSelect = val;
+                this.supp.fireValueChange();
+            } else {
+                // complete only user input, not programmatic
+                this.completing = true;
+                this.setSelectedItem(makeObj(val));
+                this.completing = false;
+            }
         }
     }
 
@@ -419,7 +498,15 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
         this.setValue(this.defaultValue);
     }
 
+    @Override
     public String getValue() {
+        if (this.cacheLoading)
+            return this.objToSelect;
+        else
+            return this.getCurrentValue();
+    }
+
+    public String getCurrentValue() {
         // this.getSelectedItem() renvoie vide quand on tape du texte sans sélection
         return (String) (this.isLocked() ? this.getSelectedItem() : this.getEditor().getItem());
     }
@@ -446,11 +533,21 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
 
     // document
 
+    private final JTextComponent getTextComp(final ComboBoxEditor editor) {
+        if (editor != null) {
+            final Component editorComp = editor.getEditorComponent();
+            if (editorComp instanceof JTextComponent)
+                return (JTextComponent) editorComp;
+        }
+        return null;
+    }
+
+    @Override
     public JTextComponent getTextComp() {
         if (this.isLocked())
             return null;
         else
-            return (JTextComponent) this.getEditor().getEditorComponent();
+            return getTextComp(this.getEditor());
     }
 
     @Override

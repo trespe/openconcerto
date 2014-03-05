@@ -31,6 +31,7 @@ import java.awt.event.ActionListener;
 import java.io.File;
 
 import javax.swing.AbstractAction;
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JList;
@@ -67,12 +68,12 @@ public class UserRightsPrefPanel extends JPanel implements ListSelectionListener
         });
         l = new JList(dataModel);
         l.setCellRenderer(new UserListCellRenderer());
-        l.setBorder(null);
+        l.setBorder(BorderFactory.createEmptyBorder());
         final JScrollPane scrollPane = new JScrollPane(l);
         scrollPane.setMinimumSize(new Dimension(120, 120));
         scrollPane.setPreferredSize(new Dimension(120, 120));
         this.add(scrollPane, c);
-        scrollPane.setBorder(null);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder());
         // Separator
         c.gridx++;
         JSeparator sep = new JSeparator(JSeparator.VERTICAL);

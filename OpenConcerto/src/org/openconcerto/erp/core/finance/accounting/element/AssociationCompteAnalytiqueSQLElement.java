@@ -23,7 +23,9 @@ import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
@@ -84,166 +86,67 @@ public class AssociationCompteAnalytiqueSQLElement extends ComptaSQLConfElement 
                 final List<ClasseCompte> classeComptes = new ArrayList<ClasseCompte>();
                 tabbedClasse = new JTabbedPane();
 
-                SQLTable classeCompteTable = getTable().getBase().getTable("CLASSE_COMPTE");
-                SQLBase base = classeCompteTable.getBase();
-                SQLSelect selClasse = new SQLSelect(base);
-
+                final SQLTable classeCompteTable = getTable().getBase().getTable("CLASSE_COMPTE");
+                final SQLSelect selClasse = new SQLSelect();
                 selClasse.addSelect(classeCompteTable.getField("ID"));
                 selClasse.addSelect(classeCompteTable.getField("NOM"));
                 selClasse.addSelect(classeCompteTable.getField("TYPE_NUMERO_COMPTE"));
-
                 selClasse.addRawOrder("TYPE_NUMERO_COMPTE");
 
                 String reqClasse = selClasse.asString();
                 Object obClasse = getTable().getBase().getDataSource().execute(reqClasse, new ArrayListHandler());
 
-                List myListClasse = (List) obClasse;
-
-                for (int k = 0; k < myListClasse.size(); k++) {
-                    Object[] objTmp = (Object[]) myListClasse.get(k);
+                List<Object[]> myListClasse = (List<Object[]>) obClasse;
+                for (Object[] objTmp : myListClasse) {
                     ClasseCompte ccTmp = new ClasseCompte(Integer.parseInt(objTmp[0].toString()), objTmp[1].toString(), objTmp[2].toString());
                     classeComptes.add(ccTmp);
-
                     tabbedClasse.add(ccTmp.getNom(), new JScrollPane(creerJTable(ccTmp)));
                 }
 
                 this.add(tabbedClasse, c);
-                // FIXME: la fete du copier coller!
-                AxeAnalytiqueSQLElement axeElt = new AxeAnalytiqueSQLElement();
-                axeElt.getTable().addTableListener(new SQLTableListener() {
 
-                    public void rowModified(SQLTable table, int id) {
+                final SQLTableModifiedListener tListener = new SQLTableModifiedListener() {
 
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
+                    @Override
+                    public void tableModified(SQLTableEvent evt) {
+                        final int tabCount = tabbedClasse.getTabCount();
+                        for (int i = 0; i < tabCount; i++) {
                             tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
                         }
+
                     }
+                };
 
-                    public void rowAdded(SQLTable table, int id) {
+                final SQLTable tAxeAnalytique = getElement().getDirectory().getElement(AxeAnalytiqueSQLElement.class).getTable();
+                tAxeAnalytique.addTableModifiedListener(tListener);
 
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
+                final SQLTable tRepartitionAnalytique = getElement().getDirectory().getElement(RepartitionAnalytiqueSQLElement.class).getTable();
+                tRepartitionAnalytique.addTableModifiedListener(tListener);
 
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
+                final SQLTable tRepartitionAnalytiqueElement = getElement().getDirectory().getElement(RepartitionAnalytiqueElementSQLElement.class).getTable();
+                tRepartitionAnalytiqueElement.addTableModifiedListener(tListener);
 
-                    public void rowDeleted(SQLTable table, int id) {
+                final SQLTable tComptePCE = getElement().getDirectory().getElement(ComptePCESQLElement.class).getTable();
+                tComptePCE.addTableModifiedListener(tListener);
 
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-                });
-
-                RepartitionAnalytiqueSQLElement repElt = new RepartitionAnalytiqueSQLElement();
-                repElt.getTable().addTableListener(new SQLTableListener() {
-
-                    public void rowModified(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-
-                    public void rowAdded(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-
-                    public void rowDeleted(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-                });
-
-                RepartitionAnalytiqueElementSQLElement repElemElt = new RepartitionAnalytiqueElementSQLElement();
-                repElemElt.getTable().addTableListener(new SQLTableListener() {
-
-                    public void rowModified(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-
-                    public void rowAdded(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-
-                    public void rowDeleted(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-                });
-
-                ComptePCESQLElement compteElt = (ComptePCESQLElement) Configuration.getInstance().getDirectory().getElement("COMPTE_PCE");
-                compteElt.getTable().addTableListener(new SQLTableListener() {
-
-                    public void rowModified(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-
-                    public void rowAdded(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-
-                    public void rowDeleted(SQLTable table, int id) {
-
-                        for (int i = 0; i < tabbedClasse.getTabCount(); i++) {
-
-                            tabbedClasse.setComponentAt(i, new JScrollPane(creerJTable(classeComptes.get(i))));
-                        }
-                    }
-                });
             }
         };
 
     }
 
     public JTable creerJTable(ClasseCompte ccTmp) {
-
-        AssociationAnalytiqueModel model = new AssociationAnalytiqueModel(ccTmp);
-
-        JTable table = new JTable(model);
-
-        Vector vect = model.getRepartitionsAxe();
-
+        final AssociationAnalytiqueModel model = new AssociationAnalytiqueModel(ccTmp);
+        final JTable table = new JTable(model);
+        final Vector vect = model.getRepartitionsAxe();
         table.getColumnModel().getColumn(0).setCellRenderer(new PlanComptableCellRenderer(0));
         table.getColumnModel().getColumn(1).setCellRenderer(new PlanComptableCellRenderer(0));
 
         for (int i = 0; i < vect.size(); i++) {
-
-            Vector rep = (Vector) vect.get(i);
+            final Vector rep = (Vector) vect.get(i);
             JComboBox combo = new JComboBox();
             for (int j = 0; j < rep.size(); j++) {
                 combo.addItem(rep.get(j));
             }
-
             table.getColumnModel().getColumn(i + 2).setCellEditor(new DefaultCellEditor(combo));
             table.getColumnModel().getColumn(i + 2).setCellRenderer(new PlanComptableCellRenderer(0));
         }

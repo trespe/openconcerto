@@ -113,7 +113,7 @@ public class GraFFF extends BaseGraph {
      * @return un ensemble de Path.
      */
     public Set<Path> findAllPath(SQLTable from, SQLTable to) {
-        return this.findAllPath(from, to, new Path(from));
+        return this.findAllPath(from, to, Path.get(from));
     }
 
     private Set<Path> findAllPath(SQLTable from, SQLTable to, Path been) {
@@ -128,8 +128,7 @@ public class GraFFF extends BaseGraph {
                 // on essaye si y on pas déjà été
                 if (!been.getTables().contains(neighbour)) {
                     // on avance d'un cran
-                    Path newBeen = new Path(been);
-                    newBeen.add(l);
+                    Path newBeen = been.add(l);
                     res.addAll(this.findAllPath(neighbour, to, newBeen));
                 }
             }

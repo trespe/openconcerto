@@ -15,6 +15,17 @@
 
 public abstract class Closure<E> implements IClosure<E>, ITransformer<E, Object>, org.apache.commons.collections.Closure {
 
+    private static final IClosure<Object> nop = new IClosure<Object>() {
+        @Override
+        public void executeChecked(Object input) {
+        }
+    };
+
+    @SuppressWarnings("unchecked")
+    public static final <N> IClosure<N> nopClosure() {
+        return (IClosure<N>) nop;
+    }
+
     @SuppressWarnings("unchecked")
     public final void execute(Object input) {
         this.executeChecked((E) input);

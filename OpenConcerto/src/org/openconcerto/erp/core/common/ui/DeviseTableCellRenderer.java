@@ -43,10 +43,15 @@ public class DeviseTableCellRenderer extends DefaultTableCellRenderer {
         if (table.getColumnClass(column) != BigDecimal.class) {
             throw new IllegalStateException("Value is not a BigDecimal :" + table.getColumnClass(column));
         }
-        if (((BigDecimal) value).compareTo(oneCents) < 0)
-            this.setText(decimalFormat2.format(value));
-        else
-            this.setText(decimalFormat.format(value));
+        if (value != null) {
+            if (((BigDecimal) value).compareTo(oneCents) < 0)
+                this.setText(decimalFormat2.format(value));
+            else
+                this.setText(decimalFormat.format(value));
+        } else {
+            this.setText("");
+        }
+
         return this;
     }
 

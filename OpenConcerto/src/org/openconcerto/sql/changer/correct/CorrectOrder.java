@@ -70,6 +70,7 @@ public class CorrectOrder extends Changer<SQLTable> {
                     final String order = table.getOrderField().getName();
                     final AlterTable alter = new AlterTable(table).addUniqueConstraint(table.getName() + "_order", singletonList(order));
                     getDS().execute(alter.asString());
+                    table.getSchema().updateVersion();
                     this.getStream().println("unique on " + order + " added");
                 }
             }

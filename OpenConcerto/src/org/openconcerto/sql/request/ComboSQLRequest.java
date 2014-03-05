@@ -20,6 +20,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.TransfFieldExpander;
 import org.openconcerto.sql.model.FieldPath;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 import org.openconcerto.sql.model.SQLSelect;
@@ -28,6 +29,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
@@ -39,6 +41,7 @@ import org.openconcerto.utils.cc.ITransformer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 // final: use setSelectTransf()
@@ -53,8 +56,24 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         }
     };
 
+    public static enum KeepMode {
+        /**
+         * Only the ID is kept.
+         */
+        NONE,
+        /**
+         * Only the {@link SQLRow} is kept.
+         */
+        ROW,
+        /**
+         * The full {@link SQLRowValues graph} is kept.
+         */
+        GRAPH
+    }
+
     private static final String SEP_CHILD = " ◄ ";
     private static String SEP_FIELD;
+    private static Comparator<? super IComboSelectionItem> DEFAULT_COMPARATOR;
 
     /**
      * Set the default {@link #setFieldSeparator(String) field separator}.
@@ -65,8 +84,13 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         SEP_FIELD = separator;
     }
 
+    public static void setDefaultItemsOrder(final Comparator<? super IComboSelectionItem> comp) {
+        DEFAULT_COMPARATOR = comp;
+    }
+
     static {
         setDefaultFieldSeparator(" | ");
+        setDefaultItemsOrder(null);
     }
 
     // immutable
@@ -75,10 +99,11 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
 
     private String fieldSeparator = SEP_FIELD;
     private String undefLabel;
-    private boolean keepRows;
+    private KeepMode keepRows;
     private IClosure<IComboSelectionItem> customizeItem;
 
     private List<Path> order;
+    private Comparator<? super IComboSelectionItem> itemsOrder;
 
     public ComboSQLRequest(SQLTable table, List<String> l) {
         this(table, l, null);
@@ -88,9 +113,10 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         super(table, where);
         this.undefLabel = null;
         // don't use memory
-        this.keepRows = false;
+        this.keepRows = KeepMode.NONE;
         this.customizeItem = null;
         this.order = null;
+        this.itemsOrder = DEFAULT_COMPARATOR;
         this.exp = new TransfFieldExpander(new ITransformer<SQLField, List<SQLField>>() {
             @Override
             public List<SQLField> transformChecked(SQLField fk) {
@@ -193,6 +219,8 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
                     throw new RTInterruptedException("interrupted in fill");
                 result.add(createItem(vals));
             }
+            if (this.itemsOrder != null)
+                Collections.sort(result, this.itemsOrder);
 
             cache.put(cacheKey, result, this.getTables());
 
@@ -233,6 +261,24 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         this.clearGraph();
     }
 
+    public final void setNaturalItemsOrder(final boolean b) {
+        this.setItemsOrder(b ? CompareUtils.<IComboSelectionItem> naturalOrder() : null);
+    }
+
+    /**
+     * Set the in-memory sort on items.
+     * 
+     * @param comp how to sort items, <code>null</code> meaning don't sort (i.e. only
+     *        {@link #getOrder() SQL order} will be used).
+     */
+    public final void setItemsOrder(final Comparator<? super IComboSelectionItem> comp) {
+        this.itemsOrder = comp;
+    }
+
+    public final Comparator<? super IComboSelectionItem> getItemsOrder() {
+        return this.itemsOrder;
+    }
+
     private final IComboSelectionItem createItem(final SQLRowValues rs) {
         final String desc;
         if (this.undefLabel != null && rs.getID() == getPrimaryTable().getUndefinedID())
@@ -250,8 +296,13 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
                     return CollectionUtils.join(filtered, ComboSQLRequest.this.fieldSeparator);
                 }
             });
-        // don't store the whole SQLRowValues to save some memory
-        final IComboSelectionItem res = this.keepRows ? new IComboSelectionItem(rs.asRow(), desc) : new IComboSelectionItem(rs.getID(), desc);
+        final IComboSelectionItem res;
+        if (this.keepRows == KeepMode.GRAPH)
+            res = new IComboSelectionItem(rs, desc);
+        else if (this.keepRows == KeepMode.ROW)
+            res = new IComboSelectionItem(rs.asRow(), desc);
+        else
+            res = new IComboSelectionItem(rs.getID(), desc);
         if (this.customizeItem != null)
             this.customizeItem.executeChecked(res);
         return res;
@@ -309,6 +360,10 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
      * @see IComboSelectionItem#getRow()
      */
     public final void keepRows(boolean b) {
-        this.keepRows = b;
+        this.keepRows(b ? KeepMode.ROW : KeepMode.NONE);
+    }
+
+    public final void keepRows(final KeepMode mode) {
+        this.keepRows = mode;
     }
 }

@@ -102,7 +102,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             if (schema.contains(undefTable)) {
                 final SQLBase b = schema.getBase();
                 final SQLTable undefT = schema.getTable(undefTable);
-                final SQLSelect sel = new SQLSelect(b).addSelectStar(undefT);
+                final SQLSelect sel = new SQLSelect().addSelectStar(undefT);
                 r = (Map<String, Number>) b.getDataSource().execute(sel.asString(), new ResultSetHandler() {
                     public Object handle(ResultSet rs) throws SQLException {
                         final Map<String, Number> res = new HashMap<String, Number>();
@@ -470,8 +470,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         return n.equals(this.getName()) && CompareUtils.equals(s, this.getSchema().getName());
     }
 
-    @SuppressWarnings("unchecked")
-    void addTrigger(Map m) {
+    void addTrigger(Map<String, Object> m) {
         this.addTrigger(new Trigger(this, m));
     }
 
@@ -509,7 +508,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
 
         final String policy = getSchema().getFwkMetadata(UNDEFINED_ID_POLICY);
         if (Boolean.getBoolean(debugUndef) || "min".equals(policy)) {
-            final SQLSelect sel = new SQLSelect(this.getBase(), true).addSelect(pk, "min");
+            final SQLSelect sel = new SQLSelect(true).addSelect(pk, "min");
             final Number undef = (Number) this.getBase().getDataSource().executeScalar(sel.asString());
             if (undef == null) {
                 // empty table
@@ -904,7 +903,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         if (!this.isOrdered())
             throw new IllegalStateException(this + " is not ordered");
 
-        final SQLSelect sel = new SQLSelect(this.getBase(), true).addSelect(this.getOrderField(), "max");
+        final SQLSelect sel = new SQLSelect(true).addSelect(this.getOrderField(), "max");
         try {
             final BigDecimal maxOrder = (BigDecimal) this.getBase().getDataSource().execute(sel.asString(), new IResultSetHandler(SQLDataSource.SCALAR_HANDLER, useCache));
             return maxOrder == null ? BigDecimal.ONE.negate() : maxOrder;
@@ -982,7 +981,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         final List<Tuple3<SQLRow, SQLField, SQLRow>> inconsistencies = new ArrayList<Tuple3<SQLRow, SQLField, SQLRow>>();
         // si on a pas de relation externe, c'est OK
         if (!fks.isEmpty()) {
-            SQLSelect sel = new SQLSelect(this.getBase());
+            final SQLSelect sel = new SQLSelect();
             // on ne vérifie pas les lignes archivées mais l'indéfinie oui.
             sel.setExcludeUndefined(false);
             sel.addSelect(pk);

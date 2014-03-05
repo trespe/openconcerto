@@ -21,16 +21,13 @@ import org.openconcerto.erp.core.sales.pos.io.DefaultTicketPrinter;
 import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
 import org.openconcerto.erp.core.sales.pos.ui.TicketCellRenderer;
 import org.openconcerto.erp.preferences.DefaultNXProps;
-import org.openconcerto.erp.preferences.TemplateNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
 
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FilenameFilter;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -50,69 +47,57 @@ import org.jdom.output.Format;
 import org.jdom.output.XMLOutputter;
 
 public class Ticket {
+    static public Calendar getCalendar() {
+        return Calendar.getInstance();
+    }
+
     private static boolean inited = false;
     // Propre a ticket
     private List<Paiement> paiements = new ArrayList<Paiement>();
     private final List<Pair<Article, Integer>> items = new ArrayList<Pair<Article, Integer>>();
-    private Date date;
+    private Calendar creationCal;
     private int number;
 
     // Propre à la caisse
-    private int caisseNumber;
+    private final int caisseNumber;
 
     private static final SQLTable tableArticle = Configuration.getInstance().getRoot().findTable("ARTICLE");
 
-    @SuppressWarnings("unchecked")
     public static Ticket getTicketFromCode(String code) {
-        // Code: 01_05042011_00002
-        // filtre les chiffres
-        final StringBuilder b = new StringBuilder();
-        for (int i = 0; i < code.length(); i++) {
-            final char c = code.charAt(i);
-            if (Character.isDigit(c)) {
-                b.append(c);
-            }
-        }
-        code = b.toString();
-        // Code: 010504201100002
-        // n°caisse sur 2 caracteres
-        // date jour mois année JJMMAAAA
-        // numero de ticket formaté sur 5 caractères
-
-        final Ticket t = new Ticket(-1);
-        Calendar c = Calendar.getInstance();
         try {
-            int nCaisse = Integer.parseInt(code.substring(0, 2));
-            int nJ = Integer.parseInt(code.substring(2, 4));
-            int nM = Integer.parseInt(code.substring(4, 6));
-            int nA = 2000 + Integer.parseInt(code.substring(6, 8));
-            int nNumber = Integer.parseInt(code.substring(8, 13));
-
-            c.setTimeInMillis(0);
-            c.set(nA, nM - 1, nJ, 0, 0, 0);
-
-            // Set fields
-            t.caisseNumber = nCaisse;
-            t.date.setTime(c.getTimeInMillis());
-            t.number = nNumber;
-
             // Loading file
-            File dir = t.getOutputDir();
-            File file = new File(dir, getFileName(code));
-            if (!file.exists()) {
-                return null;
-            }
+            return parseFile(new ReceiptCode(code).getFile());
+        } catch (Exception e) {
+            System.err.println("Error with ticket code : " + code);
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    public static Ticket parseFile(final File file) {
+        if (!file.exists()) {
+            return null;
+        }
+
+        try {
             // XML Reading
 
             final SAXBuilder sxb = new SAXBuilder();
             final Document document = sxb.build(file);
             final Element root = document.getRootElement();
+            final ReceiptCode receiptCode = new ReceiptCode(root.getAttributeValue("code"));
             final String h = root.getAttributeValue("hour");
             final String m = root.getAttributeValue("minute");
-            c.set(nA, nM - 1, nJ, Integer.parseInt(h), Integer.parseInt(m), 0);
-            t.date.setTime(c.getTimeInMillis());
+            final Calendar c = (Calendar) receiptCode.getDay().clone();
+            c.set(Calendar.HOUR_OF_DAY, Integer.parseInt(h));
+            c.set(Calendar.MINUTE, Integer.parseInt(m));
+            final Ticket t = new Ticket(receiptCode.getCaisseNb());
+            t.setCreationCal(c);
+            t.setNumber(receiptCode.getDayIndex());
+
             // article
-            List<Element> children = root.getChildren("article");
+            @SuppressWarnings("unchecked")
+            final List<Element> children = root.getChildren("article");
             for (Element element : children) {
                 int qte = Integer.parseInt(element.getAttributeValue("qte"));
                 BigDecimal prix_unitaire_cents_ht = new BigDecimal(element.getAttributeValue("prixHT"));
@@ -138,8 +123,9 @@ public class Ticket {
 
             }
             // paiement
-            children = root.getChildren("paiement");
-            for (Element element : children) {
+            @SuppressWarnings("unchecked")
+            final List<Element> payChildren = root.getChildren("paiement");
+            for (Element element : payChildren) {
 
                 String type = element.getAttributeValue("type");
                 int montant_cents = Integer.parseInt(element.getAttributeValue("montant"));
@@ -158,79 +144,42 @@ public class Ticket {
                 }
             }
 
+            return t;
         } catch (Exception e) {
-            System.err.println("Error with ticket code : " + code);
+            System.err.println("Error with ticket : " + file);
             e.printStackTrace();
             return null;
         }
-
-        return t;
-
-    }
-
-    private static String getFileName(String code) {
-        return code.replace(' ', '_') + ".xml";
     }
 
     public Ticket(int caisse) {
         this.caisseNumber = caisse;
-        this.date = Calendar.getInstance().getTime();
+        this.creationCal = getCalendar();
         initNumber();
-
     }
 
     public void setNumber(int i) {
         this.number = i;
     }
 
-    public void setDate(Date d) {
-        this.date = d;
-    }
-
     private void initNumber() {
         if (!inited) {
-            this.number = 1;
-            String[] files = getCompatibleFileNames();
-            for (int i = 0; i < files.length; i++) {
-                String name = files[i];
-                String nb = name.substring(8, 13);
-                System.out.println("Found:" + nb);
-                int n = Integer.parseInt(nb);
-                if (n >= this.number) {
-                    this.number = n + 1;
-                }
+            int max = 0;
+            for (final ReceiptCode c : this.getReceiptCode().getSameDayCodes(true)) {
+                if (c.getDayIndex() > max)
+                    max = c.getDayIndex();
             }
+            this.setNumber(max + 1);
         }
     }
 
-    public String[] getCompatibleFileNames() {
-        final File dir = getOutputDir();
-        final String codeStart = getPrefixCode();
-        final String[] files = dir.list(new FilenameFilter() {
-            @Override
-            public boolean accept(File dir, String name) {
-                return name.startsWith(codeStart) && name.endsWith(".xml");
-            }
-        });
-        return files;
-    }
-
-    String getPrefixCode() {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(this.date);
-        int j = cal.get(Calendar.DAY_OF_MONTH);
-        int m = cal.get(Calendar.MONTH) + 1;
-        int a = cal.get(Calendar.YEAR) - 2000;
-        String code = "";
-        code += format(2, this.getCaisseNumber());
-        code += format(2, j) + format(2, m) + format(2, a);
-        return code;
+    public final ReceiptCode getReceiptCode() {
+        // TODO replace our fields by one ReceiptCode
+        return new ReceiptCode(this.getCaisseNumber(), this.getCreationCal(), this.getNumber());
     }
 
     public String getCode() {
-        String code = getPrefixCode();
-        code += format(5, this.getNumber());
-        return code;
+        return getReceiptCode().getCode();
     }
 
     /**
@@ -243,18 +192,17 @@ public class Ticket {
     /**
      * Numero de la caisse, de 1 à n
      */
-    private int getCaisseNumber() {
+    final int getCaisseNumber() {
         return this.caisseNumber;
     }
 
     public void save() {
         // Update Hour & Minute
-        int hour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        int minute = Calendar.getInstance().get(Calendar.MINUTE);
+        int hour = getCalendar().get(Calendar.HOUR_OF_DAY);
+        int minute = getCalendar().get(Calendar.MINUTE);
 
         // Hierarchie: 2010/04/05/01_05042010_00002.xml
-        File dir = getOutputDir();
-        File f = new File(dir, getFileName(getCode()));
+        final File f = getFile();
         Element topLevel = new Element("ticket");
         topLevel.setAttribute(new Attribute("code", this.getCode()));
         topLevel.setAttribute("hour", String.valueOf(hour));
@@ -394,56 +342,20 @@ public class Ticket {
         }
     }
 
-    private File getOutputDir() {
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(this.date);
-        int j = cal.get(Calendar.DAY_OF_MONTH);
-        int m = cal.get(Calendar.MONTH) + 1;
-        int a = cal.get(Calendar.YEAR);
-        TemplateNXProps nxprops = (TemplateNXProps) TemplateNXProps.getInstance();
-        final String defaultLocation = nxprops.getDefaultStringValue();
-        File defaultDir = new File(defaultLocation);
-        File outputDir = new File(defaultDir, "Tickets");
-        if (!outputDir.exists()) {
-            outputDir.mkdirs();
-        }
-        File outputDirYear = new File(outputDir, format(4, a));
-        if (!outputDirYear.exists()) {
-            outputDirYear.mkdir();
-        }
-        File outputDirMonth = new File(outputDirYear, format(2, m));
-        if (!outputDirMonth.exists()) {
-            outputDirMonth.mkdir();
-        }
-        File outputDirDay = new File(outputDirMonth, format(2, j));
-        if (!outputDirDay.exists()) {
-            outputDirDay.mkdir();
-        }
-        if (!outputDirDay.exists()) {
-            ExceptionHandler.handle("Impossible de créer le dossier des tickets.\n\n" + outputDirDay.getAbsolutePath());
-        }
-        return outputDirDay;
+    private File getFile() {
+        return getReceiptCode().getFile();
     }
 
     public Date getCreationDate() {
-        return this.date;
+        return this.getCreationCal().getTime();
     }
 
-    private static String format(int l, int value) {
-        return format(l, String.valueOf(value));
+    public Calendar getCreationCal() {
+        return this.creationCal;
     }
 
-    private static String format(int l, String string) {
-        if (string.length() > l) {
-            string = string.substring(0, l);
-        }
-        final StringBuffer str = new StringBuffer(l);
-        final int stop = l - string.length();
-        for (int i = 0; i < stop; i++) {
-            str.append('0');
-        }
-        str.append(string);
-        return str.toString();
+    public void setCreationCal(final Calendar cal) {
+        this.creationCal = (Calendar) cal.clone();
     }
 
     public void addPaiement(Paiement p1) {
@@ -599,10 +511,7 @@ public class Ticket {
         return getCode().hashCode();
     }
 
-    public void deleteTicket() {
-        File dir = this.getOutputDir();
-        String name = getFileName(this.getCode());
-        File f = new File(dir, name);
-        f.renameTo(new File(dir, name + "_deleted"));
+    public void deleteTicket() throws IOException {
+        getReceiptCode().markDeleted();
     }
 }

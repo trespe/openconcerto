@@ -27,7 +27,7 @@ import net.jcip.annotations.ThreadSafe;
  * @author Sylvain CUAZ
  */
 @ThreadSafe
-public final class RuntimeModuleFactory extends ModuleFactory {
+public final class RuntimeModuleFactory extends PropsModuleFactory {
 
     public RuntimeModuleFactory(final File props) throws IOException {
         this(readAndClose(new FileInputStream(props)));
@@ -43,7 +43,7 @@ public final class RuntimeModuleFactory extends ModuleFactory {
     }
 
     @Override
-    public AbstractModule createModule(Map<String, AbstractModule> alreadyCreated) throws Exception {
-        return createModule(Class.forName(getMainClass()));
+    public AbstractModule createModule(final File moduleDir, final Map<Object, AbstractModule> alreadyCreated) throws Exception {
+        return createModule(Class.forName(getMainClass()), moduleDir);
     }
 }

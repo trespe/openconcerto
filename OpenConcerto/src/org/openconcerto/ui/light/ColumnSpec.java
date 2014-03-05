@@ -85,7 +85,7 @@ public class ColumnSpec implements Serializable {
         this.editable = editable;
     }
 
-    public LightUIElement getEditors() {
+    public LightUIElement getEditor() {
         return editors;
     }
 

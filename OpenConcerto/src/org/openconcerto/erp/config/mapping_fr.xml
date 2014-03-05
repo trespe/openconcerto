@@ -122,7 +122,7 @@
 		<FIELD name="ID_ADRESSE_COMMON" label="Adresse" />
 	</TABLE>
 	<TABLE name="PROFIL_PAYE">
-		<FIELD name="NOM" label="Libellé" />
+		<FIELD name="NOM" label="Libellé du profil" />
 	</TABLE>
 	<TABLE name="PROFIL_PAYE_ELEMENT">
 		<FIELD name="NOM" label="Libellé" />

@@ -123,7 +123,7 @@ public abstract class ReOrder {
 
     // MAYBE return affected IDs
     public final boolean exec() throws SQLException {
-        final UpdateBuilder updateUndef = new UpdateBuilder(this.t).set(this.t.getOrderField().getName(), MIN_ORDER.toPlainString());
+        final UpdateBuilder updateUndef = new UpdateBuilder(this.t).setObject(this.t.getOrderField(), MIN_ORDER);
         updateUndef.setWhere(new Where(this.t.getKey(), "=", this.t.getUndefinedID()));
         return (Boolean) SQLUtils.executeAtomic(this.t.getBase().getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
             @Override

@@ -23,6 +23,8 @@ import java.awt.AWTKeyStroke;
 import java.awt.Insets;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.util.Set;
 
 import javax.swing.JTextArea;
@@ -54,17 +56,31 @@ public class ITextArea extends JTextArea {
 
     public ITextArea(final String text, int rows, int cols) {
         super(text, rows, cols);
-        final JTextField tf = new JTextField();
-        // display like a text field
-        // (some laf set a border on text areas, e.g. to signal the focus)
-        this.setBorder(tf.getBorder());
-        this.setFont(tf.getFont());
+
+        // we must listen to UI and not overload updateUI() or setUI()
+        // as otherwise, UI listeners will act before likeTF()
+        this.addPropertyChangeListener("UI", new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                likeTF();
+            }
+        });
+        likeTF();
+
         this.setLineWrap(true);
         this.setWrapStyleWord(true);
 
         // by default JTextArea uses tab for its content
         this.tabIsTraversal = false;
         this.setTabIsFocusTraversal(true);
+    }
+
+    protected final void likeTF() {
+        final JTextField tf = new JTextField();
+        // display like a text field
+        // (some l&f set a border on text areas, e.g. to signal the focus)
+        this.setBorder(tf.getBorder());
+        this.setFont(tf.getFont());
     }
 
     @Override

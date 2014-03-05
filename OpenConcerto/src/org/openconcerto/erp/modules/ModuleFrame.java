@@ -15,6 +15,7 @@
 
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
+import java.awt.Dimension;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
@@ -23,30 +24,39 @@ import java.awt.event.ActionListener;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
+import javax.swing.SwingUtilities;
 
 public class ModuleFrame extends JFrame {
-    private final LocalInstalledModulesPanel tab1;
-    private final ServerInstalledModulesPanel tab2;
-    private final AvailableModulesPanel tab3;
 
-    public ModuleFrame() {
+    private static ModuleFrame INSTANCE = null;
+
+    public static final ModuleFrame getInstance() {
+        // no need to sync
+        assert SwingUtilities.isEventDispatchThread();
+        if (INSTANCE == null) {
+            INSTANCE = new ModuleFrame(false);
+            INSTANCE.setLocationRelativeTo(null);
+        }
+        return INSTANCE;
+    }
+
+    public static final ModuleFrame createInstallOnlyInstance() {
+        return new ModuleFrame(true);
+    }
+
+    private final ModulePanel tab1;
+
+    private ModuleFrame(final boolean onlyInstall) {
         this.setTitle("Modules");
         this.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         final JPanel p = new JPanel();
         p.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
-        final JTabbedPane tabbedPane = new JTabbedPane();
-        this.tab1 = new LocalInstalledModulesPanel(this);
-        tabbedPane.addTab("Modules installés sur le poste", this.tab1);
-        this.tab2 = new ServerInstalledModulesPanel(this);
-        tabbedPane.addTab("Modules installés sur le serveur", this.tab2);
-        this.tab3 = new AvailableModulesPanel(this);
-        tabbedPane.addTab("Modules disponibles", this.tab3);
+        this.tab1 = new ModulePanel(this, onlyInstall);
         c.weightx = 1;
         c.weighty = 1;
         c.fill = GridBagConstraints.BOTH;
-        p.add(tabbedPane, c);
+        p.add(this.tab1, c);
         final JButton closeButton = new JButton("Fermer");
         c.gridy++;
         c.anchor = GridBagConstraints.SOUTHEAST;
@@ -60,11 +70,10 @@ public class ModuleFrame extends JFrame {
             }
         });
         this.setContentPane(p);
-    }
 
-    public void reload() {
+        this.setMinimumSize(new Dimension(480, 640));
+        this.pack();
+
         this.tab1.reload();
-        this.tab2.reload();
-        this.tab3.reload();
     }
 }

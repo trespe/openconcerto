@@ -62,6 +62,9 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.Immutable;
+
 import org.jdom.Attribute;
 import org.jdom.DocType;
 import org.jdom.Document;
@@ -82,6 +85,7 @@ public class ODPackage {
     /** Normally mimetype contains only ASCII characters */
     static final Charset MIMETYPE_ENC = Charset.forName("UTF-8");
 
+    @GuardedBy("ODPackage")
     private static String PAGE_COUNT = null;
 
     /**
@@ -113,6 +117,7 @@ public class ODPackage {
      * 
      * @author Sylvain CUAZ
      */
+    @Immutable
     public static enum RootElement {
         /** Contains the entire document, see 3.1.2 of OpenDocument-v1.2-part1-cd04 */
         SINGLE_CONTENT("office", "document", null),
@@ -200,10 +205,11 @@ public class ODPackage {
 
     private static final Set<String> subdocNames;
     static {
-        subdocNames = new HashSet<String>();
+        final Set<String> tmp = new HashSet<String>();
         for (final RootElement r : RootElement.getPackageElements())
             if (r.getZipEntry() != null)
-                subdocNames.add(r.getZipEntry());
+                tmp.add(r.getZipEntry());
+        subdocNames = Collections.unmodifiableSet(tmp);
     }
 
     /**
@@ -573,7 +579,7 @@ public class ODPackage {
     /**
      * Call {@link Validator#isValid()} on each XML subdocuments.
      * 
-     * @return all problems indexed by subdocuments names, i.e. empty if all OK, <code>null</code>
+     * @return all problems indexed by package entry names, i.e. empty if all OK, <code>null</code>
      *         if validation couldn't occur.
      */
     public final Map<String, String> validateSubDocuments() {
@@ -599,6 +605,9 @@ public class ODPackage {
                     res.put(s, valid);
             }
         }
+        final String valid = ooxml.getValidator(this.createManifest().getDocument()).isValid();
+        if (valid != null)
+            res.put(Manifest.ENTRY_NAME, valid);
         return res;
     }
 
@@ -1107,6 +1116,47 @@ public class ODPackage {
 
     // *** save
 
+    private final Manifest createManifest() {
+        try {
+            return this.createManifest(null);
+        } catch (IOException e) {
+            // shouldn't happen since we're not writing
+            throw new IllegalStateException(e);
+        }
+    }
+
+    private final Manifest createManifest(final Zip z) throws IOException {
+        final Manifest manifest = new Manifest(this.getFormatVersion(), this.getMimeType());
+        final XMLOutputter outputter = z == null ? null : createOutputter();
+        for (final String name : this.files.keySet()) {
+            // added at the end
+            if (name.equals(MIMETYPE_ENTRY) || name.equals(Manifest.ENTRY_NAME))
+                continue;
+
+            final ODPackageEntry entry = this.files.get(name);
+            if (z != null) {
+                final Object val = entry.getData();
+                if (val != null) {
+                    if (val instanceof ODXMLDocument) {
+                        final OutputStream o = z.createEntry(name);
+                        outputter.output(((ODXMLDocument) val).getDocument(), o);
+                        o.close();
+                    } else if (val instanceof Document) {
+                        final OutputStream o = z.createEntry(name);
+                        outputter.output((Document) val, o);
+                        o.close();
+                    } else {
+                        z.zip(name, (byte[]) val, entry.isCompressed());
+                    }
+                }
+            }
+            final String mediaType = entry.getType();
+            manifest.addEntry(name, mediaType == null ? "" : mediaType);
+        }
+
+        return manifest;
+    }
+
     public final void save(OutputStream out) throws IOException {
         // from 22.2.1 (D1.2)
         if (this.isSingle()) {
@@ -1145,31 +1195,7 @@ public class ODPackage {
         // magic number, see section 17.4
         z.zipNonCompressed(MIMETYPE_ENTRY, this.getMimeType().getBytes(MIMETYPE_ENC));
 
-        final Manifest manifest = new Manifest(this.getVersion(), this.getMimeType());
-        final XMLOutputter outputter = createOutputter();
-        for (final String name : this.files.keySet()) {
-            // added at the end
-            if (name.equals(MIMETYPE_ENTRY) || name.equals(Manifest.ENTRY_NAME))
-                continue;
-
-            final ODPackageEntry entry = this.files.get(name);
-            final Object val = entry.getData();
-            if (val != null) {
-                if (val instanceof ODXMLDocument) {
-                    final OutputStream o = z.createEntry(name);
-                    outputter.output(((ODXMLDocument) val).getDocument(), o);
-                    o.close();
-                } else if (val instanceof Document) {
-                    final OutputStream o = z.createEntry(name);
-                    outputter.output((Document) val, o);
-                    o.close();
-                } else {
-                    z.zip(name, (byte[]) val, entry.isCompressed());
-                }
-            }
-            final String mediaType = entry.getType();
-            manifest.addEntry(name, mediaType == null ? "" : mediaType);
-        }
+        final Manifest manifest = createManifest(z);
 
         z.zip(Manifest.ENTRY_NAME, new StringInputStream(manifest.asString()));
         z.close();

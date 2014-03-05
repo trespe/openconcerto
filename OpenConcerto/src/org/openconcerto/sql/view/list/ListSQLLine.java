@@ -119,8 +119,10 @@ public final class ListSQLLine implements Comparable<ListSQLLine> {
     }
 
     public final void updateValueAt(Set<Integer> colIndexes) {
+        if (colIndexes.size() == 0)
+            return;
+        final int max = Collections.max(colIndexes).intValue();
         synchronized (this) {
-            final int max = Collections.max(colIndexes).intValue();
             final int alreadyLoaded = this.loadedCol;
             this.loadCache(max);
             for (final int colIndex : colIndexes) {

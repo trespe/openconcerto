@@ -52,6 +52,7 @@ import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JButton;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 
@@ -73,27 +74,27 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
             src = element.getTableSource(true);
             src.getReq().setWhere(new Where(element.getTable().getField("COMPTE_NUMERO"), "LIKE", "411%"));
         } else {
-            src = element.getTableSource();
+            src = element.getTableSource(true);
         }
 
         final IListFrame frame = new IListFrame(new ListeAddPanel(element, new IListe(src)) {
 
-            // @Override
-            // protected GridBagConstraints createConstraints() {
-            // final GridBagConstraints res = super.createConstraints();
-            // res.gridwidth = GridBagConstraints.REMAINDER;
-            // res.gridy = 1;
-            // return res;
-            // }
+            @Override
+            protected GridBagConstraints createConstraints() {
+                final GridBagConstraints res = super.createConstraints();
+                res.gridwidth = GridBagConstraints.REMAINDER;
+                res.gridy = 1;
+                return res;
+            }
 
             @Override
             protected void handleAction(JButton source, ActionEvent evt) {
-                if (source == this.buttonEffacer && getListe().getSelectedRow() != null) {
+                if (source == this.buttonEffacer && getListe().fetchSelectedRow() != null) {
                     // Si on supprime une ecriture on doit supprimer toutes les ecritures du
                     // mouvement associé
                     System.err.println("Archivage des écritures");
                     // archiveMouvement(row.getInt("ID_MOUVEMENT"));
-                    JFrame frame = new PanelFrame(new SuppressionEcrituresPanel(getListe().getSelectedRow().getInt("ID_MOUVEMENT")), "Suppression d'ecritures");
+                    JFrame frame = new PanelFrame(new SuppressionEcrituresPanel(getListe().fetchSelectedRow().getInt("ID_MOUVEMENT")), "Suppression d'ecritures");
                     frame.pack();
                     frame.setResizable(false);
                     frame.setLocationRelativeTo(null);
@@ -120,14 +121,14 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
         c.weightx = 1;
         frame.getPanel().add(comp, c);
 
-        // List<SQLField> l = new ArrayList<SQLField>();
-        // l.add(element.getTable().getField("DEBIT"));
-        // l.add(element.getTable().getField("CREDIT"));
-        //
-        // IListTotalPanel comp2 = new IListTotalPanel(frame.getPanel().getListe(), l);
-        // c.gridx++;
-        // c.weightx = 0;
-        // frame.getPanel().add(comp2, c);
+        List<SQLField> l = new ArrayList<SQLField>();
+        l.add(element.getTable().getField("DEBIT"));
+        l.add(element.getTable().getField("CREDIT"));
+
+        IListTotalPanel comp2 = new IListTotalPanel(frame.getPanel().getListe(), l);
+        c.gridx++;
+        c.weightx = 0;
+        frame.getPanel().add(comp2, c);
 
         // Renderer
         JTable table = frame.getPanel().getListe().getJTable();
@@ -142,15 +143,23 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
             public void mouseReleased(MouseEvent e) {
                 if (e.getButton() == MouseEvent.BUTTON3) {
                     JPopupMenu menuDroit = new JPopupMenu();
+
                     menuDroit.add(new AbstractAction("Contrepassation") {
                         public void actionPerformed(ActionEvent event) {
                             EcritureSQLElement.contrePassationPiece(frame.getPanel().getListe().getSelectedId());
                         }
                     });
+
+                    menuDroit.add(new AbstractAction("Dupliquer") {
+                        public void actionPerformed(ActionEvent event) {
+                            EcritureSQLElement.dupliquer(frame.getPanel().getListe().fetchSelectedRow());
+                        }
+                    });
+
                     menuDroit.add(new AbstractAction("Voir la source") {
                         public void actionPerformed(ActionEvent event) {
 
-                            SQLRow row = frame.getPanel().getListe().getSelectedRow();
+                            SQLRow row = frame.getPanel().getListe().fetchSelectedRow();
 
                             MouvementSQLElement.showSource(row.getInt("ID_MOUVEMENT"));
                         }
@@ -202,6 +211,7 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
 
         System.err.println(sel.asString());
 
+        @SuppressWarnings("unchecked")
         List<SQLRow> rows = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel, tableMvt));
 
         for (SQLRow sqlRow : rows) {

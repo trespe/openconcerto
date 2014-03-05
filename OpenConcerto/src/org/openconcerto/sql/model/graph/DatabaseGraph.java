@@ -46,6 +46,9 @@ import org.openconcerto.utils.cc.IPredicate;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -166,7 +169,15 @@ public class DatabaseGraph extends BaseGraph {
             synchronized (this) {
                 final GraphLoadingEvent evt = new GraphLoadingEvent(this.base).fireEvent();
                 try {
-                    this.mappedFromFile = Collections.unmodifiableMap(this.mapTables(toRefresh));
+                    // TODO limit to file permission
+                    this.mappedFromFile = Collections.unmodifiableMap(AccessController.doPrivileged(new PrivilegedExceptionAction<Map<String, Set<String>>>() {
+                        @Override
+                        public Map<String, Set<String>> run() throws SQLException {
+                            return mapTables(toRefresh);
+                        }
+                    }));
+                } catch (PrivilegedActionException e) {
+                    throw (SQLException) e.getCause();
                 } finally {
                     evt.fireFinishingEvent();
                 }
@@ -371,7 +382,6 @@ public class DatabaseGraph extends BaseGraph {
         // either we refresh the whole root and we must know which tables to use
         // or we refresh only one table and tableNames is useless
         assert tableName == null ^ tableNames == null;
-        final SQLServer server = r.getServer();
         final CollectionMap<String, String> metadataFKs = new CollectionMap<String, String>(new HashSet<String>());
         final List importedKeys = this.base.getDataSource().useConnection(new ConnectionHandlerNoSetup<List, SQLException>() {
             @Override

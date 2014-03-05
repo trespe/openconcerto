@@ -21,9 +21,11 @@ import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.model.graph.Step;
+import org.openconcerto.sql.request.Inserter;
+import org.openconcerto.sql.request.Inserter.Insertion;
+import org.openconcerto.sql.request.Inserter.ReturnMode;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.utils.ReOrder;
-import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CopyUtils;
@@ -537,6 +539,12 @@ public final class SQLRowValues extends SQLRowAccessor {
         return NumberUtils.areNumericallyEqual(id, undefID);
     }
 
+    @Override
+    public int getForeignID(String fieldName) {
+        final SQLRowAccessor foreign = getForeign(fieldName);
+        return foreign == null ? SQLRow.NONEXISTANT_ID : foreign.getID();
+    }
+
     public boolean isDefault(String fieldName) {
         return SQL_DEFAULT.equals(this.getObject(fieldName));
     }
@@ -955,7 +963,7 @@ public final class SQLRowValues extends SQLRowAccessor {
 
     @Override
     public final Collection<SQLRowValues> followLink(final Link l, final Direction direction) {
-        return this.followPath(new Path(getTable()).add(l, direction), CreateMode.CREATE_NONE, false);
+        return this.followPath(Path.get(getTable()).add(l, direction), CreateMode.CREATE_NONE, false);
     }
 
     /**
@@ -1411,9 +1419,20 @@ public final class SQLRowValues extends SQLRowAccessor {
      * 
      * @param other another rowValues.
      * @return <code>true</code> if both graph are equals.
+     * @see #getGraphFirstDifference(SQLRowValues)
      */
     public final boolean equalsGraph(final SQLRowValues other) {
-        return this.getGraph().equals(this, other);
+        return this.getGraphFirstDifference(other) == null;
+    }
+
+    /**
+     * Return the first difference between this graph and another.
+     * 
+     * @param other another instance.
+     * @return the first difference, <code>null</code> if equals.
+     */
+    public final String getGraphFirstDifference(final SQLRowValues other) {
+        return this.getGraph().getFirstDifference(this, other);
     }
 
     final boolean equalsJustThis(final SQLRowValues o) {
@@ -1658,37 +1677,6 @@ public final class SQLRowValues extends SQLRowAccessor {
         return newID;
     }
 
-    public static final class Insertion<T> {
-        private final List<T> list;
-        private final int count;
-
-        private Insertion(List<T> res, int count) {
-            super();
-            this.list = res;
-            this.count = count;
-            assert res == null || res.size() == count;
-        }
-
-        /**
-         * The number of rows inserted.
-         * 
-         * @return number of rows inserted.
-         */
-        public final int getCount() {
-            return this.count;
-        }
-
-        /**
-         * The list of inserted rows. Can be <code>null</code> if it couldn't be retrieved, e.g.
-         * MySQL only supports single primary key.
-         * 
-         * @return the list of inserted rows, or <code>null</code>.
-         */
-        public final List<T> getRows() {
-            return this.list;
-        }
-    }
-
     /**
      * Insert rows in the passed table.
      * 
@@ -1700,8 +1688,9 @@ public final class SQLRowValues extends SQLRowAccessor {
      */
     @SuppressWarnings("unchecked")
     public static final List<Number> insertIDs(final SQLTable t, final String sql) throws SQLException {
-        final Insertion<?> res = insert(t, sql, true);
-        if (t.isRowable())
+        final boolean rowable = t.isRowable();
+        final Insertion<?> res = insert(t, sql, rowable ? ReturnMode.FIRST_FIELD : ReturnMode.NO_FIELDS);
+        if (rowable)
             return ((Insertion<Number>) res).getRows();
         else
             return null;
@@ -1717,7 +1706,7 @@ public final class SQLRowValues extends SQLRowAccessor {
      */
     @SuppressWarnings("unchecked")
     public static final Insertion<Object[]> insert(final SQLTable t, final String sql) throws SQLException {
-        return (Insertion<Object[]>) insert(t, sql, false);
+        return (Insertion<Object[]>) insert(t, sql, ReturnMode.ALL_FIELDS);
     }
 
     /**
@@ -1730,64 +1719,12 @@ public final class SQLRowValues extends SQLRowAccessor {
      * @throws SQLException if an error occurs while inserting.
      */
     public static final int insertCount(final SQLTable t, final String sql) throws SQLException {
-        return insert(t, sql, null).getCount();
+        return insert(t, sql, ReturnMode.NO_FIELDS).getCount();
     }
 
     // if scalar is null primary keys aren't fetched
-    private static final Insertion<?> insert(final SQLTable t, final String sql, final Boolean scalar) throws SQLException {
-        final SQLSystem sys = t.getServer().getSQLSystem();
-        if (scalar != null && sys == SQLSystem.H2)
-            throw new IllegalArgumentException("H2 use IDENTITY() which only returns the last ID: " + t.getSQLName());
-        if (scalar != null && sys == SQLSystem.MSSQL)
-            throw new IllegalArgumentException("In MS getUpdateCount() is correct but getGeneratedKeys() only returns the last ID: " + t.getSQLName());
-        return SQLUtils.executeAtomic(t.getDBSystemRoot().getDataSource(), new ConnectionHandlerNoSetup<Insertion<?>, SQLException>() {
-            @Override
-            public Insertion<?> handle(SQLDataSource ds) throws SQLException {
-                final Statement stmt = ds.getConnection().createStatement();
-                try {
-                    final ResultSet rs;
-                    // ATTN don't call quote() with the passed sql otherwise it will try to parse %
-                    final String insertInto = "INSERT INTO " + t.getSQLName().quote() + " " + sql;
-                    if (sys == SQLSystem.POSTGRESQL) {
-                        final String returning;
-                        // no need to return something if it won't get used
-                        if (scalar != null && t.getPrimaryKeys().size() > 0) {
-                            returning = " RETURNING " + CollectionUtils.join(t.getPrimaryKeys(), ", ", new ITransformer<SQLField, String>() {
-                                @Override
-                                public String transformChecked(SQLField pk) {
-                                    return SQLBase.quoteIdentifier(pk.getName());
-                                }
-                            });
-                        } else {
-                            returning = "";
-                        }
-                        stmt.execute(insertInto + returning);
-                        // null if no returning
-                        rs = stmt.getResultSet();
-                    } else {
-                        // MySQL always return an empty resultSet for anything else than 1 pk
-                        final boolean dontGetGK = scalar == null || (sys == SQLSystem.MYSQL && t.getPrimaryKeys().size() != 1);
-                        stmt.execute(insertInto, dontGetGK ? Statement.NO_GENERATED_KEYS : Statement.RETURN_GENERATED_KEYS);
-                        rs = dontGetGK ? null : stmt.getGeneratedKeys();
-                    }
-                    final List<?> list;
-                    final int count;
-                    // cannot get or doesn't want the list
-                    if (rs == null || scalar == null) {
-                        list = null;
-                        count = stmt.getUpdateCount();
-                    } else {
-                        list = (List<?>) (scalar ? SQLDataSource.COLUMN_LIST_HANDLER : SQLDataSource.ARRAY_LIST_HANDLER).handle(rs);
-                        count = list.size();
-                    }
-                    @SuppressWarnings("unchecked")
-                    final Insertion<?> res = new Insertion<Object>((List<Object>) list, count);
-                    return res;
-                } finally {
-                    stmt.close();
-                }
-            }
-        });
+    private static final Insertion<?> insert(final SQLTable t, final String sql, final ReturnMode mode) throws SQLException {
+        return new Inserter(t).insert(sql, mode, true);
     }
 
     /**

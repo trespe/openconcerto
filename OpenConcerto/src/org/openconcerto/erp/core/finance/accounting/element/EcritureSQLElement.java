@@ -50,6 +50,7 @@ import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
@@ -272,12 +273,6 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
                     this.journal.setEnabled(false);
                 }
 
-                /*
-                 * System.out.println("Impossible de modifier une ecriture validée");
-                 * SaisieKmSQLElement elt = new SaisieKmSQLElement(); EditFrame edit = new
-                 * EditFrame(elt); edit.selectionId(row.getInt("ID_MOUVEMENT"), 0); edit.pack();
-                 * edit.setVisible(true);
-                 */
             }
 
             public void update() {
@@ -323,7 +318,7 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
         SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
         SQLTable tableMvt = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("MOUVEMENT");
 
-        SQLSelect selectFils = new SQLSelect(base);
+        SQLSelect selectFils = new SQLSelect();
         selectFils.addSelect(tableMvt.getField("ID"));
         selectFils.setWhere(tableMvt.getField("ID_MOUVEMENT_PERE"), "=", idMvtPere);
 
@@ -592,5 +587,39 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
     @Override
     protected String createCode() {
         return createCodeFromPackage() + ".entry.item";
+    }
+
+    public static void dupliquer(SQLRow selectedRow) {
+
+        final SQLRow foreignMvt = selectedRow.getForeign("ID_MOUVEMENT");
+        if (foreignMvt.getString("SOURCE").equalsIgnoreCase("SAISIE_KM")) {
+            final SQLElement elementSaisieKm = Configuration.getInstance().getDirectory().getElement("SAISIE_KM");
+            final SQLElement elementSaisieKmItem = Configuration.getInstance().getDirectory().getElement("SAISIE_KM_ELEMENT");
+            final EditFrame frameCloneSaisieKm = new EditFrame(elementSaisieKm);
+            int idSource = foreignMvt.getInt("IDSOURCE");
+            SQLRow rowKm = elementSaisieKm.getTable().getRow(idSource);
+            final SQLRowValues rowVals = elementSaisieKm.createCopy(idSource);
+            rowVals.put("ID_MOUVEMENT", null);
+            Collection<SQLRow> items = rowKm.getReferentRows(elementSaisieKm.getTable().getTable("SAISIE_KM_ELEMENT"));
+            for (SQLRow sqlRow : items) {
+                SQLRowValues sqlRowValues = elementSaisieKmItem.createCopy(sqlRow.getID());
+                sqlRowValues.put("ID_ECRITURE", null);
+                sqlRowValues.put("ID_SAISIE_KM", rowVals);
+                System.err.println("ADD ELEMENT KM :: " + sqlRowValues.getID());
+            }
+
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    frameCloneSaisieKm.getSQLComponent().select(rowVals);
+                }
+            });
+            frameCloneSaisieKm.setVisible(true);
+        } else {
+            SwingUtilities.invokeLater(new Runnable() {
+                public void run() {
+                    JOptionPane.showMessageDialog(null, "La duplication n'est possible que sur les saisies au kilomètre");
+                }
+            });
+        }
     }
 }

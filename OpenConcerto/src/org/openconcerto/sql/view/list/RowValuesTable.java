@@ -85,7 +85,7 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
     }
 
     public RowValuesTable(RowValuesTableModel model, File f, boolean tiny) {
-        this(model, f, false, new XTableColumnModel());
+        this(model, f, tiny, new XTableColumnModel());
     }
 
     public RowValuesTable(RowValuesTableModel model, File f, boolean tiny, XTableColumnModel colModel) {

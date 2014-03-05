@@ -13,6 +13,7 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
+import org.openconcerto.openoffice.Length;
 import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.Style;
@@ -20,8 +21,6 @@ import org.openconcerto.openoffice.StyleProperties;
 import org.openconcerto.openoffice.StyleStyle;
 import org.openconcerto.openoffice.StyleStyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
-
-import java.math.BigDecimal;
 
 import org.jdom.Element;
 
@@ -51,22 +50,13 @@ public class ColumnStyle extends StyleStyle {
         return this.colProps;
     }
 
-    public final Float getWidth() {
-        final BigDecimal res = this.getWidth(TableStyle.DEFAULT_UNIT);
-        return res == null ? null : res.floatValue();
+    public final Length getWidth() {
+        return this.getTableColumnProperties().getWidth();
     }
 
-    public final BigDecimal getWidth(final LengthUnit unit) {
-        return this.getTableColumnProperties().getWidth(unit);
-    }
-
-    void setWidth(float f) {
-        this.setWidth(f, TableStyle.DEFAULT_UNIT);
-    }
-
-    // not public, use Table.setColumnCount() or Table.createColumnStyle()
-    void setWidth(final Number amount, final LengthUnit unit) {
-        this.getTableColumnProperties().setAttributeValue(amount == null ? null : unit.format(amount), "column-width");
+    // not public, use Table.setColumnCount(), Table.createColumnStyle() or Column.setWidth()
+    void setWidth(final Length l) {
+        this.getTableColumnProperties().setAttributeValue(l.format(TableStyle.getWriteUnit()), "column-width");
         // optional, so no need to recompute it
         rmRelWidth();
     }
@@ -82,8 +72,8 @@ public class ColumnStyle extends StyleStyle {
             super(style, style.getFamily());
         }
 
-        public final BigDecimal getWidth(final LengthUnit in) {
-            return LengthUnit.parseLength(getAttributeValue("column-width", this.getNS("style")), in);
+        public final Length getWidth() {
+            return LengthUnit.parseLength(getAttributeValue("column-width", this.getNS("style")));
         }
 
         public final String getBreakBefore() {

@@ -14,6 +14,8 @@
  package org.openconcerto.ui.component.combo;
 
 import java.lang.reflect.Field;
+import java.security.AccessController;
+import java.security.PrivilegedExceptionAction;
 
 import javax.swing.JComponent;
 
@@ -30,10 +32,16 @@ public class ComboUtils {
      */
     public static boolean doNotCancelPopupHack(JComponent comp) {
         try {
-            Class clazz = javax.swing.plaf.basic.BasicComboBoxUI.class;
-            Field field = clazz.getDeclaredField("HIDE_POPUP_KEY");
-            field.setAccessible(true);
-            cancelPopupHack(comp, field.get(null));
+            final Class<?> clazz = javax.swing.plaf.basic.BasicComboBoxUI.class;
+            final Object val = AccessController.doPrivileged(new PrivilegedExceptionAction<Object>() {
+                @Override
+                public Object run() throws Exception {
+                    final Field field = clazz.getDeclaredField("HIDE_POPUP_KEY");
+                    field.setAccessible(true);
+                    return field.get(null);
+                }
+            });
+            cancelPopupHack(comp, val);
             return true;
         } catch (Exception ex) {
             ex.printStackTrace();

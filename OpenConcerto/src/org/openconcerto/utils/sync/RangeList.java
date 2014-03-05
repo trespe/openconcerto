@@ -24,6 +24,9 @@ public class RangeList {
         this.limit = limit;
     }
 
+    // Add a Range at the end of the list
+    // The range MUST start after the last added range
+    // to preserve the global order
     public void add(Range range) {
         if (range.getStart() < 0 || range.getStart() >= limit) {
             throw new IllegalArgumentException(range + " start out of limit");
@@ -33,12 +36,12 @@ public class RangeList {
         }
         if (list.size() > 0) {
             Range last = list.get(list.size() - 1);
-            if (last.getStop() == range.getStart()) {
-                last.setStop(range.getStop());
-            } else if (range.getStart() < last.getStart()) {
-                throw new IllegalArgumentException("start (" + range.getStart() + ") < lastStart (" + last.getStart() + ")");
-            } else {
+            if (last.getStart() > range.getStop() || last.getStop() < range.getStart()) {
                 list.add(range);
+            } else if (range.getStart() >= last.getStart()) {
+                last.setStop(Math.max(last.getStop(), range.getStop()));
+            } else {
+                throw new IllegalArgumentException(range + " before " + last);
             }
         } else {
             list.add(range);
@@ -55,23 +58,21 @@ public class RangeList {
             result.add(new Range(0, limit));
             return result;
         }
+
         // First
         Range r = new Range(0, list.get(0).getStart());
         if (!r.isEmpty()) {
-            // System.out.println("AddFirst:" + r);
             result.add(r);
         }
         for (int i = 0; i < list.size() - 1; i++) {
             Range r1 = this.list.get(i);
             Range r2 = this.list.get(i + 1);
-
             result.add(new Range(r1.getStop(), r2.getStart()));
 
         }
         // Last
         Range lastRange = new Range(list.get(list.size() - 1).getStop(), limit);
         if (!lastRange.isEmpty()) {
-            // System.out.println("AddLast:" + lastRange);
             result.add(lastRange);
         }
 

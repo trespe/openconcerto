@@ -29,6 +29,9 @@ public class NouveauClotureManuelleAction extends CreateFrameAbstractAction {
 
     @Override
     public JFrame createFrame() {
-        return new PanelFrame(new ClotureManuellePanel(), "Clôture manuelle");
+        final PanelFrame panelFrame = new PanelFrame(new ClotureManuellePanel(), "Clôture manuelle");
+        panelFrame.pack();
+        panelFrame.setResizable(false);
+        return panelFrame;
     }
 }

@@ -94,7 +94,7 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
         int selectedId = this.frame.getPanel().getListe().getSelectedId();
         if (selectedId > 1 && e.getButton() == MouseEvent.BUTTON3) {
 
-            final SQLRow row = this.frame.getPanel().getListe().getSelectedRow();
+            final SQLRow row = this.frame.getPanel().getListe().fetchSelectedRow();
             JPopupMenu menu = new JPopupMenu();
             final DevisTextSheet s = new DevisTextSheet(row);
 
@@ -145,7 +145,7 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
 
             AbstractAction actionAcc = new AbstractAction("Marquer comme accepté") {
                 public void actionPerformed(ActionEvent e) {
-                    SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
+                    SQLRowValues rowVals = IListe.get(e).fetchSelectedRow().createEmptyUpdateRow();
                     rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
                     try {
                         rowVals.update();
@@ -153,14 +153,14 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
                         // TODO Auto-generated catch block
                         e1.printStackTrace();
                     }
-                    IListe.get(e).getSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
+                    IListe.get(e).fetchSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
                 }
             };
             menu.add(actionAcc);
 
             AbstractAction actionRefus = new AbstractAction("Marquer comme refusé") {
                 public void actionPerformed(ActionEvent e) {
-                    SQLRowValues rowVals = IListe.get(e).getSelectedRow().createEmptyUpdateRow();
+                    SQLRowValues rowVals = IListe.get(e).fetchSelectedRow().createEmptyUpdateRow();
                     rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.REFUSE);
                     try {
                         rowVals.update();
@@ -168,7 +168,7 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
                         // TODO Auto-generated catch block
                         e1.printStackTrace();
                     }
-                    IListe.get(e).getSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
+                    IListe.get(e).fetchSelectedRow().getTable().fireTableModified(IListe.get(e).getSelectedId());
                 }
             };
             menu.add(actionRefus);

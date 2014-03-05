@@ -24,7 +24,7 @@ public class LightUIElement implements Serializable {
      * 
      */
     private static final long serialVersionUID = 3272357171610073289L;
-
+    // type
     public static final int TYPE_LABEL = 0;
     public static final int TYPE_TEXT_FIELD = 1;
     public static final int TYPE_DATE = 2;
@@ -38,12 +38,17 @@ public class LightUIElement implements Serializable {
     public static final int TYPE_BUTTON_WITH_CONTEXT = 21;
     public static final int TYPE_BUTTON_CANCEL = 22;
     public static final int TYPE_BUTTON_UNMANAGED = 23;
-
+    public static final int TYPE_BUTTON_WITH_SELECTION_CONTEXT = 24;
+    // valueType
     public static final int VALUE_TYPE_STRING = 0;
     public static final int VALUE_TYPE_INTEGER = 1;
     public static final int VALUE_TYPE_DATE = 2;
     public static final int VALUE_TYPE_REF = 3;
     public static final int VALUE_TYPE_LIST = 4;
+    public static final int VALUE_TYPE_DECIMAL = 5;
+    // commitMode
+    public static final int COMMIT_ONCE = 0;
+    public static final int COMMIT_INTERACTIVE = 1;
 
     // Type
     private int type;
@@ -56,6 +61,11 @@ public class LightUIElement implements Serializable {
     private String value;
     private Serializable rawContent;
     private int valueType;
+    private int commitMode;
+    private String valuePrecision;// "(6,2)" 999999.99 is the max
+    private String displayPrecision;// "(1,2)" means that 0.159 is shown as 0.16
+    private String valueRange; // [-3.14,3.14]
+
     private int minInputSize;
     private List<LightUIDescriptor> tabs;
     // Colors
@@ -124,6 +134,38 @@ public class LightUIElement implements Serializable {
 
     public String getValue() {
         return value;
+    }
+
+    public int getCommitMode() {
+        return commitMode;
+    }
+
+    public void setCommitMode(int commitMode) {
+        this.commitMode = commitMode;
+    }
+
+    public String getDisplayPrecision() {
+        return displayPrecision;
+    }
+
+    public void setDisplayPrecision(String displayPrecision) {
+        this.displayPrecision = displayPrecision;
+    }
+
+    public String getValuePrecision() {
+        return valuePrecision;
+    }
+
+    public void setValuePrecision(String valuePrecision) {
+        this.valuePrecision = valuePrecision;
+    }
+
+    public String getValueRange() {
+        return valueRange;
+    }
+
+    public void setValueRange(String valueRange) {
+        this.valueRange = valueRange;
     }
 
     public void setValue(String value) {
@@ -205,9 +247,25 @@ public class LightUIElement implements Serializable {
             valueType = "ref";
         } else if (this.valueType == VALUE_TYPE_LIST) {
             valueType = "list";
+        } else if (this.valueType == VALUE_TYPE_DECIMAL) {
+            valueType = "decimal";
         }
 
-        out.println("LightUIElement" + " " + type + " id:" + this.id + " w:" + gridWidth + " fill:" + fillWidth + " value:" + value + "(" + valueType + ") label:" + label);
+        String str = "LightUIElement" + " " + type + " id:" + this.id + " w:" + gridWidth + " fill:" + fillWidth;
+        str += " value:" + value + "(" + valueType + ")";
+        if (valueRange != null) {
+            str += "range: " + valueRange;
+        }
+        if (valuePrecision != null) {
+            str += "precision: " + valuePrecision;
+        }
+        if (displayPrecision != null) {
+            str += "display prec.: " + displayPrecision;
+        }
+        if (label != null) {
+            str += " label:" + label;
+        }
+        out.println(str);
 
     }
 

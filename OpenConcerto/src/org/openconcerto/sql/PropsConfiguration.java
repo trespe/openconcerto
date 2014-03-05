@@ -38,6 +38,7 @@ import org.openconcerto.utils.MultipleOutputStream;
 import org.openconcerto.utils.NetUtils;
 import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StreamUtils;
+import org.openconcerto.utils.Value;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.i18n.TranslationManager;
 
@@ -117,6 +118,11 @@ public class PropsConfiguration extends Configuration {
      */
     public static final String REDIRECT_TO_FILE = "redirectToFile";
 
+    // properties cannot contain null, so to be able to override a default, a non-null value
+    // meaning empty must be chosen (as setProperty(name, null) is the same as remove(name) i.e.
+    // get the value from the default properties)
+    public static final String EMPTY_PROP_VALUE;
+
     protected static enum FileMode {
         IN_JAR, NORMAL_FILE
     };
@@ -152,6 +158,9 @@ public class PropsConfiguration extends Configuration {
         DEFAULTS.setProperty("customer", "test");
         DEFAULTS.setProperty("server.ip", "127.0.0.1");
         DEFAULTS.setProperty("server.login", "root");
+
+        EMPTY_PROP_VALUE = "";
+        assert EMPTY_PROP_VALUE != null;
     }
 
     private final Properties props;
@@ -313,8 +322,9 @@ public class PropsConfiguration extends Configuration {
     }
 
     protected final DBRoot createRoot() {
-        if (getRootName() != null)
-            return this.getSystemRoot().getRoot(getRootName());
+        final Value<String> rootName = getRootNameValue();
+        if (rootName.hasValue())
+            return this.getSystemRoot().getRoot(rootName.getValue());
         else
             throw new NullPointerException("no rootname");
     }
@@ -325,7 +335,12 @@ public class PropsConfiguration extends Configuration {
     }
 
     public String getRootName() {
-        return this.getProperty("base.root");
+        return this.getProperty("base.root", EMPTY_PROP_VALUE);
+    }
+
+    public final Value<String> getRootNameValue() {
+        final String res = getRootName();
+        return res == null || EMPTY_PROP_VALUE.equals(res) ? Value.<String> getNone() : Value.getSome(res);
     }
 
     protected SQLFilter createFilter() {
@@ -493,8 +508,9 @@ public class PropsConfiguration extends Configuration {
     protected Collection<String> getRootsToMap() {
         final Set<String> res = new HashSet<String>();
 
-        if (this.getRootName() != null)
-            res.add(this.getRootName());
+        final Value<String> rootName = getRootNameValue();
+        if (rootName.hasValue())
+            res.add(rootName.getValue());
         final String rootsToMap = getProperty("systemRoot.rootsToMap");
         if (rootsToMap != null)
             res.addAll(SQLRow.toList(rootsToMap));
@@ -992,7 +1008,7 @@ public class PropsConfiguration extends Configuration {
         return fieldMapper;
     }
 
-    public void setFieldMapper(FieldMapper fieldMapper) {
+    protected void setFieldMapper(FieldMapper fieldMapper) {
         this.fieldMapper = fieldMapper;
     }
 }

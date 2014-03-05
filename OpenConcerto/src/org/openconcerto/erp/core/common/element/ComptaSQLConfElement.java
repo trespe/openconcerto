@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.common.element;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.DBRoot;
@@ -25,6 +26,7 @@ import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.convertor.ValueConvertor;
 
 import java.awt.Component;
+import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
@@ -68,6 +70,10 @@ public abstract class ComptaSQLConfElement extends SQLElement {
         return baseSociete;
     }
 
+    {
+        this.setL18nLocation(Gestion.class);
+    }
+
     public ComptaSQLConfElement(String tableName, String singular, String plural) {
         super(singular, plural, getBaseSociete().findTable(tableName, true));
     }
@@ -85,8 +91,39 @@ public abstract class ComptaSQLConfElement extends SQLElement {
         return createCodeFromPackage();
     }
 
-    protected String createCodeFromPackage() {
-        String canonicalName = getClass().getName();
+    /**
+     * Return a code that doesn't change when subclassing to allow to easily change a SQLElement
+     * while keeping the same code. To achieve that, the code isn't
+     * {@link #createCodeFromPackage(Class) computed} with <code>this.getClass()</code>. We iterate
+     * up through our superclass chain, and as soon as we find an abstract class, we stop and use
+     * the previous class (i.e. non abstract). E.g. any direct subclass of
+     * {@link ComptaSQLConfElement} will still use <code>this.getClass()</code>, but so is one of
+     * its subclass.
+     * 
+     * @return a code computed from the superclass just under the first abstract superclass.
+     * @see #createCodeFromPackage(Class)
+     */
+    protected final String createCodeFromPackage() {
+        return createCodeFromPackage(getLastNonAbstractClass());
+    }
+
+    private final Class<? extends ComptaSQLConfElement> getLastNonAbstractClass() {
+        Class<?> prev = null;
+        Class<?> cl = this.getClass();
+        // test loop
+        assert !Modifier.isAbstract(cl.getModifiers()) && ComptaSQLConfElement.class.isAssignableFrom(cl) && Modifier.isAbstract(ComptaSQLConfElement.class.getModifiers());
+        while (!Modifier.isAbstract(cl.getModifiers())) {
+            prev = cl;
+            cl = cl.getSuperclass();
+        }
+        assert ComptaSQLConfElement.class.isAssignableFrom(prev);
+        @SuppressWarnings("unchecked")
+        final Class<? extends ComptaSQLConfElement> res = (Class<? extends ComptaSQLConfElement>) prev;
+        return res;
+    }
+
+    static protected String createCodeFromPackage(final Class<? extends ComptaSQLConfElement> cl) {
+        String canonicalName = cl.getName();
         if (canonicalName.contains("erp.core") && canonicalName.contains(".element")) {
             int i = canonicalName.indexOf("erp.core") + 9;
             int j = canonicalName.indexOf(".element");

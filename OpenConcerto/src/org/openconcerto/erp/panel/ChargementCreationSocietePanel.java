@@ -13,14 +13,16 @@
  
  package org.openconcerto.erp.panel;
 
+import org.openconcerto.erp.core.common.component.SocieteCommonSQLElement;
 import org.openconcerto.erp.utils.ActionDB;
 import org.openconcerto.erp.utils.StatusListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.ConnectionHandlerNoSetup;
+import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLDataSource;
+import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLSchema;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
@@ -116,7 +118,8 @@ public class ChargementCreationSocietePanel extends JPanel implements StatusList
 
         // FIXME by Sylvain comme on a déjà accede à la base, les nouvelles tables n'ont pas été
         // rechargées
-        final SQLSchema baseNewSociete = Configuration.getInstance().getBase().getSchema(rowSociete.getString("DATABASE_NAME"));
+
+        final DBRoot baseNewSociete = SocieteCommonSQLElement.getRoot(rowSociete);
 
         SQLTable tableComptePCG = baseNewSociete.getTable("COMPTE_PCG");
         final SQLSelect sel = new SQLSelect();
@@ -135,7 +138,7 @@ public class ChargementCreationSocietePanel extends JPanel implements StatusList
 
                 @Override
                 public Object handle(SQLDataSource ds) throws SQLException, SQLException {
-                    String insert = "INSERT INTO \"" + baseNewSociete.getName() + "\".\"COMPTE_PCE\" (\"NUMERO\", \"NOM\", \"INFOS\") VALUES (?, ?, ?)";
+                    String insert = "INSERT INTO " + new SQLName(baseNewSociete.getName(), "COMPTE_PCE").quote() + " (\"NUMERO\", \"NOM\", \"INFOS\") VALUES (?, ?, ?)";
                     PreparedStatement stmt = ds.getConnection().prepareStatement(insert);
                     List tmpCpt = baseNewSociete.getBase().getDataSource().execute(sel.asString());
                     for (int i = 0; i < tmpCpt.size(); i++) {

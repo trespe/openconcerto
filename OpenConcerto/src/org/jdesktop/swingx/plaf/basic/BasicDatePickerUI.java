@@ -148,6 +148,9 @@ public class BasicDatePickerUI extends DatePickerUI {
             this.popupButton.removeMouseListener(this.mouseListener);
             this.popupButton.removeMouseMotionListener(this.mouseMotionListener);
         }
+        if (this.popup != null) {
+            this.datePicker.getMonthView().removeActionListener(this.popup);
+        }
 
         this.propertyChangeListener = null;
         this.mouseListener = null;

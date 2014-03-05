@@ -85,7 +85,7 @@ class SQLSyntaxPG extends SQLSyntax {
     public String getInitRoot(final String name) {
         final String sql;
         try {
-            final String fileContent = FileUtils.read(this.getClass().getResourceAsStream("pgsql-functions.sql"), "UTF8");
+            final String fileContent = FileUtils.read(SQLSyntaxPG.class.getResourceAsStream("pgsql-functions.sql"), "UTF8");
             sql = fileContent.replace("${rootName}", SQLBase.quoteIdentifier(name));
         } catch (IOException e) {
             throw new IllegalStateException("cannot read functions", e);
@@ -212,7 +212,7 @@ class SQLSyntaxPG extends SQLSyntax {
     protected String getCreateIndex(final String cols, final SQLName tableName, Index i) {
         final String method = i.getMethod() != null ? " USING " + i.getMethod() : "";
         // TODO handle where
-        return i.getTable().getBase().quote("ON %i " + method + cols, tableName);
+        return "ON " + tableName.quote() + " " + method + cols;
     }
 
     @SuppressWarnings("unused")
@@ -265,7 +265,7 @@ class SQLSyntaxPG extends SQLSyntax {
             }
         });
 
-        final String seq = FixSerial.getPrimaryKeySeq(t);
+        final SQLName seq = FixSerial.getPrimaryKeySeq(t);
         // no need to alter sequence if nothing was inserted (can be -1 in old pg)
         // also avoid NULL for empty tables and thus arbitrary start constant
         if (count.intValue() != 0 && seq != null) {

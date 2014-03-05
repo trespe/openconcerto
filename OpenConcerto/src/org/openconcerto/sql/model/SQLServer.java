@@ -25,6 +25,8 @@ import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -255,7 +257,13 @@ public final class SQLServer extends DBStructureItemJDBC {
                         for (final DBItemFileCache savedBase : cache.getServerCache().getSavedDesc(SQLBase.class)) {
                             final String savedBaseName = savedBase.getName();
                             if (!cats.contains(savedBaseName) && (namesToRefresh == null || namesToRefresh.contains(savedBaseName)) && this.getDBSystemRoot().createNode(this, savedBaseName)) {
-                                savedBase.delete();
+                                AccessController.doPrivileged(new PrivilegedAction<Object>() {
+                                    @Override
+                                    public Object run() {
+                                        savedBase.delete();
+                                        return null;
+                                    }
+                                });
                             }
                         }
                     }

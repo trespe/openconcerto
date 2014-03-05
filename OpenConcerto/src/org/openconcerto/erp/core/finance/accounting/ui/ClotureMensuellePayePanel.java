@@ -71,9 +71,8 @@ public class ClotureMensuellePayePanel extends JPanel {
         JLabel labelMois = new JLabel("Cloture du mois de ");
         this.add(labelMois, c);
 
-        MoisSQLElement moisElt = new MoisSQLElement();
         final ElementComboBox selMois = new ElementComboBox(true, 25);
-        selMois.init(moisElt);
+        selMois.init(((ComptaPropsConfiguration) Configuration.getInstance()).getDirectory().getElement(MoisSQLElement.class));
         selMois.setButtonsVisible(false);
         c.gridx++;
         this.add(selMois, c);
@@ -118,13 +117,10 @@ public class ClotureMensuellePayePanel extends JPanel {
         buttonClot.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
                 try {
-                    // if (selMois.getSelectedId() <= 1 || textAnnee.getText().trim().length() == 0)
-                    // {
-                    // return;
-                    // }
+
                     // Valider les fiches non validés des salariés actifs
                     if (boxValid.isSelected()) {
-                        SQLSelect selFiche = new SQLSelect(ClotureMensuellePayePanel.this.base);
+                        SQLSelect selFiche = new SQLSelect();
                         SQLTable tableFiche = ClotureMensuellePayePanel.this.base.getTable("FICHE_PAYE");
                         SQLTable tableSalarie = ClotureMensuellePayePanel.this.base.getTable("SALARIE");
                         SQLTable tableInfosSal = ClotureMensuellePayePanel.this.base.getTable("INFOS_SALARIE_PAYE");

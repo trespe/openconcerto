@@ -16,18 +16,25 @@
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
+import org.openconcerto.erp.core.common.component.TransfertGroupSQLComponent;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
+import org.openconcerto.erp.core.sales.account.VenteFactureSituationSQLComponent;
+import org.openconcerto.erp.core.sales.account.VenteFactureSoldeSQLComponent;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.FieldPath;
 import org.openconcerto.sql.model.SQLField;
-import org.openconcerto.sql.model.SQLInjector;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.model.graph.PathBuilder;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
+import org.openconcerto.sql.view.list.BaseSQLTableModelColumn;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.RowAction;
@@ -36,21 +43,28 @@ import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.state.WindowStateManager;
+import org.openconcerto.ui.table.PercentTableCellRenderer;
+import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.NumberUtils;
+import org.openconcerto.utils.cc.ITransformer;
 
-import java.awt.Color;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
-import javax.swing.BorderFactory;
+import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JPanel;
-import javax.swing.JTabbedPane;
 
 public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
 
@@ -62,6 +76,20 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
     public JFrame createFrame() {
         final JFrame frame = new JFrame("Commandes clients");
         // Actions
+
+        frame.getContentPane().add(createAllOrderPanel());
+        final SQLElement eltCmd = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
+        FrameUtil.setBounds(frame);
+        final File file = IListFrame.getConfigFile(eltCmd, frame.getClass());
+        if (file != null)
+            new WindowStateManager(frame, file).loadState();
+        return frame;
+    }
+
+    JPanel createAllOrderPanel() {
+        final SQLElement eltCmd = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
+        final SQLTableModelSourceOnline tableSource = eltCmd.getTableSource(true);
+        final List<RowAction> allowedActions = new ArrayList<RowAction>();
         // Transfert vers facture
         PredicateRowAction bonAction = new PredicateRowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
@@ -70,11 +98,62 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
         }, false, "sales.order.create.deliverynote");
 
         // Transfert vers facture
-        PredicateRowAction factureAction = new PredicateRowAction(new AbstractAction() {
+        RowAction factureAction = new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
                 transfertFactureClient(IListe.get(e).copySelectedRows());
             }
-        }, false, "sales.order.create.invoice");
+        }, false, "sales.order.create.invoice") {
+
+            @Override
+            public boolean enabledFor(List<SQLRowAccessor> selection) {
+                if (selection.isEmpty()) {
+                    return false;
+                } else if (selection.size() > 1) {
+                    return true;
+                } else {
+                    BigDecimal d = getAvancement(selection.get(0));
+                    return d.signum() == 0;
+                }
+            }
+        };
+
+        // Transfert vers facture intermédiaire
+        RowAction acompteAction = new RowAction(new AbstractAction("Créer une facture intermédiaire") {
+            public void actionPerformed(ActionEvent e) {
+                transfertAcompteClient(IListe.get(e).copySelectedRows());
+            }
+        }, false, "sales.order.create.account") {
+            BigDecimal cent = BigDecimal.ONE.movePointRight(2);
+
+            @Override
+            public boolean enabledFor(List<SQLRowAccessor> selection) {
+                if (selection.isEmpty() || selection.size() > 1) {
+                    return false;
+                } else {
+                    BigDecimal d = getAvancement(selection.get(0));
+                    return NumberUtils.compare(d, cent) != 0;
+                }
+            }
+        };
+
+        // Transfert vers facture solde
+        RowAction soldeAction = new RowAction(new AbstractAction("Facturer le solde") {
+            public void actionPerformed(ActionEvent e) {
+                transfertSoldeClient(IListe.get(e).copySelectedRows());
+            }
+        }, false, "sales.order.create.account.solde") {
+            BigDecimal cent = BigDecimal.ONE.movePointRight(2);
+
+            @Override
+            public boolean enabledFor(List<SQLRowAccessor> selection) {
+                if (selection.isEmpty() || selection.size() > 1) {
+                    return false;
+                } else {
+                    BigDecimal d = getAvancement(selection.get(0));
+                    return NumberUtils.compare(d, cent) != 0 && NumberUtils.compare(d, BigDecimal.ZERO) != 0;
+                }
+            }
+        };
 
         // Transfert vers commande
         PredicateRowAction cmdAction = new PredicateRowAction(new AbstractAction() {
@@ -95,37 +174,89 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
         }, false, "sales.order.create.supplier.order");
 
         cmdAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
-        factureAction.setPredicate(IListeEvent.getNonEmptySelectionPredicate());
+
         bonAction.setPredicate(IListeEvent.getSingleSelectionPredicate());
-
-        // Tabs
-        final JTabbedPane tabs = new JTabbedPane();
-        tabs.addTab("Commandes non facturées", createOrderWithoutInvoicePanel(cmdAction, factureAction, bonAction));
-        tabs.addTab("Commandes facturées", createOrderWithInvoicePanel(cmdAction, bonAction));
-        tabs.addTab("Toutes les commandes", createAllOrderPanel(cmdAction, factureAction, bonAction));
-        frame.setContentPane(tabs);
-
-        final SQLElement eltCmd = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
-        FrameUtil.setBounds(frame);
-        final File file = IListFrame.getConfigFile(eltCmd, frame.getClass());
-        if (file != null)
-            new WindowStateManager(frame, file).loadState();
-        return frame;
-    }
-
-    JPanel createAllOrderPanel(final PredicateRowAction cmdAction, final PredicateRowAction factureAction, final PredicateRowAction bonAction) {
-        final SQLElement eltCmd = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
-        final SQLTableModelSourceOnline tableSource = eltCmd.getTableSource(true);
-        final List<RowAction> allowedActions = new ArrayList<RowAction>();
         allowedActions.add(bonAction);
         allowedActions.add(factureAction);
+        allowedActions.add(acompteAction);
+        allowedActions.add(soldeAction);
         allowedActions.add(cmdAction);
+
+        final BaseSQLTableModelColumn colAvancement = new BaseSQLTableModelColumn("Avancement facturation", BigDecimal.class) {
+
+            @Override
+            protected Object show_(SQLRowAccessor r) {
+
+                return getAvancement(r);
+            }
+
+            @Override
+            public Set<FieldPath> getPaths() {
+                final Path p = new PathBuilder(eltCmd.getTable()).addTable("TR_COMMANDE_CLIENT").addTable("SAISIE_VENTE_FACTURE").build();
+                return CollectionUtils.createSet(new FieldPath(p, "T_HT"));
+            }
+        };
+        tableSource.getColumns().add(colAvancement);
+        colAvancement.setRenderer(new PercentTableCellRenderer());
         final ListeAddPanel panel = getPanel(eltCmd, tableSource, allowedActions);
         return panel;
     }
 
+    private BigDecimal getAvancement(SQLRowAccessor r) {
+        Collection<? extends SQLRowAccessor> rows = r.getReferentRows(r.getTable().getTable("TR_COMMANDE_CLIENT"));
+        long totalFact = 0;
+        long total = r.getLong("T_HT");
+        for (SQLRowAccessor row : rows) {
+            if (!row.isForeignEmpty("ID_SAISIE_VENTE_FACTURE")) {
+                SQLRowAccessor rowFact = row.getForeign("ID_SAISIE_VENTE_FACTURE");
+                Long l = rowFact.getLong("T_HT");
+                totalFact += l;
+            }
+        }
+        if (total > 0) {
+            return new BigDecimal(totalFact).divide(new BigDecimal(total), MathContext.DECIMAL128).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
+        } else {
+            return BigDecimal.ONE.movePointRight(2);
+        }
+    }
+
     private ListeAddPanel getPanel(final SQLElement eltCmd, final SQLTableModelSourceOnline tableSource, final List<RowAction> allowedActions) {
-        final ListeAddPanel panel = new ListeAddPanel(eltCmd, new IListe(tableSource));
+        final ListeAddPanel panel = new ListeAddPanel(eltCmd, new IListe(tableSource)) {
+            @Override
+            protected void createUI() {
+                super.createUI();
+                this.btnMngr.setAdditional(this.buttonEffacer, new ITransformer<JButton, String>() {
+
+                    @Override
+                    public String transformChecked(JButton input) {
+
+                        SQLRowAccessor row = getListe().fetchSelectedRow();
+
+                        BigDecimal b = getAvancement(row);
+
+                        if (b.signum() != 0) {
+                            return "Vous ne pouvez pas supprimer une commande facturée !";
+                        }
+                        return null;
+                    }
+                });
+                this.btnMngr.setAdditional(this.buttonModifier, new ITransformer<JButton, String>() {
+
+                    @Override
+                    public String transformChecked(JButton input) {
+
+                        SQLRowAccessor row = getListe().fetchSelectedRow();
+
+                        BigDecimal b = getAvancement(row);
+
+                        if (b.signum() != 0) {
+                            return "Vous ne pouvez pas modifier une commande facturée !";
+                        }
+                        return null;
+                    }
+                });
+            }
+        };
 
         final List<SQLField> fields = new ArrayList<SQLField>(2);
         fields.add(eltCmd.getTable().getField("T_HT"));
@@ -167,37 +298,6 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
         return panel;
     }
 
-    JPanel createOrderWithInvoicePanel(PredicateRowAction cmdAction, PredicateRowAction bonAction) {
-        final SQLElement eltCmd = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
-        final SQLTableModelSourceOnline tableSource = eltCmd.getTableSource(true);
-        final List<RowAction> allowedActions = new ArrayList<RowAction>();
-        allowedActions.add(bonAction);
-        allowedActions.add(cmdAction);
-
-        // Filter on transfered
-        final SQLInjector injector = SQLInjector.getInjector(eltCmd.getTable(), eltCmd.getTable().getTable("SAISIE_VENTE_FACTURE"));
-        injector.setOnlyTransfered(tableSource);
-
-        final ListeAddPanel panel = getPanel(eltCmd, tableSource, allowedActions);
-        return panel;
-    }
-
-    JPanel createOrderWithoutInvoicePanel(PredicateRowAction cmdAction, PredicateRowAction factureAction, PredicateRowAction bonAction) {
-        final SQLElement eltCmd = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT");
-        final SQLTableModelSourceOnline tableSource = eltCmd.getTableSource(true);
-        final List<RowAction> allowedActions = new ArrayList<RowAction>();
-        allowedActions.add(bonAction);
-        allowedActions.add(factureAction);
-        allowedActions.add(cmdAction);
-
-        // Filter on not transfered
-        final SQLInjector injector = SQLInjector.getInjector(eltCmd.getTable(), eltCmd.getTable().getTable("SAISIE_VENTE_FACTURE"));
-        injector.setOnlyNotTransfered(tableSource);
-
-        final ListeAddPanel panel = getPanel(eltCmd, tableSource, allowedActions);
-        return panel;
-    }
-
     /**
      * Transfert en BL
      * 
@@ -215,5 +315,23 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
     private void transfertFactureClient(List<SQLRowValues> rows) {
         TransfertBaseSQLComponent.openTransfertFrame(rows, "SAISIE_VENTE_FACTURE");
 
+    }
+
+    /**
+     * Transfert en Facture
+     * 
+     * @param row
+     */
+    private void transfertAcompteClient(List<SQLRowValues> rows) {
+        TransfertGroupSQLComponent.openTransfertFrame(rows, "SAISIE_VENTE_FACTURE", VenteFactureSituationSQLComponent.ID);
+    }
+
+    /**
+     * Transfert en Facture
+     * 
+     * @param row
+     */
+    private void transfertSoldeClient(List<SQLRowValues> rows) {
+        TransfertGroupSQLComponent.openTransfertFrame(rows, "SAISIE_VENTE_FACTURE", VenteFactureSoldeSQLComponent.ID);
     }
 }

@@ -13,23 +13,30 @@
  
  package org.openconcerto.erp.core.finance.payment.element;
 
-import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.DeviseField;
+import org.openconcerto.erp.generationEcritures.GenerationMvtReglementAvoirChequeClient;
+import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.ShowAs;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.SwingConstants;
 
-public class ChequeAvoirClientSQLElement extends ComptaSQLConfElement {
+public class ChequeAvoirClientSQLElement extends ChequeSQLElement {
 
     public ChequeAvoirClientSQLElement() {
         super("CHEQUE_AVOIR_CLIENT", "un chéque de remboursement", "chéques remboursements");
@@ -54,6 +61,56 @@ public class ChequeAvoirClientSQLElement extends ComptaSQLConfElement {
         l.add("MONTANT");
         l.add("ID_CLIENT");
         return l;
+    }
+
+    @Override
+    public String getDoneFieldName() {
+        return "DECAISSE";
+    }
+
+    @Override
+    public String getDateFieldName() {
+        return "DATE_DECAISSE";
+    }
+
+    @Override
+    public String getMinDateFieldName() {
+        return "DATE_MIN_DECAISSE";
+    }
+
+    @Override
+    public SQLTableModelSourceOnline createDepositTableSource() {
+        final List<String> l = new ArrayList<String>();
+        l.add("MONTANT");
+        // NOM
+        l.add("ID_CLIENT");
+        l.add("ID_MOUVEMENT");
+        l.add("DATE_AVOIR");
+        l.add(getMinDateFieldName());
+        l.add(getDoneFieldName());
+
+        final ShowAs showAs = new ShowAs(getTable().getDBRoot());
+
+        final SQLTable mvtT = getTable().getForeignTable("ID_MOUVEMENT");
+        showAs.show(mvtT, "ID_PIECE");
+        showAs.show(mvtT.getForeignTable("ID_PIECE"), "NOM");
+
+        final SQLTable clientERP = getTable().getForeignTable("ID_CLIENT");
+        {
+            showAs.show(clientERP, "NOM");
+        }
+
+        return this.createDepositTableSource(l, showAs, null);
+    }
+
+    @Override
+    public void print(List<Integer> rows, boolean preview, Date d) {
+    }
+
+    @Override
+    public void handle(final SQLRowAccessor rowCheque, final Date d, String label) throws Exception {
+        GenerationMvtReglementAvoirChequeClient gen = new GenerationMvtReglementAvoirChequeClient(rowCheque.getForeignID("ID_MOUVEMENT"), rowCheque.getLong("MONTANT"), d, rowCheque.getID());
+        gen.genere();
     }
 
     /*

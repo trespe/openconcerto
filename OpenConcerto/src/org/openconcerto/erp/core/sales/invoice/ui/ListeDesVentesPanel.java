@@ -24,6 +24,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.EditFrame;
@@ -86,11 +87,15 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
 
         JTabbedPane tabbedPane = new JTabbedPane();
 
+        final SQLElement elementVF = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
         // tab Vente facture
-        final SQLElement eltFacture = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
+        final SQLElement eltFacture = elementVF;
         final SQLTableModelSourceOnline src = eltFacture.getTableSource(true);
         // Filter
-        final Where wPrev = new Where(eltFacture.getTable().getField("PREVISIONNELLE"), "=", Boolean.FALSE);
+        Where wPrev = new Where(eltFacture.getTable().getField("PREVISIONNELLE"), "=", Boolean.FALSE);
+        if (src.getReq().getWhere() != null) {
+            wPrev = wPrev.and(src.getReq().getWhere());
+        }
         src.getReq().setWhere(wPrev);
 
         final ListeFactureRenderer rend = new ListeFactureRenderer();
@@ -189,7 +194,14 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
             public void selectionId(int id, int field) {
                 ListeDesVentesPanel.this.buttonEnvoye.setEnabled(id > 1);
                 ListeDesVentesPanel.this.buttonRegle.setEnabled(id > 1);
-                ListeDesVentesPanel.this.buttonDupliquer.setEnabled(id > 1);
+                if (id > 1) {
+                    final ITableModel model = ListeDesVentesPanel.this.listeFact.getListe().getModel();
+
+                    SQLRowAccessor r = model.getRow(model.indexFromID(id)).getRow();
+                    ListeDesVentesPanel.this.buttonDupliquer.setEnabled(!r.getBoolean("PARTIAL") && !r.getBoolean("SOLDE"));
+                } else {
+                    ListeDesVentesPanel.this.buttonDupliquer.setEnabled(false);
+                }
             }
         });
 
@@ -200,7 +212,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
                     @Override
                     protected void handleAction(JButton source, ActionEvent evt) {
                         if (source == this.buttonModifier) {
-                            new PanelFrame(new TextAreaTicketPanel(this.getListe().getSelectedRow()), "Ticket").setVisible(true);
+                            new PanelFrame(new TextAreaTicketPanel(this.getListe().fetchSelectedRow()), "Ticket").setVisible(true);
                         } else {
                             super.handleAction(source, evt);
                         }
@@ -282,7 +294,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
 
     public void actionPerformed(ActionEvent e) {
 
-        final SQLRow selectedRow = this.listeFact.getListe().getSelectedRow();
+        final SQLRow selectedRow = this.listeFact.getListe().getSelectedRow().asRow();
         if (e.getSource() == this.buttonEnvoye) {
             SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
             rowVals.put("DATE_ENVOI", new Date());

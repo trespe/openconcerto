@@ -66,6 +66,8 @@ public final class DBSystemRoot extends DBStructureItemDB {
     // linked to schemaPath and incoherentPath
     @GuardedBy("this")
     private SQLDataSource ds;
+    @GuardedBy("this")
+    private IClosure<? super SQLDataSource> dsInit;
     // immutable
     @GuardedBy("this")
     private List<String> schemaPath;
@@ -83,6 +85,7 @@ public final class DBSystemRoot extends DBStructureItemDB {
         mapNoRoots();
         this.useCache = Boolean.getBoolean(SQLBase.STRUCTURE_USE_XML);
         this.ds = null;
+        this.dsInit = null;
         this.schemaPath = Collections.emptyList();
         this.incoherentPath = false;
 
@@ -158,6 +161,14 @@ public final class DBSystemRoot extends DBStructureItemDB {
 
     public final void setRootsToMap(final Collection<String> rootsNames) {
         this.setRootsToMap(rootsNames, true, false);
+    }
+
+    public final boolean isMappingAllRoots() {
+        return this.getRootsToMap() == null;
+    }
+
+    public final boolean isMappingNoRoots() {
+        return Collections.emptySet().equals(this.getRootsToMap());
     }
 
     /**
@@ -332,10 +343,10 @@ public final class DBSystemRoot extends DBStructureItemDB {
     }
 
     void descendantsChanged(DBStructureItemJDBC parent, Set<String> childrenRefreshed, final boolean readCache) {
-        this.descendantsChanged(TablesMap.createByRootFromChildren(parent, childrenRefreshed), readCache, true);
+        this.descendantsChanged(TablesMap.createByRootFromChildren(parent, childrenRefreshed), readCache);
     }
 
-    void descendantsChanged(TablesMap tablesRefreshed, final boolean readCache, final boolean tableListChange) {
+    void descendantsChanged(TablesMap tablesRefreshed, final boolean readCache) {
         assert Thread.holdsLock(getTreeMutex()) : "By definition descendants must be changed with the tree lock";
         try {
             // don't fire GraphLoadingEvent here since we might be in an atomicRefresh
@@ -343,9 +354,9 @@ public final class DBSystemRoot extends DBStructureItemDB {
         } catch (SQLException e) {
             throw new IllegalStateException("Couldn't refresh the graph", e);
         }
-        // the dataSource must always have all tables, to listen to them for its cache
-        if (tableListChange)
-            this.getDataSource().setTables(getDescs(SQLTable.class));
+        synchronized (this.supp) {
+            this.supp.firePropertyChange("descendants", null, null);
+        }
     }
 
     public DatabaseGraph getGraph() {
@@ -554,15 +565,30 @@ public final class DBSystemRoot extends DBStructureItemDB {
         return res;
     }
 
-    synchronized final void setDS(String login, String pass, IClosure<SQLDataSource> dsInit) {
-        if (this.ds != null)
-            throw new IllegalStateException("already set: " + this.ds);
+    public synchronized final SQLDataSource createDS(String login, String pass) {
+        if (this.ds == null)
+            throw new IllegalStateException("primary DS not set");
+        return createDSUnsafe(login, pass);
+    }
+
+    // don't check this.ds
+    private synchronized final SQLDataSource createDSUnsafe(String login, String pass) {
         this.checkDropped();
         // either base or above
         final String baseName = this.getLevel() == HierarchyLevel.SQLBASE ? this.getName() : "";
-        this.ds = new SQLDataSource(this.getServer(), baseName, login, pass);
-        if (dsInit != null)
-            dsInit.executeChecked(this.ds);
+        final SQLDataSource res = new SQLDataSource(this, baseName, login, pass);
+        if (this.dsInit != null)
+            this.dsInit.executeChecked(res);
+
+        return res;
+    }
+
+    synchronized final void setDS(String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+        if (this.ds != null)
+            throw new IllegalStateException("already set: " + this.ds);
+        assert this.dsInit == null;
+        this.dsInit = dsInit;
+        this.ds = createDSUnsafe(login, pass);
 
         synchronized (this.graphMutex) {
             this.graph = new DatabaseGraph(this);

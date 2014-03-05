@@ -50,6 +50,8 @@ import java.awt.Insets;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.net.URL;
@@ -63,6 +65,7 @@ import java.util.Vector;
 
 import javax.swing.AbstractAction;
 import javax.swing.Action;
+import javax.swing.BorderFactory;
 import javax.swing.DefaultCellEditor;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
@@ -121,8 +124,8 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
 
     public TodoListPanel() {
         this.setOpaque(false);
-        this.iconTache = new ImageIcon(this.getClass().getResource("tache.png"));
-        this.iconPriorite = new ImageIcon(this.getClass().getResource("priorite.png"));
+        this.iconTache = new ImageIcon(TodoListPanel.class.getResource("tache.png"));
+        this.iconPriorite = new ImageIcon(TodoListPanel.class.getResource("priorite.png"));
         this.userTableCellRenderer = new UserTableCellRenderer();
         this.timestampTableCellRendererCreated = new TimestampTableCellRenderer();
         this.timestampTableCellRendererDone = new TimestampTableCellRenderer();
@@ -132,10 +135,10 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
         this.timestampTableCellEditorDeadLine = new TimestampTableCellEditor();
         // Icon renderer
         List<URL> l = new Vector<URL>();
-        l.add(this.getClass().getResource("empty.png"));
-        l.add(this.getClass().getResource("high.png"));
-        l.add(this.getClass().getResource("normal.png"));
-        l.add(this.getClass().getResource("low.png"));
+        l.add(TodoListPanel.class.getResource("empty.png"));
+        l.add(TodoListPanel.class.getResource("high.png"));
+        l.add(TodoListPanel.class.getResource("normal.png"));
+        l.add(TodoListPanel.class.getResource("low.png"));
         this.iconEditor = new IconTableCellRenderer(l);
         this.iconRenderer = new IconTableCellRenderer(l);
 
@@ -356,15 +359,17 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                 addTask();
             }
         });
-        this.detailCheckBox.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
+        this.detailCheckBox.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
                 // masque les colonnes "fait le" et "le"
                 detailCheckBoxClicked();
             }
         });
-        this.hideOldCheckBox.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                TodoListPanel.this.model.setHistoryVisible(!TodoListPanel.this.hideOldCheckBox.isSelected());
+        this.hideOldCheckBox.addItemListener(new ItemListener() {
+            @Override
+            public void itemStateChanged(ItemEvent e) {
+                TodoListPanel.this.model.setHistoryVisible(e.getStateChange() == ItemEvent.DESELECTED);
                 TodoListPanel.this.model.asynchronousFill();
             }
         });
@@ -445,7 +450,7 @@ public class TodoListPanel extends JPanel implements ModelStateListener {
                 }
             }
         };
-        textField.setBorder(null);
+        textField.setBorder(BorderFactory.createEmptyBorder());
         final DefaultCellEditor defaultCellEditor = new DefaultCellEditor(textField);
         textField.addMouseListener(new MouseListener() {
 
@@ -705,7 +710,7 @@ class JComponentTableCellRenderer extends DefaultTableCellRenderer {
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
         JLabel label = (JLabel) this.renderer.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
         label.setIcon(this.icon);
-        label.setBorder(null);
+        label.setBorder(BorderFactory.createEmptyBorder());
         label.setIconTextGap(0);
         label.setHorizontalTextPosition(0);
         label.setHorizontalAlignment(SwingConstants.CENTER);

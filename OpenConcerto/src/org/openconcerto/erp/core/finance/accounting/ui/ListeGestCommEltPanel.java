@@ -17,13 +17,16 @@ import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.event.ActionEvent;
+import java.util.Collection;
 
 import javax.swing.JButton;
 
@@ -44,6 +47,53 @@ public class ListeGestCommEltPanel extends ListeAddPanel {
         super(elem, l);
         this.setAddVisible(showAdd);
         this.setOpaque(false);
+        if (elem.getTable().getName().equals("SAISIE_VENTE_FACTURE")) {
+            this.btnMngr.setAdditional(this.buttonEffacer, new ITransformer<JButton, String>() {
+
+                @Override
+                public String transformChecked(JButton input) {
+
+                    SQLRowAccessor row = getListe().fetchSelectedRow();
+
+                    if (row.getBoolean("PARTIAL") && !isLastPartialInvoice(row)) {
+                        return "Vous ne pouvez pas supprimer cette facture intermédiaire.\n Des factures antérieures ont été établies !";
+                    }
+                    return null;
+                }
+            });
+            this.btnMngr.setAdditional(this.buttonModifier, new ITransformer<JButton, String>() {
+
+                @Override
+                public String transformChecked(JButton input) {
+
+                    SQLRowAccessor row = getListe().fetchSelectedRow();
+
+                    if (row.getBoolean("PARTIAL") || row.getBoolean("SOLDE")) {
+                        return "Vous ne pouvez pas modifier une facture intermédiaire.";
+                    }
+                    return null;
+                }
+            });
+        }
+    }
+
+    public boolean isLastPartialInvoice(SQLRowAccessor sqlRowAccessor) {
+        Collection<? extends SQLRowAccessor> rows = sqlRowAccessor.getReferentRows(sqlRowAccessor.getTable().getTable("TR_COMMANDE_CLIENT"));
+        for (SQLRowAccessor sqlRowAccessor2 : rows) {
+            SQLRowAccessor rowCmd = sqlRowAccessor2.getForeign("ID_COMMANDE_CLIENT");
+            if (rowCmd != null && !rowCmd.isUndefined()) {
+                Collection<? extends SQLRowAccessor> rowSFacts = rowCmd.getReferentRows(sqlRowAccessor.getTable().getTable("TR_COMMANDE_CLIENT"));
+                for (SQLRowAccessor sqlRowAccessor3 : rowSFacts) {
+                    if (!sqlRowAccessor3.isForeignEmpty("ID_SAISIE_VENTE_FACTURE")) {
+                        SQLRowAccessor rowFact = sqlRowAccessor3.getForeign("ID_SAISIE_VENTE_FACTURE");
+                        if (rowFact.getDate("DATE").after(sqlRowAccessor.getDate("DATE"))) {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+        return true;
     }
 
     public ListeGestCommEltPanel(SQLElement elem, IListe l, String variant) {
@@ -74,11 +124,11 @@ public class ListeGestCommEltPanel extends ListeAddPanel {
         SQLRow row = this.getElement().getTable().getRow(this.getListe().getSelectedId());
 
         if (row != null && row.getID() > 1) {
-            final int idMvt = row.getInt("ID_MOUVEMENT");
+            final SQLRowAccessor mvt = row.getForeign("ID_MOUVEMENT");
             if (source == this.buttonEffacer) {
 
-                if (idMvt > 1) {
-                    PanelFrame frame = new PanelFrame(new SuppressionEcrituresPanel(idMvt), "Suppression");
+                if (mvt != null && !mvt.isUndefined()) {
+                    PanelFrame frame = new PanelFrame(new SuppressionEcrituresPanel(mvt.getID()), "Suppression");
                     frame.pack();
                     frame.setLocationRelativeTo(null);
                     frame.setResizable(false);
@@ -89,7 +139,7 @@ public class ListeGestCommEltPanel extends ListeAddPanel {
             } else {
                 if (source == this.buttonModifier) {
 
-                    if (MouvementSQLElement.isEditable(idMvt)) {
+                    if (mvt == null || mvt.isUndefined() | MouvementSQLElement.isEditable(mvt.getID())) {
                         if (this.editModifyFrame == null) {
                             this.editModifyFrame = new EditFrame(this.element, EditPanel.MODIFICATION);
                         }

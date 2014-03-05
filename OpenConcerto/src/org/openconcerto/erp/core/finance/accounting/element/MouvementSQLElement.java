@@ -18,6 +18,7 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
@@ -142,24 +143,27 @@ public class MouvementSQLElement extends ComptaSQLConfElement {
 
         if (id != 1) {
             final EditFrame f;
-            final SQLBase base = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete();
-            final SQLTable tableMvt = base.getTable("MOUVEMENT");
+            final ComptaPropsConfiguration comptaPropsConfiguration = (ComptaPropsConfiguration) Configuration.getInstance();
+            final SQLTable tableMvt = comptaPropsConfiguration.getRootSociete().getTable("MOUVEMENT");
             final String stringTableSource = tableMvt.getRow(id).getString("SOURCE").trim();
             final int mode = MouvementSQLElement.isEditable(id) ? MouvementSQLElement.MODIFICATION : MouvementSQLElement.READONLY;
 
             if (stringTableSource.length() != 0 && tableMvt.getRow(id).getInt("IDSOURCE") != 1) {
+                final SQLElement elementSource = comptaPropsConfiguration.getDirectory().getElement(stringTableSource);
                 if (mode == MouvementSQLElement.MODIFICATION) {
-                    f = new EditFrame(Configuration.getInstance().getDirectory().getElement(stringTableSource), EditPanel.MODIFICATION);
+
+                    f = new EditFrame(elementSource, EditPanel.MODIFICATION);
                     f.getPanel().disableDelete();
                 } else {
-                    f = new EditFrame(Configuration.getInstance().getDirectory().getElement(stringTableSource), EditPanel.READONLY);
+                    f = new EditFrame(elementSource, EditPanel.READONLY);
                 }
                 f.selectionId(tableMvt.getRow(id).getInt("IDSOURCE"));
             } else {
+                final SQLElement elementSource = comptaPropsConfiguration.getDirectory().getElement(SaisieKmSQLElement.class);
                 if (mode == MouvementSQLElement.MODIFICATION) {
-                    f = new EditFrame(new SaisieKmSQLElement(), EditPanel.MODIFICATION);
+                    f = new EditFrame(elementSource, EditPanel.MODIFICATION);
                 } else {
-                    f = new EditFrame(new SaisieKmSQLElement(), EditPanel.READONLY);
+                    f = new EditFrame(elementSource, EditPanel.READONLY);
                 }
                 // FIXME se passer de requete dans Swing...
                 try {

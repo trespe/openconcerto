@@ -121,7 +121,10 @@ public class RowValuesTableModel extends AbstractTableModel {
 
         // rowParDefaut
         if (addDefault) {
-            addRow(new SQLRowValues(this.defautRow));
+            final SQLRowValues row = new SQLRowValues(this.defautRow);
+            final BigDecimal maxOrder = RowValuesTableModel.this.element.getTable().getMaxOrder();
+            row.put(RowValuesTableModel.this.element.getTable().getOrderField().getName(), maxOrder.add(BigDecimal.ONE));
+            RowValuesTableModel.this.rowValues.add(row);
         }
     }
 
@@ -620,6 +623,10 @@ public class RowValuesTableModel extends AbstractTableModel {
 
     public void addRow(SQLRowValues row) {
         addRow(row, true);
+    }
+
+    public void submit(Runnable r) {
+        runnableQueue.submit(r);
     }
 
     public void addRow(final SQLRowValues row, final boolean fireModified) {

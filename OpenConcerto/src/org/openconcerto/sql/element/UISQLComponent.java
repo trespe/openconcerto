@@ -26,6 +26,7 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
+import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.util.HashMap;
 import java.util.Map;
@@ -109,6 +110,13 @@ public abstract class UISQLComponent extends BaseSQLComponent {
             @Override
             protected JPopupMenu createPopup(MouseEvent e) {
                 return e.isControlDown() ? menu : null;
+            }
+        });
+        added.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.isAltDown())
+                    toggleDisplayFieldsNames();
             }
         });
     }

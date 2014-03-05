@@ -15,6 +15,7 @@
 
 import java.io.ByteArrayInputStream;
 import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
 
 /**
  * Permet de créer un InputStream depuis une String.
@@ -25,6 +26,10 @@ public class StringInputStream extends ByteArrayInputStream {
 
     public StringInputStream(String s) {
         super(s.getBytes());
+    }
+
+    public StringInputStream(String s, Charset charset) {
+        super(s.getBytes(charset));
     }
 
     public StringInputStream(String s, String charset) throws UnsupportedEncodingException {

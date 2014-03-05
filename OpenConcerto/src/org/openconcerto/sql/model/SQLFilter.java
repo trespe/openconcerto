@@ -164,6 +164,12 @@ public final class SQLFilter {
         }
     }
 
+    public final List<Set<SQLRow>> getRows() {
+        synchronized (this.filteredIDs) {
+            return new ArrayList<Set<SQLRow>>(this.filteredIDs);
+        }
+    }
+
     public final Set<SQLRow> getLeaf() {
         synchronized (this.filteredIDs) {
             return CollectionUtils.getFirst(this.filteredIDs);

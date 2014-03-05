@@ -22,6 +22,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.ConfSQLElement;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
@@ -321,7 +322,7 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                             menuDroit.add(new AbstractAction("Editer") {
                                 public void actionPerformed(ActionEvent e) {
                                     if (edit == null) {
-                                        edit = new EditFrame(new VariablePayeSQLElement(), EditFrame.MODIFICATION);
+                                        edit = new EditFrame(getElement(), EditFrame.MODIFICATION);
                                     }
 
                                     System.err.println("Action performed");
@@ -463,7 +464,7 @@ public class VariablePayeSQLElement extends ConfSQLElement {
                 c.fill = GridBagConstraints.HORIZONTAL;
 
                 this.comboSelSal = new ElementComboBox(false);
-                this.comboSelSal.init(new SalarieSQLElement());
+                this.comboSelSal.init(getDirectory().getElement(SalarieSQLElement.class));
 
                 c.gridx++;
                 c.gridwidth = GridBagConstraints.REMAINDER;

@@ -32,12 +32,14 @@ import java.util.regex.Pattern;
  */
 public class StringUtils {
 
-    // required encoding see
-    // http://docs.oracle.com/javase/7/docs/technotes/guides/intl/encoding.doc.html
-    public static final Charset UTF8 = Charset.forName("UTF8");
+    // required encoding see Charset
+    public static final Charset UTF8 = Charset.forName("UTF-8");
     public static final Charset UTF16 = Charset.forName("UTF-16");
-    public static final Charset ASCII = Charset.forName("ASCII");
-    public static final Charset ISO8859_1 = Charset.forName("ISO8859_1");
+    public static final Charset ASCII = Charset.forName("US-ASCII");
+    public static final Charset ISO8859_1 = Charset.forName("ISO-8859-1");
+    // included in rt.jar see
+    // http://docs.oracle.com/javase/7/docs/technotes/guides/intl/encoding.doc.html
+    public static final Charset ISO8859_15 = Charset.forName("ISO-8859-15");
     public static final Charset Cp1252 = Charset.forName("Cp1252");
     public static final Charset Cp850 = Charset.forName("Cp850");
 
@@ -186,6 +188,39 @@ public class StringUtils {
             // and thus the strings returned by this method have the same pattern
             res = getShortener(maxLength).shorten(s, maxLength);
         }
+        return res;
+    }
+
+    static public enum Side {
+        LEFT, RIGHT
+    }
+
+    public static String getFixedWidthString(final String s, final int width, final Side align) {
+        return getFixedWidthString(s, width, align, false);
+    }
+
+    public static String getFixedWidthString(final String s, final int width, final Side align, final boolean allowTruncate) {
+        final int length = s.length();
+        final String res;
+        if (length == width) {
+            res = s;
+        } else if (length < width) {
+            final StringBuilder sb = new StringBuilder(width);
+            if (align == Side.LEFT)
+                sb.append(s);
+            final int n = width - length;
+            for (int i = 0; i < n; i++) {
+                sb.append(' ');
+            }
+            if (align == Side.RIGHT)
+                sb.append(s);
+            res = sb.toString();
+        } else if (allowTruncate) {
+            res = s.substring(0, width);
+        } else {
+            throw new IllegalArgumentException("Too wide : " + length + " > " + width);
+        }
+        assert res.length() == width;
         return res;
     }
 
@@ -393,5 +428,39 @@ public class StringUtils {
             }
         }
         return ((st > 0) || (end < s.length())) ? s.substring(st, end) : s;
+    }
+
+    public static String limitLength(String s, int maxLength) {
+        if (s.length() <= maxLength) {
+            return s;
+        }
+        return s.substring(0, maxLength);
+    }
+
+    public static String removeAllSpaces(String text) {
+        final int length = text.length();
+        final StringBuilder builder = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            char c = text.charAt(i);
+            if (c <= ' ' && c != 160) {
+                // remove non printable chars
+                // spaces
+                // non breakable space (160)
+                builder.append(c);
+            }
+        }
+        return builder.toString();
+    }
+
+    public static String removeNonDecimalChars(String text) {
+        final int length = text.length();
+        final StringBuilder builder = new StringBuilder(length);
+        for (int i = 0; i < length; i++) {
+            char c = text.charAt(i);
+            if (Character.isDigit(c) || c == '.' || c == '+' || c == '-') {
+                builder.append(c);
+            }
+        }
+        return builder.toString();
     }
 }

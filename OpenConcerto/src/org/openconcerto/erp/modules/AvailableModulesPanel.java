@@ -13,37 +13,36 @@
  
  package org.openconcerto.erp.modules;
 
-import org.openconcerto.sql.users.UserManager;
-import org.openconcerto.sql.users.rights.LockAdminUserRight;
+import org.openconcerto.erp.config.Gestion;
+import org.openconcerto.erp.modules.ModuleManager.ModuleAction;
+import org.openconcerto.erp.modules.ModuleManager.ModuleState;
+import org.openconcerto.erp.modules.ModuleTableModel.ModuleRow;
+import org.openconcerto.erp.panel.UserExitConf;
 import org.openconcerto.sql.view.AbstractFileTransfertHandler;
-import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.component.WaitIndeterminatePanel;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 
 import java.awt.Dialog.ModalityType;
-import java.awt.FileDialog;
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
 import java.text.ChoiceFormat;
 import java.text.MessageFormat;
+import java.util.Collection;
+import java.util.HashSet;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
-import javax.swing.JButton;
+import javax.swing.Action;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTable;
 import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
+import javax.swing.TransferHandler;
 
-public class AvailableModulesPanel extends JPanel {
+public class AvailableModulesPanel {
 
     static final MessageFormat MODULE_FMT;
 
@@ -69,173 +68,192 @@ public class AvailableModulesPanel extends JPanel {
         return dialog;
     }
 
-    private final AvailableModuleTableModel tm;
-    private final ModuleFrame moduleFrame;
-
-    AvailableModulesPanel(final ModuleFrame moduleFrame) {
-        this.moduleFrame = moduleFrame;
-        this.setOpaque(false);
-        this.setLayout(new GridBagLayout());
-        GridBagConstraints c = new DefaultGridBagConstraints();
-        // Toolbar
-        c.weightx = 0;
-        c.weighty = 0;
-
-        c.fill = GridBagConstraints.NONE;
-        c.anchor = GridBagConstraints.WEST;
-        final JButton installButton = new JButton(new InstallAction());
-        if (!UserManager.getInstance().getCurrentUser().getRights().haveRight(LockAdminUserRight.LOCK_MENU_ADMIN)) {
-            installButton.setEnabled(false);
-        }
-        installButton.setOpaque(false);
-        this.add(installButton, c);
-        c.gridx++;
-        final JButton importButton = new JButton(new ImportAction());
-        importButton.setOpaque(false);
-        this.add(importButton, c);
-
-        // Left Column
-        this.tm = new AvailableModuleTableModel();
-        JTable t = new JTable(this.tm);
-        t.setShowGrid(false);
-        t.setShowVerticalLines(false);
-        t.setFocusable(false);
-        t.setRowSelectionAllowed(false);
-        t.setColumnSelectionAllowed(false);
-        t.setCellSelectionEnabled(false);
-        t.getColumnModel().getColumn(0).setWidth(24);
-        t.getColumnModel().getColumn(0).setPreferredWidth(24);
-        t.getColumnModel().getColumn(0).setMaxWidth(24);
-        t.getColumnModel().getColumn(0).setResizable(false);
-        t.getColumnModel().getColumn(1).setMinWidth(100);
-        // Version
-        t.getColumnModel().getColumn(2).setMinWidth(48);
-        t.getColumnModel().getColumn(2).setMaxWidth(48);
-
-        t.getColumnModel().getColumn(3).setMinWidth(48);
-        t.getColumnModel().getColumn(3).setPreferredWidth(200);
-        t.getTableHeader().setReorderingAllowed(false);
-        JScrollPane scroll = new JScrollPane(t);
-        c.weighty = 1;
-        c.weightx = 1;
-        c.gridx = 0;
-        c.gridy++;
-        c.gridwidth = 2;
-
-        c.fill = GridBagConstraints.BOTH;
-        this.add(scroll, c);
-
-        this.setTransferHandler(new AbstractFileTransfertHandler() {
-
-            @Override
-            public void handleFile(File f) {
-                installModule(f);
-            }
-        });
-    }
-
-    protected void installModule(File f) {
-        if (!f.getName().endsWith(".jar")) {
-            JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'installer le module. Le fichier n'est pas un module.");
-            return;
-        }
-        File dir = new File("Modules");
-        dir.mkdir();
-        if (!dir.exists()) {
-            JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'installer le module.\nLe dossier ne peut pas être créer:\n" + dir.getAbsolutePath());
-            return;
-        }
-        File out = null;
-        if (dir.canWrite()) {
-            try {
-                out = new File(dir, f.getName());
-                FileUtils.copyFile(f, out);
-            } catch (IOException e) {
-                JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'installer le module.\n" + f.getAbsolutePath() + " vers " + dir.getAbsolutePath());
-                return;
-            }
+    // return true if the user cancels
+    static boolean displayDenied(final JComponent panel, final String dialogTitle, final String deniedMsg, final boolean noneAllowed) {
+        final boolean done;
+        if (noneAllowed) {
+            JOptionPane.showMessageDialog(panel, deniedMsg, dialogTitle, JOptionPane.WARNING_MESSAGE);
+            done = true;
         } else {
-            JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'installer le module.\nVous devez disposer des droits en écriture sur le dossier:\n" + dir.getAbsolutePath());
-            return;
+            final int answer = JOptionPane.showConfirmDialog(panel, deniedMsg, dialogTitle, JOptionPane.OK_CANCEL_OPTION, JOptionPane.WARNING_MESSAGE);
+            done = answer == JOptionPane.CANCEL_OPTION;
         }
-        try {
-            ModuleManager.getInstance().addFactory(new JarModuleFactory(out));
-        } catch (IOException e) {
-            JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Impossible d'intégrer le module.\n" + e.getMessage());
-            return;
-        }
-        SwingUtilities.invokeLater(new Runnable() {
-
-            @Override
-            public void run() {
-                reload();
-            }
-        });
-
+        return done;
     }
 
-    public void reload() {
-        this.tm.reload();
-    }
-
-    private final class InstallAction extends AbstractAction {
-
-        InstallAction() {
-            super("Installer");
+    static void applySolution(final ModuleManager mngr, final ModulePanel panel, final ModulesStateChange chosen, final boolean onlyInstall) {
+        final String dialogTitle = "Gestion des modules";
+        final ModuleState targetState = onlyInstall ? ModuleState.INSTALLED : ModuleState.STARTED;
+        final int installSize = chosen.getReferencesToInstall().size();
+        final int uninstallSize = chosen.getReferencesToRemove().size();
+        if (installSize == 0 && uninstallSize == 0) {
+            JOptionPane.showMessageDialog(panel, "Aucun changement à apporter", dialogTitle, JOptionPane.INFORMATION_MESSAGE);
+            return;
         }
 
-        @Override
-        public void actionPerformed(ActionEvent evt) {
-            final Set<ModuleReference> checkedRows = AvailableModulesPanel.this.tm.getCheckedRows();
-            if (checkedRows.isEmpty()) {
-                JOptionPane.showMessageDialog(AvailableModulesPanel.this, "Aucune ligne cochée");
-                return;
-            }
-
-            final JDialog dialog = displayDialog(AvailableModulesPanel.this, "Installation " + MODULE_FMT.format(new Object[] { checkedRows.size() }));
-            final ModuleManager mngr = ModuleManager.getInstance();
-            new SwingWorker<Object, Object>() {
+        final StringBuilder sb = new StringBuilder(128);
+        if (uninstallSize > 0) {
+            sb.append("Désinstallation ");
+            sb.append(MODULE_FMT.format(new Object[] { uninstallSize }));
+        }
+        if (installSize > 0) {
+            if (sb.length() > 0)
+                sb.append(". ");
+            sb.append("Installation ");
+            sb.append(MODULE_FMT.format(new Object[] { installSize }));
+        }
+        sb.append(".");
+        final String msg = sb.toString();
+        if (mngr.needExit(chosen)) {
+            Gestion.askForExit(new UserExitConf(msg, true) {
                 @Override
-                protected Object doInBackground() throws Exception {
-
-                    mngr.installModulesOnServer(checkedRows);
-                    return null;
+                protected void afterWindowsClosed() throws Exception {
+                    // since windows are closed this should minimise uninstall
+                    // problems. As the other branch of the if, start modules
+                    mngr.applyChange(chosen, targetState, true);
+                };
+            });
+        } else {
+            final JDialog dialog = displayDialog(panel, msg);
+            new SwingWorker<ModulesStateChangeResult, Object>() {
+                @Override
+                protected ModulesStateChangeResult doInBackground() throws Exception {
+                    return mngr.applyChange(chosen, ModuleState.REGISTERED);
                 }
 
                 @Override
                 protected void done() {
                     try {
-                        this.get();
-                        int r = JOptionPane.showConfirmDialog(AvailableModulesPanel.this, "Installation sur le serveur reussie.\nVoulez-vous également installer les modules sur le poste?");
-                        if (r == JOptionPane.OK_OPTION) {
-                            mngr.installModulesLocally(checkedRows);
+                        final ModulesStateChangeResult res = this.get();
+                        if (res.getNotCreated().size() > 0)
+                            JOptionPane.showMessageDialog(panel, "Certains modules n'ont pu être créés : " + res.getNotCreated(), dialogTitle, JOptionPane.WARNING_MESSAGE);
+
+                        // start inside the EDT, that way when we return, the
+                        // modules are completely started. Further if any exception
+                        // is thrown we can catch it here.
+                        if (targetState.compareTo(ModuleState.STARTED) >= 0) {
+                            try {
+                                // pass all modules to start() since start/stop status might have
+                                // changed since doInBackground()
+                                mngr.startFactories(res.getGraph().flatten());
+                                mngr.setPersistentModules(chosen.getUserReferencesToInstall());
+                            } catch (Exception e) {
+                                ExceptionHandler.handle(panel, "Impossible de démarrer les modules", e);
+                            }
                         }
                     } catch (Exception e) {
-                        ExceptionHandler.handle(AvailableModulesPanel.this, "Impossible d'installer les modules", e);
+                        ExceptionHandler.handle(panel, "Impossible d'appliquer les changements", e);
                     }
-                    // some might have started
-                    moduleFrame.reload();
+                    panel.reload();
                     dialog.dispose();
                 }
             }.execute();
         }
     }
 
-    private final class ImportAction extends AbstractAction {
+    static final Action createInstallAction(final ModulePanel panel, final ModuleTableModel tm, final boolean onlyInstall) {
+        return new AbstractAction("Installer") {
+            @Override
+            public void actionPerformed(ActionEvent evt) {
+                final String dialogTitle = "Installation de modules";
+                final Collection<ModuleRow> checkedRows = tm.getCheckedRows();
+                if (checkedRows.isEmpty()) {
+                    JOptionPane.showMessageDialog(panel, "Aucune ligne cochée", dialogTitle, JOptionPane.INFORMATION_MESSAGE);
+                    return;
+                }
+                final ModuleManager mngr = ModuleManager.getInstance();
+                final Set<ModuleReference> refs = new HashSet<ModuleReference>();
+                final Set<ModuleReference> deniedRefs = new HashSet<ModuleReference>();
+                for (final ModuleRow f : checkedRows) {
+                    if (!mngr.canCurrentUser(ModuleAction.INSTALL, f))
+                        deniedRefs.add(f.getRef());
+                    else
+                        refs.add(f.getRef());
+                }
+                if (deniedRefs.size() > 0) {
+                    if (displayDenied(panel, dialogTitle, "Ces modules ne peuvent être installés : " + deniedRefs, refs.size() == 0))
+                        return;
+                }
+                assert refs.size() > 0;
+                final JDialog depDialog = displayDialog(panel, "Calcul des dépendences");
+                new SwingWorker<Solutions, Object>() {
+                    @Override
+                    protected Solutions doInBackground() throws Exception {
+                        // MAYBE present the user with the reason references couldn't be installed
+                        return mngr.getSolutions(refs, 5);
+                    }
 
-        ImportAction() {
-            super("Importer");
-        }
+                    @Override
+                    protected void done() {
+                        depDialog.dispose();
+                        try {
+                            final Solutions res = this.get();
+                            if (res.getSolutions().size() == 0) {
+                                JOptionPane.showMessageDialog(panel, "Aucune solution trouvée", "Installation de modules", JOptionPane.WARNING_MESSAGE);
+                            } else {
+                                final DepSolverResultChooserPanel cPanel = new DepSolverResultChooserPanel(res.getSolutions());
+                                cPanel.setRunnable(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        applySolution(mngr, panel, cPanel.getSolutionToApply(), onlyInstall);
+                                    }
+                                });
+                                final JDialog dialog = new JDialog(SwingUtilities.getWindowAncestor(panel), ModalityType.APPLICATION_MODAL);
+                                dialog.add(cPanel);
+                                dialog.pack();
+                                dialog.setLocationRelativeTo(panel);
+                                dialog.setVisible(true);
 
-        @Override
-        public void actionPerformed(ActionEvent evt) {
-            FileDialog fileDialog = new FileDialog(moduleFrame, "Module à importer", FileDialog.LOAD);
-            fileDialog.setVisible(true);
-            if (fileDialog.getFile() != null) {
-                installModule(new File(fileDialog.getFile()));
+                            }
+                        } catch (Exception e) {
+                            ExceptionHandler.handle(panel, "Erreur lors de la recherche de solutions", e);
+                        }
+                    }
+
+                }.execute();
             }
-
-        }
+        };
     }
 
+    static final TransferHandler createTransferHandler(final ModulePanel panel) {
+        return new AbstractFileTransfertHandler() {
+
+            @Override
+            public void handleFile(File f) {
+                if (!f.getName().endsWith(".jar")) {
+                    JOptionPane.showMessageDialog(panel, "Impossible d'installer le module. Le fichier n'est pas un module.");
+                    return;
+                }
+                File dir = new File("Modules");
+                dir.mkdir();
+                File out = null;
+                if (dir.canWrite()) {
+                    try {
+                        out = new File(dir, f.getName());
+                        FileUtils.copyFile(f, out);
+                    } catch (IOException e) {
+                        JOptionPane.showMessageDialog(panel, "Impossible d'installer le module.\n" + f.getAbsolutePath() + " vers " + dir.getAbsolutePath());
+                        return;
+                    }
+                } else {
+                    JOptionPane.showMessageDialog(panel, "Impossible d'installer le module.\nVous devez disposer des droits en écriture sur le dossier:\n" + dir.getAbsolutePath());
+                    return;
+                }
+                try {
+                    ModuleManager.getInstance().addFactory(new JarModuleFactory(out));
+                } catch (IOException e) {
+                    JOptionPane.showMessageDialog(panel, "Impossible d'intégrer le module.\n" + e.getMessage());
+                    return;
+                }
+                SwingUtilities.invokeLater(new Runnable() {
+
+                    @Override
+                    public void run() {
+                        panel.reload();
+                    }
+                });
+
+            }
+        };
+    }
 }

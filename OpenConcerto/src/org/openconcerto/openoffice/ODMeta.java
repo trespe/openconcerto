@@ -13,9 +13,9 @@
  
  package org.openconcerto.openoffice;
 
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,7 +89,7 @@ public class ODMeta extends ODNode {
         return this.parent;
     }
 
-    private final XMLVersion getNS() {
+    protected final XMLVersion getNS() {
         return this.getParent().getVersion();
     }
 
@@ -273,7 +273,11 @@ public class ODMeta extends ODNode {
     }
 
     private final Element getChild(final String name, final Namespace ns) {
-        return this.childCreator.getChild(ns, name, true);
+        return this.getChild(name, ns, true);
+    }
+
+    protected final Element getChild(final String name, final Namespace ns, final boolean create) {
+        return this.childCreator.getChild(ns, name, create);
     }
 
     private final Calendar getDateChild(final String name, final Namespace ns) {
@@ -281,14 +285,16 @@ public class ODMeta extends ODNode {
         if (date.length() == 0)
             return null;
         else {
-            final Calendar cal = Calendar.getInstance();
-            cal.setTime((Date) ODValueType.DATE.parse(date));
-            return cal;
+            try {
+                return ODValueType.parseDateValue(date);
+            } catch (ParseException e) {
+                throw new IllegalArgumentException(e);
+            }
         }
     }
 
     private final void setDateChild(final Calendar cal, final String name, final Namespace ns) {
-        this.getChild(name, ns).setText(ODValueType.DATE.format(cal.getTime()));
+        this.getChild(name, ns).setText(ODValueType.DATE.format(cal));
     }
 
 }

@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.finance.tax.ui;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.tax.element.TaxeSQLElement;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
@@ -31,7 +32,7 @@ public class TvaPreferencePanel extends DefaultPreferencePanel {
         cPanel.weightx = 1;
         cPanel.weighty = 1;
 
-        final ListeAddPanel listeTaxe = new ListeAddPanel(new TaxeSQLElement());
+        final ListeAddPanel listeTaxe = new ListeAddPanel(ComptaPropsConfiguration.getInstanceCompta().getDirectory().getElement(TaxeSQLElement.class));
         listeTaxe.setAdjustVisible(false);
         listeTaxe.setCloneVisible(false);
         listeTaxe.setReloadVisible(false);

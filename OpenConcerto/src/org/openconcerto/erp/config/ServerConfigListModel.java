@@ -133,11 +133,12 @@ public class ServerConfigListModel extends AbstractListModel {
                 } catch (SQLException e) {
                     c.setError(e.getMessage());
                     e.printStackTrace();
-                }
-                try {
-                    db.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
+                } finally {
+                    try {
+                        db.close();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
             confs.add(c);

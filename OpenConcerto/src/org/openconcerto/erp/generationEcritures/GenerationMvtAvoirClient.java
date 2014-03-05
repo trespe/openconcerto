@@ -172,6 +172,7 @@ public class GenerationMvtAvoirClient extends GenerationEcritures {
         } else {
             valAvoir.put("SOLDE", Boolean.FALSE);
             valAvoir.update(this.idAvoirClient);
+            displayMvtNumber();
         }
 
         return this.idMvt;

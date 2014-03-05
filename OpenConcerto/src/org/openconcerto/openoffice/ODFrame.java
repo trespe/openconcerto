@@ -97,7 +97,7 @@ public class ODFrame<D extends ODDocument> extends ImmutableDocStyledNode<Graphi
      * @param val the value of the attribute in {@link #getUnit()}, eg 15.3.
      */
     public void setSVGAttr(String name, Number val) {
-        this.setSVGAttr(name, val + this.getUnit().getSymbol());
+        this.setSVGAttr(name, this.getUnit().format(val));
     }
 
     public final double getRatio() {

@@ -88,6 +88,11 @@ public class SQLImmutableRowValues extends SQLRowAccessor {
         return this.delegate.isForeignEmpty(fieldName);
     }
 
+    @Override
+    public int getForeignID(String fieldName) {
+        return this.delegate.getForeignID(fieldName);
+    }
+
     public boolean isDefault(String fieldName) {
         return this.delegate.isDefault(fieldName);
     }

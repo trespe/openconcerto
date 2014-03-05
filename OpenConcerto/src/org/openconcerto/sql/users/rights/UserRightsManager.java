@@ -29,6 +29,7 @@ import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.CompareUtils.Equalizer;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cc.IFactory;
@@ -48,6 +49,7 @@ public class UserRightsManager {
 
     public static final String USER_RIGHT_TABLE = UserRightSQLElement.TABLE_NAME;
     public static final String SUPERUSER_FIELD = "SUPERUSER";
+    private static final int ADMIN_ID = SQLRow.NONEXISTANT_ID;
     /**
      * Only administrators can see user rights.
      */
@@ -57,6 +59,8 @@ public class UserRightsManager {
     private static final CollectionMap<String, Tuple2<String, Boolean>> NO_RIGHTS = CollectionMap.singleton(null, Tuple2.create((String) null, false));
     public static final List<MacroRight> DEFAULT_MACRO_RIGHTS = Collections.synchronizedList(new ArrayList<MacroRight>());
     static {
+        // "addRight() ambiguous"
+        assert ADMIN_ID < SQLRow.MIN_VALID_ID;
         DEFAULT_MACRO_RIGHTS.add(new LockAdminUserRight());
         DEFAULT_MACRO_RIGHTS.add(new TableAllRights(true));
         DEFAULT_MACRO_RIGHTS.add(new TableAllRights(false));
@@ -145,14 +149,15 @@ public class UserRightsManager {
     private final SQLTable table;
     @GuardedBy("this")
     private SQLTableModifiedListener tableL;
-    private final CollectionMap<Integer, RightTuple> javaRights;
+    @GuardedBy("rights")
+    private final ListMap<Integer, RightTuple> javaRights;
 
     private UserRightsManager(final SQLTable t) {
         if (t == null)
             throw new NullPointerException("Missing table");
         this.macroRights = new HashMap<String, MacroRight>();
         this.rights = new HashMap<Integer, CollectionMap<String, Tuple2<String, Boolean>>>();
-        this.javaRights = new CollectionMap<Integer, RightTuple>();
+        this.javaRights = new ListMap<Integer, RightTuple>();
         this.table = t;
         this.tableL = new SQLTableModifiedListener() {
             @Override
@@ -185,14 +190,61 @@ public class UserRightsManager {
     }
 
     /**
-     * Add an inconditional right for the passed user. Ie it is loaded before the sql ones.
+     * Add an unconditional right for the passed user. I.e. it is loaded before the SQL ones and
+     * even default unconditional rights are before user SQL rights.
      * 
      * @param userID the user id, <code>null</code> meaning for everyone.
      * @param right the right the user should always have.
      */
     public void addRight(Integer userID, RightTuple right) {
-        this.javaRights.put(userID, right);
-        this.rightsInvalid();
+        if (right == null)
+            throw new NullPointerException("Null right entry");
+        synchronized (this.rights) {
+            this.javaRights.add(getKey(userID), right);
+            this.rightsInvalid();
+        }
+    }
+
+    /**
+     * Add an unconditional right for administrators. This will be after user rights and before
+     * default rights.
+     * 
+     * @param right the right to add.
+     */
+    public void addRightForAdmins(RightTuple right) {
+        if (right == null)
+            throw new NullPointerException("Null right entry");
+        synchronized (this.rights) {
+            this.javaRights.add(ADMIN_ID, right);
+            this.rightsInvalid();
+        }
+    }
+
+    private final int getKey(final Integer userID) {
+        if (userID != null && userID < SQLRow.MIN_VALID_ID)
+            throw new IllegalArgumentException("invalid ID : " + userID);
+        return userID == null ? getDefaultUserId() : userID;
+    }
+
+    /**
+     * Remove a right.
+     * 
+     * @param userID the user id, <code>null</code> meaning default user.
+     * @param right the right to remove, <code>null</code> meaning remove all.
+     * @see #addRight(Integer, RightTuple)
+     */
+    public void removeRight(final Integer userID, final RightTuple right) {
+        synchronized (this.rights) {
+            if (right == null)
+                this.javaRights.remove(getKey(userID));
+            else
+                this.javaRights.remove(getKey(userID), right);
+            this.rightsInvalid();
+        }
+    }
+
+    public void removeRightForAdmins(final RightTuple right) {
+        this.removeRight(ADMIN_ID, right);
     }
 
     public synchronized final boolean isValid() {
@@ -232,9 +284,9 @@ public class UserRightsManager {
      * the right is <code>null</code> or <code>objectMatcher</code> returns <code>true</code> when
      * passed both objects. There's also a special case if <code>object</code> is <code>null</code>
      * : in that case all found objects must be allowed until a right with a <code>null</code>
-     * object. With these rules setting the object of the right to <code>null</code> means giving
-     * the right to any object. And searching for the object <code>null</code> means asking if the
-     * right is allowed for all the objects. <br>
+     * object for the right to be granted. With these rules setting the object of the right to
+     * <code>null</code> means giving the right to any object. And searching for the object
+     * <code>null</code> means asking if the right is allowed for all the objects. <br>
      * For example if you have these rights (* meaning <code>null</code>) :
      * <ol>
      * <li>del T yes</li>
@@ -243,7 +295,7 @@ public class UserRightsManager {
      * <li>ins * yes</li>
      * <li>del * yes</li>
      * </ol>
-     * then you can delete from T but not insert ; you can however to both on any other object. If
+     * then you can delete from T but not insert ; you can however do both on any other object. If
      * you pass <code>null</code> for <code>object</code>, it will return <code>true</code> for del,
      * but <code>false</code> for ins.
      * 
@@ -259,9 +311,12 @@ public class UserRightsManager {
         final Boolean userRight = haveRightP(userID, code, requestedObject, objectMatcher, unicity);
         if (userRight != null)
             return userRight;
-        final Boolean defaultRight = haveRightP(getDefaultUserId(), code, requestedObject, objectMatcher, unicity);
-        if (defaultRight != null)
-            return defaultRight;
+        final int defaultUser = getDefaultUserId();
+        if (defaultUser != userID) {
+            final Boolean defaultRight = haveRightP(defaultUser, code, requestedObject, objectMatcher, unicity);
+            if (defaultRight != null)
+                return defaultRight;
+        }
 
         return false;
     }
@@ -347,14 +402,24 @@ public class UserRightsManager {
             // only superuser can modify RIGHTs
             expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE_MODIF, this.getTable().getForeignTable("ID_RIGHT"), false));
             // only admin can modify or see USER_RIGHTs
-            expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE, this.getTable(), userRow != null && userRow.getBoolean(ADMIN_FIELD)));
+            final boolean isAdmin = userRow != null && userRow.getBoolean(ADMIN_FIELD);
+            expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE, this.getTable(), isAdmin));
 
             // java rights have priority over SQL rights
             for (final RightTuple t : this.javaRights.getNonNull(userID)) {
                 expand(res, unicity, t);
             }
-            for (final RightTuple t : this.javaRights.getNonNull(null)) {
-                expand(res, unicity, t);
+            // perhaps allow SQL to also specify admin rights
+            if (isAdmin) {
+                for (final RightTuple t : this.javaRights.getNonNull(ADMIN_ID))
+                    expand(res, unicity, t);
+            }
+            final int defaultUser = getDefaultUserId();
+            if (defaultUser != userID) {
+                // even default java rights are before user SQL rights
+                for (final RightTuple t : this.javaRights.getNonNull(defaultUser)) {
+                    expand(res, unicity, t);
+                }
             }
 
             final SQLRowValues vals = new SQLRowValues(getTable()).setAllToNull();

@@ -25,6 +25,8 @@ import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
 
+import javax.swing.JOptionPane;
+
 public class CaisseControler implements BarcodeListener {
 
     private Article articleSelected;
@@ -191,6 +193,8 @@ public class CaisseControler implements BarcodeListener {
             Ticket t = Ticket.getTicketFromCode(code);
             if (t != null) {
                 caisseFrame.showTickets(t);
+            } else {
+                JOptionPane.showMessageDialog(this.caisseFrame, "Ticket " + code + " introuvable, peut-être a-t-il été importé ou effacé.");
             }
         }
 

@@ -152,7 +152,7 @@ public final class SearchQueue extends SleepingQueue {
                     }
                     return input.getAcc();
                 }
-            }, RecursionType.BREADTH_FIRST, null);
+            }, RecursionType.BREADTH_FIRST, Direction.ANY);
             for (final Path p : pathsToT) {
                 final String lastReferentField = getLastReferentField(p);
                 for (final ListSQLLine line : this.fullList) {

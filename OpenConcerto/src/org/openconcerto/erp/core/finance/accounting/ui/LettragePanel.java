@@ -425,7 +425,7 @@ public class LettragePanel extends JPanel {
         this.ecriturePanel.getListe().addRowAction(new AbstractAction("Voir la source") {
             public void actionPerformed(ActionEvent e) {
 
-                SQLRow rowEcr = LettragePanel.this.ecriturePanel.getListe().getSelectedRow();
+                SQLRow rowEcr = LettragePanel.this.ecriturePanel.getListe().fetchSelectedRow();
                 MouvementSQLElement.showSource(rowEcr.getInt("ID_MOUVEMENT"));
             }
         }, "financing.accouning.entries.source.show");

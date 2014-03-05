@@ -13,6 +13,7 @@
  
  package org.openconcerto.openoffice.spreadsheet;
 
+import org.openconcerto.openoffice.Length;
 import org.openconcerto.openoffice.LengthUnit;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.Style;
@@ -28,7 +29,22 @@ import org.jdom.Element;
 
 public class TableStyle extends StyleStyle {
 
-    static public final LengthUnit DEFAULT_UNIT = LengthUnit.MM;
+    // LibreOffice default
+    static private LengthUnit WRITE_UNIT = LengthUnit.CM;
+
+    /**
+     * Set the unit written to XML. Initially set to the LibreOffice value ({@link LengthUnit#CM}).
+     * 
+     * @param unit the unit to write, <code>null</code> meaning keep the passed unit.
+     */
+    public synchronized static void setWriteUnit(LengthUnit unit) {
+        WRITE_UNIT = unit;
+    }
+
+    public synchronized static LengthUnit getWriteUnit() {
+        return WRITE_UNIT;
+    }
+
     // from section 18.728 in v1.2-part1
     private static final StyleStyleDesc<TableStyle> DESC = new StyleStyleDesc<TableStyle>(TableStyle.class, XMLVersion.OD, "table", "ta", "table", Arrays.asList("table:background", "table:table")) {
         @Override
@@ -53,13 +69,12 @@ public class TableStyle extends StyleStyle {
         return this.tableProps;
     }
 
-    public final Float getWidth() {
-        final BigDecimal width = getTableProperties().getWidth(TableStyle.DEFAULT_UNIT);
-        return width == null ? null : width.floatValue();
+    public final Length getWidth() {
+        return getTableProperties().getWidth();
     }
 
-    void setWidth(float f) {
-        getFormattingProperties().setAttribute("width", f + DEFAULT_UNIT.getSymbol(), this.getSTYLE());
+    void setWidth(final Length l) {
+        getTableProperties().setAttributeValue(l.format(getWriteUnit()), "width", this.getSTYLE());
     }
 
     // see 17.15 of v1.2-cs01-part1
@@ -93,8 +108,8 @@ public class TableStyle extends StyleStyle {
             return LengthUnit.parseLength(getRawMargin(s), in);
         }
 
-        public final BigDecimal getWidth(final LengthUnit in) {
-            return LengthUnit.parseLength(getAttributeValue("width", this.getNS("style")), in);
+        public final Length getWidth() {
+            return LengthUnit.parseLength(getAttributeValue("width", this.getNS("style")));
         }
     }
 }

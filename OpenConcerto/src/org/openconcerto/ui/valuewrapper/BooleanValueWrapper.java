@@ -16,8 +16,8 @@
 import org.openconcerto.utils.checks.ValidState;
 
 import java.awt.Container;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 
 import javax.swing.JComponent;
 import javax.swing.JToggleButton;
@@ -40,9 +40,9 @@ public class BooleanValueWrapper extends BaseValueWrapper<Boolean> {
             throw new IllegalArgumentException("Comp is not an ancestor of " + b);
         this.comp = comp;
         this.b = b;
-        this.b.addActionListener(new ActionListener() {
+        this.b.addItemListener(new ItemListener() {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void itemStateChanged(ItemEvent e) {
                 firePropertyChange();
             }
         });

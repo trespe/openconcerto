@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.image.ImageIconWarning;
+import org.openconcerto.erp.core.customerrelationship.customer.element.ClientNormalSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.CourrierClientSQLElement;
 import org.openconcerto.erp.core.customerrelationship.customer.element.RelanceSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.SalarieSQLElement;
@@ -125,6 +126,9 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
                         c.weightx = 0;
                         added.add(prefix);
                         SQLElement elt = Configuration.getInstance().getDirectory().getElement(class1);
+                        if (elt == null) {
+                            throw new IllegalArgumentException("Element null for class " + class1);
+                        }
                         // Avoir
                         JLabel labelAvoirFormat = new JLabel(StringUtils.firstUp(elt.getPluralName()) + " " + getLabelFor(prefix + FORMAT), SwingConstants.RIGHT);
                         this.add(labelAvoirFormat, c);
@@ -491,6 +495,9 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         map.put(AvoirClientSQLElement.class, "AVOIR");
         map.put(AvoirFournisseurSQLElement.class, "AVOIR_F");
         map.put(DevisSQLElement.class, "DEVIS");
+
+            map.put(ClientNormalSQLElement.class, "CLIENT");
+
         map.put(BonDeLivraisonSQLElement.class, "BON_L");
         map.put(BonReceptionSQLElement.class, "BON_R");
         map.put(CommandeClientSQLElement.class, "COMMANDE_CLIENT");

@@ -20,6 +20,8 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
+import org.openconcerto.erp.core.sales.account.VenteFactureSituationSQLComponent;
+import org.openconcerto.erp.core.sales.account.VenteFactureSoldeSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
@@ -56,6 +58,8 @@ import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.i18n.TranslationManager;
 
 import java.awt.GridBagConstraints;
@@ -101,6 +105,24 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
     public SaisieVenteFactureSQLElement() {
         super(TABLENAME, "une facture", "factures");
+
+        addComponentFactory(VenteFactureSituationSQLComponent.ID, new ITransformer<Tuple2<SQLElement, String>, SQLComponent>() {
+
+            @Override
+            public SQLComponent transformChecked(Tuple2<SQLElement, String> input) {
+
+                return new VenteFactureSituationSQLComponent(SaisieVenteFactureSQLElement.this);
+            }
+        });
+        addComponentFactory(VenteFactureSoldeSQLComponent.ID, new ITransformer<Tuple2<SQLElement, String>, SQLComponent>() {
+
+            @Override
+            public SQLComponent transformChecked(Tuple2<SQLElement, String> input) {
+
+                return new VenteFactureSoldeSQLComponent(SaisieVenteFactureSQLElement.this);
+            }
+        });
+
         final boolean affact = UserManager.getInstance().getCurrentUser().getRights().haveRight(NXRights.ACCES_RETOUR_AFFACTURAGE.getCode());
         List<RowAction> l = new ArrayList<RowAction>(5);
             PredicateRowAction actionBL = new PredicateRowAction(new AbstractAction() {
@@ -117,7 +139,7 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
         }, false, "sales.invoice.create.credit");
         actionAvoir.setPredicate(IListeEvent.getSingleSelectionPredicate());
         l.add(actionAvoir);
-        PredicateRowAction actionClone = new PredicateRowAction(new AbstractAction() {
+        RowAction actionClone = new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
 
                 SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
@@ -126,8 +148,17 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
                 ((SaisieVenteFactureSQLComponent) editFrame.getSQLComponent()).loadFactureExistante(IListe.get(e).getSelectedId());
                 editFrame.setVisible(true);
             }
-        }, false, "sales.invoice.clone");
-        actionClone.setPredicate(IListeEvent.getSingleSelectionPredicate());
+        }, false, "sales.invoice.clone") {
+            public boolean enabledFor(IListeEvent evt) {
+                List<SQLRowAccessor> l = evt.getSelectedRows();
+                if (l != null && l.size() == 1) {
+                    SQLRowAccessor r = l.get(0);
+                    return !r.getBoolean("PARTIAL") && !r.getBoolean("SOLDE");
+                }
+                return false;
+            }
+        };
+
         l.add(actionClone);
         getRowActions().addAll(l);
 
@@ -140,7 +171,7 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
                 if (edit == null) {
                     edit = new EditFrame(eltClient, EditMode.READONLY);
                 }
-                edit.selectionId(IListe.get(e).getSelectedRow().getInt("ID_CLIENT"));
+                edit.selectionId(IListe.get(e).fetchSelectedRow().getInt("ID_CLIENT"));
                 edit.setVisible(true);
             }
         }, false, "sales.invoice.info.show");
@@ -195,6 +226,8 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
             protected void customizeToFetch(SQLRowValues graphToFetch) {
                 super.customizeToFetch(graphToFetch);
                 graphToFetch.put("ACOMPTE", null);
+                graphToFetch.put("PARTIAL", null);
+                graphToFetch.put("SOLDE", null);
                 graphToFetch.put("COMPLEMENT", null);
 
                 graphToFetch.put("PREVISIONNELLE", null);

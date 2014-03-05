@@ -19,6 +19,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
 
@@ -59,8 +60,8 @@ public class ClotureManuellePanel extends JPanel {
         super();
         this.setLayout(new GridBagLayout());
 
-        final GridBagConstraints c = new GridBagConstraints();
-        c.insets = new Insets(10, 2, 1, 2);
+        final GridBagConstraints c = new DefaultGridBagConstraints();
+
         c.fill = GridBagConstraints.HORIZONTAL;
         c.anchor = GridBagConstraints.WEST;
         c.gridx = 0;

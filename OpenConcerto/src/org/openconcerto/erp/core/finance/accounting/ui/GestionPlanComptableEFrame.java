@@ -21,7 +21,9 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.utils.ExceptionHandler;
@@ -41,9 +43,9 @@ import javax.swing.JTable;
 
 public class GestionPlanComptableEFrame extends JFrame {
 
-    private JButton boutonAjout = new JButton("Ajout");
+    private JButton boutonAjout = new JButton("Créer un nouveau compte");
     private JButton boutonSuppr = new JButton("Supprimer");
-    private JButton boutonAjoutPCG = new JButton("Ajout depuis le PCG");
+    private JButton boutonAjoutPCG = new JButton("Ajouter un compte depuis le PCG");
     private EditFrame edit = null;
     private AjouterComptePCGtoPCEFrame ajoutCptFrame = null;
 
@@ -72,7 +74,7 @@ public class GestionPlanComptableEFrame extends JFrame {
 
         container.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
-
+        c.fill = GridBagConstraints.NONE;
         container.add(this.boutonAjout, c);
 
         this.boutonAjout.addActionListener(new ActionListener() {
@@ -95,7 +97,7 @@ public class GestionPlanComptableEFrame extends JFrame {
         });
 
         c.gridx++;
-        container.add(this.boutonAjoutPCG);
+        container.add(this.boutonAjoutPCG, c);
         this.boutonAjoutPCG.addActionListener(new ActionListener() {
 
             public void actionPerformed(ActionEvent e) {
@@ -116,24 +118,12 @@ public class GestionPlanComptableEFrame extends JFrame {
 
         container.add(this.panelPCE, c);
 
-        this.compteTable.addTableListener(new SQLTableListener() {
+        this.compteTable.addTableModifiedListener(new SQLTableModifiedListener() {
 
-            public void rowModified(SQLTable table, int id) {
-
-                SQLRow row = table.getRow(id);
-                GestionPlanComptableEFrame.this.panelPCE.fireModificationCompte(new Compte(id, row.getString("NUMERO"), row.getString("NOM")));
-            }
-
-            public void rowAdded(SQLTable table, int id) {
-
-                SQLRow row = table.getRow(id);
-                GestionPlanComptableEFrame.this.panelPCE.fireModificationCompte(new Compte(id, row.getString("NUMERO"), row.getString("NOM")));
-            }
-
-            public void rowDeleted(SQLTable table, int id) {
-
-                SQLRow row = table.getRow(id);
-                GestionPlanComptableEFrame.this.panelPCE.fireModificationCompte(new Compte(id, row.getString("NUMERO"), row.getString("NOM")));
+            @Override
+            public void tableModified(SQLTableEvent evt) {
+                final SQLRow row = evt.getRow();
+                GestionPlanComptableEFrame.this.panelPCE.fireModificationCompte(new Compte(evt.getId(), row.getString("NUMERO"), row.getString("NOM")));
             }
         });
     }

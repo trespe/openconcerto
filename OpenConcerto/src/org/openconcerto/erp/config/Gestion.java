@@ -17,6 +17,7 @@ import org.openconcerto.erp.action.NouvelleConnexionAction;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.panel.PostgreSQLFrame;
+import org.openconcerto.erp.panel.UserExitConf;
 import org.openconcerto.erp.panel.UserExitPanel;
 import org.openconcerto.erp.preferences.UIPreferencePanel;
 import org.openconcerto.erp.rights.ComptaTotalUserRight;
@@ -26,15 +27,21 @@ import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.RemoteShell;
 import org.openconcerto.sql.element.UISQLComponent;
 import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRequestLog;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 import org.openconcerto.sql.users.rights.UserRightsManager;
+import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.ITableModel;
 import org.openconcerto.ui.FrameUtil;
+import org.openconcerto.ui.component.ITextCombo;
 import org.openconcerto.ui.component.WaitIndeterminatePanel;
 import org.openconcerto.ui.preferences.EmailProps;
+import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.protocol.Helper;
@@ -56,11 +63,13 @@ import java.lang.Thread.UncaughtExceptionHandler;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.security.AllPermission;
 import java.security.Permission;
 import java.security.PermissionCollection;
 import java.security.Policy;
 import java.security.ProtectionDomain;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
@@ -68,6 +77,7 @@ import java.util.List;
 import javax.swing.ImageIcon;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
 public class Gestion {
@@ -198,8 +208,8 @@ public class Gestion {
         // SpeedUp Linux
         System.setProperty("sun.java2d.pmoffscreen", "false");
 
-        System.setProperty("org.openconcerto.editpanel.noborder", "true");
-        System.setProperty("org.openconcerto.sql.editpanel.endAdd", "true");
+        System.setProperty(EditPanel.NOBORDER, "true");
+        System.setProperty(EditPanel.ADD_AT_THE_END, "true");
         System.setProperty("org.openconcerto.sql.listPanel.deafEditPanel", "true");
         System.setProperty("org.openconcerto.ui.addComboButton", "true");
         System.setProperty(SQLBase.STRUCTURE_USE_XML, "true");
@@ -215,13 +225,16 @@ public class Gestion {
         // Workaround for JRE 7 bug: http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=7075600
         System.setProperty("java.util.Arrays.useLegacyMergeSort", "true");
 
+        System.setProperty(ITextCombo.SIMPLE_TRAVERSAL, "true");
+
         RemoteShell.startDefaultInstance();
         IListe.setForceAlternateCellRenderer(true);
         ITableModel.setDefaultEditable(false);
-
+        ComboSQLRequest.setDefaultItemsOrder(CompareUtils.<IComboSelectionItem> naturalOrder());
         // Initialisation du splashScreen
         // ne pas oublier en param -splash:image.png
         SplashScreen.getSplashScreen();
+
 
         // Init des caches
         long t1 = System.currentTimeMillis();
@@ -254,6 +267,7 @@ public class Gestion {
             System.setProperty(IListe.STATELESS_TABLE_PROP, Boolean.TRUE.toString());
         }
 
+        System.setProperty("org.openconcerto.oo.useODSViewer", Boolean.TRUE.toString());
         if (conf.getProperty("odsViewer") != null) {
             System.setProperty("org.openconcerto.oo.useODSViewer", Boolean.valueOf(conf.getProperty("odsViewer")).toString());
         }
@@ -283,6 +297,31 @@ public class Gestion {
             conf.getRoot().getTables().iterator().next().getUndefinedID();
         } catch (Exception e) {
             System.out.println("Init phase 1 error:" + (System.currentTimeMillis() - t4) + "ms");
+            if (conf.getSystem() == SQLSystem.H2 && e.getCause() instanceof SQLException) {
+                final SQLException sqlExn = (SQLException) e.getCause();
+                final String msg;
+                if (sqlExn.getErrorCode() == 90020) {
+                    msg = "Base de donnée déjà ouverte.";
+                } else if (sqlExn.getSQLState().equals("08000")) {
+                    msg = "Impossible d'ouvrir la base de donnée. Vérifier les permissions.\n" + conf.getServerIp();
+                } else {
+                    msg = null;
+                }
+                if (msg != null) {
+                    try {
+                        e.printStackTrace();
+                        SwingUtilities.invokeAndWait(new Runnable() {
+                            @Override
+                            public void run() {
+                                JOptionPane.showMessageDialog(null, msg, "Erreur fatale", JOptionPane.ERROR_MESSAGE);
+                            }
+                        });
+                    } catch (Exception e1) {
+                        ExceptionHandler.die("Erreur fatale", e1);
+                    }
+                    System.exit(1);
+                }
+            }
             ExceptionHandler.die("Erreur de connexion à la base de données", e);
         }
         System.out.println("Init phase 1:" + (System.currentTimeMillis() - t1) + "ms");
@@ -490,19 +529,23 @@ public class Gestion {
 
     private static JDialog frameExit = null;
 
-    static void askForExit() {
+    static public void askForExit() {
+        askForExit(UserExitConf.DEFAULT);
+    }
+
+    static public void askForExit(UserExitConf conf) {
         JDialog exitDialog = new JDialog();
         exitDialog.setModal(true);
 
         if (frameExit == null) {
             frameExit = new JDialog();
-            frameExit.setContentPane(new UserExitPanel());
             frameExit.setTitle("Quitter");
             frameExit.setModal(true);
             frameExit.setIconImages(Gestion.getFrameIcon());
             frameExit.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
         }
 
+        frameExit.setContentPane(new UserExitPanel(conf));
         frameExit.pack();
         frameExit.setResizable(false);
         frameExit.setLocationRelativeTo(null);

@@ -22,6 +22,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import javax.swing.BorderFactory;
 import javax.swing.JComponent;
 import javax.swing.JEditorPane;
 import javax.swing.JTextField;
@@ -62,7 +63,7 @@ public class HTMLTextField extends JEditorPane {
             }
         });
         // to look like a text field
-        this.setBorder(null);
+        this.setBorder(BorderFactory.createEmptyBorder());
         this.setOpaque(false);
         this.putClientProperty(JEditorPane.HONOR_DISPLAY_PROPERTIES, Boolean.TRUE);
         this.setFont(new JTextField().getFont());

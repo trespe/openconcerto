@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.ResourceBundle;
 
+import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JCheckBoxMenuItem;
@@ -333,7 +334,7 @@ public class ConnexionPanel extends JPanel implements ActionListener {
         this.langButton.setOpaque(false);
         this.langButton.setBorderPainted(false);
         this.langButton.setContentAreaFilled(false);
-        this.langButton.setBorder(null);
+        this.langButton.setBorder(BorderFactory.createEmptyBorder());
         this.langButton.setFocusable(false);
         this.langButton.setVisible(false);
         panelButton.add(this.langButton, c2);

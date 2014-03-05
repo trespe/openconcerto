@@ -863,7 +863,8 @@ public class CollectionUtils {
     }
 
     public static <K, V> Map<K, V> createMap(K key, V val, K key2, V val2) {
-        final HashMap<K, V> res = new HashMap<K, V>();
+        // arguments are ordered, so should the result
+        final Map<K, V> res = new LinkedHashMap<K, V>();
         res.put(key, val);
         res.put(key2, val2);
         return res;
@@ -898,8 +899,23 @@ public class CollectionUtils {
      * @return the passed map.
      */
     public static <K, V, M extends Map<K, V>> M fillMap(final M m, Collection<? extends K> keys) {
+        return fillMap(m, keys, null);
+    }
+
+    /**
+     * Fills a map with the same value.
+     * 
+     * @param <K> type of key.
+     * @param <V> type of value.
+     * @param <M> type of map.
+     * @param m the map to fill.
+     * @param keys the keys to add.
+     * @param v the value to put.
+     * @return the passed map.
+     */
+    public static <K, V, M extends Map<K, V>> M fillMap(final M m, final Collection<? extends K> keys, final V val) {
         for (final K key : keys)
-            m.put(key, null);
+            m.put(key, val);
         return m;
     }
 }

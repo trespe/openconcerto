@@ -19,6 +19,7 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.util.Arrays;
 import java.util.Collections;
 
 import javax.swing.BorderFactory;
@@ -231,6 +232,12 @@ public class FormLayouter {
 
     public void add(JButton btn) {
         this.addRight("", btn);
+    }
+
+    public final Component getLabel(final Component comp) {
+        final Component[] comps = this.getComponent().getComponents();
+        final int index = Arrays.asList(comps).indexOf(comp);
+        return comps[index - 1];
     }
 
     public final Container getComponent() {

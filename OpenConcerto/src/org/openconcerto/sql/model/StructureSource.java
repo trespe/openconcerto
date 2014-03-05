@@ -17,6 +17,9 @@ import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.IncludeExclude;
 
+import java.security.AccessController;
+import java.security.PrivilegedActionException;
+import java.security.PrivilegedExceptionAction;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
@@ -107,9 +110,20 @@ public abstract class StructureSource<E extends Exception> {
         try {
             this.getBase().getDataSource().useConnection(new ConnectionHandlerNoSetup<Object, E>() {
                 @Override
-                public Object handle(SQLDataSource ds) throws E {
-                    getNames(ds.getConnection());
-                    return null;
+                public Object handle(final SQLDataSource ds) throws E {
+                    try {
+                        return AccessController.doPrivileged(new PrivilegedExceptionAction<Object>() {
+                            @Override
+                            public Object run() throws E {
+                                getNames(ds.getConnection());
+                                return null;
+                            }
+                        });
+                    } catch (PrivilegedActionException e) {
+                        @SuppressWarnings("unchecked")
+                        final E origExn = (E) e.getCause();
+                        throw origExn;
+                    }
                 }
             });
             if (this.isPreVerify()) {

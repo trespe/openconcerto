@@ -116,14 +116,8 @@ public class AssociationAnalytiqueModel extends AbstractTableModel {
             for (int j = 0; j < this.axes.size(); j++) {
 
                 // on recupere les repartitions pour chaque axe
-                // RepartitionAnalytiqueSQLElement repElt = new RepartitionAnalytiqueSQLElement();
                 SQLTable repTable = base.getTable("REPARTITION_ANALYTIQUE");
-
-                // RepartitionAnalytiqueElementSQLElement repElemElt = new
-                // RepartitionAnalytiqueElementSQLElement();
                 SQLTable repElemTable = base.getTable("REPARTITION_ANALYTIQUE_ELEMENT");
-
-                // PosteAnalytiqueSQLElement posteElt = new PosteAnalytiqueSQLElement();
                 SQLTable posteTable = base.getTable("POSTE_ANALYTIQUE");
 
                 SQLSelect selRep = new SQLSelect(base);
@@ -334,8 +328,6 @@ public class AssociationAnalytiqueModel extends AbstractTableModel {
 
             }
 
-            // Vector reps = (Vector) repartitionsAxe.get(columnIndex - 2);
-            // System.out.println("Value --> " + ((Repartition)aValue).getId());
         }
     }
 

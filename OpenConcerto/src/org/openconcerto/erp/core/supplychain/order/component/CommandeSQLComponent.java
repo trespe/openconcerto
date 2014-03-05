@@ -759,7 +759,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class));
 
         if (getTable().contains("ID_TAXE_PORT")) {
-            rowVals.put("ID_TAXE_PORT", TaxeCache.getCache().getIdFromTaux(19.6F));
+            rowVals.put("ID_TAXE_PORT", TaxeCache.getCache().getFirstTaxe().getID());
         }
 
         return rowVals;

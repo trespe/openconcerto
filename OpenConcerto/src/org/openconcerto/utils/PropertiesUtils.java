@@ -59,7 +59,7 @@ public class PropertiesUtils {
         }
     }
 
-    public static final void load(final Properties props, final Properties toLoad) throws IOException {
+    public static final void load(final Properties props, final Properties toLoad) {
         for (final String key : toLoad.stringPropertyNames()) {
             final String value = toLoad.getProperty(key);
             assert value != null;

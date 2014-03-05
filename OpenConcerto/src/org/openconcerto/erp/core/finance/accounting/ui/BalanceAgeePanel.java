@@ -19,6 +19,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -36,7 +37,7 @@ public class BalanceAgeePanel extends JPanel {
     public BalanceAgeePanel() {
         super(new GridBagLayout());
 
-        JLabel label = new JLabel("Créer la balance agée client pour la période du ");
+        JLabel label = new JLabel("Balance âgée client pour la période du ");
 
         SQLRow rowExercice = ((ComptaPropsConfiguration) Configuration.getInstance()).getRowSociete().getForeignRow("ID_EXERCICE_COMMON");
         Calendar dDebut = rowExercice.getDate("DATE_DEB");
@@ -75,8 +76,8 @@ public class BalanceAgeePanel extends JPanel {
                 try {
                     l.createDocument();
                     l.openDocument(false);
-                } catch (Exception e1) {
-                    e1.printStackTrace();
+                } catch (Exception originalExn) {
+                    ExceptionHandler.handle("Impossible de créer la balance âgée", originalExn);
                 }
             }
         });

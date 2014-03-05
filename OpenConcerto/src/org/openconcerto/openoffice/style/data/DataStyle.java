@@ -85,12 +85,12 @@ public abstract class DataStyle extends Style {
             super(clazz, version, elemName, baseName);
             this.setElementNS(getVersion().getNS("number"));
             // from 19.469 in v1.2-cs01-part1
-            this.getRefElementsMap().putAll(
+            this.getRefElementsMap().addAll(
                     "style:data-style-name",
                     Arrays.asList("presentation:date-time-decl", "style:style", "text:creation-date", "text:creation-time", "text:database-display", "text:date", "text:editing-duration",
                             "text:expression", "text:meta-field", "text:modification-date", "text:modification-time", "text:print-date", "text:print-time", "text:table-formula", "text:time",
                             "text:user-defined", "text:user-field-get", "text:user-field-input", "text:variable-get", "text:variable-input", "text:variable-set"));
-            this.getRefElementsMap().put("style:apply-style-name", "style:map");
+            this.getRefElementsMap().add("style:apply-style-name", "style:map");
         }
     }
 

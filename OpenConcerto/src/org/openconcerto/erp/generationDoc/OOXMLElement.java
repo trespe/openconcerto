@@ -16,9 +16,12 @@
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
 
 import java.text.DateFormat;
@@ -69,6 +72,12 @@ public class OOXMLElement {
 
         if (type.equalsIgnoreCase("TotalHTTable")) {
             res = getTotalHTTable(row);
+        } else if (type.equalsIgnoreCase("sql.function")) {
+            String field = this.elt.getAttributeValue("field");
+            String table = this.elt.getAttributeValue("table");
+            String function = this.elt.getAttributeValue("function");
+            SQLTable referentTable = this.row.getTable().getTable(table);
+            return getFromSQLFunction(referentTable.getField(field), function);
         } else if (type.equalsIgnoreCase("DateEcheance")) {
             int idModeReglement = row.getInt("ID_MODE_REGLEMENT");
             Date d = (Date) row.getObject("DATE");
@@ -116,6 +125,14 @@ public class OOXMLElement {
         }
 
         return res;
+    }
+
+    private Object getFromSQLFunction(SQLField field, String function) {
+        SQLSelect sel = new SQLSelect();
+        sel.addSelect(field, function);
+        Where w = new Where(field.getTable().getField("ID_" + this.row.getTable().getName()), "=", this.row.getID());
+        sel.setWhere(w);
+        return Configuration.getInstance().getBase().getDataSource().executeScalar(sel.asString());
     }
 
 

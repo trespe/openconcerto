@@ -22,6 +22,7 @@ import org.openconcerto.sql.model.DBItemFileCache;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBStructureItem;
 import org.openconcerto.sql.model.DBSystemRoot;
+import org.openconcerto.sql.model.FieldMapper;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLFilter;
 import org.openconcerto.sql.model.SQLTable;
@@ -73,6 +74,8 @@ public abstract class Configuration {
     public abstract SQLFieldTranslator getTranslator();
 
     public abstract SQLElementDirectory getDirectory();
+
+    public abstract FieldMapper getFieldMapper();
 
     public abstract File getWD();
 

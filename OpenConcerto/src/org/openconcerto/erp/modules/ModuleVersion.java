@@ -14,12 +14,19 @@
  package org.openconcerto.erp.modules;
 
 import org.openconcerto.utils.CompareUtils;
+
+import java.beans.DefaultPersistenceDelegate;
+import java.beans.PersistenceDelegate;
+
 import net.jcip.annotations.Immutable;
 
 @Immutable
 public class ModuleVersion implements Comparable<ModuleVersion> {
 
+    static public final PersistenceDelegate PERSIST_DELEGATE = new DefaultPersistenceDelegate(new String[] { "merged" });
+
     public static final int MAX = 10000;
+    public static final ModuleVersion MIN = new ModuleVersion(0);
     private static final long MERGED_MAX = MAX * (long) MAX;
     private final int major, minor;
     private final long merged;
@@ -56,6 +63,11 @@ public class ModuleVersion implements Comparable<ModuleVersion> {
         return this.merged;
     }
 
+    public final void checkValidity() {
+        if (this.compareTo(MIN) < 0)
+            throw new IllegalStateException("Invalid version : " + this);
+    }
+
     @Override
     public int compareTo(ModuleVersion o) {
         return CompareUtils.compareLong(this.merged, o.merged);
@@ -82,6 +94,6 @@ public class ModuleVersion implements Comparable<ModuleVersion> {
 
     @Override
     public String toString() {
-        return this.getMajor() + "." + this.getMinor();
+        return "v" + this.getMajor() + "." + this.getMinor();
     }
 }

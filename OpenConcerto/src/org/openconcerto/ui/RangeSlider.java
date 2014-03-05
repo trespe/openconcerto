@@ -93,8 +93,8 @@ public class RangeSlider extends JPanel implements ComponentListener, MouseListe
         addComponentListener(this);
         addMouseListener(this);
         addMouseMotionListener(this);
-        cursor1 = new ImageIcon(this.getClass().getResource("cursor.png")).getImage();
-        cursor2 = new ImageIcon(this.getClass().getResource("cursor.png")).getImage();
+        cursor1 = new ImageIcon(RangeSlider.class.getResource("cursor.png")).getImage();
+        cursor2 = new ImageIcon(RangeSlider.class.getResource("cursor.png")).getImage();
         min = timeOfFirstDayOfYear(year - 1);
         // System.out.println("min:" + min);
         max = timeOfLastDayOfYear(year);

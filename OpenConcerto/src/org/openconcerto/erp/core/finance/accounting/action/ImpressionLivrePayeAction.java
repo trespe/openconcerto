@@ -29,6 +29,9 @@ public class ImpressionLivrePayeAction extends CreateFrameAbstractAction {
 
     @Override
     public JFrame createFrame() {
-        return new PanelFrame(new ImpressionLivrePayePanel(), "Impression du livre de paye");
+        final PanelFrame panelFrame = new PanelFrame(new ImpressionLivrePayePanel(), "Impression du livre de paye");
+        panelFrame.pack();
+        panelFrame.setResizable(false);
+        return panelFrame;
     }
 }

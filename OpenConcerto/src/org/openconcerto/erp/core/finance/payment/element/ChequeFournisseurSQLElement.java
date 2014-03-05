@@ -13,23 +13,30 @@
  
  package org.openconcerto.erp.core.finance.payment.element;
 
-import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
+import org.openconcerto.erp.generationDoc.SpreadSheetGeneratorCompta;
+import org.openconcerto.erp.generationDoc.gestcomm.ReleveChequeEmisSheet;
+import org.openconcerto.erp.generationEcritures.GenerationMvtReglementChequeFourn;
+import org.openconcerto.sql.ShowAs;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.SwingConstants;
 
-public class ChequeFournisseurSQLElement extends ComptaSQLConfElement {
+public class ChequeFournisseurSQLElement extends ChequeSQLElement {
 
     public ChequeFournisseurSQLElement() {
         super("CHEQUE_FOURNISSEUR", "un chéque fournisseur", "chéques fournisseurs");
@@ -54,6 +61,52 @@ public class ChequeFournisseurSQLElement extends ComptaSQLConfElement {
         l.add("MONTANT");
         l.add("ID_FOURNISSEUR");
         return l;
+    }
+
+    @Override
+    public String getDoneFieldName() {
+        return "DECAISSE";
+    }
+
+    @Override
+    public String getDateFieldName() {
+        return "DATE_DECAISSE";
+    }
+
+    @Override
+    public String getMinDateFieldName() {
+        return "DATE_MIN_DECAISSE";
+    }
+
+    @Override
+    public void print(List<Integer> listeCheque, boolean preview, Date d) {
+        ReleveChequeEmisSheet sheet = new ReleveChequeEmisSheet(listeCheque);
+        new SpreadSheetGeneratorCompta(sheet, "ReleveChequeEmis", false, true);
+    }
+
+    @Override
+    public void handle(SQLRowAccessor rowCheque, Date d, String label) throws Exception {
+        new GenerationMvtReglementChequeFourn(rowCheque.getForeignID("ID_MOUVEMENT"), rowCheque.getLong("MONTANT"), rowCheque.getID(), d);
+    }
+
+    @Override
+    public SQLTableModelSourceOnline createDepositTableSource() {
+        final List<String> l = new ArrayList<String>();
+        l.add("MONTANT");
+        // TYPE, NOM
+        l.add("ID_FOURNISSEUR");
+        l.add("ID_MOUVEMENT");
+        l.add("DATE_ACHAT");
+        l.add(getMinDateFieldName());
+        l.add(getDoneFieldName());
+
+        final ShowAs showAs = new ShowAs(getTable().getDBRoot());
+        final SQLTable mvtT = getTable().getForeignTable("ID_MOUVEMENT");
+        showAs.show(mvtT, "ID_PIECE");
+        showAs.show(mvtT.getForeignTable("ID_PIECE"), "NOM");
+        showAs.show(getTable().getForeignTable("ID_FOURNISSEUR"), "TYPE", "NOM");
+
+        return this.createDepositTableSource(l, showAs, null);
     }
 
     /*

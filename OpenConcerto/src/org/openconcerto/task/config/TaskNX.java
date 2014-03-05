@@ -17,6 +17,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.ui.ConnexionPanel;
 import org.openconcerto.sql.utils.Exiter;
+import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.task.ModelStateListener;
 import org.openconcerto.task.TodoListPanel;
 import org.openconcerto.ui.FrameUtil;
@@ -115,8 +116,8 @@ public class TaskNX extends JFrame implements ModelStateListener {
 
             public void run() {
                 Toolkit.getDefaultToolkit().setDynamicLayout(true);
-                System.setProperty("org.openconcerto.editpanel.noborder", "true");
-                System.setProperty("org.openconcerto.editpanel.separator", "true");
+                System.setProperty(EditPanel.NOBORDER, "true");
+                System.setProperty(EditPanel.ADD_SEPARATOR, "true");
                 System.setProperty("org.openconcerto.listpanel.simpleui", "true");
 
                 try {

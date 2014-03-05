@@ -13,81 +13,34 @@
  
  package org.openconcerto.erp.core.finance.payment.ui;
 
-import org.openconcerto.erp.model.GestionChequesModel;
-import org.openconcerto.utils.GestionDevise;
-import org.openconcerto.utils.TableSorter;
-
 import java.awt.Color;
 import java.awt.Component;
 import java.text.DateFormat;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
 import java.util.Date;
-import java.util.Locale;
 
 import javax.swing.JTable;
-import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableCellRenderer;
-
 
 public class GestionChequesRenderer extends DefaultTableCellRenderer {
 
     private final static Color couleurChequeValide = new Color(255, 128, 64);
-    private static final DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM, Locale.FRENCH);
-    private static final NumberFormat numberFormat = new DecimalFormat("0.00");
+    private static final DateFormat dateFormat = DateFormat.getDateInstance(DateFormat.MEDIUM);
 
-    private GestionChequesModel model;
-    private TableSorter s;
-
-    public GestionChequesRenderer(TableSorter s) {
-        this.s = s;
-        this.model = (GestionChequesModel) s.getTableModel();
+    @Override
+    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        final Component res = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+        final Color fgColor;
+        if (!isSelected && System.currentTimeMillis() > ((Date) value).getTime()) {
+            fgColor = couleurChequeValide;
+        } else {
+            fgColor = table.getForeground();
+        }
+        res.setForeground(fgColor);
+        return res;
     }
 
-    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-
-        super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
-
-        if (!isSelected) {
-
-            if (value instanceof Double) {
-                // System.out.println("setText Double format" + value.toString());
-                float f = ((Double) value).floatValue();
-                this.setText(numberFormat.format(f));
-                this.setHorizontalAlignment(SwingConstants.RIGHT);
-            }
-
-            if (value instanceof Date) {
-                // System.out.println("setText Date format" + value.toString());
-                if (!this.model.getDateMinimum(this.s.modelIndex(row)).after(new Date())) {
-                    setForeground(couleurChequeValide);
-                } else {
-                    setForeground(Color.BLACK);
-                }
-                this.setText(dateFormat.format((Date) value));
-            }
-
-        } else {
-            // System.out.println(value.getClass());
-
-            if (value instanceof Double) {
-                // System.out.println("setText Double format" + value.toString());
-                float f = ((Double) value).floatValue();
-                this.setText(numberFormat.format(f));
-                this.setHorizontalAlignment(SwingConstants.RIGHT);
-            }
-
-            if (value instanceof Date) {
-                // System.out.println("setText Date format" + value.toString());
-
-                this.setText(dateFormat.format((Date) value));
-            }
-
-        }
-
-        if (value != null && value.getClass() == Long.class) {
-            this.setText(GestionDevise.currencyToString(((Long) value).longValue()));
-        }
-        return this;
+    @Override
+    protected void setValue(Object value) {
+        super.setValue(dateFormat.format((Date) value));
     }
 }

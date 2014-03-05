@@ -15,119 +15,59 @@
 
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.preferences.SQLPreferences;
-import org.openconcerto.utils.cc.IPredicate;
 
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.File;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Locale;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.Properties;
 import java.util.ResourceBundle;
 import java.util.prefs.Preferences;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import net.jcip.annotations.ThreadSafe;
 
 /**
- * Parse module properties, and allow to create modules.
+ * Allow to create modules.
  * 
  * @author Sylvain CUAZ
  */
 @ThreadSafe
 public abstract class ModuleFactory {
 
-    public static final String NAME_KEY = "name";
-    public static final String DESC_KEY = "description";
-
-    protected static Properties readAndClose(final InputStream ins) throws IOException {
-        final Properties props = new Properties();
-        try {
-            props.load(ins);
-        } finally {
-            ins.close();
+    // create an ID for each dependency
+    static protected final Map<Object, Dependency> createMap(List<Dependency> l) {
+        if (l == null || l.size() == 0)
+            return Collections.<Object, Dependency> emptyMap();
+        // be predictable, keep order
+        final Map<Object, Dependency> res = new LinkedHashMap<Object, Dependency>(l.size());
+        for (final Dependency d : l) {
+            res.put(String.valueOf(res.size()), d);
         }
-        return props;
-    }
-
-    protected static final String getRequiredProp(Properties props, final String key) {
-        final String res = props.getProperty(key);
-        if (res == null)
-            throw new IllegalStateException("Missing " + key);
         return res;
     }
 
-    private static String checkMatch(final Pattern p, final String s, final String name) {
-        if (!p.matcher(s).matches())
-            throw new IllegalArgumentException(name + " doesn't match " + p.pattern());
-        return s;
-    }
+    public static final String NAME_KEY = "name";
+    public static final String DESC_KEY = "description";
 
-    private static final int parseInt(Matcher m, int group) {
-        final String s = m.group(group);
-        return s == null ? 0 : Integer.parseInt(s);
-    }
-
-    private static final ModuleVersion getVersion(Matcher m, int offset) {
-        return new ModuleVersion(parseInt(m, offset + 1), parseInt(m, offset + 2));
-    }
-
-    private static final Pattern javaIdentifiedPatrn = Pattern.compile("\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*");
-    private static final Pattern qualifiedPatrn = Pattern.compile(javaIdentifiedPatrn.pattern() + "(\\." + javaIdentifiedPatrn.pattern() + ")*");
-
-    private static final Pattern idPatrn = qualifiedPatrn;
-    // \1 major version, \2 minor version
-    private static final Pattern versionPatrn = Pattern.compile("(\\p{Digit}+)(?:\\.(\\p{Digit}+))?");
-    private static final Pattern dependsSplitPatrn = Pattern.compile("\\p{Blank}*,\\p{Blank}+");
-    // \1 id, \2 version
-    private static final Pattern dependsPatrn = Pattern.compile("(" + idPatrn.pattern() + ")(?:\\p{Blank}+\\( *(" + versionPatrn.pattern() + ") *\\))?");
-
-    private final String id;
-    private final ModuleVersion version;
+    private final ModuleReference ref;
     // TODO add moduleAPIVersion;
     private final String contact;
-    private final Map<String, IPredicate<ModuleFactory>> dependsPredicates;
-    private final String mainClass;
-    private ResourceBundle rsrcBundle;
 
-    protected ModuleFactory(final Properties props) throws IOException {
-        this.id = checkMatch(idPatrn, getRequiredProp(props, "id").trim(), "ID");
+    protected ModuleFactory(final ModuleReference ref, final String contact) {
+        if (ref.getVersion() == null)
+            throw new IllegalArgumentException("No version " + ref);
+        this.ref = ref;
+        this.contact = contact;
+    }
 
-        final String version = getRequiredProp(props, "version").trim();
-        final Matcher versionMatcher = versionPatrn.matcher(version);
-        if (!versionMatcher.matches())
-            throw new IllegalArgumentException("Version doesn't match " + versionPatrn.pattern());
-        this.version = getVersion(versionMatcher, 0);
-
-        this.contact = getRequiredProp(props, "contact");
-        final String depends = props.getProperty("depends", "").trim();
-        final String[] dependsArray = depends.length() == 0 ? new String[0] : dependsSplitPatrn.split(depends);
-        final HashMap<String, IPredicate<ModuleFactory>> map = new HashMap<String, IPredicate<ModuleFactory>>(dependsArray.length);
-        for (final String depend : dependsArray) {
-            final Matcher dependMatcher = dependsPatrn.matcher(depend);
-            if (!dependMatcher.matches())
-                throw new IllegalArgumentException("'" + depend + "' doesn't match " + dependsPatrn.pattern());
-            final ModuleVersion depVersion = getVersion(dependMatcher, 2);
-            map.put(dependMatcher.group(1), new IPredicate<ModuleFactory>() {
-                @Override
-                public boolean evaluateChecked(ModuleFactory input) {
-                    return input.getVersion().compareTo(depVersion) >= 0;
-                }
-            });
-        }
-        this.dependsPredicates = Collections.unmodifiableMap(map);
-
-        final String entryPoint = checkMatch(javaIdentifiedPatrn, props.getProperty("entryPoint", "Module"), "Entry point");
-        this.mainClass = this.id + "." + entryPoint;
-
-        this.rsrcBundle = null;
+    public final ModuleReference getReference() {
+        return this.ref;
     }
 
     public final String getID() {
-        return this.id;
+        return this.getReference().getID();
     }
 
     public final String getContact() {
@@ -135,40 +75,44 @@ public abstract class ModuleFactory {
     }
 
     public final ModuleVersion getVersion() {
-        return this.version;
+        return this.getReference().getVersion();
     }
 
     public final int getMajorVersion() {
-        return this.version.getMajor();
+        return this.getVersion().getMajor();
     }
 
     public final int getMinorVersion() {
-        return this.version.getMinor();
+        return this.getVersion().getMinor();
     }
 
-    protected final String getMainClass() {
-        return this.mainClass;
+    // should be immutable
+    protected abstract Map<Object, Dependency> getDependencies();
+
+    public final boolean conflictsWith(final ModuleFactory f) {
+        // a module can only be installed in one version
+        if (this.getID().equals(f.getID()))
+            return !this.equals(f);
+        else
+            return this.conflictsWithOtherID(f) || f.conflictsWithOtherID(this);
     }
 
-    public final Collection<String> getRequiredIDs() {
-        return this.dependsPredicates.keySet();
+    // e.g. two different modules want to use the same table
+    protected boolean conflictsWithOtherID(final ModuleFactory f) {
+        return false;
     }
 
-    public final boolean isRequiredFactoryOK(ModuleFactory f) {
-        return this.dependsPredicates.get(f.getID()).evaluateChecked(f);
-    }
-
-    // ResourceBundle is thread-safe
-    protected synchronized final ResourceBundle getResourceBundle() {
-        if (this.rsrcBundle == null) {
-            // don't allow classes to simplify class loaders
-            this.rsrcBundle = ResourceBundle.getBundle(getID() + ".ModuleResources", Locale.getDefault(), getRsrcClassLoader(),
-                    ResourceBundle.Control.getControl(ResourceBundle.Control.FORMAT_PROPERTIES));
+    public final boolean conflictsWith(final Collection<ModuleFactory> factories) {
+        boolean res = false;
+        final Iterator<ModuleFactory> iter = factories.iterator();
+        while (iter.hasNext() && !res) {
+            final ModuleFactory f = iter.next();
+            res = this.conflictsWith(f);
         }
-        return this.rsrcBundle;
+        return res;
     }
 
-    protected abstract ClassLoader getRsrcClassLoader();
+    protected abstract ResourceBundle getResourceBundle();
 
     public final String getName() {
         return this.getResourceBundle().getString(NAME_KEY);
@@ -178,11 +122,21 @@ public abstract class ModuleFactory {
         return this.getResourceBundle().getString(DESC_KEY);
     }
 
-    public abstract AbstractModule createModule(Map<String, AbstractModule> alreadyCreated) throws Exception;
+    /**
+     * Create a module.
+     * 
+     * @param moduleDir the directory the module can write to.
+     * @param alreadyCreated the already created modules for each dependency.
+     * @return a new instance.
+     * @throws Exception if the module couldn't be created.
+     */
+    public abstract AbstractModule createModule(final File moduleDir, final Map<Object, AbstractModule> alreadyCreated) throws Exception;
 
     // not sure if Class or Constructor are thread-safe
-    protected synchronized final AbstractModule createModule(final Class<?> c) throws Exception {
-        return (AbstractModule) c.getConstructor(ModuleFactory.class).newInstance(this);
+    protected synchronized final AbstractModule createModule(final Class<?> c, final File localDir) throws Exception {
+        final AbstractModule res = (AbstractModule) c.getConstructor(ModuleFactory.class).newInstance(this);
+        res.setLocalDirectory(localDir);
+        return res;
     }
 
     public final Preferences getLocalPreferences() {
@@ -194,17 +148,15 @@ public abstract class ModuleFactory {
     }
 
     public final Preferences getPreferences(final boolean local, final DBRoot root) {
-        final Preferences rootPrefs = local ? Preferences.userRoot() : SQLPreferences.getMemCached(root);
+        final Preferences rootPrefs = local ? Preferences.userRoot() : new SQLPreferences(root);
         // ID is a package name, transform to path to avoid bumping into the size limit
         return rootPrefs.node(ModulePreferencePanel.getAppPrefPath() + this.getID().replace('.', '/'));
     }
 
     @Override
     public String toString() {
-        return getClass().getSimpleName() + " " + getID() + " (" + getMajorVersion() + "." + getMinorVersion() + ")";
-    }
-
-    public ModuleReference getReference() {
-        return new ModuleReference(this.id, this.version);
+        final String className = getClass().isAnonymousClass() ? getClass().getName() : getClass().getSimpleName();
+        assert className.length() > 0;
+        return className + " " + getID() + " (" + getMajorVersion() + "." + getMinorVersion() + ")";
     }
 }

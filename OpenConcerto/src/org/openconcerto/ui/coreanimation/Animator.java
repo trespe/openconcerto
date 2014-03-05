@@ -284,6 +284,7 @@ public class Animator {
 
     private final Pulse createComboPulse(JComboBox comp) {
         if (comp.isEditable()) {
+            // FIXME the editor is changed on updateUI(), so the combo stops glowing
             final JComponent editor = (JComponent) comp.getEditor().getEditorComponent();
             // opaque otherwise no background (at least with the Windows l&f)
             return new JComponentBackGroundAnimator(editor, true);

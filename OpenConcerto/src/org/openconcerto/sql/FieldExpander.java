@@ -72,8 +72,7 @@ public abstract class FieldExpander {
             return Collections.emptyList();
 
         final List<FieldPath> res = new ArrayList<FieldPath>(e.size());
-        final Path newPath = new Path(field.getPath());
-        newPath.add(field.getField());
+        final Path newPath = field.getPath().add(field.getField());
         for (final SQLField f : e)
             res.add(new FieldPath(newPath, f.getName()));
         return res;

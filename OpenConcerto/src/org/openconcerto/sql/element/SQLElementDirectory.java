@@ -136,8 +136,10 @@ public final class SQLElementDirectory {
      * Adds an already instantiated element.
      * 
      * @param elem the SQLElement to add.
+     * @return the previously added element.
      */
-    public synchronized final void addSQLElement(SQLElement elem) {
+    public synchronized final SQLElement addSQLElement(SQLElement elem) {
+        final SQLElement res = this.removeSQLElement(elem.getTable());
         this.elements.put(elem.getTable(), elem);
         this.tableNames.put(elem.getTable().getName(), elem.getTable());
         this.byCode.put(elem.getCode(), elem.getTable());
@@ -146,6 +148,7 @@ public final class SQLElementDirectory {
             dl.elementAdded(elem);
         }
         elem.setDirectory(this);
+        return res;
     }
 
     public synchronized final boolean contains(SQLTable t) {
@@ -223,6 +226,7 @@ public final class SQLElementDirectory {
             // MAYBE only reset neighbours.
             for (final SQLElement otherElem : this.elements.values())
                 otherElem.resetRelationships();
+            elem.setDirectory(null);
             for (final DirectoryListener dl : this.listeners) {
                 dl.elementRemoved(elem);
             }
@@ -273,7 +277,7 @@ public final class SQLElementDirectory {
     public final Phrase getName(final SQLElement elem) {
         final String elemBaseName = elem.getL18nPackageName();
         final String pkgName = elemBaseName == null ? getL18nPackageName() : elemBaseName;
-        final SQLElementNames elementNames = getElementNames(pkgName, TM.getInstance().getTranslationsLocale(), elem.getClass());
+        final SQLElementNames elementNames = getElementNames(pkgName, TM.getInstance().getTranslationsLocale(), elem.getL18nClass());
         return elementNames == null ? null : elementNames.getName(elem);
     }
 

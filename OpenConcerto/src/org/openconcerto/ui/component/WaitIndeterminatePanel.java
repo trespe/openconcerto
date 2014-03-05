@@ -65,7 +65,7 @@ public class WaitIndeterminatePanel extends JPanel {
     public void taskEnded(int idTask) {
         final JLabel label = (JLabel) this.getComponent(idTask * 2);
         // TODO create checkMark.png
-        label.setIcon(new ImageIcon(this.getClass().getResource("tache.png")));
+        label.setIcon(new ImageIcon(WaitIndeterminatePanel.class.getResource("tache.png")));
         final Component pb = this.getComponent(idTask * 2 + 1);
         pb.setVisible(false);
         this.revalidate();

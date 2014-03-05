@@ -21,6 +21,7 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
 
@@ -63,12 +64,15 @@ public class ListeDebiteursXmlSheet extends AbstractListeSheetXml {
     protected void createListeValues() {
 
         // On récupére les échéances en cours
-        SQLSelect sel = new SQLSelect(eltEch.getTable().getBase());
-        sel.addSelectStar(eltEch.getTable());
-        Where w = new Where(eltEch.getTable().getField("REGLE"), "=", Boolean.FALSE);
-        w = w.and(new Where(eltEch.getTable().getField("REG_COMPTA"), "=", Boolean.FALSE));
+        SQLSelect sel = new SQLSelect();
+        final SQLTable echTable = eltEch.getTable();
+        final SQLTable clientTable = echTable.getForeignTable("ID_CLIENT");
+        sel.addSelectStar(echTable);
+        Where w = new Where(echTable.getField("REGLE"), "=", Boolean.FALSE);
+        w = w.and(new Where(echTable.getField("REG_COMPTA"), "=", Boolean.FALSE));
+        w = w.and(new Where(clientTable.getKey(), "=", echTable.getField("ID_CLIENT")));
         sel.setWhere(w);
-        sel.addFieldOrder(eltEch.getTable().getField("ID_CLIENT"));
+        sel.addFieldOrder(clientTable.getField("NOM"));
         List<SQLRow> l = (List<SQLRow>) eltEch.getTable().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
 
         List<Map<String, Object>> listValues = new ArrayList<Map<String, Object>>();
@@ -77,6 +81,7 @@ public class ListeDebiteursXmlSheet extends AbstractListeSheetXml {
             Map<String, Object> mValues = new HashMap<String, Object>();
             int idMouvement = MouvementSQLElement.getSourceId(sqlRow.getInt("ID_MOUVEMENT"));
             SQLRow rowMvt = eltMvt.getTable().getRow(idMouvement);
+            mValues.put("DATE_ECHEANCE", dateFormat.format(sqlRow.getDate("DATE").getTime()));
             if (rowMvt.getString("SOURCE").equalsIgnoreCase(eltVf.getTable().getName())) {
                 SQLRow rowVf = eltVf.getTable().getRow(rowMvt.getInt("IDSOURCE"));
                 mValues.put("NUMERO_FACTURE", rowVf.getString("NUMERO"));

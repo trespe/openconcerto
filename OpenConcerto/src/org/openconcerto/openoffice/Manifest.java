@@ -20,7 +20,6 @@ import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.jdom.DocType;
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -34,7 +33,6 @@ import org.jdom.Namespace;
 final class Manifest {
 
     public static final String ENTRY_NAME = "META-INF/manifest.xml";
-    private static final DocType DOC_TYPE = new DocType("manifest:manifest", "-//OpenOffice.org//DTD Manifest 1.0//EN", "Manifest.dtd");
 
     /**
      * Parse an OpenDocument manifest and return a map of path to media type.
@@ -62,7 +60,7 @@ final class Manifest {
         return res;
     }
 
-    private final XMLVersion version;
+    private final XMLFormatVersion version;
     private final Document doc;
 
     /**
@@ -71,14 +69,18 @@ final class Manifest {
      * @param version the version.
      * @param mainType the mime type of the document, eg "application/vnd.sun.xml.writer".
      */
-    public Manifest(XMLVersion version, String mainType) {
+    public Manifest(XMLFormatVersion version, String mainType) {
         this.version = version;
-        this.doc = new Document(new Element("manifest", this.getNS()), version == XMLVersion.OOo ? (DocType) DOC_TYPE.clone() : null);
+        this.doc = version.getXML().createManifestDoc();
         this.addEntry("/", mainType);
     }
 
     private Namespace getNS() {
-        return this.version.getManifest();
+        return this.version.getXMLVersion().getManifest();
+    }
+
+    final Document getDocument() {
+        return this.doc;
     }
 
     /**

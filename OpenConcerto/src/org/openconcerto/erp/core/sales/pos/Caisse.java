@@ -25,6 +25,7 @@ import org.openconcerto.erp.core.sales.pos.io.JPOSTicketPrinter;
 import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
 import org.openconcerto.erp.core.sales.pos.model.Article;
 import org.openconcerto.erp.core.sales.pos.model.Paiement;
+import org.openconcerto.erp.core.sales.pos.model.ReceiptCode;
 import org.openconcerto.erp.core.sales.pos.model.Ticket;
 import org.openconcerto.erp.core.sales.pos.model.TicketLine;
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
@@ -52,6 +53,7 @@ import org.openconcerto.utils.i18n.TranslationManager;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -154,6 +156,7 @@ public class Caisse {
                     SQLElement eltEnc = Configuration.getInstance().getDirectory().getElement("ENCAISSER_MONTANT");
                     SQLElement eltMode = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT");
                     SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
+                    int imported = 0;
                     for (Ticket ticket : tickets) {
                         SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
                         sel.addSelect(elt.getTable().getField("NUMERO"));
@@ -233,6 +236,7 @@ public class Caisse {
                             }
 
                             SQLRow rowFinal = rowVals.insert();
+                            imported++;
                             GenerationMvtTicketCaisse mvt = new GenerationMvtTicketCaisse(rowFinal);
                             final Integer idMvt;
                             try {
@@ -270,11 +274,30 @@ public class Caisse {
 
                         }
                     }
+                    // mark imported
+                    for (Ticket ticket : tickets) {
+                        final ReceiptCode code = ticket.getReceiptCode();
+                        try {
+                            // it's OK if some files cannot be moved, the next call will try again
+                            // (the above code doesn't import duplicates)
+                            code.markImported();
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                    // archive to avoid parsing more and more receipts
+                    try {
+                        // it's OK if some files cannot be moved, the next call will try again
+                        ReceiptCode.archiveCompletelyImported();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    final String count = imported + "/" + tickets.size();
                     SwingUtilities.invokeLater(new Runnable() {
 
                         @Override
                         public void run() {
-                            JOptionPane.showMessageDialog(null, "Clôture de la caisse terminée.");
+                            JOptionPane.showMessageDialog(null, count + " ticket(s) importé(s). Clôture de la caisse terminée.");
                         }
                     });
                     return null;
@@ -351,17 +374,8 @@ public class Caisse {
 
     public static List<Ticket> allTickets() {
         final List<Ticket> l = new ArrayList<Ticket>();
-        final Ticket t = new Ticket(Caisse.getID());
-        final String[] names = t.getCompatibleFileNames();
-
-        for (int i = 0; i < names.length; i++) {
-            String code = names[i];
-            int indexExtension = code.indexOf(".xml");
-            if (indexExtension > 0) {
-                code = code.substring(0, indexExtension);
-            }
-            final Ticket ticket = Ticket.getTicketFromCode(code);
-
+        for (final File f : ReceiptCode.getReceiptsToImport(Caisse.getID())) {
+            final Ticket ticket = Ticket.parseFile(f);
             if (ticket != null) {
                 l.add(ticket);
             }

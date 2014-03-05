@@ -28,7 +28,7 @@ public class TransferSupplierOrderSQLElement extends ComptaSQLConfElement {
     @Override
     protected void ffInited() {
         setAction("ID_COMMANDE", ReferenceAction.CASCADE);
-        setAction("ID_BON_DE_RECEPTION", ReferenceAction.CASCADE);
+        setAction("ID_BON_RECEPTION", ReferenceAction.CASCADE);
         setAction("ID_SAISIE_ACHAT", ReferenceAction.CASCADE);
     }
 

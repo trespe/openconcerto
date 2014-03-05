@@ -32,6 +32,7 @@ import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.sqlobject.ITextWithCompletion;
@@ -259,6 +260,36 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         this.tableElementPoidsTotalLivree = new SQLTableElement(e.getTable().getField("T_POIDS_LIVREE"), Float.class);
         list.add(this.tableElementPoidsTotalLivree);
 
+        // Packaging
+        if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.ITEM_PACKAGING, false)) {
+
+            SQLTableElement poidsColis = new SQLTableElement(e.getTable().getField("POIDS_COLIS_NET"), BigDecimal.class);
+            list.add(poidsColis);
+
+            SQLTableElement nbColis = new SQLTableElement(e.getTable().getField("NB_COLIS"), Integer.class);
+            list.add(nbColis);
+
+            final SQLTableElement totalPoidsColis = new SQLTableElement(e.getTable().getField("T_POIDS_COLIS_NET"), BigDecimal.class);
+            list.add(totalPoidsColis);
+
+            poidsColis.addModificationListener(totalPoidsColis);
+            nbColis.addModificationListener(totalPoidsColis);
+            totalPoidsColis.setModifier(new CellDynamicModifier() {
+                public Object computeValueFrom(final SQLRowValues row) {
+                    final Object o2 = row.getObject("POIDS_COLIS_NET");
+                    final Object o3 = row.getObject("NB_COLIS");
+                    if (o2 != null && o3 != null) {
+                        BigDecimal poids = (BigDecimal) o2;
+                        int nb = (Integer) o3;
+                        return poids.multiply(new BigDecimal(nb), MathContext.DECIMAL128).setScale(totalPoidsColis.getDecimalDigits(), RoundingMode.HALF_UP);
+                    } else {
+                        return row.getObject("T_POIDS_COLIS_NET");
+                    }
+                }
+            });
+
+        }
+
         // Service
         // this.service = new SQLTableElement(e.getTable().getField("SERVICE"), Boolean.class);
         // list.add(this.service);
@@ -271,7 +302,9 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
         this.tableElementTotalTTC.setRenderer(new DeviseTableCellRenderer());
         list.add(this.tableElementTotalTTC);
 
-        model = new RowValuesTableModel(e, list, e.getTable().getField("NOM"));
+        SQLRowValues defautRow = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(e.getTable()));
+        defautRow.put("ID_TAXE", TaxeCache.getCache().getFirstTaxe().getID());
+        model = new RowValuesTableModel(e, list, e.getTable().getField("NOM"), false, defautRow);
 
         this.table = new RowValuesTable(model, getConfigurationFile());
         ToolTipManager.sharedInstance().unregisterComponent(this.table);
@@ -503,6 +536,11 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
             hideColumn(model.getColumnForField("VALEUR_METRIQUE_3"));
             hideColumn(model.getColumnForField("PV_HT"));
             hideColumn(model.getColumnForField("ID_MODE_VENTE_ARTICLE"));
+        }
+
+        // Packaging
+        if (prefs.getBoolean(GestionArticleGlobalPreferencePanel.ITEM_PACKAGING, false)) {
+            setColumnVisible(this.model.getColumnForField("T_POIDS_COLIS_NET"), false);
         }
 
         setColumnVisible(this.model.getColumnForField("ID_ARTICLE"), selectArticle);

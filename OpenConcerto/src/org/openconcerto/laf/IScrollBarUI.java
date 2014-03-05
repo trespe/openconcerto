@@ -82,8 +82,8 @@ public class IScrollBarUI extends BasicScrollBarUI {
         scrollBarWidth = 13;
         super.installDefaults();
         scrollbar.setBorder(null);
-        this.h = new ImageIcon(this.getClass().getResource("scrollHaut.png")).getImage();
-        this.b = new ImageIcon(this.getClass().getResource("scrollBas.png")).getImage();
+        this.h = new ImageIcon(IScrollBarUI.class.getResource("scrollHaut.png")).getImage();
+        this.b = new ImageIcon(IScrollBarUI.class.getResource("scrollBas.png")).getImage();
 
     }
 

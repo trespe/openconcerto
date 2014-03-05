@@ -138,20 +138,16 @@ public class ExceptionHandler extends RuntimeException {
 
     private Future<?> display(final boolean error) {
         final String msg = this.getMessage();
-        if (error) {
-            getLogger().log(Level.SEVERE, null, this);
-        } else {
-            if (this.getCause() != null) {
-                getLogger().log(Level.INFO, null, this);
-            }
-        }
+        // write out the message as soon as possible
+        getLogger().log(error ? Level.SEVERE : Level.INFO, null, this);
+        // then show it to the user
         if (!GraphicsEnvironment.isHeadless() || forceUI) {
             if (SwingUtilities.isEventDispatchThread()) {
-                showMsg(msg, error);
+                showMsgHardened(msg, error);
             } else {
                 final FutureTask<?> run = new FutureTask<Object>(new Runnable() {
                     public void run() {
-                        showMsg(msg, error);
+                        showMsgHardened(msg, error);
                     }
                 }, null);
                 if (error) {
@@ -174,6 +170,23 @@ public class ExceptionHandler extends RuntimeException {
         return this.future;
     }
 
+    protected final void showMsgHardened(final String msg, final boolean error) {
+        try {
+            showMsg(msg, error);
+        } catch (Throwable e) {
+            // sometimes the VM cannot display the dialog, in that case don't crash the EDT as the
+            // message has already been logged. Further if this class is used in
+            // Thread.setDefaultUncaughtExceptionHandler(), it will create an infinite loop.
+            e = new Exception("Couldn't display message", e);
+            e.printStackTrace();
+            try {
+                // last ditch effort
+                JOptionPane.showMessageDialog(null, e.getMessage() + " : " + msg);
+            } catch (Throwable e2) {
+            }
+        }
+    }
+
     protected final void showMsg(final String msg, final boolean quit) {
         final JPanel p = new JPanel();
         p.setLayout(new GridBagLayout());
@@ -182,7 +195,7 @@ public class ExceptionHandler extends RuntimeException {
         c.gridx = 0;
         c.gridy = 0;
         c.fill = GridBagConstraints.BOTH;
-        final JImage im = new JImage(new ImageIcon(this.getClass().getResource("error.png")));
+        final JImage im = new JImage(new ImageIcon(ExceptionHandler.class.getResource("error.png")));
         final JLabel l = new JLabel("Une erreur est survenue");
         l.setFont(l.getFont().deriveFont(Font.BOLD));
 

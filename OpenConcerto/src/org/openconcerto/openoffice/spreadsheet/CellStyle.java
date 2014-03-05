@@ -58,7 +58,7 @@ public class CellStyle extends StyleStyle {
             "table:covered-table-cell", "table:even-rows", "table:first-column", "table:first-row", "table:last-column", "table:last-row", "table:odd-columns", "table:odd-rows", "table:table-cell")) {
 
         {
-            this.getMultiRefElementsMap().putAll("table:default-cell-style-name", "table:table-column", "table:table-row");
+            this.getMultiRefElementsMap().addAll("table:default-cell-style-name", "table:table-column", "table:table-row");
         }
 
         @Override

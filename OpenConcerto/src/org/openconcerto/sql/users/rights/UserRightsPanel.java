@@ -55,6 +55,8 @@ public class UserRightsPanel extends JPanel {
         // instantiate our own element to be safe
         this.modifPanel = new ListeModifyPanel(dir.getElement(UserRightSQLElement.class));
         this.modifPanel.setSearchFullMode(false);
+        // order is important for rights
+        this.modifPanel.getListe().setSortingEnabled(false);
         final SQLTable table = this.getTable().getForeignTable("ID_USER_COMMON");
 
         final SQLElement usersElem = dir.getElement(table);

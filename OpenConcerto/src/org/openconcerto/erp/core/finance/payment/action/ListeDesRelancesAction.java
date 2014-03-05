@@ -80,7 +80,7 @@ public class ListeDesRelancesAction extends CreateFrameAbstractAction implements
 
             // String locationRelance =
             // TemplateNXProps.getInstance().getStringProperty("LocationRelanceOO");
-            final SQLRow rowRelance = this.frame.getPanel().getListe().getSelectedRow();
+            final SQLRow rowRelance = this.frame.getPanel().getListe().fetchSelectedRow();
             // final String fileName = "Relance_" + rowRelance.getString("NUMERO");
             // final File fileOutOO = new File(locationRelance, fileName + ".odt");
             JPopupMenu menu = new JPopupMenu();

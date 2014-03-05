@@ -180,7 +180,7 @@ public class RubriqueNetSQLElement extends ConfSQLElement {
                 labelSelSal.setHorizontalAlignment(SwingConstants.RIGHT);
                 panelCalcul.add(labelSelSal, cPanel);
 
-                SQLElement eltSal = new SalarieSQLElement();
+                final SQLElement eltSal = getDirectory().getElement(SalarieSQLElement.class);
                 final ElementComboBox selSalarie = new ElementComboBox(false);
 
                 cPanel.gridx++;

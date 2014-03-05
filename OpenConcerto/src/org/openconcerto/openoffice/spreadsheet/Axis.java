@@ -14,10 +14,12 @@
  package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.StyleProperties;
+import net.jcip.annotations.Immutable;
 
 import org.jdom.Attribute;
 import org.jdom.Element;
 
+@Immutable
 public enum Axis {
     ROW("row"), COLUMN("column");
 

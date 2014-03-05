@@ -16,6 +16,8 @@
 import java.util.HashMap;
 import java.util.Map;
 
+import net.jcip.annotations.Immutable;
+
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.Namespace;
@@ -25,6 +27,7 @@ import org.jdom.Namespace;
  * 
  * @author ILM Informatique 26 juil. 2004
  */
+@Immutable
 public enum XMLVersion {
 
     // OpenOffice.org 1.x.

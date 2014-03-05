@@ -24,14 +24,20 @@ import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.openoffice.text.ParagraphStyle;
 import org.openconcerto.openoffice.text.TextStyle;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.xml.JDOMUtils;
 
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
+
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
 
 import org.jdom.Attribute;
 import org.jdom.Document;
@@ -43,15 +49,22 @@ import org.jdom.Namespace;
  * 
  * @author Sylvain
  */
+@ThreadSafe
 public class Style extends ODNode {
 
+    @GuardedBy("Style")
     private static boolean STANDARD_STYLE_RESOLUTION = false;
+    @GuardedBy("class2Desc")
     private static final Map<XMLVersion, Map<String, StyleDesc<?>>> family2Desc;
+    @GuardedBy("class2Desc")
     private static final Map<XMLVersion, Map<String, StyleDesc<?>>> elemName2Desc;
+    @GuardedBy("class2Desc")
     private static final Map<XMLVersion, Map<Class<? extends Style>, StyleDesc<?>>> class2Desc;
+    @GuardedBy("class2Desc")
     private static boolean descsLoaded = false;
     // need a CollectionMap e.g. [ "style:style", "style:data-style-name" ] ->
     // DataStyle.DATA_STYLES_DESCS
+    @GuardedBy("class2Desc")
     private static final Map<XMLVersion, CollectionMap<Tuple2<String, String>, StyleDesc<?>>> attribute2Desc;
     static {
         final int versionsCount = XMLVersion.values().length;
@@ -70,17 +83,19 @@ public class Style extends ODNode {
     // lazy initialization to avoid circular dependency (i.e. ClassLoader loads PStyle.DESC which
     // loads StyleStyle which needs PStyle.DESC)
     private static void loadDescs() {
-        if (!descsLoaded) {
-            CellStyle.registerDesc();
-            RowStyle.registerDesc();
-            ColumnStyle.registerDesc();
-            TableStyle.registerDesc();
-            TextStyle.registerDesc();
-            ParagraphStyle.registerDesc();
-            DataStyle.registerDesc();
-            GraphicStyle.registerDesc();
-            PageLayoutStyle.registerDesc();
-            descsLoaded = true;
+        synchronized (class2Desc) {
+            if (!descsLoaded) {
+                CellStyle.registerDesc();
+                RowStyle.registerDesc();
+                ColumnStyle.registerDesc();
+                TableStyle.registerDesc();
+                TextStyle.registerDesc();
+                ParagraphStyle.registerDesc();
+                DataStyle.registerDesc();
+                GraphicStyle.registerDesc();
+                PageLayoutStyle.registerDesc();
+                descsLoaded = true;
+            }
         }
     }
 
@@ -90,11 +105,11 @@ public class Style extends ODNode {
      * @param std <code>true</code> to search like the standard, <code>false</code> to search like
      *        LibreOffice.
      */
-    public static void setStandardStyleResolution(boolean std) {
+    public static synchronized void setStandardStyleResolution(boolean std) {
         STANDARD_STYLE_RESOLUTION = std;
     }
 
-    public static boolean isStandardStyleResolution() {
+    public static synchronized boolean isStandardStyleResolution() {
         return STANDARD_STYLE_RESOLUTION;
     }
 
@@ -109,17 +124,19 @@ public class Style extends ODNode {
     }
 
     public static void register(StyleDesc<?> desc) {
-        if (desc instanceof StyleStyleDesc<?>) {
-            final StyleStyleDesc<?> styleStyleDesc = (StyleStyleDesc<?>) desc;
-            if (family2Desc.get(desc.getVersion()).put(styleStyleDesc.getFamily(), styleStyleDesc) != null)
-                throw new IllegalStateException(styleStyleDesc.getFamily() + " duplicate family");
-        } else {
-            if (elemName2Desc.get(desc.getVersion()).put(desc.getElementName(), desc) != null)
-                throw new IllegalStateException(desc.getElementName() + " duplicate element name");
+        synchronized (class2Desc) {
+            if (desc instanceof StyleStyleDesc<?>) {
+                final StyleStyleDesc<?> styleStyleDesc = (StyleStyleDesc<?>) desc;
+                if (family2Desc.get(desc.getVersion()).put(styleStyleDesc.getFamily(), styleStyleDesc) != null)
+                    throw new IllegalStateException(styleStyleDesc.getFamily() + " duplicate family");
+            } else {
+                if (elemName2Desc.get(desc.getVersion()).put(desc.getElementName(), desc) != null)
+                    throw new IllegalStateException(desc.getElementName() + " duplicate element name");
+            }
+            assert desc != null : "Will need containsKey() in getStyleDesc()";
+            if (class2Desc.get(desc.getVersion()).put(desc.getStyleClass(), desc) != null)
+                throw new IllegalStateException(desc.getStyleClass() + " duplicate");
         }
-        assert desc != null : "Will need containsKey() in getStyleDesc()";
-        if (class2Desc.get(desc.getVersion()).put(desc.getStyleClass(), desc) != null)
-            throw new IllegalStateException(desc.getStyleClass() + " duplicate");
     }
 
     /**
@@ -129,8 +146,21 @@ public class Style extends ODNode {
      * @return all known descriptions.
      */
     private static Collection<StyleDesc<?>> getDesc(final XMLVersion version) {
+        assert Thread.holdsLock(class2Desc);
         loadDescs();
         return class2Desc.get(version).values();
+    }
+
+    // return the qualified names of attributes referencing styles
+    static final Set<String> getAttr(final XMLVersion version) {
+        final Set<String> res = new HashSet<String>();
+        synchronized (class2Desc) {
+            for (final StyleDesc<?> desc : getDesc(version)) {
+                res.addAll(desc.getRefElementsMap().keySet());
+                res.addAll(desc.getMultiRefElementsMap().keySet());
+            }
+        }
+        return res;
     }
 
     /**
@@ -147,19 +177,21 @@ public class Style extends ODNode {
      * @return the mapping from attribute to description.
      */
     private static CollectionMap<Tuple2<String, String>, StyleDesc<?>> getAttr2Desc(final XMLVersion version) {
-        final CollectionMap<Tuple2<String, String>, StyleDesc<?>> map = attribute2Desc.get(version);
-        if (map.isEmpty()) {
-            for (final StyleDesc<?> desc : getDesc(version)) {
-                fillMap(map, desc, desc.getRefElementsMap());
-                fillMap(map, desc, desc.getMultiRefElementsMap());
+        synchronized (class2Desc) {
+            final CollectionMap<Tuple2<String, String>, StyleDesc<?>> map = attribute2Desc.get(version);
+            if (map.isEmpty()) {
+                for (final StyleDesc<?> desc : getDesc(version)) {
+                    fillMap(map, desc, desc.getRefElementsMap());
+                    fillMap(map, desc, desc.getMultiRefElementsMap());
+                }
+                assert !map.isEmpty();
             }
-            assert !map.isEmpty();
+            return map;
         }
-        return map;
     }
 
-    private static void fillMap(final CollectionMap<Tuple2<String, String>, StyleDesc<?>> map, final StyleDesc<?> desc, final CollectionMap<String, String> elemsByAttrs) {
-        for (final Entry<String, Collection<String>> e : elemsByAttrs.entrySet()) {
+    private static void fillMap(final CollectionMap<Tuple2<String, String>, StyleDesc<?>> map, final StyleDesc<?> desc, final SetMap<String, String> elemsByAttrs) {
+        for (final Entry<String, Set<String>> e : elemsByAttrs.entrySet()) {
             for (final String elementName : e.getValue()) {
                 final Tuple2<String, String> key = Tuple2.create(elementName, e.getKey());
                 map.put(key, desc);
@@ -179,19 +211,25 @@ public class Style extends ODNode {
         final String name = styleElem.getName();
         if (name.equals(StyleStyleDesc.ELEMENT_NAME)) {
             final String family = StyleStyleDesc.getFamily(styleElem);
-            final Map<String, StyleDesc<?>> map = family2Desc.get(pkg.getVersion());
-            if (map.containsKey(family)) {
-                final StyleDesc<?> styleClass = map.get(family);
+            final StyleDesc<?> styleClass;
+            synchronized (class2Desc) {
+                styleClass = family2Desc.get(pkg.getVersion()).get(family);
+            }
+            if (styleClass != null) {
                 return styleClass.create(pkg, styleElem);
-            } else
+            } else {
                 return new StyleStyle(pkg, styleElem);
+            }
         } else {
-            final Map<String, StyleDesc<?>> map = elemName2Desc.get(pkg.getVersion());
-            if (map.containsKey(name)) {
-                final StyleDesc<?> styleClass = map.get(name);
+            final StyleDesc<?> styleClass;
+            synchronized (class2Desc) {
+                styleClass = elemName2Desc.get(pkg.getVersion()).get(name);
+            }
+            if (styleClass != null) {
                 return styleClass.create(pkg, styleElem);
-            } else
+            } else {
                 return new Style(pkg, styleElem);
+            }
         }
     }
 
@@ -242,12 +280,14 @@ public class Style extends ODNode {
 
     private static <S extends Style> StyleDesc<S> getStyleDesc(Class<S> clazz, final XMLVersion version, final boolean mustExist) {
         loadDescs();
-        final Map<Class<? extends Style>, StyleDesc<?>> map = class2Desc.get(version);
-        @SuppressWarnings("unchecked")
-        final StyleDesc<S> res = (StyleDesc<S>) map.get(clazz);
-        if (res == null && mustExist)
-            throw new IllegalArgumentException("unregistered " + clazz + " for version " + version);
-        return res;
+        synchronized (class2Desc) {
+            final Map<Class<? extends Style>, StyleDesc<?>> map = class2Desc.get(version);
+            @SuppressWarnings("unchecked")
+            final StyleDesc<S> res = (StyleDesc<S>) map.get(clazz);
+            if (res == null && mustExist)
+                throw new IllegalArgumentException("unregistered " + clazz + " for version " + version);
+            return res;
+        }
     }
 
     protected static <S extends Style> StyleDesc<S> getNonNullStyleDesc(final Class<S> clazz, final XMLVersion version, final Element styleElem, final String styleName) {

@@ -37,8 +37,8 @@ import javax.swing.table.TableCellRenderer;
 import javax.swing.table.TableColumn;
 
 public class CloseTableHeaderRenderer extends JPanel implements TableCellRenderer, MouseListener {
-    private  ImageIcon icon1 = new ImageIcon(this.getClass().getResource("remove.png"));
-    private  ImageIcon icon2 = new ImageIcon(this.getClass().getResource("remove2.png"));
+    private ImageIcon icon1 = new ImageIcon(CloseTableHeaderRenderer.class.getResource("remove.png"));
+    private ImageIcon icon2 = new ImageIcon(CloseTableHeaderRenderer.class.getResource("remove2.png"));
     private final JButton b = new JButton(icon1);
     private JTableHeader header;
     private JTable editedTable;
