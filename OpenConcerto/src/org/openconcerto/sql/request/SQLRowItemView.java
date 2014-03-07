@@ -21,6 +21,7 @@ import org.openconcerto.utils.checks.ValidObject;
 
 import java.awt.Component;
 import java.beans.PropertyChangeListener;
+import java.util.List;
 
 /**
  * An element of a SQLRowView, it can be either a field (DESIGNATION) or not.
@@ -32,8 +33,10 @@ public interface SQLRowItemView extends EmptyObj, ValidObject {
     // eg DESIGNATION, OBSERVATIONS
     public String getSQLName();
 
-    // TODO renvoyer un Set
+    // null if no fields, Exception if more than one
     public SQLField getField();
+
+    public List<SQLField> getFields();
 
     // TODO rename en reset()
     public void resetValue();

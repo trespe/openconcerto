@@ -47,6 +47,7 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
         return this.wrapper;
     }
 
+    @Override
     protected void init() {
         this.helper = this.createHelper();
     }
@@ -73,10 +74,13 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
         return EmptyObjFromVO.getDefaultPredicate();
     }
 
+    @Override
     public void resetValue() {
         this.getWrapper().resetValue();
     }
 
+    // not final to allow subclass without exactly one field
+    @Override
     public void show(SQLRowAccessor r) {
         if (r.getFields().contains(this.getField().getName())) {
             @SuppressWarnings("unchecked")
@@ -89,10 +93,13 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
         }
     }
 
+    // not final to allow subclass without exactly one field
+    @Override
     public void update(SQLRowValues vals) {
         vals.put(this.getField().getName(), this.isEmpty() ? SQLRowValues.SQL_DEFAULT : this.getWrapper().getValue());
     }
 
+    @Override
     public final void addValueListener(PropertyChangeListener l) {
         this.getWrapper().addValueListener(l);
     }
@@ -126,6 +133,7 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
         return this.getWrapper().getValidState();
     }
 
+    @Override
     public final void addValidListener(ValidListener l) {
         this.getWrapper().addValidListener(new ChainValidListener(this, l));
     }
@@ -135,6 +143,7 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
         this.getWrapper().removeValidListener(new ChainValidListener(this, l));
     }
 
+    @Override
     public final Component getComp() {
         return this.getWrapper().getComp();
     }

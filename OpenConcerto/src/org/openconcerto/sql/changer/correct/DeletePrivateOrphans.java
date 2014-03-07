@@ -59,8 +59,8 @@ public class DeletePrivateOrphans extends Changer<SQLTable> {
             getStream().println(" : not a private table");
             return;
         }
-        if (elem.getParentForeignField() != null)
-            throw new IllegalStateException("Private with a parent : " + elem.getParentForeignField());
+        if (elem.getParentForeignFieldName() != null)
+            throw new IllegalStateException("Private with a parent : " + elem.getParentForeignFieldName());
         final Set<SQLField> referentKeys = t.getDBSystemRoot().getGraph().getReferentKeys(t);
         if (!referentKeys.equals(privateParentReferentFields))
             throw new IllegalStateException("Table is not only private : " + referentKeys);

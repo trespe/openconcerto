@@ -14,10 +14,8 @@
  package org.openconcerto.erp.core.common.ui;
 
 import org.openconcerto.map.model.Ville;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.itemview.VWRowItemView;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 
@@ -27,24 +25,19 @@ public class VilleRowItemView extends VWRowItemView<Ville> {
         super(wrapper);
     }
 
-    public SQLField getField() {
-        return this.getFields().get(0);
-    }
-
-    protected final SQLTable getTable() {
-        return this.getField().getTable();
-    }
-
+    @Override
     public void setEditable(boolean b) {
         if (this.getComp() != null)
             this.getComp().setEnabled(b);
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
     public void show(SQLRowAccessor r) {
-        if (r.getFields().contains(this.getField().getName())) {
-            String cp = r.getString(getFields().get(0).getName());
-            String name = r.getString(getFields().get(1).getName());
+        final String fieldName0 = getFields().get(0).getName();
+        final String fieldName1 = getFields().get(1).getName();
+        if (r.getFields().contains(fieldName0) && r.getFields().contains(fieldName1)) {
+            String cp = r.getString(fieldName0);
+            String name = r.getString(fieldName1);
             final Ville villeFromVilleEtCode = Ville.getVilleFromVilleEtCode(name + " (" + cp + ")");
             // get a matching Ville
             if (villeFromVilleEtCode != null) {
@@ -55,6 +48,7 @@ public class VilleRowItemView extends VWRowItemView<Ville> {
         }
     }
 
+    @Override
     public void update(SQLRowValues vals) {
         vals.put(getFields().get(1).getName(), this.isEmpty() ? SQLRowValues.SQL_DEFAULT : this.getWrapper().getValue().getName());
         vals.put(getFields().get(0).getName(), this.isEmpty() ? SQLRowValues.SQL_DEFAULT : this.getWrapper().getValue().getCodepostal());

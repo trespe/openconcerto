@@ -13,7 +13,6 @@
  
  package org.openconcerto.sql.sqlobject.itemview;
 
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 
@@ -23,14 +22,11 @@ public class SimpleRowItemView<T> extends VWRowItemView<T> {
         super(wrapper);
     }
 
-    public SQLField getField() {
-        return this.getFields().get(0);
-    }
-
     protected final SQLTable getTable() {
         return this.getField().getTable();
     }
 
+    @Override
     public void setEditable(boolean b) {
         if (this.getComp() != null)
             this.getComp().setEnabled(b);

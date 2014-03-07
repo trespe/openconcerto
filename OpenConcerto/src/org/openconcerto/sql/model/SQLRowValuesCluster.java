@@ -19,11 +19,11 @@ import org.openconcerto.sql.model.SQLRowValues.ReferentChangeListener;
 import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.utils.SQLUtils;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.Matrix;
 import org.openconcerto.utils.RecursionType;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.cc.Closure;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
@@ -32,7 +32,6 @@ import org.openconcerto.utils.cc.IdentitySet;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.EventObject;
@@ -240,7 +239,7 @@ public class SQLRowValuesCluster {
         // and link them together
         for (final SQLRowValues n : this.getItems()) {
             // use referents instead of foreigns to copy order
-            for (final Entry<SQLField, Collection<SQLRowValues>> e : n.getReferents().entrySet())
+            for (final Entry<SQLField, Set<SQLRowValues>> e : n.getReferents().entrySet())
                 for (final SQLRowValues ref : e.getValue()) {
                     noLinkCopy.get(ref).put(e.getKey().getName(), noLinkCopy.get(n));
                 }
@@ -451,11 +450,11 @@ public class SQLRowValuesCluster {
     private <T> StopRecurseException rec(final State<T> state, RecursionType recType, final Direction direction, final Direction actualDirection) {
         final SQLRowValues current = state.getCurrent();
         final List<SQLRowValues> currentValsPath = state.getValsPath();
-        final CollectionMap<SQLField, SQLRowValues> nextVals;
+        final SetMap<SQLField, SQLRowValues> nextVals;
         if (actualDirection == Direction.FOREIGN) {
             final Map<SQLField, SQLRowValues> foreigns = current.getForeignsBySQLField();
-            nextVals = new CollectionMap<SQLField, SQLRowValues>(new ArrayList<SQLRowValues>(), foreigns.size());
-            nextVals.putAll(foreigns);
+            nextVals = new SetMap<SQLField, SQLRowValues>(foreigns.size());
+            nextVals.mergeScalarMap(foreigns);
         } else {
             assert actualDirection == Direction.REFERENT;
             nextVals = current.getReferents();

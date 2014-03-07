@@ -585,13 +585,12 @@ public class EditPanel extends JPanel implements IListener, ActionListener, Docu
         // eg /BATIMENT/
         final SQLTable t = this.component.getElement().getTable();
         final SQLRowValues vals = new SQLRowValues(t);
-        final String parentForeignField = this.component.getElement().getParentForeignField();
-        if (parentForeignField == null)
-            return;
         // eg |BATIMENT.ID_SITE|
-        final SQLField parentFF = t.getField(parentForeignField);
+        final SQLField parentFF = this.component.getElement().getParentForeignField();
+        if (parentFF == null)
+            return;
         // eg /SITE/
-        final SQLTable foreignT = t.getBase().getGraph().getForeignTable(parentFF);
+        final SQLTable foreignT = parentFF.getForeignTable();
 
         for (int i = 0; i < sqlRows.size(); i++) {
             final SQLRow row = sqlRows.get(i);

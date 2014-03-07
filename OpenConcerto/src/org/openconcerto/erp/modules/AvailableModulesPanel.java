@@ -151,12 +151,12 @@ public class AvailableModulesPanel {
         }
     }
 
-    static final Action createInstallAction(final ModulePanel panel, final ModuleTableModel tm, final boolean onlyInstall) {
+    static final Action createInstallAction(final ModulePanel panel, final boolean onlyInstall) {
         return new AbstractAction("Installer") {
             @Override
             public void actionPerformed(ActionEvent evt) {
                 final String dialogTitle = "Installation de modules";
-                final Collection<ModuleRow> checkedRows = tm.getCheckedRows();
+                final Collection<ModuleRow> checkedRows = panel.getSelection();
                 if (checkedRows.isEmpty()) {
                     JOptionPane.showMessageDialog(panel, "Aucune ligne cochée", dialogTitle, JOptionPane.INFORMATION_MESSAGE);
                     return;

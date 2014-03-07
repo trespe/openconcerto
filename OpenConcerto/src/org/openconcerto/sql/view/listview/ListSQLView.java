@@ -219,8 +219,13 @@ public class ListSQLView extends JPanel implements SQLRowItemView {
 
     public SQLField getField() {
         // FIXME
-        Thread.dumpStack();
-        return null;
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<SQLField> getFields() {
+        // FIXME
+        throw new UnsupportedOperationException();
     }
 
     public void resetValue() {

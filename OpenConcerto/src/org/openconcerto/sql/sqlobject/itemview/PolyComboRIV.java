@@ -26,10 +26,6 @@ public class PolyComboRIV extends VWRowItemView<SQLRow> {
         super(new ValueWrapperFromVO<SQLRow>(poly));
     }
 
-    public SQLField getField() {
-        return this.getFields().get(0);
-    }
-
     public void resetValue() {
         this.getPolyCombo().resetValue();
     }

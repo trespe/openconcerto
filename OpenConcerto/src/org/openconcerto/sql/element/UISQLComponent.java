@@ -134,7 +134,7 @@ public abstract class UISQLComponent extends BaseSQLComponent {
     }
 
     private String getDefaultWhere(SQLRowItemView obj) {
-        if (getElement().getPrivateForeignFields().contains(obj.getField().getName()))
+        if (obj.getFields().size() == 1 && getElement().getPrivateForeignFields().contains(obj.getField().getName()))
             return "bordered";
         return null;
     }

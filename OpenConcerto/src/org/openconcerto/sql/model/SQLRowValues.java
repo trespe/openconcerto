@@ -26,12 +26,13 @@ import org.openconcerto.sql.request.Inserter.Insertion;
 import org.openconcerto.sql.request.Inserter.ReturnMode;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.utils.ReOrder;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CopyUtils;
 import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.NumberUtils;
 import org.openconcerto.utils.RecursionType;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
@@ -151,9 +152,9 @@ public final class SQLRowValues extends SQLRowAccessor {
 
     private final Map<String, Object> values;
     private final Map<String, SQLRowValues> foreigns;
-    private final CollectionMap<SQLField, SQLRowValues> referents;
+    private final SetMap<SQLField, SQLRowValues> referents;
     private SQLRowValuesCluster graph;
-    private CollectionMap<SQLField, ReferentChangeListener> referentsListener;
+    private ListMap<SQLField, ReferentChangeListener> referentsListener;
 
     public SQLRowValues(SQLTable t) {
         super(t);
@@ -161,12 +162,9 @@ public final class SQLRowValues extends SQLRowAccessor {
         // don't use value too low for initialCapacity otherwise rehash operations
         this.values = new LinkedHashMap<String, Object>(8);
         this.foreigns = new HashMap<String, SQLRowValues>(4);
-        // extend (rather than use another constructor) for performance
-        // eg 20% gained when fetching 45000 rows
-        this.referents = new CollectionMap<SQLField, SQLRowValues>(4) {
-            @SuppressWarnings("unchecked")
+        this.referents = new SetMap<SQLField, SQLRowValues>(4, org.openconcerto.utils.CollectionMap2.Mode.NULL_FORBIDDEN, false) {
             @Override
-            public Collection<SQLRowValues> createCollection(Collection coll) {
+            public Set<SQLRowValues> createCollection(Collection<? extends SQLRowValues> coll) {
                 // use LinkedHashSet so that the order is preserved, eg we can iterate over LOCALs
                 // pointing to a BATIMENT with consistent and predictable (insertion-based) order.
                 // use IdentitySet to be able to put two equal instances
@@ -240,7 +238,7 @@ public final class SQLRowValues extends SQLRowAccessor {
         }
         if (newRowVals) {
             final SQLRowValues vals = (SQLRowValues) value;
-            vals.referents.put(f, this);
+            vals.referents.add(f, this);
             this.foreigns.put(fieldName, vals);
             this.graph.add(this, f, vals);
             assert this.graph == vals.graph;
@@ -342,7 +340,7 @@ public final class SQLRowValues extends SQLRowAccessor {
         });
     }
 
-    final CollectionMap<SQLField, SQLRowValues> getReferents() {
+    final SetMap<SQLField, SQLRowValues> getReferents() {
         return this.referents;
     }
 
@@ -351,7 +349,7 @@ public final class SQLRowValues extends SQLRowAccessor {
         // remove the backdoor since values() returns a view
         // remove duplicates (e.g. this is a CONTACT referenced by ID_CONTACT_RAPPORT &
         // ID_CONTACT_RDV from the same site)
-        return this.referents.createCollection(this.referents.values());
+        return this.referents.createCollection(this.referents.allValues());
     }
 
     @Override
@@ -364,7 +362,7 @@ public final class SQLRowValues extends SQLRowAccessor {
         // remove duplicates
         final Collection<SQLRowValues> res = this.referents.createCollection(null);
         assert res.isEmpty();
-        for (final Map.Entry<SQLField, Collection<SQLRowValues>> e : this.referents.entrySet()) {
+        for (final Map.Entry<SQLField, Set<SQLRowValues>> e : this.referents.entrySet()) {
             if (e.getKey().getTable().equals(refTable))
                 res.addAll(e.getValue());
         }
@@ -395,7 +393,7 @@ public final class SQLRowValues extends SQLRowAccessor {
     private final SQLRowValues changeReferents(final SQLField f, final boolean retain) {
         if (f != null || !retain) {
             // copy otherwise ConcurrentModificationException
-            for (final Entry<SQLField, Collection<SQLRowValues>> e : CopyUtils.copy(this.getReferents()).entrySet()) {
+            for (final Entry<SQLField, Set<SQLRowValues>> e : CopyUtils.copy(this.getReferents()).entrySet()) {
                 if (f == null || e.getKey().equals(f) != retain) {
                     for (final SQLRowValues ref : e.getValue()) {
                         ref.put(e.getKey().getName(), null);
@@ -413,7 +411,7 @@ public final class SQLRowValues extends SQLRowAccessor {
     public SQLRowValues retainReferents(Collection<SQLRowValues> toRetain) {
         toRetain = CollectionUtils.toIdentitySet(toRetain);
         // copy otherwise ConcurrentModificationException
-        for (final Entry<SQLField, Collection<SQLRowValues>> e : CopyUtils.copy(this.getReferents()).entrySet()) {
+        for (final Entry<SQLField, Set<SQLRowValues>> e : CopyUtils.copy(this.getReferents()).entrySet()) {
             for (final SQLRowValues ref : e.getValue()) {
                 if (!toRetain.contains(ref))
                     ref.put(e.getKey().getName(), null);
@@ -929,8 +927,8 @@ public final class SQLRowValues extends SQLRowAccessor {
      */
     public final void addReferentListener(SQLField field, ReferentChangeListener l) {
         if (this.referentsListener == null)
-            this.referentsListener = new CollectionMap<SQLField, ReferentChangeListener>(new ArrayList<ReferentChangeListener>());
-        this.referentsListener.put(field, l);
+            this.referentsListener = new ListMap<SQLField, ReferentChangeListener>();
+        this.referentsListener.add(field, l);
     }
 
     public final void removeReferentListener(SQLField field, ReferentChangeListener l) {
@@ -1599,18 +1597,6 @@ public final class SQLRowValues extends SQLRowAccessor {
     @Override
     public SQLTableModifiedListener createTableListener(SQLDataListener l) {
         return new SQLTableListenerData<SQLRowValues>(this, l);
-    }
-
-    public String dumpValues() {
-        String result = "[";
-        result += CollectionUtils.join(this.values.entrySet(), ", ", new ITransformer<Entry<String, ?>, String>() {
-            public String transformChecked(final Entry<String, ?> e) {
-                return e.getValue().toString();
-            }
-        });
-
-        return result + "]";
-
     }
 
     // *** static

@@ -179,7 +179,7 @@ public class DepSolverResultMM extends DepSolverResult implements ModulesStateCh
 
     private final Set<ModuleReference> computeReferencesToRemove() {
         final Set<ModuleFactory> factories = this.getGraph().getFactories();
-        final Set<ModuleFactory> installedFactories = this.getInstallState().getInstalledFactories();
+        final Collection<ModuleFactory> installedFactories = this.getInstallState().getAllInstalledFactories();
         // missing some factories for installed modules
         if (installedFactories == null)
             return null;

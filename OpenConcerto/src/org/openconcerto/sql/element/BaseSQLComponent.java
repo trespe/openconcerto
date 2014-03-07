@@ -20,6 +20,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.TM;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLFieldsSet;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -215,7 +216,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         final SQLType type = getField(field).getType();
         if (getField(field).isKey()) {
             // foreign
-            comp = createValueWrapper(new ElementComboBox(), type, wantedType);
+            comp = createSubValueWrapper(new ElementComboBox(), type, wantedType);
         } else {
             if (Boolean.class.isAssignableFrom(type.getJavaType())) {
                 // TODO hack to view the focus (should try to paint around the button)
@@ -231,12 +232,12 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
                 panel.add(cb, BorderLayout.LINE_START);
                 comp = addValidatedValueWrapper(castVW(new BooleanValueWrapper(panel, cb), Boolean.class, wantedType), type);
             } else if (Date.class.isAssignableFrom(type.getJavaType())) {
-                comp = createValueWrapper(new JDate(), type, wantedType);
+                comp = createSubValueWrapper(new JDate(), type, wantedType);
             } else if (String.class.isAssignableFrom(type.getJavaType()) && type.getSize() >= 512) {
-                comp = createValueWrapper(new SQLSearchableTextCombo(ComboLockedMode.UNLOCKED, true), type, wantedType);
+                comp = createSubValueWrapper(new SQLSearchableTextCombo(ComboLockedMode.UNLOCKED, true), type, wantedType);
             } else {
                 // regular
-                comp = createValueWrapper(new SQLTextCombo(), type, wantedType);
+                comp = createSubValueWrapper(new SQLTextCombo(), type, wantedType);
             }
         }
         comp.getComp().setOpaque(false);
@@ -279,7 +280,7 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
             throw new NullPointerException("comp for " + field + " is null");
         if (comp instanceof MutableRowItemView)
             throw new IllegalStateException("Comp is a MutableRowItemView, creating a SimpleRowItemView would ignore its methods : " + comp);
-        return createRowItemView(createValueWrapper(comp, field.getType(), Object.class));
+        return createRowItemView(createSubValueWrapper(comp, field.getType(), Object.class));
     }
 
     // just to make javac happy (type parameter for SimpleRowItemView)
@@ -289,13 +290,23 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         return new SimpleRowItemView<T>(vw);
     }
 
-    static private <T> ValueWrapper<? extends T> createValueWrapper(JComponent comp, final SQLType type, final Class<T> wantedType) {
-        final Class<?> fieldClass = type.getJavaType();
-        ValueWrapper<? extends T> res = ValueWrapperFactory.create(comp, fieldClass.asSubclass(wantedType));
+    // useful when the exact type of field is known (e.g. String) and setValue() is needed
+    static public final <T> ValueWrapper<T> createValueWrapper(JComponent comp, final SQLType type, final Class<T> wantedType) {
+        // equality allow returned ValueWrapper to both produce and consume T
+        if (!wantedType.equals(type.getJavaType()))
+            throw new ClassCastException("wanted type " + wantedType + " is not " + type);
+        final ValueWrapper<T> res = ValueWrapperFactory.create(comp, wantedType);
         return addValidatedValueWrapper(res, type);
     }
 
-    static private <T> ValueWrapper<? extends T> addValidatedValueWrapper(ValueWrapper<? extends T> res, final SQLType type) {
+    // useful when the exact type of field isn't known (e.g. Number) and only getValue() is needed
+    static public final <T> ValueWrapper<? extends T> createSubValueWrapper(JComponent comp, final SQLType type, final Class<T> wantedSuperType) {
+        final Class<?> fieldClass = type.getJavaType();
+        final ValueWrapper<? extends T> res = ValueWrapperFactory.create(comp, fieldClass.asSubclass(wantedSuperType));
+        return addValidatedValueWrapper(res, type);
+    }
+
+    static private <T> ValueWrapper<T> addValidatedValueWrapper(ValueWrapper<T> res, final SQLType type) {
         final Class<?> fieldClass = type.getJavaType();
         if (String.class.isAssignableFrom(fieldClass)) {
             res = ValidatedValueWrapper.add(res, new ITransformer<T, ValidState>() {
@@ -369,9 +380,8 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         final Spec spec = SpecParser.create(specObj);
 
         // ParentForeignField is always required
-        final String fieldName = v.getField().getName();
         final Set<String> reqNames = this.getRequiredNames();
-        if (spec.isRequired() || fieldName.equals(getElement().getParentForeignField()) || reqNames == null || reqNames.contains(v.getSQLName())) {
+        if (spec.isRequired() || v.getFields().contains(getElement().getParentForeignField()) || reqNames == null || reqNames.contains(v.getSQLName())) {
             this.required.add(v);
             if (v instanceof ElementSQLObject)
                 ((ElementSQLObject) v).setRequired(true);
@@ -388,10 +398,10 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         // - but still wait the longest to be sure the RIV is initialized (SQLComponentItem)
         v.resetValue();
 
-        if (!this.hide.contains(v.getField())) {
+        if (!CollectionUtils.containsAny(this.hide, v.getFields())) {
             if (spec.isAdditional()) {
                 if (this.additionalFieldsPanel == null)
-                    Log.get().warning("No additionalFieldsPanel for " + v.getField() + " : " + v);
+                    Log.get().warning("No additionalFieldsPanel for " + v.getFields() + " : " + v);
                 else
                     this.additionalFieldsPanel.add(getDesc(v), v.getComp());
             } else {
@@ -409,8 +419,9 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     }
 
     private boolean dontEdit(SQLRowItemView v) {
-        final String fieldName = v.getField().getName();
-        return this.getElement().getReadOnlyFields().contains(fieldName) || (this.getMode() != Mode.INSERTION && this.getElement().getInsertOnlyFields().contains(fieldName));
+        final Set<String> fieldsNames = new SQLFieldsSet(v.getFields()).getFieldsNames(getTable());
+        return CollectionUtils.containsAny(this.getElement().getReadOnlyFields(), fieldsNames)
+                || (this.getMode() != Mode.INSERTION && CollectionUtils.containsAny(this.getElement().getInsertOnlyFields(), fieldsNames));
     }
 
     protected final void inited() {

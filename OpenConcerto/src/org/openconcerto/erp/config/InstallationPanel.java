@@ -25,7 +25,6 @@ import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
-import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRow;
@@ -38,10 +37,11 @@ import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.graph.SQLKey;
 import org.openconcerto.sql.request.Inserter;
-import org.openconcerto.sql.request.Inserter.Insertion;
 import org.openconcerto.sql.request.UpdateBuilder;
+import org.openconcerto.sql.request.Inserter.Insertion;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.sql.utils.ChangeTable;
@@ -587,20 +587,21 @@ public class InstallationPanel extends JPanel {
                 dataSource.execute(alterEcheance.asString());
                 tableEch.getSchema().updateVersion();
                 tableEch.fetchFields();
-                if (root.getServer().getSQLSystem().equals(SQLSystem.POSTGRESQL)) {
-                    final UpdateBuilder build = new UpdateBuilder(tableEch);
-                    final AliasedTable refM1 = new AliasedTable(tableMvt, "m1");
-                    final AliasedTable refM2 = new AliasedTable(tableMvt, "m2");
-                    build.set("ID_SAISIE_VENTE_FACTURE", refM2.getField("IDSOURCE").getFieldRef());
-                    build.addTable(refM1);
-                    build.addTable(refM2);
-                    Where w = new Where(refM1.getField("ID_MOUVEMENT_PERE"), "=", refM2.getKey());
-                    w = w.and(new Where(refM1.getKey(), "=", build.getTable().getField("ID_MOUVEMENT")));
-                    w = w.and(new Where(refM2.getField("SOURCE"), "=", tableFacture.getName()));
-                    build.setWhere(w);
-                    query = build.asString();
-                    dataSource.execute(query);
-                }
+
+                // select MOUVEMENT whose parent has a source FACTURE
+                final SQLSelect selMvt = new SQLSelect();
+                final AliasedTable refChild = new AliasedTable(tableMvt, "m1");
+                final AliasedTable refParent = new AliasedTable(tableMvt, "m2");
+                selMvt.addSelect(refParent.getField("IDSOURCE"));
+                selMvt.addBackwardJoin("INNER", refChild.getField("ID_MOUVEMENT_PERE"), refParent.getAlias());
+                selMvt.addSelect(refChild.getKey());
+                selMvt.setWhere(new Where(refParent.getField("SOURCE"), "=", tableFacture.getName()));
+
+                final UpdateBuilder build = new UpdateBuilder(tableEch);
+                build.addVirtualJoin("( " + selMvt.asString() + " )", "mvt", false, tableMvt.getKey().getName(), "ID_MOUVEMENT");
+                build.setFromVirtualJoinField("ID_SAISIE_VENTE_FACTURE", "mvt", "IDSOURCE");
+                query = build.asString();
+                dataSource.execute(query);
             } catch (SQLException ex) {
                 Log.get().severe("Error on query :" + query);
                 throw new IllegalStateException("Erreur lors de l'ajout des champs sur la table ECHEANCE_CLIENT", ex);

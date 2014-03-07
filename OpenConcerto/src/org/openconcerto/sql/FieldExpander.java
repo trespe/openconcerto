@@ -171,14 +171,14 @@ public abstract class FieldExpander {
             return Collections.emptyList();
         // MAYBE check that all fields belong to the same path
         final Path fieldsPath = fieldsOrig.get(0).getPath();
-        final String parentFF = Configuration.getInstance().getDirectory().getElement(fieldsPath.getLast()).getParentForeignField();
+        final SQLField parentFF = Configuration.getInstance().getDirectory().getElement(fieldsPath.getLast()).getParentForeignField();
 
         final List<Tuple2<Path, List<FieldPath>>> res = new ArrayList<Tuple2<Path, List<FieldPath>>>();
         final List<FieldPath> currentL = new ArrayList<FieldPath>();
         res.add(Tuple2.create(fieldsPath, currentL));
         IFieldPath parent = null;
         for (final IFieldPath f : fieldsOrig) {
-            if (f.getField().getName().equals(parentFF))
+            if (f.getField().equals(parentFF))
                 parent = f;
             else
                 currentL.addAll(this.expand(f));

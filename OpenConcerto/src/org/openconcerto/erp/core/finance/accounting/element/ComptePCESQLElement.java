@@ -86,10 +86,10 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
                 final DBSystemRoot sysRoot = getTable().getDBSystemRoot();
                 final SQLTable ecrT = sysRoot.getGraph().findReferentTable(getTable(), "ECRITURE");
                 final UpdateBuilder updateBuilder = new UpdateBuilder(ecrT);
-                updateBuilder.addTable(getTable());
-                updateBuilder.set("COMPTE_NUMERO", getTable().getField("NUMERO").getFieldRef());
-                updateBuilder.set("COMPTE_NOM", getTable().getField("NOM").getFieldRef());
-                updateBuilder.setWhere(new Where(getTable().getKey(), "=", ecrT.getField("ID_COMPTE_PCE")).and(new Where(getTable().getKey(), "=", id)));
+                updateBuilder.addForwardVirtualJoin(getTable(), "ID_COMPTE_PCE");
+                updateBuilder.setFromVirtualJoinField("COMPTE_NUMERO", getTable().getAlias(), "NUMERO");
+                updateBuilder.setFromVirtualJoinField("COMPTE_NOM", getTable().getAlias(), "NOM");
+                updateBuilder.setWhere(new Where(ecrT.getField("ID_COMPTE_PCE"), "=", id));
                 sysRoot.getDataSource().execute(updateBuilder.asString());
             }
 

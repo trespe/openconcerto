@@ -216,6 +216,7 @@ import java.awt.Color;
 import java.awt.Font;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
 import java.awt.Image;
 import java.awt.RenderingHints;
 import java.awt.geom.Rectangle2D;
@@ -458,51 +459,53 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     @Override
     protected void initSystemRoot(DBSystemRoot input) {
         super.initSystemRoot(input);
-        final JDialog f = new JOptionPane("Mise à jour des caches en cours...\nCette opération prend généralement moins d'une minute.", JOptionPane.INFORMATION_MESSAGE, JOptionPane.DEFAULT_OPTION,
-                null, new Object[] {}).createDialog("Veuillez patienter");
-        input.addLoadingListener(new LoadingListener() {
+        if (!GraphicsEnvironment.isHeadless()) {
+            final JDialog f = new JOptionPane("Mise à jour des caches en cours...\nCette opération prend généralement moins d'une minute.", JOptionPane.INFORMATION_MESSAGE,
+                    JOptionPane.DEFAULT_OPTION, null, new Object[] {}).createDialog("Veuillez patienter");
+            input.addLoadingListener(new LoadingListener() {
 
-            private int loadingCount = 0;
-            private final ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+                private int loadingCount = 0;
+                private final ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        final Thread thread = new Thread(r, "Loading listener thread");
+                        thread.setDaemon(true);
+                        return thread;
+                    }
+                });
+                private ScheduledFuture<?> future = null;
+
                 @Override
-                public Thread newThread(Runnable r) {
-                    final Thread thread = new Thread(r, "Loading listener thread");
-                    thread.setDaemon(true);
-                    return thread;
+                public synchronized void loading(LoadingEvent evt) {
+                    this.loadingCount += evt.isStarting() ? 1 : -1;
+                    if (this.loadingCount < 0) {
+                        throw new IllegalStateException();
+                    } else if (this.loadingCount == 0) {
+                        this.future.cancel(false);
+                        this.future = null;
+                        SwingUtilities.invokeLater(new Runnable() {
+                            @Override
+                            public void run() {
+                                f.setVisible(false);
+                                f.dispose();
+                            }
+                        });
+                    } else if (this.future == null) {
+                        this.future = this.exec.schedule(new Runnable() {
+                            @Override
+                            public void run() {
+                                SwingUtilities.invokeLater(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        f.setVisible(true);
+                                    }
+                                });
+                            }
+                        }, 1, TimeUnit.SECONDS);
+                    }
                 }
             });
-            private ScheduledFuture<?> future = null;
-
-            @Override
-            public synchronized void loading(LoadingEvent evt) {
-                this.loadingCount += evt.isStarting() ? 1 : -1;
-                if (this.loadingCount < 0) {
-                    throw new IllegalStateException();
-                } else if (this.loadingCount == 0) {
-                    this.future.cancel(false);
-                    this.future = null;
-                    SwingUtilities.invokeLater(new Runnable() {
-                        @Override
-                        public void run() {
-                            f.setVisible(false);
-                            f.dispose();
-                        }
-                    });
-                } else if (this.future == null) {
-                    this.future = this.exec.schedule(new Runnable() {
-                        @Override
-                        public void run() {
-                            SwingUtilities.invokeLater(new Runnable() {
-                                @Override
-                                public void run() {
-                                    f.setVisible(true);
-                                }
-                            });
-                        }
-                    }, 1, TimeUnit.SECONDS);
-                }
-            }
-        });
+        }
     }
 
     @Override
@@ -998,6 +1001,11 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
     @Override
     protected SQLServer createServer() {
+        if (GraphicsEnvironment.isHeadless()) {
+            SQLServer server = super.createServer();
+            return server;
+        }
+
         InProgressFrame progress = new InProgressFrame();
         progress.show("Connexion à votre base de données en cours");
         try {

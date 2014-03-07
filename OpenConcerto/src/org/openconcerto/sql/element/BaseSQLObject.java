@@ -19,7 +19,10 @@ package org.openconcerto.sql.element;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.request.MutableRowItemView;
+import org.openconcerto.sql.sqlobject.itemview.BaseRowItemView;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import javax.swing.JPanel;
@@ -29,7 +32,7 @@ import javax.swing.JPanel;
  */
 public abstract class BaseSQLObject extends JPanel implements MutableRowItemView {
 
-    private SQLField field;
+    private List<SQLField> fields;
     private String sqlName;
 
     public BaseSQLObject() {
@@ -40,7 +43,7 @@ public abstract class BaseSQLObject extends JPanel implements MutableRowItemView
     @Override
     public void init(String sqlName, Set<SQLField> fields) {
         this.sqlName = sqlName;
-        this.field = fields.iterator().next();
+        this.fields = new ArrayList<SQLField>(fields);
     }
 
     @Override
@@ -50,7 +53,12 @@ public abstract class BaseSQLObject extends JPanel implements MutableRowItemView
 
     @Override
     public final SQLField getField() {
-        return this.field;
+        return BaseRowItemView.getOnlyOne(this.fields);
+    }
+
+    @Override
+    public List<SQLField> getFields() {
+        return this.fields;
     }
 
     public SQLTable getTable() {

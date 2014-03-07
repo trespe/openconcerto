@@ -368,8 +368,7 @@ public class SQLRowView extends BaseSQLRequest {
     public Collection<SQLField> getAllFields() {
         final Set<SQLField> res = new HashSet<SQLField>();
         for (final SQLRowItemView view : this.getViewsFast()) {
-            if (view.getField() != null)
-                res.add(view.getField());
+            res.addAll(view.getFields());
         }
         return res;
     }

@@ -37,26 +37,66 @@ import net.jcip.annotations.Immutable;
 
 public class ModuleTableModel extends AbstractTableModel {
 
+    static public enum Problem {
+        /**
+         * The module is required but missing.
+         */
+        REQUIRED_MISSING,
+        /**
+         * The module is installed but lacks at least one dependency.
+         */
+        MISSING_DEP
+    }
+
+    // ref needed if factory is null
+    static private final boolean areDepsMet(final ModuleFactory factory, final InstallationState installationState) {
+        for (final Dependency dep : factory.getDependencies().values()) {
+            boolean depMet = false;
+            for (final String reqID : dep.getRequiredIDs()) {
+                final ModuleFactory f = installationState.getInstalledFactories().get(reqID);
+                if (f != null && dep.isRequiredFactoryOK(f)) {
+                    depMet = true;
+                    break;
+                }
+            }
+            if (!depMet)
+                return false;
+        }
+        return true;
+    }
+
     @Immutable
     static final class ModuleRow {
         private final ModuleReference ref;
         private final ModuleFactory factory;
         private final boolean local, remote, registered, running;
         private final boolean dbRequired, adminRequired;
+        private final Set<Problem> problems;
 
-        public ModuleRow(ModuleReference ref, ModuleFactory f, boolean local, boolean remote, boolean registered, boolean running, boolean dbRequired, boolean adminRequired) {
+        public ModuleRow(ModuleReference ref, ModuleFactory f, InstallationState installationState, boolean registered, boolean running, boolean dbRequired, boolean adminRequired) {
             super();
             if (ref == null)
                 throw new NullPointerException("Null reference");
             this.ref = ref;
             this.factory = f;
             assert this.factory == null || this.factory.getReference().equals(this.ref);
-            this.local = local;
-            this.remote = remote;
+            this.local = installationState.getLocal().contains(ref);
+            this.remote = installationState.getRemote().contains(ref);
             this.registered = registered;
             this.running = running;
             this.dbRequired = dbRequired;
             this.adminRequired = adminRequired;
+            final Set<Problem> pbs = new HashSet<Problem>(Problem.values().length);
+            final boolean isInstalled = this.isInstalledLocally() || this.isInstalledRemotely();
+            if (!this.isAvailable() && isInstalled) {
+                pbs.add(Problem.REQUIRED_MISSING);
+            }
+            // if installed and not available, we cannot know its dependencies but it will be marked
+            // REQUIRED_MISSING
+            if (this.isAvailable() && isInstalled && !areDepsMet(this.factory, installationState)) {
+                pbs.add(Problem.MISSING_DEP);
+            }
+            this.problems = pbs.size() == 0 ? Collections.<Problem> emptySet() : Collections.unmodifiableSet(pbs);
         }
 
         public ModuleReference getRef() {
@@ -93,6 +133,10 @@ public class ModuleTableModel extends AbstractTableModel {
 
         public boolean isAdminRequired() {
             return this.adminRequired;
+        }
+
+        public Set<Problem> getProblems() {
+            return this.problems;
         }
 
         @Override
@@ -143,8 +187,6 @@ public class ModuleTableModel extends AbstractTableModel {
     public final void reload() throws IOException, SQLException {
         final ModuleManager mngr = ModuleManager.getInstance();
         final InstallationState installationState = new InstallationState(mngr);
-        final Collection<ModuleReference> remote = installationState.getRemote();
-        final Collection<ModuleReference> local = installationState.getLocal();
         final Map<ModuleReference, ModuleFactory> available = new HashMap<ModuleReference, ModuleFactory>();
         for (final Entry<String, SortedMap<ModuleVersion, ModuleFactory>> e : mngr.getFactories().entrySet()) {
             for (final Entry<ModuleVersion, ModuleFactory> e2 : e.getValue().entrySet()) {
@@ -162,15 +204,16 @@ public class ModuleTableModel extends AbstractTableModel {
 
         // if some installed modules lack their factory, we cannot know if they conflict with
         // modules to install (see DepSolverResultMM.computeReferencesToRemove())
-        this.valid = installationState.getInstalledFactories() != null;
+        this.valid = true;
 
         // all known references
         final Set<ModuleReference> s = new HashSet<ModuleReference>(installationState.getLocalOrRemote());
         s.addAll(available.keySet());
         final List<ModuleRow> l = new ArrayList<ModuleRow>(s.size());
         for (final ModuleReference ref : s) {
-            l.add(new ModuleRow(ref, available.get(ref), local.contains(ref), remote.contains(ref), registered.contains(ref), running.contains(ref), dbRequired.contains(ref), adminRequired
-                    .contains(ref)));
+            final ModuleRow row = new ModuleRow(ref, available.get(ref), installationState, registered.contains(ref), running.contains(ref), dbRequired.contains(ref), adminRequired.contains(ref));
+            l.add(row);
+            this.valid &= row.getProblems().size() == 0;
         }
 
         // sort alphabetically and then highest version first
@@ -260,14 +303,31 @@ public class ModuleTableModel extends AbstractTableModel {
             case VERSION:
                 return f.getRef().getVersion();
             case STATE:
+                final String s;
                 if (f.isRunning())
-                    return "Démarré";
+                    s = "Démarré";
                 else if (f.isRegistered())
-                    return "Chargé";
+                    s = "Chargé";
                 else if (f.isAvailable())
-                    return "Disponible";
+                    s = "Disponible";
                 else
-                    return "Non disponible";
+                    s = "Non disponible";
+                final Set<Problem> pbs = f.getProblems();
+                if (pbs.size() == 0)
+                    return s;
+                final StringBuilder sb = new StringBuilder(64);
+                sb.append("<html><body>");
+                sb.append(s);
+                // now add error tags
+                // space at the end for background
+                sb.append(" <font bgcolor=\"RED\" color=\"WHITE\">&nbsp;");
+                if (pbs.contains(Problem.REQUIRED_MISSING))
+                    sb.append("Module&nbsp;requis ");
+                if (pbs.contains(Problem.MISSING_DEP))
+                    sb.append("Dépendances&nbsp;manquantes ");
+                // leave last space for background
+                sb.append("</font></body></html>");
+                return sb.toString();
             case LOCAL:
                 return f.isInstalledLocally();
             case REMOTE:

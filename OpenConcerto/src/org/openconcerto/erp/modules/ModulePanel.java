@@ -82,6 +82,8 @@ public class ModulePanel extends JPanel {
                 return viewPort.getSize().width >= this.getMinimumSize().width;
             }
         };
+        // perhaps pass custom sorter to be able to unsort
+        t.setAutoCreateRowSorter(true);
         t.setShowGrid(false);
         t.setShowVerticalLines(false);
         t.setFocusable(false);
@@ -111,7 +113,7 @@ public class ModulePanel extends JPanel {
             col.setMinWidth(minCellWidth);
             final int prefCellWidth;
             if (col.getIdentifier() == ModuleTableModel.Columns.NAME || col.getIdentifier() == ModuleTableModel.Columns.STATE)
-                prefCellWidth = 128;
+                prefCellWidth = 192;
             else
                 prefCellWidth = minCellWidth;
             // makes sure the column can display its label
@@ -168,7 +170,7 @@ public class ModulePanel extends JPanel {
         c.fill = GridBagConstraints.NONE;
         c.gridheight = 1;
 
-        final JButton installButton = new JButton(AvailableModulesPanel.createInstallAction(this, this.tm, onlyInstall));
+        final JButton installButton = new JButton(AvailableModulesPanel.createInstallAction(this, onlyInstall));
         installButton.setOpaque(false);
         this.add(installButton, c);
 
@@ -187,7 +189,7 @@ public class ModulePanel extends JPanel {
             @Override
             public void actionPerformed(ActionEvent evt) {
                 final String dialogTitle = "Désinstallation de modules";
-                final Collection<ModuleRow> checkedRows = ModulePanel.this.tm.getCheckedRows();
+                final Collection<ModuleRow> checkedRows = getSelection();
                 if (checkedRows.isEmpty()) {
                     JOptionPane.showMessageDialog(ModulePanel.this, "Aucune ligne cochée", dialogTitle, JOptionPane.INFORMATION_MESSAGE);
                     return;
@@ -292,6 +294,12 @@ public class ModulePanel extends JPanel {
         }
     }
 
+    protected final Collection<ModuleRow> getSelection() {
+        // don't use native selection since users have some difficulty to select multiple rows
+        // NOTE: since we use a RowSorter this also frees us from converting indexes
+        return this.tm.getCheckedRows();
+    }
+
     // this doesn't change the installation state, only start/stop
     private final class StartStopAction extends AbstractAction {
         private final boolean start;
@@ -311,7 +319,7 @@ public class ModulePanel extends JPanel {
         public void actionPerformed(ActionEvent evt) {
             final ModuleManager mngr = ModuleManager.getInstance();
             final String dialogTitle = this.start ? "Démarrage de modules" : "Arrêt de modules";
-            final Collection<ModuleRow> checkedRows = ModulePanel.this.tm.getCheckedRows();
+            final Collection<ModuleRow> checkedRows = getSelection();
             if (checkedRows.isEmpty()) {
                 JOptionPane.showMessageDialog(ModulePanel.this, "Aucune ligne cochée", dialogTitle, JOptionPane.INFORMATION_MESSAGE);
                 return;

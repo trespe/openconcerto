@@ -63,8 +63,12 @@ public class UpdateBuilder {
     }
 
     private final void checkField(final String field) {
-        if (!this.getTable().contains(field))
-            throw new IllegalArgumentException("unknown " + field + " in " + this.getTable().getSQLName());
+        checkField(field, getTable());
+    }
+
+    private final void checkField(final String field, final TableRef t) {
+        if (!t.getTable().contains(field))
+            throw new IllegalArgumentException("unknown " + field + " in " + t.getSQL());
     }
 
     private final void checkField(final SQLField field) {
@@ -175,8 +179,14 @@ public class UpdateBuilder {
         this.tables.add(definition + (rawAlias == null ? "" : " " + rawAlias));
     }
 
-    public final void addVirtualJoin(final TableRef t, final String joinedTableField) {
+    public final void addBackwardVirtualJoin(final TableRef t, final String joinedTableField) {
+        checkField(joinedTableField, t);
         this.addVirtualJoin(t.getSQL(), t.getAlias(), true, joinedTableField, getTable().getKey().getName());
+    }
+
+    public final void addForwardVirtualJoin(final TableRef t, final String joinField) {
+        checkField(joinField, getTable());
+        this.addVirtualJoin(t.getSQL(), t.getAlias(), true, t.getKey().getField().getName(), joinField);
     }
 
     public final void addVirtualJoin(final String definition, final String alias, final String joinedTableField) {

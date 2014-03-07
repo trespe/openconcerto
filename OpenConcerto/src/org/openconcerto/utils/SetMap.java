@@ -45,7 +45,7 @@ public class SetMap<K, V> extends CollectionMap2<K, Set<V>, V> {
     }
 
     @Override
-    protected Set<V> createCollection(Collection<? extends V> v) {
+    public Set<V> createCollection(Collection<? extends V> v) {
         return new HashSet<V>(v);
     }
 }

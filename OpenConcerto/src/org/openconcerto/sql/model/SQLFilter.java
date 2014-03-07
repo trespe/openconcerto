@@ -54,9 +54,9 @@ public final class SQLFilter {
         final Set<SQLField> toKeep = new HashSet<SQLField>(elements.size());
 
         for (final SQLElement elem : elements) {
-            final String parentFF = elem.getParentForeignField();
+            final SQLField parentFF = elem.getParentForeignField();
             if (parentFF != null)
-                toKeep.add(elem.getTable().getField(parentFF));
+                toKeep.add(parentFF);
         }
         // NOTE, if filtering on privates is needed (eg OBSERVATION)
         // first find its parents (eg CIRCUIT, MACHINE, etc.)
@@ -186,10 +186,9 @@ public final class SQLFilter {
         if (table == null)
             connectedSet = this.filterGraph.getAllTables();
         else {
-            // getFieldRaw since it can be inexistant
-            final String parentForeignField = this.getDirectory().getElement(table).getParentForeignField();
+            final SQLField parentForeignField = this.getDirectory().getElement(table).getParentForeignField();
             // 5x faster than getElement(table).getDescendantTables()
-            connectedSet = this.filterGraph.getDescTables(table, table.getFieldRaw(parentForeignField));
+            connectedSet = this.filterGraph.getDescTables(table, parentForeignField);
         }
 
         final List<SQLFilterListener> dispatchingListeners;

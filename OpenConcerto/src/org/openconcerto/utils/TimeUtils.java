@@ -19,16 +19,18 @@ import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeConstants;
+import javax.xml.datatype.DatatypeConstants.Field;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
-import javax.xml.datatype.DatatypeConstants.Field;
 
 import net.jcip.annotations.Immutable;
 
@@ -251,6 +253,13 @@ public class TimeUtils {
      * {@link GregorianCalendar} then this method will use a GregorianCalendar with the time zone
      * and absolute time of the other.
      * </p>
+     * <p>
+     * Also note that the local time of <code>from</code> can be {@link #isAmbiguous(Calendar)
+     * ambiguous} in <code>to</code> or skipped. In the former case, the absolute time is
+     * unspecified (e.g. 2h30 in WET can either be 2h30 CEST or CET in fall). In the latter case, a
+     * round trip back to <code>from</code> will yield a different local time (e.g. in spring 2h30
+     * in WET to 3h30 in CEST, back to 3h30 in WEST).
+     * </p>
      * 
      * @param from the source calendar, e.g. 23/12/2011 11:55:33.066 GMT-12.
      * @param to the destination calendar, e.g. 01/01/2000 0:00 GMT+13.
@@ -283,5 +292,71 @@ public class TimeUtils {
             to.setTime(dest.getTime());
         }
         return to;
+    }
+
+    /**
+     * Whether the wall time of the passed calendar is ambiguous (i.e. happens twice the same day).
+     * E.g. in France, Sun Oct 27 02:30 CEST 2013 then one hour later Sun Oct 27 02:30 CET 2013.
+     * 
+     * @param cal a calendar.
+     * @return <code>true</code> if the wall time (without time zone) is ambiguous.
+     */
+    public final static boolean isAmbiguous(final Calendar cal) {
+        return isAmbiguous(getDSTChange(cal));
+    }
+
+    public final static boolean isAmbiguous(final DSTChange dstChange) {
+        return dstChange == DSTChange.BEFORE_WINTER || dstChange == DSTChange.AFTER_WINTER;
+    }
+
+    /**
+     * Relation to a DST change. Useful to test corner cases.
+     * 
+     * @author Sylvain
+     */
+    static public enum DSTChange {
+        /**
+         * No change nearby.
+         */
+        NO,
+        /**
+         * DST will come, i.e. the next hour will be skipped.
+         */
+        BEFORE_SUMMER,
+        /**
+         * DST just came, i.e. the previous hour was skipped.
+         */
+        AFTER_SUMMER,
+        /**
+         * DST will go, the current hour will be happen again this day.
+         */
+        BEFORE_WINTER,
+        /**
+         * DST just went, the current wall time has already happened this day.
+         */
+        AFTER_WINTER
+    }
+
+    public final static DSTChange getDSTChange(final Calendar cal) {
+        final TimeZone tz = cal.getTimeZone();
+        if (!tz.useDaylightTime())
+            return DSTChange.NO;
+
+        final long currentMillis = cal.getTimeInMillis();
+        final int hourInMillis = tz.getDSTSavings();
+        final boolean isSTBefore = tz.inDaylightTime(new Date(currentMillis - hourInMillis));
+        final boolean isST = tz.inDaylightTime(new Date(currentMillis));
+        final boolean isSTAfter = tz.inDaylightTime(new Date(currentMillis + hourInMillis));
+        if (isSTBefore != isST) {
+            // only one change
+            assert isST == isSTAfter;
+            return isSTBefore ? DSTChange.AFTER_WINTER : DSTChange.AFTER_SUMMER;
+        } else if (isST != isSTAfter) {
+            // only one change
+            assert isST == isSTBefore;
+            return isSTAfter ? DSTChange.BEFORE_SUMMER : DSTChange.BEFORE_WINTER;
+        } else {
+            return DSTChange.NO;
+        }
     }
 }
