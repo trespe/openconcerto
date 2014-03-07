@@ -64,7 +64,7 @@ public class SetFFRules extends Changer<SQLTable> {
 
         getStream().println(t);
         final AlterTable alterTable = new AlterTable(t);
-        final String parentFF = elem.getParentForeignField();
+        final String parentFF = elem.getParentForeignFieldName();
         if (parentFF != null) {
             setDeleteRule(t, parentFF, alterTable, Rule.CASCADE);
         }

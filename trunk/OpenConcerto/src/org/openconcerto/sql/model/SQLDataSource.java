@@ -1390,6 +1390,9 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             validateConnectionFactory(connectionFactory);
         } catch (RuntimeException e) {
             throw e;
+        } catch (SQLException e) {
+            // only wrap if necessary (calling code can use SQLState)
+            throw e;
         } catch (Exception e) {
             throw new SQLException("Cannot create PoolableConnectionFactory", e);
         }

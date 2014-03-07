@@ -19,6 +19,7 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.request.MutableRowItemView;
 import org.openconcerto.sql.request.SQLFieldTranslator;
+import org.openconcerto.sql.sqlobject.itemview.BaseRowItemView;
 import org.openconcerto.sql.view.IListPanel;
 import org.openconcerto.ui.EnhancedTable;
 import org.openconcerto.ui.state.JTableStateManager;
@@ -38,6 +39,7 @@ import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -356,12 +358,17 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
         return this;
     }
 
-    private SQLField field;
+    private List<SQLField> fields;
     private String sqlName;
 
     @Override
-    public SQLField getField() {
-        return this.field;
+    public final SQLField getField() {
+        return BaseRowItemView.getOnlyOne(this.fields);
+    }
+
+    @Override
+    public List<SQLField> getFields() {
+        return this.fields;
     }
 
     @Override
@@ -437,11 +444,10 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
 
     @Override
     public void init(String sqlName, Set<SQLField> fields) {
-        final Object[] array = fields.toArray();
-        if (array.length > 0) {
-            this.field = (SQLField) array[0];
+        if (fields.size() > 0) {
+            this.fields = new ArrayList<SQLField>(fields);
         } else {
-            this.field = this.model.getRequiredField();
+            this.fields = Collections.singletonList(this.model.getRequiredField());
         }
         this.sqlName = sqlName;
     }

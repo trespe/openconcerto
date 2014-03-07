@@ -422,4 +422,8 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         return Path.get(getTable());
     }
 
+    @Override
+    public String getFieldName() {
+        return this.getName();
+    }
 }

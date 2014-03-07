@@ -139,7 +139,7 @@ class ToRefreshSpec {
                 else
                     this.tablesFromJDBC = null;
             } else {
-                tablesByRoot.addAll(tablesRefreshed);
+                tablesByRoot.merge(tablesRefreshed);
             }
         }
         return this;

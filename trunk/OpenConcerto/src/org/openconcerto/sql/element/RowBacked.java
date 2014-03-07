@@ -146,7 +146,7 @@ public abstract class RowBacked {
     }
 
     public RowBacked getParent() {
-        final SQLRowAccessor parent = this.getRow().getForeign(this.getElement().getParentForeignField());
+        final SQLRowAccessor parent = this.getRow().getForeign(this.getElement().getParentForeignFieldName());
         return (RowBacked) getModelObject(parent);
     }
 

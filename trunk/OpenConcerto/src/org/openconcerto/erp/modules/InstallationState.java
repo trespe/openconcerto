@@ -15,20 +15,27 @@
 
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.Tuple2;
 
 import java.io.IOException;
 import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+
+import net.jcip.annotations.Immutable;
 
 /**
  * Stores in-memory which modules are installed (avoiding file system and database access).
  * 
  * @author Sylvain
  */
+@Immutable
 final class InstallationState {
 
     static private <T> Set<T> copySet(final Collection<T> s) {
@@ -41,7 +48,8 @@ final class InstallationState {
     private final Set<ModuleReference> installedRemotely;
     private final Set<ModuleReference> localAndRemote;
     private final Set<ModuleReference> localOrRemote;
-    private final Set<ModuleFactory> installedFactories;
+    private final boolean missingFactories;
+    private final Map<String, ModuleFactory> installedFactories;
 
     private InstallationState() {
         this(Collections.<ModuleReference> emptySet(), Collections.<ModuleReference> emptySet(), null);
@@ -63,7 +71,9 @@ final class InstallationState {
         tmp.addAll(this.installedRemotely);
         this.localOrRemote = Collections.unmodifiableSet(tmp);
 
-        this.installedFactories = this.computeInstalledFactories(pool);
+        final Tuple2<Boolean, Map<String, ModuleFactory>> computed = this.computeInstalledFactories(pool);
+        this.missingFactories = computed.get0();
+        this.installedFactories = computed.get1();
     }
 
     public Set<ModuleReference> getLocal() {
@@ -82,24 +92,41 @@ final class InstallationState {
         return this.localOrRemote;
     }
 
-    // factories for all installed (local or remote) modules
-    // null if some installed module lacks a factory
-    public final Set<ModuleFactory> getInstalledFactories() {
+    // true if some installed module lacks a factory
+    public final boolean isMissingFactories() {
+        return this.missingFactories;
+    }
+
+    // available factories for installed modules
+    public final Map<String, ModuleFactory> getInstalledFactories() {
         return this.installedFactories;
     }
 
-    private final Set<ModuleFactory> computeInstalledFactories(final FactoriesByID pool) {
+    // factories for all installed (local or remote) modules
+    // null if some installed module lacks a factory
+    public final Collection<ModuleFactory> getAllInstalledFactories() {
+        if (this.isMissingFactories())
+            return null;
+        else
+            return this.getInstalledFactories().values();
+    }
+
+    private final Tuple2<Boolean, Map<String, ModuleFactory>> computeInstalledFactories(final FactoriesByID pool) {
+        boolean missing = false;
         final Set<ModuleReference> localOrRemote = this.getLocalOrRemote();
-        final Set<ModuleFactory> res = new HashSet<ModuleFactory>(localOrRemote.size());
+        final Map<String, ModuleFactory> res = new HashMap<String, ModuleFactory>(localOrRemote.size());
         for (final ModuleReference ref : localOrRemote) {
             if (ref.getVersion() == null)
                 throw new IllegalStateException("Installed module missing version : " + ref);
-            final ModuleFactory factory = CollectionUtils.getSole(pool.getFactories(ref));
-            if (factory == null)
-                return null;
-            res.add(factory);
+            final List<ModuleFactory> factories = pool.getFactories(ref);
+            if (factories.size() == 0) {
+                missing = true;
+            } else {
+                assert factories.size() == 1 : "Despite a non-null version, more than one match";
+                res.put(ref.getID(), CollectionUtils.getSole(factories));
+            }
         }
-        return Collections.unmodifiableSet(res);
+        return Tuple2.create(missing, Collections.unmodifiableMap(res));
     }
 
     @Override

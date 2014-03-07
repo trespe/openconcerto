@@ -29,7 +29,7 @@ public class ListMap<K, V> extends CollectionMap2<K, List<V>, V> {
     }
 
     @Override
-    protected List<V> createCollection(Collection<? extends V> v) {
+    public List<V> createCollection(Collection<? extends V> v) {
         return new ArrayList<V>(v);
     }
 }

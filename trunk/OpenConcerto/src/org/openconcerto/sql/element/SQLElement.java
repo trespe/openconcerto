@@ -840,13 +840,21 @@ public abstract class SQLElement {
         return this.sharedFF;
     }
 
-    public final synchronized String getParentForeignField() {
+    public final SQLField getParentForeignField() {
+        return getOptionalField(this.getParentForeignFieldName());
+    }
+
+    public final synchronized String getParentForeignFieldName() {
         this.initFF();
         return this.parentFF;
     }
 
     private final SQLField getParentFF() {
-        final String name = getParentFFName();
+        return getOptionalField(getParentFFName());
+    }
+
+    // optional but if specified it must exist
+    private final SQLField getOptionalField(final String name) {
         return name == null ? null : this.getTable().getField(name);
     }
 
@@ -865,10 +873,10 @@ public abstract class SQLElement {
     }
 
     public final SQLElement getParentElement() {
-        if (this.getParentForeignField() == null)
+        if (this.getParentForeignFieldName() == null)
             return null;
         else
-            return this.getForeignElement(this.getParentForeignField());
+            return this.getForeignElement(this.getParentForeignFieldName());
     }
 
     private final synchronized Map<String, SQLElement> getPrivateFF() {
@@ -946,7 +954,7 @@ public abstract class SQLElement {
     // *** rf and ff
 
     /**
-     * The links towards the parents (either {@link #getParentForeignField()} or
+     * The links towards the parents (either {@link #getParentForeignFieldName()} or
      * {@link #getPrivateParentReferentFields()}) of this element.
      * 
      * @return the graph links towards the parents of this element.
@@ -957,8 +965,9 @@ public abstract class SQLElement {
         final DatabaseGraph graph = this.getTable().getDBSystemRoot().getGraph();
         for (final SQLField refField : refFields)
             res.add(graph.getForeignLink(refField));
-        if (this.getParentForeignField() != null)
-            res.add(graph.getForeignLink(this.getTable().getField(getParentForeignField())));
+        final SQLField parentFF = this.getParentForeignField();
+        if (parentFF != null)
+            res.add(graph.getForeignLink(parentFF));
         return res;
     }
 
@@ -1354,10 +1363,10 @@ public abstract class SQLElement {
         }
         // si on a spécifié un parent, eg BATIMENT[23]
         if (parent != null) {
-            final SQLTable foreignTable = this.getTable().getBase().getGraph().getForeignTable(this.getTable().getField(this.getParentForeignField()));
+            final SQLTable foreignTable = this.getParentForeignField().getForeignTable();
             if (!parent.getTable().equals(foreignTable))
                 throw new IllegalArgumentException(parent + " is not a parent of " + row);
-            copy.put(this.getParentForeignField(), parent.getID());
+            copy.put(this.getParentForeignFieldName(), parent.getID());
         }
 
         return copy;
@@ -1375,8 +1384,8 @@ public abstract class SQLElement {
         check(row);
         vals.setAll(row.getAllValues());
         vals.load(row, this.getNormalForeignFields());
-        if (this.getParentForeignField() != null)
-            vals.put(this.getParentForeignField(), row.getObject(this.getParentForeignField()));
+        if (this.getParentForeignFieldName() != null)
+            vals.put(this.getParentForeignFieldName(), row.getObject(this.getParentForeignFieldName()));
         vals.load(row, this.getSharedForeignFields());
     }
 
@@ -1474,7 +1483,7 @@ public abstract class SQLElement {
     // a foreign row (which isn't the case for private)
     private SQLRow getForeignParent(SQLRow row, final SQLRowMode mode) {
         check(row);
-        return this.getParentForeignField() == null ? null : row.getForeignRow(this.getParentForeignField(), mode);
+        return this.getParentForeignFieldName() == null ? null : row.getForeignRow(this.getParentForeignFieldName(), mode);
     }
 
     // {SQLField => List<SQLRow>}

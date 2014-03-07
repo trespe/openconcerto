@@ -66,7 +66,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
 
     private final boolean emptyCollSameAsNoColl;
     private final Mode mode;
-    private Collection<V> allValues = null;
+    private transient Collection<V> allValues = null;
 
     public CollectionMap2() {
         this(DEFAULT_MODE);
@@ -382,9 +382,15 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         }
     }
 
-    public final void addAll(Map<? extends K, ? extends Collection<? extends V>> mm) {
+    public final void merge(Map<? extends K, ? extends Collection<? extends V>> mm) {
         for (final Map.Entry<? extends K, ? extends Collection<? extends V>> e : mm.entrySet()) {
             this.addAll(e.getKey(), e.getValue());
+        }
+    }
+
+    public final void mergeScalarMap(Map<? extends K, ? extends V> scalarMap) {
+        for (final Map.Entry<? extends K, ? extends V> e : scalarMap.entrySet()) {
+            this.add(e.getKey(), e.getValue());
         }
     }
 
@@ -441,6 +447,14 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         }
     }
 
+    public final void removeAllScalar(Map<? extends K, ? extends V> m) {
+        // incompatible types, allowing removal without ConcurrentModificationException
+        assert m != this;
+        for (final Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
+            this.remove(e.getKey(), e.getValue());
+        }
+    }
+
     // ** remove empty/null collections
 
     public final C removeIfEmpty(K k) {
@@ -478,7 +492,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         return removed;
     }
 
-    protected abstract C createCollection(Collection<? extends V> v);
+    public abstract C createCollection(Collection<? extends V> v);
 
     @Override
     public int hashCode() {
@@ -500,5 +514,19 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         // no need to test createCollection(), since values are tested by super.equals()
         final CollectionMap2<?, ?, ?> other = (CollectionMap2<?, ?, ?>) obj;
         return this.emptyCollSameAsNoColl == other.emptyCollSameAsNoColl && this.mode == other.mode;
+    }
+
+    @Override
+    public CollectionMap2<K, C, V> clone() {
+        @SuppressWarnings("unchecked")
+        final CollectionMap2<K, C, V> result = (CollectionMap2<K, C, V>) super.clone();
+        // allValues has a reference to this
+        result.allValues = null;
+        // clone each collection value
+        for (Map.Entry<K, C> entry : result.entrySet()) {
+            final C coll = entry.getValue();
+            entry.setValue(createCollection(coll));
+        }
+        return result;
     }
 }

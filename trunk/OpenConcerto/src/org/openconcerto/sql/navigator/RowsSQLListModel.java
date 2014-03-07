@@ -19,6 +19,7 @@ package org.openconcerto.sql.navigator;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.IResultSetHandler;
 import org.openconcerto.sql.model.SQLDataSource;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
@@ -46,15 +47,15 @@ public class RowsSQLListModel extends SQLListModel<SQLRow> implements SQLTableMo
     @Override
     protected void reload(final boolean noCache) {
         final Set<Number> ids = getIds();
-        final String key = this.getElement().getParentForeignField();
+        final SQLField key = this.getElement().getParentForeignField();
 
-        final SQLSelect sel = new SQLSelect(this.getElement().getTable().getBase());
+        final SQLSelect sel = new SQLSelect();
         sel.addSelectStar(this.getElement().getTable());
         sel.addOrderSilent(this.getElement().getTable().getName());
 
         // si null pas de where, on montre tout
         if (ids != null && key != null) {
-            sel.setWhere(new Where(this.getElement().getTable().getField(key), ids));
+            sel.setWhere(new Where(key, ids));
         }
         final SQLDataSource source = this.getElement().getTable().getBase().getDataSource();
 

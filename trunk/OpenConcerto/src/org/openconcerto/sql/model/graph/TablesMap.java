@@ -155,7 +155,7 @@ public final class TablesMap extends SetMap<String, String> {
     }
 
     @Override
-    protected Set<String> createCollection(Collection<? extends String> v) {
+    public Set<String> createCollection(Collection<? extends String> v) {
         final Set<String> res = new HashSet<String>(Math.max(8, v.size()));
         res.addAll(v);
         return res;

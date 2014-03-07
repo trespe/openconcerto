@@ -334,7 +334,7 @@ public class DatabaseGraph extends BaseGraph {
                 this.deleteGraphFiles();
             }
             // add to JDBC what wasn't loaded
-            fromJDBC.addAll(fromXML);
+            fromJDBC.merge(fromXML);
         }
         if (!fromJDBC.isEmpty()) {
             final long t1 = System.currentTimeMillis();

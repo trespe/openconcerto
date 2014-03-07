@@ -1702,9 +1702,11 @@ public class ModuleManager {
             final ListIterator<Locale> listIterator = CollectionUtils.getListIterator(langs, true);
             while (listIterator.hasNext()) {
                 final Locale lang = listIterator.next();
-                final InputStream ins = module.getClass().getResourceAsStream(cntrl.toResourceName(cntrl.toBundleName(baseName, lang), "xml"));
+                final String resourceName = cntrl.toResourceName(cntrl.toBundleName(baseName, lang), "xml");
+                final InputStream ins = module.getClass().getResourceAsStream(resourceName);
                 // do not force to have one mapping for each locale
                 if (ins != null) {
+                    Log.get().info("module " + module.getName() + " loading translation from " + resourceName);
                     final Set<SQLTable> loadedTables;
                     try {
                         loadedTables = trns.load(getRoot(), mdVariant, ins).get0();

@@ -57,9 +57,9 @@ public class ElementsSQLListModel extends SQLListModel<SQLElement> {
 
     private final int getCount(SQLElement elem) {
         if (!this.counts.containsKey(elem)) {
-            final SQLSelect sel = new SQLSelect(elem.getTable().getBase());
+            final SQLSelect sel = new SQLSelect();
             sel.addSelectFunctionStar("count");
-            sel.setWhere(new Where(elem.getTable().getField(elem.getParentForeignField()), this.getIds()));
+            sel.setWhere(new Where(elem.getParentForeignField(), this.getIds()));
             final Number count = (Number) elem.getTable().getBase().getDataSource().executeScalar(sel.asString());
             this.counts.put(elem, count);
         }

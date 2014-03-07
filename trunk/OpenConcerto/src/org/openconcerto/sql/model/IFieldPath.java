@@ -32,6 +32,8 @@ public interface IFieldPath {
      */
     public SQLTable getTable();
 
+    public String getFieldName();
+
     /**
      * The field.
      * 

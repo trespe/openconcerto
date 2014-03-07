@@ -13,7 +13,7 @@
  
  package org.openconcerto.sql.view.list;
 
-import org.openconcerto.sql.model.FieldPath;
+import org.openconcerto.sql.model.IFieldPath;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValues.CreateMode;
 import org.openconcerto.sql.request.ListSQLRequest;
@@ -48,7 +48,7 @@ public class SQLTableModelSourceOnline extends SQLTableModelSource {
         super.colsChanged(change);
         // add needed fields for each new column
         for (final SQLTableModelColumn col : change.getItemsAdded()) {
-            for (final FieldPath p : col.getPaths()) {
+            for (final IFieldPath p : col.getPaths()) {
                 // don't back track : e.g. if path is SITE -> CLIENT <- SITE we want the siblings of
                 // SITE, if we want fields of the primary SITE we pass the path SITE
                 final SQLRowValues assurePath = this.getReq().getGraphToFetch().followPathToOne(p.getPath(), CreateMode.CREATE_ONE, false);

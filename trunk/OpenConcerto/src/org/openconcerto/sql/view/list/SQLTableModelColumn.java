@@ -14,6 +14,7 @@
  package org.openconcerto.sql.view.list;
 
 import org.openconcerto.sql.model.FieldPath;
+import org.openconcerto.sql.model.IFieldPath;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.utils.cc.IClosure;
@@ -73,7 +74,7 @@ public abstract class SQLTableModelColumn {
      */
     public Set<SQLField> getFields() {
         final Set<SQLField> res = new HashSet<SQLField>();
-        for (final FieldPath fp : this.getPaths())
+        for (final IFieldPath fp : this.getPaths())
             res.add(fp.getField());
         return res;
     }

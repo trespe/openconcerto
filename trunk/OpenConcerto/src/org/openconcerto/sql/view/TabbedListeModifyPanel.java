@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.navigator.SQLBrowser;
 import org.openconcerto.sql.view.list.IListe;
@@ -196,11 +197,11 @@ public class TabbedListeModifyPanel extends JPanel {
      * @return
      */
     private List getHiddenFields() {
-        final String parentField = element.getParentForeignField();
+        final SQLField parentField = this.element.getParentForeignField();
 
         List hiddenFields = new Vector();
         if (parentField != null)
-            hiddenFields.add(element.getTable().getField(parentField));
+            hiddenFields.add(parentField);
         return hiddenFields;
     }
 

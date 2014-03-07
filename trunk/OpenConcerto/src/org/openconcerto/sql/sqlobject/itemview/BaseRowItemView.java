@@ -29,6 +29,15 @@ import java.util.Set;
  */
 public abstract class BaseRowItemView implements MutableRowItemView {
 
+    static public final <T> T getOnlyOne(final List<T> l) {
+        if (l.size() == 0)
+            return null;
+        else if (l.size() > 1)
+            throw new IllegalStateException("More than one : " + l);
+        else
+            return l.get(0);
+    }
+
     private final List<SQLField> fields;
 
     private String sqlName;
@@ -50,8 +59,14 @@ public abstract class BaseRowItemView implements MutableRowItemView {
 
     protected abstract void init();
 
-    protected final List<SQLField> getFields() {
+    @Override
+    public final List<SQLField> getFields() {
         return this.fields;
+    }
+
+    @Override
+    public final SQLField getField() {
+        return getOnlyOne(this.fields);
     }
 
     @Override

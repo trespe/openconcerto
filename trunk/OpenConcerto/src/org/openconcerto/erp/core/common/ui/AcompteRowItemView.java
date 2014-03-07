@@ -13,10 +13,8 @@
  
  package org.openconcerto.erp.core.common.ui;
 
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.sqlobject.itemview.VWRowItemView;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 
@@ -28,30 +26,26 @@ public class AcompteRowItemView extends VWRowItemView<Acompte> {
         super(wrapper);
     }
 
-    public SQLField getField() {
-        return this.getFields().get(0);
-    }
-
-    protected final SQLTable getTable() {
-        return this.getField().getTable();
-    }
-
+    @Override
     public void setEditable(boolean b) {
         if (this.getComp() != null)
             this.getComp().setEnabled(b);
     }
 
-    @SuppressWarnings("unchecked")
+    @Override
     public void show(SQLRowAccessor r) {
-        if (r.getFields().contains(this.getField().getName())) {
-            BigDecimal montant = r.getBigDecimal(getFields().get(0).getName());
-            BigDecimal percent = r.getBigDecimal(getFields().get(1).getName());
+        final String fieldName0 = getFields().get(0).getName();
+        final String fieldName1 = getFields().get(1).getName();
+        if (r.getFields().contains(fieldName0) && r.getFields().contains(fieldName1)) {
+            BigDecimal montant = r.getBigDecimal(fieldName0);
+            BigDecimal percent = r.getBigDecimal(fieldName1);
 
             Acompte a = new Acompte(percent, montant);
             this.getWrapper().setValue(a);
         }
     }
 
+    @Override
     public void update(SQLRowValues vals) {
         vals.put(getFields().get(0).getName(), this.isEmpty() ? SQLRowValues.SQL_DEFAULT : this.getWrapper().getValue().getMontant());
         vals.put(getFields().get(1).getName(), this.isEmpty() ? SQLRowValues.SQL_DEFAULT : this.getWrapper().getValue().getPercent());

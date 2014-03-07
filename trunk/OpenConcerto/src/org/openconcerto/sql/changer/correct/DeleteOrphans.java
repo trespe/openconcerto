@@ -46,9 +46,9 @@ public class DeleteOrphans extends Changer<SQLTable> {
             return;
         }
 
-        if (elem.getParentForeignField() != null) {
+        final SQLField parentF = elem.getParentForeignField();
+        if (parentF != null) {
             final SQLTable elemT = elem.getTable();
-            final SQLField parentF = elemT.getField(elem.getParentForeignField());
             final Where undefParent = new Where(parentF, "=", parentF.getForeignTable().getUndefinedID());
             final Where undefW = new Where(elemT.getKey(), "!=", elemT.getUndefinedID());
             getDS().execute("DELETE from " + elemT.getSQLName().quote() + " where " + undefParent.and(undefW));
