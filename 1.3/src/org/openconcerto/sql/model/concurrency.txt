@@ -1,0 +1,12 @@
+DBSystemRoot.getTreeMutex() is the lock needed to modify the tree (add, modify or delete a descendant). Thus the graph needs it to be refreshed.
+To ensure performance each node has a private lock (allowing multiple threads to access different parts of the tree concurrently),
+to ensure safety the tree lock must always be acquired before the private lock.
+
+To ensure both simplicity and performance, when the structure changed (be it the whole database or just a table) the graph was deleted, then the next call to getGraph()
+would block while constructing a new one. Thus in this case every method that *ultimately* calls getGraph() needs the tree mutex. Hence it cannot have a lock on this.
+But this proved very difficult since a lot of methods ultimately need getGraph().
+
+Solutions :
+We can't just replace those 2 with a ReadWriteLock since getter methods calls getGraph() which might needs a setter. I.e. we would need to upgrade the read lock to a write lock.
+We could loose out on performance by removing the private lock and using only the tree lock.
+Or we could make getGraph() a real getter by always updating the graph when refetching the structure (by adding methods to only refetch part of the graph).

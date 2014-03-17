@@ -1,0 +1,4 @@
+<translations>
+	<element refid="TACHE_COMMON" nameClass="feminine" name="tâche" />
+	<element refid="TACHE_RIGHTS" nameClass="masculine" name="droit pour les tâches" namePlural="droits pour les tâches" />
+</translations>
