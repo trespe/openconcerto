@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?> 
+
+<contentDocument>	
+	
+	<element location="H1" type="Value" ValueName="DATE_DEPOT">
+	</element>
+
+	<element location="J54" type="Value" ValueName="NB_TOTAL">
+	</element>
+
+	<element location="K56" type="Value" ValueName="TOTAL">
+	</element>
+
+	<table firstLine="4" endLine="42" endPageLine="47" lastColumn="L" base="Societe" table="CHEQUE_A_ENCAISSER">
+		<element location="A" type="fill">
+			<field base="Societe" name="BANQUE"/>
+		</element>
+
+		<element location="B" type="fill">
+			<field base="Societe" name="DATE"/>
+		</element>
+
+		<element location="C" type="fill">
+			<field base="Societe" name="NUMERO"/>
+		</element>		
+
+		<element location="E" type="fill">
+			<field base="Societe" name="NOM_CLIENT"/>
+		</element>
+
+		<element location="J" type="fill">
+			<field base="Societe" name="SOURCE"/>
+		</element>
+
+		<element location="K" type="fill">
+			<field base="Societe" name="MONTANT"/>
+		</element>
+	</table>
+	
+</contentDocument>

@@ -1,0 +1,103 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?> 
+
+<contentDocument>
+
+	<element location="B1" type="fill">
+		<field base="Common" table="SOCIETE_COMMON" name="TYPE"/>
+		<field base="Common" table="SOCIETE_COMMON" name="NOM"/>
+	</element>
+
+	<element location="B2" type="fill">
+		<field base="Common" table="SOCIETE_COMMON" name="ID_ADRESSE_COMMON">
+			<field base="Common" table="ADRESSE_COMMON" name="RUE"/>
+		</field>
+	</element>
+
+	<element location="B3" type="fill">
+		<field base="Common" table="SOCIETE_COMMON" name="ID_ADRESSE_COMMON">
+			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="villeCP"/>
+			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="ville"/>
+		</field>
+	</element>
+	
+	<element location="B7" type="replace" replacePattern="_">
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_NII"/>
+	</element>
+	
+	<element location="B8" type="replace" replacePattern="_">
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_TEL"/>
+	</element>
+	
+	<element location="B9" type="replace" replacePattern="_">
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_FAX"/>
+	</element>
+	
+	<element location="B10" type="replace" replacePattern="_">
+		<field base="Common" table="SOCIETE_COMMON" name="MAIL"/>
+	</element>
+	
+	
+	<element location="B13" type="fill">
+		<field base="Societe" table="BON_DE_LIVRAISON" name="NUMERO"/>
+	</element>
+	
+	<element location="C13" type="fill">
+		<field base="Societe" table="BON_DE_LIVRAISON" name="DATE"/>
+	</element>
+
+	<element location="B16" type="fill">
+		<field base="Societe" table="BON_DE_LIVRAISON" name="NOM"/>
+	</element>	
+	
+	
+	<element location="H10" type="fill">
+		<field base="Societe" table="BON_DE_LIVRAISON" name="ID_CLIENT">
+			<field base="Societe" table="CLIENT" name="FORME_JURIDIQUE"/>
+			<field base="Societe" table="CLIENT" name="NOM"/>
+		</field>
+	</element>
+	
+	<element location="H11" type="fill">
+		<field base="Societe" table="BON_DE_LIVRAISON" name="ID_CLIENT">
+			<field base="Societe" table="CLIENT" name="ID_ADRESSE">
+				<field base="Societe" table="ADRESSE" name="RUE"/>
+			</field>
+		</field>
+	</element>
+	
+	<element location="H13" type="fill">
+		<field base="Societe" table="BON_DE_LIVRAISON" name="ID_CLIENT">
+			<field base="Societe" table="CLIENT" name="ID_ADRESSE">
+				<field base="Societe" table="ADRESSE" name="VILLE" type="villeCP"/>
+				<field base="Societe" table="ADRESSE" name="VILLE" type="ville"/>
+				<field base="Societe" table="ADRESSE" name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX"/>
+			</field>
+		</field>
+	</element>
+
+
+	<element location="L63" type="fill">
+		<field base="Societe" table="BON_DE_LIVRAISON" name="TOTAL_POIDS" valuesExpected="0.0"/>
+	</element>
+	
+	
+	
+	<table endPageLine="65" firstLine="20" endLine="60" blankLineBeforeStyle="Titre 1" lastColumn="K" base="Societe" table="BON_DE_LIVRAISON_ELEMENT">
+			<element location="B" type="fill">
+			<field base="Societe" table="BON_DE_LIVRAISON_ELEMENT" name="NOM"/>
+		</element>		
+		
+		<element location="J" type="fill">
+			<field base="Societe" table="BON_DE_LIVRAISON_ELEMENT" name="QTE" valuesExpected="0"/>	
+		</element>
+		
+		<element location="K" type="fill">
+			<field base="Societe" table="BON_DE_LIVRAISON_ELEMENT" name="QTE_LIVREE" valuesExpected="0"/>	
+		</element>
+
+		<element location="L" type="fill">
+			<field base="Societe" table="BON_DE_LIVRAISON_ELEMENT" name="T_POIDS_LIVREE" valuesExpected="0.0"/>
+		</element>
+			
+	</table>
+</contentDocument>

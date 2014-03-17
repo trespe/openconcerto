@@ -1,0 +1,1841 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+	<TABLE name="ACOMPTE">
+		<FIELD name="ID_SALARIE" label="Salarié" titlelabel="Salarié" />
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="ID_MOUVEMENT" label="Mouvement" titlelabel="Mouvement" />
+	</TABLE>
+
+	<TABLE name="ADRESSE">
+		<FIELD name="RAISON_SOCIALE" label="Raison sociale" titlelabel="Raison sociale" />
+		<FIELD name="RUE" label="Rue" titlelabel="Rue" />
+		<FIELD name="PAYS" label="Pays" titlelabel="Pays" />
+		<FIELD name="CEDEX" label="Cedex" titlelabel="Cedex" />
+		<FIELD name="HAS_CEDEX" label="Cedex" titlelabel="Cedex" />
+		<FIELD name="CODE_POSTAL" label="Code postal" titlelabel="Code postal" />
+		<FIELD name="VILLE" label="Ville" titlelabel="Ville" />
+		<FIELD name="DEST" label="Nom du Destinataire" titlelabel="Destinataire" />
+		<FIELD name="NUMERO_CANTON" label="Numéro canton" titlelabel="Numéro canton" />
+		<FIELD name="NUMERO_COMMUNE" label="Numéro commune" titlelabel="Numéro commune" />
+	</TABLE>
+	<TABLE name="AFFACTURAGE">
+		<FIELD name="NB_FACT" label="Nombre de factures" titlelabel="Nombre de factures" />
+		<FIELD name="MONTANT_FACT" label="Montant" titlelabel="Montant" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+	</TABLE>
+	<TABLE name="AFFAIRE">
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="CCI" label="CCI" titlelabel="CCI" />
+		<FIELD name="ID_VERIFICATEUR" label="Chargé d'affaire" titlelabel="Chargé d'affaire" />
+		<FIELD name="DATE_DEMARRAGE" label="Date de démarrage" titlelabel="Date de démarrage" />
+		<FIELD name="MARCHE" label="Marché" titlelabel="Marché" />
+		<FIELD name="NUMERO" label="Numéro affaire" titlelabel="Numéro affaire" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_CONTACT_COM" label="Contact commercial" titlelabel="Contact commercial" />
+		<FIELD name="ID_CONTACT_TECH" label="Contact technique" titlelabel="Contact technique" />
+		<FIELD name="ID_PROPOSITION" label="Proposition" titlelabel="Proposition" />
+		<FIELD name="OBJET" label="Affaire" titlelabel="Affaire" />
+		<FIELD name="TOTAL_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="MONTANT_FACTURE" label="Montant HT facturé" titlelabel="Montant HT facturé" />
+		<FIELD name="REFERENCE" label="Nos références" titlelabel="Nos références" />
+		<FIELD name="SITUATION_ADMIN" label="Situation administrative" titlelabel="Situation administrative" />
+		<FIELD name="REFERENCE_CLIENT" label="Références client" titlelabel="Références client" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="INFOS_ETIQUETTE" label="Informations étiquette" titlelabel="Informations étiquette" />
+		<FIELD name="MONTANT_REVISABLE" label="Révisable" titlelabel="Révisable" />
+		<FIELD name="ID_ADRESSE" label="Adresse de facturation" titlelabel="Adresse de facturation" />
+		<FIELD name="ID_ADRESSE_COURRIER_1" label="Adresse de courrier 1" titlelabel="Adresse de courrier 1" />
+		<FIELD name="ID_ADRESSE_COURRIER_2" label="Adresse de courrier 2" titlelabel="Adresse de courrier 2" />
+		<FIELD name="ID_ADRESSE_COURRIER_3" label="Adresse de courrier 3" titlelabel="Adresse de courrier 3" />
+	</TABLE>
+	<TABLE name="AFFAIRE_ELEMENT">
+		<FIELD name="FIN_CONTRAT" label="Fin de contrat" titlelabel="Fin de contrat" />
+		<FIELD name="DATE_FIN_CONTRAT" label="Date de fin de contrat" titlelabel="Date de fin de contrat" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="DUREE_PREVISIONNELLE" label="Durée prévue" titlelabel="Durée prévue" />
+		<FIELD name="ID_DOSSIER" label="Dossier" titlelabel="Dossier" />
+		<FIELD name="ID_TAXE" label="TVA" titlelabel="TVA" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous activité" titlelabel="Sous activité" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="ID_PERIODICITE" label="Périodicité" titlelabel="Périodicité" />
+		<FIELD name="INDICE_0" label="Indice 0" titlelabel="Indice 0" />
+		<FIELD name="NOMBRE" label="Nombre" titlelabel="Nombre" />
+		<FIELD name="Q18" label="Extension Q18" titlelabel="Extension Q18" />
+		<FIELD name="TARIF_Q18_HT" label="Tarif Q18 HT" titlelabel="Tarif Q18 HT" />
+		<FIELD name="OBJET_INSPECTE" label="Objet inspecté" titlelabel="Objet inspecté" />
+		<FIELD name="PV_UNIT_HT" label="PV unitaire HT" titlelabel="PV unitaire HT" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="REFERENTIEL_INSPECTION" label="Référentiel inspection" titlelabel="Référentiel inspection" />
+		<FIELD name="LOCAL_OBJET_INSPECTE" label="Localisation objet" titlelabel="Localisation objet" />
+		<FIELD name="ID_SECTEUR_ACTIVITE" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="ID_NATURE_MISSION" label="Nature mission" titlelabel="Nature mission" />
+		<FIELD name="ID_DOMAINE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="REPARTITION_POURCENT" label="Répartition %" titlelabel="Répartition %" />
+		<FIELD name="MONTANT_REVISABLE" label="Révisable" titlelabel="Révisable" />
+		<FIELD name="INFOS_OBJET_INSPECTE" label="Commentaires objet" titlelabel="Commentaires objet" />
+		<FIELD name="ID_SITE_INTERVENTION" label="Site d'intervention" titlelabel="Site d'intervention" />
+		<FIELD name="SITUATION_ADMIN" label="Situation administrative" titlelabel="Situation administrative" />
+		<FIELD name="NOTA" label="Nota" titlelabel="Nota" />
+	</TABLE>
+
+	<TABLE name="ARTICLE">
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="QTE_ACHAT" label="Quantité multiple d'achat à respecter" titlelabel="Quantité multiple d'achat à respecter" />
+		<FIELD name="CODE_BARRE" label="Code barres" titlelabel="Code barres" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur principal" titlelabel="Fournisseur principal" />
+		<FIELD name="GESTION_STOCK" label="Gérer le stock" titlelabel="Gérer le stock" />
+		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
+		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
+		<FIELD name="QTE_MIN" label="Quantité minimum à stocker" titlelabel="Quantité minimum à stocker" />
+		<FIELD name="ETIQUETTE" label="Libellé étiquette" titlelabel="Libellé étiquette" />
+		<FIELD name="CODE" label="Code article" titlelabel="Code article" />
+		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
+		<FIELD name="PA_HT" label="Prix achat HT" titlelabel="Prix achat HT" />
+		<FIELD name="PV_HT" label="Prix vente HT" titlelabel="Prix vente HT" />
+		<FIELD name="PV_TTC" label="Prix vente TTC" titlelabel="Prix vente TTC" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids en Kg" titlelabel="Poids" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="ID_STOCK" label="Stock" titlelabel="Stock" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV HT" titlelabel="PV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA HT" titlelabel="PHA HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV HT" titlelabel="PV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA HT" titlelabel="PHA HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+		<FIELD name="ID_FAMILLE_ARTICLE" label="Famille" titlelabel="Famille" />
+		<FIELD name="OBSOLETE" label="Obsolete" titlelabel="Obsolete" />
+		<FIELD name="PRIX_REVENTE_HT" label="Prix de revente ht" titlelabel="Prix de revente ht" />
+		<FIELD name="PRIX_FINAL_TTC" label="Prix client final ttc" titlelabel="Prix client final ttc" />
+		<FIELD name="ID_ECOTAXE" label="Ecotaxe" titlelabel="Ecotaxe" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte spécifique de vente" titlelabel="Compte spécifique de vente" />
+		<FIELD name="ID_COMPTE_PCE_ACHAT" label="Compte spécifique d'achat" titlelabel="Compte spécifique d'achat" />
+	</TABLE>
+
+	<TABLE name="ARTICLE_TARIF">
+		<FIELD name="ID_TARIF" label="Tarif" titlelabel="Tarif" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PRIX_REVENTE_HT" label="Prix de revente ht" titlelabel="Prix de revente ht" />
+		<FIELD name="PRIX_FINAL_TTC" label="Prix client final ttc" titlelabel="Prix client final ttc" />
+		<FIELD name="PV_HT" label="Prix vente HT" titlelabel="Prix vente HT" />
+		<FIELD name="PV_TTC" label="Prix vente TTC" titlelabel="Prix vente TTC" />
+
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+	</TABLE>
+
+	<TABLE name="ARTICLE_DESIGNATION">
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
+		<FIELD name="ID_LANGUE" label="Langue" titlelabel="Langue" />
+	</TABLE>
+
+	<TABLE name="ASSOCIATION_ANALYTIQUE">
+		<FIELD name="ID_POSTE_ANALYTIQUE" label="Poste analytique" titlelabel="Poste analytique" />
+	</TABLE>
+
+	<TABLE name="ASSOCIATION_COMPTE_ANALYTIQUE">
+		<FIELD name="ID_COMPTE_PCE" label="Compte" titlelabel="Compte" />
+		<FIELD name="ID_AXE_ANALYTIQUE" label="Axe" titlelabel="Axe" />
+		<FIELD name="ID_REPARTITION_ANALYTIQUE" label="Répartition" titlelabel="Répartition" />
+	</TABLE>
+
+	<TABLE name="AVIS_INTERVENTION">
+		<FIELD name="ID_SECRETAIRE" label="Secretaire" titlelabel="Secretaire" />
+		<FIELD name="ID_FICHE_RENDEZ_VOUS" label="Fiche de rendez vous" titlelabel="Fiche de rendez vous" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+	</TABLE>
+
+	<TABLE name="AVOIR_CLIENT">
+		<FIELD name="ID_SECRETAIRE" label="Secrétaire" titlelabel="Secrétaire" />
+		<FIELD name="ID_ECHEANCIER_CCI" label="Echeancier CCI" titlelabel="Echeancier CCI" />
+		<FIELD name="REF_CLIENT" label="Références client" titlelabel="Références client" />
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de reglement" titlelabel="Mode de reglement" />
+		<FIELD name="ID_ADRESSE" label="Adresse spécifique" titlelabel="Adresse spécifique" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_AFFAIRE" label="Affaire" titlelabel="Affaire" />
+		<FIELD name="AFFACTURE" label="Natexis" titlelabel="Natexis" />
+		<FIELD name="ID_CONTACT" label="Contact" titlelabel="Contact" />
+		<FIELD name="MONTANT_RESTANT" label="Montant TTC Restant" titlelabel="Montant TTC Restant" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="SOLDE" label="Soldé" titlelabel="Soldé" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="MONTANT_TTC" label="Montant TTC" titlelabel="Montant TTC" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="ID_SAISIE_VENTE_FACTURE" label="Facture N°" titlelabel="Facture N°" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="MONTANT_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="PORT_HT" label="Frais de port HT" titlelabel="Ports" />
+		<FIELD name="REMISE_HT" label="Remise HT" titlelabel="Remise" />
+		<FIELD name="MONTANT_SOLDE" label="Montant TTC soldé" titlelabel="Montant TTC soldé" />
+		<FIELD name="MONTANT_SERVICE" label="Frais de service" titlelabel="Service" />
+		<FIELD name="ID_VERIFICATEUR" label="Vérificateur" titlelabel="Vérificateur" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="ID_COMPTE_PCE_SERVICE" label="Compte service" titlelabel="Compte service" />
+		<FIELD name="COMPTE_SERVICE_AUTO" label="Gestion automatique du compte de service" titlelabel="Gestion automatique du compte de service" />
+		<FIELD name="A_DEDUIRE" label="A déduire sur un prochain achat" titlelabel="A déduire sur un prochain achat" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="MOTIF" label="Motif" titlelabel="Motif" />
+		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
+	</TABLE>
+
+	<TABLE name="AVOIR_CLIENT_ELEMENT">
+		<FIELD name="NB_COLIS" label="Nb Colis" titlelabel="Nb Colis" />
+		<FIELD name="POIDS_COLIS_NET" label="Pds Colis" titlelabel="Pds Colis" />
+		<FIELD name="T_POIDS_COLIS_NET" label="Pds Colis Total" titlelabel="Pds Colis Total" />
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
+		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PV_U_DEVISE" label="Prix devise" titlelabel="Prix devise" />
+		<FIELD name="PV_T_DEVISE" label="Prix devise total" titlelabel="Prix devise total" />
+		<FIELD name="POURCENT_REMISE" label="% Remise" titlelabel="% Remise" />
+		<FIELD name="ID_AVOIR_CLIENT" label="Avoir" titlelabel="Avoir" />
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
+		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="T_PA_HT" label="Total achat HT" titlelabel="Poids total" />
+		<FIELD name="T_PV_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV au metre HT" titlelabel="PV au metre HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA au metre HT" titlelabel="PHA au metre HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV au kg HT" titlelabel="PV au kg HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA au kg HT" titlelabel="PHA au kg HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="CODE_MISSION" label="Code mission" titlelabel="Code mission" />
+		<FIELD name="NOM_MISSION" label="Nom mission" titlelabel="Nom mission" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous activité" titlelabel="Sous activité" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+		<FIELD name="MONTANT_INITIAL" label="Montant initial" titlelabel="Montant initial" />
+		<FIELD name="INDICE_0" label="Indice 0" titlelabel="Indice 0" />
+		<FIELD name="INDICE_N" label="Indice N" titlelabel="Indice N" />
+		<FIELD name="Q18" label="Extension Q18" titlelabel="Extension Q18" />
+		<FIELD name="TARIF_Q18_HT" label="Tarif Q18 HT" titlelabel="Tarif Q18 HT" />
+		<FIELD name="OBJET_INSPECTE" label="Objet inspecté" titlelabel="Objet inspecté" />
+		<FIELD name="REFERENTIEL_INSPECTION" label="Référentiel inspection" titlelabel="Référentiel inspection" />
+		<FIELD name="LOCAL_OBJET_INSPECTE" label="Localisation objet" titlelabel="Localisation objet" />
+		<FIELD name="ID_SECTEUR_ACTIVITE" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="ID_NATURE_MISSION" label="Nature de la mission" titlelabel="Nature de la mission" />
+		<FIELD name="ID_DOMAINE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="MONTANT_REVISABLE" label="Révisable" titlelabel="Révisable" />
+		<FIELD name="INFOS_OBJET_INSPECTE" label="Commentaires objet" titlelabel="Commentaires objet" />
+		<FIELD name="ID_SITE_INTERVENTION" label="Site d'intervention" titlelabel="Site d'intervention" />
+		<FIELD name="ID_PERIODICITE" label="Périodicité" titlelabel="Périodicité" />
+		<FIELD name="DATE" label="Date d'intervention" titlelabel="Date d'intervention" />
+		<FIELD name="DATE_FIN" label="Date de fin d'intervention" titlelabel="Date de fin d'intervention" />
+		<FIELD name="POURCENT_SERVICE" label="Pourcentage service" titlelabel="Pourcentage service" />
+	</TABLE>
+
+	<TABLE name="AVOIR_FOURNISSEUR">
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="SOLDE" label="Soldé" titlelabel="Soldé" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="MONTANT_TTC" label="Montant TTC" titlelabel="Montant TTC" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte charges" titlelabel="Compte charges" />
+		<FIELD name="MONTANT_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="A_DEDUIRE" label="A déduire sur un prochain achat" titlelabel="A déduire sur un prochain achat" />
+		<FIELD name="IMMO" label="Immobilisations" titlelabel="Immobilisations" />
+	</TABLE>
+
+	<TABLE name="AXE_ANALYTIQUE">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="BANQUE_POLE_PRODUIT">
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="NUMERO_RUE" label="Numéro de rue" titlelabel="Numéro de rue" />
+		<FIELD name="VOIE" label="Voie" titlelabel="Voie" />
+		<FIELD name="RUE" label="Rue" titlelabel="Rue" />
+		<FIELD name="VILLE" label="Ville" titlelabel="Ville" />
+		<FIELD name="CODE_ETS" label="Code Ets" titlelabel="Code Ets" />
+		<FIELD name="CODE_GUICHET" label="Code guichet" titlelabel="Code guichet" />
+		<FIELD name="NUMERO_COMPTE" label="N° compte" titlelabel="N° compte" />
+		<FIELD name="CLE_RICE" label="Clé rice" titlelabel="Clé rice" />
+		<FIELD name="DOMICILIATION" label="Domiciliation" titlelabel="Domiciliation" />
+		<FIELD name="BIC" label="BIC" titlelabel="BIC" />
+		<FIELD name="IBAN" label="IBAN" titlelabel="IBAN" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="ID_JOURNAL" label="Journal" titlelabel="Journal" />
+		<FIELD name="AFFACTURAGE" label="Banque d'affacturage" titlelabel="Banque d'affacturage" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+	</TABLE>
+
+	<TABLE name="BON_RECEPTION">
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+		<FIELD name="NUMERO" label="Numéro du bon" titlelabel="Numéro BR" />
+		<FIELD name="TOTAL_POIDS" label="Poids total (en kg)" titlelabel="Poids total" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="TOTAL_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="TOTAL_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
+		<FIELD name="TOTAL_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="NOM" label="Référence" titlelabel="Référence" />
+		<FIELD name="ID_COMMANDE" label="Commande" titlelabel="Commande" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+	</TABLE>
+
+	<TABLE name="BON_RECEPTION_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="ID_CODE_FOURNISSEUR" label="Code fournisseur" titlelabel="Code fournisseur" />
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PA_DEVISE" label="PA Devise" titlelabel="PA Devise" />
+		<FIELD name="PA_DEVISE_T" label="PA Devise Total" titlelabel="PA Devise Total" />
+
+		<FIELD name="QTE" label="Qté reçue" titlelabel="Qté reçue" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="PHA UV² HT" titlelabel="P.A. UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV au metre HT" titlelabel="PV au metre HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA au metre HT" titlelabel="PHA au metre HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV au kg HT" titlelabel="PV au kg HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA au kg HT" titlelabel="PHA au kg HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_PV_HT" label="Total Vt HT" titlelabel="Total Vt HT" />
+		<FIELD name="T_PA_HT" label="Total Ha HT" titlelabel="Total Ha HT" />
+		<FIELD name="T_PA_TTC" label="Total Ha TTC" titlelabel="Total Ha TTC" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+	</TABLE>
+
+	<TABLE name="BON_DE_LIVRAISON">
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="DATE_LIVRAISON" label="Date livraison" titlelabel="Date livraison" />
+		<FIELD name="ID_SAISIE_VENTE_FACTURE" label="Facture" titlelabel="Facture" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="NUMERO" label="Numéro du bon" titlelabel="Numéro BL" />
+		<FIELD name="TOTAL_POIDS" label="Poids total (en kg)" titlelabel="Poids total" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="TOTAL_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="TOTAL_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="TOTAL_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="NOM" label="Référence" titlelabel="Référence" />
+		<FIELD name="T_ECOTAXE" label="Dont ecotaxe" titlelabel="Dont ecotaxe" />
+		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
+	</TABLE>
+	<TABLE name="BON_DE_LIVRAISON_ELEMENT">
+
+		<FIELD name="NB_COLIS" label="Nb Colis" titlelabel="Nb Colis" />
+		<FIELD name="POIDS_COLIS_NET" label="Pds Colis" titlelabel="Pds Colis" />
+		<FIELD name="T_POIDS_COLIS_NET" label="Pds Colis Total" titlelabel="Pds Colis Total" />
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
+		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PV_U_DEVISE" label="Prix devise" titlelabel="Prix devise" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
+		<FIELD name="PV_T_DEVISE" label="Prix devise total" titlelabel="Prix devise total" />
+		<FIELD name="ECOTAXE" label="Ecotaxe" titlelabel="Ecotaxe" />
+		<FIELD name="T_ECOTAXE" label="Dont écotaxe" titlelabel="Dont écotaxe" />
+		<FIELD name="ID_POCHETTE" label="Pochette" titlelabel="Pochette" />
+		<FIELD name="PRIX_FINAL_TTC" label="Prix de final de ttc" titlelabel="Prix de final de ttc" />
+		<FIELD name="T_PRIX_FINAL_TTC" label="T de prix de final de ttc" titlelabel="T de prix de final de ttc" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="QTE" label="Qté à livrer" titlelabel="Qté à livrer" />
+		<FIELD name="QTE_LIVREE" label="Quantité livrée" titlelabel="Qté livrée" />
+		<FIELD name="QTE_A_LIVRER" label="Quantité à livrer" titlelabel="Qté à livrer" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV au metre HT" titlelabel="PV au metre HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA au metre HT" titlelabel="PHA au metre HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV au kg HT" titlelabel="PV au kg HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA au kg HT" titlelabel="PHA au kg HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_PV_HT" label="Total Vt HT" titlelabel="Total Vt HT" />
+		<FIELD name="T_PA_HT" label="Total Ha HT" titlelabel="Total Ha HT" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="T_POIDS_LIVREE" label="Poids total livré" titlelabel="Poids total livré" />
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+		<FIELD name="T_PRIX_FINAL_TTC" label="Total prix client TTC" titlelabel="Total prix client TTC" />
+		<FIELD name="PRIX_FINAL_TTC" label="Prix client TTC" titlelabel="Prix client TTC" />
+		<FIELD name="T_ECOTAXE" label="Total Ecotaxe" titlelabel="Total Ecotaxe" />
+	</TABLE>
+
+
+	<TABLE name="CAISSE">
+		<FIELD name="NOM" label="Caisse" titlelabel="Caisse" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+	</TABLE>
+
+	<TABLE name="CHEQUE_A_ENCAISSER">
+		<FIELD name="ID_CLIENT" label="Numéro Client" titlelabel="Numéro Client" />
+		<FIELD name="ID_MOUVEMENT" label="Mouvement" titlelabel="Mouvement" />
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="ENCAISSE" label="Encaissé" titlelabel="Encaissé" />
+		<FIELD name="DATE_VENTE" label="Vente du" titlelabel="Vente du" />
+		<FIELD name="DATE_DEPOT" label="Déposé le" titlelabel="Déposé le" />
+		<FIELD name="DATE_MIN_DEPOT" label="A déposer après le" titlelabel="A déposer aprés le" />
+		<FIELD name="DATE" label="Daté du" titlelabel="Daté du" />
+		<FIELD name="ETS" label="Ets" titlelabel="Ets" />
+		<FIELD name="NUMERO" label="Numero" titlelabel="Numero" />
+		<FIELD name="REG_COMPTA" label="Régularisation en comptabilité" titlelabel="Régularisation en comptabilité" />
+	</TABLE>
+
+	<TABLE name="CHEQUE_FOURNISSEUR">
+		<FIELD name="REG_COMPTA" label="Régularisation en comptabilité" titlelabel="Régularisation en comptabilité" />
+		<FIELD name="ID_FOURNISSEUR" label="Numéro fournisseur" titlelabel="Numéro fournisseur" />
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="DECAISSE" label="Décaissé" titlelabel="Décaissé" />
+		<FIELD name="DATE_ACHAT" label="Achat du" titlelabel="Achat du" />
+		<FIELD name="DATE_MIN_DECAISSE" label="A décaisser après le" titlelabel="A décaisser après le" />
+		<FIELD name="DATE_DECAISSE" label="Décaissé le" titlelabel="Décaissé le" />
+		<FIELD name="DATE" label="Daté du" titlelabel="Daté du" />
+		<FIELD name="ETS" label="Ets" titlelabel="Ets" />
+		<FIELD name="NUMERO" label="Numero" titlelabel="Numero" />
+	</TABLE>
+
+	<TABLE name="CHEQUE_AVOIR_CLIENT">
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="DECAISSE" label="Décaissé" titlelabel="Décaissé" />
+		<FIELD name="DATE_AVOIR" label="Avoir du" titlelabel="Avoir du" />
+		<FIELD name="DATE_DECAISSE" label="Décaissé le" titlelabel="Décaissé le" />
+		<FIELD name="DATE_MIN_DECAISSE" label="A décaissé après le" titlelabel="A décaissé après le" />
+		<FIELD name="DATE" label="Daté du" titlelabel="Daté du" />
+		<FIELD name="ETS" label="Ets" titlelabel="Ets" />
+		<FIELD name="NUMERO" label="Numero" titlelabel="Numero" />
+		<FIELD name="REG_COMPTA" label="Régularisation en comptabilité" titlelabel="Régularisation en comptabilité" />
+	</TABLE>
+
+	<TABLE name="CLASSE_COMPTE">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="TYPE_NUMERO_COMPTE" label="Type numéro de compte" titlelabel="Type numéro de compte" />
+	</TABLE>
+
+	<TABLE name="CLASSEMENT_CONVENTIONNEL">
+		<FIELD name="NIVEAU" label="Niveau" titlelabel="Niveau" />
+		<FIELD name="COEFF" label="Coefficient" titlelabel="Coefficient" />
+		<FIELD name="INDICE" label="Indice" titlelabel="Indice" />
+		<FIELD name="POSITION" label="Position" titlelabel="Position" />
+		<FIELD name="ECHELON" label="Echelon" titlelabel="Echelon" />
+	</TABLE>
+
+	<TABLE name="CLIENT">
+		<FIELD name="ID_TYPE_CLIENT" label="Type de client" />
+		<FIELD name="ID_GROUPE_CLIENT" label="Groupe" />
+		<FIELD name="ID_PAYS" label="Pays" titlelabel="Pays" />
+		<FIELD name="ID_LANGUE" label="Langue" titlelabel="Langue" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="FORME_JURIDIQUE" label="Forme juridique" titlelabel="Forme juridique" />
+		<FIELD name="NOM" label="Nom client" titlelabel="Nom client" />
+		<FIELD name="CODE" label="Code client" titlelabel="Code client" />
+		<FIELD name="TEL" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="TEL_P" label="Portable" titlelabel="Portable" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="MAIL" label="Mail" titlelabel="Mail" />
+		<FIELD name="RESPONSABLE" label="Responsable" titlelabel="Responsable" />
+		<FIELD name="RESPONSABLE_TECH" label="Responsable tech." titlelabel="Responsable tech." />
+		<FIELD name="RESPONSABLE_COM" label="Responsable comm." titlelabel="Responsable comm." />
+		<FIELD name="TEL_COM" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="FAX_COM" label="Fax" titlelabel="Fax" />
+		<FIELD name="TEL_P_COM" label="Portable" titlelabel="Portable" />
+		<FIELD name="MAIL_COM" label="E-mail" titlelabel="E-mail" />
+		<FIELD name="TEL_TECH" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="FAX_TECH" label="Fax" titlelabel="Fax" />
+		<FIELD name="TEL_P_TECH" label="Portable" titlelabel="Portable" />
+		<FIELD name="MAIL_TECH" label="E-mail" titlelabel="E-mail" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte PCE associé" titlelabel="Compte PCE associé" />
+		<FIELD name="ID_ADRESSE" label="Adr. Principale" titlelabel="Adr. Principale" />
+		<FIELD name="ID_ADRESSE_L" label="Adr. Livraison" titlelabel="Adr. Livraison" />
+		<FIELD name="ID_ADRESSE_F" label="Adr. Facturation" titlelabel="Adr. Facturation" />
+		<FIELD name="NUMERO_TVA" label="N° Intracommunautaire" titlelabel="N° Intracom" />
+		<FIELD name="ID_ADRESSE" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="MARCHE_PUBLIC" label="Marché public" titlelabel="Marché public" />
+		<FIELD name="MARCHE_PRIVE" label="Marché privé" titlelabel="Marché privé" />
+		<FIELD name="ID_ADRESSE_L" label="Adresse de livraison" titlelabel="Adresse livraison" />
+		<FIELD name="RIB" label="RIB" titlelabel="RIB" />
+		<FIELD name="SIRET" label="SIRET" titlelabel="SIRET" />
+		<FIELD name="ID_SECTEUR_ACTIVITE" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="ID_BANQUE_POLE_PRODUIT" label="Banque" titlelabel="Banque" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="ID_SECTEUR_ACTIVITE" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de règlement par défaut" titlelabel="Mode de règlement par défaut" />
+		<FIELD name="AFFACTURAGE" label="Possibilité d'affacturage" titlelabel="Possibilité d'affacturage" />
+		<FIELD name="MAX_FACTURE" label="Facturation limitée à" titlelabel="Facturation limitée à" />
+		<FIELD name="COMPTANT" label="Règlement comptant obligatoire" titlelabel="Règlement comptant obligatoire" />
+		<FIELD name="ID_TARIF" label="Tarif" titlelabel="Tarif" />
+	</TABLE>
+
+	<TABLE name="CODE_REGIME">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="CODE_CARACT_ACTIVITE">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+	<TABLE name="CODE_CONTRAT_TRAVAIL">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+	<TABLE name="CODE_DROIT_CONTRAT">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="CODE_FOURNISSEUR">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+	</TABLE>
+
+
+	<TABLE name="CODE_MISSION">
+		<FIELD name="CONTROLE_TECHNIQUE" label="Mission controle technique" titlelabel="Mission controle technique" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_DOMAINE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="ID_SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous activité" titlelabel="Sous activité" />
+		<FIELD name="ID_NATURE_MISSION" label="Nature mission" titlelabel="Nature mission" />
+		<FIELD name="REFERENTIEL_INSPECTION" label="Référentiel d'inspection" titlelabel="Référentiel d'inspection" />
+		<FIELD name="NOTA" label="Nota" titlelabel="Nota" />
+	</TABLE>
+
+	<TABLE name="CODE_STATUT_PROF">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="CODE_STATUT_CATEGORIEL">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="CODE_EMPLOI">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="CONTACT">
+		<FIELD name="PRENOM" label="Prénom du contact" titlelabel="Prénom du contact" />
+		<FIELD name="NOM" label="Nom du contact" titlelabel="Nom du contact" />
+		<FIELD name="ID_TITRE_PERSONNEL" label="Titre" titlelabel="Titre" />
+		<FIELD name="TEL_DIRECT" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="TEL_PERSONEL" label="Téléphone Personnel" titlelabel="Téléphone Personnel" />
+		<FIELD name="TEL_STANDARD" label="Téléphone du standard" titlelabel="Téléphone du standard" />
+		<FIELD name="TEL_MOBILE" label="Portable" titlelabel="Portable" />
+		<FIELD name="EMAIL" label="Mail" titlelabel="Mail" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="FONCTION" label="Fonction" titlelabel="Fonction" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+	</TABLE>
+
+	<TABLE name="CONTACT_FOURNISSEUR">
+		<FIELD name="PRENOM" label="Prénom du contact" titlelabel="Prénom du contact" />
+		<FIELD name="NOM" label="Nom du contact" titlelabel="Nom du contact" />
+		<FIELD name="ID_TITRE_PERSONNEL" label="Titre" titlelabel="Titre" />
+		<FIELD name="TEL_DIRECT" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="TEL_PERSONEL" label="Téléphone Personnel" titlelabel="Téléphone Personnel" />
+		<FIELD name="TEL_STANDARD" label="Téléphone du standard" titlelabel="Téléphone du standard" />
+		<FIELD name="TEL_MOBILE" label="Portable" titlelabel="Portable" />
+		<FIELD name="EMAIL" label="Mail" titlelabel="Mail" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="FONCTION" label="Fonction" titlelabel="Fonction" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+	</TABLE>
+
+	<TABLE name="CONTACT_ADMINISTRATIF">
+		<FIELD name="PRENOM" label="Prénom du contact" titlelabel="Prénom du contact" />
+		<FIELD name="NOM" label="Nom du contact" titlelabel="Nom du contact" />
+		<FIELD name="ID_TITRE_PERSONNEL" label="Titre" titlelabel="Titre" />
+		<FIELD name="TEL_DIRECT" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="TEL_PERSONEL" label="Téléphone Personnel" titlelabel="Téléphone Personnel" />
+		<FIELD name="TEL_STANDARD" label="Téléphone du standard" titlelabel="Téléphone du standard" />
+		<FIELD name="TEL_MOBILE" label="Portable" titlelabel="Portable" />
+		<FIELD name="EMAIL" label="Mail" titlelabel="Mail" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="FONCTION" label="Fonction" titlelabel="Fonction" />
+		<FIELD name="N4DS" label="Contact pour la N4DS" titlelabel="Contact pour la N4DS" />
+	</TABLE>
+
+	<TABLE name="CONTRAT_SALARIE">
+		<FIELD name="NATURE" label="Nature de l'emploi (*)" titlelabel="Nature de l'emploi" />
+		<FIELD name="ID_CODE_EMPLOI" label="Catégorie socioprofessionnelle " titlelabel="Code Catégorie socioprofessionnelle" />
+		<FIELD name="ID_CODE_CONTRAT_TRAVAIL" label="Contrat de travail" titlelabel="Code contrat" />
+		<FIELD name="ID_CODE_DROIT_CONTRAT" label="Droit du contrat de travail" titlelabel="Code droit du contrat" />
+		<FIELD name="ID_CODE_STATUT_PROF" label="Statut professionnel du salarié" titlelabel="Code statut professionnel" />
+		<FIELD name="ID_CODE_STATUT_CATEGORIEL" label="Statut catégoriel du salarié " titlelabel="Code statut catégoriel" />
+		<FIELD name="ID_CODE_CARACT_ACTIVITE" label="Caractéristique de l'activité" titlelabel="Code caractéristique" />
+		<FIELD name="ID_CODE_STATUT_CAT_CONV" label="Statut catégoriel conventionnel" titlelabel="Statut catégoriel conventionnel" />
+
+		<FIELD name="CODE_IRC_UGRR" label="Code IRC UGRR" titlelabel="Code IRC UGRR" />
+		<FIELD name="CODE_IRC_UGRC" label="Code IRC UGRC" titlelabel="Code IRC UGRC" />
+		<FIELD name="NUMERO_RATTACHEMENT_UGRR" label="N° rattachement UGRR" titlelabel="N° rattachement UGRR" />
+		<FIELD name="NUMERO_RATTACHEMENT_UGRC" label="N° rattachement UGRC" titlelabel="N° rattachement UGRC" />
+		<FIELD name="CODE_IRC_RETRAITE" label="Code IRC retraite" titlelabel="Code IRC retraite" />
+		<FIELD name="NUMERO_RATTACHEMENT_RETRAITE" label="N° rattachement retraite" titlelabel="N° rattachement retraite" />
+
+	</TABLE>
+
+	<TABLE name="COMMANDE">
+		<FIELD name="EN_COURS" label="En cours" titlelabel="En cours" />
+		<FIELD name="NOM" label="Référence" titlelabel="Référence" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="DATE_ECHEANCE" label="Date d'échéance" titlelabel="Date d'échéance" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="SOURCE" label="Source" titlelabel="Source" />
+		<FIELD name="T_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="T_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="ID_ADRESSE" label="Adresse de livraison spécifique" titlelabel="Adresse de livraison spécifique" />
+	</TABLE>
+
+	<TABLE name="COMMANDE_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_CODE_FOURNISSEUR" label="Code Fournisseur" titlelabel="Code Fournisseur" />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PA_DEVISE" label="PA Devise" titlelabel="PA Devise" />
+		<FIELD name="PA_DEVISE_T" label="PA Devise Total" titlelabel="PA Devise Total" />
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="ID_COMMANDE" label="Commande" titlelabel="Commande" />
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
+		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV au metre HT" titlelabel="PV au metre HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA au metre HT" titlelabel="PHA au metre HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV au kg HT" titlelabel="PV au kg HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA au kg HT" titlelabel="PHA au kg HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_PV_HT" label="Total Vt HT" titlelabel="Total Vt HT" />
+		<FIELD name="T_PA_TTC" label="Total Ha TTC" titlelabel="Total Ha TTC" />
+		<FIELD name="T_PA_HT" label="Total Ha HT" titlelabel="Total Ha HT" />
+		<FIELD name="POURCENT_REMISE" label="% Remise" titlelabel="% Remise" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+	</TABLE>
+
+	<TABLE name="COMMANDE_CLIENT">
+		<FIELD name="NOM" label="Référence" titlelabel="Référence" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="DATE_ECHEANCE" label="Date d'échéance" titlelabel="Date d'échéance" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="T_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="T_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+		<FIELD name="SOURCE" label="Source" titlelabel="Source" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+	</TABLE>
+
+	<TABLE name="COMMANDE_CLIENT_ELEMENT">
+
+		<FIELD name="NB_COLIS" label="Nb Colis" titlelabel="Nb Colis" />
+		<FIELD name="POIDS_COLIS_NET" label="Pds Colis" titlelabel="Pds Colis" />
+		<FIELD name="T_POIDS_COLIS_NET" label="Pds Colis Total" titlelabel="Pds Colis Total" />
+
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="POURCENT_REMISE" label="% remise" titlelabel="% remise" />
+		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
+		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PV_U_DEVISE" label="Prix devise" titlelabel="Prix devise" />
+		<FIELD name="PV_T_DEVISE" label="Prix devise total" titlelabel="Prix devise total" />
+		<FIELD name="ID_COMMANDE_CLIENT" label="Commande" titlelabel="Commande" />
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
+		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
+		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV au metre HT" titlelabel="PV au metre HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA au metre HT" titlelabel="PHA au metre HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV au kg HT" titlelabel="PV au kg HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA au kg HT" titlelabel="PHA au kg HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_PV_HT" label="Total Vt HT" titlelabel="Total Vt HT" />
+		<FIELD name="T_PA_HT" label="Total Ha HT" titlelabel="Total Ha HT" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+
+		<FIELD name="POURCENT_ACOMPTE" label="% Acompte" titlelabel="% Acompte" />
+	</TABLE>
+
+	<TABLE name="COMMERCIAL">
+		<FIELD name="ID_TITRE_PERSONNEL" label="Titre" titlelabel="Titre" />
+		<FIELD name="TEL_DIRECT" label="Numéro de tel direct" titlelabel="Numéro de tel direct" />
+		<FIELD name="PRENOM" label="Prénom" titlelabel="Prénom" />
+		<FIELD name="TEL_STANDARD" label="Numéro de tel du standard" titlelabel="Numéro de tel du standard" />
+		<FIELD name="FAX" label="Numéro de fax" titlelabel="Numéro de fax" />
+		<FIELD name="FONCTION" label="Fonction" />
+		<FIELD name="ID_SITE" label="Site" />
+		<FIELD name="EMAIL" label="Adresse email" titlelabel="Adresse email" />
+		<FIELD name="NOM" label="Nom du commercial" titlelabel="Nom du commercial" />
+		<FIELD name="ID_USER_COMMON" label="Utilisateur" titlelabel="Utilisateur" />
+		<FIELD name="TEL_MOBILE" label="Numéro de tel mobile" titlelabel="Numéro de tel mobile" />
+		<FIELD name="TEL_PERSONEL" label="Numéro de tel personnel" titlelabel="Numéro de tel personnel" />
+	</TABLE>
+
+	<TABLE name="COMPTE_PCE">
+		<FIELD name="NUMERO" label="N° de compte" titlelabel="N° de compte" />
+		<FIELD name="NOM" label="Compte" titlelabel="Compte" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+		<FIELD name="RACINE" label="Racine" titlelabel="Racine" />
+		<FIELD name="TOTAL_DEBIT" label="Total débit" titlelabel="Total débit" />
+		<FIELD name="TOTAL_CREDIT" label="Total crédit" titlelabel="Total crédit" />
+		<FIELD name="ID_NATURE_COMPTE" label="Nature du compte" titlelabel="Nature Compte" />
+	</TABLE>
+
+	<TABLE name="COMPTE_PCG">
+		<FIELD name="NOM" label="Compte" titlelabel="Compte" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+		<FIELD name="ID_TYPE_COMPTE_PCG_BASE" label="Compte de base" titlelabel="Compte de base" />
+		<FIELD name="ID_TYPE_COMPTE_PCG_AB" label="Compte abrégé" titlelabel="Compte abrégé" />
+		<FIELD name="ID_TYPE_COMPTE_PCG_DEV" label="Compte développé" titlelabel="Compte développé" />
+		<FIELD name="ID_NATURE_COMPTE" label="Nature compte" titlelabel="Nature compte" />
+	</TABLE>
+
+	<TABLE name="COURRIER_CLIENT">
+		<FIELD name="NOM" label="Objet" titlelabel="Objet" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+		<FIELD name="ID_MODELE_COURRIER_CLIENT" label="Modéle" titlelabel="Modéle" />
+		<FIELD name="ID_AFFAIRE" label="Numéro d'affaire" titlelabel="Numéro d'affaire" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_SECRETAIRE" label="Secrétaire" titlelabel="Secrétaire" />
+	</TABLE>
+
+	<TABLE name="CUMULS_CONGES">
+		<FIELD name="RESTANT" label="Congés restant" titlelabel="Congés restant" />
+		<FIELD name="ACQUIS" label="Congés acquis" titlelabel="Congés acquis" />
+	</TABLE>
+
+	<TABLE name="CUMULS_PAYE">
+		<FIELD name="SAL_BRUT_C" label="Salaire brut cumulé" titlelabel="Salaire brut cumulé" />
+		<FIELD name="COT_PAT_C" label="Cotisations pat. cumulées" titlelabel="Cotisations pat. cumulées" />
+		<FIELD name="COT_SAL_C" label="Cotisations sal. cumulées" titlelabel="Cotisations sal. cumulées" />
+		<FIELD name="NET_IMP_C" label="Salaire net imposable cumulé" titlelabel="Salaire net imposable cumulé" />
+		<FIELD name="NET_A_PAYER_C" label="Salaire net cumulé" titlelabel="Salaire net cumulé" />
+		<FIELD name="CSG_C" label="Base CSG cumulée" titlelabel="Base CSG cumulée" />
+	</TABLE>
+
+	<TABLE name="DEPARTEMENT">
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="CHEF_LIEU" label="Chef lieu" titlelabel="Chef lieu" />
+		<FIELD name="REGION_ADMIN" label="Région administrative" titlelabel="Région administrative" />
+	</TABLE>
+
+	<TABLE name="DEVIS">
+		<FIELD name="ID_MODELE" label="Modèle" titlelabel="Modèle" />
+		<FIELD name="PROBABILITE" label="Probabilité" titlelabel="Probabilité" />
+		<FIELD name="DATE_VALIDITE" label="Valable jusqu'au" titlelabel="Valable jusqu'au" />
+		<FIELD name="NUMERO" label="Numéro du devis" titlelabel="Numéro du devis" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="OBJET" label="Référence" titlelabel="Référence" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="T_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="T_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="PORT_HT" label="Frais de port HT" titlelabel="Ports" />
+		<FIELD name="REMISE_HT" label="Remise HT" titlelabel="Remise" />
+		<FIELD name="T_SERVICE" label="Frais de service" titlelabel="Service" />
+		<FIELD name="T_POIDS" label="Poids total (en kg)" titlelabel="Poids total" />
+		<FIELD name="ID_ETAT_DEVIS" label="Etat" titlelabel="Etat" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="DATE_ENVOI" label="Date d'envoi" titlelabel="Date d'envoi" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="ID_ADRESSE" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="ID_CONTACT" label="Contact" titlelabel="Contact" />
+		<FIELD name="ADRESSE_IDENTIQUE" label="Adresse identique" titlelabel="Adresse identique" />
+		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
+	</TABLE>
+	<TABLE name="DEVIS_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
+		<FIELD name="POURCENT_REMISE" label="% remise" titlelabel="% remise" />
+		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
+		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PV_U_DEVISE" label="Prix devise" titlelabel="Prix devise" />
+		<FIELD name="PV_T_DEVISE" label="Prix devise total" titlelabel="Prix devise total" />
+		<FIELD name="ID_DEVIS" label="Devis" titlelabel="Devis" />
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
+		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="T_PA_HT" label="Total achat HT" titlelabel="Total achat HT" />
+		<FIELD name="T_PV_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV au metre HT" titlelabel="PV au metre HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA au metre HT" titlelabel="PHA au metre HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV au kg HT" titlelabel="PV au kg HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA au kg HT" titlelabel="PHA au kg HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+
+		<FIELD name="NB_COLIS" label="Nb Colis" titlelabel="Nb Colis" />
+		<FIELD name="POIDS_COLIS_NET" label="Pds Colis" titlelabel="Pds Colis" />
+		<FIELD name="T_POIDS_COLIS_NET" label="Pds Colis Total" titlelabel="Pds Colis Total" />
+	</TABLE>
+
+	<TABLE name="ECHANTILLON_ELEMENT">
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="QTE" label="Quantité" titlelabel="Quantité" />
+		<FIELD name="PV_HT" label="Prix unit. HT" titlelabel="Prix unit. HT" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="T_PV_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+	</TABLE>
+
+	<TABLE name="ECHEANCE_CLIENT">
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="DATE" label="Date d'échéance" titlelabel="Date d'échéance" />
+		<FIELD name="ID_SAISIE_VENTE_FACTURE" label="Facture" titlelabel="Facture" />
+		<FIELD name="NOMBRE_RELANCE" label="Nombre de relance" titlelabel="Nombre de relance" />
+		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="client" />
+		<FIELD name="REGLE" label="Réglé" titlelabel="Réglé" />
+		<FIELD name="INFOS" label="Commentaires" titlelabel="Commentaires" />
+		<FIELD name="RETOUR_NATEXIS" label="Retour de natexis" titlelabel="Retour de natexis" />
+		<FIELD name="REG_COMPTA" label="Régularisation en comptabilité" titlelabel="Régularisation en comptabilité" />
+		<FIELD name="DATE_LAST_RELANCE" label="Date de derniere relance" titlelabel="Date de derniere relance" />
+		<FIELD name="MONTANT" label="Montant TTC dû" titlelabel="Montant TTC dû" />
+	</TABLE>
+	<TABLE name="ECHEANCE_FOURNISSEUR">
+		<FIELD name="REGLE" label="Réglé" titlelabel="Réglé" />
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="DATE" label="Date d'échéance" titlelabel="Date d'échéance" />
+		<FIELD name="NOMBRE_RELANCE" label="Nombre de relance" titlelabel="Nombre de relance" />
+		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+	</TABLE>
+
+	<TABLE name="ECHEANCIER_CCI">
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="NOM" label="Intitulé" titlelabel="Intitulé" />
+		<FIELD name="ID_AFFAIRE" label="Affaire" titlelabel="Affaire" />
+	</TABLE>
+
+	<TABLE name="ECOTAXE">
+		<FIELD name="NOM" label="Ecotaxe" titlelabel="Ecotaxe" />
+		<FIELD name="MONTANT_HT" label="Montant ht" titlelabel="Montant ht" />
+	</TABLE>
+
+	<TABLE name="ECRITURE">
+		<FIELD name="ID" label="N° Ecriture" titlelabel="N° Ecriture" />
+		<FIELD name="JOURNAL_NOM" label="Journal" titlelabel="Journal" />
+		<FIELD name="JOURNAL_CODE" label="Code journal" titlelabel="Code journal" />
+		<FIELD name="COMPTE_NUMERO" label="Numéro de compte" titlelabel="Numéro de compte" />
+		<FIELD name="COMPTE_NOM" label="Compte" titlelabel="Compte" />
+		<FIELD name="NOM" label="Libellé écriture" titlelabel="Libellé écriture" />
+		<FIELD name="VALIDE" label="Ecriture validée" titlelabel="Ecriture validée" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte" titlelabel="Compte" />
+		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="LETTRAGE" label="Lettrage" titlelabel="Lettrage" />
+		<FIELD name="DEBIT" label="Débit" titlelabel="Débit" />
+		<FIELD name="CREDIT" label="Crédit" titlelabel="Crédit" />
+		<FIELD name="ID_JOURNAL" label="Journal" titlelabel="Journal" />
+		<FIELD name="POINTEE" label="Code de pointage" titlelabel="Code pointage" />
+		<FIELD name="DATE_POINTEE" label="Date de pointage" titlelabel="Date pointage" />
+		<FIELD name="DATE_VALIDE" label="Date de validation" titlelabel="Date validation" />
+		<FIELD name="DATE_LETTRAGE" label="Date de lettrage" titlelabel="Date de lettrage" />
+		<FIELD name="IDUSER_CREATE" label="User create" titlelabel="User create" />
+		<FIELD name="IDUSER_DELETE" label="User delete" titlelabel="User delete" />
+		<FIELD name="IDUSER_VALIDE" label="User valide" titlelabel="User valide" />
+	</TABLE>
+
+	<TABLE name="ENCAISSER_MONTANT">
+		<FIELD name="DATE" label="Date de règlement" titlelabel="Date de règlement" />
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="NOM" label="Libellé encaissement" titlelabel="Libellé  encaissement" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de règlement" titlelabel="Mode de règlement" />
+		<FIELD name="ID_ECHEANCE_CLIENT" label="Echéance client" titlelabel="échéance" />
+	</TABLE>
+
+	<TABLE name="ENCAISSER_MONTANT_ELEMENT">
+		<FIELD name="ID_ECHEANCE" label="Echéance" titlelabel="Echéance" />
+		<FIELD name="MONTANT_REGLE" label="Montant réglé" titlelabel="Montant réglé" />
+		<FIELD name="MONTANT_A_REGLER" label="Montant à régler" titlelabel="Montant à régler" />
+		<FIELD name="ID_MOUVEMENT_ECHEANCE" label="Facture" titlelabel="Facture" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+	</TABLE>
+
+	<TABLE name="ETAT_DEVIS">
+		<FIELD name="NOM" label="Etat du devis" titlelabel="Etat du devis" />
+	</TABLE>
+
+	<TABLE name="ETAT_RAPPORT">
+		<FIELD name="NOM" label="Etat du rapport" titlelabel="Etat du rapport" />
+	</TABLE>
+
+	<TABLE name="ETAT_CIVIL">
+		<FIELD name="ID_ADRESSE" label="Adresse (*)" titlelabel="Adresse" />
+		<FIELD name="DATE_NAISSANCE" label="Date de naissance (*)" titlelabel="Date de naissance" />
+		<FIELD name="COMMUNE_NAISSANCE" label="Lieu de naissance" titlelabel="Lieu de naissance" />
+		<FIELD name="ID_DEPARTEMENT_NAISSANCE" label="Département de naissance" titlelabel="Département de naissance" />
+		<FIELD name="ID_PAYS_NAISSANCE" label="Pays de naissance" titlelabel="Pays de naissance" />
+		<FIELD name="NB_ENFANTS" label="Nombre d'enfants" titlelabel="Nombre d'enfants" />
+		<FIELD name="NUMERO_SS" label="N° de sécurité sociale (*)" titlelabel="N° de sécurité sociale" />
+		<FIELD name="TELEPHONE" label="N° Tél." titlelabel="N° Tél." />
+		<FIELD name="PORTABLE" label="N° Tél. portable" titlelabel="N° Tél. portable" />
+		<FIELD name="MAIL" label="Courriel" titlelabel="Courriel" />
+		<FIELD name="NB_PERS_A_CHARGE" label="Nombre de personnes à charge" titlelabel="Nombre de personnes à charge" />
+		<FIELD name="ID_SITUATION_FAMILIALE" label="Situtation familiale (*)" titlelabel="Situtation familiale" />
+	</TABLE>
+
+
+
+	<TABLE name="FACTURE_FOURNISSEUR">
+		<FIELD name="NOM" label="Référence" titlelabel="Référence" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="DATE_ECHEANCE" label="Date d'échéance" titlelabel="Date d'échéance" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="SOURCE" label="Source" titlelabel="Source" />
+		<FIELD name="T_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="T_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte de charge" titlelabel="Compte de charge" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="ID_ADRESSE" label="Adresse de livraison spécifique" titlelabel="Adresse de livraison spécifique" />
+	</TABLE>
+
+	<TABLE name="FACTURE_FOURNISSEUR_ELEMENT">
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_CODE_FOURNISSEUR" label="Code Fournisseur" titlelabel="Code Fournisseur" />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PA_DEVISE" label="PA Devise" titlelabel="PA Devise" />
+		<FIELD name="PA_DEVISE_T" label="PA Devise Total" titlelabel="PA Devise Total" />
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="ID_COMMANDE" label="Commande" titlelabel="Commande" />
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
+		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="P.V. UV HT" titlelabel="P.V. UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="P.A. UV HT" titlelabel="P.A. UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV au metre HT" titlelabel="PV au metre HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA au metre HT" titlelabel="PHA au metre HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV au kg HT" titlelabel="PV au kg HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA au kg HT" titlelabel="PHA au kg HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="T_PV_HT" label="Total Vt HT" titlelabel="Total Vt HT" />
+		<FIELD name="T_PA_TTC" label="Total Ha TTC" titlelabel="Total Ha TTC" />
+		<FIELD name="T_PA_HT" label="Total Ha HT" titlelabel="Total Ha HT" />
+		<FIELD name="POURCENT_REMISE" label="% Remise" titlelabel="% Remise" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+	</TABLE>
+
+
+
+
+	<TABLE name="FAMILLE_ARTICLE">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Famille" titlelabel="Famille" />
+		<FIELD name="ID_FAMILLE_ARTICLE_PERE" label="Sous Famille de" titlelabel="Sous Famille de" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte spécifique de vente" titlelabel="Compte spécifique de vente" />
+		<FIELD name="ID_COMPTE_PCE_ACHAT" label="Compte spécifique d'achat" titlelabel="Compte spécifique d'achat" />
+	</TABLE>
+
+	<TABLE name="FICHE_PAYE">
+		<FIELD name="ANNEE" label="Année" titlelabel="Année" />
+		<FIELD name="ID_SALARIE" label="Salarié" titlelabel="Salarié" />
+		<FIELD name="IDPROFIL_PAYE" label="Profil de paye" titlelabel="Profil de paye" />
+		<FIELD name="SAL_BRUT" label="Salaire brut" titlelabel="Salaire brut" />
+		<FIELD name="COT_PAT" label="Cotisations pat." titlelabel="Cotisations pat." />
+		<FIELD name="COT_SAL" label="Cotisations sal." titlelabel="Cotisations sal." />
+		<FIELD name="NET_IMP" label="Salaire net imposable" titlelabel="Salaire net imposable" />
+		<FIELD name="NET_A_PAYER" label="Salaire net à payer" titlelabel="Salaire net à payer" />
+		<FIELD name="CSG" label="Base CSG" titlelabel="Base CSG" />
+		<FIELD name="ID_CUMULS_PAYE" label="Cumuls" titlelabel="Cumuls" />
+		<FIELD name="ACOMPTE" label="Acompte" titlelabel="Acompte" />
+		<FIELD name="ID_MOIS" label="Mois" titlelabel="Mois" />
+		<FIELD name="VALIDE" label="Valide" titlelabel="Valide" />
+		<FIELD name="DU" label="Du" titlelabel="Du" />
+		<FIELD name="AU" label="Au" titlelabel="Au" />
+		<FIELD name="ID_CUMULS_PAYE" label="Cumuls paye" titlelabel="Cumuls paye" />
+		<FIELD name="ID_CUMULS_CONGES" label="Cumuls congés" titlelabel="Cumuls congés" />
+		<FIELD name="ID_VARIABLE_SALARIE" label="Variable salarié" titlelabel="Variable salarié" />
+		<FIELD name="CONGES_ACQUIS" label="Congés acquis" titlelabel="Congés acquis" />
+	</TABLE>
+	<TABLE name="FICHE_PAYE_ELEMENT">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="NB_BASE" label="Base" titlelabel="Base" />
+		<FIELD name="TAUX_SAL" label="Taux Sal." titlelabel="Taux Sal." />
+		<FIELD name="MONTANT_SAL_AJ" label="Montant sal. à ajouter" titlelabel="Montant sal. à ajouter" />
+		<FIELD name="MONTANT_SAL_DED" label="Montant sal. à déduire" titlelabel="Montant sal. à déduire" />
+		<FIELD name="TAUX_PAT" label="Taux pat." titlelabel="Taux pat." />
+		<FIELD name="MONTANT_PAT" label="Montant pat." titlelabel="Montant pat." />
+		<FIELD name="SOURCE" label="Source" titlelabel="Source" />
+		<FIELD name="IDSOURCE" label="ID Source" titlelabel="ID Source" />
+		<FIELD name="POSITION" label="Position" titlelabel="Position" />
+		<FIELD name="VALIDE" label="Validé" titlelabel="Validé" />
+		<FIELD name="IMPRESSION" label="Impression" titlelabel="Impression" />
+		<FIELD name="IN_PERIODE" label="Dans la période" titlelabel="Dans la période" />
+		<FIELD name="ID_FICHE_PAYE" label="Fiche de paye" titlelabel="Fiche de paye" />
+	</TABLE>
+
+	<TABLE name="FICHE_RENDEZ_VOUS">
+		<FIELD name="DATE" label="Date de création" titlelabel="Date de création" />
+		<FIELD name="ID_VERIFICATEUR" label="Pilote" titlelabel="Pilote" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="ID_CONTACT" label="Correspondant" titlelabel="Correspondant" />
+		<FIELD name="ID_AFFAIRE" label="Affaire" titlelabel="Affaire" />
+		<FIELD name="TYPE_MISSION" label="Type de mission" titlelabel="Type de mission" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="CLASSEMENT_ERP" label="Classement ERP" titlelabel="Classement ERP" />
+		<FIELD name="TYPE_ERP" label="Type ERP" titlelabel="Type ERP" />
+		<FIELD name="SITUATION_ADMIN" label="Situation administrative" titlelabel="Situation administrative" />
+		<FIELD name="ID_MOIS_INTERVENTION" label="Intervention prévue en" titlelabel="Intervention prévue en" />
+		<FIELD name="DATE_ECH_RDV" label="Date d'échéance" titlelabel="Date d'échéance" />
+		<FIELD name="INFOS" label="Commentaires" titlelabel="Commentaires" />
+		<FIELD name="INFOS_CLIENT" label="Informations client" titlelabel="Informations client" />
+		<FIELD name="DOCUMENTS_TRANSMIS" label="Documents transmis" titlelabel="Documents transmis" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="VALID" label="Valider par le responsable" titlelabel="Valider par le responsable" />
+	</TABLE>
+
+	<TABLE name="FICHE_RENDEZ_VOUS_ELEMENT">
+		<FIELD name="ECHEANCE_RAPPORT" label="Ech. remise rapport en jour" titlelabel="Ech. remise rapport en jour" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_MISSION" label="Mission" titlelabel="Mission" />
+		<FIELD name="ID_AFFAIRE_ELEMENT" label="Element d'affaire" titlelabel="Element d'affaire" />
+		<FIELD name="ID_AFFAIRE" label="Affaire" titlelabel="Affaire" />
+		<FIELD name="ID_VERIFICATEUR" label="Vérificateur" titlelabel="Vérificateur" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous activité" titlelabel="Sous activité" />
+		<FIELD name="CODE" label="Code mission" titlelabel="Code mission" />
+		<FIELD name="NOM" label="Libellé mission" titlelabel="Libellé mission" />
+		<FIELD name="ID_PERIODICITE" label="Périodicité" titlelabel="Périodicité" />
+		<FIELD name="TEMPS" label="Temps estimé (h)" titlelabel="Temps estimé(h)" />
+		<FIELD name="PRIS" label="Prendre rendez vous" titlelabel="Prendre rendez vous" />
+		<FIELD name="DATE_PREC" label="Date précédente mission" titlelabel="Date précédente mission" />
+		<FIELD name="DATE_INTERVENTION" label="Date d'intervention" titlelabel="Date d'intervention" />
+		<FIELD name="ID_MOIS_CCIP" label="Mois CCIP" titlelabel="Mois CCIP" />
+		<FIELD name="Q18" label="Extension Q18" titlelabel="Extension Q18" />
+		<FIELD name="TARIF_Q18_HT" label="Tarif Q18 HT" titlelabel="Tarif Q18 HT" />
+		<FIELD name="OBJET_INSPECTE" label="Objet inspecté" titlelabel="Objet inspecté" />
+		<FIELD name="PV_UNIT_HT" label="PV unitaire HT" titlelabel="PV unitaire HT" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="REFERENTIEL_INSPECTION" label="Référentiel inspection" titlelabel="Référentiel inspection" />
+		<FIELD name="LOCAL_OBJET_INSPECTE" label="Localisation objet" titlelabel="Localisation objet" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="ID_SECTEUR_ACTIVITE" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="ID_FICHE_RENDEZ_VOUS_ELEMENT_NEXT" label="Prochain rendez vous" titlelabel="Prochain rendez vous" />
+		<FIELD name="ID_NATURE_MISSION" label="Nature mission" titlelabel="Nature mission" />
+		<FIELD name="ID_DOMAINE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="ID_SITE_INTERVENTION" label="Site d'intervention" titlelabel="Site d'intervention" />
+		<FIELD name="INFOS_OBJET_INSPECTE" label="Commentaires objet" titlelabel="Commentaires objet" />
+		<FIELD name="POURCENT_SERVICE" label="Vérificateurs" titlelabel="Vérificateurs" />
+		<FIELD name="POURCENT_CCIP" label="CCIP" titlelabel="CCIP" />
+		<FIELD name="SITUATION_ADMIN" label="Situation administrative" titlelabel="Situation administrative" />
+		<FIELD name="ID_MOIS_PREV" label="Mois d'intervention prévu" titlelabel="Mois d'intervention prévu" />
+		<FIELD name="DATE_ECHEANCE" label="Date d'échéance" titlelabel="Date d'échéance" />
+		<FIELD name="DATE_PREV" label="Date prévisionnelle" titlelabel="Date prévisionnelle" />
+		<FIELD name="NOTA" label="Nota" titlelabel="Nota" />
+		<FIELD name="VALID" label="Valider par le responsable" titlelabel="Valider par le responsable" />
+	</TABLE>
+
+	<TABLE name="FOURNISSEUR">
+		<FIELD name="ID_COMPTE_PCE_CHARGE" label="Compte de charge par défaut" titlelabel="Compte de charge par défaut" />
+		<FIELD name="TYPE" label="Type" titlelabel="Type" />
+		<FIELD name="RESPONSABLE" label="Responsable" titlelabel="Responsable" />
+		<FIELD name="TEL_P" label="Mobile" titlelabel="Mobile" />
+		<FIELD name="INFOS" label="Informations complèmentaires" titlelabel="Informations complèmentaires" />
+		<FIELD name="MAIL" label="E-Mail" titlelabel="E-Mail" />
+		<FIELD name="ID_LANGUE" label="Langue" titlelabel="Langue" />
+		<FIELD name="NOM" label="Nom du fournisseur" titlelabel="Nom" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="UE" label="Fournisseur étranger membre de l'UE" titlelabel="Fournisseur étranger membre de l'UE" />
+		<FIELD name="ID_ADRESSE" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="ID_ADRESSE_E" label="Adresse enlevement" titlelabel="Adresse enlevement" />
+		<FIELD name="ID_COMPTE_PCE" label="Numéro" titlelabel="Numéro" />
+		<FIELD name="TEL" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de règlement par défaut" titlelabel="Mode de règlement par défaut" />
+	</TABLE>
+
+	<TABLE name="IDCC">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="INFOS_SALARIE_PAYE">
+		<FIELD name="ID_IDCC" label="Convention collective (*)" titlelabel="Convention collective" />
+		<FIELD name="ID_CONTRAT_SALARIE" label="Contrat de travail" titlelabel="Contrat de travail" />
+		<FIELD name="ID_CLASSEMENT_CONVENTIONNEL" label="Classement conventionnel" titlelabel="Classement conventionnel" />
+		<FIELD name="DUREE_HEBDO" label="Durée hebdomadaire en heures(*)" titlelabel="Durée hebdo." />
+		<FIELD name="DUREE_MOIS" label="Durée mensuelle en heures(*)" titlelabel="Durée mensuelle" />
+		<FIELD name="DATE_ARRIVE" label="Date arrivée (*)" titlelabel="Arrivée le" />
+		<FIELD name="CONGES_PAYES" label="Jour de congés acquis par mois (*)" titlelabel="Congés acquis par mois" />
+		<FIELD name="SALAIRE_MOIS" label="Salaire mensuel brut en €(*)" titlelabel="Salaire mensuel" />
+		<FIELD name="TAUX_AT" label="Taux accident de travail (*)" titlelabel="Taux AT" />
+		<FIELD name="DATE_SORTIE" label="Date de sortie" titlelabel="Date de sortie" />
+		<FIELD name="CODE_AT" label="Code AT" titlelabel="Code AT" />
+		<FIELD name="CODE_SECTION_AT" label="Code section AT" titlelabel="Code section AT" />
+	</TABLE>
+
+	<TABLE name="JOURNAL">
+		<FIELD name="NOM" label="Journal" titlelabel="Journal" />
+		<FIELD name="CODE" label="Code Journal" titlelabel="Code Journal" />
+		<FIELD name="TYPE" label="Type" titlelabel="Type" />
+		<FIELD name="TYPE_BANQUE" label="Journal banque" titlelabel="Journal banque" />
+	</TABLE>
+
+
+	<TABLE name="LANGUE">
+		<FIELD name="NOM" label="Langue" titlelabel="Langue" />
+		<FIELD name="CHEMIN" label="Chemin additionnel des documents" titlelabel="Chemin additionnel des documents" />
+	</TABLE>
+
+	<TABLE name="METRIQUE">
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="UNITE" label="Unité" titlelabel="Unité" />
+	</TABLE>
+
+	<TABLE name="MOIS">
+		<FIELD name="NOM" label="Mois" titlelabel="Mois" />
+	</TABLE>
+
+	<TABLE name="MODE_VENTE_ARTICLE">
+		<FIELD name="NOM" label="Mode de vente" titlelabel="Mode de vente" />
+		<FIELD name="CODE" label="Unité" titlelabel="Unité" />
+	</TABLE>
+
+
+	<TABLE name="MODE_REGLEMENT">
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de règlement" titlelabel="Mode de règlement" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="AJOURS" label="à" titlelabel="à" />
+		<FIELD name="LENJOUR" label="le" titlelabel="le" />
+		<FIELD name="ID_BANQUE_POLE_PRODUIT" label="Banque" titlelabel="Banque" />
+		<FIELD name="ID_TYPE_REGLEMENT" label="Type de règlement" titlelabel="Type de règlement" />
+		<FIELD name="DATE" label="Daté du" titlelabel="Daté du" />
+		<FIELD name="ETS" label="Ets" titlelabel="Ets" />
+		<FIELD name="DATE_FACTURE" label="A réception de facture" titlelabel="A réception de facture" />
+		<FIELD name="NUMERO" label="Numero" titlelabel="Numero" />
+		<FIELD name="COMPTANT" label="Comptant" titlelabel="Comptant" />
+		<FIELD name="DATE_VIREMENT" label="Date de virement" titlelabel="Date de virement" />
+		<FIELD name="DATE_DEPOT" label="Date de depot" titlelabel="Date de depot" />
+		<FIELD name="FIN_MOIS" label="Fin de mois" titlelabel="Fin de mois" />
+	</TABLE>
+
+	<TABLE name="MODE_REGLEMENT_PAYE">
+		<FIELD name="NOM" label="Mois" titlelabel="Mois" />
+	</TABLE>
+
+	<TABLE name="MODELE">
+		<FIELD name="NOM" label="Nom" titleLabel="Nom" />
+		<FIELD name="ID_TYPE_MODELE" label="Type de modèle" titleLabel="Type de modèle" />
+	</TABLE>
+
+
+	<TABLE name="MODELE_COURRIER_CLIENT">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="CONTENU" label="Contenu" titlelabel="Contenu" />
+	</TABLE>
+
+	<TABLE name="MOUVEMENT">
+		<FIELD name="NUMERO" label="N° de mouvement" titlelabel="N° de mouvement" />
+		<FIELD name="SOURCE" label="Source" titlelabel="Source" />
+		<FIELD name="IDSOURCE" label="ID Source" titlelabel="ID Source" />
+		<FIELD name="ID_MOUVEMENT_PERE" label="Mouvement père" titlelabel="Mouvement père" />
+		<FIELD name="ID_PIECE" label="Piéce" titlelabel="Piéce" />
+	</TABLE>
+
+	<TABLE name="MOUVEMENT_STOCK">
+		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
+		<FIELD name="SOURCE" label="Source" titlelabel="Source" />
+		<FIELD name="IDSOURCE" label="IdSource" titlelabel="IdSource" />
+		<FIELD name="NUMERO" label="Numéro mvt stock" titlelabel="Numéro mvt stock" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+	</TABLE>
+
+	<TABLE name="NATURE_COMPTE">
+		<FIELD name="NOM" label="Nature" titlelabel="Nature" />
+	</TABLE>
+
+	<TABLE name="NATURE_MISSION">
+		<FIELD name="CODE" label="Code Nature" titlelabel="Code Nature" />
+		<FIELD name="NOM" label="Nature" titlelabel="Nature" />
+	</TABLE>
+
+	<TABLE name="NUMEROTATION_AUTO">
+		<FIELD name="AFFAIRE_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="AFFAIRE_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="AVOIR_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="AVOIR_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="AVOIR_F_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="AVOIR_F_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="CLIENT_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="CLIENT_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+
+
+		<FIELD name="DEVIS_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="DEVIS_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="BON_L_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="BON_L_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="FACT_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="FACT_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="SALARIE_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="SALARIE_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="PROPOSITION_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="PROPOSITION_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="RELANCE_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="RELANCE_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="COMMANDE_CLIENT_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="COMMANDE_CLIENT_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="COMMANDE_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="COMMANDE_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="BON_R_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="BON_R_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+		<FIELD name="CODE_LETTRAGE" label="Code de lettrage" titlelabel="Code de lettrage" />
+		<FIELD name="COURRIER_FORMAT" label="Format" titlelabel="Format" />
+		<FIELD name="COURRIER_START" label="Prochain numéro" titlelabel="Prochain numéro" />
+	</TABLE>
+	<TABLE name="OBJECTIF_COMMERCIAL">
+		<FIELD name="ANNEE" label="Année" titlelabel="Année" />
+		<FIELD name="MOIS" label="Mois" titlelabel="Mois" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
+		<FIELD name="POURCENT_MARGE" label="% Marge" titlelabel="% Marge" />
+		<FIELD name="CHIFFRE_AFFAIRE" label="Chiffre d'affaire" titlelabel="Chiffre d'affaire" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+	</TABLE>
+
+	<TABLE name="ORDRE_MISSION">
+		<FIELD name="ID_VERIFICATEUR" label="Vérificateur" titlelabel="Vérificateur" />
+		<FIELD name="ID_FICHE_RENDEZ_VOUS" label="Fiche de rendez vous" titlelabel="Fiche de rendez vous" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+	</TABLE>
+
+	<TABLE name="PAYS">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_TARIF" label="Tarif" titlelabel="Tarif" />
+		<FIELD name="ID_LANGUE" label="Langue" titlelabel="Langue" />
+	</TABLE>
+
+	<TABLE name="PERIODICITE">
+		<FIELD name="NOM" label="Périodicité" titlelabel="Périodicité" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NB_SEMAINE" label="Nombre de semaine" titlelabel="Nombre de semaine" />
+		<FIELD name="NB_ANNEE" label="Nombre d'année" titlelabel="Nombre d'année" />
+		<FIELD name="NB_MOIS" label="Nombre de mois" titlelabel="Nombre de mois" />
+	</TABLE>
+
+	<TABLE name="POCHETTE">
+		<FIELD name="CODE" label="Pochette" titlelabel="Pochette" />
+	</TABLE>
+
+	<TABLE name="POLE_PRODUIT">
+		<FIELD name="CODE" label="Code Pôle produit" titlelabel="Code Pôle produit" />
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="RAISON_SOCIALE" label="Raison sociale" titlelabel="Raison sociale" />
+		<FIELD name="TEL" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="FAX" label="Fax" titlelabel="Fax" />
+		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+		<FIELD name="MAIL" label="E-Mail" titlelabel="E-Mail" />
+		<FIELD name="NOM_SECRETAIRE" label="Nom secrétaire" titlelabel="Nom secrétaire" />
+		<FIELD name="NOM_DIRECTEUR" label="Nom directeur" titlelabel="Nom directeur" />
+		<FIELD name="ID_ADRESSE_COMMON" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="FACTURE_ADRESSE" label="Facturer à cette adresse" titlelabel="Facturer à cette adresse" />
+	</TABLE>
+
+	<TABLE name="POSTE_ANALYTIQUE">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_AXE_ANALYTIQUE" label="Axe" titlelabel="Axe" />
+	</TABLE>
+
+	<TABLE name="PIECE">
+		<FIELD name="ID" label="N° de pièce" titlelabel="N° de pièce" />
+		<FIELD name="NOM" label="Nom de la pièce" titlelabel="Nom de la pièce" />
+	</TABLE>
+
+	<TABLE name="POURCENT_SERVICE">
+		<FIELD name="ID_SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="ID_VERIFICATEUR" label="Vérificateur" titlelabel="Vérificateur" />
+		<FIELD name="POURCENT" label="Pourcent" titlelabel="Pourcent" />
+	</TABLE>
+
+	<TABLE name="POURCENT_CCIP">
+		<FIELD name="ID_MOIS" label="Mois CCIP" titlelabel="Mois CCIP" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="POURCENT" label="Pourcent" titlelabel="Pourcent" />
+		<FIELD name="FACTURE" label="Facturé" titlelabel="Facturé" />
+		<FIELD name="ID_FICHE_RENDEZ_VOUS_ELEMENT" label="Element de rendez vous" titlelabel="Element de rendez vous" />
+	</TABLE>
+
+
+	<TABLE name="PREFS_COMPTE">
+		<FIELD name="ID_COMPTE_PCE_ACHAT" label="Compte Achat" titlelabel="Compte Achat" />
+		<FIELD name="ID_COMPTE_PCE_VENTE_SERVICE" label="Compte Vente service" titlelabel="Compte Vente service" />
+		<FIELD name="ID_COMPTE_PCE_VENTE_PRODUITS" label="Compte Vente produits" titlelabel="Compte Vente produits" />
+		<FIELD name="ID_COMPTE_PCE_FOURNISSEUR" label="Compte fournisseur" titlelabel="Compte fournisseur" />
+		<FIELD name="ID_COMPTE_PCE_CLIENT" label="Compte client" titlelabel="Compte client" />
+		<FIELD name="ID_COMPTE_PCE_TVA_ACHAT" label="Compte TVA déductible" titlelabel="Compte TVA déductible" />
+		<FIELD name="ID_COMPTE_PCE_TVA_VENTE" label="Compte TVA collectée" titlelabel="Compte TVA collectée" />
+	</TABLE>
+
+	<TABLE name="PROPOSITION">
+		<FIELD name="NUMERO" label="N° proposition" titlelabel="N° proposition" />
+		<FIELD name="OBJET" label="Nom de l'affaire" titlelabel="Nom de l'affaire" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_CONTACT" label="A l'attention de" titlelabel="A l'attention de" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="TOTAL_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="ID_SECRETAIRE" label="Secrétaire" titlelabel="Secrétaire" />
+		<FIELD name="INFOS" label="Commentaires" titlelabel="Commentaires" />
+		<FIELD name="ID_ETAT_DEVIS" label="Etat" titlelabel="Etat" />
+		<FIELD name="INFOS_ETAT" label="Suite donnée à la proposition" titlelabel="Suite donnée à la proposition" />
+		<FIELD name="DATE_CMD" label="Date de commande" titlelabel="Date de commande" />
+		<FIELD name="DATE_CONFIRM" label="Date de confirmation" titlelabel="Date de confirmation" />
+		<FIELD name="CCI" label="CCI" titlelabel="CCI" />
+	</TABLE>
+
+	<TABLE name="PROPOSITION_ELEMENT">
+		<FIELD name="ID_PROPOSITION" label="Proposition" titlelabel="Proposition" />
+		<FIELD name="FIN_CONTRAT" label="Fin de contrat" titlelabel="Fin de contrat" />
+		<FIELD name="ID_TAXE" label="TVA" titlelabel="TVA" />
+		<FIELD name="DATE_FIN_CONTRAT" label="Date de fin de contrat" titlelabel="Date de fin de contrat" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous activité" titlelabel="Sous activité" />
+		<FIELD name="ID_PERIODICITE" label="Périodicité" titlelabel="Périodicité" />
+		<FIELD name="INDICE_0" label="Indice de base" titlelabel="Indice de base" />
+		<FIELD name="NOMBRE" label="Nombre" titlelabel="Nombre" />
+		<FIELD name="Q18" label="Extension Q18" titlelabel="Extension Q18" />
+		<FIELD name="TARIF_Q18_HT" label="Tarif Q18 HT" titlelabel="Tarif Q18 HT" />
+		<FIELD name="OBJET_INSPECTE" label="Objet inspecté" titlelabel="Objet inspecté" />
+		<FIELD name="PV_UNIT_HT" label="PV unitaire HT" titlelabel="PV unitaire HT" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="REFERENTIEL_INSPECTION" label="Référentiel inspection" titlelabel="Référentiel inspection" />
+		<FIELD name="LOCAL_OBJET_INSPECTE" label="Localisation objet" titlelabel="Localisation objet" />
+		<FIELD name="ID_SECTEUR_ACTIVITE" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="ID_NATURE_MISSION" label="Nature de la mission" titlelabel="Nature de la mission" />
+		<FIELD name="ID_DOMAINE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="MONTANT_REVISABLE" label="Révisable" titlelabel="Révisable" />
+		<FIELD name="INFOS_OBJET_INSPECTE" label="Commentaires objet" titlelabel="Commentaires objet" />
+		<FIELD name="ID_SITE_INTERVENTION" label="Site d'intervention" titlelabel="Site d'intervention" />
+		<FIELD name="ID_POURCENT_SERVICE" label="Vérificateurs" titlelabel="Vérificateurs" />
+		<FIELD name="SITUATION_ADMIN" label="Situation administrative" titlelabel="Situation administrative" />
+		<FIELD name="NOTA" label="Nota" titlelabel="Nota" />
+
+	</TABLE>
+
+	<TABLE name="RAPPORT">
+		<FIELD name="ID_AFFAIRE" label="Affaire" titlelabel="Affaire" />
+		<FIELD name="ID_ETAT_RAPPORT" label="Etat" titlelabel="Etat" />
+		<FIELD name="ID_VERIFICATEUR" label="Vérificateur" titlelabel="Vérificateur" />
+		<FIELD name="DATE_VISITE" label="Date de visite" titlelabel="Date de visite" />
+		<FIELD name="DATE_RAPPORT" label="Date remise rapport" titlelabel="Date remise rapport" />
+		<FIELD name="DATE_FRAPPE" label="Envoi sous traitance" titlelabel="Envoi sous traitance" />
+		<FIELD name="DATE_FIN_FRAPPE" label="Retour sous traitance" titlelabel="Retour sous traitance" />
+		<FIELD name="DATE_RELECTURE" label="Date de début de relecture" titlelabel="Date de début de relecture" />
+		<FIELD name="DATE_FACTURE_ENVOI" label="Date d'envoi de facture" titlelabel="Date d'envoi de facture" />
+		<FIELD name="CODE_MISSION" label="Code mission" titlelabel="Code mission" />
+		<FIELD name="MISSION" label="Mission" titlelabel="Mission" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="Montant HT" />
+		<FIELD name="ID_PERIODICITE" label="Périodicité" titlelabel="Périodicité" />
+		<FIELD name="DATE_RETOUR_PREVU" label="Date de retour prevue" titlelabel="Date de retour prevue" />
+		<FIELD name="DATE_SUPERVISION" label="Date de supervision" titlelabel="Date de supervision" />
+		<FIELD name="ID_FICHE_RENDEZ_VOUS_ELEMENT" label="Fiche de rendez de vous element" titlelabel="Fiche de rendez de vous element" />
+	</TABLE>
+
+	<TABLE name="REFERENCE_CLIENT">
+		<FIELD name="NOM" label="Référence client" titlelabel="Référence client" />
+		<FIELD name="ID_AFFAIRE" label="Affaire" titlelabel="Affaire" />
+	</TABLE>
+
+	<TABLE name="REGIME_BASE">
+		<FIELD name="ID_CODE_REGIME_BASE" label="Régime de base obligatoire" titlelabel="Régime de base obligatoire" />
+		<FIELD name="ID_CODE_REGIME_MALADIE" label="Régime obligatoire risque maladie" titlelabel="Régime obligatoire risque maladie" />
+		<FIELD name="ID_CODE_REGIME_AT" label="Régime obligatoire risque accident du travail" titlelabel="Régime obligatoire risque accident du travail" />
+		<FIELD name="ID_CODE_REGIME_VIEL_P" label="Régime obligatoire risque vieillesse (part patronale)" titlelabel="Régime obligatoire risque vieillesse (part patronale)" />
+		<FIELD name="ID_CODE_REGIME_VIEL_S" label="Régime obligatoire risque vieillesse (part salariale)" titlelabel="Régime obligatoire risque vieillesse (part salariale)" />
+	</TABLE>
+
+	<TABLE name="REGLEMENT_PAYE">
+		<FIELD name="NOM_BANQUE" label="Nom de la banque" titlelabel="Nom de la banque" />
+		<FIELD name="RIB" label="RIB" titlelabel="RIB" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte du salarié" titlelabel="Compte du salarié" />
+		<FIELD name="ID_MODE_REGLEMENT_PAYE" label="Mode de règlement (*)" titlelabel="Mode de règlement" />
+		<FIELD name="LE" label="Le (*)" titlelabel="Le" />
+	</TABLE>
+
+	<TABLE name="REGLER_MONTANT">
+		<FIELD name="DATE" label="Date de règlement" titlelabel="Date de règlement" />
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de règlement" titlelabel="Mode de règlement" />
+		<FIELD name="ID_ECHEANCE_FOURNISSEUR" label="Echéance fournisseur" titlelabel="échéance" />
+	</TABLE>
+
+	<TABLE name="RELANCE">
+		<FIELD name="DATE" label="Date de relance" titlelabel="Date de relance" />
+		<FIELD name="ID_SAISIE_VENTE_FACTURE" label="Facture" titlelabel="Facture" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="MONTANT" label="Montant" titlelabel="Montant" />
+		<FIELD name="ID_TYPE_LETTRE_RELANCE" label="Type de lettre" titlelabel="Type de lettre" />
+		<FIELD name="INFOS" label="Commentaires" titlelabel="Commentaires" />
+		<FIELD name="NUMERO" label="Numéro relance" titlelabel="Numéro relance" />
+	</TABLE>
+
+	<TABLE name="REPARTITION_ANALYTIQUE">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+	<TABLE name="REPARTITION_ANALYTIQUE_ELEMENT">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_POSTE_ANALYTIQUE" label="Poste" titlelabel="Poste" />
+		<FIELD name="REPARTITION_ANALYTIQUE" label="Répartition" titlelabel="Répartition" />
+		<FIELD name="TAUX" label="Taux" titlelabel="Taux" />
+	</TABLE>
+
+	<TABLE name="SAISIE_ACHAT">
+		<FIELD name="DATE" label="le" titlelabel="le" />
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="MONTANT_TTC" label="Montant TTC" titlelabel="TTC" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de règlement" titlelabel="Mode de règlement" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
+		<FIELD name="ID_TYPE_REGLEMENT" label="Type de règlement" titlelabel="Type de règlement" />
+		<FIELD name="NUMERO_FACTURE" label="N° de facture fournisseur" titlelabel="N° de facture fournisseur" />
+		<FIELD name="NUMERO_COMMANDE" label="N° de commande fournisseur" titlelabel="N° de commande fournisseur" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations" />
+		<FIELD name="ID_COMPTE_PCE" label="Numéro de compte de charges" titlelabel="Numéro de compte de charges" />
+		<FIELD name="ID_AVOIR_FOURNISSEUR" label="Avoir fournisseur" titlelabel="Avoir fournisseur" />
+		<FIELD name="IMMO" label="Immobilisations" titlelabel="Immobilisations" />
+	</TABLE>
+
+	<TABLE name="SAISIE_KM">
+		<FIELD name="NOM" label="Vente de" titlelabel="Vente de" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
+		<FIELD name="ID_JOURNAL" label="Journal" titlelabel="Journal" />
+	</TABLE>
+	<TABLE name="SAISIE_KM_ELEMENT">
+		<FIELD name="ANALYTIQUE" label="Analytique" titlelabel="Analytique" />
+		<FIELD name="NUMERO" label="N° compte" titlelabel="N° compte" />
+		<FIELD name="NOM" label="Compte" titlelabel="Compte" />
+		<FIELD name="NOM_ECRITURE" label="libellé écriture" titlelabel="libellé écriture" />
+		<FIELD name="DEBIT" label="Débit" titlelabel="Débit" />
+		<FIELD name="CREDIT" label="Crédit" titlelabel="Crédit" />
+		<FIELD name="ID_ECRITURE" label="Ecriture" titlelabel="Ecriture" />
+	</TABLE>
+
+
+	<TABLE name="SAISIE_VENTE_COMPTOIR">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="MONTANT_HT" label="Montant HT" titlelabel="HT" />
+		<FIELD name="MONTANT_TTC" label="Montant TTC" titlelabel="TTC" />
+		<FIELD name="MONTANT_SERVICE" label="Montant service" titlelabel="Montant Service" />
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de règlement" titlelabel="Mode de règlement" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations" />
+		<FIELD name="ID_FOURNISSEUR" label="Fournisseur" titlelabel="Fournisseur" />
+		<FIELD name="ECHEANCE" label="Date d'échéance" titlelabel="Date d'échéance" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
+		<FIELD name="ID_AVOIR_CLIENT" label="Avoir Client" titlelabel="Avoir Client" />
+		<FIELD name="CREATION_AUTO" label="Article généré" titlelabel="généré" />
+	</TABLE>
+	<TABLE name="SAISIE_VENTE_FACTURE">
+		<FIELD name="ID_COMPTE_PCE_VENTE" label="Compte vente" titlelabel="Compte vente" />
+		<FIELD name="ID_ADRESSE" label="Adresse spécifique" titlelabel="Adresse spécifique" />
+		<FIELD name="T_HA" label="Total achat" titlelabel="Total achat" />
+		<FIELD name="SOURCE" label="Source" titlelabel="Source" />
+		<FIELD name="T_AVOIR_TTC" label="T de avoir de ttc" titlelabel="T de avoir de ttc" />
+		<FIELD name="IDSOURCE" label="Idsource" titlelabel="Idsource" />
+		<FIELD name="PREVISIONNELLE" label="Previsionnelle" titlelabel="Previsionnelle" />
+		<FIELD name="COMPLEMENT" label="Complement" titlelabel="Complement" />
+		<FIELD name="RETOUR_NATEXIS" label="Retour de natexis" titlelabel="Retour de natexis" />
+		<FIELD name="T_ECOTAXE" label="Dont ecotaxe" titlelabel="Dont ecotaxe" />
+		<FIELD name="ID_COMPTE_PCE_SERVICE" label="Compte de pce de service" titlelabel="Compte de pce de service" />
+		<FIELD name="AFFACTURAGE" label="Affacturage" titlelabel="Affacturage" />
+		<FIELD name="NOM" label="Référence" titlelabel="Référence" />
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="ID_DEVIS" label="Devis" titlelabel="Devis" />
+		<FIELD name="T_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="T_TVA" label="Total TVA" titlelabel="Total TVA" />
+		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="ID_TAXE_PORT" label="TVA sur port" titlelabel="TVA sur port" />
+		<FIELD name="ID_MOUVEMENT" label="N° de mouvement" titlelabel="N° de mouvement" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations" />
+		<FIELD name="ID_MODE_REGLEMENT" label="Mode de règlement" titlelabel="Mode de règlement" />
+		<FIELD name="PORT_HT" label="Frais de port HT" titlelabel="Ports" />
+		<FIELD name="REMISE_HT" label="Remise HT" titlelabel="Remise" />
+		<FIELD name="T_SERVICE" label="Frais de service" titlelabel="Service" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="NUMERO" label="Numéro de la facture" titlelabel="Numéro facture" />
+		<FIELD name="ID_AVOIR_CLIENT" label="Avoir" titlelabel="Avoir" />
+		<FIELD name="DATE_ENVOI" label="Date d'envoi" titlelabel="Date d'envoi" />
+		<FIELD name="DATE_REGLEMENT" label="Date de règlement" titlelabel="Date de règlement" />
+		<FIELD name="INFOS" label="Informations complémentaires" titlelabel="Informations complémentaires" />
+		<FIELD name="ACOMPTE" label="Acompte" titlelabel="Acompte" />
+		<FIELD name="POURCENT_ACOMPTE" label="% Acompte" titlelabel="% Acompte" />
+		<FIELD name="ID_POLE_PRODUIT" label="Pôle produit" titlelabel="Pôle produit" />
+		<FIELD name="ID_AFFAIRE" label="Affaire" titlelabel="Affaire" />
+		<FIELD name="ID_CONTACT" label="Contact" titlelabel="Contact" />
+		<FIELD name="ID_SECRETAIRE" label="Secrétaire" titlelabel="Secrétaire" />
+		<FIELD name="TYPE_INTERVENTION" label="Type d'intervention" titlelabel="Type d'intervention" />
+		<FIELD name="ID_REFERENCE_CLIENT" label="Référence client" titlelabel="Référence client" />
+		<FIELD name="ID_VERIFICATEUR" label="Vérificateur" titlelabel="Vérificateur" />
+		<FIELD name="ID_MODELE" label="Modéle" titlelabel="Modéle" />
+		<FIELD name="CONTROLE_TECHNIQUE" label="Facture CTC" titlelabel="Facture CTC" />
+		<FIELD name="COMPTE_SERVICE_AUTO" label="Gestion automatique du compte de service" titlelabel="Gestion automatique du compte de service" />
+	</TABLE>
+	<TABLE name="SAISIE_VENTE_FACTURE_ELEMENT">
+		<FIELD name="NB_COLIS" label="Nb Colis" titlelabel="Nb Colis" />
+		<FIELD name="POIDS_COLIS_NET" label="Pds Colis" titlelabel="Pds Colis" />
+		<FIELD name="T_POIDS_COLIS_NET" label="Pds Colis Total" titlelabel="Pds Colis Total" />
+		<FIELD name="POURCENT_ACOMPTE" label="% Acompte" titlelabel="% Acompte" />
+		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />
+		<FIELD name="ID_UNITE_VENTE" label="Unité de vente" titlelabel="Unité de vente" />
+		<FIELD name="ID_ARTICLE" label="Article" titlelabel="Article" />
+		<FIELD name="DESCRIPTIF" label="Descriptif" titlelabel="Descriptif" />
+		<FIELD name="ID_PAYS" label="Pays d'origine" titlelabel="Pays d'origine" />
+		<FIELD name="CODE_DOUANIER" label="Code douanier" titlelabel="Code douanier" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+		<FIELD name="PV_U_DEVISE" label="Prix devise" titlelabel="Prix devise" />
+		<FIELD name="PV_T_DEVISE" label="Prix devise total" titlelabel="Prix devise total" />
+		<FIELD name="ID_POCHETTE" label="Pochette" titlelabel="Pochette" />
+		<FIELD name="ECOTAXE" label="Ecotaxe" titlelabel="Ecotaxe" />
+		<FIELD name="PRIX_FINAL_TTC" label="Prix de final de ttc" titlelabel="Prix de final de ttc" />
+		<FIELD name="T_ECOTAXE" label="Dont écotaxe" titlelabel="Dont ecotaxe" />
+		<FIELD name="T_PRIX_FINAL_TTC" label="Total Prix de final" titlelabel="Total prix final" />
+		<FIELD name="POURCENT_REMISE" label="% Remise" titlelabel="% Remise" />
+		<FIELD name="POURCENT_ACOMPTE" label="% Acompte" titlelabel="% Acompte" />
+		<FIELD name="ID_STYLE" label="Style" titlelabel="Style" />
+		<FIELD name="NOM" label="Désignation" titlelabel="Désignation" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="PV_HT" label="PV Unitaire HT" titlelabel="PV Unitaire HT" />
+		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
+		<FIELD name="PA_HT" label="PA Unitaire HT" titlelabel="PA Unitaire HT" />
+		<FIELD name="ID_TAXE" label="Taxe" titlelabel="Taxe" />
+		<FIELD name="POIDS" label="Poids UV" titlelabel="Poids UV" />
+		<FIELD name="QTE" label="Quantité" titlelabel="Qté" />
+		<FIELD name="QTE_LIVREE" label="Quantité livrée" titlelabel="Qté livrée" />
+		<FIELD name="LIVREE" label="Livrée" titlelabel="Livrée" />
+		<FIELD name="SERVICE" label="Service" titlelabel="Service" />
+		<FIELD name="ID_SAISIE_VENTE_FACTURE" label="Saisie vente facture" titlelabel="Saisie vente facture" />
+		<FIELD name="PRIX_METRIQUE_VT_1" label="Prix Vente UV HT" titlelabel="Prix Vente UV HT" />
+		<FIELD name="PRIX_METRIQUE_HA_1" label="Prix Achat UV HT" titlelabel="Prix Achat UV HT" />
+		<FIELD name="VALEUR_METRIQUE_1" label="Longueur par défaut" titlelabel="Longueur par défaut" />
+		<FIELD name="ID_METRIQUE_1" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_2" label="PV au metre HT" titlelabel="PV au metre HT" />
+		<FIELD name="PRIX_METRIQUE_HA_2" label="PHA au metre HT" titlelabel="PHA au metre HT" />
+		<FIELD name="VALEUR_METRIQUE_2" label="Largeur" titlelabel="Largeur" />
+		<FIELD name="ID_METRIQUE_2" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="PRIX_METRIQUE_VT_3" label="PV au kg HT" titlelabel="PV au kg HT" />
+		<FIELD name="PRIX_METRIQUE_HA_3" label="PHA au kg HT" titlelabel="PHA au kg HT" />
+		<FIELD name="VALEUR_METRIQUE_3" label="poids / m²" titlelabel="poids / m²" />
+		<FIELD name="ID_METRIQUE_3" label="Métrique" titlelabel="Métrique" />
+		<FIELD name="T_POIDS" label="Poids total" titlelabel="Poids total" />
+		<FIELD name="T_PA_HT" label="Total Achat HT" titlelabel="Total Achat HT" />
+		<FIELD name="T_PV_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="T_PV_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="CODE_MISSION" label="Code mission" titlelabel="Code mission" />
+		<FIELD name="NOM_MISSION" label="Nom mission" titlelabel="Nom mission" />
+		<FIELD name="ACTIVITE" label="Activité" titlelabel="Activité" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous activité" titlelabel="Sous activité" />
+		<FIELD name="ID_MODE_VENTE_ARTICLE" label="Mode de vente" titlelabel="Mode de vente" />
+		<FIELD name="MONTANT_INITIAL" label="Montant initial" titlelabel="Montant initial" />
+		<FIELD name="INDICE_0" label="Indice 0" titlelabel="Indice 0" />
+		<FIELD name="INDICE_N" label="Indice N" titlelabel="Indice N" />
+		<FIELD name="Q18" label="Extension Q18" titlelabel="Extension Q18" />
+		<FIELD name="TARIF_Q18_HT" label="Tarif Q18 HT" titlelabel="Tarif Q18 HT" />
+		<FIELD name="OBJET_INSPECTE" label="Objet inspecté" titlelabel="Objet inspecté" />
+		<FIELD name="REFERENTIEL_INSPECTION" label="Référentiel inspection" titlelabel="Référentiel inspection" />
+		<FIELD name="LOCAL_OBJET_INSPECTE" label="Localisation objet" titlelabel="Localisation objet" />
+		<FIELD name="ID_SECTEUR_ACTIVITE" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="ID_NATURE_MISSION" label="Nature de la mission" titlelabel="Nature de la mission" />
+		<FIELD name="ID_DOMAINE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="MONTANT_REVISABLE" label="Révisable" titlelabel="Révisable" />
+		<FIELD name="INFOS_OBJET_INSPECTE" label="Commentaires objet" titlelabel="Commentaires objet" />
+		<FIELD name="ID_SITE_INTERVENTION" label="Site d'intervention" titlelabel="Site d'intervention" />
+		<FIELD name="ID_PERIODICITE" label="Périodicité" titlelabel="Périodicité" />
+		<FIELD name="DATE" label="Date d'intervention" titlelabel="Date d'intervention" />
+		<FIELD name="POURCENT_SERVICE" label="Pourcentage service" titlelabel="Pourcentage service" />
+		<FIELD name="POURCENT_CCIP" label="CCIP" titlelabel="CCIP" />
+		<FIELD name="DATE_FIN" label="Date de fin d'intervention" titlelabel="Date de fin d'intervention" />
+	</TABLE>
+
+	<TABLE name="SALARIE">
+		<FIELD name="NOM" label="Nom (*)" titlelabel="Nom" />
+		<FIELD name="PRENOM" label="Prénom (*)" titlelabel="Prénom" />
+		<FIELD name="ID_TITRE_PERSONNEL" label="Titre (*)" titlelabel="Titre" />
+		<FIELD name="CODE" label="Code (*)" titlelabel="Code" />
+		<FIELD name="NOM_JEUNE_FILLE" label="Nom de jeune fille" titlelabel="Nom jeune fille" />
+		<FIELD name="ID_ETAT_CIVIL" label="Etat civil" titlelabel="Etat civil" />
+		<FIELD name="ID_REGLEMENT_PAYE" label="Règlement paye" titlelabel="Règlement paye" />
+		<FIELD name="ID_INFOS_SALARIE_PAYE" label="Informations salarié-paye" titlelabel="Informations salarié-paye" />
+		<FIELD name="ID_FICHE_PAYE" label="Fiche de paye" titlelabel="Fiche de paye" />
+		<FIELD name="DERNIER_MOIS" label="Dernier mois" titlelabel="Dernier mois" />
+		<FIELD name="DERNIERE_ANNEE" label="Dernière année" titlelabel="Dernière année" />
+		<FIELD name="ID_CUMULS_CONGES" label="Cumuls congés" titlelabel="Cumuls congés" />
+		<FIELD name="ID_CUMULS_PAYE" label="Cumuls paye" titlelabel="Cumuls paye" />
+		<FIELD name="ID_VARIABLE_SALARIE" label="Variables salariés" titlelabel="Variables salariés" />
+	</TABLE>
+
+	<TABLE name="SECRETAIRE">
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="PRENOM" label="Prénom" titlelabel="Prénom" />
+		<FIELD name="ID_TITRE_PERSONNEL" label="Titre" titlelabel="Titre" />
+		<FIELD name="TEL" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="ID_USER_COMMON" label="Utilisateur" titlelabel="Utilisateur" />
+	</TABLE>
+
+	<TABLE name="SECTEUR_ACTIVITE">
+		<FIELD name="NOM" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="CONDITIONS" label="Conditions" titlelabel="Conditions" />
+		<FIELD name="TEL" label="Téléphone" titlelabel="Téléphone" />
+	</TABLE>
+
+	<TABLE name="SITUATION_FAMILIALE">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+	</TABLE>
+
+	<TABLE name="SITE_INTERVENTION">
+		<FIELD name="NOM" label="Site d'intervention" titlelabel="Site d'intervention" />
+		<FIELD name="CODE" label="Code Site" titlelabel="Code Site" />
+		<FIELD name="ADRESSE" label="Adresse" titlelabel="Adresse" />
+		<FIELD name="VILLE" label="Ville" titlelabel="Ville" />
+		<FIELD name="MAIL" label="E-Mail" titlelabel="E-Mail" />
+		<FIELD name="TEL" label="Téléphone" titlelabel="Téléphone" />
+		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+	</TABLE>
+
+	<TABLE name="STOCK">
+		<FIELD name="QTE_REEL" label="Quantité réelle en stock" titlelabel="Qté réelle en stock" />
+		<FIELD name="QTE_TH" label="Quantité théorique" titlelabel="Qté théorique" />
+	</TABLE>
+
+	<TABLE name="STYLE">
+		<FIELD name="NOM" label="Nom" titlelabel="Nom" />
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+	</TABLE>
+
+	<TABLE name="TARIF">
+		<FIELD name="NOM" label="Tarif" titlelabel="Tarif" />
+		<FIELD name="ID_TAXE" label="TVA" titlelabel="TVA" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
+	</TABLE>
+
+	<TABLE name="TAXE">
+		<FIELD name="NOM" label="Libellé"/>
+		<FIELD name="TAUX" label="Taux"/>
+		<FIELD name="DEFAULT" label="Taxe par défaut" titlelabel="Taxe par défaut" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte" titlelabel="Compte" />
+		<FIELD name="ID_COMPTE_PCE_COLLECTE" label="Compte TVA collectée" />
+		<FIELD name="ID_COMPTE_PCE_DED" label="Compte TVA déductible" />
+	</TABLE>
+
+	<TABLE name="TICKET_CAISSE">
+		<FIELD name="DATE" label="Date" titlelabel="Date" />
+		<FIELD name="TOTAL_HT" label="Total HT" titlelabel="Total HT" />
+		<FIELD name="TOTAL_TTC" label="Total TTC" titlelabel="Total TTC" />
+		<FIELD name="NUMERO" label="Numéro" titlelabel="Numéro" />
+	</TABLE>
+
+
+	<TABLE name="TITRE_PERSONNEL">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="SEXE_M" label="Sexe Masculin" titlelabel="Sexe Masculin" />
+	</TABLE>
+
+	<TABLE name="TYPE_COMPTE_PCG">
+		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="RACINE" label="Racine" titlelabel="Racine" />
+	</TABLE>
+
+	<TABLE name="TYPE_LETTRE_RELANCE">
+		<FIELD name="NOM" label="Type de lettre" titlelabel="Type de lettre" />
+		<FIELD name="MODELE" label="Path" titlelabel="Path" />
+	</TABLE>
+
+	<TABLE name="TYPE_REGLEMENT">
+		<FIELD name="NOM" label="Type règlement" titlelabel="Type règlement" />
+		<FIELD name="ID_COMPTE_PCE_FOURN" label="Compte fournisseur" titlelabel="Compte fournisseur" />
+		<FIELD name="ID_COMPTE_PCE_CLIENT" label="Compte client" titlelabel="Compte client" />
+		<FIELD name="COMPTANT" label="Comptant" titlelabel="Comptant" />
+	</TABLE>
+
+	<TABLE name="VARIABLE_SALARIE">
+		<FIELD name="HEURE_110" label="Heures à 110%" titlelabel="Heures à 110%" />
+		<FIELD name="HEURE_125" label="Heures à 125%" titlelabel="Heures à 125%" />
+		<FIELD name="HEURE_150" label="Heures à 150%" titlelabel="Heures à 150%" />
+		<FIELD name="HEURE_200" label="Heures à 200%" titlelabel="Heures à 200%" />
+		<FIELD name="CONGES_PRIS" label="Congés pris" titlelabel="Congés pris" />
+		<FIELD name="HEURE_TRAV" label="Heures travaillées" titlelabel="Heures travaillées" />
+		<FIELD name="HEURE_ABS" label="Heures d'abscence" titlelabel="Heures d'abscence" />
+	</TABLE>
+
+	<TABLE name="UNITE_VENTE">
+		<FIELD name="CODE" label="Code" titlelabel="Code" />
+		<FIELD name="NOM" label="Libellè" titlelabel="Libellé" />
+	</TABLE>
+
+</ROOT>

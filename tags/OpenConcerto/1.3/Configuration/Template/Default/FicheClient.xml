@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+
+<contentDocument>
+	
+
+	<element location="C5" type="fill">
+		<field base="Societe" table="CLIENT" name="FORME_JURIDIQUE" />
+		<field base="Societe" table="CLIENT" name="NOM" />		
+	</element>
+
+	<element location="C6" type="fill">
+		<field base="Societe" table="CLIENT" name="NUMERO_TVA" />				
+	</element>
+
+	<element location="C7" type="fill">
+		<field base="Societe" table="CLIENT" name="SIRET" />				
+	</element>
+
+
+	<element location="B9" type="fill">
+		<field base="Societe" table="CLIENT" name="ID_ADRESSE">
+			<field base="Societe" table="ADRESSE" name="RUE" />
+		</field>
+	</element>
+
+	<element location="B12" type="fill">
+		<field base="Societe" table="CLIENT" name="ID_ADRESSE">
+			<field base="Societe" table="ADRESSE" name="VILLE" type="villeCP" />
+			<field base="Societe" table="ADRESSE" name="VILLE" type="ville" />
+			<field base="Societe" table="ADRESSE" name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX" />
+		</field>		
+	</element>
+
+
+	<element location="C16" type="fill">
+		<field base="Societe" table="CLIENT" name="RESPONSABLE" />
+	</element>
+
+
+	<element location="C17" type="fill">
+		<field base="Societe" table="CLIENT" name="TEL" />
+	</element>
+
+	<element location="C18" type="fill">
+		<field base="Societe" table="CLIENT" name="TEL_P" />				
+	</element>
+
+	<element location="C19" type="fill">
+		<field base="Societe" table="CLIENT" name="FAX" />				
+	</element>
+
+	<element location="C20" type="fill">
+		<field base="Societe" table="CLIENT" name="MAIL" />				
+	</element>
+
+
+	<table endPageLine="56" firstLine="26" endLine="37" lastColumn="K" base="Societe" table="CONTACT">
+		<element location="B" type="fill">
+			<field base="Societe" table="CONTACT" name="ID_TITRE_PERSONNEL">
+				<field base="Societe" table="TITRE_PERSONNEL" name="NOM"/>
+			</field>
+		</element>
+
+
+		<element location="C" type="fill">
+			<field base="Societe" table="CONTACT" name="NOM"/>
+		</element>
+
+		<element location="D" type="fill">
+			<field base="Societe" table="CONTACT" name="PRENOM"/>
+		</element>
+
+		<element location="G" type="fill">
+			<field base="Societe" table="CONTACT" name="FONCTION"/>
+		</element>
+
+		<element location="I" type="fill">
+			<field base="Societe" table="CONTACT" name="TEL_DIRECT"/>
+		</element>
+	</table>
+
+</contentDocument>

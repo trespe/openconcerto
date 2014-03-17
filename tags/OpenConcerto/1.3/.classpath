@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry exported="true" kind="lib" path="lib/commons-collections-3.1.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/commons-dbutils-1.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/commons-jxpath-1.3.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/commons-logging-1.1.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/commons-net-1.4.1_ftp.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/forms-1.0.5.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/ganymed-ssh2-build250.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/iText-2.1.5.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/jakarta-oro-2.0.8.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/jaxen-1.1.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/jcommon-1.0.16.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/jdom-1.1.1.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/jgrapht-0.7.3.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/jpos111.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/mysql-connector-java-5.1.5-bin.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/ognl-2.6.5.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/resolver.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/RXTXcomm.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/poi-3.8-beta3-20110606.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/jsch-0.1.44.jar"/>
+	<classpathentry kind="lib" path="lib/jcip-annotations.jar"/>
+	<classpathentry kind="lib" path="lib/fb-annotations-2.0.0.jar"/>
+	<classpathentry exported="true" kind="lib" path="lib/commons-dbcp-1.4.jar"/>
+	<classpathentry kind="lib" path="lib/commons-pool-1.6.jar"/>
+	<classpathentry kind="lib" path="lib/postgresql-9.2-1003.jdbc4.jar"/>
+	<classpathentry kind="lib" path="lib/h2-1.3.175.jar"/>
+	<classpathentry kind="lib" path="lib/icu4j-51_2-data-western_europe.jar"/>
+	<classpathentry kind="lib" path="lib/icu4j-51_2-module_format.jar"/>
+	<classpathentry kind="lib" path="lib/jOpenDocument-1.3.jar"/>
+	<classpathentry kind="lib" path="lib/xercesImpl-2.9.1.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>

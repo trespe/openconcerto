@@ -1,0 +1,48 @@
+/*
+ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS HEADER.
+ * 
+ * Copyright 2011 OpenConcerto, by ILM Informatique. All rights reserved.
+ * 
+ * The contents of this file are subject to the terms of the GNU General Public License Version 3
+ * only ("GPL"). You may not use this file except in compliance with the License. You can obtain a
+ * copy of the License at http://www.gnu.org/licenses/gpl-3.0.html See the License for the specific
+ * language governing permissions and limitations under the License.
+ * 
+ * When distributing the software, include this License Header Notice in each file.
+ */
+ 
+ package org.openconcerto.sql.view.list.search;
+
+import org.openconcerto.sql.view.list.ListSQLLine;
+
+import java.util.List;
+
+abstract class ChangeListRunnable implements Runnable {
+
+    private final String name;
+    private final SearchQueue q;
+
+    public ChangeListRunnable(String name, SearchQueue q) {
+        this.name = name;
+        this.q = q;
+    }
+
+    @Override
+    public String toString() {
+        return this.name == null ? this.getClass().getName() : this.name;
+    }
+
+    protected final List<ListSQLLine> getFullList() {
+        return this.q.getFullList();
+    }
+    
+    /**
+     * Retourne l'index dans la liste complète de la ligne d'ID voulue.
+     * 
+     * @param id l'id recherché.
+     * @return l'index de la ligne correspondante, ou -1 si non trouvé.
+     */
+    protected final int fullIndexFromID(int id) {
+        return ListSQLLine.indexFromID(this.getFullList(), id);
+    }
+}

@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?> 
+
+<contentDocument>	
+	
+	<element0 location="A4" type="Value" ValueName="DATE">
+	</element0>
+
+	<element0 location="G54" type="Value" ValueName="TOTAL_PV_TTC">
+	</element0>
+
+
+	<table0 firstLine="7" endLine="51" endPageLine="54" lastColumn="E" base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT">
+		<element location="A" type="fill">
+			<field base="Societe" name="NOM"/>
+		</element>
+
+		<element location="C" type="fill">
+			<field base="Societe" name="QTE"/>
+		</element>
+
+		<element location="D" type="fill">
+			<field base="Societe" name="NB_CHEQUE"/>
+		</element>
+
+		<element location="E" type="fill">
+			<field base="Societe" name="NB_ESPECES"/>
+		</element>
+
+		<element location="F" type="fill">
+			<field base="Societe" name="T_MARGE"/>
+		</element>		
+
+		<element location="G" type="fill">
+			<field base="Societe" name="T_PV_TTC"/>
+		</element>
+	</table0>
+
+	<element1 location="A4" type="Value" ValueName="DATE">
+	</element1>
+
+	<element1 location="D54" type="Value" ValueName="TOTAL">
+	</element1>
+
+	<table1 firstLine="7" endLine="51" endPageLine="54" lastColumn="E" base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT">
+		<element location="A" type="fill">
+			<field base="Societe" name="NOM"/>
+		</element>
+
+		<element location="C" type="fill">
+			<field base="Societe" name="QTE"/>
+		</element>
+
+			
+
+		<element location="D" type="fill">
+			<field base="Societe" name="T_PV_TTC"/>
+		</element>
+	</table1>
+
+
+	<element2 location="A4" type="Value" ValueName="DATE">
+	</element2>
+
+	<element2 location="C14" type="Value" ValueName="TOTAL">
+	</element2>
+
+	<element2 location="C15" type="Value" ValueName="TOTAL_VT">
+	</element2>
+
+	<element2 location="C16" type="Value" ValueName="TOTAL_HA">
+	</element2>
+
+	<element2 location="C17" type="Value" ValueName="TOTAL_GLOBAL">
+	</element2>
+
+
+
+	<table2 firstLine="8" endLine="13" endPageLine="54" lastColumn="E" base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT">
+
+		<element location="A" type="fill">
+			<field base="Societe" name="QTE"/>
+		</element>
+
+		<element location="B" type="fill">
+			<field base="Societe" name="NOM"/>
+		</element>
+
+
+		<element location="C" type="fill">
+			<field base="Societe" name="TOTAL"/>
+		</element>
+	</table2>
+	
+</contentDocument>
