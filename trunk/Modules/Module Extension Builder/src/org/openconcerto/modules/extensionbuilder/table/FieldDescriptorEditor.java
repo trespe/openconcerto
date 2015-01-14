@@ -17,12 +17,13 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.modules.extensionbuilder.Extension;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
-public class FieldDescriptorEditor extends JPanel implements ActionListener, DocumentListener {
+public class FieldDescriptorEditor extends JPanel implements ActionListener {
     final JComboBox comboType;
-    private JTextField textName;
+    private JTextField fieldName;
     private JLabel labelOption;
     private JTextField textOption;
     private String[] types = { "Texte", "Nombre entier", "Nombre décimal", "Booléen", "Date", "Heure", "Date et heure", "Référence" };
@@ -33,9 +34,20 @@ public class FieldDescriptorEditor extends JPanel implements ActionListener, Doc
     private static final String[] vDate = { "vide", "jour actuel" };
     private static final String[] vTime = { "vide", "heure actuelle" };
     private static final String[] vDateTime = { "vide", "date actuelle" };
-    FieldDescriptor fd;
+    private static final int TYPE_STRING = 0;
+    private static final int TYPE_INTEGER = 1;
+    private static final int TYPE_DECIMAL = 2;
+    private static final int TYPE_BOOLEAN = 3;
+    private static final int TYPE_DATE = 4;
+    private static final int TYPE_TIME = 5;
+    private static final int TYPE_DATE_TIME = 6;
+    private static final int TYPE_REF = 7;
 
-    FieldDescriptorEditor(FieldDescriptor fd) {
+    FieldDescriptor fd;
+    private Extension extension;
+
+    FieldDescriptorEditor(Extension extension, FieldDescriptor fd) {
+        this.extension = extension;
         this.fd = fd;
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
@@ -49,8 +61,8 @@ public class FieldDescriptorEditor extends JPanel implements ActionListener, Doc
         this.add(new JLabel("Nom"), c);
         c.gridx++;
         c.weightx = 1;
-        textName = new JTextField(10);
-        this.add(textName, c);
+        fieldName = new JTextField(10);
+        this.add(fieldName, c);
         c.weightx = 0;
         c.gridx++;
         labelOption = new JLabel("Longeur max");
@@ -65,31 +77,160 @@ public class FieldDescriptorEditor extends JPanel implements ActionListener, Doc
 
         updateFrom(fd);
         comboType.addActionListener(this);
+        fieldName.getDocument().addDocumentListener(new DocumentListener() {
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                fieldNameModified();
+
+            }
+
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                fieldNameModified();
+
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                fieldNameModified();
+
+            }
+        });
         comboOption.addActionListener(this);
-        textOption.getDocument().addDocumentListener(this);
+        textOption.getDocument().addDocumentListener(new DocumentListener() {
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                fieldOptionModified();
+
+            }
+
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                fieldOptionModified();
+
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                fieldOptionModified();
+
+            }
+        });
+    }
+
+    protected void fieldNameModified() {
+        final String text = this.fieldName.getText();
+        if (text.trim().length() > 0) {
+            this.fd.setName(text);
+        }
+        extension.setChanged();
+
+    }
+
+    protected void fieldOptionModified() {
+        String text = this.textOption.getText();
+        if (text.trim().length() > 0) {
+
+            switch (this.comboType.getSelectedIndex()) {
+
+            case TYPE_STRING:
+                fd.setLength(text);
+                fd.setDefaultValue(null);
+                fd.setForeignTable(null);
+                fd.setLink(null);
+                break;
+            case TYPE_INTEGER:
+                fd.setLength(null);
+                try {
+                    int i = Integer.parseInt(text);
+                    fd.setDefaultValue(text);
+                } catch (Exception e) {
+                    fd.setDefaultValue("0");
+                }
+                fd.setForeignTable(null);
+                fd.setLink(null);
+            case TYPE_DECIMAL:
+                fd.setLength(null);
+                try {
+                    text = text.replace(',', '.');
+                    float i = Float.parseFloat(text);
+                    fd.setDefaultValue(text);
+                } catch (Exception e) {
+                    fd.setDefaultValue("0");
+                }
+                fd.setForeignTable(null);
+                fd.setLink(null);
+                break;
+
+            }
+            extension.setChanged();
+
+        }
+    }
+
+    protected void comboOptionModified() {
+        final int index = comboOption.getSelectedIndex();
+
+        switch (this.comboType.getSelectedIndex()) {
+
+        case TYPE_BOOLEAN:
+            fd.setLength(null);
+            if (index == 0) {
+                fd.setDefaultValue("true");
+            } else {
+                fd.setDefaultValue("false");
+            }
+            fd.setForeignTable(null);
+            fd.setLink(null);
+            break;
+        case TYPE_DATE:
+        case TYPE_TIME:
+        case TYPE_DATE_TIME:
+            fd.setLength(null);
+            if (index == 0) {
+                fd.setDefaultValue(null);
+            } else {
+                fd.setDefaultValue("now");
+            }
+            fd.setForeignTable(null);
+            fd.setLink(null);
+            break;
+        case TYPE_REF:
+            fd.setLength(null);
+            fd.setDefaultValue(null);
+            fd.setDefaultValue("now");
+            fd.setForeignTable(comboOption.getSelectedItem().toString());
+            fd.setLink(null);
+            break;
+
+        }
+        extension.setChanged();
+
     }
 
     private void updateFrom(FieldDescriptor fd) {
         if (fd.getType().equals("string")) {
-            comboType.setSelectedIndex(0);
+            comboType.setSelectedIndex(TYPE_STRING);
             labelOption.setText("Longueur max");
             textOption.setVisible(true);
             textOption.setText(fd.getLength());
             comboOption.setVisible(false);
         } else if (fd.getType().equals("integer")) {
-            comboType.setSelectedIndex(1);
+            comboType.setSelectedIndex(TYPE_INTEGER);
             labelOption.setText("Valeur par défaut");
             textOption.setVisible(true);
             textOption.setText(fd.getDefaultValue());
             comboOption.setVisible(false);
         } else if (fd.getType().equals("decimal")) {
-            comboType.setSelectedIndex(2);
+            comboType.setSelectedIndex(TYPE_DECIMAL);
             labelOption.setText("Valeur par défaut");
             textOption.setVisible(true);
             textOption.setText(fd.getDefaultValue());
             comboOption.setVisible(false);
         } else if (fd.getType().equals("boolean")) {
-            comboType.setSelectedIndex(3);
+            comboType.setSelectedIndex(TYPE_BOOLEAN);
             labelOption.setText("Valeur par défaut");
             textOption.setVisible(false);
             comboOption.setVisible(true);
@@ -101,7 +242,7 @@ public class FieldDescriptorEditor extends JPanel implements ActionListener, Doc
             }
 
         } else if (fd.getType().equals("date")) {
-            comboType.setSelectedIndex(4);
+            comboType.setSelectedIndex(TYPE_DATE);
             labelOption.setText("Valeur par défaut");
             textOption.setVisible(false);
             comboOption.setVisible(true);
@@ -112,29 +253,29 @@ public class FieldDescriptorEditor extends JPanel implements ActionListener, Doc
                 comboOption.setSelectedIndex(1);
             }
         } else if (fd.getType().equals("time")) {
-            comboType.setSelectedIndex(5);
+            comboType.setSelectedIndex(TYPE_TIME);
             labelOption.setText("Valeur par défaut");
             textOption.setVisible(false);
             comboOption.setVisible(true);
             comboOption.setModel(new DefaultComboBoxModel(vTime));
-            if (!fd.getDefaultValue().equals("now")) {
+            if (fd.getDefaultValue() == null || !fd.getDefaultValue().equals("now")) {
                 comboOption.setSelectedIndex(0);
             } else {
                 comboOption.setSelectedIndex(1);
             }
         } else if (fd.getType().equals("dateAndTime")) {
-            comboType.setSelectedIndex(6);
+            comboType.setSelectedIndex(TYPE_DATE_TIME);
             labelOption.setText("Valeur par défaut");
             textOption.setVisible(false);
             comboOption.setVisible(true);
             comboOption.setModel(new DefaultComboBoxModel(vDateTime));
-            if (!fd.getDefaultValue().equals("now")) {
+            if (fd.getDefaultValue() == null || !fd.getDefaultValue().equals("now")) {
                 comboOption.setSelectedIndex(0);
             } else {
                 comboOption.setSelectedIndex(1);
             }
         } else if (fd.getType().equals("ref")) {
-            comboType.setSelectedIndex(7);
+            comboType.setSelectedIndex(TYPE_REF);
             labelOption.setText("Table");
             textOption.setVisible(false);
             comboOption.setVisible(true);
@@ -144,7 +285,7 @@ public class FieldDescriptorEditor extends JPanel implements ActionListener, Doc
         } else {
             throw new IllegalArgumentException("Unknow type " + fd.getType());
         }
-        textName.setText(fd.getName().trim());
+        fieldName.setText(fd.getName().trim());
 
     }
 
@@ -175,31 +316,9 @@ public class FieldDescriptorEditor extends JPanel implements ActionListener, Doc
                 updateFrom(fd);
             }
         } else if (e.getSource() == this.comboOption) {
-            // TODO combo -> FieldDescriptor
+            comboOptionModified();
         }
 
     }
 
-    private void updateText(DocumentEvent e) {
-        // TODO text -> FieldDescriptor
-
-    }
-
-    @Override
-    public void insertUpdate(DocumentEvent e) {
-        updateText(e);
-
-    }
-
-    @Override
-    public void removeUpdate(DocumentEvent e) {
-        updateText(e);
-
-    }
-
-    @Override
-    public void changedUpdate(DocumentEvent e) {
-        updateText(e);
-
-    }
 }

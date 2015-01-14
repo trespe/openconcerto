@@ -14,7 +14,6 @@ public class CreateListListModel extends DefaultListModel implements ChangeListe
     CreateListListModel(Extension extension) {
         this.extension = extension;
         addContent();
-        extension.addChangeListener(this);
     }
 
     private void addContent() {

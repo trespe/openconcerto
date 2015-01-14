@@ -9,8 +9,11 @@ import javax.swing.JPanel;
 import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 import org.openconcerto.modules.extensionbuilder.Extension;
+import org.openconcerto.modules.extensionbuilder.menu.mainmenu.MenuDescriptor;
 import org.openconcerto.modules.extensionbuilder.translation.LocaleSelector;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.group.Item;
@@ -98,6 +101,45 @@ public class MenuTranslationItemEditor extends JPanel {
         this.add(new JPanel(), c);
 
         initUIFrom(item);
+
+        textTranslation1.getDocument().addDocumentListener(new DocumentListener() {
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                changedUpdate(e);
+
+            }
+
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                changedUpdate(e);
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                extension.setMenuTranslation(item.getId(), textTranslation1.getText(), comboLang1.getLocale());
+                extension.setChanged();
+            }
+        });
+        textTranslation2.getDocument().addDocumentListener(new DocumentListener() {
+
+            @Override
+            public void removeUpdate(DocumentEvent e) {
+                changedUpdate(e);
+
+            }
+
+            @Override
+            public void insertUpdate(DocumentEvent e) {
+                changedUpdate(e);
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent e) {
+                extension.setMenuTranslation(item.getId(), textTranslation2.getText(), comboLang2.getLocale());
+                extension.setChanged();
+            }
+        });
 
     }
 

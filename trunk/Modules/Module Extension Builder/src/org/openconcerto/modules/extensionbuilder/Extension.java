@@ -14,6 +14,7 @@ import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.logging.Level;
 
@@ -57,7 +58,7 @@ import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.model.graph.PathBuilder;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.sql.utils.ChangeTable;
@@ -80,6 +81,7 @@ import org.openconcerto.ui.group.modifier.AddGroupModifier;
 import org.openconcerto.ui.group.modifier.AddItemModifier;
 import org.openconcerto.ui.group.modifier.MoveToGroupModifier;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.i18n.TranslationManager;
 
 public class Extension {
 
@@ -141,7 +143,7 @@ public class Extension {
         return autoStart;
     }
 
-    public void start(DBRoot root) throws SQLException {
+    public void start(DBRoot root, boolean inModuleStart) throws SQLException {
 
         // Ensure that database is configured
         boolean databaseOk = setupDatabase(root);
@@ -150,27 +152,63 @@ public class Extension {
             return;
         }
         // Register translations
-
+        registerTranslations();
         // Create menus
-        setupMenu();
+        if (!inModuleStart) {
+            final MenuAndActions copy = MenuManager.getInstance().copyMenuAndActions();
+            registerMenuActions(copy);
+            MenuManager.getInstance().setMenuAndActions(copy);
+        }
         Log.get().info("Extension " + this.getName() + " started");
         this.isStarted = true;
         this.autoStart = true;
         fireChanged();
     }
 
-    private void setupMenu() {
+    private void registerTranslations() {
+        final String locale = Locale.getDefault().toString();
+        for (MenuTranslation mTranslation : this.menuTranslations) {
+            if (locale.equals(mTranslation.getLocale())) {
+                TranslationManager.getInstance().setTranslationForMenu(mTranslation.getId(), mTranslation.getLabel());
+            }
+        }
+        for (ActionTranslation mTranslation : this.actionTranslations) {
+            if (locale.equals(mTranslation.getLocale())) {
+                TranslationManager.getInstance().setTranslationForAction(mTranslation.getId(), mTranslation.getLabel());
+            }
+        }
+        for (FieldTranslation mTranslation : this.fieldTranslations) {
+            if (locale.equals(mTranslation.getLocale())) {
+                TranslationManager.getInstance().setTranslationForItem(mTranslation.getTableName() + "." + mTranslation.getFieldName(), mTranslation.getLabel());
+            }
+        }
+        for (TableTranslation mTranslation : this.tableTranslations) {
+            if (locale.equals(mTranslation.getLocale())) {
+                // FIXME voir avec Sylvain
+            }
+        }
+    }
+
+    private void registerMenuActions(MenuAndActions menuAndActions) {
         // register actions
         for (final MenuDescriptor element : getCreateMenuList()) {
             if (element.getType().equals(MenuDescriptor.CREATE)) {
-                MenuManager.getInstance().registerAction(element.getId(), new CreateFrameAbstractAction() {
+                Log.get().info("Registering action for menu creation id:'" + element.getId() + "'");
+
+                menuAndActions.putAction(new CreateFrameAbstractAction() {
 
                     @Override
                     public JFrame createFrame() {
 
                         JFrame editFrame = new JFrame();
                         String componentId = element.getComponentId();
+                        if (componentId == null) {
+                            throw new IllegalStateException("No ComponentId for menu " + element.getId());
+                        }
                         ComponentDescritor n = getCreateComponentFromId(componentId);
+                        if (n == null) {
+                            throw new IllegalStateException("No ComponentDescritor for " + componentId);
+                        }
                         final SQLTable t = ComptaPropsConfiguration.getInstanceCompta().getRootSociete().getTable(n.getTable());
                         if (t == null) {
                             throw new IllegalStateException("No table  " + n.getTable());
@@ -185,10 +223,10 @@ public class Extension {
                         return editFrame;
 
                     }
-                });
+                }, element.getId(), true);
 
             } else if (element.getType().equals(MenuDescriptor.LIST)) {
-                MenuManager.getInstance().registerAction(element.getId(), new CreateFrameAbstractAction() {
+                menuAndActions.putAction(new CreateFrameAbstractAction() {
 
                     @Override
                     public JFrame createFrame() {
@@ -212,13 +250,14 @@ public class Extension {
                             for (int i = 0; i < paths.length; i++) {
                                 // LOCAL, id_batiment.id_site.nom
                                 final SQLName name = SQLName.parse(paths[i].trim());
-                                final Path p = new Path(element.getTable());
+
+                                final PathBuilder p = new PathBuilder(element.getTable());
                                 final int stop = name.getItemCount() - 1;
                                 for (int j = 0; j < stop; j++) {
                                     String it = name.getItem(j);
                                     p.addForeignField(it);
                                 }
-                                final FieldPath fp = new FieldPath(p, name.getName());
+                                final FieldPath fp = new FieldPath(p.build(), name.getName());
                                 fps.add(fp);
 
                             }
@@ -251,7 +290,7 @@ public class Extension {
                         return editFrame;
 
                     }
-                });
+                }, element.getId(), true);
             } else if (element.getType().equals(MenuDescriptor.LIST)) {
                 // No action to register
             } else {
@@ -259,12 +298,14 @@ public class Extension {
             }
         }
 
-        final MenuAndActions copy = MenuManager.getInstance().copyMenuAndActions();
-        // create group
-        final Group group = copy.getGroup();
-        initMenuGroup(group);
-        MenuManager.getInstance().setMenuAndActions(copy);
-
+        // System.err.println("****" + MenuManager.getInstance().getActionForId("test1"));
+        //
+        // final MenuAndActions copy = MenuManager.getInstance().copyMenuAndActions();
+        // // create group
+        // final Group group = copy.getGroup();
+        initMenuGroup(menuAndActions.getGroup());
+        // MenuManager.getInstance().setMenuAndActions(copy);
+        // System.err.println("*******" + MenuManager.getInstance().getActionForId("test1"));
     }
 
     public void initMenuGroup(final Group group) {
@@ -460,6 +501,7 @@ public class Extension {
         this.isStarted = false;
         this.autoStart = false;
         Log.get().info("Extension " + this.getName() + " stopped");
+        // TODO : remove menu changes
         fireChanged();
     }
 
@@ -1331,7 +1373,7 @@ public class Extension {
     public void setupMenu(MenuContext ctxt) {
         final Group group = ctxt.getMenuAndActions().getGroup();
         initMenuGroup(group);
-
+        registerMenuActions(ctxt.getMenuAndActions());
     }
 
     public void removeRemoveMenuForId(String id) {
@@ -1384,6 +1426,23 @@ public class Extension {
                 m.setInsertInMenu(parentId);
             }
         }
+
+    }
+
+    public void setMenuTranslation(String id, String text, Locale locale) {
+        MenuTranslation mTranslation = null;
+        for (MenuTranslation mTr : this.menuTranslations) {
+            if (mTr.getId().equals(id) && mTr.getLocale().equals(locale.toString())) {
+                mTranslation = mTr;
+                break;
+            }
+
+        }
+        if (mTranslation == null) {
+            mTranslation = new MenuTranslation(locale.toString(), id);
+            this.menuTranslations.add(mTranslation);
+        }
+        mTranslation.setLabel(text);
 
     }
 }

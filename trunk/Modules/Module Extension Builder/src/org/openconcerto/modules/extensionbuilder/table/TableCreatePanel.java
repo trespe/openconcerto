@@ -70,7 +70,7 @@ public class TableCreatePanel extends JPanel {
 
         c.weightx = 1;
         c.gridx = 0;
-        final FieldDescriptorEditor editor = new FieldDescriptorEditor(field);
+        final FieldDescriptorEditor editor = new FieldDescriptorEditor(extension, field);
         p.add(editor, c);
 
         c.gridx++;

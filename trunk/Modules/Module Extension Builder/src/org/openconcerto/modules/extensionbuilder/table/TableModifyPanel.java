@@ -47,7 +47,7 @@ public class TableModifyPanel extends JPanel {
             this.add(new JLabel("Structure actuelle dans la base de données"), c);
 
             c.gridy++;
-            TableModifyInfoPanel info = new TableModifyInfoPanel(t, desc, leftPanel);
+            TableModifyInfoPanel info = new TableModifyInfoPanel(extension, t, desc, leftPanel);
             c.weighty = 1;
             c.fill = GridBagConstraints.BOTH;
             this.add(new JScrollPane(info), c);
@@ -88,7 +88,7 @@ public class TableModifyPanel extends JPanel {
     private void addField(final TableDescritor desc, final JPanel p, GridBagConstraints c, final FieldDescriptor field) {
         c.weightx = 1;
         c.gridx = 0;
-        final FieldDescriptorEditor editor = new FieldDescriptorEditor(field);
+        final FieldDescriptorEditor editor = new FieldDescriptorEditor(extension, field);
         p.add(editor, c);
 
         c.gridx++;

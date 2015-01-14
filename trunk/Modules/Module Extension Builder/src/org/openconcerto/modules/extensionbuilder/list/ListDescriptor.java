@@ -47,4 +47,8 @@ public class ListDescriptor {
     public int getColumnCount() {
         return this.columns.size();
     }
+
+    public void removeAllColumns() {
+        this.columns.clear();
+    }
 }

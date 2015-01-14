@@ -110,10 +110,46 @@ public class MenuItemEditor extends JPanel {
                     int type = cb.getSelectedIndex();
                     if (type == 0) {
                         comboActionChoice.setModel(new DefaultComboBoxModel(componentIds));
+
+                        MenuDescriptor desc = extension.getCreateMenuItemFromId(item.getId());
+                        desc.setType(MenuDescriptor.CREATE);
+                        desc.setListId(null);
+                        if (componentIds.size() > 0) {
+                            comboActionChoice.setSelectedIndex(0);
+                            desc.setComponentId(comboActionChoice.getSelectedItem().toString());
+                        } else {
+                            desc.setComponentId(null);
+                        }
+                        extension.setChanged();
                     } else {
                         comboActionChoice.setModel(new DefaultComboBoxModel(listIds));
+                        MenuDescriptor desc = extension.getCreateMenuItemFromId(item.getId());
+                        desc.setType(MenuDescriptor.LIST);
+                        if (listIds.size() > 0) {
+                            comboActionChoice.setSelectedIndex(0);
+                            desc.setListId(comboActionChoice.getSelectedItem().toString());
+                        } else {
+                            desc.setListId(null);
+                        }
+                        desc.setComponentId(null);
+                        extension.setChanged();
                     }
 
+                }
+            });
+            comboActionChoice.addActionListener(new ActionListener() {
+
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    MenuDescriptor desc = extension.getCreateMenuItemFromId(item.getId());
+                    if (desc.getType() == MenuDescriptor.CREATE) {
+                        desc.setComponentId(comboActionChoice.getSelectedItem().toString());
+                    } else if (desc.getType() == MenuDescriptor.LIST) {
+                        desc.setListId(comboActionChoice.getSelectedItem().toString());
+                    } else {
+                        desc.setComponentId(null);
+                        desc.setListId(null);
+                    }
                 }
             });
 
