@@ -201,12 +201,9 @@ public final class Module extends AbstractModule {
             @Override
             public Set<FieldPath> getPaths() {
                 SQLTable table = Configuration.getInstance().getDirectory().getElement("DEVIS").getTable();
-                Path p = new Path(table);
-                p.add(tableDevisElt.getField("ID_DEVIS"));
+                Path p = new Path(table).add(tableDevisElt.getField("ID_DEVIS"));
 
-                Path p2 = new Path(table);
-                p2.add(tableDevisElt.getField("ID_DEVIS"));
-                p2.addForeignField("ID_UNITE_VENTE");
+                Path p2 = new Path(table).add(tableDevisElt.getField("ID_DEVIS")).addForeignField("ID_UNITE_VENTE");
                 return CollectionUtils.createSet(new FieldPath(p, "QTE"), new FieldPath(p, "QTE_UNITAIRE"), new FieldPath(p2, "CODE"));
             }
         });
@@ -276,11 +273,8 @@ public final class Module extends AbstractModule {
             @Override
             public Set<FieldPath> getPaths() {
                 final SQLTable table = elementCmd.getTable();
-                final Path p = new Path(table);
-                p.add(tableCmdElt.getField("ID_COMMANDE_CLIENT"));
-                final Path p2 = new Path(table);
-                p2.add(tableCmdElt.getField("ID_COMMANDE_CLIENT"));
-                p2.addForeignField("ID_UNITE_VENTE");
+                final Path p = new Path(table).add(tableCmdElt.getField("ID_COMMANDE_CLIENT"));
+                final Path p2 = new Path(table).add(tableCmdElt.getField("ID_COMMANDE_CLIENT")).addForeignField("ID_UNITE_VENTE");
                 return CollectionUtils.createSet(new FieldPath(p, "QTE"), new FieldPath(p, "QTE_UNITAIRE"), new FieldPath(p2, "CODE"));
             }
         });
@@ -348,7 +342,7 @@ public final class Module extends AbstractModule {
     public RowAction getAcceptAction() {
         return new RowAction(new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                SQLRow selectedRow = IListe.get(e).getSelectedRow();
+                SQLRow selectedRow = IListe.get(e).getSelectedRow().asRow();
                 SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
                 rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.ACCEPTE);
                 try {
@@ -447,9 +441,7 @@ public final class Module extends AbstractModule {
         final ColumnPanel columnPanel = new ColumnPanel(220, cRenderer, fRenderer);
         columnPanel.setOpaque(false);
         final SQLElement element = Configuration.getInstance().getDirectory().getElement("DEVIS_ELEMENT");
-        Path p = new Path(element.getTable());
-        p.addForeignField("ID_ARTICLE");
-        p.addForeignField("ID_FAMILLE_ARTICLE");
+        Path p = Path.get(element.getTable()).addForeignField("ID_ARTICLE").addForeignField("ID_FAMILLE_ARTICLE");
 
         SQLRowValues values = new SQLRowValues(element.getTable());
         values.put("NOM", null);
@@ -464,7 +456,6 @@ public final class Module extends AbstractModule {
 
         rowValsDevis.put("ID_CLIENT", rowValsClient);
         values.put("ID_DEVIS", rowValsDevis);
-        values.put("ID_ARTICLE", new SQLRowValues(element.getTable().getTable("ARTICLE")).put("ID_FAMILLE_ARTICLE", new SQLRowValues(element.getTable().getTable("FAMILLE_ARTICLE"))));
         SQLRowValues rowValsUnite = new SQLRowValues(element.getTable().getTable("UNITE_VENTE"));
         rowValsUnite.put("CODE", null);
         values.put("ID_UNITE_VENTE", rowValsUnite);
@@ -495,9 +486,7 @@ public final class Module extends AbstractModule {
         columnPanel.setOpaque(false);
         final SQLElement element = Configuration.getInstance().getDirectory().getElement("COMMANDE_CLIENT_ELEMENT");
         final SQLTable tableOrder = element.getTable();
-        Path p = new Path(tableOrder);
-        p.addForeignField("ID_ARTICLE");
-        p.addForeignField("ID_FAMILLE_ARTICLE");
+        Path p = Path.get(tableOrder).addForeignField("ID_ARTICLE").addForeignField("ID_FAMILLE_ARTICLE");
 
         SQLRowValues values = new SQLRowValues(tableOrder);
         values.put("NOM", null);
@@ -511,7 +500,6 @@ public final class Module extends AbstractModule {
 
         rowValsCmd.put("ID_CLIENT", rowValsClient);
         values.put("ID_COMMANDE_CLIENT", rowValsCmd);
-        values.put("ID_ARTICLE", new SQLRowValues(tableOrder.getTable("ARTICLE")).put("ID_FAMILLE_ARTICLE", new SQLRowValues(tableOrder.getTable("FAMILLE_ARTICLE"))));
         SQLRowValues rowValsUnite = new SQLRowValues(tableOrder.getTable("UNITE_VENTE"));
         rowValsUnite.put("CODE", null);
         values.put("ID_UNITE_VENTE", rowValsUnite);

@@ -10,6 +10,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
+import org.openconcerto.utils.ExceptionHandler;
+
 import com.ovh.soapi.manager.ManagerBindingStub;
 import com.ovh.soapi.manager.ManagerServiceLocator;
 import com.ovh.soapi.manager.TelephonyCallListReturn;
@@ -76,8 +78,11 @@ public class OVHApi {
 
     public static void call(String number) throws IOException {
         Properties props = getProperties();
-        ManagerBindingStub stub = getStub();
-        stub.telephonyClick2CallDo(props.getProperty("login"), props.getProperty("password"), props.getProperty("from"), number, props.getProperty("from"));
-
+        if (props == null) {
+            ExceptionHandler.handle("Unable to process call to " + number + "\n" + OvhPreferencePanel.getPrefFile(OvhPreferencePanel.OVH_PROPERTIES) + " missing or not properly configured.");
+        } else {
+            ManagerBindingStub stub = getStub();
+            stub.telephonyClick2CallDo(props.getProperty("login"), props.getProperty("password"), props.getProperty("from"), number, props.getProperty("from"));
+        }
     }
 }

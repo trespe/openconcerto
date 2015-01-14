@@ -43,7 +43,7 @@ public class HistoriqueAbonnement {
         ComboSQLRequest request = new org.openconcerto.sql.request.ComboSQLRequest(b.getTable("ABONNEMENT"), Arrays.asList("NUMERO", "ID_CLIENT"));
         request.setFieldSeparator(" ");
 
-        this.listPanel = new ListeHistoriquePanel("Abonnements", request, mapList, null, null, null, true, null);
+        this.listPanel = new ListeHistoriquePanel("Abonnements", request, mapList, null, null, null, true, null, null);
 
         this.panelFrame = new PanelFrame(this.listPanel, "Historique abonnements");
         this.panelFrame.addWindowListener(new WindowAdapter() {

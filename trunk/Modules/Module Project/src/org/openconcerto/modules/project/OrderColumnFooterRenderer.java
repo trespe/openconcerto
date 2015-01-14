@@ -32,18 +32,17 @@ public class OrderColumnFooterRenderer implements ColumnFooterRenderer {
         if (h > 0) {
             p.add(new JLabelBold(h + " heures prévues"));
         }
-        if (rows.size() > 0) {
-            if (rows.get(0).getTable().getDBRoot().contains("AFFAIRE_TEMPS")) {
-                // Time spent
-                double t = 0;
-                for (SQLRowAccessor row : rows) {
-                    t += OrderColumnRowRenderer.getTimeSpent(row);
-                }
-
-                if (t > 0) {
-                    p.add(new JLabelBold(TotalHeaderRenderer.hourFormater(t) + " heures passées"));
-                }
+        if (rows.size() > 0 && rows.get(0).getTable().getDBRoot().contains("AFFAIRE_TEMPS")) {
+            // Time spent
+            double t = 0;
+            for (SQLRowAccessor row : rows) {
+                t += OrderColumnRowRenderer.getTimeSpent(row);
             }
+
+            if (t > 0) {
+                p.add(new JLabelBold(TotalHeaderRenderer.hourFormater(t) + " heures passées"));
+            }
+
         }
         p.add(new JLabelBold("Total : " + GestionDevise.currencyToString(totalHT, true) + " € HT"));
         return p;
