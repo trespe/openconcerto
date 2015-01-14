@@ -1,0 +1,29 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<contentDocument>
+	<table firstLine="2" endLine="36" endPageLine="36" lastColumn="P" table="ECHEANCE_CLIENT">
+		<element location="A" type="fill">
+			<field name="NUMERO_FACTURE" />
+		</element>
+		<element location="B" type="fill">
+			<field name="REFERENCE" />
+		</element>
+		<element location="C" type="fill">
+			<field name="DATE" />
+		</element>
+		<element location="D" type="fill">
+			<field name="CODE_CLIENT" />
+		</element>
+		<element location="E" type="fill">
+			<field name="NOM_CLIENT" />
+		</element>
+		<element location="F" type="fill">
+			<field name="TELEPHONE" />
+		</element>
+		<element location="G" type="fill">
+			<field name="MODE_REGLEMENT" />
+		</element>
+		<element location="H" type="fill">
+			<field name="MONTANT" />
+		</element>
+	</table>
+</contentDocument>

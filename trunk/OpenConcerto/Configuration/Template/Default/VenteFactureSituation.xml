@@ -1,166 +1,142 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?> 
-
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 <contentDocument>
-
 	<element location="B1" type="fill">
-		<field base="Common" table="SOCIETE_COMMON" name="TYPE"/>
-		<field base="Common" table="SOCIETE_COMMON" name="NOM"/>
+		<field base="Common" table="SOCIETE_COMMON" name="TYPE" />
+		<field base="Common" table="SOCIETE_COMMON" name="NOM" />
 	</element>
 
 	<element location="B2" type="fill">
 		<field base="Common" table="SOCIETE_COMMON" name="ID_ADRESSE_COMMON">
-			<field base="Common" table="ADRESSE_COMMON" name="RUE"/>
+			<field base="Common" table="ADRESSE_COMMON" name="RUE" />
 		</field>
 	</element>
 
 	<element location="B3" type="fill">
 		<field base="Common" table="SOCIETE_COMMON" name="ID_ADRESSE_COMMON">
-			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="villeCP"/>
-			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="ville"/>
+			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="villeCP" />
+			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="ville" />
 		</field>
 	</element>
-	
+
 	<element location="B7" type="replace" replacePattern="_">
-		<field base="Common" table="SOCIETE_COMMON" name="NUM_NII"/>
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_NII" />
 	</element>
-	
+
 	<element location="B8" type="replace" replacePattern="_">
-		<field base="Common" table="SOCIETE_COMMON" name="NUM_TEL"/>
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_TEL" />
 	</element>
-	
+
 	<element location="B9" type="replace" replacePattern="_">
-		<field base="Common" table="SOCIETE_COMMON" name="NUM_FAX"/>
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_FAX" />
 	</element>
-	
+
 	<element location="B10" type="replace" replacePattern="_">
-		<field base="Common" table="SOCIETE_COMMON" name="MAIL"/>
+		<field base="Common" table="SOCIETE_COMMON" name="MAIL" />
 	</element>
-	
-	
+
 	<element location="B13" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="NUMERO"/>
+		<field name="NUMERO" />
 	</element>
-	
+
 	<element location="C13" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="DATE"/>
+		<field name="DATE" />
 	</element>
-	<element type="invoice_paid_amount" location="L65"/>
+
+	<element type="invoice_paid_amount" location="L65" />
+
 	<element location="B16" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_COMMERCIAL">
-			<field base="Societe" table="COMMERCIAL" name="PRENOM" type="Initiale" suffix="."/>
-			<field base="Societe" table="COMMERCIAL" name="NOM"/>
+		<field name="ID_COMMERCIAL">
+			<field name="PRENOM" type="Initiale" suffix="." />
+			<field name="NOM" />
 		</field>
-	</element>	
-	
+	</element>
 
 	<element location="C16" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="NOM"/>
-	</element>	
-	
-	
+		<field name="NOM" />
+	</element>
+
 	<element location="H10" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_CLIENT">
-			<field base="Societe" table="CLIENT" name="FORME_JURIDIQUE"/>
-			<field base="Societe" table="CLIENT" name="NOM"/>
-		</field>
-	</element>
-	
-	<element location="H11" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_CLIENT">
-			<field base="Societe" table="CLIENT" name="ID_ADRESSE">
-				<field base="Societe" table="ADRESSE" name="RUE"/>
-			</field>
-		</field>
-	</element>
-	
-	<element location="H13" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_CLIENT">
-			<field base="Societe" table="CLIENT" name="ID_ADRESSE">
-				<field base="Societe" table="ADRESSE" name="VILLE" type="villeCP"/>
-				<field base="Societe" table="ADRESSE" name="VILLE" type="ville"/>
-				<field base="Societe" table="ADRESSE" name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX"/>
-			</field>
+		<field name="ID_CLIENT">
+			<field name="FORME_JURIDIQUE" />
+			<field name="NOM" />
 		</field>
 	</element>
 
+	<element location="H11" type="address.customer.invoice.full">
+	</element>
 
-	<element type="sales.account.label" location="B58"/>
-	<element type="sales.account.command.total" location="J58"/>
+	<element type="sales.account.label" location="B58" />
 
-	<element location="L58" type="sales.partial.value"/>
+	<element type="sales.account.command.total" location="J58" />
 
-	<element type="sales.account.total" location="L61"/>
+	<element location="L58" type="sales.partial.value" />
+
+	<element type="sales.account.total" location="L61" />
 
 	<element location="L62" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="T_HT" type="devise"/>
-	</element>		
-	
+		<field name="T_HT" type="devise" />
+	</element>
+
 	<element location="L65" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="T_TTC" type="devise"/>
+		<field name="T_TTC" type="devise" />
 	</element>
 
 	<element location="B63" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_MODE_REGLEMENT">
-
-			<field base="Societe" table="MODE_REGLEMENT" name="NOM" prefix="Règlement souhaité" conditionField="COMPTANT" conditionExpValue="true" display="false"/>
-			<field base="Societe" table="MODE_REGLEMENT" name="NOM" prefix="Facture acquitée par" conditionField="COMPTANT" conditionExpValue="false" display="false"/>
-
-			<field base="Societe" table="MODE_REGLEMENT" name="ID_TYPE_REGLEMENT">
-				<field base="Societe" table="TYPE_REGLEMENT" name="NOM"  valuesExpected="Indéfini"/>
-			</field>	
-			
-		
-			<field base="Societe" table="MODE_REGLEMENT" name="NOM"/>			
-			<field base="Societe" table="MODE_REGLEMENT" name="DATE_VIREMENT" prefix="Le " valuesExpected="" type="Date" datePattern="dd/MM/yy"/>
-			<field base="Societe" table="MODE_REGLEMENT" name="NUMERO" prefix="N° " valuesExpected=""/>
-			<field base="Societe" table="MODE_REGLEMENT" name="ETS" prefix="Banque " valuesExpected=""/>
+		<field name="ID_MODE_REGLEMENT">
+			<field name="NOM" prefix="Règlement souhaité" conditionField="COMPTANT" conditionExpValue="true" display="false" />
+			<field name="NOM" prefix="Facture acquitée par" conditionField="COMPTANT" conditionExpValue="false" display="false" />
+			<field name="ID_TYPE_REGLEMENT">
+				<field name="NOM" valuesExpected="Indéfini" />
+			</field>
+			<field name="NOM" />
+			<field name="DATE_VIREMENT" prefix="Le " valuesExpected="" type="Date" datePattern="dd/MM/yy" />
+			<field name="NUMERO" prefix="N° " valuesExpected="" />
+			<field name="ETS" prefix="Banque " valuesExpected="" />
 		</field>
-	</element>
-	
-
-	<element location="B64" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="DATE" type="DateEcheance" prefix="Règlement de cette facture au plus tard le " valuesExpected=" "/>
 	</element>
 
 	<element location="B64" type="fill">
-		<field base="Societe" table="SAISIE_VENTE_FACTURE" name="ID_MODE_REGLEMENT">
+		<field name="DATE" type="DateEcheance" prefix="Règlement de cette facture au plus tard le " valuesExpected=" " />
+	</element>
 
-			<field base="Societe" table="MODE_REGLEMENT" name="NOM" prefix="Règlement à date de réception de facture" conditionField="COMPTANT" conditionExpValue="false" display="false"/>
+	<element location="B64" type="fill">
+		<field name="ID_MODE_REGLEMENT">
+			<field name="NOM" prefix="Règlement à date de réception de facture" conditionField="COMPTANT"
+				conditionExpValue="false" display="false" />
 		</field>
 	</element>
-	
 
-	<table endPageLine="65" firstLine="63" endLine="65" lastColumn="I" base="Societe" table="TVA">
-		<element location="I" name="NOM" prefix="Total ">
-		</element>
-
-		<element location="L" type="Devise" name="MONTANT_TVA">
-		</element>
-
+	<table endPageLine="65" firstLine="63" endLine="65" lastColumn="I" table="TVA">
+		<element location="I" name="NOM" prefix="Total " />
+		<element location="L" type="Devise" name="MONTANT_TVA" />
 	</table>
 
-	<table endPageLine="65" firstLine="20" endLine="54" blankLineBeforeStyle="Titre 1,Titre 2" lastColumn="K" base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT">
-		<element location="B" type="fill">
-			<field base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT" name="NOM"/>
+	<table endPageLine="66" firstLine="20" endLine="54" blankLineBeforeStyle="Titre 1,Titre 2" lastColumn="K" base="Societe"
+		table="SAISIE_VENTE_FACTURE_ELEMENT">
+		<element location="B" type="fill" cellSize="60">
+			<field name="NOM" />
 		</element>
 
 		<element location="I" type="fill">
-			<field base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT" name="PV_HT" valuesExpected="0" type="devise"/>
+			<field name="PV_HT" type="devise">
+				<exclude value="0.000000"/>
+			</field>
+
+		</element>
+		
+		<element location="J" type="supplychain.element.qtyunit.short" />
+
+		<element location="K" type="fill">
+			<field name="ID_TAXE" conditionField="PV_HT" conditionExpValue="0.000000">
+				<field name="TAUX" op="/" number="100.0" />
+			</field>
 		</element>
 
-		<element location="J" type="fill">
-			<field base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT" name="QTE" conditionField="PV_HT" conditionExpValue="0"/>
-		</element>
-				
-		<element location="K" type="fill">
-			<field base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT" name="ID_TAXE" conditionField="PV_HT" conditionExpValue="0">
-				<field base="Societe" table="TAXE" name="TAUX" op="/" number="100.0"/>
-			</field>
-		</element>	
 
 		<element location="L" type="fill">
-			<field base="Societe" table="SAISIE_VENTE_FACTURE_ELEMENT" valuesExpected="0" name="T_PV_HT" type="devise"/>
+			<field name="T_PV_HT" type="devise">
+				<exclude value="0.000000"/>
+			</field>
 		</element>
-			
 	</table>
 </contentDocument>

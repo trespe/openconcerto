@@ -1,7 +1,5 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?> 
-
-<contentDocument>	
-	
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<contentDocument>
 	<element location="A6" type="Value" ValueName="CLIENT">
 	</element>
 
@@ -22,6 +20,4 @@
 
 	<element location="F12" type="Value" ValueName="DATE_RELANCE">
 	</element>
-	
-	
 </contentDocument>

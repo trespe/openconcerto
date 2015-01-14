@@ -1,0 +1,38 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?> 
+
+<contentDocument>	
+	
+	
+
+
+	<table0 firstLine="5" endLine="53" endPageLine="53" lastColumn="F" base="Societe" table="ECRITURE">
+		<element location="A" type="fill">
+			<field base="Societe" name="NUMERO"/>
+		</element>
+
+		<element location="B" type="fill">
+			<field base="Societe" name="NOM"/>
+		</element>
+
+
+		<element location="C" type="fill">
+			<field base="Societe" name="30"/>
+		</element>
+
+		<element location="D" type="fill">
+			<field base="Societe" name="60"/>
+		</element>
+
+		<element location="E" type="fill">
+			<field base="Societe" name="90"/>
+		</element>
+
+		<element location="F" type="fill">
+			<field base="Societe" name="+90"/>
+		</element>		
+		<element location="G" type="fill">
+			<field base="Societe" name="TOTAL"/>
+		</element>			
+	</table0>
+
+</contentDocument>

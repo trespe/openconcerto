@@ -15,37 +15,33 @@
 	<element0 location="A2" type="Value" ValueName="TITRE_2">
 	</element0>
 
-	<element0 location="F2" type="Value" ValueName="DATE_EDITION">
-	</element0>
-
 	<table0 firstLine="4" endLine="68" endPageLine="69" lastColumn="G" table="ECRITURE" pageRef="F1">
-		<element location="A" type="fill" useOOFormat="false">
+		<element location="A" type="fill">
 			<field name="DATE" />
 		</element>
 
-		<element location="B" type="fill" useOOFormat="false">
-			<field name="JOURNAL" />
+		<element location="B" type="fill">
+			<field name="CODE_JOURNAL" />
 		</element>
 
-		<element location="C" type="fill" useOOFormat="false">
-			<field name="MOUVEMENT" />
+		<element location="C" type="fill">
+			<field name="NUMERO_MOUVEMENT" />
 		</element>
 
-		<element location="D" type="fill" maxChar="65" useOOFormat="false">
+		<element location="D" type="fill" maxChar="39">
 			<field name="LIBELLE" />
 		</element>
 
-		<element location="E" type="fill" useOOFormat="false">
+		<element location="E" type="fill">
 			<field name="DEBIT" />
 		</element>
 
-		<element location="F" type="fill" useOOFormat="false">
+		<element location="F" type="fill">
 			<field name="CREDIT" />
 		</element>
 
-		<element location="G" type="fill" useOOFormat="false">
+		<element location="G" type="fill">
 			<field name="SOLDE" />
 		</element>
 	</table0>
-
 </contentDocument>

@@ -1,90 +1,85 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?> 
+﻿<?xml version="1.0" encoding="UTF-8" ?>
 
 <contentDocument>
 
 	<element location="B1" type="fill">
-		<field base="Common" table="SOCIETE_COMMON" name="TYPE"/>
-		<field base="Common" table="SOCIETE_COMMON" name="NOM"/>
+		<field base="Common" table="SOCIETE_COMMON" name="TYPE" />
+		<field base="Common" table="SOCIETE_COMMON" name="NOM" />
 	</element>
 
 	<element location="B2" type="fill">
 		<field base="Common" table="SOCIETE_COMMON" name="ID_ADRESSE_COMMON">
-			<field base="Common" table="ADRESSE_COMMON" name="RUE"/>
+			<field base="Common" name="RUE" />
 		</field>
 	</element>
 
 	<element location="B3" type="fill">
 		<field base="Common" table="SOCIETE_COMMON" name="ID_ADRESSE_COMMON">
-			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="villeCP"/>
-			<field base="Common" table="ADRESSE_COMMON" name="VILLE" type="ville"/>
-			<field base="Common" table="ADRESSE_COMMON" name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX"/>
+			<field base="Common" name="VILLE" type="villeCP" />
+			<field base="Common" name="VILLE" type="ville" />
+			<field base="Common" name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX" />
 		</field>
 	</element>
-	
+
 	<element location="B7" type="replace" replacePattern="_">
-		<field base="Common" table="SOCIETE_COMMON" name="NUM_NII"/>
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_NII" />
 	</element>
-	
+
 	<element location="B8" type="replace" replacePattern="_">
-		<field base="Common" table="SOCIETE_COMMON" name="NUM_TEL"/>
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_TEL" />
 	</element>
-	
+
 	<element location="B9" type="replace" replacePattern="_">
-		<field base="Common" table="SOCIETE_COMMON" name="NUM_FAX"/>
+		<field base="Common" table="SOCIETE_COMMON" name="NUM_FAX" />
 	</element>
-	
+
 	<element location="B10" type="replace" replacePattern="_">
-		<field base="Common" table="SOCIETE_COMMON" name="MAIL"/>
+		<field base="Common" table="SOCIETE_COMMON" name="MAIL" />
 	</element>
-	
-	
+
 	<element location="B13" type="fill">
-		<field base="Societe" table="AVOIR_FOURNISSEUR" name="NUMERO"/>
+		<field name="NUMERO" />
 	</element>
 
-	
 	<element location="C13" type="fill">
-		<field base="Societe" table="AVOIR_FOURNISSEUR" name="DATE"/>
-	</element>	
-	
-	
+		<field name="DATE" />
+	</element>
+
 	<element location="H10" type="fill">
-		<field base="Societe" table="AVOIR_FOURNISSEUR" name="ID_FOURNISSEUR">
-			<field base="Societe" table="FOURNISSEUR" name="TYPE"/>
-			<field base="Societe" table="FOURNISSEUR" name="NOM"/>
+		<field name="ID_FOURNISSEUR">
+			<field name="TYPE" />
+			<field name="NOM" />
 		</field>
 	</element>
-	
+
 	<element location="H11" type="fill">
-		<field base="Societe" table="AVOIR_FOURNISSEUR" name="ID_FOURNISSEUR">
-			<field base="Societe" table="FOURNISSEUR" name="ID_ADRESSE">
-				<field base="Societe" table="ADRESSE" name="RUE"/>
-			</field>
-		</field>
-	</element>
-	
-	<element location="H13" type="fill">
-		<field base="Societe" table="AVOIR_FOURNISSEUR" name="ID_FOURNISSEUR">
-			<field base="Societe" table="FOURNISSEUR" name="ID_ADRESSE">
-				<field base="Societe" table="ADRESSE" name="VILLE" type="villeCP"/>
-				<field base="Societe" table="ADRESSE" name="VILLE" type="ville"/>
-				<field base="Societe" table="ADRESSE" name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX"/>
+		<field name="ID_FOURNISSEUR">
+			<field name="ID_ADRESSE">
+				<field name="RUE" />
 			</field>
 		</field>
 	</element>
 
+	<element location="H13" type="fill">
+		<field name="ID_FOURNISSEUR">
+			<field name="ID_ADRESSE">
+				<field name="VILLE" type="villeCP" />
+				<field name="VILLE" type="ville" />
+				<field name="CEDEX" prefix="CEDEX " conditionField="HAS_CEDEX" />
+			</field>
+		</field>
+	</element>
 
 	<element location="L54" type="fill">
-		<field base="Societe" table="AVOIR_FOURNISSEUR" name="MONTANT_HT" type="devise"/>
-	</element>
-	
-	<element location="L55" type="fill">
-		<field base="Societe" table="AVOIR_FOURNISSEUR" name="MONTANT_TVA" type="devise"/>
-	</element>
-	
-	<element location="L56" type="fill">
-		<field base="Societe" table="AVOIR_FOURNISSEUR" name="MONTANT_TTC" type="devise"/>
+		<field name="MONTANT_HT" type="devise" />
 	</element>
 
+	<element location="L55" type="fill">
+		<field name="MONTANT_TVA" type="devise" />
+	</element>
+
+	<element location="L56" type="fill">
+		<field name="MONTANT_TTC" type="devise" />
+	</element>
 
 </contentDocument>
