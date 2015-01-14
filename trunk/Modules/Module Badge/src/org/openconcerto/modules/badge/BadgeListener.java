@@ -30,6 +30,7 @@ import javax.swing.SwingUtilities;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.ServerFinderPanel;
 import org.openconcerto.erp.modules.ModuleManager;
+import org.openconcerto.erp.modules.ModuleVersion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
@@ -241,7 +242,8 @@ public class BadgeListener implements Runnable {
         List<SQLRow> list = (List<SQLRow>) base.getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
 
         String motif = "";
-        Boolean onlyAdmin = ModuleManager.getInstance().getFactory("org.openconcerto.modules.badge").getSQLPreferences(tableAdh.getDBRoot()).getBoolean(Module.ENTREE_PREF, false);
+        Boolean onlyAdmin = ModuleManager.getInstance().getFactories().get("org.openconcerto.modules.badge").get(new ModuleVersion(1, 0)).getSQLPreferences(tableAdh.getDBRoot())
+                .getBoolean(Module.ENTREE_PREF, false);
         boolean allow = false;
         SQLRow adh = null;
         // Aucun adhérent assigné à cette carte
