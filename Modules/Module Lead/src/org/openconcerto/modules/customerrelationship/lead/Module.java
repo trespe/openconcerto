@@ -66,10 +66,9 @@ public final class Module extends AbstractModule {
     @Override
     protected void setupElements(SQLElementDirectory dir) {
         super.setupElements(dir);
-        GlobalMapper.getInstance().map("customerrelationship.lead.default", new LeadGroup());
-        final LeadSQLElement element = new LeadSQLElement();
+        final LeadSQLElement element = new LeadSQLElement(this);
+        GlobalMapper.getInstance().map(element.getCode() + ".default", new LeadGroup());
         dir.addSQLElement(element);
-
     }
 
     @Override
