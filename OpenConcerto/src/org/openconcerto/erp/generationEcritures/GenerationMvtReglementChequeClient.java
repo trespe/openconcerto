@@ -60,8 +60,9 @@ public class GenerationMvtReglementChequeClient extends GenerationEcritures {
         // initialisation des valeurs de la map
         this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
         this.mEcritures.put("NOM", this.nom);
-        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
         this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
+
+        fillJournalBanqueFromRow(chequeRow);
 
         setDateReglement(this.idCheque, this.date);
 
@@ -77,11 +78,6 @@ public class GenerationMvtReglementChequeClient extends GenerationEcritures {
             }
         }
 
-        int idPce = base.getTable("TYPE_REGLEMENT").getRow(2).getInt("ID_COMPTE_PCE_CLIENT");
-        if (idPce <= 1) {
-            idPce = ComptePCESQLElement.getIdComptePceDefault("VenteCheque");
-        }
-
         this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteClient));
         this.mEcritures.put("DEBIT", new Long(0));
         this.mEcritures.put("CREDIT", new Long(this.montant));
@@ -89,7 +85,7 @@ public class GenerationMvtReglementChequeClient extends GenerationEcritures {
         System.err.println("First ECriture for mvt " + this.idMvt);
 
         // compte de reglement cheque, ...
-        this.mEcritures.put("ID_COMPTE_PCE", new Integer(idPce));
+        fillCompteBanqueFromRow(chequeRow, "VenteCheque", false);
         this.mEcritures.put("DEBIT", new Long(this.montant));
         this.mEcritures.put("CREDIT", new Long(0));
         ajoutEcriture();

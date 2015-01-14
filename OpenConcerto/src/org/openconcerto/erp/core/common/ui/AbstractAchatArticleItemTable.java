@@ -28,6 +28,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.SQLPreferences;
+import org.openconcerto.sql.sqlobject.ITextArticleWithCompletionCellEditor;
 import org.openconcerto.sql.sqlobject.ITextWithCompletion;
 import org.openconcerto.sql.view.list.AutoCompletionManager;
 import org.openconcerto.sql.view.list.CellDynamicModifier;
@@ -95,7 +96,8 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         }
 
         // Code article
-        final SQLTableElement tableElementCode = new SQLTableElement(e.getTable().getField("CODE"));
+        final SQLTableElement tableElementCode = new SQLTableElement(e.getTable().getField("CODE"), String.class, new ITextArticleWithCompletionCellEditor(e.getTable().getTable("ARTICLE"), e
+                .getTable().getTable("ARTICLE_FOURNISSEUR")));
         list.add(tableElementCode);
         // Désignation de l'article
         final SQLTableElement tableElementNom = new SQLTableElement(e.getTable().getField("NOM"));
@@ -220,7 +222,8 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
 
         SQLRowValues defautRow = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(e.getTable()));
         defautRow.put("ID_TAXE", TaxeCache.getCache().getFirstTaxe().getID());
-
+        defautRow.put("CODE", "");
+        defautRow.put("NOM", "");
         this.model = new RowValuesTableModel(e, list, e.getTable().getField("NOM"), false, defautRow);
 
         this.table = new RowValuesTable(this.model, getConfigurationFile());
@@ -334,10 +337,14 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
         tableElementArticle.setModifier(new CellDynamicModifier() {
             @Override
             public Object computeValueFrom(SQLRowValues row) {
-                SQLRowAccessor foreign = row.getForeign("ID_ARTICLE");
-                if (foreign != null && !foreign.isUndefined() && foreign.getObject("CODE") != null && foreign.getString("CODE").equals(row.getString("CODE"))) {
-                    return foreign.getID();
-                } else {
+                try {
+                    SQLRowAccessor foreign = row.getForeign("ID_ARTICLE");
+                    if (foreign != null && !foreign.isUndefined() && foreign.getObject("CODE") != null && foreign.getString("CODE").equals(row.getString("CODE"))) {
+                        return foreign.getID();
+                    } else {
+                        return tableArticle.getUndefinedID();
+                    }
+                } catch (Exception e) {
                     return tableArticle.getUndefinedID();
                 }
             }
@@ -351,7 +358,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
             public Object computeValueFrom(final SQLRowValues row) {
 
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
-                BigDecimal f = (BigDecimal) row.getObject("PA_HT");
+                BigDecimal f = (row.getObject("PA_HT") == null) ? BigDecimal.ZERO : (BigDecimal) row.getObject("PA_HT");
                 BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
                 BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), MathContext.DECIMAL128).setScale(totalHT.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
 

@@ -31,12 +31,15 @@ import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 
 public class FamilleArticlePanel extends JPanel {
-    private final SQLElement elt = Configuration.getInstance().getDirectory().getElement("FAMILLE_ARTICLE");
+    private final SQLElement elt;
     private final JCheckBox box = new JCheckBox("Masquer les articles obsoletes");
-    private final ITreeSelection treeSel = new ITreeSelection(elt);
+    private final ITreeSelection treeSel;
 
-    public FamilleArticlePanel() {
+    public FamilleArticlePanel(SQLElement elt) {
         super(new GridBagLayout());
+
+        this.elt = elt;
+        this.treeSel = new ITreeSelection(elt);
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.BOTH;
         c.weightx = 1;

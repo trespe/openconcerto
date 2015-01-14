@@ -40,7 +40,7 @@ import javax.swing.ToolTipManager;
 
 public class AdresseClientItemTable extends JPanel {
     private RowValuesTable table;
-    private SQLTableElement dest, cedex, hasCedex, ville, rue;
+    private SQLTableElement type, dest, rue, cedex, ville, province, pays, email;
     private RowValuesTableModel model;
     private SQLRowValues defaultRowVals;
 
@@ -59,6 +59,10 @@ public class AdresseClientItemTable extends JPanel {
         final SQLElement e = getSQLElement();
 
         final List<SQLTableElement> list = new Vector<SQLTableElement>();
+
+        // Destinataire
+        this.type = new SQLTableElement(e.getTable().getField("TYPE"));
+        list.add(this.type);
 
         // Destinataire
         this.dest = new SQLTableElement(e.getTable().getField("DEST"));
@@ -88,12 +92,24 @@ public class AdresseClientItemTable extends JPanel {
         list.add(this.ville);
 
         // has cedex
-        this.hasCedex = new SQLTableElement(e.getTable().getField("HAS_CEDEX"));
-        list.add(this.hasCedex);
+        // this.hasCedex = new SQLTableElement(e.getTable().getField("HAS_CEDEX"));
+        // list.add(this.hasCedex);
 
         // cedex
         this.cedex = new SQLTableElement(e.getTable().getField("CEDEX"));
         list.add(this.cedex);
+
+        // Province
+        this.province = new SQLTableElement(e.getTable().getField("PROVINCE"));
+        list.add(this.province);
+
+        // Pays
+        this.pays = new SQLTableElement(e.getTable().getField("PAYS"));
+        list.add(this.pays);
+
+        // Emails
+        this.email = new SQLTableElement(e.getTable().getField("EMAIL_CONTACT"));
+        list.add(this.email);
 
         this.model = new RowValuesTableModel(e, list, e.getTable().getField("VILLE"));
 

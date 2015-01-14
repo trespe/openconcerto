@@ -16,8 +16,8 @@
 import org.openconcerto.sql.TM;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.view.search.TextSearchSpec.Mode;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.model.ListComboBoxModel;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
@@ -296,16 +296,16 @@ public class SearchItemComponent extends JPanel {
     private SortedMap<String, Integer> solve(final String[][] names, final int[] indexes) {
         final int columnCount = names.length;
         // columns' index by name
-        final CollectionMap<String, Integer> collisions = new CollectionMap<String, Integer>(columnCount);
+        final ListMap<String, Integer> collisions = new ListMap<String, Integer>(columnCount);
         for (int i = 0; i < columnCount; i++) {
             final int index = indexes[i];
             if (index >= names[i].length)
                 throw new IllegalStateException("Ran out of names for " + i + " : " + Arrays.asList(names[i]));
             final String columnName = names[i][index];
-            collisions.put(columnName, i);
+            collisions.add(columnName, i);
         }
         final SortedMap<String, Integer> res = new TreeMap<String, Integer>();
-        for (Entry<String, Collection<Integer>> e : collisions.entrySet()) {
+        for (Entry<String, ? extends Collection<Integer>> e : collisions.entrySet()) {
             final Collection<Integer> indexesWithCollision = e.getValue();
             if (indexesWithCollision.size() > 1) {
                 // increment only the minimum indexes to try to solve the conflict with the lowest

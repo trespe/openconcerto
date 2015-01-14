@@ -34,6 +34,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Stack;
 import java.util.concurrent.Callable;
 import java.util.concurrent.FutureTask;
@@ -216,6 +217,11 @@ public class ReportGeneration<C extends GenerationCommon> {
                 res = null;
             } else {
                 res = f;
+            }
+        }
+        if (res != null) {
+            for (final Entry<String, ODSingleXMLDocument> e : res.entrySet()) {
+                this.getCommon().postProcessDocument(e.getValue());
             }
         }
         return res;

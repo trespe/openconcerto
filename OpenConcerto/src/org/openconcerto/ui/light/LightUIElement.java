@@ -34,6 +34,7 @@ public class LightUIElement implements Serializable {
     public static final int TYPE_TABBED_UI = 6;
     public static final int TYPE_COMBOBOX_ELEMENT = 7;
     public static final int TYPE_DESCRIPTOR = 8;
+    public static final int TYPE_TREE = 9;
     public static final int TYPE_BUTTON = 20;
     public static final int TYPE_BUTTON_WITH_CONTEXT = 21;
     public static final int TYPE_BUTTON_CANCEL = 22;
@@ -75,6 +76,8 @@ public class LightUIElement implements Serializable {
     private boolean required;
 
     private String toolTip;
+    private boolean verticalyResizable;
+    private boolean horizontalyResizable;
 
     public int getType() {
         return type;
@@ -215,6 +218,22 @@ public class LightUIElement implements Serializable {
         this.tabs.add(desc);
     }
 
+    public final boolean isVerticalyResizable() {
+        return verticalyResizable;
+    }
+
+    public final void setVerticalyResizable(boolean verticalyResizable) {
+        this.verticalyResizable = verticalyResizable;
+    }
+
+    public final boolean isHorizontalyResizable() {
+        return horizontalyResizable;
+    }
+
+    public final void setHorizontalyResizable(boolean horizontalyResizable) {
+        this.horizontalyResizable = horizontalyResizable;
+    }
+
     public void dump(PrintStream out) {
         String type = "?";
         if (this.type == TYPE_CHECKBOX) {
@@ -229,6 +248,8 @@ public class LightUIElement implements Serializable {
             type = "list";
         } else if (this.type == TYPE_TABBED_UI) {
             type = "tabs";
+        } else if (this.type == TYPE_TREE) {
+            type = "tree";
         } else if (this.type == TYPE_BUTTON) {
             type = "button";
         } else if (this.type == TYPE_BUTTON_WITH_CONTEXT) {
@@ -237,6 +258,8 @@ public class LightUIElement implements Serializable {
             type = "cancel button";
         } else if (this.type == TYPE_COMBOBOX_ELEMENT) {
             type = "combo element";
+        } else if (this.type == TYPE_BUTTON_WITH_SELECTION_CONTEXT) {
+            type = "button with selection context";
         }
         String valueType = "?";
         if (this.valueType == VALUE_TYPE_STRING) {
@@ -264,6 +287,12 @@ public class LightUIElement implements Serializable {
         }
         if (label != null) {
             str += " label:" + label;
+        }
+        if (horizontalyResizable) {
+            str += "|- H ->";
+        }
+        if (verticalyResizable) {
+            str += "|- V ->";
         }
         out.println(str);
 

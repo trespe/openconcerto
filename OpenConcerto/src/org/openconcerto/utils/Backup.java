@@ -22,6 +22,8 @@ import java.io.InputStream;
 import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -34,6 +36,7 @@ public class Backup {
         return Logger.getLogger("org.openconcerto.backup");
     }
 
+    private Set<String> processedDir;
     private final File dest;
 
     public Backup(File dest) {
@@ -113,10 +116,18 @@ public class Backup {
      */
     public int applyTo(final File dir) {
         getLogger().log(Level.INFO, "Copy start from " + dir + " to " + this.dest);
-        return applyTo(dir, dir);
+        processedDir = new HashSet<String>();
+        final int applyTo = applyTo(dir, dir);
+        processedDir = null;
+        return applyTo;
     }
 
     private int applyTo(final File origine, final File dir) {
+        final String dirPath = dir.getAbsolutePath();
+        if (processedDir.contains(dirPath)) {
+            return 0;
+        }
+        processedDir.add(dirPath);
         int failed = 0;
         if (dir.exists()) {
 

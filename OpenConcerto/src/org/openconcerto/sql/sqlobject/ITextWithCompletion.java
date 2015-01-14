@@ -57,7 +57,7 @@ import javax.swing.text.AbstractDocument;
 import javax.swing.text.DocumentFilter;
 import javax.swing.text.JTextComponent;
 
-public class ITextWithCompletion extends JPanel implements DocumentListener, TextComponent, MutableValueObject<String> {
+public class ITextWithCompletion extends JPanel implements DocumentListener, TextComponent, MutableValueObject<String>, IComboSelectionItemListener {
 
     // FIXME asynchronous completion
 
@@ -450,6 +450,11 @@ public class ITextWithCompletion extends JPanel implements DocumentListener, Tex
     public void setEditable(boolean b) {
         this.text.setEditable(b);
 
+    }
+
+    @Override
+    public void itemSelected(IComboSelectionItem item) {
+        selectId(item.getId());
     }
 
     public synchronized void selectId(int id) {

@@ -41,9 +41,9 @@ public class ITextWithCompletionPopUp extends JPopupMenu {
 
     private int minWitdh = 150;
 
-    private ITextWithCompletion text;
+    private IComboSelectionItemListener text;
 
-    ITextWithCompletionPopUp(final ListModel listModel, final ITextWithCompletion text) {
+    ITextWithCompletionPopUp(final ListModel listModel, final IComboSelectionItemListener text) {
         this.text = text;
         this.list = new JList(listModel);
         this.listModel = listModel;
@@ -181,7 +181,7 @@ public class ITextWithCompletionPopUp extends JPopupMenu {
         if (sIndex >= 0) {
             IComboSelectionItem item = (IComboSelectionItem) listModel.getElementAt(sIndex);
 
-            text.selectId(item.getId());
+            text.itemSelected(item);
         }
     }
 }

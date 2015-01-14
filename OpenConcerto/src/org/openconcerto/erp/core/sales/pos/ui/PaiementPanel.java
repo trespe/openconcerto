@@ -29,6 +29,7 @@ import java.awt.event.MouseListener;
 import java.awt.geom.Rectangle2D;
 
 import javax.swing.ImageIcon;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
 public class PaiementPanel extends JPanel implements CaisseListener, MouseListener, BarcodeListener {
@@ -308,7 +309,11 @@ public class PaiementPanel extends JPanel implements CaisseListener, MouseListen
                 controller.autoFillPaiement(p);
                 this.calculatorValue = TicketCellRenderer.centsToString(p.getMontantInCents());
                 if (p.getType() == Paiement.ESPECES) {
-                    controller.openDrawer();
+                    try {
+                        controller.openDrawer();
+                    } catch (Throwable ex) {
+                        JOptionPane.showMessageDialog(PaiementPanel.this, "Ouverture du tiroir caisse impossible");
+                    }
                 }
             }
             controller.setPaiementSelected(p);

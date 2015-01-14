@@ -21,14 +21,13 @@ import org.openconcerto.sql.utils.ChangeTable;
 import org.openconcerto.sql.utils.DropTable;
 import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.sql.utils.SQLCreateTableBase;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.cc.IClosure;
 
 import java.io.File;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +50,7 @@ public final class DBContext {
     private final List<IClosure<? super DBRoot>> dm;
 
     private final Set<String> tables;
-    private final CollectionMap<String, SQLField> fields;
+    private final SetMap<String, SQLField> fields;
 
     DBContext(final File dir, final ModuleVersion localVersion, final DBRoot root, final ModuleVersion dbVersion, final Set<String> tables, final Set<SQLName> fields) {
         super();
@@ -60,10 +59,10 @@ public final class DBContext {
         this.lastInstalledVersion = dbVersion;
         this.root = root;
         this.tables = Collections.unmodifiableSet(tables);
-        this.fields = new CollectionMap<String, SQLField>(new HashSet<SQLField>());
+        this.fields = new SetMap<String, SQLField>();
         for (final SQLName f : fields) {
             final String tableName = f.getItem(0);
-            this.fields.put(tableName, this.root.getTable(tableName).getField(f.getItem(1)));
+            this.fields.add(tableName, this.root.getTable(tableName).getField(f.getItem(1)));
         }
         this.changeTables = new ArrayList<ChangeTable<?>>();
         this.alterTables = new ArrayList<AlterTableRestricted>();
@@ -91,7 +90,7 @@ public final class DBContext {
     }
 
     public final Set<SQLField> getFieldsPreviouslyCreated(String tableName) {
-        return (Set<SQLField>) this.fields.getNonNull(tableName);
+        return this.fields.getNonNull(tableName);
     }
 
     private final List<String> getSQL() {

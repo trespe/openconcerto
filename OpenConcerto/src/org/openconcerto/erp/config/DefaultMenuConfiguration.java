@@ -16,6 +16,7 @@
 import org.openconcerto.erp.action.AboutAction;
 import org.openconcerto.erp.action.AstuceAction;
 import org.openconcerto.erp.action.GestionDroitsAction;
+import org.openconcerto.erp.action.ListeBanqueAction;
 import org.openconcerto.erp.action.NouvelleSocieteAction;
 import org.openconcerto.erp.action.PreferencesAction;
 import org.openconcerto.erp.action.SauvegardeBaseAction;
@@ -35,12 +36,14 @@ import org.openconcerto.erp.core.finance.accounting.action.EtatJournauxAction;
 import org.openconcerto.erp.core.finance.accounting.action.ExportRelationExpertAction;
 import org.openconcerto.erp.core.finance.accounting.action.GenerePointageAction;
 import org.openconcerto.erp.core.finance.accounting.action.GestionPlanComptableEAction;
+import org.openconcerto.erp.core.finance.accounting.action.ImpressionJournauxAnalytiqueAction;
 import org.openconcerto.erp.core.finance.accounting.action.ImpressionLivrePayeAction;
+import org.openconcerto.erp.core.finance.accounting.action.ListeDesDevisesAction;
 import org.openconcerto.erp.core.finance.accounting.action.ListeDesEcrituresAction;
+import org.openconcerto.erp.core.finance.accounting.action.ListeDesEcrituresAnalytiquesAction;
 import org.openconcerto.erp.core.finance.accounting.action.ListeDesJournauxAction;
 import org.openconcerto.erp.core.finance.accounting.action.ListeEcritureParClasseAction;
 import org.openconcerto.erp.core.finance.accounting.action.NouveauClotureAction;
-import org.openconcerto.erp.core.finance.accounting.action.NouveauJournalAction;
 import org.openconcerto.erp.core.finance.accounting.action.NouveauLettrageAction;
 import org.openconcerto.erp.core.finance.accounting.action.NouveauPointageAction;
 import org.openconcerto.erp.core.finance.accounting.action.NouvelleValidationAction;
@@ -55,7 +58,6 @@ import org.openconcerto.erp.core.finance.payment.action.ListeDesTraitesFournisse
 import org.openconcerto.erp.core.finance.payment.action.NouveauDecaissementChequeAvoirAction;
 import org.openconcerto.erp.core.finance.payment.action.NouveauListeDesChequesADecaisserAction;
 import org.openconcerto.erp.core.finance.payment.action.NouveauListeDesChequesAEncaisserAction;
-import org.openconcerto.erp.core.finance.tax.action.DeclarationTVAAction;
 import org.openconcerto.erp.core.humanresources.ListeDesContactsAdministratif;
 import org.openconcerto.erp.core.humanresources.employe.action.ListeDesCommerciauxAction;
 import org.openconcerto.erp.core.humanresources.employe.action.ListeDesSalariesAction;
@@ -103,6 +105,7 @@ import org.openconcerto.erp.core.supplychain.order.action.ListeSaisieAchatAction
 import org.openconcerto.erp.core.supplychain.order.action.NouveauSaisieAchatAction;
 import org.openconcerto.erp.core.supplychain.order.action.NouvelleCommandeAction;
 import org.openconcerto.erp.core.supplychain.order.action.NouvelleFactureFournisseurAction;
+import org.openconcerto.erp.core.supplychain.product.action.ListeDesArticlesFournisseurAction;
 import org.openconcerto.erp.core.supplychain.receipt.action.ListeDesBonsReceptionsAction;
 import org.openconcerto.erp.core.supplychain.receipt.action.NouveauBonReceptionAction;
 import org.openconcerto.erp.core.supplychain.stock.action.ListeDesMouvementsStockAction;
@@ -121,6 +124,8 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.users.rights.LockAdminUserRight;
 import org.openconcerto.sql.users.rights.UserRights;
+import org.openconcerto.sql.users.rights.UserRightsManager;
+import org.openconcerto.sql.utils.BackupPanel;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.group.Group;
 import org.openconcerto.ui.group.LayoutHints;
@@ -192,7 +197,8 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
      */
     private Group createFilesMenuGroup() {
         Group group = new Group(MainFrame.FILE_MENU);
-        group.addItem("backup");
+        if (UserRightsManager.getCurrentUserRights().haveRight(BackupPanel.RIGHT_CODE))
+            group.addItem("backup");
         group.addItem("export.accounting");
         group.addItem("modules");
         if (!Gestion.MAC_OS_X) {
@@ -259,6 +265,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
             gAccounting.addItem("accounting.chart");
             gAccounting.addItem("accounting.journal");
             gAccounting.addItem("accounting.checkDB");
+            gAccounting.addItem("accounting.currency");
             group.add(gAccounting);
         }
 
@@ -280,6 +287,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
 
             group.addItem("enterprise.list");
 
+        group.addItem("divison.bank.list");
             group.addItem("enterprise.create");
         return group;
     }
@@ -361,6 +369,10 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
         group.addItem("accounting.balance");
         group.addItem("accounting.client.balance");
         group.addItem("accounting.ledger");
+        Group analytic = new Group("accounting.analytical");
+        analytic.addItem("accounting.analytical.ledger");
+        analytic.addItem("accounting.analytical.entries.ledger");
+        group.add(analytic);
         group.addItem("accounting.general.ledger");
         group.addItem("accounting.entries.ledger");
         group.addItem("accounting.entries.list");
@@ -420,6 +432,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
 
             final Group gProduct = new Group("menu.list.product", LayoutHints.DEFAULT_NOLABEL_SEPARATED_GROUP_HINTS);
             gProduct.addItem("product.list");
+            // gProduct.addItem("product.supplychain.list");
             gProduct.addItem("stock.io.list");
             group.add(gProduct);
 
@@ -529,6 +542,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
             }
 
             mManager.registerAction("product.list", new ListeDesArticlesAction());
+            mManager.registerAction("product.supplychain.list", new ListeDesArticlesFournisseurAction());
             mManager.registerAction("stock.io.list", new ListeDesMouvementsStockAction());
 
 
@@ -537,9 +551,11 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
     private void registerAccountingMenuActions(final MenuAndActions mManager) {
         mManager.registerAction("accounting.balance", new EtatBalanceAction());
         mManager.registerAction("accounting.client.balance", new BalanceAgeeAction());
+        mManager.registerAction("accounting.analytical.ledger", new ImpressionJournauxAnalytiqueAction());
         mManager.registerAction("accounting.ledger", new EtatJournauxAction());
         mManager.registerAction("accounting.general.ledger", new EtatGrandLivreAction());
         mManager.registerAction("accounting.entries.ledger", new ListeDesEcrituresAction());
+        mManager.registerAction("accounting.analytical.entries.ledger", new ListeDesEcrituresAnalytiquesAction());
         mManager.registerAction("accounting.entries.list", new ListeEcritureParClasseAction());
         mManager.registerAction("accounting.validating", new NouvelleValidationAction());
         mManager.registerAction("accounting.closing", new NouveauClotureAction());
@@ -610,8 +626,9 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
         if (rights.haveRight(ComptaUserRight.MENU)) {
-            mManager.registerAction("accounting.chart", new GestionPlanComptableEAction());
-            mManager.registerAction("accounting.journal", new ListeDesJournauxAction());
+            mManager.putAction(new GestionPlanComptableEAction(), "accounting.chart");
+            mManager.putAction(new ListeDesJournauxAction(), "accounting.journal");
+            mManager.putAction(new ListeDesDevisesAction(), "accounting.currency");
             mManager.putAction(new AbstractAction("Check DB") {
                 @Override
                 public void actionPerformed(ActionEvent e) {
@@ -637,6 +654,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
 
             mManager.registerAction("enterprise.list", new ListeDesSocietesCommonsAction());
 
+        mManager.registerAction("divison.bank.list", new ListeBanqueAction());
             mManager.registerAction("enterprise.create", new NouvelleSocieteAction());
     }
 

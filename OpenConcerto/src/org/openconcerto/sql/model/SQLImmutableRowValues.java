@@ -89,8 +89,8 @@ public class SQLImmutableRowValues extends SQLRowAccessor {
     }
 
     @Override
-    public int getForeignID(String fieldName) {
-        return this.delegate.getForeignID(fieldName);
+    public Number getForeignIDNumber(String fieldName) throws IllegalArgumentException {
+        return this.delegate.getForeignIDNumber(fieldName);
     }
 
     public boolean isDefault(String fieldName) {

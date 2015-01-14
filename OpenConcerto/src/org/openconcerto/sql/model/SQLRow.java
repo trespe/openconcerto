@@ -22,8 +22,8 @@ import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.utils.ReOrder;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.DecimalUtils;
+import org.openconcerto.utils.ListMap;
 
 import java.math.BigDecimal;
 import java.sql.ResultSet;
@@ -141,7 +141,13 @@ public class SQLRow extends SQLRowAccessor {
                 m.put(colName, rs.getObject(i + 1));
         }
 
-        return new SQLRow(table, m);
+        final Number id = getID(m, table, true);
+        // e.g. LEFT JOIN : missing values are null
+        if (id == null)
+            return null;
+
+        // pass already found ID
+        return new SQLRow(table, id, m);
     }
 
     /**
@@ -171,7 +177,9 @@ public class SQLRow extends SQLRowAccessor {
     static final List<SQLRow> createListFromRS(SQLTable table, ResultSet rs, final List<String> names) throws SQLException {
         final List<SQLRow> res = new ArrayList<SQLRow>();
         while (rs.next()) {
-            res.add(createFromRS(table, rs, names));
+            final SQLRow row = createFromRS(table, rs, names);
+            if (row != null)
+                res.add(row);
         }
         return res;
     }
@@ -209,16 +217,30 @@ public class SQLRow extends SQLRowAccessor {
      * @throws IllegalArgumentException si values ne contient pas la clef de la table.
      */
     public SQLRow(SQLTable table, Map<String, ?> values) {
-        this(table, getID(values, table));
+        this(table, null, values);
+    }
+
+    // allow to call getID() only once
+    private SQLRow(SQLTable table, final Number id, Map<String, ?> values) {
+        this(table, id == null ? getID(values, table, false) : id);
         // faire une copie, sinon backdoor pour changer les valeurs sans qu'on s'en aperçoive
         this.setValues(new HashMap<String, Object>(values));
     }
 
-    private static Number getID(Map<String, ?> values, final SQLTable table) {
+    // return ID, must always be present but may be null if <code>nullAllowed</code>
+    private static Number getID(Map<String, ?> values, final SQLTable table, final boolean nullAllowed) {
         final String keyName = table.getKey().getName();
-        if (!values.keySet().contains(keyName))
+        if (!values.containsKey(keyName))
             throw new IllegalArgumentException(values + " does not contain the key of " + table);
-        return (Number) values.get(keyName);
+        final Object keyValue = values.get(keyName);
+        if (keyValue instanceof Number) {
+            return (Number) keyValue;
+        } else if (nullAllowed && keyValue == null) {
+            return null;
+        } else {
+            final String valS = keyValue == null ? "' is null" : "' isn't a Number : " + keyValue.getClass() + " " + keyValue;
+            throw new IllegalArgumentException("The value of '" + keyName + valS);
+        }
     }
 
     private Map<String, Object> getValues() {
@@ -290,22 +312,6 @@ public class SQLRow extends SQLRowAccessor {
      */
     public boolean exists() {
         return this.getValues() != null;
-    }
-
-    /**
-     * Est ce que cette ligne est archivée.
-     * 
-     * @return <code>true</code> si la ligne était archivée lors de son instanciation.
-     */
-    public boolean isArchived() {
-        // si il n'y a pas de champs archive, elle n'est pas archivée
-        if (!this.getTable().isArchivable())
-            return false;
-        // TODO sortir archive == 1
-        if (this.getTable().getArchiveField().getType().getJavaType().equals(Boolean.class))
-            return this.getBoolean(this.getTable().getArchiveField().getName()) == Boolean.TRUE;
-        else
-            return this.getInt(this.getTable().getArchiveField().getName()) == 1;
     }
 
     /**
@@ -414,9 +420,9 @@ public class SQLRow extends SQLRowAccessor {
     }
 
     @Override
-    public int getForeignID(String fieldName) {
+    public Number getForeignIDNumber(String fieldName) throws IllegalArgumentException {
         final SQLRow foreignRow = this.getForeignRow(fieldName, SQLRowMode.NO_CHECK);
-        return foreignRow == null ? SQLRow.NONEXISTANT_ID : foreignRow.getID();
+        return foreignRow == null ? null : foreignRow.getIDNumber();
     }
 
     @Override
@@ -703,25 +709,25 @@ public class SQLRow extends SQLRowAccessor {
      * @return a List of SQLRow that points to this.
      */
     public final List<SQLRow> getReferentRows(Set<SQLTable> tables, ArchiveMode archived) {
-        return new ArrayList<SQLRow>(this.getReferentRowsByLink(tables, archived).values());
+        return new ArrayList<SQLRow>(this.getReferentRowsByLink(tables, archived).allValues());
     }
 
-    public final CollectionMap<Link, SQLRow> getReferentRowsByLink() {
+    public final ListMap<Link, SQLRow> getReferentRowsByLink() {
         return this.getReferentRowsByLink(null);
     }
 
-    public final CollectionMap<Link, SQLRow> getReferentRowsByLink(Set<SQLTable> tables) {
+    public final ListMap<Link, SQLRow> getReferentRowsByLink(Set<SQLTable> tables) {
         return this.getReferentRowsByLink(tables, SQLSelect.UNARCHIVED);
     }
 
-    public final CollectionMap<Link, SQLRow> getReferentRowsByLink(Set<SQLTable> tables, ArchiveMode archived) {
-        // ArrayList since getReferentRows() is ordered
-        final CollectionMap<Link, SQLRow> res = new CollectionMap<Link, SQLRow>(new ArrayList<SQLRow>());
+    public final ListMap<Link, SQLRow> getReferentRowsByLink(Set<SQLTable> tables, ArchiveMode archived) {
+        // List since getReferentRows() is ordered
+        final ListMap<Link, SQLRow> res = new ListMap<Link, SQLRow>();
         final Set<Link> links = this.getTable().getBase().getGraph().getReferentLinks(this.getTable());
         for (final Link l : links) {
             final SQLTable src = l.getSource();
             if (tables == null || tables != null && tables.contains(src)) {
-                res.putAll(l, this.getReferentRows(l.getLabel(), archived));
+                res.addAll(l, this.getReferentRows(l.getLabel(), archived));
             }
         }
         return res;
@@ -909,9 +915,7 @@ public class SQLRow extends SQLRowAccessor {
      * @return a SQLRowValues on this SQLRow.
      */
     public SQLRowValues createUpdateRow() {
-        final SQLRowValues res = new SQLRowValues(this.getTable());
-        res.loadAbsolutelyAll(this);
-        return res;
+        return new SQLRowValues(this.getTable(), this.getValues());
     }
 
     /**

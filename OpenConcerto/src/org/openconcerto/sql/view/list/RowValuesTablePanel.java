@@ -81,4 +81,10 @@ public abstract class RowValuesTablePanel extends JPanel {
             this.model.removeRowAt(index);
         }
     }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.table.setEnabled(enabled);
+    }
+
 }

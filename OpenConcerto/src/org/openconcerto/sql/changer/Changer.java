@@ -57,7 +57,7 @@ public abstract class Changer<L extends DBStructureItem> {
 
     private final DBSystemRoot base;
     private PrintStream stream;
-    private boolean quiet;
+    private boolean quiet, dryRun;
 
     public Changer(DBSystemRoot b) {
         if (!this.getCompatibleSystems().contains(b.getServer().getSQLSystem()))
@@ -69,6 +69,7 @@ public abstract class Changer<L extends DBStructureItem> {
 
     public void setUpFromSystemProperties() {
         this.setQuiet(Boolean.getBoolean("org.openconcerto.sql.changer.quiet"));
+        this.setDryRun(Boolean.getBoolean("dryRun"));
     }
 
     public final DBSystemRoot getSystemRoot() {
@@ -85,6 +86,14 @@ public abstract class Changer<L extends DBStructureItem> {
             this.stream = new PrintStream(StreamUtils.NULL_OS);
         else
             this.stream = System.err;
+    }
+
+    public final boolean isDryRun() {
+        return this.dryRun;
+    }
+
+    public final void setDryRun(boolean dryRun) {
+        this.dryRun = dryRun;
     }
 
     public final void change(L root) throws SQLException {

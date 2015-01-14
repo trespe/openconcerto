@@ -103,14 +103,8 @@ public class ListPanelEcheancesClients extends ListeAddPanel {
         getListe().getRequest().setWhere(wNotRegle);
 
         final ListEcheanceClientRenderer rend = new ListEcheanceClientRenderer();
-        final JTable jTable = ListPanelEcheancesClients.this.getListe().getJTable();
-        final int columnCount = jTable.getColumnCount();
-        for (int i = 0; i < columnCount; i++) {
-            if (jTable.getColumnClass(i) != Boolean.class) {
-                jTable.getColumnModel().getColumn(i).setCellRenderer(rend);
-            }
-        }
 
+        getListe().getSource().getColumn(elementEchT.getField("DATE")).setRenderer(rend);
         ListPanelEcheancesClients.this.buttonAjouter.setVisible(false);
         ListPanelEcheancesClients.this.buttonEffacer.setVisible(false);
         ListPanelEcheancesClients.this.buttonModifier.setVisible(false);

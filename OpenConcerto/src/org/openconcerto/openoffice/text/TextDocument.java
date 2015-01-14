@@ -16,12 +16,12 @@
 import org.openconcerto.openoffice.ContentType;
 import org.openconcerto.openoffice.ContentTypeVersioned;
 import org.openconcerto.openoffice.ODDocument;
+import org.openconcerto.openoffice.ODNodeDesc.Children;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.XMLFormatVersion;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
 import org.jdom.Element;
 
@@ -48,7 +48,7 @@ public class TextDocument extends ODDocument {
     public static TextDocument createEmpty(String s, XMLFormatVersion ns) throws IOException {
         final ContentTypeVersioned ct = ContentType.TEXT.getVersioned(ns.getXMLVersion());
         final TextDocument res = ct.createPackage(ns).getTextDocument();
-        final Element textP = Paragraph.createEmpty(ns.getXMLVersion());
+        final Element textP = Paragraph.createEmpty(ns);
         textP.addContent(s);
         res.getBody().addContent(textP);
         return res;
@@ -59,17 +59,11 @@ public class TextDocument extends ODDocument {
     }
 
     public final Paragraph getParagraph(int i) {
-        return new Paragraph(this.getParagraphChildren().get(i), this);
+        return getParagraphs().get(this, i);
     }
 
-    @SuppressWarnings("unchecked")
-    private final List<Element> getParagraphChildren() {
-        final Element proto = Paragraph.createEmpty(getVersion());
-        return this.getBody().getChildren(proto.getName(), proto.getNamespace());
-    }
-
-    public final int getParagraphCount() {
-        return this.getParagraphChildren().size();
+    public final Children<Paragraph> getParagraphs() {
+        return TextNodeDesc.get(Paragraph.class).getChildren(this, getBody());
     }
 
     public final String getCharacterContent(final boolean ooMode) {
@@ -86,20 +80,7 @@ public class TextDocument extends ODDocument {
     }
 
     public synchronized void add(TextNode<?> p, Element where, int index) {
-        // add it first to avoid infinite loop, since setDocument() can call this method
         final Element addToElem = where == null ? this.getBody() : where;
-        if (index < 0)
-            addToElem.addContent(p.getElement());
-        else
-            addToElem.addContent(index, p.getElement());
-
-        try {
-            p.setDocument(this);
-        } catch (RuntimeException e) {
-            // the paragraph can throw an exception to notify that is not compatible with us (eg
-            // missing styles), in that case remove it
-            p.getElement().detach();
-            throw e;
-        }
+        p.addToDocument(this, addToElem, index);
     }
 }

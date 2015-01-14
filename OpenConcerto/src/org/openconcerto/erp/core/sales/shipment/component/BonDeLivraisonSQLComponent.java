@@ -24,13 +24,13 @@ import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonItemSQLEle
 import org.openconcerto.erp.core.sales.shipment.element.BonDeLivraisonSQLElement;
 import org.openconcerto.erp.core.sales.shipment.report.BonLivraisonXmlSheet;
 import org.openconcerto.erp.core.sales.shipment.ui.BonDeLivraisonItemTable;
-import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater.Type;
 import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.panel.PanelOOSQLComponent;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -581,7 +581,7 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
     }
 
-    protected String getLibelleStock(SQLRow row, SQLRow rowElt) {
+    protected String getLibelleStock(SQLRowAccessor row, SQLRowAccessor rowElt) {
         return "BL N°" + row.getString("NUMERO");
     }
 
@@ -595,13 +595,15 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
         SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
         if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
 
-            MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-            mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("BON_DE_LIVRAISON_ELEMENT"), new StockLabel() {
+            SQLRow row = getTable().getRow(id);
+            StockItemsUpdater stockUpdater = new StockItemsUpdater(new StockLabel() {
                 @Override
-                public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
+                public String getLabel(SQLRowAccessor rowOrigin, SQLRowAccessor rowElt) {
                     return getLibelleStock(rowOrigin, rowElt);
                 }
-            }, false);
+            }, row, row.getReferentRows(getTable().getTable("BON_DE_LIVRAISON_ELEMENT")), Type.REAL_DELIVER);
+
+            stockUpdater.update();
         }
     }
 

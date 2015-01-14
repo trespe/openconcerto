@@ -22,10 +22,13 @@ import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
 
+import java.awt.Component;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.JTable;
+import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableCellRenderer;
 
 public class KeyTableCellRenderer extends DefaultTableCellRenderer {
@@ -34,6 +37,7 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
     private Object toSelect;
     private boolean isLoading = false;
     private final SQLElement el;
+    private JTable t;
     static private final Map<SQLElement, Map<Integer, IComboSelectionItem>> cacheMap = new HashMap<SQLElement, Map<Integer, IComboSelectionItem>>();
 
     public KeyTableCellRenderer(final SQLElement el) {
@@ -43,6 +47,12 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
         if (cacheMap.get(this.el) == null) {
             loadCacheAsynchronous();
         }
+    }
+
+    @Override
+    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+        this.t = table;
+        return super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
     }
 
     public void setValue(Object value) {
@@ -80,18 +90,15 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
 
         }
 
-        if (!newValue.equals(this.lastStringValue)) {
-
-            this.lastStringValue = newValue;
-            setText(newValue);
-
-        }
+        this.lastStringValue = newValue;
+        setText(newValue);
     }
 
     private void loadCacheAsynchronous() {
         this.isLoading = true;
         Configuration.getInstance().getNonInteractiveSQLExecutor().execute(new Runnable() {
             public void run() {
+
                 List<IComboSelectionItem> items = KeyTableCellRenderer.this.el.getComboRequest().getComboItems();
                 final Map<Integer, IComboSelectionItem> m = new HashMap<Integer, IComboSelectionItem>();
                 for (IComboSelectionItem comboSelectionItem : items) {
@@ -110,8 +117,15 @@ public class KeyTableCellRenderer extends DefaultTableCellRenderer {
                 }, true));
 
                 KeyTableCellRenderer.this.isLoading = false;
+                SwingUtilities.invokeLater(new Runnable() {
 
-                setValue(KeyTableCellRenderer.this.toSelect);
+                    @Override
+                    public void run() {
+                        setValue(KeyTableCellRenderer.this.toSelect);
+                        if (t != null)
+                            t.repaint();
+                    }
+                });
 
             }
         });

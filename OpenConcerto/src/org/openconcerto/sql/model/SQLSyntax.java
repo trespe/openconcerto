@@ -16,17 +16,19 @@
 import static org.openconcerto.utils.CollectionUtils.join;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLField.Properties;
-import org.openconcerto.sql.model.SQLTable.Index;
+import org.openconcerto.sql.model.SQLTable.SQLIndex;
 import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.NetUtils;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
-import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.io.File;
@@ -44,7 +46,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -71,8 +72,14 @@ public abstract class SQLSyntax {
     static protected final String TS_EXTENDED_JAVA_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSS000";
     static protected final String TS_BASIC_JAVA_FORMAT = "yyyyMMdd'T'HHmmss.SSS000";
 
+    static private final StringUtils.Escaper DEFAULT_LIKE_ESCAPER = new StringUtils.Escaper('\\', '\\');
+
     static public enum ConstraintType {
-        CHECK, FOREIGN_KEY("FOREIGN KEY"), PRIMARY_KEY("PRIMARY KEY"), UNIQUE;
+        CHECK, FOREIGN_KEY("FOREIGN KEY"), PRIMARY_KEY("PRIMARY KEY"), UNIQUE,
+        /**
+         * Only used by MS SQL.
+         */
+        DEFAULT;
 
         private final String sqlName;
 
@@ -101,6 +108,9 @@ public abstract class SQLSyntax {
         register(new SQLSyntaxH2());
         register(new SQLSyntaxMySQL());
         register(new SQLSyntaxMS());
+
+        DEFAULT_LIKE_ESCAPER.add('_', '_');
+        DEFAULT_LIKE_ESCAPER.add('%', '%');
     }
 
     static private void register(SQLSyntax s) {
@@ -120,25 +130,31 @@ public abstract class SQLSyntax {
     }
 
     private final SQLSystem sys;
-    protected final CollectionMap<Class, String> typeNames;
+    // list to specify the preferred first
+    protected final ListMap<Class<?>, String> typeNames;
 
     protected SQLSyntax(final SQLSystem sys) {
         this.sys = sys;
-        this.typeNames = new CollectionMap<Class, String>(new HashSet<String>(4));
+        this.typeNames = new ListMap<Class<?>, String>();
     }
 
     /**
-     * The set of aliases for a particular type.
+     * The aliases for a particular type. The first one is the preferred.
      * 
      * @param clazz the type, e.g. Integer.class.
      * @return the SQL aliases, e.g. {"integer", "int", "int4"}.
      */
-    public final Set<String> getTypeNames(Class clazz) {
-        return (Set<String>) this.typeNames.getNonNull(clazz);
+    public final Collection<String> getTypeNames(Class<?> clazz) {
+        return this.typeNames.getNonNull(clazz);
     }
 
     public final SQLSystem getSystem() {
         return this.sys;
+    }
+
+    public String getInitSystemRoot() {
+        // by default: nothing
+        return "";
     }
 
     public String getInitRoot(final String name) {
@@ -206,7 +222,7 @@ public abstract class SQLSyntax {
             return false;
         // do not check UNIQUE since it might require re-order
 
-        return f.isNullable() && f.getDefaultValue() == getOrderDefault();
+        return f.isNullable() && CompareUtils.equals(f.getDefaultValue(), getOrderDefault());
     }
 
     public final String getOrderDefinition() {
@@ -264,17 +280,7 @@ public abstract class SQLSyntax {
         return res + " (" + quoteIdentifiers(fields) + ");";
     }
 
-    public List<OutsideClause> getCreateIndexes(final SQLTable t, final IPredicate<Index> pred) throws SQLException {
-        final List<Index> indexes = t.getIndexes();
-        final List<OutsideClause> res = new ArrayList<OutsideClause>(indexes.size());
-        for (final Index i : indexes) {
-            if (pred == null || pred.evaluateChecked(i))
-                res.add(getCreateIndex(i));
-        }
-        return res;
-    }
-
-    public final OutsideClause getCreateIndex(final Index i) {
+    public final OutsideClause getCreateIndex(final SQLIndex i) {
         return new OutsideClause() {
 
             @Override
@@ -289,27 +295,18 @@ public abstract class SQLSyntax {
                 // tablename
                 final String indexName = getSchemaUniqueName(tableName.getName(), i.getName());
                 String res = "CREATE" + (i.isUnique() ? " UNIQUE" : "") + " INDEX " + SQLBase.quoteIdentifier(indexName) + " ";
-                final String exprs = join(i.getAttrs(), ", ", new ITransformer<String, String>() {
-                    @Override
-                    public String transformChecked(String attr) {
-                        if (i.getTable().contains(attr))
-                            return SQLBase.quoteIdentifier(attr);
-                        else
-                            // eg lower("field")
-                            return attr;
-                    }
-                });
+                final String exprs = join(i.getAttrs(), ", ");
                 res += getCreateIndex("(" + exprs + ")", tableName, i);
                 // filter condition or warning if this doesn't support it
-                final boolean supported;
+                final boolean neededButUnsupported;
                 if (i.getFilter() != null && i.getFilter().length() > 0) {
                     res += " WHERE " + i.getFilter();
-                    supported = getSystem().isIndexFilterConditionSupported();
+                    neededButUnsupported = !getSystem().isIndexFilterConditionSupported();
                 } else {
-                    supported = true;
+                    neededButUnsupported = false;
                 }
                 res += ";";
-                if (!supported) {
+                if (neededButUnsupported) {
                     res = "-- filter condition not supported\n-- " + res;
                     Log.get().warning(res);
                 }
@@ -327,8 +324,12 @@ public abstract class SQLSyntax {
      * @param i the index, do not use its table, use <code>tableName</code>.
      * @return the part after "CREATE UNIQUE INDEX foo ".
      */
-    protected String getCreateIndex(final String cols, final SQLName tableName, Index i) {
+    protected String getCreateIndex(final String cols, final SQLName tableName, SQLIndex i) {
         return "ON " + tableName.quote() + cols;
+    }
+
+    public boolean isUniqueException(final SQLException exn) {
+        return SQLUtils.findWithSQLState(exn).getSQLState().equals("23505");
     }
 
     /**
@@ -379,11 +380,18 @@ public abstract class SQLSyntax {
     }
 
     protected final String getDefault(SQLField f, final String sqlType) {
+        if (!this.supportsDefault(sqlType))
+            return null;
+        final String stdDefault = getNormalizedDefault(f);
+        return stdDefault == null ? null : this.transfDefault(f, stdDefault);
+    }
+
+    static final String getNormalizedDefault(SQLField f) {
         final SQLSyntax fs = f.getServer().getSQLSystem().getSyntax();
         final String stdDefault = fs.transfDefaultSQL2Common(f);
-        if (stdDefault == null || !this.supportsDefault(sqlType))
+        if (stdDefault == null) {
             return null;
-        else {
+        } else {
             // for the field date default '2008-12-30'
             // pg will report a default value of '2008-12-30'::date
             // for the field date default '2008-12-30'::date
@@ -395,7 +403,7 @@ public abstract class SQLSyntax {
                 castless = stdDefault;
             else
                 castless = remove(stdDefault, fs.getTypeNames(f.getType().getJavaType()), cast.get0(), cast.get1());
-            return this.transfDefault(f, castless);
+            return castless;
         }
     }
 
@@ -496,7 +504,7 @@ public abstract class SQLSyntax {
         if (f.getDefaultValue() == null)
             return false;
 
-        final String def = ((String) f.getDefaultValue()).toLowerCase();
+        final String def = getNormalizedDefault(f).toLowerCase();
         return Date.class.isAssignableFrom(f.getType().getJavaType()) && (def.contains("now") || def.contains("current_"));
     }
 
@@ -525,6 +533,14 @@ public abstract class SQLSyntax {
         return "boolean";
     }
 
+    /**
+     * The maximum number of characters in a column. Can be less than that if there are other
+     * columns.
+     * 
+     * @return the maximum number of characters.
+     */
+    public abstract int getMaximumVarCharLength();
+
     protected boolean supportsDefault(String sqlType) {
         return true;
     }
@@ -541,7 +557,7 @@ public abstract class SQLSyntax {
         return castless;
     }
 
-    private static final Set<String> nonStandardTimeFunctions = CollectionUtils.createSet("now()", "transaction_timestamp()", "current_timestamp()");
+    private static final Set<String> nonStandardTimeFunctions = CollectionUtils.createSet("now()", "transaction_timestamp()", "current_timestamp()", "getdate()");
     /** list of columns identifying a field in the resultSet from information_schema.COLUMNS */
     public static final List<String> INFO_SCHEMA_NAMES_KEYS = Arrays.asList("TABLE_SCHEMA", "TABLE_NAME", "COLUMN_NAME");
 
@@ -557,7 +573,7 @@ public abstract class SQLSyntax {
     }
 
     public String transfDefaultJDBC2SQL(SQLField f) {
-        return (String) f.getDefaultValue();
+        return f.getDefaultValue();
     }
 
     /**
@@ -639,9 +655,9 @@ public abstract class SQLSyntax {
      * @param toTake which properties of <code>from</code> to copy.
      * @return the SQL clauses.
      */
-    public final List<String> getAlterField(SQLField f, SQLField from, Set<Properties> toTake) {
+    public final Map<ClauseType, List<String>> getAlterField(SQLField f, SQLField from, Set<Properties> toTake) {
         if (toTake.size() == 0)
-            return Collections.emptyList();
+            return Collections.emptyMap();
 
         final Boolean nullable = toTake.contains(Properties.NULLABLE) ? getNullable(from) : null;
         final String newType;
@@ -658,7 +674,7 @@ public abstract class SQLSyntax {
     }
 
     // cannot rename since some systems won't allow it in the same ALTER TABLE
-    public abstract List<String> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable);
+    public abstract Map<ClauseType, List<String>> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable);
 
     /**
      * The decimal, arbitrary precision, SQL type.
@@ -683,6 +699,22 @@ public abstract class SQLSyntax {
      */
     public final String getDecimalIntPart(int intPart, int fractionalPart) {
         return getDecimal(intPart + fractionalPart, fractionalPart);
+    }
+
+    /**
+     * Rename a table. Some systems (e.g. MS SQL) need another query to change schema so this method
+     * doesn't support it.
+     * 
+     * @param table the table to rename.
+     * @param newName the new name.
+     * @return the SQL statement.
+     */
+    public String getRenameTable(SQLName table, String newName) {
+        return "ALTER TABLE " + table.quote() + " RENAME to " + SQLBase.quoteIdentifier(newName);
+    }
+
+    public String getDropTableIfExists(SQLName name) {
+        return "DROP TABLE IF EXISTS " + name.quote();
     }
 
     public abstract String getDropRoot(String name);
@@ -760,13 +792,13 @@ public abstract class SQLSyntax {
      * 
      * @param r the root to dump.
      * @param dir where to dump it.
-     * @throws IllegalArgumentException if the server and this jvm aren't on the same machine.
+     * @throws IOException if an error occurred.
      */
-    public final void storeData(final DBRoot r, final File dir) {
+    public final void storeData(final DBRoot r, final File dir) throws IOException {
         this.storeData(r, null, dir);
     }
 
-    public final void storeData(final DBRoot r, final Set<String> tableNames, final File dir) {
+    public final void storeData(final DBRoot r, final Set<String> tableNames, final File dir) throws IOException {
         dir.mkdirs();
         final Map<String, SQLTable> tables = new TreeMap<String, SQLTable>(r.getTablesMap());
         if (tableNames != null)
@@ -776,11 +808,11 @@ public abstract class SQLSyntax {
         }
     }
 
-    public final void storeData(SQLTable t, File f) {
+    public final void storeData(SQLTable t, File f) throws IOException {
         this._storeData(t, f);
     }
 
-    protected abstract void _storeData(SQLTable t, File f);
+    protected abstract void _storeData(SQLTable t, File f) throws IOException;
 
     /**
      * Whether the passed server runs on this machine.
@@ -797,8 +829,8 @@ public abstract class SQLSyntax {
             throw new IllegalArgumentException("the server of " + t + " is not this computer: " + t.getServer());
     }
 
-    SQLBase createBase(SQLServer server, String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
-        return new SQLBase(server, name, login, pass, dsInit);
+    SQLBase createBase(SQLServer server, String name, final IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+        return new SQLBase(server, name, systemRootInit, login, pass, dsInit);
     }
 
     /**
@@ -818,6 +850,10 @@ public abstract class SQLSyntax {
      */
     public String getConcatOp() {
         return "||";
+    }
+
+    public String getLitteralLikePattern(final String pattern) {
+        return DEFAULT_LIKE_ESCAPER.escape(pattern);
     }
 
     public final String getRegexpOp() {
@@ -1012,7 +1048,7 @@ public abstract class SQLSyntax {
      * @param b the base.
      * @param tables the tables by schemas names.
      * @return a list of map with at least "TABLE_SCHEMA", "TABLE_NAME", "CONSTRAINT_NAME",
-     *         "CONSTRAINT_TYPE" and (List of String)"COLUMN_NAMES" keys.
+     *         "CONSTRAINT_TYPE", (List of String)"COLUMN_NAMES" keys and "DEFINITION".
      * @throws SQLException if an error occurs.
      */
     public abstract List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException;
@@ -1041,8 +1077,8 @@ public abstract class SQLSyntax {
 
     /**
      * A query to retrieve triggers in the passed schemas and tables. The result must have at least
-     * TRIGGER_NAME, TABLE_SCHEMA, TABLE_NAME, ACTION (system dependant, eg "NEW.F = true") and SQL
-     * (the SQL needed to create the trigger, can be <code>null</code>).
+     * TRIGGER_NAME, TABLE_SCHEMA, TABLE_NAME, ACTION (system dependent, e.g. "NEW.F = true") and
+     * SQL (the SQL needed to create the trigger, can be <code>null</code>).
      * 
      * @param b the base.
      * @param tables the tables by schemas names.
@@ -1060,18 +1096,20 @@ public abstract class SQLSyntax {
      * @param tables the other tables of the update.
      * @param setPart the fields of <code>t</code> and their values.
      * @return the SQL specifying how to set the fields.
-     * @throws UnsupportedOperationException if this system doesn't support the passed update, eg
+     * @throws UnsupportedOperationException if this system doesn't support the passed update, e.g.
      *         multi-table.
      */
     public String getUpdate(SQLTable t, List<String> tables, Map<String, String> setPart) throws UnsupportedOperationException {
-        if (tables.size() > 0)
-            throw new UnsupportedOperationException();
-        return t.getSQLName() + "\nSET " + CollectionUtils.join(setPart.entrySet(), ",\n", new ITransformer<Entry<String, String>, String>() {
+        String res = t.getSQLName().quote() + " SET\n" + CollectionUtils.join(setPart.entrySet(), ",\n", new ITransformer<Entry<String, String>, String>() {
             @Override
             public String transformChecked(Entry<String, String> input) {
-                return input.getKey() + " = " + input.getValue();
+                // pg require that fields are unprefixed
+                return SQLBase.quoteIdentifier(input.getKey()) + " = " + input.getValue();
             }
         });
+        if (tables.size() > 0)
+            res += " FROM " + CollectionUtils.join(tables, ", ");
+        return res;
     }
 
     public OutsideClause getSetTableComment(final String comment) {

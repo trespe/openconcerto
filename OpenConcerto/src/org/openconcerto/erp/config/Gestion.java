@@ -33,6 +33,7 @@ import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.IComboSelectionItem;
+import org.openconcerto.sql.ui.SoftwareInfoPanel;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.list.IListe;
@@ -186,6 +187,7 @@ public class Gestion {
     }
 
     public static void main(String[] args) {
+
         Thread.setDefaultUncaughtExceptionHandler(new UncaughtExceptionHandler() {
 
             @Override
@@ -198,6 +200,7 @@ public class Gestion {
         System.out.println(System.getProperty("java.runtime.version", "??") + " - " + System.getProperty("os.name", "??"));
         ExceptionHandler.setForceUI(true);
         ExceptionHandler.setForumURL("http://www.openconcerto.org/forum");
+        ExceptionHandler.setSoftwareInformations(SoftwareInfoPanel.FACTORY);
 
         System.setProperty(PropsConfiguration.REDIRECT_TO_FILE, "true");
         // Mac
@@ -271,6 +274,7 @@ public class Gestion {
         if (conf.getProperty("odsViewer") != null) {
             System.setProperty("org.openconcerto.oo.useODSViewer", Boolean.valueOf(conf.getProperty("odsViewer")).toString());
         }
+
 
         // Restore L&F and colors
         UIPreferencePanel.initUIFromPreferences();

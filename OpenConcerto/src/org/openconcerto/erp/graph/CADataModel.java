@@ -29,13 +29,11 @@ import org.jopenchart.barchart.VerticalBarChart;
 
 public class CADataModel extends DataModel1D {
 
-    private VerticalBarChart chart;
     private Thread thread;
     private int year;
+    private int total;
 
     public CADataModel(final VerticalBarChart chart, final int year) {
-        this.chart = chart;
-
         loadYear(year);
     }
 
@@ -54,6 +52,7 @@ public class CADataModel extends DataModel1D {
         year = ((Number) value).intValue();
 
         thread = new Thread() {
+
             @Override
             public void run() {
                 setState(LOADING);
@@ -61,6 +60,7 @@ public class CADataModel extends DataModel1D {
                 CADataModel.this.clear();
                 fireDataModelChanged();
                 SommeCompte sommeCompte = new SommeCompte();
+                total = 0;
                 try {
                     for (int i = 0; i < 12; i++) {
                         if (isInterrupted()) {
@@ -97,8 +97,8 @@ public class CADataModel extends DataModel1D {
                             vCA = sommeCompte.soldeCompteCrediteur(700, 708, true, d1, d2) - sommeCompte.soldeCompteCrediteur(709, 709, true, d1, d2);
                         }
 
-                        final float value = vCA / 100;
-
+                        final int value = Math.round(vCA / 100);
+                        total += value;
                         if (((int) value) != 0) {
                             CADataModel.this.setValueAt(i, value);
                             fireDataModelChanged();
@@ -128,4 +128,7 @@ public class CADataModel extends DataModel1D {
         return year;
     }
 
+    public int getTotal() {
+        return total;
+    }
 }

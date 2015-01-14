@@ -15,6 +15,7 @@
 
 import org.openconcerto.ui.preferences.EmailProps;
 import org.openconcerto.utils.EmailClient;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.io.File;
 import java.io.IOException;
@@ -40,16 +41,27 @@ public class EmailComposer {
         subject = subject.trim();
         text = text.trim();
 
-        final EmailClient emailClient;
+        EmailClient emailClient = null;
         final int mode = EmailProps.getInstance().getMode();
         if (mode == EmailProps.THUNDERBIRD) {
             String app = EmailProps.getInstance().getThunderbirdPath();
             emailClient = EmailClient.Thunderbird.createFromExe(new File(app));
         } else if (mode == EmailProps.OUTLOOK) {
             emailClient = EmailClient.Outlook;
-        } else {
+        }
+        // e.g. thunderbird has been uninstalled, fall back to getPreferred()
+        // ATTN getPreferred() might itself be wrong (e.g. stale system settings)
+        if (emailClient == null) {
             emailClient = EmailClient.getPreferred();
         }
-        emailClient.compose(to, subject, text, attachedFile);
+        try {
+            emailClient.compose(to, subject, text, attachedFile);
+        } catch (Exception e) {
+            // mailto shouldn't fail
+            if (emailClient == EmailClient.MailTo)
+                throw new IOException(e);
+            ExceptionHandler.handle(TM.tr("email.fallback"), e);
+            EmailClient.MailTo.compose(to, subject, text, attachedFile);
+        }
     }
 }

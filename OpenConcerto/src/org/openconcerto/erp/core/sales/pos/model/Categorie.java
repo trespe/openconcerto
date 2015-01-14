@@ -21,6 +21,7 @@ import java.util.List;
 
 public class Categorie {
     private static List<Categorie> topLevelCategories = new ArrayList<Categorie>();
+    private static List<Categorie> allCategories = new ArrayList<Categorie>();
     private String name;
     // Sous catégories
     private List<Categorie> l = new ArrayList<Categorie>();
@@ -37,6 +38,7 @@ public class Categorie {
         if (top) {
             topLevelCategories.add(this);
         }
+        allCategories.add(this);
     }
 
     @Override
@@ -63,6 +65,10 @@ public class Categorie {
 
     public static List<Categorie> getTopLevelCategories() {
         return topLevelCategories;
+    }
+
+    public static List<Categorie> getAllCategories() {
+        return allCategories;
     }
 
     public List<Categorie> getSubCategories() {

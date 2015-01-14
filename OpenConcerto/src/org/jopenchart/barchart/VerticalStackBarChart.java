@@ -61,8 +61,8 @@ public class VerticalStackBarChart extends VerticalBarChart {
 
             x += this.getSpaceBetweenBars() + this.getBarWidth();
         }
-        g.setColor(Color.pink);
-        g.drawRect(this.getChartRectangle().x, this.getChartRectangle().y, this.getChartRectangle().width, this.getChartRectangle().height);
+       // g.setColor(Color.pink);
+       // g.drawRect(this.getChartRectangle().x, this.getChartRectangle().y, this.getChartRectangle().width, this.getChartRectangle().height);
     }
 
     public void setMultipleData(List<List<Number>> multipleData) {

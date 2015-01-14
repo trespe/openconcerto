@@ -13,13 +13,15 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.graph.SQLKey;
 import org.openconcerto.sql.model.graph.TablesMap;
+import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.utils.AlterTable;
 import org.openconcerto.sql.utils.ChangeTable;
 import org.openconcerto.sql.utils.SQLCreateTable;
-import org.openconcerto.sql.view.list.SQLTableModelSource;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.sql.SQLException;
@@ -162,6 +164,34 @@ public class SQLInjector {
 
     protected void merge(SQLField field, Object value, SQLRowValues rowVals) {
         rowVals.put(field.getName(), value);
+    }
+
+    protected void transfertReference(SQLRowAccessor srcRow, SQLRowValues rowVals, String from, String to) {
+
+        String label = rowVals.getString(to);
+        if (label != null && label.trim().length() > 0) {
+            rowVals.put(to, label + ", " + srcRow.getString(from));
+        } else {
+            rowVals.put(to, srcRow.getString(from));
+        }
+    }
+
+    protected void transfertNumberReference(SQLRowAccessor srcRow, SQLRowValues rowVals, final SQLTable tableElementDestination, String refField) {
+        SQLPreferences prefs = new SQLPreferences(srcRow.getTable().getDBRoot());
+
+        if (prefs.getBoolean("TransfertRef", true)) {
+            String label = rowVals.getString("NOM");
+            if (label != null && label.trim().length() > 0) {
+                rowVals.put("NOM", label + ", " + srcRow.getString("NUMERO"));
+            } else {
+                rowVals.put("NOM", srcRow.getString("NUMERO"));
+            }
+        } else if (prefs.getBoolean("TransfertMultiRef", false)) {
+            SQLRowValues rowValsHeader = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(tableElementDestination));
+            String elementName = StringUtils.firstUp(Configuration.getInstance().getDirectory().getElement(getSource()).getName().getVariant(org.openconcerto.utils.i18n.Grammar.SINGULAR));
+            rowValsHeader.put("NOM", elementName + " N° " + srcRow.getString("NUMERO"));
+            rowValsHeader.put(refField, rowVals);
+        }
     }
 
     public synchronized SQLRow insertFrom(final SQLRowAccessor srcRow) throws SQLException {
@@ -384,16 +414,12 @@ public class SQLInjector {
      * @throws SQLException
      * */
     public void addTransfert(int idFrom, int idTo) throws SQLException {
-        System.err.println("SQLInjector.addTransfert() " + idFrom + " -> " + idTo);
         final SQLTable tableTransfert = getSource().getTable(getTableTranferName());
         final SQLRowValues rowTransfer = new SQLRowValues(tableTransfert);
-
         final Set<SQLField> foreignKeysSrc = tableTransfert.getForeignKeys(getSource());
         final Set<SQLField> foreignKeysDest = tableTransfert.getForeignKeys(getDestination());
-
         rowTransfer.put(foreignKeysSrc.iterator().next().getName(), idFrom);
         rowTransfer.put(foreignKeysDest.iterator().next().getName(), idTo);
-
         rowTransfer.commit();
 
     }

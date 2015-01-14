@@ -94,7 +94,7 @@ public class SQLPreferences extends AbstractPreferences {
         createValueT.setPlain(true);
         createValueT.addColumn("ID_NODE", createValueT.getSyntax().getIDType() + " NOT NULL");
         createValueT.addVarCharColumn("NAME", Preferences.MAX_KEY_LENGTH);
-        createValueT.addVarCharColumn("VALUE", Preferences.MAX_VALUE_LENGTH);
+        createValueT.addVarCharColumn("VALUE", Preferences.MAX_VALUE_LENGTH, true);
         // unique name per node
         createValueT.setPrimaryKey("ID_NODE", "NAME");
         createValueT.addForeignConstraint("ID_NODE", new SQLName(createNodeT.getName()), SQLSyntax.ID_NAME);

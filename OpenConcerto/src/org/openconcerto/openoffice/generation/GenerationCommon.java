@@ -153,4 +153,13 @@ public class GenerationCommon<R extends ReportGeneration<?>> {
     protected void preProcessDocument(final ODSingleXMLDocument doc) {
         // nothing
     }
+
+    /**
+     * Called for each document once it's done.
+     * 
+     * @param doc the finished document.
+     */
+    protected void postProcessDocument(final ODSingleXMLDocument doc) {
+        // nothing
+    }
 }

@@ -21,12 +21,12 @@ import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.sales.product.element.ReferenceArticleSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.ui.BonReceptionItemTable;
-import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater.Type;
 import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -376,6 +376,9 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
             idBon = super.insert(order);
             try {
                 this.tableBonItem.updateField("ID_BON_RECEPTION", idBon);
+
+                this.tableBonItem.createArticle(idBon, this.getElement());
+
                 // incrémentation du numéro auto
                 if (NumerotationAutoSQLElement.getNextNumero(BonReceptionSQLElement.class).equalsIgnoreCase(this.textNumeroUnique.getText().trim())) {
                     SQLRowValues rowVals = new SQLRowValues(this.tableNum);
@@ -442,6 +445,7 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
             // Mise à jour de l'élément
             super.update();
             this.tableBonItem.updateField("ID_BON_RECEPTION", getSelectedID());
+            this.tableBonItem.createArticle(getSelectedID(), this.getElement());
             final int id = getSelectedID();
             ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
@@ -547,7 +551,7 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
         }
     }
 
-    protected String getLibelleStock(SQLRow row, SQLRow rowElt) {
+    protected String getLibelleStock(SQLRowAccessor row, SQLRowAccessor rowElt) {
         return "Bon de réception N°" + row.getString("NUMERO");
     }
 
@@ -557,16 +561,17 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
      * @throws SQLException
      */
     private void updateStock(int id) throws SQLException {
-        if (SwingUtilities.isEventDispatchThread()) {
-            throw new IllegalStateException("This method must be called outside of EDT");
-        }
-        MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-        mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("BON_RECEPTION_ELEMENT"), new StockLabel() {
+
+        SQLRow row = getTable().getRow(id);
+        StockItemsUpdater stockUpdater = new StockItemsUpdater(new StockLabel() {
+
             @Override
-            public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
+            public String getLabel(SQLRowAccessor rowOrigin, SQLRowAccessor rowElt) {
+
                 return getLibelleStock(rowOrigin, rowElt);
             }
-        }, true);
+        }, row, row.getReferentRows(getTable().getTable("BON_RECEPTION_ELEMENT")), Type.REAL_RECEPT);
 
+        stockUpdater.update();
     }
 }

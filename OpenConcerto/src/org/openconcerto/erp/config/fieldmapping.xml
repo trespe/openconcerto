@@ -24,6 +24,17 @@
 		<field id="sales.quote.saleman" name="ID_COMMERCIAL" />
 		<field id="sales.quote.address.alternative" name="ID_ADRESSE" />
 		<field id="sales.quote.info.general" name="INFOS" />
+		<field id="sales.quote.state" name="ID_ETAT_DEVIS"/>
+	</table>
+	<table id="sales.quote.item" name="DEVIS_ELEMENT">
+	 	<field id="sales.quote.item.quote" name="ID_DEVIS"/>
+	 	<field id="sales.quote.item.style" name="ID_STYLE"/>
+		<field id="sales.quote.item.code" name="CODE"/>
+		<field id="sales.quote.item.label" name="NOM"/>
+		<field id="sales.quote.item.description" name="DESCRIPTIF"/>
+		<field id="sales.quote.item.purchase.unit.price" name="PA_HT"/>
+		<field id="sales.quote.item.sales.unit.price" name="PV_HT"/>
+        <field id="sales.quote.item.quantity" name="QTE"/>
 	</table>
 	<table id="sales.product" name="ARTICLE">
 		<field id="sales.product.code" name="CODE" />
@@ -51,7 +62,7 @@
 		<field id="sales.product.sales.account" name="ID_COMPTE_PCE" />
 		<field id="sales.product.purchase.account" name="ID_COMPTE_PCE_ACHAT" />
 		<field id="sales.product.deprecated" name="OBSOLETE" />
-		<field id="sales.product.family" name="ID_FAMILLE_ARTICLE" />
+		<field id="sales.product.category" name="ID_FAMILLE_ARTICLE" />
 		<field id="sales.product.info" name="INFOS" />
 		<field id="sales.product.price1" name="PRIX_METRIQUE_VT_1" />
 		<field id="sales.product.price2" name="PRIX_METRIQUE_VT_2" />

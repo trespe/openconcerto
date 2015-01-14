@@ -209,7 +209,7 @@ public class TotalCalculator {
         rowValsC2.put("ID", null);
 
         rowVals.put(tvaTable.getKey().getName(), null);
-        rowVals.put("ID_COMPTE_PCE", rowValsC1);
+        rowVals.put("ID_COMPTE_PCE_COLLECTE", rowValsC1);
         rowVals.put("ID_COMPTE_PCE_DED", rowValsC2);
 
         SQLRowValuesListFetcher fetch = SQLRowValuesListFetcher.create(rowVals);
@@ -242,7 +242,7 @@ public class TotalCalculator {
                     rowCptTva = this.rowDefaultCptTVADeductible;
                 }
             } else {
-                rowCptTva = tva.getForeign("ID_COMPTE_PCE");
+                rowCptTva = tva.getForeign("ID_COMPTE_PCE_COLLECTE");
                 if (rowCptTva == null || rowCptTva.isUndefined()) {
                     rowCptTva = this.rowDefaultCptTVACollecte;
                 }
@@ -313,7 +313,7 @@ public class TotalCalculator {
         Number nPoids = (Number) rowAccessorLine.getObject(FIELD_POIDS);
 
         // Si il y a une remise à appliquer
-        if (this.remiseHT != 0 && this.remiseRestante > 0) {
+        if (this.remiseHT != 0 && this.remiseRestante > 0 && this.totalHTAvantRemise != null && this.totalHTAvantRemise.signum() != 0) {
 
             // Si c'est la derniere ligne, on applique le restant de la remise
             if (last) {

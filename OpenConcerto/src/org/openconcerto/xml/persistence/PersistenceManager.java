@@ -13,7 +13,6 @@
  
  package org.openconcerto.xml.persistence;
 
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.io.File;
@@ -25,6 +24,7 @@ import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
 import java.util.Set;
 import java.util.Stack;
@@ -272,7 +272,7 @@ public class PersistenceManager {
      * @param clazz la classe des objets à charger.
      * @return une liste d'objets correspondant.
      */
-    static public List load(Class clazz) {
+    static public List<Persistent> load(Class clazz) {
         final Set<String> ids;
         try {
             ids = io.getIDs(clazz);
@@ -296,18 +296,19 @@ public class PersistenceManager {
         return result;
     }
 
-    static public CollectionMap<Class, Persistent> loadAll(File rootDir) {
+    static public Map<Class<?>, List<Persistent>> loadAll(File rootDir) {
         final PersistenceIO pio = new SingleXMLIO(rootDir);
-        final CollectionMap<Class, String> mm;
+        final Map<Class<?>, Set<String>> mm;
         try {
             mm = pio.getIDs();
         } catch (IOException e) {
             throw ExceptionHandler.die("problème lecture", e);
         }
 
-        final CollectionMap<Class, Persistent> res = new CollectionMap<Class, Persistent>();
-        for (final Class clazz : mm.keySet()) {
-            res.putAll(clazz, load(clazz, mm.getNonNull(clazz)));
+        final Map<Class<?>, List<Persistent>> res = new HashMap<Class<?>, List<Persistent>>();
+        for (final Entry<Class<?>, Set<String>> e : mm.entrySet()) {
+            final Class<?> clazz = e.getKey();
+            res.put(clazz, load(clazz, e.getValue()));
         }
 
         return res;

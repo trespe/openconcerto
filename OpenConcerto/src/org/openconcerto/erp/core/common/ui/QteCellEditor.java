@@ -59,7 +59,7 @@ public class QteCellEditor extends AbstractCellEditor implements TableCellEditor
             }
         };
         nf.setMinimum(0);
-        nf.setMaximum(65534);
+        nf.setMaximum(Integer.MAX_VALUE);
         nf.setValueClass(Integer.class);
 
         this.component = new JFormattedTextField(nf);

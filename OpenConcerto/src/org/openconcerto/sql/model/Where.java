@@ -105,10 +105,12 @@ public class Where {
     }
 
     static public Where createRaw(String clause, FieldRef... refs) {
-        return new Where(clause, Arrays.asList(refs));
+        return createRaw(clause, Arrays.asList(refs));
     }
 
     static public Where createRaw(String clause, Collection<? extends FieldRef> refs) {
+        if (clause == null)
+            return null;
         return new Where(clause, refs);
     }
 

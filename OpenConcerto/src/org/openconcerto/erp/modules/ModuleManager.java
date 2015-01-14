@@ -52,7 +52,7 @@ import org.openconcerto.sql.utils.DropTable;
 import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
-import org.openconcerto.sql.view.list.RowAction;
+import org.openconcerto.sql.view.list.IListeAction;
 import org.openconcerto.ui.SwingThreadUtils;
 import org.openconcerto.utils.CollectionMap2.Mode;
 import org.openconcerto.utils.CollectionUtils;
@@ -889,6 +889,9 @@ public class ModuleManager {
             for (final String added : ctxt.getAddedTables()) {
                 vals.put(TABLE_COLNAME, added).put(FIELD_COLNAME, null).insert();
                 final SQLTable t = ctxt.getRoot().findTable(added);
+                if (t == null) {
+                    throw new IllegalStateException("Unable to find added table " + added + " in root " + ctxt.getRoot().getName());
+                }
                 for (final SQLField field : t.getFields()) {
                     vals.put(TABLE_COLNAME, added).put(FIELD_COLNAME, field.getName()).put(ISKEY_COLNAME, field.isKey()).insert();
                 }
@@ -1066,7 +1069,9 @@ public class ModuleManager {
                 final IdentityHashMap<SQLElement, SQLElement> elements = new IdentityHashMap<SQLElement, SQLElement>();
                 // use IdentitySet so as not to call equals() since it triggers initFF()
                 final IdentitySet<SQLElement> beforeElementsSet = new IdentityHashSet<SQLElement>(beforeElements.values());
-                for (final SQLElement elem : dir.getElements()) {
+                // copy to be able to restore elements while iterating
+                final IdentitySet<SQLElement> afterElementsSet = new IdentityHashSet<SQLElement>(dir.getElements());
+                for (final SQLElement elem : afterElementsSet) {
                     if (!beforeElementsSet.contains(elem)) {
                         if (!(elem instanceof ModuleElement))
                             L.warning("Module added an element that isn't a ModuleElement : " + elem);
@@ -1078,11 +1083,17 @@ public class ModuleManager {
                             // private constructor, final method).
                             final boolean codeSafe = replacedElem.getClass().isInstance(elem);
 
-                            if (codeSafe && isMngrSafe(module, replacedElem)) {
+                            final boolean mngrSafe = isMngrSafe(module, replacedElem);
+                            if (codeSafe && mngrSafe) {
                                 // store replacedElem so that it can be restored in unregister()
                                 elements.put(elem, replacedElem);
                             } else {
-                                L.warning("Trying to replace element for " + elem.getTable() + " with " + elem);
+                                final List<String> pbs = new ArrayList<String>(2);
+                                if (!codeSafe)
+                                    pbs.add(elem + " isn't a subclass of " + replacedElem);
+                                if (!mngrSafe)
+                                    pbs.add(module + " doesn't depend on " + replacedElem);
+                                L.warning("Trying to replace element for " + elem.getTable() + " with " + elem + " but\n" + CollectionUtils.join(pbs, "\n"));
                                 dir.addSQLElement(replacedElem);
                             }
                         } else {
@@ -1706,7 +1717,7 @@ public class ModuleManager {
                 final InputStream ins = module.getClass().getResourceAsStream(resourceName);
                 // do not force to have one mapping for each locale
                 if (ins != null) {
-                    Log.get().info("module " + module.getName() + " loading translation from " + resourceName);
+                    L.config("module " + module.getName() + " loading translation from " + resourceName);
                     final Set<SQLTable> loadedTables;
                     try {
                         loadedTables = trns.load(getRoot(), mdVariant, ins).get0();
@@ -1899,10 +1910,10 @@ public class ModuleManager {
         final String id = module.getFactory().getID();
         if (this.modulesComponents.containsKey(id)) {
             final ComponentsContext ctxt = this.modulesComponents.remove(id);
-            for (final Entry<SQLElement, Collection<String>> e : ctxt.getFields().entrySet())
+            for (final Entry<SQLElement, ? extends Collection<String>> e : ctxt.getFields().entrySet())
                 for (final String fieldName : e.getValue())
                     e.getKey().removeAdditionalField(fieldName);
-            for (final Entry<SQLElement, Collection<RowAction>> e : ctxt.getRowActions().entrySet())
+            for (final Entry<SQLElement, ? extends Collection<IListeAction>> e : ctxt.getRowActions().entrySet())
                 e.getKey().getRowActions().removeAll(e.getValue());
             TranslationManager.getInstance().removeTranslationStreamFromClass(module.getClass());
             // can't undo so menu is reset in stopModule()

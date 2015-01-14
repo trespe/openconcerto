@@ -37,6 +37,9 @@ import org.jdom.xpath.XPath;
  */
 public final class SimpleXMLPath<T> {
 
+    private static final SimpleXMLPath<Attribute> ALL_ATTRIBUTES = allAttributes(null, null);
+    private static final SimpleXMLPath<Element> ALL_ELEMENTS = allElements(null, null);
+
     public static <T> SimpleXMLPath<T> create(final List<Step<?>> steps, final Step<T> lastStep) {
         return new SimpleXMLPath<T>(Collections.unmodifiableList(new ArrayList<Step<?>>(steps)), lastStep);
     }
@@ -54,8 +57,17 @@ public final class SimpleXMLPath<T> {
     }
 
     /**
+     * Create a path searching for all descendant attributes. The returned instance is immutable.
+     * 
+     * @return a path searching attributes in all {@link Axis#descendantOrSelf} elements.
+     */
+    public static SimpleXMLPath<Attribute> allAttributes() {
+        return ALL_ATTRIBUTES;
+    }
+
+    /**
      * Create a path searching for all descendant attributes with the passed name and namespace.
-     * I.e. in XPath this would be ".//@ns:name".
+     * I.e. in XPath this would be ".//@ns:name". The returned instance is immutable.
      * 
      * @param name the name of attributes.
      * @param ns the namespace of attributes.
@@ -66,8 +78,17 @@ public final class SimpleXMLPath<T> {
     }
 
     /**
+     * Create a path searching for all descendant elements. The returned instance is immutable.
+     * 
+     * @return a path searching all {@link Axis#descendantOrSelf} elements.
+     */
+    public static SimpleXMLPath<Element> allElements() {
+        return ALL_ELEMENTS;
+    }
+
+    /**
      * Create a path searching for all descendant elements with the passed name and namespace. I.e.
-     * in XPath this would be ".//ns:name".
+     * in XPath this would be ".//ns:name". The returned instance is immutable.
      * 
      * @param name the name of elements.
      * @param ns the namespace of elements.

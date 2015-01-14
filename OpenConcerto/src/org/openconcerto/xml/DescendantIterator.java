@@ -116,20 +116,37 @@ public class DescendantIterator implements Iterator<Content> {
     }
 
     public DescendantIterator(final Parent parent, final IPredicate<? super Content> pred) {
-        this(parent, new Filter() {
+        this(parent, createFilter(pred));
+    }
+
+    private static Filter createFilter(final IPredicate<? super Content> pred) {
+        return new Filter() {
             @Override
             public boolean matches(Object obj) {
                 return pred.evaluateChecked((Content) obj);
             }
-        });
+        };
     }
 
+    @SuppressWarnings("unchecked")
     public DescendantIterator(final Parent parent, final Filter filter) {
-        if (parent == null) {
-            throw new IllegalArgumentException("parent parameter was null");
+        this(parent.getContent(), filter);
+    }
+
+    public DescendantIterator(final List<Content> content) {
+        this(content, (Filter) null);
+    }
+
+    public DescendantIterator(final List<Content> content, final IPredicate<? super Content> pred) {
+        this(content, createFilter(pred));
+    }
+
+    public DescendantIterator(final List<Content> content, final Filter filter) {
+        if (content == null) {
+            throw new IllegalArgumentException("content parameter was null");
         }
         this.filter = filter;
-        this.iterator = wrapIter(parent.getContent().iterator());
+        this.iterator = wrapIter(content.iterator());
     }
 
     private Iterator<?> wrapIter(final Iterator<?> iter) {

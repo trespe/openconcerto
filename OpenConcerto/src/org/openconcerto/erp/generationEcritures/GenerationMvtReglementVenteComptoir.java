@@ -13,10 +13,12 @@
  
  package org.openconcerto.erp.generationEcritures;
 
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.ChequeAEncaisserSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
+import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
@@ -84,7 +86,7 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
                     if (typeRegRow.getID() == 4) {
                         this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementVenteComptoir.journalCaisse);
                     } else {
-                        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+                        fillJournalBanqueFromRow(modeRegRow);
                     }
 
                     // compte Clients
@@ -102,11 +104,16 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
                     ajoutEcriture();
 
                     // compte de reglement
-                    int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
-                    if (idCompteRegl <= 1) {
-                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
+                    if (typeRegRow.getID() == TypeReglementSQLElement.ESPECE) {
+                        int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
+                        if (idCompteRegl <= 1) {
+                            idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteEspece");
+                        }
+
+                        this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteRegl));
+                    } else {
+                        fillCompteBanqueFromRow(modeRegRow, "VenteCB", false);
                     }
-                    this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteRegl));
                     this.mEcritures.put("DEBIT", new Long(prixTTC.getLongValue()));
                     this.mEcritures.put("CREDIT", new Long(0));
                     ajoutEcriture();
@@ -172,6 +179,11 @@ public class GenerationMvtReglementVenteComptoir extends GenerationEcritures imp
         valEncaisse.put("DATE_MIN_DEPOT", new java.sql.Date(dateEch.getTime()));
         valEncaisse.put("DATE_DEPOT", new java.sql.Date(this.date.getTime()));
         valEncaisse.put("MONTANT", new Long(prixTTC.getLongValue()));
+
+        if (!saisieRow.isForeignEmpty("ID_MODE_REGLEMENT")) {
+            SQLRow rowModeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
+            valEncaisse.put("ID_" + BanqueSQLElement.TABLENAME, rowModeRegl.getInt("ID_" + BanqueSQLElement.TABLENAME));
+        }
         // on crée un nouveau mouvement pour l'encaissement futur du cheque
         SQLRow rowMvtPere = tableMouvement.getRow(idPere);
         this.idMvt = getNewMouvement("CHEQUE_A_ENCAISSER", 1, idPere, rowMvtPere.getInt("ID_PIECE"));

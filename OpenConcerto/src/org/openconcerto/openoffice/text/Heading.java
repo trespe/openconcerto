@@ -13,8 +13,9 @@
  
  package org.openconcerto.openoffice.text;
 
+import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.StyleProperties;
-import org.openconcerto.openoffice.XMLVersion;
+import org.openconcerto.openoffice.XMLFormatVersion;
 
 import org.jdom.Element;
 
@@ -23,9 +24,33 @@ import org.jdom.Element;
  */
 public class Heading extends Paragraph {
 
-    static Element createEmpty(XMLVersion ns) {
-        // have to add level since it's required by OpenDocument-strict-schema-v1.1.rng
-        return new Element("h", ns.getTEXT()).setAttribute("outline-level", "1", ns.getTEXT());
+    public static final TextNodeDesc<?> NODE_DESC = new TextNodeDesc<Heading>(Heading.class) {
+
+        @Override
+        public Element createProto(XMLFormatVersion vers) {
+            return new Element("h", vers.getXMLVersion().getTEXT());
+        }
+
+        @Override
+        protected void fillEmptyElement(Element elem, XMLFormatVersion vers) {
+            super.fillEmptyElement(elem, vers);
+            // have to add level since it's required by OpenDocument-strict-schema-v1.1.rng
+            elem.setAttribute("outline-level", "1", elem.getNamespace());
+        }
+
+        @Override
+        public Heading wrapNode(ODDocument doc, Element e) {
+            return new Heading(e, doc);
+        }
+
+        @Override
+        protected Heading wrapNode(XMLFormatVersion vers, Element elem) {
+            return new Heading(elem, vers);
+        }
+    };
+
+    static public Element createEmpty(XMLFormatVersion ns) {
+        return NODE_DESC.createEmptyElement(ns);
     }
 
     public Heading(String text) {
@@ -34,7 +59,20 @@ public class Heading extends Paragraph {
     }
 
     public Heading() {
-        super(createEmpty(XMLVersion.getDefault()));
+        this(XMLFormatVersion.getDefault());
+    }
+
+    public Heading(final XMLFormatVersion ns) {
+        this(createEmpty(ns), ns);
+    }
+
+    // not public since local element cannot be checked against vers
+    protected Heading(Element elem, XMLFormatVersion vers) {
+        super(elem, vers);
+    }
+
+    public Heading(final Element elem, final ODDocument parent) {
+        super(elem, parent);
     }
 
     public final int getLevel() {

@@ -41,7 +41,7 @@ import java.util.Set;
 import net.jcip.annotations.GuardedBy;
 
 import org.apache.commons.dbutils.ResultSetHandler;
-import org.jdom.Element;
+import org.jdom2.Element;
 
 public final class SQLSchema extends SQLIdentifier {
 
@@ -87,13 +87,13 @@ public final class SQLSchema extends SQLIdentifier {
         return schemaElem.getAttributeValue(VERSION_XMLATTR);
     }
 
-    public static final String getVersion(final SQLBase base, final String schemaName) {
+    public static final Map<String, String> getVersions(final SQLBase base, final Set<String> schemaNames) {
         // since we haven't an instance of SQLSchema, we can't know if the table exists
-        return base.getFwkMetadata(schemaName, VERSION_MDKEY, true);
+        return base.getFwkMetadata(schemaNames, VERSION_MDKEY);
     }
 
     static private String getVersionSQL(final SQLSyntax syntax) {
-        return syntax.getFormatTimestamp("now()", true);
+        return syntax.getFormatTimestamp("CURRENT_TIMESTAMP", true);
     }
 
     static SQLCreateMoveableTable getCreateMetadata(final SQLSyntax syntax) throws SQLException {
@@ -135,6 +135,12 @@ public final class SQLSchema extends SQLIdentifier {
         return (SQLBase) this.getParent();
     }
 
+    @Override
+    protected void onDrop() {
+        SQLTable.removeUndefID(this);
+        super.onDrop();
+    }
+
     /**
      * The version when this instance was last fully refreshed. In other words, if we refresh tables
      * by names (even if we name them all) this version isn't updated.
@@ -173,14 +179,11 @@ public final class SQLSchema extends SQLIdentifier {
     // XMLStructureSource always pre-verify so we don't need the system root lock
     void load(Element schemaElem, Set<String> tableNames) {
         this.setFullyRefreshedVersion(getVersion(schemaElem));
-        final List<?> l = schemaElem.getChildren("table");
-        for (int i = 0; i < l.size(); i++) {
-            final Element elementTable = (Element) l.get(i);
+        for (final Element elementTable : schemaElem.getChildren("table")) {
             this.refreshTable(elementTable, tableNames);
         }
         final Map<String, String> procMap = new HashMap<String, String>();
-        for (final Object proc : schemaElem.getChild("procedures").getChildren("proc")) {
-            final Element procElem = (Element) proc;
+        for (final Element procElem : schemaElem.getChild("procedures").getChildren("proc")) {
             final Element src = procElem.getChild("src");
             procMap.put(procElem.getAttributeValue("name"), src == null ? null : src.getText());
         }
@@ -196,10 +199,8 @@ public final class SQLSchema extends SQLIdentifier {
      */
     final SQLTable fetchTable(final String tableName) throws SQLException {
         synchronized (getTreeMutex()) {
-            synchronized (this) {
-                this.getBase().fetchTables(TablesMap.createFromTables(getName(), Collections.singleton(tableName)));
-                return this.getTable(tableName);
-            }
+            this.getBase().fetchTables(TablesMap.createFromTables(getName(), Collections.singleton(tableName)));
+            return this.getTable(tableName);
         }
     }
 
@@ -357,7 +358,7 @@ public final class SQLSchema extends SQLIdentifier {
             return null;
 
         // we just tested for table existence
-        return this.getBase().getFwkMetadata(this.getName(), name, false);
+        return this.getBase().getFwkMetadata(this.getName(), name);
     }
 
     boolean setFwkMetadata(String name, String value) throws SQLException {

@@ -46,17 +46,15 @@ public class DeviseNumericHTConvertorCellEditor extends DeviseNumericCellEditor 
             menuDroit.add(new AbstractAction("Convertir en HT (TVA " + taxe + ")") {
 
                 public void actionPerformed(ActionEvent e) {
-
-                    String s = StringUtils.removeNonDecimalChars(textField.getText());
-                    if (s.length() > 0) {
+                    final BigDecimal prixTTC = StringUtils.getBigDecimalFromUserText(textField.getText());
+                    if (prixTTC != null) {
                         try {
                             BigDecimal taux = new BigDecimal(taxe).movePointLeft(2).add(BigDecimal.ONE);
-                            BigDecimal prixTTC = new BigDecimal(s);
                             BigDecimal divide = prixTTC.divide(taux, MathContext.DECIMAL128);
                             divide = divide.setScale(precision, RoundingMode.HALF_UP);
                             textField.setText(divide.toString());
                         } catch (Exception ex) {
-                            Log.get().info("Cannot substract tax from " + s + " for tax " + taxe);
+                            Log.get().info("Cannot substract tax from " + prixTTC + " for tax " + taxe);
                             ex.printStackTrace();
                         }
                     }

@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
 
@@ -110,13 +111,13 @@ public class FichePayeSheet extends SheetInterface {
                     return;
                 }
                 final Component doc = ooConnexion.loadDocument(f, true);
-
                 Map<String, Object> map = new HashMap<String, Object>();
                 map.put("Name", PrinterNXProps.getInstance().getStringProperty("FichePayePrinter"));
                 doc.printDocument(map);
                 doc.close();
+            } catch (LinkageError e) {
+                JOptionPane.showMessageDialog(new JFrame(), "Merci d'installer OpenOffice ou LibreOffice");
             } catch (Exception e) {
-                // TODO Auto-generated catch block
                 e.printStackTrace();
                 ExceptionHandler.handle("Impossible de charger le document OpenOffice", e);
             }
@@ -133,6 +134,8 @@ public class FichePayeSheet extends SheetInterface {
                     return;
                 }
                 ooConnexion.loadDocument(f, false);
+            } catch (LinkageError e) {
+                JOptionPane.showMessageDialog(new JFrame(), "Merci d'installer OpenOffice ou LibreOffice");
             } catch (Exception e) {
                 // TODO Auto-generated catch block
                 e.printStackTrace();

@@ -17,6 +17,7 @@ import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.state.WindowStateManager;
+import org.openconcerto.utils.FileUtils;
 
 import java.awt.Dimension;
 import java.awt.Toolkit;
@@ -37,7 +38,7 @@ public abstract class CreateAndCacheFrameAbstractAction extends AbstractAction {
             this.frame = createFrame();
             this.frame.setLocationRelativeTo(null);
             this.stateManager = new WindowStateManager(this.frame, new File(Configuration.getInstance().getConfDir(), "Configuration" + File.separator + "Frame" + File.separator
-                    + this.getValue(Action.NAME).toString() + ".xml"));
+                    + FileUtils.sanitize(this.getValue(Action.NAME).toString()) + ".xml"));
             this.frame.setIconImages(Gestion.getFrameIcon());
             this.frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
         }

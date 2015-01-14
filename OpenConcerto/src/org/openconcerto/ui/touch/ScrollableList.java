@@ -146,8 +146,9 @@ public class ScrollableList extends JComponent implements MouseListener, MouseMo
             g.setColor(Color.GRAY);
         }
         ((Graphics2D) g).setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_GASP);
-        g.setFont(new Font("Arial", Font.BOLD, 42));
-        g.drawString(object.toString(), 20, posY + 43);
+
+        g.setFont(new Font("Arial", Font.BOLD, 38));
+        g.drawString(object.toString(), 14, posY + 43);
     }
 
     private int getIndexFromY(int y) {
@@ -208,10 +209,10 @@ public class ScrollableList extends JComponent implements MouseListener, MouseMo
     }
 
     public void setSelectedIndex(int index, boolean scroll) {
-        System.err.println("ScrollableList.setSelectedIndex()! "+index);
+        System.err.println("ScrollableList.setSelectedIndex()! " + index);
         if (index != selectedIndex) {
             this.selectedIndex = index;
-           System.err.println("ScrollableList.setSelectedIndex():"+index);
+            System.err.println("ScrollableList.setSelectedIndex():" + index);
             if (scroll) {
                 scrollToSelectedIndex();
             }

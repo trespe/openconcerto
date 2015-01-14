@@ -182,7 +182,7 @@ public class ListeHistoriquePanel extends JPanel {
 
     public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap,
             String undefinedLabel, Where where) {
-        this(title, req, listTableOnglet, panelBottom, listFieldMap, undefinedLabel, false, where);
+        this(title, req, listTableOnglet, panelBottom, listFieldMap, undefinedLabel, false, where, null);
     }
 
     // TODO verifier que les tables contiennent bien la clef etrangere
@@ -198,7 +198,7 @@ public class ListeHistoriquePanel extends JPanel {
      * @param where
      */
     public ListeHistoriquePanel(final String title, final ComboSQLRequest req, Map<String, List<String>> listTableOnglet, JPanel panelBottom, Map<SQLTable, SQLField> listFieldMap,
-            String undefinedLabel, final boolean sourceWithOutTransformer, Where where) {
+            String undefinedLabel, final boolean sourceWithOutTransformer, Where where, SQLTableModelSourceOnline tableSource) {
         super();
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -233,7 +233,12 @@ public class ListeHistoriquePanel extends JPanel {
                 final SQLElement elt = Configuration.getInstance().getDirectory().getElement(listPanelTable.get(i));
 
                 IListPanel liste;
-                SQLTableModelSourceOnline createTableSource = elt.getTableSource(true);
+                final SQLTableModelSourceOnline createTableSource;
+                if (tableSource == null) {
+                    createTableSource = elt.getTableSource(true);
+                } else {
+                    createTableSource = tableSource;
+                }
                 final ListSQLRequest request = createTableSource.getReq();
                 if (sourceWithOutTransformer) {
                     request.setSelectTransf(null);

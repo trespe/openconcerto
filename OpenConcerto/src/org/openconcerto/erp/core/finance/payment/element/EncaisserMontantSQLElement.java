@@ -28,11 +28,17 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.model.graph.PathBuilder;
 import org.openconcerto.sql.view.list.BaseSQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.CollectionUtils;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
@@ -46,12 +52,12 @@ public class EncaisserMontantSQLElement extends ComptaSQLConfElement {
     @Override
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
-        l.add("DATE");
-        l.add("NOM");
-        l.add("ID_CLIENT");
-        // l.add("ID_MOUVEMENT");
-        l.add("ID_MODE_REGLEMENT");
-        l.add("MONTANT");
+            l.add("DATE");
+            l.add("NOM");
+            l.add("ID_CLIENT");
+            // l.add("ID_MOUVEMENT");
+            l.add("ID_MODE_REGLEMENT");
+            l.add("MONTANT");
         return l;
     }
 

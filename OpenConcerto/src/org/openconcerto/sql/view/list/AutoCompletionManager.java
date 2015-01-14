@@ -16,10 +16,13 @@
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ComboSQLRequest;
+import org.openconcerto.sql.sqlobject.ITextArticleWithCompletionCellEditor;
 import org.openconcerto.sql.sqlobject.ITextWithCompletion;
 import org.openconcerto.sql.sqlobject.SelectionListener;
+import org.openconcerto.sql.sqlobject.SelectionRowListener;
 import org.openconcerto.ui.TextAreaRenderer;
 
 import java.beans.PropertyChangeEvent;
@@ -37,7 +40,7 @@ import javax.swing.event.CellEditorListener;
 import javax.swing.event.ChangeEvent;
 import javax.swing.table.TableCellEditor;
 
-public class AutoCompletionManager implements SelectionListener {
+public class AutoCompletionManager implements SelectionRowListener, SelectionListener {
 
     private SQLTableElement fromTableElement;
     private RowValuesTable table;
@@ -97,8 +100,8 @@ public class AutoCompletionManager implements SelectionListener {
 
         this.table = table;
 
+        TableCellEditor cellEdit = this.fromTableElement.getTableCellEditor(table);
         if (foreign) {
-            TableCellEditor cellEdit = this.fromTableElement.getTableCellEditor(null);
             if (cellEdit instanceof SQLTextComboTableCellEditor) {
                 this.textComboCellEdit = (SQLTextComboTableCellEditor) cellEdit;
                 textComboCellEdit.addSelectionListener(new PropertyChangeListener() {
@@ -137,6 +140,9 @@ public class AutoCompletionManager implements SelectionListener {
                 });
 
             }
+        } else if (cellEdit instanceof ITextArticleWithCompletionCellEditor) {
+            final ITextArticleWithCompletionCellEditor combo = (ITextArticleWithCompletionCellEditor) cellEdit;
+            combo.addSelectionListener(this);
         } else {
 
             this.t = new ITextWithCompletion(req, true);
@@ -164,7 +170,8 @@ public class AutoCompletionManager implements SelectionListener {
 
     }
 
-    public void idSelected(final int id, Object source) {
+    public void idSelected(int id, Object source) {
+
         // Le Text correspond a un id
         final int rowE = this.table.getEditingRow();
         if (rowE < 0) {
@@ -176,59 +183,85 @@ public class AutoCompletionManager implements SelectionListener {
             // Evite de reremplir si l'on reselectionne le meme id sur la meme ligne
             return;
         }
-        this.lastId = id;
-        this.lastEditingRow = rowE;
         if (id > 1) {
+            this.lastId = id;
+            this.lastEditingRow = rowE;
 
             // On arrete l'edition nous meme pour eviter qu'un click externe fasse un cancelEditing
             if (this.table.getCellEditor() != null && !this.foreign) {
                 this.table.getCellEditor().stopCellEditing();
             }
-            new Thread(new Runnable() {
-                public void run() {
-                    // final SQLRowValues rowV = new
-                    // SQLRowValues(AutoCompletionManager.this.fillFrom.getTable());
-                    final SQLRow rowV = AutoCompletionManager.this.fillFrom.getTable().getRow(id);
-                    final Set<String> keys = AutoCompletionManager.this.fillBy.keySet();
-                    // Fill the table model rowvalue with the selected item using the fields defined
-                    // with 'fill'
+            fillWithSelection(null, id, rowE);
+        }
+    }
 
-                    SwingUtilities.invokeLater(new Runnable() {
-                        public void run() {
-                            for (Iterator<String> iter = keys.iterator(); iter.hasNext();) {
-                                String from = iter.next();
-                                String to = AutoCompletionManager.this.fillBy.get(from);
-                                Object fromV = getValueFrom(rowV, from);
-                                int column = AutoCompletionManager.this.tableModel.getColumnForField(to);
-                                if (column >= 0) {
+    @Override
+    public void rowSelected(SQLRowAccessor row, Object source) {
+        final int rowE = this.table.getEditingRow();
+        if (rowE < 0 || row == null) {
+            this.lastEditingRow = rowE;
+            return;
+        }
 
-                                    // Request focus
-                                    if (!AutoCompletionManager.this.table.getRowValuesTableModel().getValueAt(rowE, column).equals(fromV)) {
-                                        AutoCompletionManager.this.table.getRowValuesTableModel().setValueAt(fromV, rowE, column);
-                                        if (AutoCompletionManager.this.table.getEditingColumn() == column && AutoCompletionManager.this.table.getEditingRow() == rowE) {
-                                            AutoCompletionManager.this.table.editingCanceled(null);
-                                            AutoCompletionManager.this.table.setColumnSelectionInterval(column, column);
-                                            AutoCompletionManager.this.table.setRowSelectionInterval(rowE, rowE);
-                                            if (AutoCompletionManager.this.table.editCellAt(rowE, column)) {
-                                                if (AutoCompletionManager.this.table.getEditorComponent() != null) {
-                                                    AutoCompletionManager.this.table.getEditorComponent().requestFocusInWindow();
-                                                }
+        this.lastEditingRow = rowE;
+
+        // On arrete l'edition nous meme pour eviter qu'un click externe fasse un cancelEditing
+        if (this.table.getCellEditor() != null && !this.foreign) {
+            this.table.getCellEditor().stopCellEditing();
+        }
+        fillWithSelection(row, SQLRow.NONEXISTANT_ID, rowE);
+    }
+
+    private void fillWithSelection(final SQLRowAccessor r, final int id, final int rowE) {
+        new Thread(new Runnable() {
+            public void run() {
+                // final SQLRowValues rowV = new
+                // SQLRowValues(AutoCompletionManager.this.fillFrom.getTable());
+                final SQLRow rowV;
+                if (r != null) {
+                    rowV = r.asRow();
+                } else {
+                    rowV = AutoCompletionManager.this.fillFrom.getTable().getRow(id);
+                }
+                final Set<String> keys = AutoCompletionManager.this.fillBy.keySet();
+                // Fill the table model rowvalue with the selected item using the fields defined
+                // with 'fill'
+
+                SwingUtilities.invokeLater(new Runnable() {
+                    public void run() {
+                        for (Iterator<String> iter = keys.iterator(); iter.hasNext();) {
+                            String from = iter.next();
+                            String to = AutoCompletionManager.this.fillBy.get(from);
+                            Object fromV = getValueFrom(rowV, from);
+                            int column = AutoCompletionManager.this.tableModel.getColumnForField(to);
+                            if (column >= 0) {
+
+                                // Request focus
+                                if (AutoCompletionManager.this.table.getRowValuesTableModel().getValueAt(rowE, column) == null
+                                        || !AutoCompletionManager.this.table.getRowValuesTableModel().getValueAt(rowE, column).equals(fromV)) {
+                                    AutoCompletionManager.this.table.getRowValuesTableModel().setValueAt(fromV, rowE, column);
+                                    if (AutoCompletionManager.this.table.getEditingColumn() == column && AutoCompletionManager.this.table.getEditingRow() == rowE) {
+                                        AutoCompletionManager.this.table.editingCanceled(null);
+                                        AutoCompletionManager.this.table.setColumnSelectionInterval(column, column);
+                                        AutoCompletionManager.this.table.setRowSelectionInterval(rowE, rowE);
+                                        if (AutoCompletionManager.this.table.editCellAt(rowE, column)) {
+                                            if (AutoCompletionManager.this.table.getEditorComponent() != null) {
+                                                AutoCompletionManager.this.table.getEditorComponent().requestFocusInWindow();
                                             }
                                         }
                                     }
-                                } else {
-                                    // Not in the table
-                                    AutoCompletionManager.this.table.getRowValuesTableModel().putValue(fromV, rowE, to);
                                 }
+                            } else {
+                                // Not in the table
+                                AutoCompletionManager.this.table.getRowValuesTableModel().putValue(fromV, rowE, to);
                             }
-
-                            AutoCompletionManager.this.table.resizeAndRepaint();
                         }
-                    });
-                }
-            }).start();
 
-        }
+                        AutoCompletionManager.this.table.resizeAndRepaint();
+                    }
+                });
+            }
+        }).start();
     }
 
     protected Object getValueFrom(SQLRow row, String field) {
@@ -238,7 +271,7 @@ public class AutoCompletionManager implements SelectionListener {
     public void setWhere(Where w) {
         if (this.t != null) {
             this.t.setWhere(w);
-        } else {
+        } else if (this.textComboCellEdit != null) {
             this.textComboCellEdit.setWhere(w);
         }
     }

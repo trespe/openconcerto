@@ -14,13 +14,21 @@
  package org.openconcerto.erp.core.common.element;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+
+import org.openconcerto.erp.config.Log;
+
 import org.openconcerto.erp.config.Gestion;
+
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.ui.light.GroupToLightUIConvertor;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.AutoHideListener;
+import org.openconcerto.ui.group.Group;
+import org.openconcerto.ui.light.LightUIDescriptor;
 import org.openconcerto.ui.table.TableCellRendererUtils;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.convertor.ValueConvertor;
@@ -69,6 +77,9 @@ public abstract class ComptaSQLConfElement extends SQLElement {
             baseSociete = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete();
         return baseSociete;
     }
+
+    private Group groupForCreation;
+    private Group groupForModification;
 
     {
         this.setL18nLocation(Gestion.class);
@@ -161,5 +172,41 @@ public abstract class ComptaSQLConfElement extends SQLElement {
                 col.setRenderer(CURRENCY_RENDERER);
             }
         }
+    }
+
+    public LightUIDescriptor getUIDescriptorForCreation(PropsConfiguration configuration) {
+        final GroupToLightUIConvertor convertor = new GroupToLightUIConvertor(configuration);
+        final Group group = getGroupForCreation();
+        if (group == null) {
+            Log.get().severe("The group for creation is null for this element : " + this);
+            return null;
+        }
+        final LightUIDescriptor desc = convertor.convert(group);
+        return desc;
+    }
+
+    public LightUIDescriptor getUIDescriptorForModification(PropsConfiguration configuration, long id) {
+        final GroupToLightUIConvertor convertor = new GroupToLightUIConvertor(configuration);
+        final Group group = getGroupForModification();
+        if (group == null) {
+            Log.get().severe("The group for modification is null for this element : " + this);
+            return null;
+        }
+        final LightUIDescriptor desc = convertor.convert(getGroupForModification());
+        return desc;
+    }
+
+    public Group getGroupForCreation() {
+        if (groupForCreation != null) {
+            return groupForCreation;
+        }
+        return getDefaultGroup();
+    }
+
+    public Group getGroupForModification() {
+        if (groupForModification != null) {
+            return groupForModification;
+        }
+        return getDefaultGroup();
     }
 }

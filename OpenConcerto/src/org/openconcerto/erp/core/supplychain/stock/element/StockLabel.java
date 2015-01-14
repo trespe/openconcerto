@@ -16,10 +16,10 @@
  */
 package org.openconcerto.erp.core.supplychain.stock.element;
 
-import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 
 public abstract class StockLabel {
 
-    abstract public String getLabel(SQLRow rowOrigin, SQLRow rowElt);
+    abstract public String getLabel(SQLRowAccessor rowOrigin, SQLRowAccessor rowElt);
 
 }

@@ -14,11 +14,21 @@
  package org.openconcerto.erp.core.finance.accounting.element;
 
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
+import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
+import org.openconcerto.sql.model.FieldPath;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.view.list.BaseSQLTableModelColumn;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.utils.CollectionUtils;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.JTextField;
 
@@ -40,6 +50,7 @@ public class AssociationAnalytiqueSQLElement extends ComptaSQLConfElement {
         final List<String> list = new ArrayList<String>(2);
         list.add("ID_ECRITURE");
         list.add("ID_POSTE_ANALYTIQUE");
+        // list.add("MONTANT");
         return list;
     }
 
@@ -62,5 +73,55 @@ public class AssociationAnalytiqueSQLElement extends ComptaSQLConfElement {
     @Override
     protected String createCode() {
         return createCodeFromPackage() + ".analytic.relation";
+    }
+
+    @Override
+    protected SQLTableModelSourceOnline createTableSource() {
+        SQLTableModelSourceOnline table = super.createTableSource();
+        BaseSQLTableModelColumn debit = new BaseSQLTableModelColumn("Débit", BigDecimal.class) {
+
+            @Override
+            protected Object show_(SQLRowAccessor r) {
+
+                long montant = r.getLong("MONTANT");
+                if (montant > 0) {
+                    return new BigDecimal(montant).movePointLeft(2);
+                } else {
+                    return BigDecimal.ZERO;
+                }
+            }
+
+            @Override
+            public Set<FieldPath> getPaths() {
+                Path p = new Path(getTable());
+                return CollectionUtils.createSet(new FieldPath(p, "MONTANT"));
+            }
+        };
+
+        table.getColumns().add(debit);
+
+        BaseSQLTableModelColumn credit = new BaseSQLTableModelColumn("Crédit", BigDecimal.class) {
+
+            @Override
+            protected Object show_(SQLRowAccessor r) {
+
+                long montant = r.getLong("MONTANT");
+                if (montant < 0) {
+                    return new BigDecimal(-montant).movePointLeft(2);
+                } else {
+                    return BigDecimal.ZERO;
+                }
+            }
+
+            @Override
+            public Set<FieldPath> getPaths() {
+                Path p = new Path(getTable());
+                return CollectionUtils.createSet(new FieldPath(p, "MONTANT"));
+            }
+        };
+
+        table.getColumns().add(credit);
+
+        return table;
     }
 }

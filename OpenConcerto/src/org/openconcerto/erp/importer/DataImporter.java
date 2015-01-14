@@ -24,15 +24,18 @@ import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.utils.text.CSVReader;
+import org.openconcerto.utils.text.CSVWriter;
 import org.openconcerto.utils.text.CharsetHelper;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.nio.charset.Charset;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -69,7 +72,6 @@ public class DataImporter {
     public static void main(String[] args) throws Exception {
         System.setProperty(SQLBase.STRUCTURE_USE_XML, "true");
         final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create();
-        conf.setupLogging("Logs");
         Configuration.setInstance(conf);
         try {
             conf.getBase();
@@ -92,7 +94,7 @@ public class DataImporter {
         // ArrayTableModel m = importer.createModelFromODS(new File("c:/products-en.ods"));
         // ArrayTableModel m = importer.createModelFromCSV(new File("c:/products-en.csv"));
         // ArrayTableModel m = importer.createModelFromCSV(new File("c:/products-en.scsv.csv"));
-        ArrayTableModel m = importer.createModelFromXLS(new File("c:/products-en.xls"));
+        ArrayTableModel m = importer.createModelFromXLS(new File("c:/products-en.xls"), 0);
         m.dump(0, 4);
         m = importer.createConvertedModel(m);
         System.out.println("Dump");
@@ -111,6 +113,7 @@ public class DataImporter {
         for (SQLRowValues row : this.valuesToUpdate) {
             row.update();
         }
+        doAfterImport();
     }
 
     public List<SQLRowValues> getValuesToInsert() {
@@ -164,12 +167,12 @@ public class DataImporter {
         l.add(value);
     }
 
-    public ArrayTableModel createModelFromODS(File odsFile) throws IOException {
+    public ArrayTableModel createModelFromODS(File odsFile, int sheetNumber) throws IOException {
         final SpreadSheet spreadSheet = SpreadSheet.createFromFile(odsFile);
         if (spreadSheet.getSheetCount() < 1) {
             return null;
         }
-        final Sheet sheet = spreadSheet.getSheet(0);
+        final Sheet sheet = spreadSheet.getSheet(sheetNumber);
         final int rowCount = sheet.getRowCount();
         int columnCount = 0;
         if (rowCount > 0) {
@@ -198,11 +201,11 @@ public class DataImporter {
         return new ArrayTableModel(rows);
     }
 
-    public ArrayTableModel createModelFromXLS(File xlsFile) throws IOException {
+    public ArrayTableModel createModelFromXLS(File xlsFile, int sheetNumber) throws IOException {
         final InputStream inputStream = new FileInputStream(xlsFile);
         final POIFSFileSystem fileSystem = new POIFSFileSystem(new BufferedInputStream(inputStream));
         final HSSFWorkbook workBook = new HSSFWorkbook(fileSystem);
-        final HSSFSheet sheet = workBook.getSheetAt(0);
+        final HSSFSheet sheet = workBook.getSheetAt(sheetNumber);
         Iterator<Row> rowsIterator = sheet.rowIterator();
         int columnCount = 0;
         int rowCount = 0;
@@ -317,6 +320,15 @@ public class DataImporter {
 
     }
 
+    public void exportModelToCSV(File csvFile, List<String[]> lines) throws IOException {
+
+        char separator = ';';
+
+        CSVWriter csvReader = new CSVWriter(new OutputStreamWriter(new FileOutputStream(csvFile), "CP1252"), separator);
+        csvReader.writeAll(lines);
+        csvReader.close();
+    }
+
     public ArrayTableModel createConvertedModel(ArrayTableModel model) {
         final int rowCount = model.getRowCount();
         final ArrayList<Integer> colsUsed = new ArrayList<Integer>(map.keySet());
@@ -351,6 +363,10 @@ public class DataImporter {
         return new ArrayTableModel(rows);
     }
 
+    protected void customizeRowValuesToFetch(SQLRowValues vals) {
+
+    }
+
     public void importFromModel(ArrayTableModel model) throws IOException {
         final int rowCount = model.getRowCount();
         // Load existing data for duplication check
@@ -366,9 +382,9 @@ public class DataImporter {
                 }
             }
         }
-
+        customizeRowValuesToFetch(vals);
         System.out.println("Fetching values");
-        SQLRowValuesListFetcher fetcher = new SQLRowValuesListFetcher(vals);
+        SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(vals);
         List<SQLRowValues> existingRows = fetcher.fetch();
         System.out.println("Computing cache");
         final int existingRowsCount = existingRows.size();
@@ -458,11 +474,26 @@ public class DataImporter {
                 }
             }
         }
+        final SQLRowValues rowVals = new SQLRowValues(table, newValues);
+        patchRowValues(rowVals, model.getLineValuesAt(i), existingRow);
         if (existingRow == null) {
-            this.valuesToInsert.add(new SQLRowValues(table, newValues));
-        } else if (!newValues.equals(existingRow.getAbsolutelyAll())) {
-            this.valuesToUpdate.add(new SQLRowValues(table, newValues));
+            this.valuesToInsert.add(rowVals);
         }
+        // else if (!newValues.equals(existingRow.getAbsolutelyAll())) {
+        else {
+            this.valuesToUpdate.add(rowVals);
+            // for (SQLRowValues ref : rowVals.getReferentRows()) {
+            // this.valuesToUpdate.add(ref);
+            // }
+        }
+    }
+
+    public void doAfterImport() throws SQLException {
+
+    }
+
+    protected void patchRowValues(SQLRowValues rowVals, List<Object> lineValues, SQLRowValues existingRow) {
+
     }
 
     public void setSkipFirstLine(boolean skipFirstLine) {
@@ -470,16 +501,20 @@ public class DataImporter {
     }
 
     public ArrayTableModel createModelFrom(File file) throws IOException {
+        return createModelFrom(file, 0);
+    }
+
+    public ArrayTableModel createModelFrom(File file, int sheetNumber) throws IOException {
         if (!file.exists()) {
             throw new IllegalArgumentException(file.getAbsolutePath() + " does not exist");
         }
         String name = file.getName().toLowerCase();
         if (name.endsWith(".ods")) {
-            return createModelFromODS(file);
+            return createModelFromODS(file, sheetNumber);
         } else if (name.endsWith(".csv")) {
             return createModelFromCSV(file);
         } else if (name.endsWith(".xls")) {
-            return createModelFromXLS(file);
+            return createModelFromXLS(file, sheetNumber);
         }
         throw new IllegalArgumentException("File format not supported");
 

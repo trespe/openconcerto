@@ -198,8 +198,7 @@ public final class DBRoot extends DBStructureItemDB {
                             // PK from the DB, but use our order
                             // don't try to validate since table has neither undefined row nor
                             // constraints
-                            vals.getGraph().store(new Insert(false, true), false);
-                            final SQLRow undefRow = vals.getGraph().getRow(vals);
+                            final SQLRow undefRow = vals.getGraph().store(new Insert(false, true), false).getStoredRow(vals);
                             SQLTable.setUndefID(getSchema(), tableName, undefRow.getID());
                             newUndefIDs.put(createTable, undefRow.getIDNumber());
                         }

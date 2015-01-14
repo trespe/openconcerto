@@ -40,7 +40,7 @@ import java.util.Set;
  * Add foreign constraints.
  * 
  * @author Sylvain
- * @see {@link SQLKey#keyToTable(SQLField)}
+ * @see SQLKey#keyToTable(SQLField)
  */
 public class AddFK extends Changer<SQLTable> {
 

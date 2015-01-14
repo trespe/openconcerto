@@ -67,7 +67,7 @@ public abstract class ChangeBase {
         final Class<? extends Changer> c = this.getChange() == null ? null : this.getChange().findClass(converter);
         if (c != null) {
             try {
-                this.getChange().exec(c, params);
+                this.getChange().exec(getRoot(), c, params);
             } catch (SQLException e) {
                 e.printStackTrace();
             }

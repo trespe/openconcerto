@@ -74,11 +74,11 @@ public class ITextComboVilleViewer extends JPanel implements ValueWrapper<Ville>
         this.supp = new ValueChangeSupport<Ville>(this);
         this.cache = new ITextComboCacheVille();
 
-        this.text = new ISearchableCombo<Ville>(ComboLockedMode.LOCKED_ITEMS_UNLOCKED, 0, 17) {
+        this.text = new ISearchableCombo<Ville>(ComboLockedMode.ITEMS_LOCKED, 0, 17) {
 
             @Override
             protected Ville stringToT(String t) {
-                Ville v = Ville.getVilleFromVilleEtCode(t);                
+                Ville v = Ville.getVilleFromVilleEtCode(t);
                 return v;
             }
         };

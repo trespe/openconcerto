@@ -36,8 +36,10 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -63,10 +65,15 @@ public class GroupSQLComponent extends BaseSQLComponent {
     private boolean tabGroup;
     private int tabDepth;
     private JTabbedPane pane;
+    private final List<String> tabsGroupIDs = new ArrayList<String>();
 
     public GroupSQLComponent(final SQLElement element, final Group group) {
         super(element);
         this.group = group;
+    }
+
+    protected final Group getGroup() {
+        return this.group;
     }
 
     public void startTabGroupAfter(String id) {
@@ -112,6 +119,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
                     label = id;
                 }
                 this.pane.addTab(label, panel);
+                this.tabsGroupIDs.add(currentGroup.getId());
             } else {
                 if (size.showLabel() && getLabel(id) != null) {
                     x = 0;
@@ -236,6 +244,29 @@ public class GroupSQLComponent extends BaseSQLComponent {
             panel.add(pane, c);
         }
 
+    }
+
+    public final void setTabEnabledAt(final String groupID, final boolean enabled) {
+        this.pane.setEnabledAt(this.tabsGroupIDs.indexOf(groupID), enabled);
+    }
+
+    public final boolean isTabEnabledAt(final String groupID) {
+        return this.pane.isEnabledAt(this.tabsGroupIDs.indexOf(groupID));
+    }
+
+    public final void selectTabEnabled() {
+        final int index = this.pane.getSelectedIndex();
+        if (!this.pane.isEnabledAt(index)) {
+            final int count = this.pane.getTabCount();
+            // 1 since index is disabled
+            for (int i = 1; i < count; i++) {
+                final int mod = (index + i) % count;
+                if (this.pane.isEnabledAt(mod)) {
+                    this.pane.setSelectedIndex(mod);
+                    return;
+                }
+            }
+        }
     }
 
     @Override

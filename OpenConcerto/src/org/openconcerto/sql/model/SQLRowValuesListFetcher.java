@@ -15,10 +15,11 @@
 
 import org.openconcerto.sql.model.SQLRowValues.CreateMode;
 import org.openconcerto.sql.model.SQLRowValuesCluster.State;
+import org.openconcerto.sql.model.SQLRowValuesCluster.WalkOptions;
 import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.model.graph.Step;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.CollectionMap2Itf.ListMapItf;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.RTInterruptedException;
@@ -45,6 +46,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import org.apache.commons.dbutils.ResultSetHandler;
@@ -89,7 +91,7 @@ public class SQLRowValuesListFetcher {
         }, RecursionType.DEPTH_FIRST, Direction.REFERENT);
 
         // find out needed grafts
-        final CollectionMap<Path, SQLRowValuesListFetcher> grafts = new CollectionMap<Path, SQLRowValuesListFetcher>();
+        final ListMap<Path, SQLRowValuesListFetcher> grafts = new ListMap<Path, SQLRowValuesListFetcher>();
         graph.getGraph().walk(graph, null, new ITransformer<State<Object>, Object>() {
             @Override
             public Path transformChecked(State<Object> input) {
@@ -121,9 +123,9 @@ public class SQLRowValuesListFetcher {
                             if (ungrafted == null || ungrafted.size() == 0) {
                                 // i.e. only one referent and thus graft not necessary
                                 assert rec.descendantPath.length() > 0;
-                                grafts.put(pMinusLast, rec);
+                                grafts.add(pMinusLast, rec);
                             } else {
-                                grafts.putAll(pMinusLast, ungrafted);
+                                grafts.addAll(pMinusLast, ungrafted);
                             }
                         }
                         throw new SQLRowValuesCluster.StopRecurseException().setCompletely(false);
@@ -131,7 +133,7 @@ public class SQLRowValuesListFetcher {
                 }
                 return null;
             }
-        }, RecursionType.BREADTH_FIRST, Direction.ANY, false);
+        }, new WalkOptions(Direction.ANY).setRecursionType(RecursionType.BREADTH_FIRST).setStartIncluded(false));
 
         final Set<Path> refPaths = new HashSet<Path>(handledPaths.values());
         // remove the main fetcher
@@ -160,7 +162,7 @@ public class SQLRowValuesListFetcher {
         res.setOrdered(ordered);
 
         // now graft recursively created grafts
-        for (final Entry<Path, Collection<SQLRowValuesListFetcher>> e : grafts.entrySet()) {
+        for (final Entry<Path, ? extends Collection<SQLRowValuesListFetcher>> e : grafts.entrySet()) {
             final Path graftPath = e.getKey();
             final Path refPath = handledPaths.get(graftPath);
             // can be grafted on the main fetcher or on the referent fetchers
@@ -194,15 +196,22 @@ public class SQLRowValuesListFetcher {
                 }
                 return input.getAcc();
             }
-        }, RecursionType.BREADTH_FIRST, Direction.REFERENT, true);
+        }, RecursionType.BREADTH_FIRST, Direction.REFERENT);
         // since includeStart=true
         assert res.get() != null;
         return res.get();
     }
 
-    static private final CollectionMap<Tuple2<Path, Number>, SQLRowValues> createCollectionMap() {
+    static private final ListMap<Tuple2<Path, Number>, SQLRowValues> createCollectionMap() {
         // we need a List in merge()
-        return new CollectionMap<Tuple2<Path, Number>, SQLRowValues>(new ArrayList<SQLRowValues>(8));
+        return new ListMap<Tuple2<Path, Number>, SQLRowValues>() {
+            @Override
+            public List<SQLRowValues> createCollection(Collection<? extends SQLRowValues> v) {
+                final List<SQLRowValues> res = new ArrayList<SQLRowValues>(8);
+                res.addAll(v);
+                return res;
+            }
+        };
     }
 
     private final SQLRowValues graph;
@@ -505,7 +514,7 @@ public class SQLRowValuesListFetcher {
         if (graftPlace == null)
             throw new IllegalArgumentException("path doesn't exist: " + graftPath);
         assert graftPath.getLast() == graftPlace.getTable();
-        if (other.getGraph().getForeigns().size() > 0)
+        if (other.getGraph().hasForeigns())
             throw new IllegalArgumentException("shouldn't have foreign rows");
 
         final Path descendantPath = computePath(other.getGraph());
@@ -565,6 +574,24 @@ public class SQLRowValuesListFetcher {
     }
 
     /**
+     * Get all fetchers.
+     * 
+     * @param includeSelf <code>true</code> to include <code>this</code> (with a <code>null</code>
+     *        key).
+     * @return all instances indexed by the graft path.
+     */
+    public final ListMapItf<Path, SQLRowValuesListFetcher> getFetchers(final boolean includeSelf) {
+        final ListMap<Path, SQLRowValuesListFetcher> res = new ListMap<Path, SQLRowValuesListFetcher>();
+        for (final Entry<Path, Map<Path, SQLRowValuesListFetcher>> e : this.grafts.entrySet()) {
+            assert e.getKey() != null;
+            res.putCollection(e.getKey(), e.getValue().values());
+        }
+        if (includeSelf)
+            res.add(null, this);
+        return ListMap.unmodifiableMap(res);
+    }
+
+    /**
      * Get instances which fetch the {@link Path#getLast() last table} of the passed path. E.g.
      * useful if you want to add a where to a join. This method is recursively called on
      * {@link #getGrafts(Path) grafts} thus the returned paths may be fetched by grafts.
@@ -603,8 +630,13 @@ public class SQLRowValuesListFetcher {
     }
 
     private final void addFields(final SQLSelect sel, final SQLRowValues vals, final String alias) {
-        for (final String fieldName : vals.getFields())
-            sel.addSelect(new AliasedField(vals.getTable().getField(fieldName), alias));
+        // put key first
+        final SQLField key = vals.getTable().getKey();
+        sel.addSelect(new AliasedField(key, alias));
+        for (final String fieldName : vals.getFields()) {
+            if (!fieldName.equals(key.getName()))
+                sel.addSelect(new AliasedField(vals.getTable().getField(fieldName), alias));
+        }
     }
 
     public final SQLSelect getReq() {
@@ -634,8 +666,9 @@ public class SQLRowValuesListFetcher {
                         input.getAcc().addJoin(joinType, new AliasedField(input.getFrom(), aliasPrev), alias);
                     }
 
-                } else
+                } else {
                     alias = null;
+                }
                 addFields(input.getAcc(), input.getCurrent(), alias);
 
                 return input.getAcc();
@@ -687,13 +720,14 @@ public class SQLRowValuesListFetcher {
                     throw new SQLRowValuesCluster.StopRecurseException().setCompletely(false);
                 return transf.transformChecked(input);
             }
-        }, RecursionType.BREADTH_FIRST, Direction.ANY, false);
+        }, new WalkOptions(Direction.ANY).setRecursionType(RecursionType.BREADTH_FIRST).setStartIncluded(false));
     }
 
     // models the graph, so that we don't have to walk it for each row
     private static final class GraphNode {
         private final SQLTable t;
         private final int fieldCount;
+        private final int foreignCount;
         private final int linkIndex;
         private final Step from;
 
@@ -701,6 +735,7 @@ public class SQLRowValuesListFetcher {
             super();
             this.t = input.getCurrent().getTable();
             this.fieldCount = input.getCurrent().size();
+            this.foreignCount = input.getCurrent().getForeigns().size();
             this.linkIndex = input.getAcc();
             final int length = input.getPath().length();
             this.from = length == 0 ? null : input.getPath().getStep(length - 1);
@@ -712,6 +747,10 @@ public class SQLRowValuesListFetcher {
 
         public final int getFieldCount() {
             return this.fieldCount;
+        }
+
+        public final int getForeignCount() {
+            return this.foreignCount;
         }
 
         public final int getLinkIndex() {
@@ -785,16 +824,32 @@ public class SQLRowValuesListFetcher {
                 final List<SQLRowValues> row = new ArrayList<SQLRowValues>(graphSize);
                 for (int i = 0; i < graphSize; i++) {
                     final GraphNode node = l.get(i);
-                    final SQLRowValues creatingVals = new SQLRowValues(node.getTable());
-                    if (i == 0)
-                        res.add(creatingVals);
-
                     final int stop = rsIndex + node.getFieldCount();
+                    final SQLRowValues creatingVals;
+                    // the PK is always first and it can only be null if there was no row, i.e. all
+                    // other fields will be null.
+                    final Object first = rs.getObject(rsIndex);
+                    if (first == null) {
+                        creatingVals = null;
+                        // don't bother reading all nulls
+                        rsIndex = stop;
+                    } else {
+                        // don't pass referent count as it can be fetched by a graft, or else
+                        // several rows might later be merged (e.g. *BATIMENT* <- LOCAL has only one
+                        // referent but all locals of a batiment will point to the same row)
+                        creatingVals = new SQLRowValues(node.getTable(), node.getFieldCount(), node.getForeignCount(), -1);
+                        put(creatingVals, rsIndex, first);
+                        rsIndex++;
+                    }
+                    if (i == 0) {
+                        if (creatingVals == null)
+                            throw new IllegalStateException("Null primary row");
+                        res.add(creatingVals);
+                    }
+
                     for (; rsIndex < stop; rsIndex++) {
                         try {
-                            // -1 since rs starts at 1
-                            // field names checked below
-                            creatingVals.put(this.selectFields.get(rsIndex - 1), rs.getObject(rsIndex), false);
+                            put(creatingVals, rsIndex, rs.getObject(rsIndex));
                         } catch (SQLException e) {
                             throw new IllegalStateException("unable to fill " + creatingVals, e);
                         }
@@ -814,16 +869,6 @@ public class SQLRowValuesListFetcher {
             if (nextToLink > 0)
                 futures.add(exec.submit(new Linker(l, rows, nextToLink, rowSize)));
 
-            // check field names only once since each row has the same fields
-            if (rowSize > 0) {
-                final List<SQLRowValues> firstRow = rows.get(0);
-                for (int i = 0; i < graphSize; i++) {
-                    final SQLRowValues vals = firstRow.get(i);
-                    if (!vals.getTable().getFieldsName().containsAll(vals.getFields()))
-                        throw new IllegalStateException("field name error : " + vals.getFields() + " not in " + vals.getTable().getFieldsName());
-                }
-            }
-
             // either link all rows, or...
             if (nextToLink == 0)
                 link(l, rows, 0, rowSize);
@@ -838,6 +883,12 @@ public class SQLRowValuesListFetcher {
             }
 
             return res;
+        }
+
+        protected void put(final SQLRowValues creatingVals, int rsIndex, final Object obj) {
+            // -1 since rs starts at 1
+            // field names checked only once when nodes are created
+            creatingVals.put(this.selectFields.get(rsIndex - 1), obj, false);
         }
 
         @Override
@@ -877,9 +928,11 @@ public class SQLRowValuesListFetcher {
     private final List<SQLRowValues> fetch(final boolean merge) {
         final SQLSelect req = this.getReq();
         // getName() would take 5% of ResultSetHandler.handle()
-        final List<String> selectFields = new ArrayList<String>(req.getSelectFields().size());
-        for (final SQLField f : req.getSelectFields())
-            selectFields.add(f.getName());
+        final List<FieldRef> selectFields = req.getSelectFields();
+        final int selectFieldsSize = selectFields.size();
+        final List<String> selectFieldsNames = new ArrayList<String>(selectFieldsSize);
+        for (final FieldRef f : selectFields)
+            selectFieldsNames.add(f.getField().getName());
         final SQLTable table = getGraph().getTable();
 
         // create a flat list of the graph nodes, we just need the table, field count and the index
@@ -887,20 +940,39 @@ public class SQLRowValuesListFetcher {
         // <LOCAL,2,0>, <BATIMENT,2,0>, <SITE,5,1>, <CPI,4,0>
         final int graphSize = this.getGraph().getGraph().size();
         final List<GraphNode> l = new ArrayList<GraphNode>(graphSize);
+        // check field names only once since each row has the same fields
+        final AtomicInteger fieldIndex = new AtomicInteger(0);
         walk(0, new ITransformer<State<Integer>, Integer>() {
             @Override
             public Integer transformChecked(State<Integer> input) {
                 final int index = l.size();
-                l.add(new GraphNode(input));
+                final GraphNode node = new GraphNode(input);
+                final int stop = fieldIndex.get() + node.getFieldCount();
+                for (int i = fieldIndex.get(); i < stop; i++) {
+                    if (i >= selectFieldsSize)
+                        throw new IllegalStateException("Fields were removed from the select");
+                    final FieldRef field = selectFields.get(i);
+                    if (!node.getTable().equals(field.getTableRef().getTable()))
+                        throw new IllegalStateException("Select field not in " + node + " : " + field);
+                }
+                fieldIndex.set(stop);
+                l.add(node);
+                // used by link index of GraphNode
                 return index;
             }
         });
+        // otherwise walk() would already have thrown an exception
+        assert fieldIndex.get() <= selectFieldsSize;
+        if (fieldIndex.get() != selectFieldsSize) {
+            throw new IllegalStateException("Fields have been added to the select (which is useless, since only fields specified by rows are returned) : "
+                    + selectFields.subList(fieldIndex.get(), selectFieldsSize));
+        }
         assert l.size() == graphSize : "All nodes weren't explored once : " + l.size() + " != " + graphSize + "\n" + this.getGraph().printGraph();
 
         // if we wanted to use the cache, we'd need to copy the returned list and its items (i.e.
         // deepCopy()), since we modify them afterwards. Or perhaps include the code after this line
         // into the result set handler.
-        final IResultSetHandler rsh = new IResultSetHandler(new RSH(selectFields, l), false);
+        final IResultSetHandler rsh = new IResultSetHandler(new RSH(selectFieldsNames, l), false);
         @SuppressWarnings("unchecked")
         final List<SQLRowValues> res = (List<SQLRowValues>) table.getBase().getDataSource().execute(req.asString(), rsh, false);
         // e.g. list of batiment pointing to site
@@ -917,12 +989,12 @@ public class SQLRowValuesListFetcher {
                 // CollectionMap since the same row can be in multiple index of merged, e.g. when
                 // fetching *BATIMENT* -> SITE each site will be repeated as many times as it has
                 // children and if we want their DOSSIER they must be grafted on each line.
-                final CollectionMap<Tuple2<Path, Number>, SQLRowValues> byRows = createCollectionMap();
+                final ListMap<Tuple2<Path, Number>, SQLRowValues> byRows = createCollectionMap();
                 for (final SQLRowValues vals : merged) {
                     // can be empty when grafting on optional row
                     for (final SQLRowValues graftPlaceVals : vals.followPath(graftPlace, CreateMode.CREATE_NONE, false)) {
                         ids.add(graftPlaceVals.getIDNumber());
-                        byRows.put(Tuple2.create(mapPath, graftPlaceVals.getIDNumber()), graftPlaceVals);
+                        byRows.add(Tuple2.create(mapPath, graftPlaceVals.getIDNumber()), graftPlaceVals);
                     }
                 }
                 assert ids.size() == byRows.size();
@@ -985,7 +1057,7 @@ public class SQLRowValuesListFetcher {
                 final SQLRowValues creatingVals = row.get(nodeIndex);
                 // don't link empty values (LEFT JOIN produces rowValues filled with
                 // nulls) to the graph
-                if (creatingVals.hasID()) {
+                if (creatingVals != null) {
                     final SQLRowValues valsToFill;
                     final SQLRowValues valsToPut;
                     if (backwards) {
@@ -1045,12 +1117,12 @@ public class SQLRowValuesListFetcher {
      * @param descendantPath the path to merge.
      * @return the merged and grafted values.
      */
-    private final List<SQLRowValues> merge(final List<SQLRowValues> tree, final List<SQLRowValues> graft, final CollectionMap<Tuple2<Path, Number>, SQLRowValues> graftPlaceRows, Path descendantPath) {
+    private final List<SQLRowValues> merge(final List<SQLRowValues> tree, final List<SQLRowValues> graft, final ListMap<Tuple2<Path, Number>, SQLRowValues> graftPlaceRows, Path descendantPath) {
         final boolean isGraft = graftPlaceRows != null;
         assert (tree != graft) == isGraft : "Trying to graft onto itself";
         final List<SQLRowValues> res = isGraft ? tree : new ArrayList<SQLRowValues>();
         // so that every graft is actually grafted onto the tree
-        final CollectionMap<Tuple2<Path, Number>, SQLRowValues> map = isGraft ? graftPlaceRows : createCollectionMap();
+        final ListMap<Tuple2<Path, Number>, SQLRowValues> map = isGraft ? graftPlaceRows : createCollectionMap();
 
         final int stop = descendantPath.length();
         for (final SQLRowValues v : graft) {
@@ -1063,12 +1135,12 @@ public class SQLRowValuesListFetcher {
                     final Tuple2<Path, Number> row = Tuple2.create(subPath, desc.getIDNumber());
                     if (map.containsKey(row)) {
                         doAdd = false;
-                        assert ((List<SQLRowValues>) map.getNonNull(row)).get(0).getFields().containsAll(desc.getFields()) : "Discarding an SQLRowValues with more fields : " + desc;
+                        assert map.get(row).get(0).getFields().containsAll(desc.getFields()) : "Discarding an SQLRowValues with more fields : " + desc;
                         // previous being null can happen when 2 grafted paths share some steps at
                         // the start, e.g. SOURCE -> LOCAL and CPI -> LOCAL with a LOCAL having a
                         // SOURCE but no CPI
                         if (previous != null) {
-                            final List<SQLRowValues> destinationRows = (List<SQLRowValues>) map.getNonNull(row);
+                            final List<SQLRowValues> destinationRows = map.get(row);
                             final int destinationSize = destinationRows.size();
                             assert destinationSize > 0 : "Map contains row but have no corresponding value: " + row;
                             final String ffName = descendantPath.getSingleStep(i).getName();
@@ -1085,7 +1157,7 @@ public class SQLRowValuesListFetcher {
                                     if (descCopy != null) {
                                         final Tuple2<Path, Number> rowCopy = Tuple2.create(descendantPath.subPath(0, k), descCopy.getIDNumber());
                                         assert map.containsKey(rowCopy) : "Since we already iterated with i";
-                                        map.put(rowCopy, descCopy);
+                                        map.add(rowCopy, descCopy);
                                     }
                                 }
                             }
@@ -1093,7 +1165,7 @@ public class SQLRowValuesListFetcher {
                             previous.put(ffName, destinationRows.get(0));
                         }
                     } else {
-                        map.put(row, desc);
+                        map.add(row, desc);
                     }
                     previous = desc;
                 }

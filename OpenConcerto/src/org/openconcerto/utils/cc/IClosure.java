@@ -13,8 +13,9 @@
  
  package org.openconcerto.utils.cc;
 
-public interface IClosure<E> {
+public interface IClosure<E> extends IExnClosure<E, RuntimeException> {
 
+    @Override
     public abstract void executeChecked(E input);
 
 }

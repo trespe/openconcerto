@@ -37,6 +37,7 @@ import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.PanelFrame;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.TableSorter;
 import org.openconcerto.utils.cc.IClosure;
@@ -103,7 +104,10 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
             if (column.getClass().isAssignableFrom(SQLTableModelColumnPath.class)) {
                 ((SQLTableModelColumnPath) column).setEditable(false);
             }
-            column.setRenderer(rend);
+            // FIXME Voir pour appliquer le renderer correctement
+            if (!column.getName().startsWith("Avancement")) {
+                column.setRenderer(rend);
+            }
         }
 
         final SQLTableModelColumn dateEnvoiCol = src.getColumn(eltFacture.getTable().getField("DATE_ENVOI"));
@@ -294,23 +298,28 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
 
     public void actionPerformed(ActionEvent e) {
 
-        final SQLRow selectedRow = this.listeFact.getListe().getSelectedRow().asRow();
         if (e.getSource() == this.buttonEnvoye) {
-            SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
-            rowVals.put("DATE_ENVOI", new Date());
-            try {
-                rowVals.update();
-            } catch (SQLException e1) {
-                e1.printStackTrace();
+            final List<SQLRowAccessor> selectedRows = this.listeFact.getListe().getSelectedRows();
+            for (SQLRowAccessor sqlRowAccessor : selectedRows) {
+                final SQLRowValues rowVals = sqlRowAccessor.asRow().createEmptyUpdateRow();
+                rowVals.put("DATE_ENVOI", new Date());
+                try {
+                    rowVals.update();
+                } catch (SQLException e1) {
+                    ExceptionHandler.handle("Modification impossible", e1);
+                }
             }
-        }
-        if (e.getSource() == this.buttonRegle) {
-            SQLRowValues rowVals = selectedRow.createEmptyUpdateRow();
-            rowVals.put("DATE_REGLEMENT", new Date());
-            try {
-                rowVals.update();
-            } catch (SQLException e1) {
-                e1.printStackTrace();
+
+        } else if (e.getSource() == this.buttonRegle) {
+            final List<SQLRowAccessor> selectedRows = this.listeFact.getListe().getSelectedRows();
+            for (SQLRowAccessor sqlRowAccessor : selectedRows) {
+                final SQLRowValues rowVals = sqlRowAccessor.asRow().createEmptyUpdateRow();
+                rowVals.put("DATE_REGLEMENT", new Date());
+                try {
+                    rowVals.update();
+                } catch (SQLException e1) {
+                    ExceptionHandler.handle("Modification impossible", e1);
+                }
             }
         } else {
             if (e.getSource() == this.buttonDupliquer) {
@@ -318,7 +327,7 @@ public class ListeDesVentesPanel extends JPanel implements ActionListener {
                     SQLElement eltFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE");
                     this.editFrame = new EditFrame(eltFact, EditPanel.CREATION);
                 }
-
+                final SQLRow selectedRow = this.listeFact.getListe().getSelectedRow().asRow();
                 ((SaisieVenteFactureSQLComponent) this.editFrame.getSQLComponent()).loadFactureExistante(selectedRow.getID());
                 this.editFrame.setVisible(true);
             }

@@ -26,7 +26,6 @@ public class JNiceButton extends JButton {
         setBorderPainted(false);
         setFocusPainted(false);
         setOpaque(false);
-        setBorder(null);
         setPreferredSize(new Dimension(20, 20));
     }
 

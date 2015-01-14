@@ -42,6 +42,7 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
     private static final String source = "SAISIE_VENTE_FACTURE";
     public static final Integer journal = Integer.valueOf(JournalSQLElement.VENTES);
     private int idSaisieVenteFacture;
+    private boolean useComptePCEVente;
     private static final SQLTable saisieVFTable = base.getTable("SAISIE_VENTE_FACTURE");
     private static final SQLTable mvtTable = base.getTable("MOUVEMENT");
     private static final SQLTable ecrTable = base.getTable("ECRITURE");
@@ -54,11 +55,16 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
      * @param idSaisieVenteFacture
      * @param idMvt id du mouvement qui est dejà associé à la facture
      */
-    public GenerationMvtSaisieVenteFacture(int idSaisieVenteFacture, int idMvt) {
+    public GenerationMvtSaisieVenteFacture(int idSaisieVenteFacture, int idMvt, boolean useComptePCEVente) {
         System.err.println("********* init GeneRation");
         this.idMvt = idMvt;
         this.idSaisieVenteFacture = idSaisieVenteFacture;
+        this.useComptePCEVente = useComptePCEVente;
         new Thread(GenerationMvtSaisieVenteFacture.this).start();
+    }
+
+    public GenerationMvtSaisieVenteFacture(int idSaisieVenteFacture, int idMvt) {
+        this(idSaisieVenteFacture, idMvt, false);
     }
 
     /**
@@ -124,10 +130,18 @@ public class GenerationMvtSaisieVenteFacture extends GenerationEcritures impleme
             for (SQLRowAccessor row : calc.getMapHt().keySet()) {
                 long b = calc.getMapHt().get(row).setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValue();
                 if (b != 0) {
-                    this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(row.getID()));
+                    final Integer idComptePCE;
+                    if (this.useComptePCEVente) {
+                        // Utilise le compte de la facture
+                        idComptePCE = saisieRow.getInt("ID_COMPTE_PCE_VENTE");
+                    } else {
+                        idComptePCE = Integer.valueOf(row.getID());
+                    }
+                    this.mEcritures.put("ID_COMPTE_PCE", idComptePCE);
                     this.mEcritures.put("DEBIT", Long.valueOf(0));
                     this.mEcritures.put("CREDIT", Long.valueOf(b));
-                    int idEcr = ajoutEcriture();
+                    SQLRow rowEcr = ajoutEcriture();
+                    addAssocAnalytiqueFromProvider(rowEcr, saisieRow);
                 }
             }
 

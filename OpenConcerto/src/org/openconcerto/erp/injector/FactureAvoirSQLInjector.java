@@ -32,7 +32,6 @@ public class FactureAvoirSQLInjector extends SQLInjector {
         map(tableFacture.getField("ID_COMMERCIAL"), tableAvoir.getField("ID_COMMERCIAL"));
         map(tableFacture.getField("REMISE_HT"), tableAvoir.getField("REMISE_HT"));
         map(tableFacture.getField("PORT_HT"), tableAvoir.getField("PORT_HT"));
-        map(tableFacture.getField("NUMERO"), tableAvoir.getField("NOM"));
 
     }
 
@@ -44,6 +43,8 @@ public class FactureAvoirSQLInjector extends SQLInjector {
         final SQLTable tableElementSource = getSource().getTable("SAISIE_VENTE_FACTURE_ELEMENT");
         final SQLTable tableElementDestination = getSource().getTable("AVOIR_CLIENT_ELEMENT");
         final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+        transfertReference(srcRow, rowVals, "NOM", "NOM");
+        transfertNumberReference(srcRow, rowVals, tableElementDestination, "ID_AVOIR_CLIENT");
 
         if (myListItem.size() != 0) {
             final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);

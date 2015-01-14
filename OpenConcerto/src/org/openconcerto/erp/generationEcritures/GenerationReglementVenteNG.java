@@ -14,6 +14,8 @@
  package org.openconcerto.erp.generationEcritures;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
+import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
@@ -21,9 +23,15 @@ import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLEleme
 import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLRowValuesListFetcher;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -40,6 +48,8 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
     private static final SQLTable tableSaisieVenteFacture = base.getTable("SAISIE_VENTE_FACTURE");
     private static final SQLTable tablePrefCompte = base.getTable("PREFS_COMPTE");
     private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
+
+    public SQLRow ecrClient = null;
 
     public GenerationReglementVenteNG(String label, SQLRow rowClient, PrixTTC ttc, Date d, SQLRow modeReglement, SQLRow source, SQLRow mvtSource) throws Exception {
         this(label, rowClient, ttc, d, modeReglement, source, mvtSource, true);
@@ -58,7 +68,7 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
 
         this.mEcritures.put("DATE", this.date);
         this.mEcritures.put("NOM", this.nom);
-        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+        fillJournalBanqueFromRow(modeReglement);
 
         this.mEcritures.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
         if (source.getTable().getName().equalsIgnoreCase("ENCAISSER_MONTANT")) {
@@ -77,7 +87,7 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
             SQLRow rowEncaisse = source;
 
             SQLRow rowEncaisseElt = null;
-            // On crée un encaissement
+            // On cre un encaissement
             if (createEncaisse) {
                 SQLRowValues rowVals = new SQLRowValues(tableEncaisse);
                 rowVals.put("MONTANT", ttc.getLongValue());
@@ -150,15 +160,6 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
                     this.mEcritures.put("ID_JOURNAL", JournalSQLElement.CAISSES);
                 }
 
-                int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
-                if (idCompteRegl <= 1) {
-                    if (typeRegRow.getID() == TypeReglementSQLElement.ESPECE) {
-                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteEspece");
-                    } else {
-                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
-                    }
-                }
-
                 // compte Clients
 
                 int idCompteClient = rowClient.getInt("ID_COMPTE_PCE");
@@ -172,10 +173,19 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
                 this.mEcritures.put("ID_COMPTE_PCE", idCompteClient);
                 this.mEcritures.put("DEBIT", Long.valueOf(0));
                 this.mEcritures.put("CREDIT", Long.valueOf(ttc.getLongValue()));
-                ajoutEcriture();
+                this.ecrClient = ajoutEcriture();
 
                 // compte de reglement, caisse, cheque, ...
-                this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteRegl));
+                if (typeRegRow.getID() == TypeReglementSQLElement.ESPECE) {
+                    int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
+                    if (idCompteRegl <= 1) {
+                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteEspece");
+                    }
+
+                    this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteRegl));
+                } else {
+                    fillCompteBanqueFromRow(modeReglement, "VenteCB", false);
+                }
                 this.mEcritures.put("DEBIT", Long.valueOf(ttc.getLongValue()));
                 this.mEcritures.put("CREDIT", Long.valueOf(0));
                 ajoutEcriture();
@@ -185,7 +195,7 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
 
                 Date dateEch = ModeDeReglementSQLElement.calculDate(modeReglement.getInt("AJOURS"), modeReglement.getInt("LENJOUR"), this.date);
 
-                System.out.println("Echéance client");
+                System.out.println("Echance client");
 
                 // Ajout dans echeance
                 final SQLTable tableEch = base.getTable("ECHEANCE_CLIENT");
@@ -237,10 +247,68 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
 
     }
 
+    public void doLettrageAuto(final SQLRowAccessor source, Date dateLettrage) {
+        // A. On lettre les critures client (facture ET reglement)
+        // A1. Recherche criture client de facturation
+
+        final SQLRowValues g1 = new SQLRowValues(ecritureTable);
+        g1.put("DEBIT", null);
+        final SQLRowValuesListFetcher fetch1 = new SQLRowValuesListFetcher(g1);
+        fetch1.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
+            @Override
+            public SQLSelect transformChecked(SQLSelect input) {
+                input.setWhere(new Where(ecritureTable.getField("ID_MOUVEMENT"), "=", source.getForeignID("ID_MOUVEMENT")));
+                input.andWhere(new Where(ecritureTable.getField("ID_COMPTE_PCE"), "=", ecrClient.getForeignID("ID_COMPTE_PCE")));
+                input.andWhere(new Where(ecritureTable.getField("JOURNAL_CODE"), "=", "VE"));
+                return input;
+            }
+
+        });
+        final List<SQLRowValues> rowsEcriture1 = fetch1.fetch();
+        if (rowsEcriture1.size() != 1) {
+            System.out.println("critures VE trouves. Erreur");
+            return;
+        }
+        final SQLRowValues rEcriture1 = rowsEcriture1.get(0);
+        System.out.println("Ecriture vente: " + rEcriture1.getID());
+        System.out.println("Ecriture paiement: " + this.ecrClient);
+
+        // Récupère lettrage
+        String codeLettre = NumerotationAutoSQLElement.getNextCodeLettrage();
+
+        // TODO: vérifier somme = 0
+
+        // Met à  jour les 2 écritures
+        SQLRowValues rowVals = new SQLRowValues(ecritureTable);
+        rowVals.put("LETTRAGE", codeLettre);
+        rowVals.put("DATE_LETTRAGE", dateLettrage);
+        try {
+            rowVals.update(rEcriture1.getID());
+            rowVals.update(this.ecrClient.getID());
+        } catch (SQLException e1) {
+            e1.printStackTrace();
+        }
+
+        // Mise à  jour du code de lettrage
+        SQLElement numElt = Configuration.getInstance().getDirectory().getElement("NUMEROTATION_AUTO");
+        SQLRowValues rowVals1 = numElt.getTable().getRow(2).createEmptyUpdateRow();
+        rowVals1.put("CODE_LETTRAGE", codeLettre);
+        try {
+            rowVals1.update();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
     private void paiementCheque(Date dateEch, SQLRow source, PrixTTC ttc, int idClient, SQLRow modeRegl, SQLRow mvtSource) throws SQLException {
 
         SQLRowValues valCheque = new SQLRowValues(base.getTable("CHEQUE_A_ENCAISSER"));
         valCheque.put("ID_CLIENT", idClient);
+
+        final String foreignBanqueFieldName = "ID_" + BanqueSQLElement.TABLENAME;
+        if (valCheque.getTable().contains(foreignBanqueFieldName))
+            valCheque.put(foreignBanqueFieldName, modeRegl.getInt(foreignBanqueFieldName));
+
         valCheque.put("NUMERO", modeRegl.getObject("NUMERO"));
         valCheque.put("DATE", modeRegl.getObject("DATE"));
         valCheque.put("ETS", modeRegl.getObject("ETS"));
@@ -251,7 +319,6 @@ public class GenerationReglementVenteNG extends GenerationEcritures {
         valCheque.put("MONTANT", Long.valueOf(ttc.getLongValue()));
 
         if (valCheque.getInvalid() == null) {
-
             // ajout de l'ecriture
             SQLRow row = valCheque.insert();
             SQLRowValues rowVals = new SQLRowValues(tableMouvement);

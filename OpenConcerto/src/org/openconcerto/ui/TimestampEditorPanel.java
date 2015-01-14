@@ -56,7 +56,7 @@ public class TimestampEditorPanel extends JPanel implements ActionListener, Chan
     private JSpinner spinMinute;
     private JPanel panelHour;
     private JXMonthView monthView;
-    private List listeners = new Vector();
+    private List<ActionListener> listeners = new Vector<ActionListener>();
     private TimestampTableCellEditor aCellEditor;
 
     public TimestampEditorPanel() {

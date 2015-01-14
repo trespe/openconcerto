@@ -234,14 +234,17 @@ public abstract class Library {
         }
 
         private boolean removeFromPackage(final ODPackage pkg, final String libName) {
+            final Set<String> entriesToRm = new HashSet<String>();
             final Element libraryInList = getLibraryInList(pkg, libName, null);
             boolean res = false;
             if (libraryInList != null) {
-                libraryInList.detach();
+                // if <libraries> is empty remove the file
+                if (JDOMUtils.detachEmptyParent(libraryInList).getParent() == null) {
+                    entriesToRm.add(getDirName() + '/' + getLibraryListName());
+                }
                 res = true;
             }
             final String libPath = getDirName() + '/' + libName;
-            final Set<String> entriesToRm = new HashSet<String>();
             for (final String entry : pkg.getEntries()) {
                 if (entry.equals(libPath) || entry.startsWith(libPath + '/'))
                     entriesToRm.add(entry);
@@ -641,10 +644,11 @@ public abstract class Library {
             final EmbeddedLibrary other = (EmbeddedLibrary) obj;
             if (this.passwordProtected != other.passwordProtected)
                 return false;
-            return canBeMerged(this.modules, other.modules) && canBeMerged(this.dialogs, other.dialogs);
+            return mapCanBeMerged(this.modules, other.modules) && mapCanBeMerged(this.dialogs, other.dialogs);
         }
 
-        static private final <V> boolean canBeMerged(final Map<String, V> m1, final Map<String, V> m2) {
+        // Java6 let us call it canBeMerged but not Java7
+        static private final <V> boolean mapCanBeMerged(final Map<String, V> m1, final Map<String, V> m2) {
             final Set<String> duplicateKeys = CollectionUtils.inter(m1.keySet(), m2.keySet());
             for (final String key : duplicateKeys) {
                 final V v1 = m1.get(key);

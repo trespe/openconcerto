@@ -13,12 +13,12 @@
  
  package org.openconcerto.erp.utils.correct;
 
+import org.openconcerto.erp.config.Log;
 import org.openconcerto.sql.changer.Changer;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
-import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLSelect.ArchiveMode;
 import org.openconcerto.sql.model.SQLSystem;
@@ -72,16 +72,16 @@ public class CorrectMouvement extends Changer<DBRoot> {
             final String selFixableUnbalanced = "( " + selUnbalanced.asString() + "\nEXCEPT\n" + selUnfixable.asString() + " )";
 
             final UpdateBuilder updateUnbalanced = new UpdateBuilder(ecritureT);
-            // FIXME
-            updateUnbalanced.addRawTable(selFixableUnbalanced, SQLBase.quoteIdentifier("semiArchivedMvt"));
-            updateUnbalanced.setWhere(Where.quote("%i = %f", new SQLName("semiArchivedMvt", "ID_MOUVEMENT"), ecritureMvtFF));
+            updateUnbalanced.addVirtualJoin(selFixableUnbalanced, "semiArchivedMvt", false, ecritureMvtFF.getName(), ecritureMvtFF.getName());
             updateUnbalanced.set(ecritureT.getArchiveField().getName(), "0");
 
             getDS().execute(updateUnbalanced.asString());
         }
 
         // match SAISIE_KM_ELEMENT with their lost ECRITURE
-        {
+        if (getSyntax().getSystem() == SQLSystem.H2) {
+            Log.get().warning("Matching SAISIE_KM_ELEMENT with their lost ECRITURE unsupported");
+        } else {
             final SQLTable saisieKmElemT = societeRoot.getGraph().findReferentTable(ecritureT, "SAISIE_KM_ELEMENT");
             final SQLTable saisieKmT = saisieKmElemT.getForeignTable("ID_SAISIE_KM");
             // select ECRITURE which can be identified in a MOUVEMENT by its CREDIT/DEBIT and isn't
@@ -106,11 +106,9 @@ public class CorrectMouvement extends Changer<DBRoot> {
             selIdentifiableNonUsed.setHaving(Where.createRaw("count(*) = 1"));
 
             final UpdateBuilder update = new UpdateBuilder(saisieKmElemT);
-            // FIXME
-            update.addTable(saisieKmT);
+            update.addForwardVirtualJoin(saisieKmT, "ID_SAISIE_KM");
             update.addRawTable("( " + selIdentifiableNonUsed.asString() + " )", "e");
 
-            final Where joinSaisieKmW = new Where(saisieKmElemT.getField("ID_SAISIE_KM"), "=", saisieKmT.getKey());
             Where joinEcritureW = null;
             for (final String uniqField : uniqueFields) {
                 final SQLTable t = uniqField.equals("ID_MOUVEMENT") ? saisieKmT : saisieKmElemT;
@@ -119,7 +117,7 @@ public class CorrectMouvement extends Changer<DBRoot> {
             final Where dontOverwrite = new Where(saisieKmElemT.getField("ID_ECRITURE"), Where.NULL_IS_DATA_EQ, ecritureT.getUndefinedIDNumber());
             final Where dontUpdateUndef = new Where(saisieKmElemT.getKey(), Where.NULL_IS_DATA_NEQ, saisieKmElemT.getUndefinedIDNumber());
             final Where unarchived = new Where(saisieKmElemT.getArchiveField(), "=", 0);
-            update.setWhere(joinSaisieKmW.and(joinEcritureW).and(dontOverwrite).and(dontUpdateUndef).and(unarchived));
+            update.setWhere(joinEcritureW.and(dontOverwrite).and(dontUpdateUndef).and(unarchived));
 
             update.set("ID_ECRITURE", "e." + SQLBase.quoteIdentifier(uniqueIDAlias));
 

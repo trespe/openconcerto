@@ -34,13 +34,13 @@ public class ArticleTarifSQLElement extends ComptaSQLConfElement {
 
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
-        l.add("PRIX_FINAL_TTC");
+        l.add("PV_TTC");
         return l;
     }
 
     protected List<String> getComboFields() {
         final List<String> l = new ArrayList<String>();
-        l.add("PRIX_FINAL_TTC");
+        l.add("PV_TTC");
         return l;
     }
 
@@ -52,14 +52,14 @@ public class ArticleTarifSQLElement extends ComptaSQLConfElement {
                 final GridBagConstraints c = new DefaultGridBagConstraints();
 
                 // Nom
-                JLabel labelNom = new JLabel("PRIX_FINAL_TTC");
+                JLabel labelNom = new JLabel("PV_TTC");
                 JTextField textNom = new JTextField();
 
                 this.add(labelNom, c);
                 c.gridx++;
                 this.add(textNom, c);
 
-                this.addRequiredSQLObject(textNom, "PRIX_FINAL_TTC");
+                this.addRequiredSQLObject(textNom, "PV_TTC");
 
             }
         };

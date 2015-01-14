@@ -13,7 +13,6 @@
  
  package org.openconcerto.ui.component;
 
-import static org.openconcerto.ui.component.ComboLockedMode.UNLOCKED;
 import org.openconcerto.ui.PopupMouseListener;
 import org.openconcerto.ui.SwingThreadUtils;
 
@@ -86,6 +85,16 @@ public class MutableListComboPopupListener {
         }
     }
 
+    static private boolean LOCK_OVERRIDABLE = false;
+
+    public static void setLockOverridable(boolean b) {
+        LOCK_OVERRIDABLE = b;
+    }
+
+    public static boolean isLockOverridable() {
+        return LOCK_OVERRIDABLE;
+    }
+
     private final MutableListCombo combo;
     private JPopupMenu popup;
 
@@ -110,8 +119,9 @@ public class MutableListComboPopupListener {
             return null;
         // Bouton droit en non locked
         // On debloque le lock en faisant CTRL + bouton droit
-        final boolean displayPopup = this.combo.getMode().isListMutable() || (ev.isControlDown() && this.combo.getMode() == ComboLockedMode.ITEMS_LOCKED);
-        if (!displayPopup)
+        final boolean displayModifyCache = this.combo.canModifyCache() && (this.combo.getMode().isListMutable() || (isLockOverridable() && ev.isControlDown()));
+        final boolean displayReload = this.combo.canReload();
+        if (!displayModifyCache && !displayReload)
             return null;
 
         if (this.popup == null) {
@@ -132,14 +142,17 @@ public class MutableListComboPopupListener {
                 }
             });
 
-            if (this.combo.canReload()) {
-                this.popup.add(new JMenuItem(new AbstractAction("Recharger la liste") {
-                    public void actionPerformed(ActionEvent e) {
-                        MutableListComboPopupListener.this.combo.reload();
-                    }
-                }));
-            }
+            this.popup.add(new JMenuItem(new AbstractAction("Recharger la liste") {
+                public void actionPerformed(ActionEvent e) {
+                    MutableListComboPopupListener.this.combo.reload();
+                }
+            }));
         }
+
+        this.popup.getComponent(0).setVisible(displayModifyCache);
+        this.popup.getComponent(1).setVisible(displayModifyCache);
+        this.popup.getComponent(2).setVisible(displayReload);
+
         // popups are never closed in a JComboBox (except when choosing a menu item)
         if (SwingThreadUtils.getAncestorOrSelf(JComboBox.class, this.combo.getPopupComp()) != null)
             addPopup(this.popup);

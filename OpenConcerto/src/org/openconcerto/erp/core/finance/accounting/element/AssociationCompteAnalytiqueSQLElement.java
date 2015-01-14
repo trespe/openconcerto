@@ -17,14 +17,11 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.finance.accounting.model.AssociationAnalytiqueModel;
 import org.openconcerto.erp.core.finance.accounting.ui.PlanComptableCellRenderer;
 import org.openconcerto.erp.element.objet.ClasseCompte;
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
-import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
-import org.openconcerto.sql.model.SQLTableListener;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 

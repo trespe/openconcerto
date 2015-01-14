@@ -28,6 +28,7 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.TablesMap;
+import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
@@ -326,6 +327,22 @@ public class SocieteCommonSQLElement extends ConfSQLElement {
                 this.add(panelContact, c);
                 c.fill = GridBagConstraints.HORIZONTAL;
                 c.gridwidth = 1;
+
+                // Devise
+                if (getTable().contains("ID_DEVISE")) {
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.weightx = 0;
+                    JLabel labelDevise = new JLabel(getLabelFor("ID_DEVISE"));
+                    labelDevise.setHorizontalAlignment(SwingConstants.RIGHT);
+                    this.add(labelDevise, c);
+
+                    c.gridx++;
+                    c.weightx = 1;
+                    ElementComboBox boxDevise = new ElementComboBox();
+                    this.add(boxDevise, c);
+                    this.addView(boxDevise, "ID_DEVISE");
+                }
 
                 /***********************************************************************************
                  * DATE D'EXERCICE

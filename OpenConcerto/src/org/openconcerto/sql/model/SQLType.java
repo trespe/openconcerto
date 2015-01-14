@@ -30,74 +30,81 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 
-import org.jdom.Element;
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
+import org.jdom2.Element;
 
 /**
- * The type of a SQL field. Allow one to convert a Java object to its sql serialization.
+ * The type of a SQL field. Allow one to convert a Java object to its SQL serialization.
  * 
  * @see #toString(Object)
  * @see #check(Object)
  * @author Sylvain
  */
+@ThreadSafe
 public abstract class SQLType {
 
     private static Class<?> getClass(int type, final int size) {
         switch (type) {
-            case Types.BIT:
-                // As of MySQL 5.0.3, BIT is for storing bit-field values
-                // As of Connector/J 3.1.9, transformedBitIsBoolean can be used
-                // MAYBE remove Boolean after testing it works against 4.1 servers
-                if (size == 1) {
-                    return Boolean.class;
-                } else if (size <= Integer.SIZE) {
-                    return Integer.class;
-                } else if (size <= Long.SIZE) {
-                    return Long.class;
-                } else
-                    return BigInteger.class;
-            case Types.BOOLEAN:
+        case Types.BIT:
+            // As of MySQL 5.0.3, BIT is for storing bit-field values
+            // As of Connector/J 3.1.9, transformedBitIsBoolean can be used
+            // MAYBE remove Boolean after testing it works against 4.1 servers
+            if (size == 1) {
                 return Boolean.class;
-            case Types.DOUBLE:
-                return Double.class;
-            case Types.FLOAT:
-            case Types.REAL:
-                return Float.class;
-            case Types.TIMESTAMP:
-                return Timestamp.class;
-            case Types.DATE:
-                return java.util.Date.class;
-            case Types.TIME:
-                return java.sql.Time.class;
-            case Types.INTEGER:
-            case Types.SMALLINT:
-            case Types.TINYINT:
+            } else if (size <= Integer.SIZE) {
                 return Integer.class;
-            case Types.BINARY:
-            case Types.VARBINARY:
-            case Types.LONGVARBINARY:
-            case Types.BLOB:
-                return Blob.class;
-            case Types.CLOB:
-                return Clob.class;
-            case Types.BIGINT:
-                // 8 bytes
+            } else if (size <= Long.SIZE) {
                 return Long.class;
-            case Types.DECIMAL:
-            case Types.NUMERIC:
-                return BigDecimal.class;
-            case Types.CHAR:
-            case Types.VARCHAR:
-            case Types.LONGVARCHAR:
-                return String.class;
-            default:
-                // eg view columns are OTHER
-                return Object.class;
+            } else
+                return BigInteger.class;
+        case Types.BOOLEAN:
+            return Boolean.class;
+        case Types.DOUBLE:
+            return Double.class;
+        case Types.FLOAT:
+        case Types.REAL:
+            return Float.class;
+        case Types.TIMESTAMP:
+            return Timestamp.class;
+        case Types.DATE:
+            return java.util.Date.class;
+        case Types.TIME:
+            return java.sql.Time.class;
+        case Types.INTEGER:
+        case Types.SMALLINT:
+        case Types.TINYINT:
+            return Integer.class;
+        case Types.BINARY:
+        case Types.VARBINARY:
+        case Types.LONGVARBINARY:
+        case Types.BLOB:
+            return Blob.class;
+        case Types.CLOB:
+            return Clob.class;
+        case Types.BIGINT:
+            // 8 bytes
+            return Long.class;
+        case Types.DECIMAL:
+        case Types.NUMERIC:
+            return BigDecimal.class;
+        case Types.CHAR:
+        case Types.VARCHAR:
+        case Types.LONGVARCHAR:
+            return String.class;
+        default:
+            // eg view columns are OTHER
+            return Object.class;
         }
     }
 
+    @GuardedBy("instances")
     static private final Map<List<String>, SQLType> instances = new HashMap<List<String>, SQLType>();
 
     // useful when no SQLBase is known
@@ -127,29 +134,31 @@ public abstract class SQLType {
      */
     public static SQLType get(final SQLBase base, final int type, final int size, Integer decDigits, final String typeName) {
         final List<String> typeID = Arrays.asList(base == null ? null : base.getURL(), type + "", size + "", String.valueOf(decDigits), typeName);
-        SQLType res = instances.get(typeID);
-        if (res == null) {
-            final Class<?> clazz = getClass(type, size);
-            if (Boolean.class.isAssignableFrom(clazz))
-                res = new BooleanType(type, size, typeName, clazz);
-            else if (Number.class.isAssignableFrom(clazz))
-                res = new NumberType(type, size, decDigits, typeName, clazz);
-            else if (Time.class.isAssignableFrom(clazz))
-                res = new TimeType(type, size, decDigits, typeName, clazz);
-            else if (Timestamp.class.isAssignableFrom(clazz))
-                res = new TimestampType(type, size, decDigits, typeName, clazz);
-            // Date en dernier surclasse des autres
-            else if (java.util.Date.class.isAssignableFrom(clazz))
-                res = new DateType(type, size, decDigits, typeName, clazz);
-            else if (String.class.isAssignableFrom(clazz))
-                res = new StringType(type, size, typeName, clazz);
-            else
-                // BLOB & CLOB and the rest
-                res = new UnknownType(type, size, typeName, clazz);
-            res.setBase(base);
-            instances.put(typeID, res);
+        synchronized (instances) {
+            SQLType res = instances.get(typeID);
+            if (res == null) {
+                final Class<?> clazz = getClass(type, size);
+                if (Boolean.class.isAssignableFrom(clazz))
+                    res = new BooleanType(type, size, typeName, clazz);
+                else if (Number.class.isAssignableFrom(clazz))
+                    res = new NumberType(type, size, decDigits, typeName, clazz);
+                else if (Time.class.isAssignableFrom(clazz))
+                    res = new TimeType(type, size, decDigits, typeName, clazz);
+                else if (Timestamp.class.isAssignableFrom(clazz))
+                    res = new TimestampType(type, size, decDigits, typeName, clazz);
+                // Date en dernier surclasse des autres
+                else if (java.util.Date.class.isAssignableFrom(clazz))
+                    res = new DateType(type, size, decDigits, typeName, clazz);
+                else if (String.class.isAssignableFrom(clazz))
+                    res = new StringType(type, size, typeName, clazz);
+                else
+                    // BLOB & CLOB and the rest
+                    res = new UnknownType(type, size, typeName, clazz);
+                res.setBase(base);
+                instances.put(typeID, res);
+            }
+            return res;
         }
-        return res;
     }
 
     public static SQLType get(final SQLBase base, Element typeElement) {
@@ -159,6 +168,17 @@ public abstract class SQLType {
         final String decDigitsS = typeElement.getAttributeValue("decimalDigits");
         final Integer decDigits = decDigitsS == null ? null : Integer.valueOf(decDigitsS);
         return get(base, type, size, decDigits, typeName);
+    }
+
+    static void remove(final SQLBase base) {
+        synchronized (instances) {
+            final Iterator<Entry<List<String>, SQLType>> iter = instances.entrySet().iterator();
+            while (iter.hasNext()) {
+                final Entry<List<String>, SQLType> e = iter.next();
+                if (e.getValue().getBase() == base)
+                    iter.remove();
+            }
+        }
     }
 
     // *** instance
@@ -174,9 +194,12 @@ public abstract class SQLType {
     // the class this type accepts
     private final Class<?> javaType;
 
+    @GuardedBy("this")
     private SQLBase base;
+    @GuardedBy("this")
     private SQLSyntax syntax;
 
+    @GuardedBy("this")
     private String xml;
 
     private SQLType(int type, int size, Integer decDigits, String typeName, Class<?> javaType) {
@@ -223,7 +246,7 @@ public abstract class SQLType {
     }
 
     // TODO remove once quoteString() is in SQLSyntax
-    private final void setBase(SQLBase base) {
+    private synchronized final void setBase(SQLBase base) {
         // set only once
         assert this.base == null;
         if (base != null) {
@@ -232,7 +255,7 @@ public abstract class SQLType {
         }
     }
 
-    private final void setSyntax(SQLSyntax s) {
+    private synchronized final void setSyntax(SQLSyntax s) {
         // set only once
         assert this.syntax == null;
         if (s != null) {
@@ -240,11 +263,11 @@ public abstract class SQLType {
         }
     }
 
-    private final SQLBase getBase() {
+    private synchronized final SQLBase getBase() {
         return this.base;
     }
 
-    public final SQLSyntax getSyntax() {
+    public synchronized final SQLSyntax getSyntax() {
         return this.syntax;
     }
 
@@ -314,7 +337,7 @@ public abstract class SQLType {
         return "SQLType #" + this.getType() + "(" + this.getSize() + "," + this.getDecimalDigits() + "): " + this.getJavaType();
     }
 
-    public final String toXML() {
+    public synchronized final String toXML() {
         // this class is immutable and its instances shared so cache its XML
         if (this.xml == null) {
             final StringBuilder sb = new StringBuilder(128);

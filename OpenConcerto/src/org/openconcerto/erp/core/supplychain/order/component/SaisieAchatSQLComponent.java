@@ -251,7 +251,7 @@ public class SaisieAchatSQLComponent extends BaseSQLComponent {
         this.comboAvoir.setAddIconVisible(false);
         panelAvoir.add(this.comboAvoir);
 
-        panelAvoir.add(new JLabel("Montant réglé"));
+        panelAvoir.add(new JLabel("Montant à régler"));
         panelAvoir.add(this.fieldMontantRegle);
         this.fieldMontantRegle.setEditable(false);
         c.gridx = 0;

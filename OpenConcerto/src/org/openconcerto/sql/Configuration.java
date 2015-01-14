@@ -32,7 +32,10 @@ import org.openconcerto.utils.FileUtils;
 import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+
+import net.jcip.annotations.GuardedBy;
 
 /**
  * Regroupe les objets nécessaires au framework.
@@ -59,7 +62,8 @@ public abstract class Configuration {
         Configuration.instance = instance;
     }
 
-    private Executor nonInteractiveSQLExecutor;
+    @GuardedBy("this")
+    private ExecutorService nonInteractiveSQLExecutor;
 
     public abstract ShowAs getShowAs();
 
@@ -160,7 +164,13 @@ public abstract class Configuration {
     /**
      * Signal that this conf will not be used anymore.
      */
-    public abstract void destroy();
+    public void destroy() {
+        synchronized (this) {
+            if (this.nonInteractiveSQLExecutor != null) {
+                this.nonInteractiveSQLExecutor.shutdown();
+            }
+        }
+    }
 
     /**
      * An executor that should be used for background SQL requests. It can be used to limit the
@@ -169,14 +179,14 @@ public abstract class Configuration {
      * 
      * @return a SQL executor.
      */
-    public Executor getNonInteractiveSQLExecutor() {
+    public synchronized final Executor getNonInteractiveSQLExecutor() {
         if (this.nonInteractiveSQLExecutor == null) {
             this.nonInteractiveSQLExecutor = createNonInteractiveSQLExecutor();
         }
         return this.nonInteractiveSQLExecutor;
     }
 
-    protected Executor createNonInteractiveSQLExecutor() {
+    protected ExecutorService createNonInteractiveSQLExecutor() {
         return Executors.newFixedThreadPool(2);
     }
 }

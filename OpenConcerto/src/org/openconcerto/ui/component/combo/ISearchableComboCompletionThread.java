@@ -14,22 +14,25 @@
  package org.openconcerto.ui.component.combo;
 
 import org.openconcerto.ui.component.combo.SearchMode.ComboMatcher;
+import org.openconcerto.utils.IFutureTask;
+import org.openconcerto.utils.RTInterruptedException;
+import org.openconcerto.utils.model.ISearchable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.FutureTask;
 
 import javax.swing.SwingUtilities;
 
 public class ISearchableComboCompletionThread<T> extends Thread {
     private final ISearchableCombo<T> combo;
-    private final boolean showAll;
     private final String t;
     private boolean stopNow;
 
-    public ISearchableComboCompletionThread(final ISearchableCombo<T> combo, final boolean showAll, final String t) {
+    public ISearchableComboCompletionThread(final ISearchableCombo<T> combo, final String t) {
         this.combo = combo;
-        this.showAll = showAll;
         this.t = t;
         this.stopNow = false;
     }
@@ -38,6 +41,7 @@ public class ISearchableComboCompletionThread<T> extends Thread {
         return this.combo;
     }
 
+    @Override
     public void run() {
         computeAutoCompletion();
     }
@@ -51,19 +55,21 @@ public class ISearchableComboCompletionThread<T> extends Thread {
     }
 
     private void computeAutoCompletion() {
+        final boolean showAll = this.t == null;
         final List<ISearchableComboItem<T>> l;
-        if (!this.showAll) {
+        if (!showAll) {
             l = getMatchingValues();
         } else {
             l = getMaxValues();
         }
 
         SwingUtilities.invokeLater(new Runnable() {
+            @Override
             public void run() {
                 if (isStopped()) {
                     return;
                 }
-                getCombo().setMatchingCompletions(l, ISearchableComboCompletionThread.this.showAll);
+                getCombo().setMatchingCompletions(l, showAll);
             }
         });
 
@@ -77,13 +83,32 @@ public class ISearchableComboCompletionThread<T> extends Thread {
     private List<ISearchableComboItem<T>> getMatchingValues() {
         final List<ISearchableComboItem<T>> result = new ArrayList<ISearchableComboItem<T>>();
 
-        final String aText = this.t.trim().toLowerCase();
-
         final int minimumSearch = getCombo().getMinimumSearch();
+        final String aText = this.t.trim();
+        final String normalizedText = aText.length() < minimumSearch ? "" : aText;
 
-        if (aText.length() >= minimumSearch) {
+        Boolean searched = null;
+        // If there was a search and now the text is below minimum, we must unset the search
+        // Efficient since setSearch() only carry out its action if the search changes
+        if (getCombo().getCache() instanceof ISearchable) {
+            final ISearchable searchableListModel = (ISearchable) getCombo().getCache();
+            if (searchableListModel.isSearchable()) {
+                // Wait for the new values, which will be added to the model by a listener
+                final FutureTask<Object> noOp = IFutureTask.createNoOp();
+                searched = searchableListModel.setSearch(normalizedText, noOp);
+                try {
+                    noOp.get();
+                } catch (InterruptedException e) {
+                    throw new RTInterruptedException(e);
+                } catch (ExecutionException e) {
+                    throw new IllegalStateException("No op couldn't be executed", e);
+                }
+            }
+        }
+        if (!normalizedText.isEmpty() && searched != Boolean.FALSE) {
             final List<ISearchableComboItem<T>> cache = getCombo().getModelValues();
-            final ComboMatcher search = getCombo().getCompletionMode().matcher(aText);
+            // don't filter twice
+            final ComboMatcher search = Boolean.TRUE.equals(searched) ? null : getCombo().getCompletionMode().matcher(normalizedText.toLowerCase());
             final int maximumResult = getCombo().getMaximumResult();
 
             for (int index = 0; index < cache.size(); index++) {
@@ -96,16 +121,16 @@ public class ISearchableComboCompletionThread<T> extends Thread {
                     }
                 }
                 // Recherche case insensitive
-                boolean ok = search.match(item.toLowerCase());
+                boolean ok = search == null || search.match(item.toLowerCase());
 
                 // FIXME: mettre dans les prefs removeDuplicate
-                boolean removeDuplicate = true;
+                final boolean removeDuplicate = true;
                 if (ok && removeDuplicate) {
                     for (int i = 0; i < result.size(); i++) {
                         if (isStopped()) {
                             return result;
                         }
-                        ISearchableComboItem element = result.get(i);
+                        final ISearchableComboItem<T> element = result.get(i);
                         if (element.asString().equalsIgnoreCase(item)) {
                             ok = false;
                             break;
@@ -131,7 +156,7 @@ public class ISearchableComboCompletionThread<T> extends Thread {
         final List<String> v = new ArrayList<String>();
         final StringTokenizer tokenizer = new StringTokenizer(value);
         while (tokenizer.hasMoreElements()) {
-            String element = (String) tokenizer.nextElement();
+            final String element = (String) tokenizer.nextElement();
             v.add(element);
         }
         return v;

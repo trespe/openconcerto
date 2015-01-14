@@ -27,11 +27,7 @@ public class Correct extends org.openconcerto.sql.changer.Correct {
         Configuration.setInstance(CONF);
     }
 
-    public Correct() {
-        super(CONF.getSystemRoot());
-    }
-
     public static void main(String[] args) throws IOException, SQLException {
-        new Correct().exec(args);
+        new Correct().exec(CONF.getSystemRoot(), args);
     }
 }

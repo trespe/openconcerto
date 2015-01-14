@@ -88,6 +88,7 @@ public class ColumnPanel extends JPanel {
         // Update view is database change
         final Set<SQLTable> tables = this.fetcher.getFecthTables();
         for (SQLTable sqlTable : tables) {
+            // FIXME this will never be gc'd
             sqlTable.addTableModifiedListener(new SQLTableModifiedListener() {
                 @Override
                 public void tableModified(SQLTableEvent evt) {

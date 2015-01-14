@@ -13,14 +13,25 @@
  
  package org.openconcerto.xml;
 
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.utils.ListMap;
+import org.openconcerto.utils.cc.IPredicate;
+
+import java.io.IOException;
+import java.io.Writer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 
 import javax.xml.validation.Schema;
 
+import org.jdom.Attribute;
 import org.jdom.Document;
+import org.jdom.Element;
 import org.jdom.JDOMException;
 import org.jdom.input.SAXBuilder;
+import org.jdom.output.Format;
+import org.jdom.output.XMLOutputter;
 import org.xml.sax.ErrorHandler;
 import org.xml.sax.SAXException;
 import org.xml.sax.SAXParseException;
@@ -28,14 +39,44 @@ import org.xml.sax.SAXParseException;
 public abstract class Validator {
 
     private final Document doc;
+    private final XMLOutputter outputter;
 
-    protected Validator(Document doc) {
+    protected Validator(final Document doc, final IPredicate<Object> foreignPredicate) {
         super();
         this.doc = doc;
+        this.outputter = new XMLOutputter(Format.getRawFormat()) {
+            @Override
+            protected void printElement(Writer out, Element element, int level, NamespaceStack namespaces) throws IOException {
+                if (foreignPredicate == null || !foreignPredicate.evaluateChecked(element))
+                    super.printElement(out, element, level, namespaces);
+            }
+
+            @SuppressWarnings("unchecked")
+            @Override
+            protected void printAttributes(Writer out, @SuppressWarnings("rawtypes") List attributes, Element parent, NamespaceStack namespaces) throws IOException {
+                final List<Attribute> l;
+                if (foreignPredicate == null) {
+                    l = attributes;
+                } else {
+                    final int stop = attributes.size();
+                    l = new ArrayList<Attribute>(stop);
+                    for (int i = 0; i < stop; i++) {
+                        final Attribute attr = (Attribute) attributes.get(i);
+                        if (!foreignPredicate.evaluateChecked(attr))
+                            l.add(attr);
+                    }
+                }
+                super.printAttributes(out, l, parent, namespaces);
+            }
+        };
     }
 
     protected final Document getDoc() {
         return this.doc;
+    }
+
+    protected final String getDocToValidate() {
+        return this.outputter.outputString(this.getDoc());
     }
 
     /**
@@ -52,7 +93,7 @@ public abstract class Validator {
      * @return all problems (with line number) indexed by type, e.g. ERROR unexpected attribute
      *         "style:join-border" => [on line 22:50, on line 14901:290].
      */
-    public abstract CollectionMap<String, String> validateCompletely();
+    public abstract Map<String, List<String>> validateCompletely();
 
     static public final class JAXPValidator extends Validator {
 
@@ -62,16 +103,18 @@ public abstract class Validator {
          * Validate a document using JAXP.
          * 
          * @param doc the document to validate
+         * @param foreignPredicate <code>null</code> if <code>doc</code> should be validated as is,
+         *        otherwise content matching it will not be validated.
          * @param schema the schema.
          */
-        public JAXPValidator(final Document doc, final Schema schema) {
-            super(doc);
+        public JAXPValidator(final Document doc, final IPredicate<Object> foreignPredicate, final Schema schema) {
+            super(doc, foreignPredicate);
             this.schema = schema;
         }
 
         @Override
         public String isValid() {
-            final SAXException exn = JDOMUtils.validate(getDoc(), this.schema, null);
+            final SAXException exn = JDOMUtils.validate(getDocToValidate(), this.schema, null);
             if (exn == null)
                 return null;
             else if (exn instanceof SAXParseException)
@@ -81,9 +124,9 @@ public abstract class Validator {
         }
 
         @Override
-        public CollectionMap<String, String> validateCompletely() {
+        public Map<String, List<String>> validateCompletely() {
             final RecordingErrorHandler recErrorHandler = new RecordingErrorHandler();
-            final SAXException exn = JDOMUtils.validate(getDoc(), this.schema, recErrorHandler);
+            final SAXException exn = JDOMUtils.validate(getDocToValidate(), this.schema, recErrorHandler);
             assert exn == null : "Exception thrown despite the error handler";
             return recErrorHandler.getMap();
         }
@@ -94,24 +137,26 @@ public abstract class Validator {
         private final SAXBuilder b;
 
         public DTDValidator(final Document doc) {
-            this(doc, new SAXBuilder());
+            this(doc, null, new SAXBuilder());
         }
 
         /**
          * Validate a document using its DTD.
          * 
          * @param doc the document to validate
+         * @param foreignPredicate <code>null</code> if <code>doc</code> should be validated as is,
+         *        otherwise content matching it will not be validated.
          * @param b a builder which can resolve doc's DTD.
          */
-        public DTDValidator(final Document doc, final SAXBuilder b) {
-            super(doc);
+        public DTDValidator(final Document doc, final IPredicate<Object> foreignPredicate, final SAXBuilder b) {
+            super(doc, foreignPredicate);
             this.b = b;
         }
 
         @Override
         public String isValid() {
             try {
-                JDOMUtils.validateDTD(getDoc(), this.b, null);
+                JDOMUtils.validateDTD(getDocToValidate(), this.b, null);
                 return null;
             } catch (JDOMException e) {
                 return ExceptionUtils.getStackTrace(e);
@@ -119,10 +164,10 @@ public abstract class Validator {
         }
 
         @Override
-        public CollectionMap<String, String> validateCompletely() {
+        public Map<String, List<String>> validateCompletely() {
             try {
                 final RecordingErrorHandler recErrorHandler = new RecordingErrorHandler();
-                JDOMUtils.validateDTD(getDoc(), this.b, recErrorHandler);
+                JDOMUtils.validateDTD(getDocToValidate(), this.b, recErrorHandler);
                 return recErrorHandler.getMap();
             } catch (JDOMException e) {
                 throw new IllegalStateException("Unable to read the document", e);
@@ -132,17 +177,17 @@ public abstract class Validator {
     }
 
     private static final class RecordingErrorHandler implements ErrorHandler {
-        private final CollectionMap<String, String> res;
+        private final ListMap<String, String> res;
 
         private RecordingErrorHandler() {
-            this(new CollectionMap<String, String>());
+            this(new ListMap<String, String>());
         }
 
-        private RecordingErrorHandler(CollectionMap<String, String> res) {
+        private RecordingErrorHandler(ListMap<String, String> res) {
             this.res = res;
         }
 
-        public final CollectionMap<String, String> getMap() {
+        public final ListMap<String, String> getMap() {
             return this.res;
         }
 
@@ -163,7 +208,7 @@ public abstract class Validator {
 
         private void addExn(final String level, SAXParseException e) {
             // e.g. ERROR unexpected attribute "style:join-border" => on line 14901:290
-            this.res.put(level + " " + e.getMessage(), getDesc(e));
+            this.res.add(level + " " + e.getMessage(), getDesc(e));
         }
 
         static String getDesc(SAXParseException e) {

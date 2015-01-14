@@ -28,7 +28,8 @@ import org.openconcerto.erp.core.sales.pos.model.Paiement;
 import org.openconcerto.erp.core.sales.pos.model.ReceiptCode;
 import org.openconcerto.erp.core.sales.pos.model.Ticket;
 import org.openconcerto.erp.core.sales.pos.model.TicketLine;
-import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater.Type;
 import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.generationEcritures.GenerationMvtTicketCaisse;
 import org.openconcerto.erp.generationEcritures.GenerationMvtVirement;
@@ -39,6 +40,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
@@ -123,7 +125,6 @@ public class Caisse {
 
     public static void createConnexion() {
         final ComptaPropsConfiguration conf = ComptaPropsConfiguration.create();
-        conf.setupLogging("logs");
         TranslationManager.getInstance().addTranslationStreamFromClass(MainFrame.class);
         TranslationManager.getInstance().setLocale(Locale.getDefault());
 
@@ -351,20 +352,21 @@ public class Caisse {
 
     private static void updateStock(int id) throws SQLException {
 
-        final SQLElement elt = Configuration.getInstance().getDirectory().getElement("TICKET_CAISSE");
-        final SQLElement eltArticleFact = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
-        MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-        mvtStock.createMouvement(elt.getTable().getRow(id), eltArticleFact.getTable(), new StockLabel() {
+        SQLRow row = getClientCaisse().getTable().getTable("TICKET_CAISSE").getRow(id);
+        StockItemsUpdater stockUpdater = new StockItemsUpdater(new StockLabel() {
             @Override
-            public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
+            public String getLabel(SQLRowAccessor rowOrigin, SQLRowAccessor rowElt) {
                 return "Ticket N°" + rowOrigin.getString("NUMERO");
             }
-        }, false);
+        }, row, row.getReferentRows(getClientCaisse().getTable().getTable("SAISIE_VENTE_FACTURE_ELEMENT")), Type.REAL_DELIVER);
+
+        stockUpdater.update();
+
     }
 
     public static int getID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("caisseID", "-1"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("caisseID", "2"));
     }
 
     public static void setID(int caisseId) {
@@ -385,7 +387,7 @@ public class Caisse {
 
     public static int getUserID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("userID", "-1"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("userID", "2"));
     }
 
     public static void setUserID(int userId) {
@@ -395,12 +397,22 @@ public class Caisse {
 
     public static int getSocieteID() {
         final Document d = getDocument();
-        return Integer.valueOf(d.getRootElement().getAttributeValue("societeID", "-1"));
+        return Integer.valueOf(d.getRootElement().getAttributeValue("societeID", "42"));
     }
 
     public static void setSocieteID(int societeId) {
         final Document d = getDocument();
         d.getRootElement().setAttribute("societeID", String.valueOf(societeId));
+    }
+
+    public static int getScanDelay() {
+        final Document d = getDocument();
+        return Integer.valueOf(d.getRootElement().getAttributeValue("scanDelay", "80"));
+    }
+
+    public static void setScanDelay(int scanDelay) {
+        final Document d = getDocument();
+        d.getRootElement().setAttribute("scanDelay", String.valueOf(scanDelay));
     }
 
     public static boolean isCopyActive() {
@@ -484,6 +496,29 @@ public class Caisse {
         Element e = d.getRootElement().getChild("escp");
         if (e == null) {
             e = new Element("escp");
+            d.getRootElement().addContent(e);
+        }
+        e.setAttribute("port", port);
+    }
+
+    public static String getCardPort() {
+        final Document d = getDocument();
+        final List<Element> children = d.getRootElement().getChildren("card");
+        if (children != null) {
+            for (Element e : children) {
+                if (e.getAttribute("port") != null) {
+                    return e.getAttributeValue("port", "COM1:");
+                }
+            }
+        }
+        return "";
+    }
+
+    public static void setCardPort(String port) {
+        final Document d = getDocument();
+        Element e = d.getRootElement().getChild("card");
+        if (e == null) {
+            e = new Element("card");
             d.getRootElement().addContent(e);
         }
         e.setAttribute("port", port);
@@ -582,6 +617,32 @@ public class Caisse {
             d.getRootElement().addContent(e);
         }
         e.setAttribute("printWidth", w);
+    }
+
+    public static int getScreenWidth() {
+        final Document d = getDocument();
+        final List<Element> children = d.getRootElement().getChildren("screen");
+        if (children != null) {
+            for (Element e : children) {
+                if (e.getAttribute("width") != null) {
+                    return Integer.valueOf(e.getAttributeValue("width", "0"));
+                }
+            }
+        }
+        return 0;
+    }
+
+    public static int getScreenHeight() {
+        final Document d = getDocument();
+        final List<Element> children = d.getRootElement().getChildren("screen");
+        if (children != null) {
+            for (Element e : children) {
+                if (e.getAttribute("height") != null) {
+                    return Integer.valueOf(e.getAttributeValue("height", "0"));
+                }
+            }
+        }
+        return 0;
     }
 
     public static void saveConfiguration() {

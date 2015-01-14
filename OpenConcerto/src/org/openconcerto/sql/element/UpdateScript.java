@@ -13,12 +13,12 @@
  
  package org.openconcerto.sql.element;
 
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.SetMap;
 
 import java.sql.SQLException;
-import java.util.HashSet;
 
 /**
  * Apply updates to a row (including archiving obsolete privates).
@@ -27,19 +27,19 @@ import java.util.HashSet;
  */
 public final class UpdateScript {
     private final SQLRowValues updateRow;
-    private final CollectionMap<SQLElement, SQLRowValues> toArchive;
+    private final SetMap<SQLElement, SQLRowAccessor> toArchive;
 
     UpdateScript(final SQLTable t) {
         this.updateRow = new SQLRowValues(t);
-        this.toArchive = new CollectionMap<SQLElement, SQLRowValues>(HashSet.class);
+        this.toArchive = new SetMap<SQLElement, SQLRowAccessor>();
     }
 
     final SQLRowValues getUpdateRow() {
         return this.updateRow;
     }
 
-    final void addToArchive(SQLElement elem, SQLRowValues r) {
-        this.toArchive.put(elem, r);
+    final void addToArchive(SQLElement elem, SQLRowAccessor r) {
+        this.toArchive.add(elem, r);
     }
 
     final void put(String field, UpdateScript s) {
@@ -55,7 +55,7 @@ public final class UpdateScript {
     public final void exec() throws SQLException {
         this.getUpdateRow().commit();
         for (final SQLElement elem : this.toArchive.keySet()) {
-            for (final SQLRowValues v : this.toArchive.getNonNull(elem))
+            for (final SQLRowAccessor v : this.toArchive.getNonNull(elem))
                 elem.archive(v.getID());
         }
     }

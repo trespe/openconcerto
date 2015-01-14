@@ -120,7 +120,7 @@ public class UpdateBuilder {
      * @param value the SQL, e.g. a quoted field from the joined table or an arbitrary expression.
      * @return this.
      * @see #setFromVirtualJoinField(String, String, String)
-     * @see #addVirtualJoin(TableRef, String)
+     * @see #addVirtualJoin(String, String, boolean, String, String, boolean)
      */
     public final UpdateBuilder setFromVirtualJoin(final String field, final String joinAlias, final String value) {
         final String val;

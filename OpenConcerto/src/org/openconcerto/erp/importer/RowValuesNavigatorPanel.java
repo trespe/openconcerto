@@ -21,6 +21,7 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
 
@@ -110,6 +111,7 @@ public class RowValuesNavigatorPanel extends JPanel implements ActionListener {
                         row.update();
                         updateBar();
                     }
+                    doAfterImport();
                     SwingUtilities.invokeLater(new Runnable() {
                         @Override
                         public void run() {
@@ -141,5 +143,8 @@ public class RowValuesNavigatorPanel extends JPanel implements ActionListener {
         };
         t.start();
 
+    }
+
+    protected void doAfterImport() throws SQLException {
     }
 }

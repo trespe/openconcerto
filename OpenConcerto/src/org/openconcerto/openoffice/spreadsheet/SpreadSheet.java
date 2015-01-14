@@ -145,9 +145,12 @@ public class SpreadSheet extends ODDocument {
     // \1 is sheet name, \4 cell address
     static final Pattern cellPattern = Pattern.compile("(\\$?([^\\. ']+|'([^']|'')+'))?\\.(" + minCell + ")");
     static final Pattern minCellPattern = Pattern.compile(minCell);
+    // added illegal characters to unquoted form from LibreOffice UI, especially ':' to avoid
+    // mistakenly using it in the table name instead of as a separator
+    private static String tableNamePattern = "\\$?([^\\Q. '[]*?:/\\\\E]+|'([^']|'')+')";
     // added parens to capture cell addresses
     // \1 is sheet name, \4 cell address, \6 second sheet name, \9 second cell address
-    static final Pattern cellRangePattern = java.util.regex.Pattern.compile("(\\$?([^\\. ']+|'([^']|'')+'))?\\.(\\$?[A-Z]+\\$?[0-9]+)(:(\\$?([^\\. ']+|'([^']|'')+'))?\\.(\\$?[A-Z]+\\$?[0-9]+))?");
+    static final Pattern cellRangePattern = java.util.regex.Pattern.compile("(" + tableNamePattern + ")?\\.(\\$?[A-Z]+\\$?[0-9]+)(:(" + tableNamePattern + ")?\\.(\\$?[A-Z]+\\$?[0-9]+))?");
 
     // see 9.2.1 of OpenDocument-v1.2-cs01-part1
     static final Pattern tableNameQuoteQuotePattern = Pattern.compile("''", Pattern.LITERAL);

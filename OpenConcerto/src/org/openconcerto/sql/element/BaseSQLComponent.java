@@ -108,7 +108,8 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
     protected static final String SEP = "noseparator";
 
     /**
-     * Syntactic sugar for {@link BaseSQLComponent#createRowItemView(String, Class, ITransformer)}.
+     * Syntactic sugar for
+     * {@link BaseSQLComponent#createSimpleRowItemView(String, Class, ITransformer)}.
      * 
      * @author Sylvain CUAZ
      * @param <T> type parameter

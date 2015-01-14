@@ -27,7 +27,12 @@ public abstract class Value<V> {
     static private final Value NONE = new Value(false) {
         @Override
         public Object getValue() {
-            throw new IllegalStateException();
+            throw new IllegalStateException(this.toString());
+        }
+
+        @Override
+        public String toString() {
+            return "No Value";
         }
     };
 
@@ -53,6 +58,11 @@ public abstract class Value<V> {
         @Override
         public V getValue() {
             return this.val;
+        }
+
+        @Override
+        public String toString() {
+            return "Value <" + this.getValue() + '>';
         }
     };
 

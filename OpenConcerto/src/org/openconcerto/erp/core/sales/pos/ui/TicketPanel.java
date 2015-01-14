@@ -21,7 +21,9 @@ import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -124,6 +126,7 @@ public class TicketPanel extends JPanel implements CaisseListener {
     @Override
     protected void paintComponent(final Graphics g) {
         g.drawImage(this.bg, 0, 0, null);
+        ((Graphics2D) g).setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
         super.paintComponent(g);
     }
 

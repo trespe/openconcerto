@@ -108,12 +108,13 @@ public class LineChart extends Chart {
     }
 
     public void setLeftAxis(Axis axis) {
-        left = new LeftAxis(axis);
+        this.left = new LeftAxis(axis);
+        this.left.setChart(this);
     }
 
     public void setBottomAxis(Axis axis) {
-        bottom = new BottomAxis(axis, true);
-
+        this.bottom = new BottomAxis(axis, true);
+        this.bottom.setChart(this);
     }
 
     @Override
@@ -150,9 +151,9 @@ public class LineChart extends Chart {
             DataModel1D model1 = models.getModel(index);
             // Chart
 
-            double maxXValue = this.getHigherRange().doubleValue();
-            double minXValue = this.getLowerRange().doubleValue();
-            double rangeXValue = maxXValue - minXValue;
+            double maxYValue = this.getHigherRange().doubleValue();
+            double minYValue = this.getLowerRange().doubleValue();
+            double rangeYValue = maxYValue - minYValue;
 
             int length = model1.getSize();
 
@@ -163,7 +164,7 @@ public class LineChart extends Chart {
 
             double dx = (double) graphWidth / (length - 1);
 
-            double ratioy = (double) graphHeight / rangeXValue;
+            double ratioy = (double) graphHeight / rangeYValue;
 
             double x1 = graphPosX;
 
@@ -175,7 +176,7 @@ public class LineChart extends Chart {
                 n2 = model1.getValueAt(i + 1);
                 if (n1 != null) {
 
-                    int y1 = graphPosY + graphHeight - (int) ((n1.doubleValue() - minXValue) * ratioy);
+                    int y1 = graphPosY + graphHeight - (int) ((n1.doubleValue() - minYValue) * ratioy);
                     lx.add((int) x1);
                     ly.add(y1);
                 } else if (n1 == null && n2 != null && !lx.isEmpty()) {
@@ -187,7 +188,7 @@ public class LineChart extends Chart {
 
             }
             if (n2 != null) {
-                int y1 = graphPosY + graphHeight - (int) ((n2.doubleValue() - minXValue) * ratioy);
+                int y1 = graphPosY + graphHeight - (int) ((n2.doubleValue() - minYValue) * ratioy);
                 lx.add((int) x1);
                 ly.add(y1);
             }
@@ -196,11 +197,13 @@ public class LineChart extends Chart {
                 g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_OFF);
                 g.setStroke(new BasicStroke());
                 g.setColor(fillColor);
-                lx.add(lx.get(polyLength - 1));
+                lx.getArray()[0]--;
+
+                lx.add(lx.get(polyLength - 1) + 1);
                 ly.add(graphPosY + graphHeight);
                 lx.add(lx.get(0));
                 ly.add(graphPosY + graphHeight);
-                GradientPaint gp = new GradientPaint(graphPosX + graphWidth, graphPosY, Color.white, graphPosX, graphPosY + graphHeight, new Color(230, 235, 250), false);
+                GradientPaint gp = new GradientPaint(graphPosX + graphWidth, graphPosY, Color.white, graphPosX, graphPosY + graphHeight, fillColor, false);
                 g.setPaint(gp);
                 g.fillPolygon(lx.getArray(), ly.getArray(), polyLength + 2);
 
@@ -256,6 +259,16 @@ public class LineChart extends Chart {
         g.setStroke(new BasicStroke());
         left.render(g);
         bottom.render(g);
+    }
+
+    @Override
+    public double getXFromValue(Number value) {
+        int graphWidth = this.getChartRectangle().width;
+
+        DataModelMultiple models = this.getDataModel();
+        double dx = (double) graphWidth / (models.getModel(0).getSize() - 1);
+
+        return value.doubleValue() * dx;
     }
 
     /**

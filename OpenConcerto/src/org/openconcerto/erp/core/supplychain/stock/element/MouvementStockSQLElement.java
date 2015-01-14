@@ -42,15 +42,17 @@ import org.openconcerto.sql.view.EditPanel.EditMode;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.preferences.DefaultProps;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.ListMap;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Map.Entry;
 
 import javax.swing.JOptionPane;
 import javax.swing.SwingUtilities;
@@ -67,6 +69,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
         l.add("NOM");
         l.add("ID_ARTICLE");
         l.add("QTE");
+        l.add("REEL");
         return l;
     }
 
@@ -94,9 +97,8 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
     @Override
     protected void archive(TreesOfSQLRows trees, boolean cutLinks) throws SQLException {
         super.archive(trees, cutLinks);
-        for (SQLRow row : trees.getRows()) {
-            updateStock(Arrays.asList(row.getID()), true);
-        }
+        updateStock(trees.getRows(), true);
+
     }
 
     // public CollectionMap<SQLRow, List<SQLRowValues>> updateStock(List<Integer> ids) {
@@ -113,9 +115,10 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
      * @param label label pour les mouvements de stocks
      * @param entry true si c'est une entrée de stock
      * @throws SQLException
-     * 
+     * @Deprecated
      */
-    public void createMouvement(final SQLRow rowOrigin, SQLTable eltTable, StockLabel label, boolean entry) throws SQLException {
+    public void createMouvement(final SQLRow rowOrigin, SQLTable eltTable, StockLabel label, boolean entry, boolean real) throws SQLException {
+
         // TODO: if (SwingUtilities.isEventDispatchThread()) {
         // throw new IllegalStateException("This method must be called outside of EDT");
         // }
@@ -131,7 +134,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
         final boolean createArticle = prefs.getBoolean(GestionArticleGlobalPreferencePanel.CREATE_ARTICLE_AUTO, true);
 
         if (lElt != null) {
-            List<Integer> l = new ArrayList<Integer>();
+            List<SQLRow> l = new ArrayList<SQLRow>();
             for (SQLRow rowElt : lElt) {
                 SQLRow rowArticleAssocie = (rowElt.getTable().contains("ID_ARTICLE") ? rowElt.getForeign("ID_ARTICLE") : null);
 
@@ -173,6 +176,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                         final int qte = rowElt.getInt("QTE");
                         final BigDecimal qteUV = rowElt.getBigDecimal("QTE_UNITAIRE");
                         double qteFinal = qteUV.multiply(new BigDecimal(qte), MathContext.DECIMAL128).doubleValue();
+
                         if (entry) {
                             rowVals.put("QTE", qteFinal);
                         } else {
@@ -180,18 +184,20 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                         }
 
                         rowVals.put("NOM", label.getLabel(rowOrigin, rowElt));
+                        rowVals.put("REEL", real);
                         rowVals.put("IDSOURCE", rowOrigin.getID());
                         rowVals.put("SOURCE", rowOrigin.getTable().getName());
                         rowVals.put("ID_ARTICLE", rowArticleAssocie.getID());
                         rowVals.put("DATE", rowOrigin.getObject("DATE"));
                         SQLRow row = rowVals.insert();
-                        l.add(row.getID());
+
+                        l.add(row);
 
                     }
                 }
             }
-            final CollectionMap<SQLRow, List<SQLRowValues>> map = updateStock(l, false);
-            if (map.keySet().size() > 0 && !rowOrigin.getTable().getName().equalsIgnoreCase("TICKET_CAISSE")) {
+            final ListMap<SQLRow, SQLRowValues> map = updateStock(l, false);
+            if (map.size() > 0 && !rowOrigin.getTable().getName().equalsIgnoreCase("TICKET_CAISSE")) {
                 if (!rowOrigin.getTable().contains("ID_TARIF")) {
                     System.err.println("Attention la table " + rowOrigin.getTable().getName()
                             + " ne contient pas le champ ID_TARIF. La création automatique d'une commande fournisseur est donc impossible!");
@@ -201,7 +207,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
 
                         @Override
                         public void run() {
-                            if (JOptionPane.showConfirmDialog(null, "Certains articles sont en dessous du stock minimum.\n Voulez créer une commande?") == JOptionPane.YES_OPTION) {
+                            if (JOptionPane.showConfirmDialog(null, "Certains articles sont en dessous du stock minimum.\n Voulez vous créer une commande?") == JOptionPane.YES_OPTION) {
                                 ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
                                     @Override
@@ -226,100 +232,171 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
      * @param id mouvement stock
      * @param archive
      */
-    public CollectionMap<SQLRow, List<SQLRowValues>> updateStock(List<Integer> ids, boolean archive) {
+    public ListMap<SQLRow, SQLRowValues> updateStock(Collection<SQLRow> rowsMvt, boolean archive) {
         // FIXME: if (SwingUtilities.isEventDispatchThread()) {
         // throw new IllegalStateException("This method must be called outside of EDT");
         // }
-        CollectionMap<SQLRow, List<SQLRowValues>> map = new CollectionMap<SQLRow, List<SQLRowValues>>();
+        // Stock Reel : inc/dec QTE_REEL, inc/dec QTE_LIV_ATTENTE/inc/dec
+        // QTE_RECEPT_ATTENTE
+        // Stock Th : inc/dec QTE_TH, inc/dec QTE_LIV_ATTENTE/inc/dec
+        // QTE_RECEPT_ATTENTE
+
+        final ListMap<SQLRow, SQLRowValues> map = new ListMap<SQLRow, SQLRowValues>();
         SQLTable tableCmdElt = Configuration.getInstance().getBase().getTable("COMMANDE_ELEMENT");
-        for (Integer id : ids) {
+        for (SQLRow rowMvtStock : rowsMvt) {
 
             // Mise à jour des stocks
-            SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-            SQLRow rowMvtStock = eltMvtStock.getTable().getRow(id);
-
             SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
             SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement(sqlTableArticle);
             SQLElement eltStock = Configuration.getInstance().getDirectory().getElement("STOCK");
             final SQLRow rowArticle = rowMvtStock.getForeignRow("ID_ARTICLE");
 
             SQLRow rowStock = rowArticle.getForeignRow(("ID_STOCK"));
+            if (rowMvtStock.getBoolean("REEL")) {
+                float qte = rowStock.getFloat("QTE_REEL");
+                float qteMvt = rowMvtStock.getFloat("QTE");
 
-            float qte = rowStock.getFloat("QTE_REEL");
-            float qteMvt = rowMvtStock.getFloat("QTE");
+                SQLRowValues rowVals = new SQLRowValues(eltStock.getTable());
 
-            SQLRowValues rowVals = new SQLRowValues(eltStock.getTable());
-
-            float qteNvlle;
-            if (archive) {
-                qteNvlle = qte - qteMvt;
-            } else {
-                qteNvlle = qte + qteMvt;
-            }
-            rowVals.put("QTE_REEL", qteNvlle);
-
-            try {
-                if (rowStock.getID() <= 1) {
-                    SQLRow row = rowVals.insert();
-                    SQLRowValues rowValsArt = new SQLRowValues(eltArticle.getTable());
-                    rowValsArt.put("ID_STOCK", row.getID());
-
-                    final int idArticle = rowArticle.getID();
-                    if (idArticle > 1) {
-                        rowValsArt.update(idArticle);
+                float qteNvlle;
+                float qteNvlleEnAttenteRecept = rowStock.getFloat("QTE_RECEPT_ATTENTE");
+                float qteNvlleEnAttenteExp = rowStock.getFloat("QTE_LIV_ATTENTE");
+                if (archive) {
+                    qteNvlle = qte - qteMvt;
+                    // Réception
+                    if (qteMvt > 0) {
+                        qteNvlleEnAttenteRecept += qteMvt;
+                    } else {
+                        // Livraison
+                        qteNvlleEnAttenteExp -= qteMvt;
                     }
                 } else {
-                    rowVals.update(rowStock.getID());
+                    qteNvlle = qte + qteMvt;
+                    // Réception
+                    if (qteMvt > 0) {
+                        qteNvlleEnAttenteRecept -= qteMvt;
+                    } else {
+                        // Livraison
+                        qteNvlleEnAttenteExp += qteMvt;
+                    }
                 }
-            } catch (SQLException e) {
+                rowVals.put("QTE_REEL", qteNvlle);
+                rowVals.put("QTE_RECEPT_ATTENTE", qteNvlleEnAttenteRecept);
+                rowVals.put("QTE_LIV_ATTENTE", qteNvlleEnAttenteExp);
 
-                ExceptionHandler.handle("Erreur lors de la mise à jour du stock pour l'article " + rowArticle.getString("CODE"));
-            }
+                try {
+                    if (rowStock.getID() <= 1) {
+                        SQLRow row = rowVals.insert();
+                        SQLRowValues rowValsArt = new SQLRowValues(eltArticle.getTable());
+                        rowValsArt.put("ID_STOCK", row.getID());
 
-            DefaultProps props = DefaultNXProps.getInstance();
-            String stockMin = props.getStringProperty("ArticleStockMin");
-            Boolean bStockMin = !stockMin.equalsIgnoreCase("false");
-            boolean gestionStockMin = (bStockMin == null || bStockMin.booleanValue());
-            if (!archive && rowArticle.getTable().getFieldsName().contains("QTE_MIN") && gestionStockMin && rowArticle.getObject("QTE_MIN") != null && qteNvlle < rowArticle.getInt("QTE_MIN")) {
-                // final float qteShow = qteNvlle;
-                SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
-                SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticle));
-                rowValsElt.put("ID_STYLE", 2);
-                final SQLRow unite = rowArticle.getForeign("ID_UNITE_VENTE");
-                final float qteElt = rowArticle.getInt("QTE_MIN") - qteNvlle;
-                if (unite.isUndefined() || unite.getBoolean("A_LA_PIECE")) {
-                    rowValsElt.put("QTE", Math.round(qteElt));
-                    rowValsElt.put("QTE_UNITAIRE", BigDecimal.ONE);
+                        final int idArticle = rowArticle.getID();
+                        if (idArticle > 1) {
+                            rowValsArt.update(idArticle);
+                        }
+                    } else {
+                        rowVals.update(rowStock.getID());
+                    }
+                } catch (SQLException e) {
+
+                    ExceptionHandler.handle("Erreur lors de la mise à jour du stock pour l'article " + rowArticle.getString("CODE"));
+                }
+
+                DefaultProps props = DefaultNXProps.getInstance();
+                String stockMin = props.getStringProperty("ArticleStockMin");
+                Boolean bStockMin = !stockMin.equalsIgnoreCase("false");
+                boolean gestionStockMin = (bStockMin == null || bStockMin.booleanValue());
+                if (!archive && rowArticle.getTable().getFieldsName().contains("QTE_MIN") && gestionStockMin && rowArticle.getObject("QTE_MIN") != null && qteNvlle < rowArticle.getInt("QTE_MIN")) {
+                    // final float qteShow = qteNvlle;
+                    SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
+                    SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticle));
+                    rowValsElt.put("ID_STYLE", 2);
+                    final SQLRow unite = rowArticle.getForeign("ID_UNITE_VENTE");
+                    final float qteElt = rowArticle.getInt("QTE_MIN") - qteNvlle;
+                    if (unite.isUndefined() || unite.getBoolean("A_LA_PIECE")) {
+                        rowValsElt.put("QTE", Math.round(qteElt));
+                        rowValsElt.put("QTE_UNITAIRE", BigDecimal.ONE);
+                    } else {
+                        rowValsElt.put("QTE", 1);
+                        rowValsElt.put("QTE_UNITAIRE", new BigDecimal(qteElt));
+                    }
+                    rowValsElt.put("ID_TAXE", rowValsElt.getObject("ID_TAXE"));
+                    rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * qteElt);
+                    rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * qteElt);
+                    rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
+
+                    map.add(rowArticle.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
+
+                }
+            } else {
+                float qte = rowStock.getFloat("QTE_TH");
+                float qteMvt = rowMvtStock.getFloat("QTE");
+
+                SQLRowValues rowVals = new SQLRowValues(eltStock.getTable());
+
+                float qteNvlle;
+                float qteNvlleEnAttenteRecept = rowStock.getFloat("QTE_RECEPT_ATTENTE");
+                float qteNvlleEnAttenteExp = rowStock.getFloat("QTE_LIV_ATTENTE");
+
+                if (archive) {
+                    qteNvlle = qte - qteMvt;
+                    // CommandeF
+                    if (qteMvt > 0) {
+                        qteNvlleEnAttenteRecept -= qteMvt;
+                    } else {
+                        // CommanceC
+                        qteNvlleEnAttenteExp += qteMvt;
+                    }
                 } else {
-                    rowValsElt.put("QTE", 1);
-                    rowValsElt.put("QTE_UNITAIRE", new BigDecimal(qteElt));
+                    qteNvlle = qte + qteMvt;
+                    // CommandeF
+                    if (qteMvt > 0) {
+                        qteNvlleEnAttenteRecept += qteMvt;
+                    } else {
+                        // CommanceC
+                        qteNvlleEnAttenteExp -= qteMvt;
+                    }
                 }
-                rowValsElt.put("ID_TAXE", rowValsElt.getObject("ID_TAXE"));
-                rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * qteElt);
-                rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * qteElt);
-                rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
+                rowVals.put("QTE_TH", qteNvlle);
+                rowVals.put("QTE_RECEPT_ATTENTE", qteNvlleEnAttenteRecept);
+                rowVals.put("QTE_LIV_ATTENTE", qteNvlleEnAttenteExp);
 
-                map.put(rowArticle.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
+                try {
+                    if (rowStock.getID() <= 1) {
+                        SQLRow row = rowVals.insert();
+                        SQLRowValues rowValsArt = new SQLRowValues(eltArticle.getTable());
+                        rowValsArt.put("ID_STOCK", row.getID());
 
+                        final int idArticle = rowArticle.getID();
+                        if (idArticle > 1) {
+                            rowValsArt.update(idArticle);
+                        }
+                    } else {
+                        rowVals.update(rowStock.getID());
+                    }
+                } catch (SQLException e) {
+
+                    ExceptionHandler.handle("Erreur lors de la mise à jour du stock pour l'article " + rowArticle.getString("CODE"));
+                }
             }
 
         }
         return map;
     }
 
-    public static void createCommandeF(final CollectionMap<SQLRow, List<SQLRowValues>> col, final SQLRow rowDevise) {
+    public static void createCommandeF(final ListMap<SQLRow, SQLRowValues> col, final SQLRow rowDevise) {
         createCommandeF(col, rowDevise, "");
     }
 
-    public static void createCommandeF(final CollectionMap<SQLRow, List<SQLRowValues>> col, final SQLRow rowDevise, final String ref) {
+    public static void createCommandeF(final ListMap<SQLRow, SQLRowValues> col, final SQLRow rowDevise, final String ref) {
         if (SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("This method must be called outside of EDT");
         }
-        if (col.keySet().size() > 0) {
+        if (col.size() > 0) {
 
             final SQLElement commande = Configuration.getInstance().getDirectory().getElement("COMMANDE");
-            for (final SQLRow fournisseur : col.keySet()) {
-
+            for (final Entry<SQLRow, List<SQLRowValues>> e : col.entrySet()) {
+                final SQLRow fournisseur = e.getKey();
                 // On regarde si il existe une commande en cours existante
                 final SQLSelect sel = new SQLSelect();
                 sel.addSelectStar(commande.getTable());
@@ -368,7 +445,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
                         }
 
                         final RowValuesTableModel model = cmp.getRowValuesTable().getRowValuesTableModel();
-                        for (SQLRowValues rowValsElt : (List<SQLRowValues>) col.get(fournisseur)) {
+                        for (SQLRowValues rowValsElt : e.getValue()) {
                             SQLRowValues rowValsMatch = null;
                             int index = 0;
 

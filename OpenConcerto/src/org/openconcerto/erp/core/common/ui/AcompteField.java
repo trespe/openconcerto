@@ -84,7 +84,7 @@ public class AcompteField extends JTextField implements ValueWrapper<Acompte>, D
 
     @Override
     public void init(SQLRowItemView v) {
-        this.field = v.getField();
+        this.field = v.getFields().get(0);
     }
 
     private void init() {

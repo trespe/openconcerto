@@ -13,20 +13,10 @@
  
  package org.openconcerto.sql.changer;
 
-import org.openconcerto.sql.model.DBStructureItem;
-
 import java.io.IOException;
 import java.sql.SQLException;
 
 public class Correct extends Change {
-
-    public Correct() throws IOException {
-        super();
-    }
-
-    public Correct(DBStructureItem<?> root) {
-        super(root);
-    }
 
     public static void main(String[] args) throws IOException, SQLException {
         new Correct().exec(args);

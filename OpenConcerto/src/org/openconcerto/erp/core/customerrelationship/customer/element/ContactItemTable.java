@@ -42,6 +42,7 @@ public class ContactItemTable extends JPanel {
     }
 
     private ContactItemTable(SQLRowValues defaultRow, SQLElement elt) {
+        this.setOpaque(false);
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
         c.gridwidth = 1;

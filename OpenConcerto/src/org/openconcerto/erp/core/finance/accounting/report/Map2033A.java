@@ -17,9 +17,10 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
 import org.openconcerto.erp.core.finance.accounting.model.SommeCompte;
 import org.openconcerto.erp.preferences.TemplateNXProps;
-import org.openconcerto.map.model.Ville;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.GestionDevise;
 
 import java.io.File;
@@ -30,7 +31,6 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import javax.swing.JOptionPane;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 
@@ -152,7 +152,7 @@ public class Map2033A extends Thread {
         // 030 -SommeSolde( 281, 289* )-SommeSolde( 290, 295* )
         // RacineDap = "2810-2815, 2818, 2930-2931, 291"
         // S030=-2811-2812-2911-2813-2814-2815-2818-282-292-2931
-        long v030 = -(this.sommeCompte.soldeCompte(2811, 2815, true, this.dateDebut, this.dateFin)) - this.sommeCompte.sommeCompteFils("2818", this.dateDebut, this.dateFin)
+        long v030 = -(this.sommeCompte.soldeCompte(2810, 2815, true, this.dateDebut, this.dateFin)) - this.sommeCompte.sommeCompteFils("2818", this.dateDebut, this.dateFin)
                 - (this.sommeCompte.soldeCompte(2931, 2931, true, this.dateDebut, this.dateFin)) - this.sommeCompte.sommeCompteFils("2911", this.dateDebut, this.dateFin);
         this.m.put("ACTIF2.2", GestionDevise.currencyToString(v030, false));
 
@@ -286,7 +286,7 @@ public class Map2033A extends Thread {
         this.m.put("ACTIF2.7", "");
 
         // 065
-        long v065 = 0;
+        long v065 = v064;
         this.m.put("ACTIF3.7", GestionDevise.currencyToString(v064, false));
 
         // 067
@@ -339,7 +339,8 @@ public class Map2033A extends Thread {
         // 4566d-4567d, 458d, 462,
         // 465, 467d, 4680d, 4687, 471d-475d, 478d"
         // S072=4096(D)+4097(D)+4098(D)+40(D)...401+40A(D)...40Z+42(D)..47
-        long v072 = this.sommeCompte.soldeCompteDebiteur(400, 408, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompte(4096, 4098, true, this.dateDebut, this.dateFin)
+        long v072 = this.sommeCompte.soldeCompteDebiteur(4455, 4455, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteDebiteur(421, 421, true, this.dateDebut, this.dateFin)
+                + this.sommeCompte.soldeCompteDebiteur(400, 408, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompte(4096, 4098, true, this.dateDebut, this.dateFin)
                 + this.sommeCompte.sommeCompteFils("425", this.dateDebut, this.dateFin) + this.sommeCompte.sommeCompteFils("4287", this.dateDebut, this.dateFin)
                 + this.sommeCompte.sommeCompteFils("4374", this.dateDebut, this.dateFin) + this.sommeCompte.sommeCompteFils("4387", this.dateDebut, this.dateFin)
                 + this.sommeCompte.sommeCompteFils("441", this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteDebiteur(443, 444, true, this.dateDebut, this.dateFin)
@@ -400,7 +401,7 @@ public class Map2033A extends Thread {
         // S084=511+512(D)...517+5187+54+58(D)+53
         long v084 = this.sommeCompte.soldeCompteDebiteur(510, 517, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteDebiteur(5180, 5185, true, this.dateDebut, this.dateFin)
                 + this.sommeCompte.soldeCompteDebiteur(5187, 5189, true, this.dateDebut, this.dateFin) + this.sommeCompte.sommeCompteFils("54", this.dateDebut, this.dateFin)
-                + this.sommeCompte.sommeCompteFils("53", this.dateDebut, this.dateFin);
+                + this.sommeCompte.sommeCompteFils("53", this.dateDebut, this.dateFin) + this.sommeCompte.sommeCompteFils("58", this.dateDebut, this.dateFin);
 
         this.m.put("ACTIF1.11", GestionDevise.currencyToString(v084, false));
 
@@ -459,7 +460,7 @@ public class Map2033A extends Thread {
         this.m.put("ACTIF2.13", GestionDevise.currencyToString(v098, false));
 
         // 097 051+061+065+069+073+081+085+093
-        long v097 = v051 + v061 + v069 + v073 + v081 + v085 + v093;
+        long v097 = v051 + v061 + +v065 + v069 + v073 + v081 + v085 + v093;
         this.m.put("ACTIF3.13", GestionDevise.currencyToString(v097, false));
 
         // 099
@@ -674,12 +675,13 @@ public class Map2033A extends Thread {
          * this.sommeCompte.sommeCompteFils("5186") ;
          */
         long v156 = -this.sommeCompte.sommeCompteFils("161", this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(163, 166, true, this.dateDebut, this.dateFin)
-                - this.sommeCompte.soldeCompte(1680, 1680, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(1682, 1682, true, this.dateDebut, this.dateFin)
+                - this.sommeCompte.soldeCompte(1680, 1681, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(1682, 1682, true, this.dateDebut, this.dateFin)
                 - this.sommeCompte.soldeCompte(1684, 1689, true, this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("17", this.dateDebut, this.dateFin)
-                - this.sommeCompte.sommeCompteFils("426", this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(450, 456, true, this.dateDebut, this.dateFin)
-                + this.sommeCompte.soldeCompteCrediteur(458, 459, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(512, 512, true, this.dateDebut, this.dateFin)
-                + this.sommeCompte.soldeCompteCrediteur(514, 514, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(517, 517, true, this.dateDebut, this.dateFin)
-                - this.sommeCompte.sommeCompteFils("5186", this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("519", this.dateDebut, this.dateFin);
+                - this.sommeCompte.sommeCompteFils("426", this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(450, 454, true, this.dateDebut, this.dateFin)
+                + this.sommeCompte.soldeCompteCrediteur(456, 456, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(458, 459, true, this.dateDebut, this.dateFin)
+                + this.sommeCompte.soldeCompteCrediteur(512, 512, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(514, 514, true, this.dateDebut, this.dateFin)
+                + this.sommeCompte.soldeCompteCrediteur(517, 517, true, this.dateDebut, this.dateFin) - this.sommeCompte.sommeCompteFils("5186", this.dateDebut, this.dateFin)
+                - this.sommeCompte.sommeCompteFils("519", this.dateDebut, this.dateFin);
         this.m.put("PASSIF3.25", GestionDevise.currencyToString(v156, false));
 
         // 151
@@ -786,11 +788,12 @@ public class Map2033A extends Thread {
                 + this.sommeCompte.soldeCompteCrediteur(444, 444, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(4455, 4455, true, this.dateDebut, this.dateFin)
                 + this.sommeCompte.soldeCompteCrediteur(44586, 44586, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(4457, 4457, true, this.dateDebut, this.dateFin)
                 + this.sommeCompte.soldeCompteCrediteur(44584, 44584, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(44587, 44587, true, this.dateDebut, this.dateFin)
-                - this.sommeCompte.soldeCompte(446, 447, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(4482, 4482, true, this.dateDebut, this.dateFin)
-                - this.sommeCompte.soldeCompte(4486, 4486, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(457, 457, true, this.dateDebut, this.dateFin)
-                - this.sommeCompte.soldeCompte(269, 269, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(279, 279, true, this.dateDebut, this.dateFin)
-                - this.sommeCompte.soldeCompte(404, 405, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(4084, 4084, true, this.dateDebut, this.dateFin)
-                - this.sommeCompte.soldeCompte(4088, 4088, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(4196, 4198, true, this.dateDebut, this.dateFin)
+                + this.sommeCompte.soldeCompteCrediteur(455, 455, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(446, 447, true, this.dateDebut, this.dateFin)
+                - this.sommeCompte.soldeCompte(4482, 4482, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(4486, 4486, true, this.dateDebut, this.dateFin)
+                - this.sommeCompte.soldeCompte(457, 457, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(269, 269, true, this.dateDebut, this.dateFin)
+                - this.sommeCompte.soldeCompte(279, 279, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(404, 405, true, this.dateDebut, this.dateFin)
+                - this.sommeCompte.soldeCompte(4084, 4084, true, this.dateDebut, this.dateFin) - this.sommeCompte.soldeCompte(4088, 4088, true, this.dateDebut, this.dateFin)
+                - this.sommeCompte.soldeCompte(4196, 4198, true, this.dateDebut, this.dateFin)
 
                 - this.sommeCompte.soldeCompte(464, 464, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(467, 467, true, this.dateDebut, this.dateFin)
                 + this.sommeCompte.soldeCompteCrediteur(4686, 4686, true, this.dateDebut, this.dateFin) + this.sommeCompte.soldeCompteCrediteur(478, 478, true, this.dateDebut, this.dateFin)
@@ -851,6 +854,7 @@ public class Map2033A extends Thread {
         this.m.put("PASSIF4.32", "");
         this.m.put("PASSIF4.33", "");
         this.m.put("PASSIF4.34", "");
+
         p.generateFrom(this.m);
 
         SwingUtilities.invokeLater(new Runnable() {
@@ -890,6 +894,7 @@ public class Map2033A extends Thread {
         this.dateDebut = dateDeb;
         this.dateFin = dateFin;
         this.sommeCompte = new SommeCompte(posteAnalytique);
+
     }
 
     public Map2033A(JProgressBar bar) {

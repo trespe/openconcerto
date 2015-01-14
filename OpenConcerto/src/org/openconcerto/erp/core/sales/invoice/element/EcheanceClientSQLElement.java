@@ -43,6 +43,7 @@ import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.EmailComposer;
 import org.openconcerto.ui.JDate;
+import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.GestionDevise;
 
@@ -293,17 +294,24 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
         }
     }
 
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        CollectionMap<String, String> map = new CollectionMap<String, String>();
+        return map;
+    }
+
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
 
-        l.add("ID_MOUVEMENT");
-        l.add("DATE");
-        l.add("MONTANT");
-        l.add("ID_CLIENT");
-        l.add("ID_SAISIE_VENTE_FACTURE");
-            l.add("NOMBRE_RELANCE");
-        l.add("INFOS");
-        l.add("DATE_LAST_RELANCE");
+
+            l.add("ID_SAISIE_VENTE_FACTURE");
+            l.add("DATE");
+            l.add("ID_CLIENT");
+            l.add("MONTANT");
+            l.add("ID_MOUVEMENT");
+                l.add("NOMBRE_RELANCE");
+            l.add("INFOS");
+            l.add("DATE_LAST_RELANCE");
         return l;
     }
 

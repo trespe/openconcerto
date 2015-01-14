@@ -63,6 +63,7 @@ public class ConfigCaissePanel extends JPanel {
     private final JComboBox comboUtilisateur;
     private final TicketLineTable headerTable;
     private final TicketLineTable footerTable;
+    private JTextField textTerminalCB;
 
     // Selecteur de societe
     // Selecteur d'utilisateur
@@ -237,6 +238,27 @@ public class ConfigCaissePanel extends JPanel {
         this.textLibJPOS = new JTextField();
         this.add(this.textLibJPOS, c);
 
+        // Terminal CB
+        final JLabelBold titleTerminalCB = new JLabelBold("Terminal CB");
+        c.anchor = GridBagConstraints.WEST;
+        c.gridwidth = 2;
+        c.gridx = 0;
+        c.gridy++;
+        c.weightx = 0;
+        this.add(titleTerminalCB, c);
+        c.gridx = 0;
+        c.gridy++;
+        c.weightx = 0;
+        c.gridwidth = 1;
+        c.anchor = GridBagConstraints.EAST;
+        c.fill = GridBagConstraints.NONE;
+        this.add(new JLabel("Port série", SwingConstants.RIGHT), c);
+        c.gridx++;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.textTerminalCB = new JTextField();
+        this.add(this.textTerminalCB, c);
+
         // Spacer
         c.gridx = 0;
         c.gridy++;
@@ -345,6 +367,7 @@ public class ConfigCaissePanel extends JPanel {
             this.comboType.setSelectedIndex(1);
             this.textPort.setText(Caisse.getESCPPort());
         }
+        this.textTerminalCB.setText(Caisse.getCardPort());
         this.textPrintWidth.setText(String.valueOf(Caisse.getTicketWidth()));
         this.textLibJPOS.setText(Caisse.getJPosDirectory());
         this.checkboxDouble.setSelected(Caisse.isCopyActive());
@@ -480,7 +503,7 @@ public class ConfigCaissePanel extends JPanel {
         Caisse.setUserID(this.userId);
         Caisse.setSocieteID(this.societeId);
         Caisse.setID(this.caisseId);
-
+        Caisse.setCardPort(this.textTerminalCB.getText());
         Caisse.setHeaders(this.headerTable.getLines());
         Caisse.setFooters(this.footerTable.getLines());
         Caisse.saveConfiguration();

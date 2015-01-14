@@ -20,8 +20,8 @@ import java.util.regex.Pattern;
 
 public class PGSQLBase extends SQLBase {
 
-    PGSQLBase(SQLServer server, String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
-        super(server, name, login, pass, dsInit);
+    PGSQLBase(SQLServer server, String name, IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+        super(server, name, systemRootInit, login, pass, dsInit);
     }
 
     // *** quoting
@@ -32,6 +32,8 @@ public class PGSQLBase extends SQLBase {
     @Override
     public final String quoteString(String s) {
         final String res = super.quoteString(s);
+        if (s == null)
+            return res;
         // see PostgreSQL Documentation 4.1.2.1 String Constants
         // escape \ by replacing them with \\
         final Matcher matcher = BACKSLASH_PATTERN.matcher(res);

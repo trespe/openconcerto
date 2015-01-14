@@ -21,8 +21,7 @@ import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.view.DropManager;
 import org.openconcerto.sql.view.FileDropHandler;
 import org.openconcerto.sql.view.list.IListeAction;
-import org.openconcerto.sql.view.list.RowAction;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ListMap;
 
 import java.util.Set;
 
@@ -38,23 +37,23 @@ public final class ComponentsContext extends ElementContext {
 
     private final Set<String> createdTables;
     // only for non-created tables
-    private final CollectionMap<String, String> createdFields;
+    private final ListMap<String, String> createdFields;
     // * module items
-    private final CollectionMap<SQLElement, String> fields;
-    private final CollectionMap<SQLElement, RowAction> rowActions;
+    private final ListMap<SQLElement, String> fields;
+    private final ListMap<SQLElement, IListeAction> rowActions;
 
     ComponentsContext(SQLElementDirectory dir, DBRoot root, final Set<String> tables, final Set<SQLName> fields) {
         super(dir, root);
         this.createdTables = tables;
-        this.createdFields = new CollectionMap<String, String>();
+        this.createdFields = new ListMap<String, String>();
         for (final SQLName f : fields) {
             assert f.getItemCount() == 2;
             final String tableName = f.getFirst();
             if (!this.createdTables.contains(tableName))
-                this.createdFields.put(tableName, f.getItem(1));
+                this.createdFields.add(tableName, f.getItem(1));
         }
-        this.fields = new CollectionMap<SQLElement, String>();
-        this.rowActions = new CollectionMap<SQLElement, RowAction>();
+        this.fields = new ListMap<SQLElement, String>();
+        this.rowActions = new ListMap<SQLElement, IListeAction>();
     }
 
     private final SQLElement checkField(final String tableName, final String name) {
@@ -68,7 +67,7 @@ public final class ComponentsContext extends ElementContext {
     public final void putAdditionalField(final String tableName, final String name) {
         final SQLElement elem = checkField(tableName, name);
         if (elem.putAdditionalField(name)) {
-            this.fields.put(elem, name);
+            this.fields.add(elem, name);
         } else {
             throw new IllegalStateException("Already added " + name + " in " + elem);
         }
@@ -77,7 +76,7 @@ public final class ComponentsContext extends ElementContext {
     public final void putAdditionalField(final String tableName, final String name, final JTextComponent comp) {
         final SQLElement elem = checkField(tableName, name);
         if (elem.putAdditionalField(name, comp)) {
-            this.fields.put(elem, name);
+            this.fields.add(elem, name);
         } else {
             throw new IllegalStateException("Already added " + name + " in " + elem);
         }
@@ -86,13 +85,13 @@ public final class ComponentsContext extends ElementContext {
     public final void putAdditionalField(final String tableName, final String name, final SQLTextCombo comp) {
         final SQLElement elem = checkField(tableName, name);
         if (elem.putAdditionalField(name, comp)) {
-            this.fields.put(elem, name);
+            this.fields.add(elem, name);
         } else {
             throw new IllegalStateException("Already added " + name + " in " + elem);
         }
     }
 
-    final CollectionMap<SQLElement, String> getFields() {
+    final ListMap<SQLElement, String> getFields() {
         return this.fields;
     }
 
@@ -100,11 +99,11 @@ public final class ComponentsContext extends ElementContext {
 
     public final void addListAction(final String tableName, final IListeAction action) {
         final SQLElement elem = getElement(tableName);
-        this.rowActions.put(elem, action);
+        this.rowActions.add(elem, action);
         elem.getRowActions().add(action);
     }
 
-    final CollectionMap<SQLElement, RowAction> getRowActions() {
+    final ListMap<SQLElement, IListeAction> getRowActions() {
         return this.rowActions;
     }
 

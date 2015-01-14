@@ -151,6 +151,7 @@ public class GraphMargePanel extends JPanel implements ChangeListener, ItemListe
                 return axisX.getLabels().get(dayChart.getHighlight().getIndexOnModel()).getLabel() + " " + combo.getSelectedItem() + " " + m.getYear() + ": " + n.longValue() + " €";
             }
         };
+        panel.setBackground(Color.WHITE);
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.fill = GridBagConstraints.NONE;
         JPanel p2 = new JPanel(new FlowLayout());

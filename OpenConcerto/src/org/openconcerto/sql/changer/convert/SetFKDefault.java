@@ -57,7 +57,7 @@ public class SetFKDefault extends Changer<SQLTable> {
                 correctDefaults = new ArrayList<String>(colCount);
                 for (final SQLField rf : link.getRefFields()) {
                     // from DatabaseMetadata.getColumns() : COLUMN_DEF is a string, i.e. SQL value
-                    correctDefaults.add((String) rf.getDefaultValue());
+                    correctDefaults.add(rf.getDefaultValue());
                 }
             }
             assert correctDefaults.size() == colCount;

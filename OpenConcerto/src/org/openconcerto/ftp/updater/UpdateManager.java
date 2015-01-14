@@ -269,7 +269,10 @@ public class UpdateManager implements Runnable {
             } catch (Throwable e) {
                 e.printStackTrace();
             }
-            Runtime.getRuntime().exec("java -jar " + updaterFilename);
+            String jHome = System.getProperty("java.home");
+            jHome += File.separatorChar + "bin" + File.separatorChar + "java";
+            Runtime.getRuntime().exec("\"" + jHome + "\" -jar " + updaterFilename);
+            JOptionPane.showMessageDialog(null, "Mise à jour terminée");
             System.exit(0);
 
         } catch (Exception e) {

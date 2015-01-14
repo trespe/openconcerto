@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+
+	<TABLE name="AFFAIRE_ELEMENT">
+		<FIELD name="ACTIVITE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous domaine" titlelabel="Sous domaine" />
+		<FIELD name="POURCENT_REALISE" label="% déjà réalisé"
+			titlelabel="% déjà réalisé" />
+		<FIELD name="TOTAL_HT_REALISE" label="Total déjà facturé"
+			titlelabel="Total déjà facturé" />
+		<FIELD name="ID_CODE_MISSION" label="Code Mission" />
+		<FIELD name="ID_DEPARTEMENT" label="Département" />
+		<FIELD name="ID_TARIF_MISSION" label="Code Client" />
+	</TABLE>
+
+	<TABLE name="CODE_MISSION">
+		<FIELD name="ACTIVITE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="OBJET_INSPECTE" label="Objet inspecté" />
+		<FIELD name="DUREE_MISSION" label="Durée prévue" />
+		<FIELD name="SOUS_TRAITANT" label="Sous traitant" />
+		<FIELD name="MAQUETTE" label="Maquette" />
+		<FIELD name="CONDITIONS" label="Conditions d'intervention" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous domaine" titlelabel="Sous domaine" />
+	</TABLE>
+
+	<TABLE name="AVOIR_CLIENT_ELEMENT">
+		<FIELD name="ID_CODE_MISSION" label="Code Mission" />
+		<FIELD name="ID_PERIODICITE" label="Pério. Contractuelle" />
+		<FIELD name="ID_TARIF_MISSION" label="Code Tarif" />
+	</TABLE>
+
+	<TABLE name="DEVIS">
+		<FIELD name="NUMERO" label="Numéro" />
+		<FIELD name="OBJET" label="Référence cmd client" />
+		<FIELD name="DATE_PREV" label="Intervention prévue le" />
+		<FIELD name="INDICE_0" label="Indice Syntec de base" />
+	</TABLE>
+
+	<TABLE name="DEVIS_ELEMENT">
+		<FIELD name="ID_CODE_MISSION" label="Code Mission" />
+		<FIELD name="ID_PERIODICITE" label="Pério. Contractuelle" />
+		<FIELD name="ID_TARIF_MISSION" label="Code Tarif" />
+	</TABLE>
+
+
+	<TABLE name="FICHE_RENDEZ_VOUS">
+		<FIELD name="ACTIVITE" label="Domaine" titlelabel="Domaine" />
+	</TABLE>
+
+	<TABLE name="FICHE_RENDEZ_VOUS_ELEMENT">
+		<FIELD name="ACTIVITE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous Domaine" titlelabel="Sous Domaine" />
+	</TABLE>
+
+
+	<TABLE name="LOG_MAILPROCESSOR">
+		<FIELD name="DATE" label="Date" />
+		<FIELD name="SIRET" label="Siret" />
+		<FIELD name="EXPEDITEUR" label="Expéditeur" />
+		<FIELD name="MAILBOX" label="Destinataire" />
+		<FIELD name="INFO" label="Informations" />
+	</TABLE>
+
+
+	<TABLE name="PROPOSITION_ELEMENT">
+		<FIELD name="ACTIVITE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous Domaine" titlelabel="Sous Domaine" />
+	</TABLE>
+
+	<TABLE name="SAISIE_VENTE_FACTURE_ELEMENT">
+		<FIELD name="ID_CODE_MISSION" label="Code Mission" />
+		<FIELD name="ID_DEPARTEMENT" label="Département" />
+		<FIELD name="ID_PERIODICITE" label="Pério. Contractuelle" />
+		<FIELD name="ID_TARIF_MISSION" label="Code Tarif" />
+		<FIELD name="ACTIVITE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous Domaine" titlelabel="Sous Domaine" />
+		<FIELD name="REPARTITION_POURCENT" label="Répartition %"
+			titlelabel="Répartition %" />
+	</TABLE>
+	
+	<TABLE name="AVOIR_CLIENT_ELEMENT">
+		<FIELD name="ID_CODE_MISSION" label="Code Mission" />
+		<FIELD name="ID_DEPARTEMENT" label="Département" />
+		<FIELD name="ID_PERIODICITE" label="Pério. Contractuelle" />
+		<FIELD name="ID_TARIF_MISSION" label="Code Tarif" />
+		<FIELD name="ACTIVITE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="SOUS_ACTIVITE" label="Sous Domaine" titlelabel="Sous Domaine" />
+		<FIELD name="REPARTITION_POURCENT" label="Répartition %"
+			titlelabel="Répartition %" />
+	</TABLE>
+
+	<TABLE name="SAISIE_VENTE_FACTURE">
+		<FIELD name="TYPE_INTERVENTION" label="Numéro Intervention"
+			titlelabel="Numéro Intervention" />
+	</TABLE>
+
+	<TABLE name="TARIF_MISSION_LIBELLE">
+		<FIELD name="NOM" label="Intitulé tarif" />
+	</TABLE>
+
+	<TABLE name="TARIF_MISSION">
+		<FIELD name="CODE_CLIENT" label="Code Tarif" />
+		<FIELD name="TARIF_HT" label="Tarif" />
+		<FIELD name="ID_TARIF_MISSION_LIBELLE" label="Tarif" />
+		<FIELD name="ID_CODE_MISSION" label="Mission" />
+	</TABLE>
+
+	<TABLE name="AVOIR_CLIENT">
+	
+		<FIELD name="NOM" label="Référence" titlelabel="Référence" />
+	</TABLE>
+
+</ROOT>

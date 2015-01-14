@@ -13,8 +13,12 @@
  
  package org.openconcerto.ui;
 
+import org.openconcerto.utils.OSFamily;
+
 import java.awt.Dimension;
 import java.awt.Frame;
+import java.awt.GraphicsConfiguration;
+import java.awt.GraphicsDevice;
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;
 import java.awt.Window;
@@ -52,16 +56,43 @@ public class FrameUtil {
         w.setBounds(getWindowBounds());
     }
 
+    private static final int getArea(final GraphicsConfiguration gc) {
+        final Rectangle dm = gc.getBounds();
+        return dm.width * dm.height;
+    }
+
     public static final Rectangle getWindowBounds() {
         final GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
-        final Rectangle dm = new Rectangle(ge.getMaximumWindowBounds());
+        final Rectangle dm;
+        // see https://bugs.launchpad.net/ubuntu/+source/openjdk-7/+bug/1171563
+        // Incorrectly calculated screen insets, e.g. Insets[top=24,left=1345,bottom=0,right=0] for
+        // Toolkit.getDefaultToolkit().getScreenInsets(GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration());
+        // see https://bugs.openjdk.java.net/browse/JDK-8020443
+        final GraphicsDevice[] screens = ge.getScreenDevices();
+        if (screens.length > 1 && OSFamily.getInstance() == OSFamily.Linux) {
+            GraphicsConfiguration largest = null;
+            for (final GraphicsDevice screen : screens) {
+                final GraphicsConfiguration current = screen.getDefaultConfiguration();
+                if (largest == null || getArea(current) > getArea(largest))
+                    largest = current;
+            }
+            assert largest != null;
+            dm = new Rectangle(largest.getBounds());
+        } else {
+            dm = new Rectangle(ge.getMaximumWindowBounds());
+        }
         // don't use ge.getDefaultScreenDevice().getDisplayMode(); sometimes null in NX
         // see http://bugs.sun.com/bugdatabase/view_bug.do?bug_id=6921661
 
         // Always leave some space to see other windows (plus at least on Ubuntu with
-        // 1.6.0_24 dm is the screen size)
+        // 1.6.0_24 dm is the screen size ; also with the getMaximumWindowBounds() workaround)
         dm.grow(dm.getWidth() <= 800 ? -20 : -50, dm.getHeight() <= 600 ? -20 : -50);
 
         return dm;
+    }
+
+    // easily debug systems
+    public static void main(String[] args) {
+        System.out.println("getWindowBounds(): " + getWindowBounds());
     }
 }

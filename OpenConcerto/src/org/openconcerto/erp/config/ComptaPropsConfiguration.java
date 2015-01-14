@@ -17,6 +17,7 @@ import static java.util.Arrays.asList;
 import org.openconcerto.erp.core.common.component.SocieteCommonSQLElement;
 import org.openconcerto.erp.core.common.element.AdresseCommonSQLElement;
 import org.openconcerto.erp.core.common.element.AdresseSQLElement;
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.common.element.DepartementSQLElement;
 import org.openconcerto.erp.core.common.element.LangueSQLElement;
 import org.openconcerto.erp.core.common.element.MoisSQLElement;
@@ -135,6 +136,8 @@ import org.openconcerto.erp.core.supplychain.order.element.FactureFournisseurSQL
 import org.openconcerto.erp.core.supplychain.order.element.SaisieAchatSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.TransferPurchaseSQLElement;
 import org.openconcerto.erp.core.supplychain.order.element.TransferSupplierOrderSQLElement;
+import org.openconcerto.erp.core.supplychain.product.element.ArticleFournisseurSQLElement;
+import org.openconcerto.erp.core.supplychain.product.element.FamilleArticleFounisseurSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionElementSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.BonReceptionSQLElement;
 import org.openconcerto.erp.core.supplychain.receipt.element.CodeFournisseurSQLElement;
@@ -155,6 +158,9 @@ import org.openconcerto.erp.generationDoc.provider.FormatedGlobalQtyTotalProvide
 import org.openconcerto.erp.generationDoc.provider.LabelAccountInvoiceProvider;
 import org.openconcerto.erp.generationDoc.provider.MergedGlobalQtyTotalProvider;
 import org.openconcerto.erp.generationDoc.provider.ModeDeReglementDetailsProvider;
+import org.openconcerto.erp.generationDoc.provider.PaiementRemainedProvider;
+import org.openconcerto.erp.generationDoc.provider.PrixUVProvider;
+import org.openconcerto.erp.generationDoc.provider.PrixUnitaireProvider;
 import org.openconcerto.erp.generationDoc.provider.PrixUnitaireRemiseProvider;
 import org.openconcerto.erp.generationDoc.provider.QteTotalProvider;
 import org.openconcerto.erp.generationDoc.provider.RefClientValueProvider;
@@ -342,7 +348,10 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             return new ComptaPropsConfiguration(props, inWebStart, true);
         } catch (final IOException e) {
             e.printStackTrace();
-            ExceptionHandler.die("Impossible de lire le fichier de configuration.", e);
+            String title = "Logiciel non configuré";
+            String message = "Impossible de lire le fichier de configuration.\nIl est nécessaire d'utiliser le logiciel de Configuration pour paramétrer le logiciel.";
+            JOptionPane.showMessageDialog(new JFrame(), message, title, JOptionPane.ERROR_MESSAGE);
+            System.exit(2);
             // never reached since we're already dead
             return null;
         }
@@ -440,6 +449,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         UserModifyInitialsValueProvider.register();
         UserCurrentInitialsValueProvider.register();
         PrixUnitaireRemiseProvider.register();
+        PrixUnitaireProvider.register();
+        PrixUVProvider.register();
         TotalAcompteProvider.register();
         FacturableValueProvider.register();
         TotalCommandeClientProvider.register();
@@ -454,6 +465,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         ModeDeReglementDetailsProvider.register();
         FormatedGlobalQtyTotalProvider.register();
         MergedGlobalQtyTotalProvider.register();
+        PaiementRemainedProvider.register();
     }
 
     @Override
@@ -563,15 +575,15 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         return new File(this.getConfDir(), "DBData");
     }
 
-    private final void createDB() {
+    private final void createDB(final DBSystemRoot sysRoot) {
         if (!this.isServerless())
             return;
-        // super to avoid infinite recursion, and so we can close it afterwards
-        final SQLServer tmpServer = super.createServer();
         try {
             // H2 create the database on connection
-            final DBSystemRoot sysRoot = tmpServer.getSystemRoot(this.getSystemRootName());
-            if (!sysRoot.contains(getRootName())) {
+            // don't create if root explicitly excluded (e.g. map no roots just to quickly test
+            // connection)
+            if (sysRoot.shouldMap(getRootName()) && !sysRoot.contains(getRootName())) {
+                Log.get().warning("Creating DB");
                 String createScript = null;
                 try {
                     createScript = this.getResource("/webstart/create.sql");
@@ -581,17 +593,25 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
                 if (createScript == null)
                     throw new IllegalStateException("Couldn't find database creation script");
                 final SQLDataSource ds = sysRoot.getDataSource();
-                ds.execute("RUNSCRIPT from '" + createScript + "' ;");
+                ds.execute("RUNSCRIPT from '" + createScript + "' CHARSET 'UTF-8' ;");
+                sysRoot.refetch();
+                this.setupSystemRoot(sysRoot);
             }
-        } finally {
-            tmpServer.destroy();
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("Couldn't create database", e);
         }
     }
 
     @Override
     protected DBSystemRoot createSystemRoot() {
-        this.createDB();
-        return super.createSystemRoot();
+        final DBSystemRoot res = super.createSystemRoot();
+        // Don't create a separate server for createDB() as on normal databases just setting up a
+        // data source can take 2 seconds (e.g. validateConnectionFactory()). And this is for every
+        // boot.
+        this.createDB(res);
+        return res;
     }
 
     @Override
@@ -644,6 +664,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         SQLElementDirectory dir = this.getDirectory();
         dir.addSQLElement(ArticleTarifSQLElement.class);
         dir.addSQLElement(ArticleDesignationSQLElement.class);
+        dir.addSQLElement(BanqueSQLElement.class);
         dir.addSQLElement(ContactFournisseurSQLElement.class);
         dir.addSQLElement(ContactAdministratifSQLElement.class);
         dir.addSQLElement(new TitrePersonnelSQLElement());
@@ -679,6 +700,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new AdresseSQLElement());
 
         dir.addSQLElement(ReferenceArticleSQLElement.class);
+        dir.addSQLElement(ArticleFournisseurSQLElement.class);
+        dir.addSQLElement(FamilleArticleFounisseurSQLElement.class);
 
         dir.addSQLElement(new AssociationCompteAnalytiqueSQLElement());
         dir.addSQLElement(new AvoirClientSQLElement());
@@ -792,6 +815,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         dir.addSQLElement(new SaisieVenteComptoirSQLElement());
         dir.addSQLElement(new SaisieVenteFactureSQLElement());
         dir.addSQLElement(new TransferInvoiceSQLElement());
+        // at the end since it specifies action which initialize foreign keys
+        dir.addSQLElement(AssociationAnalytiqueSQLElement.class);
             dir.addSQLElement(new SaisieVenteFactureItemSQLElement());
 
         dir.addSQLElement(SituationFamilialeSQLElement.class);
@@ -861,12 +886,21 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
     private void setSocieteShowAs() {
         final ShowAs showAs = this.getShowAs();
         showAs.setRoot(getRootSociete());
-        showAs.show("ARTICLE", "NOM", "ID_FAMILLE_ARTICLE");
+
         showAs.show("ACTIVITE", "CODE_ACTIVITE");
         showAs.show("ADRESSE", SQLRow.toList("RUE,CODE_POSTAL,VILLE"));
         final DBRoot root = this.getRootSociete();
 
         showAs.show("AXE_ANALYTIQUE", "NOM");
+
+        List<String> lEcr = new ArrayList<String>();
+
+        lEcr.add("ID_MOUVEMENT");
+        lEcr.add("ID_JOURNAL");
+        lEcr.add("ID_COMPTE_PCE");
+        lEcr.add("DATE");
+
+        showAs.show(root.getTable("ASSOCIATION_ANALYTIQUE").getField("ID_ECRITURE"), lEcr);
 
         showAs.show("CHEQUE_A_ENCAISSER", "MONTANT", "ID_CLIENT");
                 if (getRootSociete().getTable("CLIENT").getFieldsName().contains("LOCALISATION")) {
@@ -874,6 +908,8 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
                 } else {
                     showAs.show("CLIENT", "NOM");
                 }
+
+        showAs.show(BanqueSQLElement.TABLENAME, "NOM");
 
         showAs.show("CLASSEMENT_CONVENTIONNEL", "NIVEAU", "COEFF");
         showAs.show("CODE_EMPLOI", SQLRow.toList("CODE,NOM"));
@@ -900,9 +936,13 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
         showAs.show("ECRITURE", SQLRow.toList("NOM,DATE,ID_COMPTE_PCE,DEBIT,CREDIT"));
         showAs.show("ECHEANCE_CLIENT", SQLRow.toList("ID_CLIENT,ID_MOUVEMENT"));
+        final List<String> lEchFact = new ArrayList<String>();
+        lEchFact.add("NUMERO");
+        lEchFact.add("DATE");
+        SQLTable tableEch = root.getTable("ECHEANCE_CLIENT");
+        showAs.show(tableEch.getField("ID_SAISIE_VENTE_FACTURE"), lEchFact);
 
         showAs.show("ECHEANCE_FOURNISSEUR", SQLRow.toList("ID_FOURNISSEUR,ID_MOUVEMENT"));
-        showAs.show("FAMILLE_ARTICLE", "NOM");
         showAs.show("FICHE_PAYE", SQLRow.toList("ID_MOIS,ANNEE"));
         showAs.show("FOURNISSEUR", "NOM");
 
@@ -941,7 +981,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         showAs.show("SALARIE", SQLRow.toList("CODE,NOM,PRENOM"));
 
         showAs.show("SITUATION_FAMILIALE", "NOM");
-        showAs.show("STOCK", "QTE_REEL");
+
         showAs.show("STYLE", "NOM");
 
         showAs.show("TAXE", "TAUX");
@@ -974,16 +1014,19 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         loadTranslations(this.getTranslator(), rootSociete, Arrays.asList("mappingCompta", "mapping-" + customerName));
         setSocieteShowAs();
         setSocieteSQLInjector();
-        setMapper();
+        configureGlobalMapper();
+        setFieldMapper(new FieldMapper(this.getRootSociete()));
+        getFieldMapper().addMapperStreamFromClass(Gestion.class);
         TemplateNXProps.getInstance();
         // Prefetch undefined
         rootSociete.getTables().iterator().next().getUndefinedID();
     }
 
-    private void setMapper() {
+    private void configureGlobalMapper() {
+
         FieldMapper fieldMapper = new FieldMapper(this.getRootSociete());
         fieldMapper.addMapperStreamFromClass(Gestion.class);
-        setFieldMapper(fieldMapper);
+
     }
 
     private void closeSocieteConnexion() {
@@ -1005,7 +1048,6 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
             SQLServer server = super.createServer();
             return server;
         }
-
         InProgressFrame progress = new InProgressFrame();
         progress.show("Connexion à votre base de données en cours");
         try {

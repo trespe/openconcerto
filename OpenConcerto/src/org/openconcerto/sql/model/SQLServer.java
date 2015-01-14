@@ -58,6 +58,14 @@ public final class SQLServer extends DBStructureItemJDBC {
         }
     };
 
+    static private final <T> IClosure<? super T> coalesce(IClosure<? super T> o1, IClosure<? super T> o2) {
+        // ternary operator makes Eclipse fail
+        if (o1 != null)
+            return o1;
+        else
+            return o2;
+    }
+
     public static final DBSystemRoot create(final SQL_URL url) {
         return create(url, Collections.<String> emptySet(), null);
     }
@@ -95,7 +103,7 @@ public final class SQLServer extends DBStructureItemJDBC {
         return res;
     }
 
-    public static final DBSystemRoot create(final SQL_URL url, final IClosure<DBSystemRoot> systemRootInit, final IClosure<SQLDataSource> dsInit) {
+    public static final DBSystemRoot create(final SQL_URL url, final IClosure<? super DBSystemRoot> systemRootInit, final IClosure<? super SQLDataSource> dsInit) {
         return new SQLServer(url.getSystem(), url.getServerName(), null, url.getLogin(), url.getPass(), systemRootInit, dsInit).getSystemRoot(url.getSystemRootName());
     }
 
@@ -105,7 +113,7 @@ public final class SQLServer extends DBStructureItemJDBC {
     private final SQLSystem system;
     private final String login;
     private final String pass;
-    private final IClosure<DBSystemRoot> systemRootInit;
+    private final IClosure<? super DBSystemRoot> systemRootInit;
     @GuardedBy("baseMutex")
     private CopyOnWriteMap<String, SQLBase> bases;
     private Object baseMutex = new String("base mutex");
@@ -117,7 +125,7 @@ public final class SQLServer extends DBStructureItemJDBC {
     private SQLDataSource ds;
     @GuardedBy("this")
     private boolean dsSet;
-    private final IClosure<SQLDataSource> dsInit;
+    private final IClosure<? super SQLDataSource> dsInit;
     private final ITransformer<String, String> urlTransf;
 
     @GuardedBy("this")
@@ -148,7 +156,7 @@ public final class SQLServer extends DBStructureItemJDBC {
      * @param dsInit to initialize the datasource before any request (e.g. setting JDBC properties),
      *        must be thread-safe, can be <code>null</code>.
      */
-    public SQLServer(SQLSystem system, String host, String port, String login, String pass, IClosure<DBSystemRoot> systemRootInit, IClosure<SQLDataSource> dsInit) {
+    public SQLServer(SQLSystem system, String host, String port, String login, String pass, IClosure<? super DBSystemRoot> systemRootInit, IClosure<? super SQLDataSource> dsInit) {
         super(null, host);
         this.ds = null;
         this.dsSet = false;
@@ -182,7 +190,10 @@ public final class SQLServer extends DBStructureItemJDBC {
      * Signal that this server and its descendants will not be used anymore.
      */
     public final void destroy() {
-        this.dropped();
+        synchronized (this.getTreeMutex()) {
+            if (!this.isDropped())
+                this.dropped();
+        }
     }
 
     @Override
@@ -283,7 +294,7 @@ public final class SQLServer extends DBStructureItemJDBC {
                                     // ignore tablesToRefresh if the base didn't exist (see
                                     // SQLBase.assureAllTables())
                                     // we already have the datasource, so login/pass aren't used
-                                    jdbcTables = createBase(cat, "", "", DSINIT_ERROR, readCache);
+                                    jdbcTables = createBase(cat, null, "", "", DSINIT_ERROR, readCache);
                                 }
                                 if (!jdbcTables.isEmpty())
                                     res.put(cat, jdbcTables);
@@ -381,33 +392,34 @@ public final class SQLServer extends DBStructureItemJDBC {
      *        <code>null</code> meaning take the server one.
      * @return the corresponding base.
      */
-    public SQLBase getBase(String baseName, String login, String pass, IClosure<SQLDataSource> dsInit) {
-        return this.getBase(baseName, login, pass, dsInit, true);
+    public SQLBase getBase(String baseName, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+        return this.getBase(baseName, null, login, pass, dsInit, true);
     }
 
-    public SQLBase getBase(String baseName, String login, String pass, IClosure<SQLDataSource> dsInit, boolean readCache) {
+    public SQLBase getBase(String baseName, final IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit, boolean readCache) {
         if (this.getDBSystemRoot() != null)
             throw new IllegalStateException("getBase(name, login, pass) should only be used for systems where SQLBase is DBSystemRoot");
         synchronized (this.getTreeMutex()) {
             SQLBase base = this.getBase(baseName);
             if (base == null) {
-                this.createBase(baseName, login, pass, dsInit, readCache);
+                this.createBase(baseName, systemRootInit, login, pass, dsInit, readCache);
                 base = this.getBase(baseName);
             }
             return base;
         }
     }
 
-    private final TablesMap createBase(String baseName, String login, String pass, IClosure<SQLDataSource> dsInit, boolean readCache) {
+    private final TablesMap createBase(String baseName, IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit, boolean readCache) {
         final DBSystemRoot sysRoot = this.getDBSystemRoot();
         if (sysRoot != null && !sysRoot.createNode(this, baseName))
             throw new IllegalStateException(baseName + " is filtered, you must add it to rootsToMap");
-        final SQLBase base = this.getSQLSystem().getSyntax().createBase(this, baseName, login == null ? this.login : login, pass == null ? this.pass : pass, dsInit != null ? dsInit : this.dsInit);
+        final SQLBase base = this.getSQLSystem().getSyntax()
+                .createBase(this, baseName, coalesce(systemRootInit, this.systemRootInit), login == null ? this.login : login, pass == null ? this.pass : pass, coalesce(dsInit, this.dsInit));
         return this.putBase(baseName, base, readCache);
     }
 
     public final DBSystemRoot getSystemRoot(String name) {
-        return this.getSystemRoot(name, null, null, null);
+        return this.getSystemRoot(name, null, null, null, null);
     }
 
     /**
@@ -416,6 +428,7 @@ public final class SQLServer extends DBStructureItemJDBC {
      * 
      * @param name name of the system root, NOTE: for some systems the server is the systemRoot so
      *        <code>name</code> will be silently ignored.
+     * @param systemRootInit to initialize the {@link DBSystemRoot} before setting the data source.
      * @param login the login, <code>null</code> means default.
      * @param pass the password, <code>null</code> means default.
      * @param dsInit to initialize the datasource before any request (eg setting jdbc properties),
@@ -423,10 +436,10 @@ public final class SQLServer extends DBStructureItemJDBC {
      * @return the corresponding systemRoot.
      * @see #isSystemRootCreated(String)
      */
-    public final DBSystemRoot getSystemRoot(String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
+    public final DBSystemRoot getSystemRoot(String name, final IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
         synchronized (this.getTreeMutex()) {
             if (!this.isSystemRootCreated(name)) {
-                return this.createSystemRoot(name, login, pass, dsInit);
+                return this.createSystemRoot(name, systemRootInit, login, pass, dsInit);
             } else {
                 final DBSystemRoot res;
                 final DBSystemRoot sysRoot = this.getDBSystemRoot();
@@ -440,15 +453,15 @@ public final class SQLServer extends DBStructureItemJDBC {
         }
     }
 
-    private final DBSystemRoot createSystemRoot(String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
+    private final DBSystemRoot createSystemRoot(String name, IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
         final DBSystemRoot res;
         synchronized (this.getTreeMutex()) {
             final DBSystemRoot sysRoot = this.getDBSystemRoot();
             if (sysRoot != null) {
                 res = sysRoot;
-                res.setDS(login == null ? this.login : login, pass == null ? this.pass : pass, dsInit != null ? dsInit : this.dsInit);
+                res.setDS(coalesce(systemRootInit, this.systemRootInit), login == null ? this.login : login, pass == null ? this.pass : pass, coalesce(dsInit, this.dsInit));
             } else {
-                res = this.getBase(name, login, pass, dsInit).getDBSystemRoot();
+                res = this.getBase(name, coalesce(systemRootInit, this.systemRootInit), login, pass, dsInit, true).getDBSystemRoot();
             }
         }
         return res;
@@ -541,14 +554,6 @@ public final class SQLServer extends DBStructureItemJDBC {
 
     public final SQLSystem getSQLSystem() {
         return this.system;
-    }
-
-    void init(DBSystemRoot systemRoot) {
-        if (this.systemRootInit != null)
-            // allow it to not be thread-safe
-            synchronized (this.systemRootInit) {
-                this.systemRootInit.executeChecked(systemRoot);
-            }
     }
 
     public final synchronized void setID(final String id) {

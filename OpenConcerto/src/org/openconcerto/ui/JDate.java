@@ -27,6 +27,7 @@ import java.awt.event.KeyEvent;
 import java.beans.PropertyChangeListener;
 import java.text.DateFormat;
 import java.text.Format;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -158,7 +159,16 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
 
     @Override
     public void setFormats(DateFormat[] formats) {
-        final InternationalFormatter formatter = new InternationalFormatter(new FormatGroup(formats));
+        final InternationalFormatter formatter = new InternationalFormatter(new FormatGroup(formats)) {
+            @Override
+            public Object stringToValue(String text) throws ParseException {
+                // JXDatePickerFormatter used to handle null date ; InternationalFormatter only use
+                // the formats which obviously fail to parse "" and so revert the empty value.
+                if (text == null || text.isEmpty())
+                    return null;
+                return super.stringToValue(text);
+            }
+        };
         formatter.setCommitsOnValidEdit(this.commitEachValidEdit);
         this.getEditor().setFormatterFactory(new DefaultFormatterFactory(formatter));
     }

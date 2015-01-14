@@ -30,7 +30,7 @@ import java.util.List;
  * Add rights tables.
  * 
  * @author Sylvain
- * @see {@link UserRightsManager}
+ * @see UserRightsManager
  */
 public class AddUserRight extends Changer<DBRoot> {
 

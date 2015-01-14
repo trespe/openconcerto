@@ -13,11 +13,10 @@
  
  package org.openconcerto.erp.core.finance.payment.component;
 
-import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Log;
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
 import org.openconcerto.erp.model.BanqueModifiedListener;
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
@@ -143,6 +142,21 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
          * SELECTION DU MODE DE REGLEMENT
          ******************************************************************************************/
         this.comboA = new SQLTextCombo(false);
+
+        final GridBagConstraints cB = new DefaultGridBagConstraints();
+        this.panelBanque.setOpaque(false);
+        this.panelBanque.add(new JLabel(getLabelFor("ID_" + BanqueSQLElement.TABLENAME)), cB);
+        cB.weightx = 1;
+        cB.gridx++;
+        this.panelBanque.add(this.boxBanque, cB);
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(this.panelBanque, c);
+
+        c.gridwidth = 1;
+        c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
         c.gridy++;
         c.gridheight = 1;
         this.add(new JLabel("Règlement par"), c);
@@ -156,6 +170,7 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
         // Mode de règlement
         c.gridx++;
         DefaultGridBagConstraints.lockMinimumSize(this.checkboxComptant);
+        this.checkboxComptant.setOpaque(false);
         this.add(this.checkboxComptant, c);
 
         // Infos sur le reglement, depend du type de reglement et du comptant oui/non
@@ -192,20 +207,27 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
 
         // Listeners
 
+        this.addSQLObject(this.boxBanque, "ID_" + BanqueSQLElement.TABLENAME);
+        this.boxBanque.setButtonsVisible(false);
+        this.boxBanque.setOpaque(false);
+        this.boxBanque.addModelListener("wantedID", new PropertyChangeListener() {
+            @Override
+            public void propertyChange(final PropertyChangeEvent evt) {
+                final Integer i = ModeDeReglementSQLComponent.this.boxBanque.getWantedID();
+                final int value = (i == null) ? -1 : Integer.valueOf(i);
+                fireBanqueIdChange(value);
+            }
+        });
+
         this.comboTypeReglement.addValueListener(new PropertyChangeListener() {
 
             @Override
             public void propertyChange(final PropertyChangeEvent evt) {
                 final Integer id = ModeDeReglementSQLComponent.this.comboTypeReglement.getValue();
-                // System.err.println("value changed to " + id);
                 if (id != null && id > 1) {
 
                     final SQLRow ligneTypeReg = SQLBackgroundTableCache.getInstance().getCacheForTable(getTable().getBase().getTable("TYPE_REGLEMENT")).getRowFromId(id);
-
                     setComponentModeEnabled(ligneTypeReg);
-
-                    // setEcheanceEnabled(!ModeDeReglementNGSQLComponent.this.checkboxComptant.isSelected());
-
                 }
             }
         });
@@ -328,6 +350,7 @@ public class ModeDeReglementSQLComponent extends BaseSQLComponent {
         this.infosCheque.add(this.dateDepot, cCheque);
         this.m.put(Mode.CHEQUE, this.infosCheque);
         this.infosCheque.setVisible(false);
+        this.infosCheque.setOpaque(false);
         DefaultGridBagConstraints.lockMinimumSize(this.infosCheque);
     }
 

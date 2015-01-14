@@ -23,14 +23,18 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import net.jcip.annotations.Immutable;
+
 /**
  * A dotted SQL name, eg "table.field" or "schema.table".
  * 
  * @author Sylvain
  */
+@Immutable
 public final class SQLName {
 
     private static final Pattern unquoted = Pattern.compile("\\w+");
+    private static final Pattern MS_END_QUOTE = Pattern.compile("]", Pattern.LITERAL);
 
     /**
      * Parse a possibly quoted string to an SQL name.
@@ -39,25 +43,34 @@ public final class SQLName {
      * @return the corresponding SQL name, eg "public"."ta.ble seq".
      */
     public static SQLName parse(String name) {
+        return parse(name, '"', '"');
+    }
+
+    public static SQLName parseMS(String name) {
+        // lucky for us, the rules are the same as for standard SQL
+        return parse(name, '[', ']');
+    }
+
+    private static SQLName parse(String name, final char startQuote, final char endQuote) {
         name = name.trim();
         final List<String> res = new ArrayList<String>();
         int index = 0;
         while (index < name.length()) {
             final char c = name.charAt(index);
-            final boolean inQuote = c == '"';
+            final boolean inQuote = c == startQuote;
             if (inQuote) {
                 // pass the opening quote
                 index += 1;
-                int index2 = findNextQuote(name, index);
+                int index2 = findNextQuote(name, index, endQuote);
                 // handle escaped "
                 String part = "";
                 // while the char after " is also "
-                while ((index2 + 1) < name.length() && name.charAt(index2 + 1) == '"') {
+                while ((index2 + 1) < name.length() && name.charAt(index2 + 1) == endQuote) {
                     // index2+1 to keep the first quote
                     part += name.substring(index, index2 + 1);
                     // pass ""
                     index = index2 + 2;
-                    index2 = findNextQuote(name, index);
+                    index2 = findNextQuote(name, index, endQuote);
                 }
                 part += name.substring(index, index2);
                 res.add(part);
@@ -84,14 +97,14 @@ public final class SQLName {
         return new SQLName(res);
     }
 
-    private static int findNextQuote(final String name, final int index) {
-        final int res = name.indexOf('"', index);
+    private static int findNextQuote(final String name, final int index, final char c) {
+        final int res = name.indexOf(c, index);
         if (res < 0)
             throw new IllegalArgumentException("no corresponding quote " + index);
         return res;
     }
 
-    final List<String> items;
+    private final List<String> items;
 
     public SQLName(String... items) {
         this(Arrays.asList(items));
@@ -105,11 +118,20 @@ public final class SQLName {
      * @param items the names.
      */
     public SQLName(List<String> items) {
+        this(items, false);
+    }
+
+    private SQLName(List<String> items, final boolean safe) {
         super();
-        this.items = new ArrayList<String>(items.size());
-        for (final String item : items) {
-            if (item != null && item.length() > 0)
-                this.items.add(item);
+        if (safe) {
+            this.items = items;
+        } else {
+            final List<String> tmp = new ArrayList<String>(items.size());
+            for (final String item : items) {
+                if (item != null && item.length() > 0)
+                    tmp.add(item);
+            }
+            this.items = Collections.unmodifiableList(tmp);
         }
     }
 
@@ -122,6 +144,14 @@ public final class SQLName {
         return CollectionUtils.join(this.items, ".", new ITransformer<String, String>() {
             public String transformChecked(String input) {
                 return SQLBase.quoteIdentifier(input);
+            }
+        });
+    }
+
+    public String quoteMS() {
+        return CollectionUtils.join(this.items, ".", new ITransformer<String, String>() {
+            public String transformChecked(String input) {
+                return '[' + MS_END_QUOTE.matcher(input).replaceAll("]]") + ']';
             }
         });
     }
@@ -171,7 +201,7 @@ public final class SQLName {
     }
 
     public SQLName getRest() {
-        return new SQLName(this.items.subList(1, this.items.size()));
+        return new SQLName(this.items.subList(1, this.items.size()), true);
     }
 
     /**
@@ -190,7 +220,7 @@ public final class SQLName {
             final List<String> l = new ArrayList<String>(fromCount);
             l.addAll(from.asList().subList(0, fromCount - toCount));
             l.addAll(to.asList());
-            return new SQLName(l);
+            return new SQLName(Collections.unmodifiableList(l), true);
         }
     }
 
@@ -216,12 +246,12 @@ public final class SQLName {
         if (common == 0) {
             return to;
         } else {
-            return new SQLName(to.asList().subList(common, toCount));
+            return new SQLName(to.asList().subList(common, toCount), true);
         }
     }
 
     public final List<String> asList() {
-        return Collections.unmodifiableList(this.items);
+        return this.items;
     }
 
     @Override

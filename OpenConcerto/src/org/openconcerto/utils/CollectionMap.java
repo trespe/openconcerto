@@ -32,8 +32,11 @@ import org.apache.commons.collections.MultiMap;
  * @author ILM Informatique 8 sept. 2004
  * @param <K> type of the keys
  * @param <V> type of elements in collections
+ * @deprecated this class is not type safe and its superclass has been removed from Apache
+ *             Collections 3.2, use {@link CollectionMap2}
  */
 @SuppressWarnings("unchecked")
+@Deprecated
 public class CollectionMap<K, V> extends MultiHashMap {
 
     private static final int DEFAULT_CAPACITY = 16;
@@ -180,7 +183,7 @@ public class CollectionMap<K, V> extends MultiHashMap {
         return this.collectionClass;
     }
 
-    public void removeAll(CollectionMap<? extends K, ? extends V> mm) {
+    public void removeAllFromCollections(CollectionMap<? extends K, ? extends V> mm) {
         for (final Map.Entry<? extends K, ?> e : mm.entrySet()) {
             final Collection<V> coll = this.getNull(e.getKey());
             if (coll != null) {

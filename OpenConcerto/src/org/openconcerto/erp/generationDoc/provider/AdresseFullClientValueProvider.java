@@ -45,6 +45,7 @@ public class AdresseFullClientValueProvider extends AdresseClientProvider {
     }
 
     public static void register() {
+        SpreadSheetCellValueProviderManager.put("address.customer.full", new AdresseFullClientValueProvider(ADRESSE_PRINCIPALE));
         SpreadSheetCellValueProviderManager.put("address.customer.invoice.full", new AdresseFullClientValueProvider(ADRESSE_FACTURATION));
         SpreadSheetCellValueProviderManager.put("address.customer.shipment.full", new AdresseFullClientValueProvider(ADRESSE_LIVRAISON));
     }

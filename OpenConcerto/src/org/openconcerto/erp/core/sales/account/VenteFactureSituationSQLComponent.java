@@ -21,12 +21,14 @@ import org.openconcerto.erp.core.common.ui.AcompteField;
 import org.openconcerto.erp.core.common.ui.AcompteRowItemView;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
+import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable.TypeCalcul;
 import org.openconcerto.erp.core.sales.invoice.element.SaisieVenteFactureSQLElement;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.ui.FactureSituationItemTable;
 import org.openconcerto.erp.generationEcritures.GenerationMvtSaisieVenteFacture;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.ElementSQLObject;
+import org.openconcerto.sql.element.GlobalMapper;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -63,7 +65,7 @@ public class VenteFactureSituationSQLComponent extends TransfertGroupSQLComponen
     public static final String ID = "sales.invoice.partial";
 
     public VenteFactureSituationSQLComponent(SQLElement element) {
-        super(element, new PartialInvoiceEditGroup());
+        super(element, (Group) GlobalMapper.getInstance().get(ID));
     }
 
     public VenteFactureSituationSQLComponent(SQLElement element, Group p) {
@@ -145,7 +147,7 @@ public class VenteFactureSituationSQLComponent extends TransfertGroupSQLComponen
             @Override
             public void update(DocumentEvent e) {
                 Acompte a = acompteField.getValue();
-                table.calculPourcentage(a);
+                table.calculPourcentage(a,TypeCalcul.CALCUL_FACTURABLE);
             }
         });
         final TotalPanel total = ((TotalPanel) getEditor("sales.invoice.partial.total.amount"));
@@ -159,6 +161,19 @@ public class VenteFactureSituationSQLComponent extends TransfertGroupSQLComponen
         });
 
     }
+
+    int countPole = 0;
+
+    // @Override
+    // public Component addView(MutableRowItemView rowItemView, String fields, Object specObj) {
+    //
+    // if (fields.contains("ID_POLE_PRODUIT") && countPole == 0) {
+    // countPole++;
+    // return null;
+    // } else {
+    // return super.addView(rowItemView, fields, specObj);
+    // }
+    // }
 
     @Override
     public JComponent getLabel(String id) {

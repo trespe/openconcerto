@@ -13,18 +13,19 @@
  
  package org.openconcerto.erp.panel;
 
+import org.openconcerto.erp.action.SauvegardeBaseAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Gestion;
-// import org.openconcerto.erp.config.GestionLauncher;
+import org.openconcerto.erp.config.GestionLauncher;
 import org.openconcerto.erp.modules.ModuleManager;
 import org.openconcerto.erp.preferences.BackupNXProps;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.utils.BackupPanel;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.UserExit;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.ProcessStreams;
-import org.openconcerto.utils.ProcessStreams.Action;
 import org.openconcerto.utils.prog.VMLauncher;
 
 import java.awt.Frame;
@@ -38,10 +39,10 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import javax.swing.AbstractAction;
 import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JFrame;
@@ -77,7 +78,6 @@ public class UserExitPanel extends JPanel {
         final JLabel labelQuit = new JLabel("<html>" + text + "</html>");
         JButton buttonCancel = new JButton("Annuler");
         final String verb = this.conf.shouldRestart() ? "Relancer" : "Quitter";
-        JButton buttonBackup = new JButton("Sauvegarder et " + verb.toLowerCase());
         JButton buttonExit = new JButton(verb);
         this.add(labelQuit, c);
 
@@ -86,9 +86,10 @@ public class UserExitPanel extends JPanel {
         c.gridwidth = 1;
         this.add(buttonExit, c);
         final ComptaPropsConfiguration comptaPropsConfiguration = (ComptaPropsConfiguration) Configuration.getInstance();
-            if (comptaPropsConfiguration.getSocieteID() > 1) {
+            final javax.swing.Action backupAction = createBackupAction(verb);
+            if (backupAction != null && comptaPropsConfiguration.getRowSociete() != null) {
                 c.gridx++;
-                this.add(buttonBackup, c);
+                this.add(new JButton(backupAction), c);
             }
         c.gridx++;
         this.add(buttonCancel, c);
@@ -108,20 +109,23 @@ public class UserExitPanel extends JPanel {
 
         };
 
-        buttonBackup.addActionListener(new ActionListener() {
+        buttonExit.addActionListener(listenerExit);
+    }
+
+    protected javax.swing.Action createBackupAction(final String verb) {
+        if (!UserRightsManager.getCurrentUserRights().haveRight(BackupPanel.RIGHT_CODE))
+            return null;
+        return new AbstractAction("Sauvegarder et " + verb.toLowerCase()) {
 
             @Override
             public void actionPerformed(ActionEvent e) {
                 JDialog frame = new JDialog();
-                frame.setContentPane(new BackupPanel(Arrays.asList("Common", ((ComptaPropsConfiguration) Configuration.getInstance()).getSocieteBaseName()), Arrays.asList(new File("./2010"),
-                        ((ComptaPropsConfiguration) Configuration.getInstance()).getDataDir()), false, BackupNXProps.getInstance()) {
+                frame.setContentPane(new BackupPanel(null, SauvegardeBaseAction.getDirs(), false, BackupNXProps.getInstance()) {
                     @Override
                     public void doOnClose() {
-
                         super.doOnClose();
                         closeGNx();
                     }
-
                 });
                 frame.setTitle("Sauvegarde des données");
                 // so that the application can exit
@@ -143,8 +147,7 @@ public class UserExitPanel extends JPanel {
                 frame.setAlwaysOnTop(true);
                 frame.setVisible(true);
             }
-        });
-        buttonExit.addActionListener(listenerExit);
+        };
     }
 
     PostgreSQLFrame pgFrame = null;
@@ -166,8 +169,8 @@ public class UserExitPanel extends JPanel {
                         // MAYBE only run beforeShutdown() if afterWindowsClosed() is successful
                         c.beforeShutdown();
 
-                        // if (c.shouldRestart())
-                        // VMLauncher.restart(ProcessStreams.Action.CLOSE, GestionLauncher.class);
+                        if (c.shouldRestart())
+                            VMLauncher.restart(ProcessStreams.Action.CLOSE, GestionLauncher.class);
                     } catch (Exception e) {
                         // in shutdown sequence : don't use the GUI
                         e.printStackTrace();
@@ -175,21 +178,21 @@ public class UserExitPanel extends JPanel {
                 }
             });
             c.afterWindowsClosed();
+            ModuleManager.tearDown();
+            ComptaPropsConfiguration.closeOOConnexion();
         } catch (Exception exn) {
             // all windows already closed
             ExceptionHandler.handle("Erreur lors de la fermeture", exn);
         }
-        ModuleManager.tearDown();
-        ComptaPropsConfiguration.closeOOConnexion();
         // ((JFrame) SwingUtilities.getRoot(UserExitingPanel.this)).dispose();
         if (Gestion.pgFrameStart != null) {
             Gestion.pgFrameStart.setVisible(false);
         }
         new Thread() {
+            @Override
             public void run() {
-
                 try {
-
+                    Configuration.getInstance().destroy();
                     Runtime runtime = Runtime.getRuntime();
 
                     File f = new File(".\\PostgreSQL\\bin\\");
@@ -209,7 +212,7 @@ public class UserExitPanel extends JPanel {
                             }
                         });
                         System.err.println("Execute end postgres");
-                        ProcessStreams.handle(p, Action.REDIRECT);
+                        ProcessStreams.handle(p, ProcessStreams.Action.REDIRECT);
                         p.waitFor();
 
                     }
@@ -247,28 +250,23 @@ public class UserExitPanel extends JPanel {
                     Frame[] l = Frame.getFrames();
                     for (int i = 0; i < l.length; i++) {
                         Frame f = l[i];
-                        System.err.println(f.getName() + " " + f + " Displayable: " + f.isDisplayable() + " Valid: " + f.isValid() + " Active: " + f.isActive());
+                        System.err.println("Frame " + f.getName() + " " + f + " Displayable: " + f.isDisplayable() + " Valid: " + f.isValid() + " Active: " + f.isActive());
                     }
                     Set<Thread> threadSet = Thread.getAllStackTraces().keySet();
                     for (Thread thread : threadSet) {
                         if (!thread.isDaemon()) {
-                            System.err.println(thread.getName() + " " + thread.getId() + " not daemon");
+                            System.err.println("Thread " + thread.getName() + " " + thread.getId() + " not daemon");
                         }
                     }
-
-                    Thread t = new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            Configuration.getInstance().destroy();
-                        }
-                    });
-                    t.setDaemon(true);
-                    t.setName("Configuration destroy");
-                    t.start();
-                    Thread.sleep(5 * 1000);
-                } catch (InterruptedException e) {
+                } catch (Throwable e) {
                     e.printStackTrace();
                 }
+                try {
+                    Configuration.getInstance().destroy();
+                } catch (Throwable e) {
+                    e.printStackTrace();
+                }
+
                 // Dans tous les cas, on arrete le programme
                 System.exit(1);
             }

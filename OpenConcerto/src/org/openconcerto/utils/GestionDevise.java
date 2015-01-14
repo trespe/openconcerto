@@ -29,6 +29,19 @@ public class GestionDevise {
     public static long parseLongCurrency(String numStr) {
 
         numStr = numStr.trim();
+        int indexPoint = numStr.indexOf('.');
+        int indexVirgule = numStr.indexOf(',');
+        if (indexPoint >= 0 && indexVirgule >= 0) {
+            if (indexPoint > indexVirgule) {
+                // 1,000.50 -> 1 000.50
+                numStr = numStr.replace(',', ' ');
+            } else {
+                // 1.000,50 -> 1 000.50
+                numStr = numStr.replace('.', ' ');
+                numStr = numStr.replace(',', '.');
+            }
+        }
+        numStr = numStr.replace(',', '.');
         StringBuffer b = new StringBuffer(numStr.length());
 
         boolean negative = false;
@@ -45,7 +58,6 @@ public class GestionDevise {
             case '-':
                 negative = true;
                 break;
-            case ',':
             case '.':
                 if (decpl == -1) {
                     decpl = 0;
@@ -82,9 +94,7 @@ public class GestionDevise {
             decpl++;
         }
 
-        // if (numStr.length() != b.length()) {
         numStr = b.toString();
-        // }
 
         // Si numStr "-"
         if (numStr.trim().length() == 0) {
@@ -231,10 +241,4 @@ public class GestionDevise {
         return s;
     }
 
-    public static void main(String[] args) {
-        System.err.println(GestionDevise.round(-5155));
-        System.err.println(GestionDevise.round(-5145));
-        System.err.println(GestionDevise.round(5155));
-        System.err.println(GestionDevise.round(5145));
-    }
 }

@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.generationEcritures;
 
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
@@ -66,7 +67,7 @@ public class GenerationMvtReglementAvoir extends GenerationEcritures implements 
                     if (typeRegRow.getID() == 4) {
                         this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementAvoir.journalCaisse);
                     } else {
-                        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+                        fillJournalBanqueFromRow(modeRegRow);
                     }
 
                     this.idMvt = idPere;
@@ -168,6 +169,11 @@ public class GenerationMvtReglementAvoir extends GenerationEcritures implements 
         valEncaisse.put("ID_CLIENT", new Integer(saisieRow.getInt("ID_CLIENT")));
         valEncaisse.put("DATE_AVOIR", this.date);
         valEncaisse.put("DATE_MIN_DECAISSE", dateEch);
+        if (!saisieRow.isForeignEmpty("ID_MODE_REGLEMENT")) {
+            SQLRow rowModeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
+            valEncaisse.put("ID_" + BanqueSQLElement.TABLENAME, rowModeRegl.getInt("ID_" + BanqueSQLElement.TABLENAME));
+        }
+
         SQLRow rowMvtPere = tableMouvement.getRow(idPere);
         this.idMvt = getNewMouvement("CHEQUE_AVOIR_CLIENT", 1, idPere, rowMvtPere.getInt("ID_PIECE"));
         valEncaisse.put("ID_MOUVEMENT", new Integer(this.idMvt));

@@ -24,8 +24,8 @@ import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.request.BaseFillSQLRequest;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.view.list.search.SearchQueue;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.Collection;
@@ -40,12 +40,12 @@ abstract class AbstractUpdateOneRunnable extends UpdateRunnable {
             throw new IllegalArgumentException("id is not valid : " + this.getID());
     }
 
-    protected final CollectionMap<Path, ListSQLLine> getAffectedPaths() {
+    protected final ListMap<Path, ListSQLLine> getAffectedPaths() {
         return this.getSearchQ().getAffectedPaths(this.getRow());
     }
 
-    protected final void updateLines(CollectionMap<Path, ListSQLLine> paths) {
-        for (final Entry<Path, Collection<ListSQLLine>> e : paths.entrySet()) {
+    protected final void updateLines(ListMap<Path, ListSQLLine> paths) {
+        for (final Entry<Path, ? extends Collection<ListSQLLine>> e : paths.entrySet()) {
             // eg SITE.ID_CONTACT_CHEF
             final Path p = e.getKey();
             // eg [SQLRowValues(SITE), SQLRowValues(SITE)]

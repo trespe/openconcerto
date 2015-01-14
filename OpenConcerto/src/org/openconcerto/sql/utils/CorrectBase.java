@@ -134,7 +134,7 @@ public class CorrectBase extends ChangeBase {
 
     @Override
     protected Change getChange() {
-        return new Correct(this.getRoot());
+        return new Correct();
     }
 
     static public void main(String[] args) throws IOException {

@@ -17,11 +17,14 @@
 package org.openconcerto.openoffice.spreadsheet;
 
 import org.openconcerto.openoffice.ODDocument;
+import org.openconcerto.openoffice.ODNodeDesc.Children;
 import org.openconcerto.openoffice.ODValueType;
 import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.XMLFormatVersion;
 import org.openconcerto.openoffice.XMLVersion;
+import org.openconcerto.openoffice.text.Paragraph;
 import org.openconcerto.openoffice.text.TextNode;
+import org.openconcerto.openoffice.text.TextNodeDesc;
 import org.openconcerto.utils.Tuple2.List2;
 import org.openconcerto.utils.Tuple3;
 
@@ -184,9 +187,9 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
      * Get the date as a Calendar with the passed parameters.
      * 
      * @param tz the time zone of the returned calendar, <code>null</code> meaning
-     *        {@link ODValueType#getTimeZone()}.
+     *        {@link ODValueType#getTimeZone(boolean)}.
      * @param locale the locale of the returned calendar, <code>null</code> meaning
-     *        {@link ODValueType#getLocale()}.
+     *        {@link ODValueType#getLocale(boolean)}.
      * @return a calendar with the local time of this cell.
      * @throws ParseException if the value couldn't be parsed.
      * @see ODValueType#parseDateValue(String, TimeZone, Locale, Boolean)
@@ -215,7 +218,19 @@ public class Cell<D extends ODDocument> extends TableCalcNode<CellStyle, D> {
      * @return a string for the content of this cell.
      */
     public String getTextValue(final boolean ooMode) {
-        return TextNode.getChildrenCharacterContent(this.getElement(), getODDocument().getFormatVersion(), ooMode);
+        return this.getTextValue(ooMode, false);
+    }
+
+    public String getTextValue(final boolean ooMode, final boolean useSeparator) {
+        return TextNode.getChildrenCharacterContent(this.getElement(), getODDocument().getFormatVersion(), ooMode, useSeparator);
+    }
+
+    public final Children<Paragraph> getParagraphs() {
+        return TextNodeDesc.get(Paragraph.class).getChildren(this.getODDocument(), getElement());
+    }
+
+    public final int getLinesCount() {
+        return TextNode.getLinesCount(this.getElement(), this.getODDocument().getFormatVersion(), getTextValueMode());
     }
 
     /**

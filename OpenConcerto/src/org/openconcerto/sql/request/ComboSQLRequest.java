@@ -32,7 +32,6 @@ import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.Tuple2;
-import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cache.CacheResult;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.IPredicate;
@@ -42,6 +41,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.LinkedList;
 import java.util.List;
 
 // final: use setSelectTransf()
@@ -50,9 +50,15 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
     static private final SQLCache<CacheKey, List<IComboSelectionItem>> cache = new SQLCache<CacheKey, List<IComboSelectionItem>>(60, -1, "items of " + ComboSQLRequest.class);
 
     // encapsulate all values that can change the result
-    private static final class CacheKey extends Tuple3<SQLRowValuesListFetcher, IClosure<IComboSelectionItem>, String> {
-        public CacheKey(SQLRowValuesListFetcher a, String fieldSeparator, String undefLabel, IClosure<IComboSelectionItem> c) {
-            super(a, c, fieldSeparator + undefLabel);
+    protected static final class CacheKey extends LinkedList<Object> {
+        public CacheKey(SQLRowValuesListFetcher a, String fieldSeparator, String undefLabel, IClosure<IComboSelectionItem> c, KeepMode keepRows, Comparator<? super IComboSelectionItem> itemsOrder) {
+            super();
+            this.add(a);
+            this.add(c);
+            this.add(fieldSeparator);
+            this.add(undefLabel);
+            this.add(keepRows);
+            this.add(itemsOrder);
         }
     };
 
@@ -202,7 +208,7 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
         // and that will cause the cache to fail
         final SQLRowValuesListFetcher comboSelect = this.getFetcher(null).freeze();
 
-        final CacheKey cacheKey = new CacheKey(comboSelect, this.fieldSeparator, this.undefLabel, this.customizeItem);
+        final CacheKey cacheKey = getCacheKey(comboSelect);
         if (readCache) {
             final CacheResult<List<IComboSelectionItem>> l = cache.check(cacheKey);
             if (l.getState() == CacheResult.State.INTERRUPTED)
@@ -222,7 +228,7 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
             if (this.itemsOrder != null)
                 Collections.sort(result, this.itemsOrder);
 
-            cache.put(cacheKey, result, this.getTables());
+            cache.put(cacheKey, result, comboSelect.getGraph().getGraph().getTables());
 
             return result;
         } catch (RuntimeException exn) {
@@ -230,6 +236,14 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
             cache.removeRunning(cacheKey);
             throw exn;
         }
+    }
+
+    protected final CacheKey getCacheKey() {
+        return getCacheKey(this.getFetcher(null).freeze());
+    }
+
+    private final CacheKey getCacheKey(final SQLRowValuesListFetcher comboSelect) {
+        return new CacheKey(comboSelect, this.fieldSeparator, this.undefLabel, this.customizeItem, this.keepRows, this.itemsOrder);
     }
 
     @Override
@@ -297,9 +311,9 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
                 }
             });
         final IComboSelectionItem res;
-        if (this.keepRows == KeepMode.GRAPH)
+        if (this.getKeepMode() == KeepMode.GRAPH)
             res = new IComboSelectionItem(rs, desc);
-        else if (this.keepRows == KeepMode.ROW)
+        else if (this.getKeepMode() == KeepMode.ROW)
             res = new IComboSelectionItem(rs.asRow(), desc);
         else
             res = new IComboSelectionItem(rs.getID(), desc);
@@ -351,6 +365,10 @@ public final class ComboSQLRequest extends FilteredFillSQLRequest {
      */
     public String getSeparatorsChars() {
         return SEP_CHILD + this.fieldSeparator;
+    }
+
+    public final KeepMode getKeepMode() {
+        return this.keepRows;
     }
 
     /**

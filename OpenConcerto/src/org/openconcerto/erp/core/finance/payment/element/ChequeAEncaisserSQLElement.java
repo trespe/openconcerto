@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.finance.payment.element;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.generationDoc.gestcomm.ReleveChequeSheet;
 import org.openconcerto.erp.generationEcritures.GenerationMvtReglementChequeClient;
@@ -49,6 +50,7 @@ public class ChequeAEncaisserSQLElement extends ChequeSQLElement {
 
         l.add("ID_MOUVEMENT");
         l.add("ID_CLIENT");
+        l.add("ID_" + BanqueSQLElement.TABLENAME);
         l.add("DATE");
         l.add("ETS");
         l.add("NUMERO");

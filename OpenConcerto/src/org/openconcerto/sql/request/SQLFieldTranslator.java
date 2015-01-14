@@ -52,6 +52,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.prefs.Preferences;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
 import org.jdom.Document;
 import org.jdom.Element;
 import org.jdom.JDOMException;
@@ -63,6 +66,7 @@ import org.jdom.input.SAXBuilder;
  * @author ilm 22 nov. 2004
  * @see #getDescFor(SQLTable, String)
  */
+@ThreadSafe
 public class SQLFieldTranslator {
 
     // OK since RowItemDesc is immutable
@@ -101,7 +105,7 @@ public class SQLFieldTranslator {
             createValueT.addUniqueConstraint("uniq", Arrays.asList(ELEM_FIELDNAME, COMP_FIELDNAME, ITEM_FIELDNAME));
             createValueT.addVarCharColumn(LABEL_FIELDNAME, 256);
             createValueT.addVarCharColumn(COL_TITLE_FIELDNAME, 256);
-            createValueT.addVarCharColumn(DOC_FIELDNAME, Math.min(8192, Preferences.MAX_VALUE_LENGTH));
+            createValueT.addVarCharColumn(DOC_FIELDNAME, Preferences.MAX_VALUE_LENGTH, true);
             root.createTable(createValueT);
         }
         return root.getTable(METADATA_TABLENAME);
@@ -133,9 +137,11 @@ public class SQLFieldTranslator {
     // Instance members
 
     // { SQLTable -> { compCode, variant, item -> RowItemDesc }}
+    @GuardedBy("this")
     private final Map<SQLTable, Map<List<String>, RowItemDesc>> translation;
     private final SQLTable table;
     private final SQLElementDirectory dir;
+    @GuardedBy("this")
     private final Set<String> unknownCodes;
 
     {
@@ -174,7 +180,11 @@ public class SQLFieldTranslator {
 
             @Override
             public void elementAdded(SQLElement elem) {
-                if (SQLFieldTranslator.this.unknownCodes.remove(elem.getCode())) {
+                final boolean isUnknown;
+                synchronized (SQLFieldTranslator.this) {
+                    isUnknown = SQLFieldTranslator.this.unknownCodes.contains(elem.getCode());
+                }
+                if (isUnknown) {
                     fetch(Collections.singleton(elem.getCode()));
                 }
             }
@@ -191,7 +201,25 @@ public class SQLFieldTranslator {
      * @param o another SQLFieldTranslator to add.
      */
     public void putAll(SQLFieldTranslator o) {
-        CollectionUtils.addIfNotPresent(this.translation, o.translation);
+        if (o == this)
+            return;
+        final int thisHash = System.identityHashCode(this);
+        final int oHash = System.identityHashCode(o);
+        final SQLFieldTranslator o1, o2;
+        if (thisHash < oHash) {
+            o1 = this;
+            o2 = o;
+        } else if (thisHash > oHash) {
+            o1 = o;
+            o2 = this;
+        } else {
+            throw new IllegalStateException("Hash equal");
+        }
+        synchronized (o1) {
+            synchronized (o2) {
+                CollectionUtils.addIfNotPresent(this.translation, o.translation);
+            }
+        }
     }
 
     public void load(DBRoot b, File file) {
@@ -307,7 +335,7 @@ public class SQLFieldTranslator {
     }
 
     private List<SQLRow> fetchOnly(final SQLTable table, final Where w) {
-        return SQLRowListRSH.execute(new SQLSelect(table.getBase()).addSelectStar(table).setWhere(w));
+        return SQLRowListRSH.execute(new SQLSelect().addSelectStar(table).setWhere(w));
     }
 
     private void fetchAndPut(final SQLTable table, final Set<String> codes) {
@@ -322,23 +350,26 @@ public class SQLFieldTranslator {
         }
         for (final SQLRow r : fetchOnly(table, w)) {
             final String elementCode = r.getString(ELEM_FIELDNAME);
-            if (!this.unknownCodes.contains(elementCode)) {
-                // needed since tables can be loaded at any time in SQLElementDirectory
-                // MAYBE use code as the map key instead of SQLTable
-                final SQLElement elem = this.dir.getElementForCode(elementCode);
-                if (elem != null) {
-                    final String componentCode = r.getString(COMP_FIELDNAME);
-                    final String item = r.getString(ITEM_FIELDNAME);
-                    final RowItemDesc desc = new RowItemDesc(r.getString(LABEL_FIELDNAME), r.getString(COL_TITLE_FIELDNAME), r.getString(DOC_FIELDNAME));
+            // needed since tables can be loaded at any time in SQLElementDirectory
+            // MAYBE use code as the map key instead of SQLTable
+            final SQLElement elem = this.dir.getElementForCode(elementCode);
+            if (elem != null) {
+                final String componentCode = r.getString(COMP_FIELDNAME);
+                final String item = r.getString(ITEM_FIELDNAME);
+                final RowItemDesc desc = new RowItemDesc(r.getString(LABEL_FIELDNAME), r.getString(COL_TITLE_FIELDNAME), r.getString(DOC_FIELDNAME));
+                synchronized (this) {
                     putTranslation(elem.getTable(), componentCode, DB_VARIANT, item, desc);
-                } else {
+                    this.unknownCodes.remove(elementCode);
+                }
+            } else {
+                synchronized (this) {
                     this.unknownCodes.add(elementCode);
                 }
             }
         }
     }
 
-    private final Map<List<String>, RowItemDesc> getMap(final SQLTable t) {
+    private synchronized final Map<List<String>, RowItemDesc> getMap(final SQLTable t) {
         Map<List<String>, RowItemDesc> elemMap = this.translation.get(t);
         if (elemMap == null) {
             elemMap = new HashMap<List<String>, RowItemDesc>();
@@ -347,7 +378,7 @@ public class SQLFieldTranslator {
         return elemMap;
     }
 
-    private final void putTranslation(SQLTable t, String compCode, String variant, String item, RowItemDesc desc) {
+    private synchronized final void putTranslation(SQLTable t, String compCode, String variant, String item, RowItemDesc desc) {
         if (t == null)
             throw new IllegalArgumentException("Table cannot be null");
         // needed by remove()
@@ -356,7 +387,7 @@ public class SQLFieldTranslator {
         this.getMap(t).put(Arrays.asList(compCode, variant, item), desc);
     }
 
-    private final void removeTranslation(SQLTable t, String compCode, String variant, String name) {
+    private synchronized final void removeTranslation(SQLTable t, String compCode, String variant, String name) {
         // null means match everything, OK since we test in putTranslation() that we don't contain
         // null values
         if (t == null) {
@@ -368,7 +399,7 @@ public class SQLFieldTranslator {
         }
     }
 
-    private void removeTranslation(Map<List<String>, RowItemDesc> m, String compCode, String variant, String name) {
+    private synchronized void removeTranslation(Map<List<String>, RowItemDesc> m, String compCode, String variant, String name) {
         if (m == null)
             return;
 
@@ -386,7 +417,7 @@ public class SQLFieldTranslator {
         }
     }
 
-    private final RowItemDesc getTranslation(SQLTable t, String compCode, String variant, String item) {
+    private synchronized final RowItemDesc getTranslation(SQLTable t, String compCode, String variant, String item) {
         return this.getMap(t).get(Arrays.asList(compCode, variant, item));
     }
 

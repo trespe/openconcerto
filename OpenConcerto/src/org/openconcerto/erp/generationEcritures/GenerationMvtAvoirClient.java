@@ -102,7 +102,8 @@ public class GenerationMvtAvoirClient extends GenerationEcritures {
                 this.mEcritures.put("ID_COMPTE_PCE", row.getID());
                 this.mEcritures.put("DEBIT", Long.valueOf(b));
                 this.mEcritures.put("CREDIT", Long.valueOf(0));
-                ajoutEcriture();
+                SQLRow rowEcr = ajoutEcriture();
+                addAssocAnalytiqueFromProvider(rowEcr, avoirRow);
             }
         }
 

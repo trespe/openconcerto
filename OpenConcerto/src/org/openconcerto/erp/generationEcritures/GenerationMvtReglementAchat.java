@@ -13,9 +13,11 @@
  
  package org.openconcerto.erp.generationEcritures;
 
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
+import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
 import org.openconcerto.erp.model.PrixTTC;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -100,10 +102,7 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
                 if (typeRegRow.getID() == 4) {
                     this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementAchat.journalCaisse);
                 } else {
-
-                    this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
-
-
+                    fillJournalBanqueFromRow(modeRegRow);
                 }
 
                 // compte Fournisseurs
@@ -121,11 +120,16 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
                 ajoutEcriture();
 
                 // compte de reglement, caisse, CB, ...
-                int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_FOURN");
-                if (idCompteRegl <= 1) {
-                    idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
+                if (typeRegRow.getID() == TypeReglementSQLElement.ESPECE) {
+                    int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_FOURN");
+                    if (idCompteRegl <= 1) {
+                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteEspece");
+                    }
+                    this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteRegl));
+
+                } else {
+                    fillCompteBanqueFromRow(modeRegRow, "VenteCB", true);
                 }
-                this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteRegl));
                 this.mEcritures.put("DEBIT", Long.valueOf(0));
                 this.mEcritures.put("CREDIT", Long.valueOf(prixTTC.getLongValue()));
                 ajoutEcriture();
@@ -192,19 +196,30 @@ public final class GenerationMvtReglementAchat extends GenerationEcritures imple
         }
 
         // Ajout dans cheque fournisseur
-        Map<String, Object> mEncaisse = new HashMap<String, Object>();
-        mEncaisse.put("ID_FOURNISSEUR", Integer.valueOf(saisieRow.getInt("ID_FOURNISSEUR")));
-        mEncaisse.put("DATE_ACHAT", new java.sql.Date(this.date.getTime()));
-        mEncaisse.put("DATE_MIN_DECAISSE", new java.sql.Date(dateEch.getTime()));
-        mEncaisse.put("MONTANT", Long.valueOf(prixTTC.getLongValue()));
+        Map<String, Object> mCheque = new HashMap<String, Object>();
+        mCheque.put("ID_FOURNISSEUR", Integer.valueOf(saisieRow.getInt("ID_FOURNISSEUR")));
+        mCheque.put("DATE_ACHAT", new java.sql.Date(this.date.getTime()));
+        mCheque.put("DATE_MIN_DECAISSE", new java.sql.Date(dateEch.getTime()));
+
+        mCheque.put("MONTANT", Long.valueOf(prixTTC.getLongValue()));
+        if (!saisieRow.isForeignEmpty("ID_MODE_REGLEMENT")) {
+            SQLRow rowModeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
+            mCheque.put("ID_" + BanqueSQLElement.TABLENAME, rowModeRegl.getInt("ID_" + BanqueSQLElement.TABLENAME));
+            mCheque.put("NUMERO", rowModeRegl.getObject("NUMERO"));
+            mCheque.put("DATE", rowModeRegl.getObject("DATE"));
+            mCheque.put("ETS", rowModeRegl.getObject("ETS"));
+            if (rowModeRegl.getObject("DATE_DEPOT") != null) {
+                mCheque.put("DATE_MIN_DECAISSE", rowModeRegl.getObject("DATE_DEPOT"));
+            }
+        }
         SQLRow rowMvtPere = tableMouvement.getRow(this.idPere);
         this.idMvt = getNewMouvement("CHEQUE_FOURNISSEUR", 1, this.idPere, rowMvtPere.getInt("ID_PIECE"));
 
-        mEncaisse.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
+        mCheque.put("ID_MOUVEMENT", Integer.valueOf(this.idMvt));
 
         SQLTable chqFournTable = base.getTable("CHEQUE_FOURNISSEUR");
 
-        SQLRowValues valDecaisse = new SQLRowValues(chqFournTable, mEncaisse);
+        SQLRowValues valDecaisse = new SQLRowValues(chqFournTable, mCheque);
 
         if (valDecaisse.getInvalid() == null) {
 

@@ -20,7 +20,9 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
+import org.openconcerto.erp.core.sales.account.PartialInvoiceEditGroup;
 import org.openconcerto.erp.core.sales.account.VenteFactureSituationSQLComponent;
+import org.openconcerto.erp.core.sales.account.VenteFactureSoldeEditGroup;
 import org.openconcerto.erp.core.sales.account.VenteFactureSoldeSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
 import org.openconcerto.erp.core.sales.invoice.report.VenteFactureXmlSheet;
@@ -29,11 +31,14 @@ import org.openconcerto.erp.core.sales.shipment.component.BonDeLivraisonSQLCompo
 import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.erp.generationEcritures.GenerationMvtRetourNatexis;
 import org.openconcerto.erp.model.MouseSheetXmlListeListener;
+import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.erp.rights.NXRights;
 import org.openconcerto.sql.Configuration;
+import org.openconcerto.sql.element.GlobalMapper;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.FieldPath;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
@@ -43,6 +48,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.preferences.SQLPreferences;
 import org.openconcerto.sql.request.ListSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
@@ -51,13 +57,18 @@ import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.EditPanel;
 import org.openconcerto.sql.view.EditPanel.EditMode;
 import org.openconcerto.sql.view.EditPanelListener;
+import org.openconcerto.sql.view.list.BaseSQLTableModelColumn;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.table.PercentTableCellRenderer;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.i18n.TranslationManager;
@@ -68,8 +79,12 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -106,6 +121,7 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
     public SaisieVenteFactureSQLElement() {
         super(TABLENAME, "une facture", "factures");
 
+        GlobalMapper.getInstance().map(VenteFactureSituationSQLComponent.ID, new PartialInvoiceEditGroup());
         addComponentFactory(VenteFactureSituationSQLComponent.ID, new ITransformer<Tuple2<SQLElement, String>, SQLComponent>() {
 
             @Override
@@ -114,6 +130,7 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
                 return new VenteFactureSituationSQLComponent(SaisieVenteFactureSQLElement.this);
             }
         });
+        GlobalMapper.getInstance().map(VenteFactureSoldeSQLComponent.ID, new VenteFactureSoldeEditGroup());
         addComponentFactory(VenteFactureSoldeSQLComponent.ID, new ITransformer<Tuple2<SQLElement, String>, SQLComponent>() {
 
             @Override
@@ -202,20 +219,21 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
     protected List<String> getListFields() {
         final List<String> l = new ArrayList<String>();
-        l.add("NUMERO");
-        l.add("DATE");
-        l.add("NOM");
-        l.add("ID_CLIENT");
-            l.add("ID_MODE_REGLEMENT");
-        l.add("ID_COMMERCIAL");
 
-        l.add("T_HA");
-        l.add("T_HT");
-        l.add("T_TTC");
-        l.add("INFOS");
+            l.add("NUMERO");
+            l.add("DATE");
+            l.add("NOM");
+            l.add("ID_CLIENT");
+                l.add("ID_MODE_REGLEMENT");
+            l.add("ID_COMMERCIAL");
 
-                l.add("DATE_ENVOI");
-            l.add("DATE_REGLEMENT");
+            l.add("T_HA");
+            l.add("T_HT");
+            l.add("T_TTC");
+            l.add("INFOS");
+
+                    l.add("DATE_ENVOI");
+                l.add("DATE_REGLEMENT");
         return l;
     }
 
@@ -238,6 +256,59 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
                 graphToFetch.put("T_AVOIR_TTC", null);
             }
         };
+    }
+
+    private BigDecimal getAvancement(SQLRowAccessor r) {
+        Collection<? extends SQLRowAccessor> rows = r.getReferentRows(r.getTable().getTable("ECHEANCE_CLIENT"));
+        long totalEch = 0;
+
+        for (SQLRowAccessor row : rows) {
+            if (!row.getBoolean("REGLE") && !row.getBoolean("REG_COMPTA")) {
+                totalEch += row.getLong("MONTANT");
+            }
+        }
+
+        SQLRowAccessor avoir = r.getForeign("ID_AVOIR_CLIENT");
+        BigDecimal avoirTTC = BigDecimal.ZERO;
+        if (avoir != null && !avoir.isUndefined()) {
+            avoirTTC = new BigDecimal(avoir.getLong("MONTANT_TTC"));
+        }
+
+        final BigDecimal totalAregler = new BigDecimal(r.getLong("T_TTC")).subtract(avoirTTC);
+        if (totalAregler.signum() > 0 && totalEch > 0) {
+            return totalAregler.subtract(new BigDecimal(totalEch)).divide(totalAregler, MathContext.DECIMAL128).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
+        } else {
+            return BigDecimal.ONE.movePointRight(2);
+        }
+    }
+
+    @Override
+    protected SQLTableModelSourceOnline createTableSource() {
+        SQLTableModelSourceOnline table = super.createTableSource();
+
+        final BaseSQLTableModelColumn colAvancement = new BaseSQLTableModelColumn("Avancement réglement", BigDecimal.class) {
+
+            @Override
+            protected Object show_(SQLRowAccessor r) {
+
+                return getAvancement(r);
+            }
+
+            @Override
+            public Set<FieldPath> getPaths() {
+                Path p = new Path(SaisieVenteFactureSQLElement.this.getTable());
+                p = p.add(getTable().getTable("ECHEANCE_CLIENT"));
+
+                Path p2 = new Path(SaisieVenteFactureSQLElement.this.getTable());
+                p2 = p2.add(getTable().getField("ID_AVOIR_CLIENT"));
+
+                return CollectionUtils.createSet(new FieldPath(p, "MONTANT"), new FieldPath(p, "REG_COMPTA"), new FieldPath(p, "REGLE"), new FieldPath(p2, "MONTANT_TTC"));
+            }
+        };
+        table.getColumns().add(colAvancement);
+        colAvancement.setRenderer(new PercentTableCellRenderer());
+
+        return table;
     }
 
     protected List<String> getComboFields() {
@@ -360,59 +431,66 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
     /**
      * Transfert en commande fournisseur
      * */
-    public void transfertCommande(int idFacture) {
+    public void transfertCommande(final int idFacture) {
+        ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
-        SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
-        SQLTable tableCmdElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT").getTable();
-        SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
-        List<SQLRow> rows = getTable().getRow(idFacture).getReferentRows(elt.getTable());
-        CollectionMap<SQLRow, List<SQLRowValues>> map = new CollectionMap<SQLRow, List<SQLRowValues>>();
-        SQLRow rowDeviseF = null;
-        for (SQLRow sqlRow : rows) {
-            // on récupére l'article qui lui correspond
-            SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
-            for (SQLField field : eltArticle.getTable().getFields()) {
-                if (sqlRow.getTable().getFieldsName().contains(field.getName())) {
-                    rowArticle.put(field.getName(), sqlRow.getObject(field.getName()));
+            @Override
+            public void run() {
+                SQLElement elt = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
+                SQLTable tableCmdElt = Configuration.getInstance().getDirectory().getElement("COMMANDE_ELEMENT").getTable();
+                SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
+                List<SQLRow> rows = getTable().getRow(idFacture).getReferentRows(elt.getTable());
+                final ListMap<SQLRow, SQLRowValues> map = new ListMap<SQLRow, SQLRowValues>();
+                SQLRow rowDeviseF = null;
+                for (SQLRow sqlRow : rows) {
+                    // on récupére l'article qui lui correspond
+                    SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
+                    for (SQLField field : eltArticle.getTable().getFields()) {
+                        if (sqlRow.getTable().getFieldsName().contains(field.getName())) {
+                            rowArticle.put(field.getName(), sqlRow.getObject(field.getName()));
+                        }
+                    }
+
+                    int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
+                    SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
+                    SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
+                    SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticleFind));
+                    rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
+                    rowValsElt.put("QTE", sqlRow.getObject("QTE"));
+                    rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
+
+                    // gestion de la devise
+                    rowDeviseF = sqlRow.getForeignRow("ID_DEVISE");
+                    SQLRow rowDeviseHA = rowArticleFind.getForeignRow("ID_DEVISE_HA");
+                    BigDecimal qte = new BigDecimal(rowValsElt.getInt("QTE"));
+                    if (rowDeviseF != null && !rowDeviseF.isUndefined()) {
+                        if (rowDeviseF.getID() == rowDeviseHA.getID()) {
+                            rowValsElt.put("PA_DEVISE", rowArticleFind.getObject("PA_DEVISE"));
+                            rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowArticleFind.getObject("PA_DEVISE")).multiply(qte, MathContext.DECIMAL128));
+                            rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
+                        } else {
+                            BigDecimal taux = (BigDecimal) rowDeviseF.getObject("TAUX");
+                            rowValsElt.put("PA_DEVISE", taux.multiply((BigDecimal) rowValsElt.getObject("PA_HT")));
+                            rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowValsElt.getObject("PA_DEVISE")).multiply(qte, MathContext.DECIMAL128));
+                            rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
+                        }
+                    }
+
+                    BigDecimal prixHA = (BigDecimal) rowValsElt.getObject("PA_HT");
+                    rowValsElt.put("T_PA_HT", prixHA.multiply(qte, MathContext.DECIMAL128));
+
+                    rowValsElt.put("T_PA_HT", prixHA.multiply(qte, MathContext.DECIMAL128));
+                    rowValsElt.put("T_PA_TTC",
+                            ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal(rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0), MathContext.DECIMAL128));
+
+                    map.add(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
+
                 }
+                MouvementStockSQLElement.createCommandeF(map, rowDeviseF);
+
             }
 
-            int idArticle = ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
-            SQLRow rowArticleFind = eltArticle.getTable().getRow(idArticle);
-            SQLInjector inj = SQLInjector.getInjector(rowArticle.getTable(), tableCmdElt);
-            SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(rowArticleFind));
-            rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
-            rowValsElt.put("QTE", sqlRow.getObject("QTE"));
-            rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
-
-            // gestion de la devise
-            rowDeviseF = sqlRow.getForeignRow("ID_DEVISE");
-            SQLRow rowDeviseHA = rowArticleFind.getForeignRow("ID_DEVISE_HA");
-            BigDecimal qte = new BigDecimal(rowValsElt.getInt("QTE"));
-            if (rowDeviseF != null && !rowDeviseF.isUndefined()) {
-                if (rowDeviseF.getID() == rowDeviseHA.getID()) {
-                    rowValsElt.put("PA_DEVISE", rowArticleFind.getObject("PA_DEVISE"));
-                    rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowArticleFind.getObject("PA_DEVISE")).multiply(qte, MathContext.DECIMAL128));
-                    rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
-                } else {
-                    BigDecimal taux = (BigDecimal) rowDeviseF.getObject("TAUX");
-                    rowValsElt.put("PA_DEVISE", taux.multiply((BigDecimal) rowValsElt.getObject("PA_HT")));
-                    rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowValsElt.getObject("PA_DEVISE")).multiply(qte, MathContext.DECIMAL128));
-                    rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
-                }
-            }
-
-            BigDecimal prixHA = (BigDecimal) rowValsElt.getObject("PA_HT");
-            rowValsElt.put("T_PA_HT", prixHA.multiply(qte, MathContext.DECIMAL128));
-
-            rowValsElt.put("T_PA_HT", prixHA.multiply(qte, MathContext.DECIMAL128));
-            rowValsElt
-                    .put("T_PA_TTC", ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal(rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0), MathContext.DECIMAL128));
-
-            map.put(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
-
-        }
-        MouvementStockSQLElement.createCommandeF(map, rowDeviseF);
+        });
 
     }
 }

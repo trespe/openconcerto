@@ -38,10 +38,9 @@ public class DeviseKmRowValuesRenderer extends DefaultTableCellRenderer {
     }
 
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-
         super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
-        if (value.getClass() == Long.class) {
+        if (value != null && value.getClass() == Long.class) {
             this.setText(GestionDevise.currencyToString(((Long) value).longValue()));
             this.setHorizontalAlignment(SwingConstants.RIGHT);
         }
@@ -58,11 +57,6 @@ public class DeviseKmRowValuesRenderer extends DefaultTableCellRenderer {
             TableCellRendererUtils.setColors(this, table, isSelected);
         }
 
-        // TableCellEditor cellEditor = table.getColumnModel().getColumn(column).getCellEditor();
-        // cellEditor.addCellEditorListener(this);
-        //
-        // jumpToNextEditCell(table, hasFocus, isSelected, row, column);
-
         return this;
     }
 
@@ -78,15 +72,4 @@ public class DeviseKmRowValuesRenderer extends DefaultTableCellRenderer {
         }
     }
 
-    // @Override
-    // public void editingCanceled(ChangeEvent e) {
-    // // TODO Auto-generated method stub
-    //
-    // }
-    //
-    // @Override
-    // public void editingStopped(ChangeEvent e) {
-    // // TODO Auto-generated method stub
-    // setEditingMode(true);
-    // }
 }

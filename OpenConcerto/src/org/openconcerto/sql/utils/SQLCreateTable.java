@@ -15,7 +15,6 @@
 
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLBase;
-import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
@@ -86,7 +85,7 @@ public class SQLCreateTable extends SQLCreateTableBase<SQLCreateTable> {
         if (!this.plain) {
             genClauses.add(0, SQLBase.quoteIdentifier(SQLSyntax.ID_NAME) + this.getSyntax().getPrimaryIDDefinition());
             genClauses.add(SQLBase.quoteIdentifier(SQLSyntax.ARCHIVE_NAME) + this.getSyntax().getArchiveDefinition());
-            // MS treat all NULL equals contrary to the standard
+            // MS unique constraint is not standard so add it in modifyOutClauses()
             if (getSyntax().getSystem() == SQLSystem.MSSQL) {
                 genClauses.add(SQLBase.quoteIdentifier(SQLSyntax.ORDER_NAME) + this.getSyntax().getOrderType() + " DEFAULT " + this.getSyntax().getOrderDefault());
             } else {
@@ -99,18 +98,7 @@ public class SQLCreateTable extends SQLCreateTableBase<SQLCreateTable> {
     protected void modifyOutClauses(List<DeferredClause> clauses) {
         super.modifyOutClauses(clauses);
         if (!this.plain && getSyntax().getSystem() == SQLSystem.MSSQL) {
-            clauses.add(new OutsideClause() {
-                @Override
-                public ClauseType getType() {
-                    return ClauseType.ADD_INDEX;
-                }
-
-                @Override
-                public String asString(SQLName tableName) {
-                    return "create unique index idx on " + tableName.quote() + "(" + SQLBase.quoteIdentifier(SQLSyntax.ORDER_NAME) + ") where " + SQLBase.quoteIdentifier(SQLSyntax.ORDER_NAME)
-                            + " is not null";
-                }
-            });
+            clauses.add(this.createUniquePartialIndex("orderIdx", Collections.singletonList(SQLSyntax.ORDER_NAME), null));
         }
     }
 }

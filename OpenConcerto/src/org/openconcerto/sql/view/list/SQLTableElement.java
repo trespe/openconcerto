@@ -24,14 +24,16 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.TextAreaRenderer;
 import org.openconcerto.ui.TextAreaTableCellEditor;
+import org.openconcerto.ui.TimeStampTableCellEditor;
+import org.openconcerto.utils.CompareUtils;
 
 import java.awt.event.ActionEvent;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.Vector;
 
 import javax.swing.AbstractAction;
 import javax.swing.JTable;
-import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 
@@ -194,11 +196,15 @@ public class SQLTableElement {
             return this.comboBox;
 
         }
-        if (this.field != null && this.field.getType().getJavaType() == String.class) {
-            TextAreaTableCellEditor textEditor = new TextAreaTableCellEditor(table);// new
-            // DefaultCellEditor(comboBox);
-            textEditor.setLimitedSize(this.field.getType().getSize());
-            return textEditor;
+        if (this.field != null) {
+            if (this.field.getType().getJavaType() == String.class) {
+                final TextAreaTableCellEditor textEditor = new TextAreaTableCellEditor(table);
+                textEditor.setLimitedSize(this.field.getType().getSize());
+                return textEditor;
+            } else if (this.field.getType().getJavaType() == Timestamp.class) {
+                final TimeStampTableCellEditor textEditor = new TimeStampTableCellEditor();
+                return textEditor;
+            }
         }
         return null;
     }
@@ -278,12 +284,16 @@ public class SQLTableElement {
 
     private void valueModified(final SQLRowValues row) {
         if (this.modifier != null) {
+            Object oldValue = row.getObject(this.rowField);
             Object newValue = this.modifier.computeValueFrom(row);
-            if (this.rowField != null) {
-                row.put(this.rowField, newValue);
+            //Test pour eviter un deadlock sur les listeners
+            if (!CompareUtils.equals(oldValue, newValue)) {
+                if (this.rowField != null) {
+                    row.put(this.rowField, newValue);
+                }
+                this.modifier.setValueFrom(row, newValue);
+                fireModification(row);
             }
-            this.modifier.setValueFrom(row, newValue);
-            fireModification(row);
         }
 
     }

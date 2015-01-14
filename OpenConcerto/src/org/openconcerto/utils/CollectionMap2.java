@@ -13,6 +13,8 @@
  
  package org.openconcerto.utils;
 
+import org.openconcerto.utils.cc.AbstractMapDecorator;
+
 import java.util.AbstractCollection;
 import java.util.Arrays;
 import java.util.Collection;
@@ -34,7 +36,7 @@ import java.util.Set;
  * @param <C> the type of mapped collections
  * @param <V> the type of elements of the collections
  */
-public abstract class CollectionMap2<K, C extends Collection<V>, V> extends HashMap<K, C> {
+public abstract class CollectionMap2<K, C extends Collection<V>, V> extends AbstractMapDecorator<K, C> implements Cloneable, CollectionMap2Itf<K, C, V> {
 
     static final int DEFAULT_INITIAL_CAPACITY = 16;
 
@@ -62,7 +64,8 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         NULL_MEANS_ALL
     }
 
-    static private final Mode DEFAULT_MODE = Mode.NULL_FORBIDDEN;
+    static protected final Mode DEFAULT_MODE = Mode.NULL_FORBIDDEN;
+    static private final Boolean DEFAULT_emptyCollSameAsNoColl = null;
 
     private final boolean emptyCollSameAsNoColl;
     private final Mode mode;
@@ -73,27 +76,71 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
     }
 
     public CollectionMap2(final Mode mode) {
-        this(mode, null);
+        this(mode, DEFAULT_emptyCollSameAsNoColl);
+    }
+
+    public CollectionMap2(final Map<K, C> delegate, final Mode mode) {
+        this(delegate, mode, DEFAULT_emptyCollSameAsNoColl);
     }
 
     public CollectionMap2(final Mode mode, final Boolean emptyCollSameAsNoColl) {
         this(DEFAULT_INITIAL_CAPACITY, mode, emptyCollSameAsNoColl);
     }
 
-    public CollectionMap2(int initialCapacity) {
-        this(initialCapacity, DEFAULT_MODE, null);
+    public CollectionMap2(final int initialCapacity) {
+        this(initialCapacity, DEFAULT_MODE, DEFAULT_emptyCollSameAsNoColl);
     }
 
-    public CollectionMap2(int initialCapacity, final Mode mode, final Boolean emptyCollSameAsNoColl) {
-        super(initialCapacity);
+    public CollectionMap2(final int initialCapacity, final Mode mode, final Boolean emptyCollSameAsNoColl) {
+        this(new HashMap<K, C>(initialCapacity), mode, emptyCollSameAsNoColl);
+    }
+
+    /**
+     * Create a new instance with the passed delegate. The delegate is *not* cleared, this allows to
+     * decorate an existing Map but it also means that the existing collections might not be the
+     * exact same type as those returned by {@link #createCollection(Collection)}.
+     * 
+     * @param delegate the map to use, it must not be modified afterwards.
+     * @param mode how to handle null values.
+     * @param emptyCollSameAsNoColl for {@link #getCollection(Object)} : whether the lack of an
+     *        entry is the same as an entry with an empty collection, can be <code>null</code>.
+     */
+    public CollectionMap2(final Map<K, C> delegate, final Mode mode, final Boolean emptyCollSameAsNoColl) {
+        super(delegate);
+        if (mode == null)
+            throw new NullPointerException("Null mode");
         this.mode = mode;
         this.emptyCollSameAsNoColl = emptyCollSameAsNoColl == null ? mode == Mode.NULL_MEANS_ALL : emptyCollSameAsNoColl;
+        checkMode();
     }
 
-    public CollectionMap2(Map<? extends K, ? extends Collection<? extends V>> m) {
+    private final void checkMode() {
+        assert this.mode != null : "Called too early";
+        if (this.mode == Mode.NULL_FORBIDDEN && this.containsValue(null))
+            throw new IllegalArgumentException("Null collection");
+    }
+
+    // ** copy constructors
+
+    public CollectionMap2(final CollectionMap2<K, C, ? extends V> m) {
+        this(CopyUtils.copy(m.getDelegate()), m);
+    }
+
+    public CollectionMap2(final Map<? extends K, ? extends Collection<? extends V>> m) {
+        this(new HashMap<K, C>(m.size()), m);
+    }
+
+    /**
+     * Create a new instance with the passed delegate and filling it with the passed map.
+     * 
+     * @param delegate the map to use, it will be cleared and must not be modified afterwards.
+     * @param m the values to put in this, if it's an instance of {@link CollectionMap2} the
+     *        {@link #getMode() mode} and {@link #isEmptyCollSameAsNoColl()} will be copied as well.
+     */
+    public CollectionMap2(final Map<K, C> delegate, final Map<? extends K, ? extends Collection<? extends V>> m) {
         // don't use super(Map) since it doesn't copy the collections
         // also its type is more restrictive
-        super(m.size());
+        super(delegate);
         if (m instanceof CollectionMap2) {
             final CollectionMap2<?, ?, ?> collM = (CollectionMap2<?, ?, ?>) m;
             this.mode = collM.getMode();
@@ -102,30 +149,49 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
             this.mode = DEFAULT_MODE;
             this.emptyCollSameAsNoColl = this.mode == Mode.NULL_MEANS_ALL;
         }
+        // delegate might not contain the same instances of collections (i.e. LinkedList vs
+        // ArrayList)
+        this.clear();
         this.putAllCollections(m);
     }
 
+    @Override
     public final Mode getMode() {
         return this.mode;
     }
 
+    @Override
     public final boolean isEmptyCollSameAsNoColl() {
         return this.emptyCollSameAsNoColl;
     }
 
-    public final C getNonNullIfMissing(Object key) {
+    public final C getNonNullIfMissing(final Object key) {
         return this.get(key, false, true);
     }
 
-    public final C getNonNull(K key) {
+    @Override
+    public final C getNonNull(final K key) {
         return this.get(key, false, false);
     }
 
-    private final C getNonNullColl(C res) {
+    private final C getNonNullColl(final C res) {
         return res == null ? this.createCollection(Collections.<V> emptySet()) : res;
     }
 
-    public final C get(Object key, final boolean nullIfMissing, final boolean nullIfPresent) {
+    /**
+     * Get the collection mapped to the passed key. Note : <code>get(key, true, true)</code> is
+     * equivalent to <code>get(key)</code>.
+     * 
+     * @param key the key whose associated value is to be returned.
+     * @param nullIfMissing only relevant if the key isn't contained : if <code>true</code>
+     *        <code>null</code> will be returned, otherwise an empty collection.
+     * @param nullIfPresent only relevant if the key is mapped to <code>null</code> : if
+     *        <code>true</code> <code>null</code> will be returned, otherwise an empty collection.
+     * @return the non {@code null} value to which the specified key is mapped, otherwise
+     *         {@code null} or empty collection depending on the other parameters.
+     */
+    @Override
+    public final C get(final Object key, final boolean nullIfMissing, final boolean nullIfPresent) {
         if (nullIfMissing == nullIfPresent) {
             final C res = super.get(key);
             if (res != null || nullIfMissing && nullIfPresent) {
@@ -149,7 +215,8 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         }
     }
 
-    public final C getCollection(Object key) {
+    @Override
+    public final C getCollection(final Object key) {
         return this.get(key, !this.isEmptyCollSameAsNoColl(), true);
     }
 
@@ -167,6 +234,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
      * 
      * @return a view all values in all entries, <code>null</code> collections are ignored.
      */
+    @Override
     public Collection<V> allValues() {
         if (this.allValues == null)
             this.allValues = new AllValues();
@@ -180,17 +248,11 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         }
 
         @Override
-        public boolean isEmpty() {
-            return !iterator().hasNext();
-        }
-
-        @Override
         public int size() {
             int compt = 0;
-            final Iterator<V> it = iterator();
-            while (it.hasNext()) {
-                it.next();
-                compt++;
+            for (final C c : values()) {
+                if (c != null)
+                    compt += c.size();
             }
             return compt;
         }
@@ -244,6 +306,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
     @Override
     public Set<Map.Entry<K, C>> entrySet() {
         if (getMode() == Mode.NULL_FORBIDDEN) {
+            // prevent null insertion
             // MAYBE cache
             return new EntrySet(super.entrySet());
         } else {
@@ -255,7 +318,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
 
         private final Set<Map.Entry<K, C>> delegate;
 
-        public EntrySet(Set<java.util.Map.Entry<K, C>> delegate) {
+        public EntrySet(final Set<java.util.Map.Entry<K, C>> delegate) {
             super();
             this.delegate = delegate;
         }
@@ -266,12 +329,12 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         }
 
         @Override
-        public boolean contains(Object o) {
+        public boolean contains(final Object o) {
             return this.delegate.contains(o);
         }
 
         @Override
-        public boolean remove(Object o) {
+        public boolean remove(final Object o) {
             return this.delegate.remove(o);
         }
 
@@ -306,7 +369,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
                         }
 
                         @Override
-                        public C setValue(C value) {
+                        public C setValue(final C value) {
                             if (value == null)
                                 throw new NullPointerException("Putting null collection for " + toStr(getKey()));
                             return delegate.setValue(value);
@@ -322,7 +385,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         }
 
         @Override
-        public boolean equals(Object o) {
+        public boolean equals(final Object o) {
             return this.delegate.equals(o);
         }
 
@@ -332,24 +395,29 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         }
 
         @Override
-        public boolean removeAll(Collection<?> c) {
+        public boolean removeAll(final Collection<?> c) {
             return this.delegate.removeAll(c);
         }
     }
 
     @Override
-    public final C put(K key, C value) {
+    public final C put(final K key, final C value) {
         return this.putCollection(key, value);
     }
 
     // copy passed collection
-    public final C putCollection(K key, Collection<? extends V> value) {
+    @Override
+    public final C putCollection(final K key, final Collection<? extends V> value) {
         if (value == null && this.getMode() == Mode.NULL_FORBIDDEN)
             throw new NullPointerException("Putting null collection for " + toStr(key));
         return super.put(key, value == null ? null : createCollection(value));
     }
 
-    public void putAllCollections(Map<? extends K, ? extends Collection<? extends V>> m) {
+    public final C putCollection(final K key, final V... value) {
+        return this.putCollection(key, Arrays.asList(value));
+    }
+
+    public void putAllCollections(final Map<? extends K, ? extends Collection<? extends V>> m) {
         for (final Map.Entry<? extends K, ? extends Collection<? extends V>> e : m.entrySet()) {
             this.putCollection(e.getKey(), e.getValue());
         }
@@ -357,53 +425,65 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
 
     // ** add/remove collection
 
-    public final void add(K k, V v) {
-        this.addAll(k, Collections.singleton(v));
+    @Override
+    public final boolean add(final K k, final V v) {
+        return this.addAll(k, Collections.singleton(v));
     }
 
-    public final void addAll(K k, V... v) {
-        this.addAll(k, Arrays.asList(v));
+    public final boolean addAll(final K k, final V... v) {
+        return this.addAll(k, Arrays.asList(v));
     }
 
-    public final void addAll(K k, Collection<? extends V> v) {
+    @Override
+    public final boolean addAll(final K k, final Collection<? extends V> v) {
         final boolean nullIsAll = getMode() == Mode.NULL_MEANS_ALL;
         if (v == null && !nullIsAll)
             throw new NullPointerException("Adding null collection for " + toStr(k));
-        if (v == null || !this.containsKey(k)) {
+        final boolean containsKey = this.containsKey(k);
+        if (v == null) {
+            return this.putCollection(k, v) != null;
+        } else if (!containsKey) {
             this.putCollection(k, v);
+            return true;
         } else {
             final C currentColl = this.get(k);
             if (nullIsAll && currentColl == null) {
                 // ignore since we can't add something to everything
+                return false;
             } else {
                 // will throw if currentCol is null
-                currentColl.addAll(v);
+                return currentColl.addAll(v);
             }
         }
     }
 
-    public final void merge(Map<? extends K, ? extends Collection<? extends V>> mm) {
+    @Override
+    public final void merge(final Map<? extends K, ? extends Collection<? extends V>> mm) {
         for (final Map.Entry<? extends K, ? extends Collection<? extends V>> e : mm.entrySet()) {
             this.addAll(e.getKey(), e.getValue());
         }
     }
 
-    public final void mergeScalarMap(Map<? extends K, ? extends V> scalarMap) {
+    @Override
+    public final void mergeScalarMap(final Map<? extends K, ? extends V> scalarMap) {
         for (final Map.Entry<? extends K, ? extends V> e : scalarMap.entrySet()) {
             this.add(e.getKey(), e.getValue());
         }
     }
 
-    public final void remove(K k, V v) {
-        this.removeAll(k, Collections.singleton(v));
+    @Override
+    public final boolean remove(final K k, final V v) {
+        return this.removeAll(k, Collections.singleton(v));
     }
 
-    public final void removeAll(K k, Collection<? extends V> v) {
-        this.removeAll(k, v, null);
+    @Override
+    public final boolean removeAll(final K k, final Collection<? extends V> v) {
+        return this.removeAll(k, v, null);
     }
 
-    private final void removeAll(K k, Collection<? extends V> v, final Iterator<Map.Entry<K, C>> iter) {
+    private final boolean removeAll(final K k, final Collection<? extends V> v, final Iterator<Map.Entry<K, C>> iter) {
         boolean removeK = false;
+        boolean modified = false;
         if (getMode() == Mode.NULL_MEANS_ALL) {
             if (v == null) {
                 removeK = true;
@@ -411,7 +491,7 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
                 final C currentColl = this.get(k);
                 if (currentColl == null)
                     throw new IllegalStateException("Cannot remove from all for " + toStr(k));
-                currentColl.removeAll(v);
+                modified = currentColl.removeAll(v);
                 if (currentColl.isEmpty())
                     removeK = true;
             }
@@ -421,43 +501,56 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
                 // since containsKey() and coll == null
                 assert getMode() == Mode.NULL_ALLOWED;
                 removeK = true;
+                // since we just tested containsKey()
+                modified = true;
             } else {
                 if (v == null)
                     throw new NullPointerException("Removing null collection for " + toStr(k));
-                currentColl.removeAll(v);
+                modified = currentColl.removeAll(v);
                 if (currentColl.isEmpty())
                     removeK = true;
             }
         }
-        if (removeK)
-            if (iter == null)
+        if (removeK) {
+            if (iter == null) {
+                modified |= this.containsKey(k);
                 this.remove(k);
-            else
+            } else {
                 iter.remove();
+                modified = true;
+            }
+        }
+        return modified;
     }
 
-    public final void removeAll(Map<? extends K, ? extends Collection<? extends V>> mm) {
+    @Override
+    public final boolean removeAll(final Map<? extends K, ? extends Collection<? extends V>> mm) {
+        boolean modified = false;
         // iterate on this to allow mm.removeAll(mm)
         final Iterator<Map.Entry<K, C>> iter = this.entrySet().iterator();
         while (iter.hasNext()) {
             final Map.Entry<K, C> e = iter.next();
             final K key = e.getKey();
             if (mm.containsKey(key))
-                this.removeAll(key, mm.get(key), iter);
+                modified |= this.removeAll(key, mm.get(key), iter);
         }
+        return modified;
     }
 
-    public final void removeAllScalar(Map<? extends K, ? extends V> m) {
+    @Override
+    public final boolean removeAllScalar(final Map<? extends K, ? extends V> m) {
+        boolean modified = false;
         // incompatible types, allowing removal without ConcurrentModificationException
         assert m != this;
         for (final Map.Entry<? extends K, ? extends V> e : m.entrySet()) {
-            this.remove(e.getKey(), e.getValue());
+            modified |= this.remove(e.getKey(), e.getValue());
         }
+        return modified;
     }
 
     // ** remove empty/null collections
 
-    public final C removeIfEmpty(K k) {
+    public final C removeIfEmpty(final K k) {
         final C v = this.get(k);
         if (v != null && v.isEmpty())
             return this.remove(k);
@@ -465,15 +558,17 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
             return null;
     }
 
-    public final void removeIfNull(K k) {
+    public final void removeIfNull(final K k) {
         if (this.get(k) == null)
             this.remove(k);
     }
 
+    @Override
     public final Set<K> removeAllEmptyCollections() {
         return this.removeAll(true);
     }
 
+    @Override
     public final Set<K> removeAllNullCollections() {
         return this.removeAll(false);
     }
@@ -496,6 +591,13 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
 
     @Override
     public int hashCode() {
+        if (this.mode == Mode.NULL_MEANS_ALL)
+            return this.hashCodeExact();
+        else
+            return super.hashCode();
+    }
+
+    public int hashCodeExact() {
         final int prime = 31;
         int result = super.hashCode();
         result = prime * result + (this.emptyCollSameAsNoColl ? 1231 : 1237);
@@ -503,27 +605,58 @@ public abstract class CollectionMap2<K, C extends Collection<V>, V> extends Hash
         return result;
     }
 
+    /**
+     * Compares the specified object with this map for equality. Except for
+     * {@link Mode#NULL_MEANS_ALL}, returns <tt>true</tt> if the given object is also a map and the
+     * two maps represent the same mappings (as required by {@link Map}).
+     * <code>NULL_MEANS_ALL</code> maps are tested using {@link #equalsExact(Object)}, meaning they
+     * don't conform to the Map interface.
+     * 
+     * @param obj object to be compared for equality with this map
+     * @return <tt>true</tt> if the specified object is equal to this map
+     * @see #equalsExact(Object)
+     */
     @Override
-    public boolean equals(Object obj) {
+    public final boolean equals(final Object obj) {
+        return this.equals(obj, false);
+    }
+
+    /**
+     * Compares the specified object with this map for complete equality. This method not only
+     * checks for equality of values (as required by {@link Map}) but also the class and attributes.
+     * 
+     * @param obj object to be compared for equality with this map
+     * @return <tt>true</tt> if the specified object is exactly equal to this map.
+     */
+    public final boolean equalsExact(final Object obj) {
+        return this.equals(obj, true);
+    }
+
+    private final boolean equals(final Object obj, final boolean forceExact) {
         if (this == obj)
             return true;
         if (!super.equals(obj))
             return false;
-        if (getClass() != obj.getClass())
-            return false;
-        // no need to test createCollection(), since values are tested by super.equals()
-        final CollectionMap2<?, ?, ?> other = (CollectionMap2<?, ?, ?>) obj;
-        return this.emptyCollSameAsNoColl == other.emptyCollSameAsNoColl && this.mode == other.mode;
+        assert obj != null;
+        final CollectionMap2<?, ?, ?> other = obj instanceof CollectionMap2 ? (CollectionMap2<?, ?, ?>) obj : null;
+        if (forceExact || this.mode == Mode.NULL_MEANS_ALL || (other != null && other.mode == Mode.NULL_MEANS_ALL)) {
+            if (getClass() != obj.getClass())
+                return false;
+            // no need to test createCollection(), since values are tested by super.equals()
+            return this.emptyCollSameAsNoColl == other.emptyCollSameAsNoColl && this.mode == other.mode && this.getDelegate().getClass() == other.getDelegate().getClass();
+        } else {
+            return true;
+        }
     }
 
     @Override
-    public CollectionMap2<K, C, V> clone() {
+    public CollectionMap2<K, C, V> clone() throws CloneNotSupportedException {
         @SuppressWarnings("unchecked")
         final CollectionMap2<K, C, V> result = (CollectionMap2<K, C, V>) super.clone();
         // allValues has a reference to this
         result.allValues = null;
         // clone each collection value
-        for (Map.Entry<K, C> entry : result.entrySet()) {
+        for (final Map.Entry<K, C> entry : result.entrySet()) {
             final C coll = entry.getValue();
             entry.setValue(createCollection(coll));
         }

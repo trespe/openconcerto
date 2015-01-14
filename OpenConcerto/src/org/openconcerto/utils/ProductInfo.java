@@ -110,4 +110,9 @@ public class ProductInfo {
     public final String getVersion() {
         return this.getProperty(VERSION);
     }
+
+    @Override
+    public String toString() {
+        return this.getClass().getSimpleName() + " for " + getName() + " " + getVersion();
+    }
 }

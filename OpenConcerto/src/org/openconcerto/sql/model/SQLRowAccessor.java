@@ -34,6 +34,79 @@ import java.util.Set;
  * A class that represent a row of a table. The row might not acutally exists in the database, and
  * it might not define all the fields.
  * 
+ * <table border="1">
+ * <caption>Primary Key</caption> <thead>
+ * <tr>
+ * <th><code>ID</code> value</th>
+ * <th>{@link #hasID()}</th>
+ * <th>{@link #getIDNumber()}</th>
+ * <th>{@link #isUndefined()}</th>
+ * </tr>
+ * </thead> <tbody>
+ * <tr>
+ * <th>∅</th>
+ * <td><code>false</code></td>
+ * <td><code>null</code></td>
+ * <td><code>false</code></td>
+ * </tr>
+ * <tr>
+ * <th><code>null</code></th>
+ * <td><code>false</code> :<br/>
+ * no row in the DB can have a <code>null</code> primary key</td>
+ * <td><code>null</code></td>
+ * <td><code>false</code><br/>
+ * (even if getUndefinedIDNumber() is <code>null</code>, see method documentation)</td>
+ * </tr>
+ * <tr>
+ * <th><code>instanceof Number</code></th>
+ * <td><code>true</code></td>
+ * <td><code>Number</code></td>
+ * <td>if equals <code>getUndefinedID()</code></td>
+ * </tr>
+ * <tr>
+ * <th><code>else</code></th>
+ * <td><code>ClassCastException</code></td>
+ * <td><code>ClassCastException</code></td>
+ * <td><code>ClassCastException</code></td>
+ * </tr>
+ * </tbody>
+ * </table>
+ * <br/>
+ * <table border="1">
+ * <caption>Foreign Keys</caption> <thead>
+ * <tr>
+ * <th><code>ID</code> value</th>
+ * <th>{@link #getForeignIDNumber(String)}</th>
+ * <th>{@link #isForeignEmpty(String)}</th>
+ * </tr>
+ * </thead> <tbody>
+ * <tr>
+ * <th>∅</th>
+ * <td><code>Exception</code></td>
+ * <td><code>Exception</code></td>
+ * </tr>
+ * <tr>
+ * <th><code>null</code></th>
+ * <td><code>null</code></td>
+ * <td>if equals <code>getUndefinedID()</code></td>
+ * </tr>
+ * <tr>
+ * <th><code>instanceof Number</code></th>
+ * <td><code>Number</code></td>
+ * <td>if equals <code>getUndefinedID()</code></td>
+ * </tr>
+ * <tr>
+ * <tr>
+ * <th><code>instanceof SQLRowValues</code></th>
+ * <td><code>getIDNumber()</code></td>
+ * <td><code>isUndefined()</code></td>
+ * </tr>
+ * <th><code>else</code></th>
+ * <td><code>ClassCastException</code></td>
+ * <td><code>ClassCastException</code></td>
+ * </tr> </tbody>
+ * </table>
+ * 
  * @author Sylvain CUAZ
  */
 public abstract class SQLRowAccessor implements SQLData {
@@ -52,6 +125,18 @@ public abstract class SQLRowAccessor implements SQLData {
     }
 
     /**
+     * Whether this row has a Number for the primary key.
+     * 
+     * @return <code>true</code> if the value of the primary key is specified and is a non
+     *         <code>null</code> number, <code>false</code> if the value isn't specified or if it's
+     *         <code>null</code>.
+     * @throws ClassCastException if value is not <code>null</code> and not a {@link Number}.
+     */
+    public final boolean hasID() throws ClassCastException {
+        return this.getIDNumber() != null;
+    }
+
+    /**
      * Returns the ID of the represented row.
      * 
      * @return the ID, or {@link SQLRow#NONEXISTANT_ID} if this row is not linked to the DB.
@@ -60,8 +145,35 @@ public abstract class SQLRowAccessor implements SQLData {
 
     public abstract Number getIDNumber();
 
+    /**
+     * Whether this row is the undefined row. Return <code>false</code> if both the
+     * {@link #getIDNumber() ID} and {@link SQLTable#getUndefinedIDNumber()} are <code>null</code>
+     * since no row can have <code>null</code> primary key in the database. IOW when
+     * {@link SQLTable#getUndefinedIDNumber()} is <code>null</code> the empty
+     * <strong>foreign</strong> keys are <code>null</code>.
+     * 
+     * @return <code>true</code> if the ID is specified, not <code>null</code> and is equal to the
+     *         {@link SQLTable#getUndefinedIDNumber() undefined} ID.
+     */
     public final boolean isUndefined() {
-        return this.getID() == this.getTable().getUndefinedID();
+        final Number id = this.getIDNumber();
+        return id != null && id.intValue() == this.getTable().getUndefinedID();
+    }
+
+    /**
+     * Est ce que cette ligne est archivée.
+     * 
+     * @return <code>true</code> si la ligne était archivée lors de son instanciation.
+     */
+    public boolean isArchived() {
+        // si il n'y a pas de champs archive, elle n'est pas archivée
+        if (!this.getTable().isArchivable())
+            return false;
+        // TODO sortir archive == 1
+        if (this.getTable().getArchiveField().getType().getJavaType().equals(Boolean.class))
+            return this.getBoolean(this.getTable().getArchiveField().getName()) == Boolean.TRUE;
+        else
+            return this.getInt(this.getTable().getArchiveField().getName()) == 1;
     }
 
     /**
@@ -193,8 +305,29 @@ public abstract class SQLRowAccessor implements SQLData {
      *         <code>null</code>.
      * @throws IllegalArgumentException if fieldName is not a foreign field.
      */
-    public abstract int getForeignID(String fieldName) throws IllegalArgumentException;
+    public final int getForeignID(String fieldName) throws IllegalArgumentException {
+        final Number res = this.getForeignIDNumber(fieldName);
+        return res == null ? SQLRow.NONEXISTANT_ID : res.intValue();
+    }
 
+    /**
+     * Return the ID of a foreign row.
+     * 
+     * @param fieldName name of the foreign field.
+     * @return the value of <code>fieldName</code> or {@link #getIDNumber()} if the value is a
+     *         {@link SQLRowAccessor}, <code>null</code> if the actual value is.
+     * @throws IllegalArgumentException if fieldName is not a foreign field or if the field isn't
+     *         specified.
+     */
+    public abstract Number getForeignIDNumber(String fieldName) throws IllegalArgumentException;
+
+    /**
+     * Whether the passed field is empty.
+     * 
+     * @param fieldName name of the foreign field.
+     * @return <code>true</code> if {@link #getForeignIDNumber(String)} is the
+     *         {@link SQLTable#getUndefinedIDNumber()}.
+     */
     public abstract boolean isForeignEmpty(String fieldName);
 
     public abstract Collection<? extends SQLRowAccessor> getReferentRows();

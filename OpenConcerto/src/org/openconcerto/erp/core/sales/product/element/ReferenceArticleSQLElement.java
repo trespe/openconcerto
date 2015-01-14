@@ -15,18 +15,25 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
+import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.product.component.ReferenceArticleSQLComponent;
+import org.openconcerto.erp.generationDoc.gestcomm.FicheArticleXmlSheet;
+import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.SQLPreferences;
+import org.openconcerto.sql.view.list.SQLTableModelColumn;
+import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.utils.CollectionMap;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
@@ -47,6 +54,29 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
 
     public ReferenceArticleSQLElement() {
         super("ARTICLE", "un article", "articles");
+
+        getRowActions().addAll(new MouseSheetXmlListeListener(FicheArticleXmlSheet.class).getRowActions());
+
+    }
+
+    @Override
+    protected SQLTableModelSourceOnline createTableSource() {
+        SQLTableModelSourceOnline source = super.createTableSource();
+
+        final SQLTableModelColumn pvHTCol = source.getColumn(getTable().getField("PV_HT"));
+        if (pvHTCol != null) {
+            pvHTCol.setRenderer(CURRENCY_RENDERER);
+        }
+        final SQLTableModelColumn pvTTCCol = source.getColumn(getTable().getField("PV_TTC"));
+        if (pvTTCCol != null) {
+            pvTTCCol.setRenderer(CURRENCY_RENDERER);
+        }
+        final SQLTableModelColumn paHTCol = source.getColumn(getTable().getField("PA_HT"));
+        if (paHTCol != null) {
+            paHTCol.setRenderer(CURRENCY_RENDERER);
+        }
+
+        return source;
     }
 
     protected List<String> getListFields() {
@@ -75,6 +105,14 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
             l.add("SERVICE");
         }
         return l;
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        final CollectionMap<String, String> res = new CollectionMap<String, String>();
+        res.put(null, "NOM");
+        res.put(null, "ID_FAMILLE_ARTICLE");
+        return res;
     }
 
     protected List<String> getComboFields() {
@@ -259,9 +297,32 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
 
         if (createIfNotExist) {
             SQLRowValues vals = new SQLRowValues(row);
+            BigDecimal taux = BigDecimal.ONE.add(new BigDecimal(TaxeCache.getCache().getTauxFromId(row.getForeignID("ID_TAXE")) / 100f));
+            vals.put("PV_TTC", vals.getBigDecimal("PV_HT").multiply(taux));
             SQLRow rowNew;
             try {
-                rowNew = vals.insert();
+
+                // Liaison avec l'article fournisseur si il existe
+                SQLSelect selMatchingCodeF = new SQLSelect();
+                final SQLTable table = tableArt.getTable("ARTICLE_FOURNISSEUR");
+                selMatchingCodeF.addSelect(table.getKey());
+                selMatchingCodeF.addSelect(table.getField("ID_FOURNISSEUR"));
+                selMatchingCodeF.addSelect(table.getField("CODE_BARRE"));
+                Where wMatchingCodeF = new Where(table.getField("CODE"), "=", vals.getString("CODE"));
+                wMatchingCodeF = wMatchingCodeF.and(new Where(table.getField("NOM"), "=", vals.getString("NOM")));
+                selMatchingCodeF.setWhere(wMatchingCodeF);
+
+                List<SQLRow> l = SQLRowListRSH.execute(selMatchingCodeF);
+                if (l.size() > 0) {
+                    SQLRowValues rowVals = l.get(0).asRowValues();
+                    vals.put("ID_FOURNISSEUR", rowVals.getObject("ID_FOURNISSEUR"));
+                    vals.put("CODE_BARRE", rowVals.getObject("CODE_BARRE"));
+                    rowNew = vals.insert();
+                    rowVals.put("ID_ARTICLE", rowNew.getID());
+                    rowVals.commit();
+                } else {
+                    rowNew = vals.insert();
+                }
                 return rowNew.getID();
             } catch (SQLException e) {
                 e.printStackTrace();

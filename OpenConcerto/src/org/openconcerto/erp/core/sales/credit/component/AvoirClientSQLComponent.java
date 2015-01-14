@@ -17,6 +17,7 @@ import static org.openconcerto.utils.CollectionUtils.createSet;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.component.SocieteCommonSQLElement;
 import org.openconcerto.erp.core.common.component.TransfertBaseSQLComponent;
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.AbstractArticleItemTable;
@@ -28,8 +29,6 @@ import org.openconcerto.erp.core.finance.payment.component.ModeDeReglementSQLCom
 import org.openconcerto.erp.core.sales.credit.element.AvoirClientSQLElement;
 import org.openconcerto.erp.core.sales.credit.ui.AvoirItemTable;
 import org.openconcerto.erp.core.sales.invoice.component.SaisieVenteFactureSQLComponent;
-import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
-import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.generationDoc.gestcomm.AvoirClientXmlSheet;
 import org.openconcerto.erp.generationEcritures.GenerationMvtAvoirClient;
 import org.openconcerto.erp.model.ISQLCompteSelector;
@@ -691,7 +690,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
 
                 rowVals2.update();
 
-                updateStock(id);
+                // updateStock(id);
 
                 GenerationMvtAvoirClient gen = new GenerationMvtAvoirClient(id);
                 gen.genereMouvement();
@@ -784,7 +783,7 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
                 rowVals2.update();
 
                 // On met à jour le stock
-                updateStock(getSelectedID());
+                // updateStock(getSelectedID());
 
                 int idMvt = row.getInt("ID_MOUVEMENT");
 
@@ -811,26 +810,29 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
         }
     }
 
-    protected String getLibelleStock(SQLRow row, SQLRow rowElt) {
-        return "Avoir client N°" + row.getString("NUMERO");
-    }
-
-    /**
-     * Mise à jour des stocks pour chaque article composant la facture d'avoir
-     * 
-     * @throws SQLException
-     */
-    private void updateStock(int id) throws SQLException {
-
-        MouvementStockSQLElement mvtStock = (MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-        mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("AVOIR_CLIENT_ELEMENT"), new StockLabel() {
-            @Override
-            public String getLabel(SQLRow rowOrigin, SQLRow rowElt) {
-                return getLibelleStock(rowOrigin, rowElt);
-            }
-        }, true);
-
-    }
+    // Su^prression de la methode, retour de marchandise à gérer avec les Mouvements de stocks
+    // protected String getLibelleStock(SQLRowAccessor row, SQLRowAccessor rowElt) {
+    // return "Avoir client N°" + row.getString("NUMERO");
+    // }
+    //
+    // /**
+    // * Mise à jour des stocks pour chaque article composant la facture d'avoir
+    // *
+    // * @throws SQLException
+    // */
+    // private void updateStock(int id) throws SQLException {
+    //
+    // MouvementStockSQLElement mvtStock = (MouvementStockSQLElement)
+    // Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+    // mvtStock.createMouvement(getTable().getRow(id), getTable().getTable("AVOIR_CLIENT_ELEMENT"),
+    // new StockLabel() {
+    // @Override
+    // public String getLabel(SQLRowAccessor rowOrigin, SQLRowAccessor rowElt) {
+    // return getLibelleStock(rowOrigin, rowElt);
+    // }
+    // }, true, true);
+    //
+    // }
 
     public void actionPerformed(ActionEvent e) {
         if (e.getSource() == this.boxAdeduire) {

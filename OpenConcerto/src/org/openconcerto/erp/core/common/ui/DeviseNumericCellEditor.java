@@ -44,7 +44,7 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
     protected JTextField textField = new JTextField();
 
     protected int precision;
-    protected final DecimalFormat decimalFormat = new DecimalFormat("##,##0.00#######");
+    protected final DecimalFormat decimalFormat = new DecimalFormat("0.00#######");
 
     public DeviseNumericCellEditor(SQLField field) {
         final DecimalFormatSymbols symbol = DecimalFormatSymbols.getInstance();
@@ -128,12 +128,7 @@ public class DeviseNumericCellEditor extends AbstractCellEditor implements Table
     }
 
     public Object getCellEditorValue() {
-        final String text = StringUtils.removeNonDecimalChars(this.textField.getText());
-        if (text.length() > 0) {
-            return new BigDecimal(text);
-        } else {
-            return BigDecimal.ZERO;
-        }
+        return StringUtils.getBigDecimalFromUserText(this.textField.getText());
     }
 
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {

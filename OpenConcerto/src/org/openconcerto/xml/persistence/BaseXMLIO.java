@@ -13,12 +13,11 @@
  
  package org.openconcerto.xml.persistence;
 
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.SetMap;
 
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
-import java.util.HashSet;
 
 import org.jdom.Namespace;
 import org.jdom.output.Format;
@@ -56,18 +55,19 @@ public abstract class BaseXMLIO implements PersistenceIO {
         return dir;
     }
 
-    public final CollectionMap<Class, String> getIDs() throws IOException {
+    @Override
+    public final SetMap<Class<?>, String> getIDs() throws IOException {
         final File[] dirs = this.root.listFiles(new FileFilter() {
             public boolean accept(File f) {
                 return f.isDirectory();
             }
         });
-        final CollectionMap<Class, String> res = new CollectionMap<Class, String>(HashSet.class);
+        final SetMap<Class<?>, String> res = new SetMap<Class<?>, String>();
         for (int i = 0; i < dirs.length; i++) {
             final File dir = dirs[i];
-            final Class clazz = XMLFactory.getClass(dir.getName());
+            final Class<?> clazz = XMLFactory.getClass(dir.getName());
             if (clazz != null) {
-                res.putAll(clazz, this.getIDs(clazz));
+                res.addAll(clazz, this.getIDs(clazz));
             }
         }
         return res;

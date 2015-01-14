@@ -13,20 +13,10 @@
  
  package org.openconcerto.sql.changer;
 
-import org.openconcerto.sql.model.DBStructureItem;
-
 import java.io.IOException;
 import java.sql.SQLException;
 
 public class Convert extends Change {
-
-    public Convert() throws IOException {
-        super();
-    }
-
-    public Convert(DBStructureItem<?> root) {
-        super(root);
-    }
 
     public static void main(String[] args) throws IOException, SQLException {
         new Convert().exec(args);

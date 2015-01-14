@@ -13,7 +13,9 @@
  
  package org.openconcerto.utils;
 
+import org.openconcerto.utils.CollectionMap2.Mode;
 import org.openconcerto.utils.OSFamily.Unix;
+import org.openconcerto.utils.ProcessStreams.Action;
 import org.openconcerto.utils.StringUtils.Escaper;
 import org.openconcerto.utils.cc.ExnTransformer;
 import org.openconcerto.utils.cc.IClosure;
@@ -42,6 +44,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
@@ -375,19 +378,23 @@ public final class FileUtils {
      * @throws IOException if an error occurs.
      */
     public static void copyFile(File in, File out, long maxCount) throws IOException {
-        final FileChannel sourceChannel = new FileInputStream(in).getChannel();
-        final FileChannel destinationChannel = new FileOutputStream(out).getChannel();
-        if (maxCount == 0)
-            maxCount = sourceChannel.size();
+        final FileInputStream sourceIn = new FileInputStream(in);
+        FileOutputStream sourceOut = null;
         try {
+            sourceOut = new FileOutputStream(out);
+            final FileChannel sourceChannel = sourceIn.getChannel();
             final long size = sourceChannel.size();
+            if (maxCount == 0)
+                maxCount = size;
+            final FileChannel destinationChannel = sourceOut.getChannel();
             long position = 0;
             while (position < size) {
                 position += sourceChannel.transferTo(position, maxCount, destinationChannel);
             }
         } finally {
-            sourceChannel.close();
-            destinationChannel.close();
+            sourceIn.close();
+            if (sourceOut != null)
+                sourceOut.close();
         }
     }
 
@@ -501,22 +508,34 @@ public final class FileUtils {
      * @throws IOException if a pb occur while reading.
      */
     public static final String read(File f) throws IOException {
-        return read(f, null);
+        return read(new InputStreamReader(new FileInputStream(f)));
     }
 
     /**
      * Read a file line by line and returns the concatenation of these.
      * 
      * @param f the file to read.
-     * @param charset the encoding of <code>f</code>, <code>null</code> means default encoding.
+     * @param charset the encoding of <code>f</code>.
      * @return the content of f.
      * @throws IOException if a pb occur while reading.
      */
     public static final String read(File f, String charset) throws IOException {
+        return read(new InputStreamReader(new FileInputStream(f), charset));
+    }
+
+    public static final String readUTF8(File f) throws IOException {
+        return readUTF8(new FileInputStream(f));
+    }
+
+    public static final String readUTF8(InputStream ins) throws IOException {
+        return read(ins, StringUtils.UTF8);
+    }
+
+    public static final String read(File f, Charset charset) throws IOException {
         return read(new FileInputStream(f), charset);
     }
 
-    public static final String read(InputStream ins, String charset) throws IOException {
+    public static final String read(InputStream ins, Charset charset) throws IOException {
         final Reader reader;
         if (charset == null)
             reader = new InputStreamReader(ins);
@@ -555,10 +574,10 @@ public final class FileUtils {
      * @throws IllegalArgumentException if f is longer than <code>Integer.MAX_VALUE</code>.
      */
     public static final byte[] readBytes(File f) throws IOException {
-        // no need for a Buffer since we read everything at once
-        final InputStream in = new FileInputStream(f);
         if (f.length() > Integer.MAX_VALUE)
             throw new IllegalArgumentException("file longer than Integer.MAX_VALUE" + f.length());
+        // no need for a Buffer since we read everything at once
+        final InputStream in = new FileInputStream(f);
         final byte[] res = new byte[(int) f.length()];
         in.read(res);
         in.close();
@@ -570,6 +589,7 @@ public final class FileUtils {
     }
 
     public static void write(String s, File f, String charset, boolean append) throws IOException {
+        @SuppressWarnings("resource")
         final FileOutputStream fileStream = new FileOutputStream(f, append);
         final OutputStreamWriter out = charset == null ? new OutputStreamWriter(fileStream) : new OutputStreamWriter(fileStream, charset);
         final BufferedWriter w = new BufferedWriter(out);
@@ -735,6 +755,8 @@ public final class FileUtils {
             ps = Runtime.getRuntime().exec(cmdarray);
             res = link;
         }
+        // no need for output, either it succeeds or it fails
+        ProcessStreams.handle(ps, Action.CLOSE);
         try {
             final int exitValue = ps.waitFor();
             if (exitValue == 0)
@@ -762,6 +784,7 @@ public final class FileUtils {
             ps = Runtime.getRuntime().exec(new String[] { "readlink", "-f", link.getAbsolutePath() });
         }
         try {
+            ps.getErrorStream().close();
             final BufferedReader reader = new BufferedReader(new InputStreamReader(ps.getInputStream()));
             final String res = reader.readLine();
             reader.close();
@@ -826,7 +849,7 @@ public final class FileUtils {
             for (int i = 0; i < executables.length; i++) {
                 final String executable = executables[i];
                 try {
-                    Runtime.getRuntime().exec(new String[] { executable, f.getCanonicalPath() });
+                    ProcessStreams.handle(Runtime.getRuntime().exec(new String[] { executable, f.getCanonicalPath() }), Action.CLOSE);
                     return;
                 } catch (IOException e) {
                     // try the next one
@@ -856,9 +879,11 @@ public final class FileUtils {
             throw new IOException("unknown way to open " + f);
         }
         try {
+            final Process ps = Runtime.getRuntime().exec(cmdarray);
+            ProcessStreams.handle(ps, Action.CLOSE);
             // can wait since the command return as soon as the native application is launched
             // (i.e. this won't wait 30s for OpenOffice)
-            final int res = Runtime.getRuntime().exec(cmdarray).waitFor();
+            final int res = ps.waitFor();
             if (res != 0)
                 throw new IOException("error (" + res + ") executing " + Arrays.asList(cmdarray));
         } catch (InterruptedException e) {
@@ -868,7 +893,10 @@ public final class FileUtils {
 
     static final boolean gnomeRunning() {
         try {
-            return Runtime.getRuntime().exec(new String[] { "pgrep", "-u", System.getProperty("user.name"), "nautilus" }).waitFor() == 0;
+            final Process ps = Runtime.getRuntime().exec(new String[] { "pgrep", "-u", System.getProperty("user.name"), "nautilus" });
+            // no need for output, use exit status
+            ProcessStreams.handle(ps, Action.CLOSE);
+            return ps.waitFor() == 0;
         } catch (Exception e) {
             return false;
         }
@@ -876,12 +904,29 @@ public final class FileUtils {
 
     public static final String XML_TYPE = "text/xml";
     private static final Map<String, String> ext2mime;
+    private static final SetMap<String, String> mime2ext;
+
     static {
+        mime2ext = new SetMap<String, String>(Mode.NULL_FORBIDDEN);
+        mime2ext.putCollection(XML_TYPE, ".xml");
+        mime2ext.putCollection("image/jpeg", ".jpg", ".jpeg");
+        mime2ext.putCollection("image/png", ".png");
+        mime2ext.putCollection("image/tiff", ".tiff", ".tif");
+        mime2ext.putCollection("application/pdf", ".pdf");
+
+        mime2ext.putCollection("application/vnd.oasis.opendocument.spreadsheet", ".ods");
+        mime2ext.putCollection("application/vnd.oasis.opendocument.text", ".odt");
+        mime2ext.putCollection("application/vnd.oasis.opendocument.presentation", ".odp");
+        mime2ext.putCollection("application/vnd.oasis.opendocument.graphics", ".odg");
+
         ext2mime = new HashMap<String, String>();
-        ext2mime.put(".xml", XML_TYPE);
-        ext2mime.put(".jpg", "image/jpeg");
-        ext2mime.put(".png", "image/png");
-        ext2mime.put(".tiff", "image/tiff");
+        for (final Entry<String, Set<String>> e : mime2ext.entrySet()) {
+            final String m = e.getKey();
+            for (final String ext : e.getValue()) {
+                if (ext2mime.put(ext, m) != null)
+                    Log.get().info("Duplicate extension : " + ext);
+            }
+        }
     }
 
     /**
@@ -899,6 +944,10 @@ public final class FileUtils {
         return null;
     }
 
+    public static final Set<String> getExtensionsFromMimeType(final String mimetype) {
+        return mime2ext.get(mimetype);
+    }
+
     /**
      * Return the string after the last dot.
      * 
@@ -906,8 +955,12 @@ public final class FileUtils {
      * @return the extension, e.g. "odt" or <code>null</code>.
      */
     public static final String getExtension(String fname) {
+        return getExtension(fname, false);
+    }
+
+    public static final String getExtension(final String fname, final boolean withDot) {
         final int lastIndex = fname.lastIndexOf('.');
-        return lastIndex < 0 ? null : fname.substring(lastIndex + 1);
+        return lastIndex < 0 ? null : fname.substring(lastIndex + (withDot ? 0 : 1));
     }
 
     /**

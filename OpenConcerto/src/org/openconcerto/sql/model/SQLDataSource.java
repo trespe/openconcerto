@@ -228,6 +228,22 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             // instead of List<String>) and faster (less trips to the server, allow
             // SQLUtils.executeMultiple())
             this.addConnectionProperty("allowMultiQueries", "true");
+        } else if (system == SQLSystem.MSSQL) {
+            // Otherwise we get SQLState S0002 instead of 42S02 (needed at least in
+            // SQLBase.getFwkMetadata())
+            // http://msdn.microsoft.com/fr-fr/library/ms712451.aspx
+            // http://technet.microsoft.com/en-us/library/ms378988(v=sql.105).aspx
+            this.addConnectionProperty("xopenStates", "true");
+            // see
+            // https://connect.microsoft.com/SQLServer/feedback/details/295907/resultsetmetadata-gettablename-returns-null-or-inconsistent-results
+            // http://social.msdn.microsoft.com/Forums/sqlserver/en-US/55e8cbb2-b11c-446e-93ab-dc30658caf99/resultsetmetadatagettablename-returns-instead-of-table-name?forum=sqldataaccess
+            // 1. The statement that the resultset belongs to was created with
+            // TYPE_SCROLL_INSENSITIVE or TYPE_SCROLL_SENSITIVE : The full table or view name will
+            // be returned
+            // 2. The statement that the resultset belongs to was created without specifying the
+            // cursor type, or the cursor type is TYPE_FORWARD_ONLY : The full table or view name
+            // will be returned if the column is a text, ntext, or image, else empty string.
+            this.addConnectionProperty("selectMethod", "cursor");
         }
         this.setLoginTimeout(loginTimeOut);
         this.setSocketTimeout(socketTimeOut);
@@ -241,7 +257,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
     public final void setLoginTimeout(int timeout) {
         if (this.getSystem() == SQLSystem.MYSQL) {
             this.addConnectionProperty("connectTimeout", timeout + "000");
-        } else if (this.getSystem() == SQLSystem.POSTGRESQL) {
+        } else if (this.getSystem() == SQLSystem.POSTGRESQL || this.getSystem() == SQLSystem.MSSQL) {
             this.addConnectionProperty("loginTimeout", timeout + "");
         }
     }
@@ -925,7 +941,8 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             // MAYBE un truc un peu plus formel
             if (query.startsWith("INSERT") || query.startsWith("UPDATE") || query.startsWith("DELETE") || query.startsWith("CREATE") || query.startsWith("ALTER") || query.startsWith("DROP")
                     || query.startsWith("SET")) {
-                final boolean returnGenK = (query.startsWith("INSERT") || query.startsWith("UPDATE")) && stmt.getConnection().getMetaData().supportsGetGeneratedKeys();
+                // MS SQL doesn't support UPDATE
+                final boolean returnGenK = query.startsWith("INSERT") && stmt.getConnection().getMetaData().supportsGetGeneratedKeys();
                 stmt.executeUpdate(query, returnGenK ? Statement.RETURN_GENERATED_KEYS : Statement.NO_GENERATED_KEYS);
                 rs = returnGenK ? stmt.getGeneratedKeys() : null;
             } else {
@@ -1337,7 +1354,8 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
             // don't call setSavepoint() if no stack
             final HandlersStack handlersStack = getNonNullHandlersStack();
             final Savepoint res = super.setSavepoint();
-            handlersStack.addTxPoint(new TransactionPoint(this, res, false));
+            // MySQL always create named save points
+            handlersStack.addTxPoint(new TransactionPoint(this, res, getSystem() == SQLSystem.MYSQL));
             return res;
         }
 
@@ -1626,10 +1644,12 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
                 q = "set session search_path to " + SQLBase.quoteIdentifier(schemaName);
             }
         } else if (this.getSystem() == SQLSystem.MSSQL) {
-            if (schemaName == null)
+            if (schemaName == null) {
                 throw new IllegalArgumentException("cannot unset default schema in " + this.getSystem());
-            else
-                q = "alter user " + getUsername() + " with default_schema = " + SQLBase.quoteIdentifier(schemaName);
+            } else {
+                // ATTN MSSQL apparently hang until the connection that created the schema commits
+                q = "ALTER USER " + SQLBase.quoteIdentifier(getUsername()) + " with default_schema = " + SQLBase.quoteIdentifier(schemaName);
+            }
         } else {
             throw new UnsupportedOperationException();
         }
@@ -1664,7 +1684,7 @@ public final class SQLDataSource extends BasicDataSource implements Cloneable {
         return this.getUrl();
     }
 
-    private final SQLSystem getSystem() {
+    public final SQLSystem getSystem() {
         return this.sysRoot.getServer().getSQLSystem();
     }
 

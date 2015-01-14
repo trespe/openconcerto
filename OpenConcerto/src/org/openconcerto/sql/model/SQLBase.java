@@ -27,6 +27,7 @@ import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cc.CopyOnWriteMap;
 import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 
 import java.io.File;
@@ -37,10 +38,11 @@ import java.security.PrivilegedAction;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -52,6 +54,8 @@ import java.util.regex.Pattern;
 
 import net.jcip.annotations.GuardedBy;
 import net.jcip.annotations.ThreadSafe;
+
+import org.apache.commons.dbutils.ResultSetHandler;
 
 /**
  * Une base de donnée SQL. Une base est unique, pour obtenir une instance il faut passer par
@@ -108,7 +112,7 @@ public class SQLBase extends SQLIdentifier {
      * @param pass the password.
      */
     SQLBase(SQLServer server, String name, String login, String pass) {
-        this(server, name, login, pass, null);
+        this(server, name, null, login, pass, null);
     }
 
     /**
@@ -119,12 +123,13 @@ public class SQLBase extends SQLIdentifier {
      * 
      * @param server its server.
      * @param name its name.
+     * @param systemRootInit to initialize the {@link DBSystemRoot} before setting the datasource.
      * @param login the login.
      * @param pass the password.
      * @param dsInit to initialize the datasource before any request (eg setting jdbc properties),
      *        can be <code>null</code>.
      */
-    SQLBase(SQLServer server, String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
+    SQLBase(SQLServer server, String name, IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
         super(server, name);
         if (name == null)
             throw new NullPointerException("null base");
@@ -134,7 +139,7 @@ public class SQLBase extends SQLIdentifier {
         // if this is the systemRoot we must init the datasource to be able to loadTables()
         final DBSystemRoot sysRoot = this.getDBSystemRoot();
         if (sysRoot.getJDBC() == this)
-            sysRoot.setDS(login, pass, dsInit);
+            sysRoot.setDS(systemRootInit, login, pass, dsInit);
     }
 
     final TablesMap init(final boolean readCache) {
@@ -149,6 +154,7 @@ public class SQLBase extends SQLIdentifier {
     protected synchronized void onDrop() {
         // allow schemas (and their descendants) to be gc'd even we aren't
         this.schemas.clear();
+        SQLType.remove(this);
         super.onDrop();
     }
 
@@ -564,72 +570,77 @@ public class SQLBase extends SQLIdentifier {
      * 
      * @param schema the name of the schema.
      * @param name the name of the meta data.
-     * @param shouldTestForTable <code>true</code> if the method should try to test if the table
-     *        exists, <code>false</code> to just execute a SELECT. Important for postgreSQL since an
-     *        error aborts the whole transaction.
      * @return the requested meta data, can be <code>null</code> (including if
      *         {@value SQLSchema#METADATA_TABLENAME} does not exist).
      */
-    String getFwkMetadata(String schema, String name, final boolean shouldTestForTable) {
+    String getFwkMetadata(String schema, String name) {
+        return getFwkMetadata(Collections.singletonList(schema), name).get(schema);
+    }
+
+    private final String getSel(final String schema, final String name, final boolean selSchema) {
         final SQLName tableName = new SQLName(this.getName(), schema, SQLSchema.METADATA_TABLENAME);
-        final String sel = "SELECT \"VALUE\" FROM " + tableName.quote() + " WHERE \"NAME\"= " + this.quoteString(name);
-        // In postgreSQL once there's an error the transaction is aborted and further queries throw
-        // an exception. In H2 and MySQL, the transaction is *not* aborted.
-        final SQLSystem system = getServer().getSQLSystem();
-        if (shouldTestForTable && system == SQLSystem.POSTGRESQL) {
-            final String stringDel = "$sel$";
-            if (sel.contains(stringDel))
-                throw new IllegalStateException(sel + " contains string delimiter : " + stringDel);
-            final String funcName = SQLBase.quoteIdentifier(schema) + ".ifExistText";
-            final String query = "create or replace function " + funcName + "(schemaName text, tableName text, doesExist text, doesNotExist text) returns text as $BODY$\n"
-            // body
-                    + "declare res text;\nbegin\n"
-                    //
-                    + "    drop function " + funcName + "(text,text,text,text);\n"
-                    //
-                    + "    if EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = schemaName and table_name = tableName) then\n"
-                    //
-                    + "        execute doesExist into res; else execute doesNotExist into res;\n"
-                    //
-                    + "    end if;\n"
-                    //
-                    + "    return res;\nend;\n$BODY$ LANGUAGE plpgsql;\n"
-                    //
-                    + "select " + funcName + "(" + this.quoteString(schema) + ", " + this.quoteString(SQLSchema.METADATA_TABLENAME) + ", " + stringDel + sel + stringDel + ", 'SELECT NULL')";
-            try {
-                return this.getDataSource().useConnection(new ConnectionHandlerNoSetup<String, SQLException>() {
-                    @Override
-                    public String handle(SQLDataSource ds) throws SQLException, SQLException {
-                        final Statement stmt = ds.getConnection().createStatement();
-                        stmt.execute(query);
-                        if (!stmt.getMoreResults())
-                            throw new IllegalStateException("No result");
-                        return (String) SQLDataSource.SCALAR_HANDLER.handle(stmt.getResultSet());
-                    }
-                });
-            } catch (SQLException e) {
-                throw new IllegalStateException(e);
+        return "SELECT " + (selSchema ? this.quoteString(schema) + ", " : "") + "\"VALUE\" FROM " + tableName.quote() + " WHERE \"NAME\"= " + this.quoteString(name);
+    }
+
+    private final void exec(final Collection<String> schemas, final String name, final ResultSetHandler rsh) {
+        this.getDataSource().execute(CollectionUtils.join(schemas, "\nUNION ALL ", new ITransformer<String, String>() {
+            @Override
+            public String transformChecked(String schema) {
+                // schema name needed since missing values will result in missing rows not
+                // null values
+                return getSel(schema, name, true);
             }
-        } else {
-            try {
-                return (String) this.getDataSource().execute(sel, new IResultSetHandler(SQLDataSource.SCALAR_HANDLER, false));
-            } catch (RuntimeException rtExn) {
-                // pg transactions are aborted, so let the caller know right away (better than to
-                // continue and fail later)
-                try {
-                    if (system == SQLSystem.POSTGRESQL && this.getDataSource().handlingConnection() && !this.getDataSource().getConnection().getAutoCommit())
-                        throw rtExn;
-                } catch (SQLException e) {
-                    throw new IllegalStateException("Couldn't get auto commit : " + e.getMessage() + " " + e.getSQLState(), rtExn);
+        }), new IResultSetHandler(rsh, false));
+    }
+
+    Map<String, String> getFwkMetadata(final Collection<String> schemas, final String name) {
+        if (schemas.isEmpty())
+            return Collections.emptyMap();
+        final Map<String, String> res = new LinkedHashMap<String, String>();
+        CollectionUtils.fillMap(res, schemas);
+        final ResultSetHandler rsh = new ResultSetHandler() {
+            @Override
+            public Object handle(ResultSet rs) throws SQLException {
+                while (rs.next()) {
+                    res.put(rs.getString(1), rs.getString(2));
                 }
-                final SQLException sqlExn = SQLUtils.findWithSQLState(rtExn);
-                // table or view not found
-                if (sqlExn != null && (sqlExn.getSQLState().equals("42S02") || sqlExn.getSQLState().equals("42P01")))
-                    return null;
-                else
-                    throw rtExn;
+                return null;
+            }
+        };
+        try {
+            if (this.getDataSource().getTransactionPoint() == null) {
+                exec(schemas, name, rsh);
+            } else {
+                // If already in a transaction, don't risk aborting it if a table doesn't exist.
+                // (it's not strictly required for H2 and MySQL, since the transaction is *not*
+                // aborted)
+                SQLUtils.executeAtomic(this.getDataSource(), new ConnectionHandlerNoSetup<Object, SQLException>() {
+                    @Override
+                    public Object handle(SQLDataSource ds) throws SQLException {
+                        exec(schemas, name, rsh);
+                        return null;
+                    }
+                }, false);
+            }
+        } catch (Exception exn) {
+            final SQLException sqlExn = SQLUtils.findWithSQLState(exn);
+            final boolean tableNotFound = sqlExn != null && (sqlExn.getSQLState().equals("42S02") || sqlExn.getSQLState().equals("42P01"));
+            if (!tableNotFound)
+                throw new IllegalStateException("Not a missing table exception", sqlExn);
+
+            // The following fall back should not currently be needed since the table is created
+            // by JDBCStructureSource.getNames(). Even without that most DB should contain the
+            // metadata tables.
+
+            // if only one schema, there's no ambiguity : just return null value
+            // otherwise retry with each single schema to find out which ones are missing
+            if (schemas.size() > 1) {
+                // this won't loop indefinetly since schemas.size() will be 1
+                for (final String schema : schemas)
+                    res.put(schema, this.getFwkMetadata(schema, name));
             }
         }
+        return res;
     }
 
     public final String getMDName() {
@@ -836,7 +847,7 @@ public class SQLBase extends SQLIdentifier {
      * @return the quoted form, eg "'salut\ l''ami'".
      */
     public final static String quoteStringStd(String s) {
-        return "'" + singleQuote.matcher(s).replaceAll("''") + "'";
+        return s == null ? "NULL" : "'" + singleQuote.matcher(s).replaceAll("''") + "'";
     }
 
     /**

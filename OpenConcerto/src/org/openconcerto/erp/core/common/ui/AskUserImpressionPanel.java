@@ -28,6 +28,7 @@ import java.util.Map;
 import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
@@ -81,6 +82,8 @@ public class AskUserImpressionPanel extends JPanel {
                     final Component doc = ooConnexion.loadDocument(f, true);
                     // doc.launchPrint(propsVal, null);
                     doc.close();
+                } catch (LinkageError e1) {
+                    JOptionPane.showMessageDialog(new JFrame(), "Merci d'installer OpenOffice ou LibreOffice");
                 } catch (Exception e1) {
                     // TODO Auto-generated catch block
                     e1.printStackTrace();

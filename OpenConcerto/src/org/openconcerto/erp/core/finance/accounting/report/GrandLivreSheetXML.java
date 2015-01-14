@@ -148,6 +148,10 @@ public class GrandLivreSheetXML extends AbstractListeSheetXml {
         vals.put("DEBIT", null);
         vals.put("DATE", null);
         vals.put("NOM", null);
+        vals.put("LETTRAGE", null);
+        vals.put("POINTEE", null);
+        vals.put("DATE_LETTRAGE", null);
+        vals.put("DATE_POINTEE", null);
 
         final List<Integer> lCompteSolde;
         if (GrandLivreSheetXML.this.excludeCompteSolde) {
@@ -417,6 +421,10 @@ public class GrandLivreSheetXML extends AbstractListeSheetXml {
                         ooLine.put("JOURNAL", rowEcr.getString("JOURNAL_CODE"));
                         ooLine.put("MOUVEMENT", rowEcr.getForeign("ID_MOUVEMENT").getObject("NUMERO"));
                         ooLine.put("LIBELLE", rowEcr.getObject("NOM"));
+                        ooLine.put("CODE_LETTRAGE", rowEcr.getObject("LETTRAGE"));
+                        ooLine.put("CODE_POINTAGE", rowEcr.getObject("POINTEE"));
+                        ooLine.put("DATE_LETTRAGE", rowEcr.getObject("DATE_LETTRAGE"));
+                        ooLine.put("DATE_POINTAGE", rowEcr.getObject("DATE_LETTRAGE"));
 
                         totalCredit += cred;
                         totalDebit += deb;

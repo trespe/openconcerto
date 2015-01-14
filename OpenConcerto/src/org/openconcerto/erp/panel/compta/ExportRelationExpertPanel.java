@@ -103,11 +103,11 @@ public class ExportRelationExpertPanel extends AbstractExport {
 
             // Debit
             final Long debit = new Long(tmp[4].toString().trim());
-            line.append(GestionDevise.currencyToString(debit.longValue()));
+            line.append(GestionDevise.currencyToString(debit.longValue(), false));
             line.append('\t');
             // Credit
             final Long credit = new Long(tmp[5].toString().trim());
-            line.append(GestionDevise.currencyToString(credit.longValue()));
+            line.append(GestionDevise.currencyToString(credit.longValue(), false));
             line.append('\t');
             line.append('E');
 

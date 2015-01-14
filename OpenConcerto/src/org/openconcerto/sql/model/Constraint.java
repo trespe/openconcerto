@@ -21,18 +21,24 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.jdom.Element;
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.Immutable;
 
+import org.jdom2.Element;
+
+@Immutable
 public final class Constraint {
 
     @SuppressWarnings("unchecked")
     public static Constraint fromXML(final SQLTable t, Element elem) {
-        return new Constraint(t, elem.getAttributeValue("name"), (Map<String, Object>) XMLCodecUtils.decode1((Element) elem.getChildren().get(0)));
+        return new Constraint(t, elem.getAttributeValue("name"), (Map<String, Object>) XMLCodecUtils.decode1(elem.getChildren().get(0)));
     }
 
     private final SQLTable t;
     private final String name;
+    // private copy
     private final Map<String, Object> m;
+    @GuardedBy("this")
     private String xml = null;
 
     private Constraint(final SQLTable t, final String name, final Map<String, Object> row) {
@@ -43,10 +49,18 @@ public final class Constraint {
 
     Constraint(final SQLTable t, final Map<String, Object> row) {
         this.t = t;
-        this.name = (String) row.remove("CONSTRAINT_NAME");
         this.m = new HashMap<String, Object>(row);
+        this.name = (String) this.m.remove("CONSTRAINT_NAME");
         this.m.remove("TABLE_SCHEMA");
         this.m.remove("TABLE_NAME");
+    }
+
+    Constraint(final SQLTable t, final Constraint c) {
+        this.t = t;
+        this.m = c.m;
+        this.name = c.name;
+        // don't bother synchronising for xml since when we copy a Constraint it generally has never
+        // been used.
     }
 
     public final SQLTable getTable() {
@@ -71,7 +85,7 @@ public final class Constraint {
         return (List<String>) this.m.get("COLUMN_NAMES");
     }
 
-    public String toXML() {
+    public synchronized String toXML() {
         // this is immutable so only compute once the XML
         if (this.xml == null)
             this.xml = "<constraint name=\"" + JDOMUtils.OUTPUTTER.escapeAttributeEntities(getName()) + "\" >" + XMLCodecUtils.encodeSimple(this.m) + "</constraint>";

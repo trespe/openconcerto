@@ -73,7 +73,6 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
     private final PropertyChangeSupport supp;
 
     public ITreeSelection() {
-
         this(null);
     }
 
@@ -116,28 +115,21 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
     }
 
     public void mouseClicked(MouseEvent e) {
-        // TODO Auto-generated method stub
-
     }
 
     public void mouseEntered(MouseEvent e) {
-        // TODO Auto-generated method stub
-
     }
 
     public void mouseExited(MouseEvent e) {
-        // TODO Auto-generated method stub
+    }
 
+    public void mouseReleased(MouseEvent e) {
     }
 
     public void mousePressed(MouseEvent e) {
 
         TreePath path = this.getSelectionPath();
         if (path != null) {
-            Object o = path.getLastPathComponent();
-
-            int id = 1;
-
             if (e.getButton() == MouseEvent.BUTTON3) {
 
                 final int idSelect = getSelectedID();
@@ -174,9 +166,7 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
         int id = 1;
         if (path != null) {
             Object o = path.getLastPathComponent();
-
             if (o instanceof ITreeSelectionNode) {
-
                 final ITreeSelectionNode nodeSelect = (ITreeSelectionNode) o;
                 id = nodeSelect.getId();
             }
@@ -220,11 +210,6 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
             frameModFamille.selectionId(id, 1);
             FrameUtil.showPacked(frameModFamille);
         }
-    }
-
-    public void mouseReleased(MouseEvent e) {
-        // TODO Auto-generated method stub
-
     }
 
     public JComponent getComp() {
@@ -275,12 +260,10 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
     }
 
     public void addValidListener(ValidListener l) {
-        // TODO Auto-generated method stub
     }
 
     @Override
     public void removeValidListener(ValidListener l) {
-        // TODO Auto-generated method stub
     }
 
     @Override
@@ -291,51 +274,33 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
 
     @Override
     public void init(SQLRowItemView v) {
-        // final SQLElement element;
         if (this.element == null) {
             final SQLTable foreignTable = v.getField().getTable().getDBSystemRoot().getGraph().getForeignTable(v.getField());
             this.element = Configuration.getInstance().getDirectory().getElement(foreignTable);
         }
-        // else
-        // element = this.element;
         initTree();
     }
 
     public void setValue(Integer val) {
-        if (val == null)
+        if (val == null) {
             val = EMPTY_ID;
-        // TODO Auto-generated method stub
-        ITreeSelectionNode v = this.mapNode.get(val);
+        }
+        final ITreeSelectionNode v = this.mapNode.get(val);
         if (v.getId() == val) {
             this.setExpandsSelectedPaths(true);
             this.setSelectionPath(new TreePath(v.getPath()));
         }
 
-        // System.err.println("Set value Tree " + val);
-        // if (this.rootNode != null) {
-        // for (int i = 0; i < this.rootNode.getChildCount(); i++) {
-        // Object o = this.rootNode.getChildAt(i);
-        // if (o instanceof FamilleTreeNode) {
-        // FamilleTreeNode v = (FamilleTreeNode) o;
-        // if (v.getId() == val) {
-        // System.err.println("Select TreeNode row Id " + val);
-        // this.setExpandsSelectedPaths(true);
-        // this.setSelectionPath(new TreePath(v.getPath()));
-        // }
-        // }
-        // }
-        // }
     }
 
     private void loadTree() {
 
-        SwingWorker2<List<SQLRow>, Object> worker = new SwingWorker2<List<SQLRow>, Object>() {
+        final SwingWorker2<List<SQLRow>, Object> worker = new SwingWorker2<List<SQLRow>, Object>() {
             @Override
             protected List<SQLRow> doInBackground() throws Exception {
-                SQLTable table = element.getTable();
-                SQLSelect sel = new SQLSelect();
+                final SQLTable table = element.getTable();
+                final SQLSelect sel = new SQLSelect();
                 sel.addSelectStar(table);
-
                 return SQLRowListRSH.execute(sel);
             }
 
@@ -392,7 +357,8 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
      */
     private void addNode(ITreeSelectionNode nodeToAdd, ITreeSelectionNode nodeParent) {
         int n = 0;
-        for (; n < nodeParent.getChildCount(); n++) {
+        final int childCount = nodeParent.getChildCount();
+        for (; n < childCount; n++) {
             if (nodeToAdd.toString().compareToIgnoreCase(nodeParent.getChildAt(n).toString()) < 0) {
                 break;
             }
@@ -406,17 +372,7 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
      * @param nodeParent
      */
     private void modifyNode(SQLRow row, ITreeSelectionNode node) {
-        // for (int i = 0; i < node.getChildCount(); i++) {
-        //
-        // ITreeSelectionNode v = (ITreeSelectionNode) node.getChildAt(i);
-        // if (v.getId() == row.getID()) {
-        // v.setRow(row);
-        // model.nodeChanged(v);
-        // }
-        //
-        // }
-        if (row.isArchived()) {
-            // node.removeFromParent();
+        if (row.isArchived() && node.getParent() != null) {
             model.removeNodeFromParent(node);
         } else {
             node.setRow(row);
@@ -431,13 +387,12 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
      * @param nodeParent
      */
     private void removeNode(SQLRow row, ITreeSelectionNode nodeParent) {
-        for (int i = 0; i < nodeParent.getChildCount(); i++) {
-
-            ITreeSelectionNode v = (ITreeSelectionNode) nodeParent.getChildAt(i);
+        final int childCount = nodeParent.getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            final ITreeSelectionNode v = (ITreeSelectionNode) nodeParent.getChildAt(i);
             if (v.getId() == row.getID()) {
                 model.removeNodeFromParent(v);
             }
-
         }
     }
 
@@ -446,29 +401,27 @@ public class ITreeSelection extends JTree implements MouseListener, EmptyObj, Va
      * 
      */
     private void setTableListener() {
-        SQLTableListener listener = new SQLTableListener() {
+        final SQLTableListener listener = new SQLTableListener() {
             public void rowModified(SQLTable table, int id) {
-                ITreeSelectionNode node = mapNode.get(Integer.valueOf(id));
+                final ITreeSelectionNode node = mapNode.get(Integer.valueOf(id));
                 if (node != null) {
                     modifyNode(table.getRow(id), node);
                 }
             }
 
             public void rowAdded(SQLTable table, int id) {
-                SQLRow row = table.getRow(id);
+                final SQLRow row = table.getRow(id);
                 int idPere = row.getInt("ID_" + element.getTable().getName() + "_PERE");
-
                 addNewNode(row, idPere);
             }
 
             public void rowDeleted(SQLTable table, int id) {
-                ITreeSelectionNode node = mapNode.get(Integer.valueOf(id));
+                final ITreeSelectionNode node = mapNode.get(Integer.valueOf(id));
                 for (int i = 0; i < node.getChildCount(); i++) {
                     removeNode(table.getRow(id), node);
                 }
             }
         };
-
         this.element.getTable().addTableListener(listener);
     }
 }

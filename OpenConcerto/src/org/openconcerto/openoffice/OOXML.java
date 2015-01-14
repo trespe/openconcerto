@@ -16,7 +16,10 @@
  */
 package org.openconcerto.openoffice;
 
+import org.openconcerto.openoffice.text.Span;
+import org.openconcerto.openoffice.text.TextNode;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.Validator;
 
@@ -29,6 +32,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.regex.Matcher;
@@ -74,7 +78,7 @@ public abstract class OOXML implements Comparable<OOXML> {
     private static final List<OOXML> values;
     @GuardedBy("OOXML")
     private static OOXML defaultInstance;
-    private static final Pattern WHITE_SPACE_TO_ENCODE = Pattern.compile("\n|\t| {2,}");
+    private static final Pattern WHITE_SPACE_TO_ENCODE = Pattern.compile("\n|" + TextNode.VERTICAL_TAB_CHAR + "|\t| {2,}");
 
     static {
         register(new XML_OD_1_0());
@@ -203,13 +207,20 @@ public abstract class OOXML implements Comparable<OOXML> {
 
     public abstract boolean canValidate();
 
+    public Validator getValidator(final Document doc) {
+        // true since by default LibreOffice generates foreign content
+        return this.getValidator(doc, true);
+    }
+
     /**
      * Verify that the passed document is a valid OpenOffice.org 1 or ODF document.
      * 
-     * @param doc the xml to test.
+     * @param doc the XML to test.
+     * @param ignoreForeign <code>true</code> to ignore unknown mark up, e.g. "extended document" in
+     *        OpenDocument v1.2 §2.2.2 and in OpenDocument v1.1 §1.5.
      * @return a validator on <code>doc</code>.
      */
-    public abstract Validator getValidator(Document doc);
+    public abstract Validator getValidator(final Document doc, final boolean ignoreForeign);
 
     public abstract Document createManifestDoc();
 
@@ -281,7 +292,7 @@ public abstract class OOXML implements Comparable<OOXML> {
             final String code = m.group(1);
             if (closing) {
                 if (!code.equals(currentCode))
-                    throw new IllegalArgumentException("Mismatch current " + currentCode + " but closing " + code);
+                    throw new IllegalArgumentException("Mismatch current " + currentCode + " but closing " + code + " at " + m.start() + "\n" + s);
                 elements.removeFirst();
                 codes.removeFirst();
             } else {
@@ -293,7 +304,7 @@ public abstract class OOXML implements Comparable<OOXML> {
             last = m.end();
         }
         if (elements.size() != 1)
-            throw new IllegalArgumentException("Some tags weren't closed : " + elements);
+            throw new IllegalArgumentException("Some tags weren't closed : " + elements + "\n" + s);
         assert elements.peekFirst() == root;
         root.addContent(new Text(s.substring(last)));
         return root;
@@ -308,12 +319,12 @@ public abstract class OOXML implements Comparable<OOXML> {
      * @return the corresponding element.
      */
     public final Element encodeRT(String content, Map<String, String> styles) {
-        return encodeRT_L(new Element("span", getVersion().getTEXT()), content, styles);
+        return encodeRT_L(Span.createEmpty(getFormatVersion()), content, styles);
     }
 
     // create the necessary <text:s c="n"/>
-    private Element createSpaces(String spacesS) {
-        return new Element("s", getVersion().getTEXT()).setAttribute("c", spacesS.length() + "", getVersion().getTEXT());
+    public final Element createSpaces(int count) {
+        return new Element("s", getVersion().getTEXT()).setAttribute("c", count + "", getVersion().getTEXT());
     }
 
     /**
@@ -329,7 +340,7 @@ public abstract class OOXML implements Comparable<OOXML> {
      *         .
      */
     public final Element encodeWS(final String s) {
-        return new Element("span", getVersion().getTEXT()).setContent(encodeWSasList(s));
+        return Span.createEmpty(getFormatVersion()).setContent(encodeWSasList(s));
     }
 
     public final List<Content> encodeWSasList(final String s) {
@@ -340,13 +351,15 @@ public abstract class OOXML implements Comparable<OOXML> {
             res.add(new Text(s.substring(last, m.start())));
             switch (m.group().charAt(0)) {
             case '\n':
+                // Vertical Tab, see TextNode#VERTICAL_TAB_CHAR
+            case '\u000B':
                 res.add(getLineBreak());
                 break;
             case '\t':
                 res.add(getTab());
                 break;
             case ' ':
-                res.add(createSpaces(m.group()));
+                res.add(createSpaces(m.group().length()));
                 break;
 
             default:
@@ -521,6 +534,22 @@ public abstract class OOXML implements Comparable<OOXML> {
 
     @Immutable
     private static final class XML_OO extends OOXML {
+        private static final Set<Namespace> NS = XMLVersion.OOo.getNamespaceSet();
+
+        private static final IPredicate<Object> UNKNOWN_PRED = new IPredicate<Object>() {
+            @Override
+            public boolean evaluateChecked(Object input) {
+                final Namespace ns = JDOMUtils.getNamespace(input);
+                return ns != null && !NS.contains(ns);
+            }
+        };
+        private static final IPredicate<Object> MANIFEST_UNKNOWN_PRED = new IPredicate<Object>() {
+            @Override
+            public boolean evaluateChecked(Object input) {
+                final Namespace ns = JDOMUtils.getNamespace(input);
+                return ns != null && !ns.equals(XMLVersion.OOo.getManifest());
+            }
+        };
 
         private static final DocType createManifestDocType() {
             return new DocType("manifest:manifest", "-//OpenOffice.org//DTD Manifest 1.0//EN", "Manifest.dtd");
@@ -536,14 +565,15 @@ public abstract class OOXML implements Comparable<OOXML> {
         }
 
         @Override
-        public Validator getValidator(Document doc) {
+        public Validator getValidator(final Document doc, final boolean ignoreForeign) {
             // DTDs are stubborn, xmlns have to be exactly where they want
             // in this case the root element
-            if (!doc.getRootElement().getQualifiedName().equals("manifest:manifest")) {
+            final boolean isManifest = doc.getRootElement().getQualifiedName().equals("manifest:manifest");
+            if (!isManifest) {
                 for (final Namespace n : getVersion().getALL())
                     doc.getRootElement().addNamespaceDeclaration(n);
             }
-            return new Validator.DTDValidator(doc, OOUtils.getBuilderLoadDTD());
+            return new Validator.DTDValidator(doc, !ignoreForeign ? null : (isManifest ? MANIFEST_UNKNOWN_PRED : UNKNOWN_PRED), OOUtils.getBuilderLoadDTD());
         }
 
         @Override
@@ -594,6 +624,20 @@ public abstract class OOXML implements Comparable<OOXML> {
 
     @ThreadSafe
     private static class XML_OD extends OOXML {
+
+        private static final IPredicate<Object> UNKNOWN_PRED = new IPredicate<Object>() {
+            @Override
+            public boolean evaluateChecked(Object input) {
+                final Namespace ns = JDOMUtils.getNamespace(input);
+                // leave non-elements alone
+                if (ns == null)
+                    return false;
+                // XMLVersion doesn't include all namespaces of the standard, so only exclude known
+                // extended namespaces.
+                return ns.equals(Namespace.NO_NAMESPACE) || ns.getURI().startsWith("urn:org:documentfoundation:names:experimental") || ns.getURI().startsWith("urn:openoffice:names:experimental");
+            }
+        };
+
         private final String schemaFile, manifestSchemaFile;
         @GuardedBy("this")
         private Schema schema, manifestSchema;
@@ -629,7 +673,7 @@ public abstract class OOXML implements Comparable<OOXML> {
         }
 
         @Override
-        public Validator getValidator(Document doc) {
+        public Validator getValidator(final Document doc, final boolean ignoreForeign) {
             final Schema schema;
             try {
                 if (doc.getRootElement().getQualifiedName().equals("manifest:manifest"))
@@ -639,7 +683,7 @@ public abstract class OOXML implements Comparable<OOXML> {
             } catch (SAXException e) {
                 throw new IllegalStateException("relaxNG schemas pb", e);
             }
-            return schema == null ? null : new Validator.JAXPValidator(doc, schema);
+            return schema == null ? null : new Validator.JAXPValidator(doc, ignoreForeign ? UNKNOWN_PRED : null, schema);
         }
 
         @Override

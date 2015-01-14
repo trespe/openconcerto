@@ -13,7 +13,7 @@
  
  package org.openconcerto.erp.core.customerrelationship.customer.action;
 
-import org.openconcerto.erp.action.CreateFrameAbstractAction;
+import org.openconcerto.erp.action.CreateListFrameAbstractAction;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
@@ -22,8 +22,7 @@ import org.openconcerto.task.config.ComptaBasePropsConfiguration;
 import javax.swing.Action;
 import javax.swing.JFrame;
 
-
-public class ListeDesContactsAction extends CreateFrameAbstractAction {
+public class ListeDesContactsAction extends CreateListFrameAbstractAction {
 
     public ListeDesContactsAction() {
         super();
@@ -33,5 +32,10 @@ public class ListeDesContactsAction extends CreateFrameAbstractAction {
     public JFrame createFrame() {
         final ComptaBasePropsConfiguration conf = ((ComptaBasePropsConfiguration) Configuration.getInstance());
         return new IListFrame(new ListeAddPanel(conf.getDirectory().getElement("CONTACT")));
+    }
+
+    @Override
+    public String getTableName() {
+        return "CONTACT";
     }
 }

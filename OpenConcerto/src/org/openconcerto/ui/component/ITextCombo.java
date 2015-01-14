@@ -258,6 +258,11 @@ public class ITextCombo extends JComboBox implements ValueWrapper<String>, TextC
                 return getEditor().getEditorComponent();
             }
 
+            @Override
+            public boolean canModifyCache() {
+                return true;
+            }
+
             public void addCurrentText() {
                 ITextCombo.this.addCurrentText();
             }

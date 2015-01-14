@@ -55,7 +55,7 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
         return "LABEL";
     }
 
-    static public final SQLCreateMoveableTable getCreateTable(SQLSyntax syntax) {
+    static public final SQLCreateMoveableTable getCreateTable(final SQLSyntax syntax) {
         final SQLCreateMoveableTable createTable = new SQLCreateMoveableTable(syntax, getTableName());
         createTable.addVarCharColumn(getRefFieldName(), 100);
         createTable.addVarCharColumn(getValueFieldName(), 200);
@@ -67,16 +67,16 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
         super();
     }
 
-    public SQLTextCombo(boolean locked) {
+    public SQLTextCombo(final boolean locked) {
         super(locked);
     }
 
-    public SQLTextCombo(ComboLockedMode mode) {
+    public SQLTextCombo(final ComboLockedMode mode) {
         super(mode);
     }
 
     @Override
-    public void init(SQLRowItemView v) {
+    public void init(final SQLRowItemView v) {
         if (!this.hasCache()) {
             final ITextComboCacheSQL cache = new ITextComboCacheSQL(v.getField());
             if (cache.isValid())
@@ -84,40 +84,118 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
         }
     }
 
-    static public class ITextComboCacheSQL implements ITextComboCache {
+    static public class ITextComboCacheSQL extends AbstractComboCacheSQL {
 
-        private final String field;
-        private final SQLTable t;
-        private final List<String> cache;
-        private boolean loadedOnce;
+        private final String id;
 
         public ITextComboCacheSQL(final SQLField f) {
             this(f.getDBRoot(), f.getFullName());
         }
 
         public ITextComboCacheSQL(final DBRoot r, final String id) {
-            this.field = id;
-            this.t = r.findTable(getTableName());
-            if (!this.isValid())
-                Log.get().warning("no completion found for " + this.field);
+            super(r.findTable(getTableName()), getValueFieldName());
+            this.id = id;
+        }
+
+        @Override
+        public final boolean isValid() {
+            return this.getTable() != null;
+        }
+
+        @Override
+        protected Where createWhere() {
+            return new Where(this.getTable().getField(getRefFieldName()), "=", this.id);
+        }
+
+        @Override
+        public void addToCache(final String string) {
+            if (!this.cache.contains(string)) {
+                final Map<String, Object> m = new HashMap<String, Object>();
+                m.put(getRefFieldName(), this.id);
+                m.put(getValueFieldName(), string);
+                try {
+                    // the primary key is not generated so don't let SQLRowValues remove it.
+                    new SQLRowValues(this.getTable(), m).insert(true, false);
+                } catch (final SQLException e) {
+                    // e.g. some other VM hasn't already added it
+                    e.printStackTrace();
+                }
+                // add anyway since we didn't contain it
+                this.cache.add(string);
+            }
+        }
+
+        @Override
+        public void deleteFromCache(final String string) {
+            final Where w = new Where(this.getTable().getField(getRefFieldName()), "=", this.id).and(new Where(this.getField(), "=", string));
+            this.getDS().executeScalar("DELETE FROM " + this.getTable().getSQLName().quote() + " WHERE " + w.getClause());
+            this.cache.removeAll(Collections.singleton(string));
+        }
+
+        @Override
+        public String toString() {
+            return super.toString() + "/" + this.id;
+        }
+    }
+
+    static public class ITextComboCacheExistingValues extends AbstractComboCacheSQL {
+
+        public ITextComboCacheExistingValues(final SQLField f) {
+            super(f);
+        }
+
+        @Override
+        public boolean isValid() {
+            return String.class.isAssignableFrom(this.getField().getType().getJavaType());
+        }
+
+        @Override
+        protected Where createWhere() {
+            return null;
+        }
+
+        @Override
+        public void addToCache(final String string) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void deleteFromCache(final String string) {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    // a cache that takes values from an SQL field
+    static public abstract class AbstractComboCacheSQL implements ITextComboCache {
+
+        // values are in this field (e.g. COMPLETION.LABEL)
+        private final SQLField f;
+        protected final List<String> cache;
+        private boolean loadedOnce;
+
+        protected AbstractComboCacheSQL(final SQLTable t, final String fieldName) {
+            this(t == null ? null : t.getField(fieldName));
+        }
+
+        protected AbstractComboCacheSQL(final SQLField f) {
+            this.f = f;
             this.cache = new ArrayList<String>();
             this.loadedOnce = false;
+            if (!this.isValid())
+                Log.get().warning("no completion found for " + this);
         }
 
-        public final boolean isValid() {
-            return this.t != null;
+        protected final SQLDataSource getDS() {
+            return this.f.getDBSystemRoot().getDataSource();
         }
 
-        private final SQLDataSource getDS() {
-            return this.t.getDBSystemRoot().getDataSource();
-        }
-
+        @Override
         public List<String> loadCache(final boolean dsCache) {
             final SQLSelect sel = new SQLSelect();
-            sel.addSelect(this.t.getField(getValueFieldName()));
-            sel.setWhere(new Where(this.t.getField(getRefFieldName()), "=", this.field));
+            sel.addSelect(getField());
+            sel.setWhere(createWhere());
             // predictable order
-            sel.addFieldOrder(this.t.getField(getValueFieldName()));
+            sel.addFieldOrder(getField());
             // ignore DS cache to allow the fetching of rows modified by another VM
             @SuppressWarnings("unchecked")
             final List<String> items = (List<String>) this.getDS().execute(sel.asString(), new IResultSetHandler(SQLDataSource.COLUMN_LIST_HANDLER) {
@@ -137,6 +215,17 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
             return this.cache;
         }
 
+        protected final SQLTable getTable() {
+            return this.getField().getTable();
+        }
+
+        protected final SQLField getField() {
+            return this.f;
+        }
+
+        protected abstract Where createWhere();
+
+        @Override
         public List<String> getCache() {
             if (!this.loadedOnce) {
                 this.loadCache(true);
@@ -145,32 +234,9 @@ public class SQLTextCombo extends org.openconcerto.ui.component.ITextCombo imple
             return this.cache;
         }
 
-        public void addToCache(String string) {
-            if (!this.cache.contains(string)) {
-                final Map<String, Object> m = new HashMap<String, Object>();
-                m.put(getRefFieldName(), this.field);
-                m.put(getValueFieldName(), string);
-                try {
-                    // the primary key is not generated so don't let SQLRowValues remove it.
-                    new SQLRowValues(this.t, m).insert(true, false);
-                } catch (SQLException e) {
-                    // e.g. some other VM hasn't already added it
-                    e.printStackTrace();
-                }
-                // add anyway since we didn't contain it
-                this.cache.add(string);
-            }
-        }
-
-        public void deleteFromCache(String string) {
-            final Where w = new Where(this.t.getField(getRefFieldName()), "=", this.field).and(new Where(this.t.getField(getValueFieldName()), "=", string));
-            this.getDS().executeScalar("DELETE FROM " + this.t.getSQLName().quote() + " WHERE " + w.getClause());
-            this.cache.removeAll(Collections.singleton(string));
-        }
-
         @Override
         public String toString() {
-            return this.getClass().getName() + " on " + this.field;
+            return this.getClass().getName() + " on " + this.getField();
         }
 
     }

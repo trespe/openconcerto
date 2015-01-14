@@ -97,8 +97,6 @@ public final class DBSystemRoot extends DBStructureItemDB {
             }
         };
         this.loadingListenersSupp = new LoadingChangeSupport(this);
-
-        this.getServer().init(this);
     }
 
     private synchronized void rootsChanged(PropertyChangeEvent evt) {
@@ -583,10 +581,12 @@ public final class DBSystemRoot extends DBStructureItemDB {
         return res;
     }
 
-    synchronized final void setDS(String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+    synchronized final void setDS(IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
         if (this.ds != null)
             throw new IllegalStateException("already set: " + this.ds);
         assert this.dsInit == null;
+        if (systemRootInit != null)
+            systemRootInit.executeChecked(this);
         this.dsInit = dsInit;
         this.ds = createDSUnsafe(login, pass);
 

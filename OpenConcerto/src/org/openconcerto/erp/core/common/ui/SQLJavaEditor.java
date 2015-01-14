@@ -19,7 +19,6 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.checks.ValidChangeSupport;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidState;
@@ -33,7 +32,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -50,7 +49,7 @@ import koala.dynamicjava.parser.wrapper.JavaCCParserFactory;
 
 public class SQLJavaEditor extends JavaEditor implements ValueWrapper<String> {
 
-    private CollectionMap<Integer, Collection<?>> mVar;
+    private final List<Object> mVar;
     private Map<String, SQLField> mapField;
     private Map<String, SQLRow> mapRow;
 
@@ -61,7 +60,7 @@ public class SQLJavaEditor extends JavaEditor implements ValueWrapper<String> {
 
         this.salarieID = 1;
 
-        this.mVar = new CollectionMap<Integer, Collection<?>>();
+        this.mVar = new ArrayList<Object>();
         this.mapField = new HashMap<String, SQLField>();
         this.mapRow = new HashMap<String, SQLRow>();
 
@@ -79,15 +78,14 @@ public class SQLJavaEditor extends JavaEditor implements ValueWrapper<String> {
                     String name = element2.getString("NOM").trim();
                     // System.err.println("Ajout de la row " + name);
                     this.addNewLitteral(name);
-                    this.mVar.put(new Integer(name.length()), o);
-
+                    this.mVar.add(o);
                     this.mapRow.put(name, element2);
                 } else if (o instanceof SQLField) {
                     final SQLField field2 = ((SQLField) o);
                     String name = field2.getTable().getName();
                     // System.err.println("Ajout du field " + name);
                     this.addNewLitteral(name);
-                    this.mVar.put(new Integer(name.length()), o);
+                    this.mVar.add(o);
                     this.mapField.put(name, field2);
                 }
             }
@@ -191,63 +189,55 @@ public class SQLJavaEditor extends JavaEditor implements ValueWrapper<String> {
                 mapCacheRow.put(row.getTable().getName(), row);
             }
             // System.err.println("LOAD Variable");
-            for (Integer key : this.mVar.keySet()) {
+            for (final Object o : this.mVar) {
+                // Les SQLFields sont des fields des tables étrangères de la table salarié
+                if (o instanceof SQLField) {
 
-                // System.err.println("Var length -- > " + key);
-                Collection<?> col = (Collection<?>) this.mVar.get(key);
+                    SQLField field = (SQLField) o;
 
-                for (Iterator<?> j = col.iterator(); j.hasNext();) {
-                    Object o = j.next();
+                    if (formule.indexOf(field.getName()) >= 0) {
+                        SQLRow rowAssoc = mapCacheRow.get(field.getTable().getName());
 
-                    // Les SQLFields sont des fields des tables étrangères de la table salarié
-                    if (o instanceof SQLField) {
+                        // on recupere la row associee exemple : SALARIE.INFOS_SALARIE_PAYE
+                        final Set<SQLRow> foreignRows = null;
+                        if (rowAssoc == null) {
+                            rowSal.getForeignRows(field.getTable().getName());
+                        }
 
-                        SQLField field = (SQLField) o;
-
-                        if (formule.indexOf(field.getName()) >= 0) {
-                            SQLRow rowAssoc = mapCacheRow.get(field.getTable().getName());
-
-                            // on recupere la row associee exemple : SALARIE.INFOS_SALARIE_PAYE
-                            final Set<SQLRow> foreignRows = null;
+                        if (rowAssoc != null || ((rowSal != null) && (foreignRows != null))) {
                             if (rowAssoc == null) {
-                                rowSal.getForeignRows(field.getTable().getName());
+                                Set<SQLRow> rowList = foreignRows;
+
+                                if (rowList.size() != 0) {
+                                    Iterator<SQLRow> iterList = rowList.iterator();
+                                    rowAssoc = iterList.next();
+                                    mapCacheRow.put(rowAssoc.getTable().getName(), rowAssoc);
+                                }
                             }
-
-                            if (rowAssoc != null || ((rowSal != null) && (foreignRows != null))) {
-                                if (rowAssoc == null) {
-                                    Set<SQLRow> rowList = foreignRows;
-
-                                    if (rowList.size() != 0) {
-                                        Iterator<SQLRow> iterList = rowList.iterator();
-                                        rowAssoc = iterList.next();
-                                        mapCacheRow.put(rowAssoc.getTable().getName(), rowAssoc);
-                                    }
-                                }
-                                if (rowAssoc != null) {
-                                    defineVariable(interpreter, bW, field.getName(), rowAssoc.getObject(field.getName()));
-                                } else {
-                                    defineVariable(interpreter, bW, field.getName(), null);
-                                }
+                            if (rowAssoc != null) {
+                                defineVariable(interpreter, bW, field.getName(), rowAssoc.getObject(field.getName()));
                             } else {
                                 defineVariable(interpreter, bW, field.getName(), null);
                             }
+                        } else {
+                            defineVariable(interpreter, bW, field.getName(), null);
                         }
-                    } else {
+                    }
+                } else {
 
-                        // FIXME Recursivite
-                        // Variables de paye deja definie
-                        if (o instanceof SQLRow) {
+                    // FIXME Recursivite
+                    // Variables de paye deja definie
+                    if (o instanceof SQLRow) {
 
-                            SQLRow rowTmp = (SQLRow) o;
+                        SQLRow rowTmp = (SQLRow) o;
 
-                            if (formule.indexOf(rowTmp.getString("NOM")) >= 0) {
-                                if (rowTmp.getString("FORMULE").trim().length() == 0) {
-                                    defineVariable(interpreter, bW, rowTmp.getString("NOM"), rowTmp.getObject("VALEUR"));
-                                } else {
-                                    if (!rowTmp.getString("NOM").equalsIgnoreCase(varCallName)) {
-                                        Object ob = checkFormule(rowTmp.getString("FORMULE"), rowTmp.getString("NOM"));
-                                        defineVariable(interpreter, bW, rowTmp.getString("NOM"), ob == null ? new Float(1) : ob);
-                                    }
+                        if (formule.indexOf(rowTmp.getString("NOM")) >= 0) {
+                            if (rowTmp.getString("FORMULE").trim().length() == 0) {
+                                defineVariable(interpreter, bW, rowTmp.getString("NOM"), rowTmp.getObject("VALEUR"));
+                            } else {
+                                if (!rowTmp.getString("NOM").equalsIgnoreCase(varCallName)) {
+                                    Object ob = checkFormule(rowTmp.getString("FORMULE"), rowTmp.getString("NOM"));
+                                    defineVariable(interpreter, bW, rowTmp.getString("NOM"), ob == null ? new Float(1) : ob);
                                 }
                             }
                         }

@@ -20,6 +20,7 @@ import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.finance.accounting.element.EcritureSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
+import org.openconcerto.erp.core.finance.accounting.ui.AssociationAnalytiquePanel;
 import org.openconcerto.erp.core.finance.accounting.ui.SuppressionEcrituresPanel;
 import org.openconcerto.erp.rights.ComptaUserRight;
 import org.openconcerto.sql.Configuration;
@@ -153,6 +154,13 @@ public class ListeDesEcrituresAction extends CreateFrameAbstractAction {
                     menuDroit.add(new AbstractAction("Dupliquer") {
                         public void actionPerformed(ActionEvent event) {
                             EcritureSQLElement.dupliquer(frame.getPanel().getListe().fetchSelectedRow());
+                        }
+                    });
+
+                    menuDroit.add(new AbstractAction("Gérer l'analytique") {
+                        public void actionPerformed(ActionEvent event) {
+                            PanelFrame frameAssoc = new PanelFrame(new AssociationAnalytiquePanel(frame.getPanel().getListe().getSelectedRow().asRow()), "Association analytique");
+                            frameAssoc.setVisible(true);
                         }
                     });
 

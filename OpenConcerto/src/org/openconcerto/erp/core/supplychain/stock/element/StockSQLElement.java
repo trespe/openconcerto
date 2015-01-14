@@ -17,6 +17,7 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.CollectionMap;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -44,6 +45,16 @@ public class StockSQLElement extends ComptaSQLConfElement {
         l.add("QTE_REEL");
         // l.add("QTE_TH");
         return l;
+    }
+
+    @Override
+    public CollectionMap<String, String> getShowAs() {
+        final CollectionMap<String, String> res = new CollectionMap<String, String>();
+        res.put(null, "QTE_TH");
+        res.put(null, "QTE_REEL");
+        res.put(null, "QTE_LIV_ATTENTE");
+        res.put(null, "QTE_RECEPT_ATTENTE");
+        return res;
     }
 
     /*

@@ -96,6 +96,11 @@ public class ChequeFournisseurSQLElement extends ChequeSQLElement {
         // TYPE, NOM
         l.add("ID_FOURNISSEUR");
         l.add("ID_MOUVEMENT");
+
+        l.add("ETS");
+        l.add("NUMERO");
+        l.add("DATE");
+
         l.add("DATE_ACHAT");
         l.add(getMinDateFieldName());
         l.add(getDoneFieldName());

@@ -14,8 +14,8 @@
  package org.openconcerto.ui.state;
 
 import org.openconcerto.ui.ScreenUtils;
+import org.openconcerto.ui.TM;
 import org.openconcerto.utils.ExceptionHandler;
-import org.openconcerto.utils.i18n.TM;
 
 import java.awt.GraphicsEnvironment;
 import java.awt.Rectangle;

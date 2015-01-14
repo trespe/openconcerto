@@ -26,6 +26,7 @@ import java.awt.GridBagLayout;
 import java.awt.RenderingHints;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.math.BigDecimal;
 import java.math.RoundingMode;
 
 import javax.swing.JPanel;
@@ -48,7 +49,8 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
         c.gridy = 0;
         c.weightx = 1;
         c.fill = GridBagConstraints.BOTH;
-        comp = new StatusBar();
+        comp = new StatusBar("toolbar.png", "toolbar_list.png");
+        comp.setPrevious(true);
         comp.setTitle("Articles");
         this.add(comp, c);
 
@@ -57,10 +59,29 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
         model = new ArticleModel();
         model.setCategorie(null);
 
-        final Font f = new Font("Arial", Font.PLAIN, 24);
+        final Font f = new Font("Arial", Font.PLAIN, 21);
         list = new ScrollableList(model) {
+            int maxStringWidth = 0;
+
             @Override
             public void paint(Graphics g) {
+
+                if (maxStringWidth == 0) {
+                    g.setFont(f);
+                    int w = this.getWidth();
+                    int priceWidth = (int) g.getFontMetrics(f).getStringBounds(getPrice(BigDecimal.valueOf(999)), g).getWidth();
+                    int maxW = w - priceWidth - getLeftMargin();
+                    String str = "a";
+                    int strW;
+                    do {
+                        strW = (int) g.getFontMetrics(f).getStringBounds(str, g).getWidth();
+                        str += "a";
+                    } while (strW < maxW);
+
+                    maxStringWidth = Math.max(1, str.length() - 1);
+                    System.out.println(w + " " + priceWidth + " " + maxStringWidth);
+
+                }
                 super.paint(g);
                 g.setColor(Color.GRAY);
                 g.drawLine(0, 0, 0, this.getHeight());
@@ -68,55 +89,8 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
 
             @Override
             public void paintCell(Graphics g, Object object, int index, boolean isSelected, int posY) {
-                g.setFont(f);
-
-                if (isSelected) {
-                    g.setColor(new Color(232, 242, 254));
-                } else {
-                    g.setColor(Color.WHITE);
-                }
-                g.fillRect(0, posY, getWidth(), getCellHeight());
-
-                //
-                g.setColor(Color.GRAY);
-                g.drawLine(0, posY + this.getCellHeight() - 1, this.getWidth(), posY + this.getCellHeight() - 1);
-
-                if (isSelected) {
-                    g.setColor(Color.BLACK);
-                } else {
-                    g.setColor(Color.GRAY);
-                }
-                ((Graphics2D) g).setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 Article article = (Article) object;
-                String label = article.getName();
-                final int MAX_WIDTH = 18;
-                if (label.length() > MAX_WIDTH * 2) {
-                    label = label.substring(0, MAX_WIDTH * 2) + "...";
-                }
-                String label2 = null;
-                if (label.length() > MAX_WIDTH) {
-                    String t = label.substring(0, MAX_WIDTH).trim();
-                    int lastSpace = t.lastIndexOf(' ');
-                    if (lastSpace <= 0) {
-                        lastSpace = MAX_WIDTH;
-                    }
-                    label2 = label.substring(lastSpace).trim();
-                    label = label.substring(0, lastSpace).trim();
-                    if (label2.length() > MAX_WIDTH) {
-                        label2 = label2.substring(0, MAX_WIDTH) + "...";
-                    }
-                }
-
-                String euro = TicketCellRenderer.centsToString(article.getPriceInCents().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue()) + "€";
-
-                int wEuro = (int) g.getFontMetrics().getStringBounds(euro, g).getWidth();
-                if (label2 == null) {
-                    g.drawString(label, 10, posY + 39);
-                } else {
-                    g.drawString(label, 10, posY + 26);
-                    g.drawString(label2, 10, posY + 52);
-                }
-                g.drawString(euro, getWidth() - 5 - wEuro, posY + 39);
+                paintArticle(f, g, article, isSelected, posY, this.getWidth(), this.getCellHeight(), maxStringWidth, getLeftMargin());
 
             }
         };
@@ -140,6 +114,13 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
                 }
             }
         });
+        comp.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+                controller.switchListMode();
+            }
+        });
+
     }
 
     @Override
@@ -176,6 +157,68 @@ public class ArticleSelector extends JPanel implements ListSelectionListener, Ca
             list.setSelectedValue(articleSelected, true);
         }
 
+    }
+
+    public static void paintArticle(final Font f, Graphics g, Article article, boolean isSelected, int posY, int cellWidth, int cellHeight, int maxWidth, int leftMargin) {
+
+        g.setFont(f);
+
+        if (isSelected) {
+            g.setColor(new Color(232, 242, 254));
+        } else {
+            g.setColor(Color.WHITE);
+        }
+        g.fillRect(0, posY, cellWidth, cellHeight);
+
+        //
+        g.setColor(Color.GRAY);
+        g.drawLine(0, posY + cellHeight - 1, cellWidth, posY + cellHeight - 1);
+
+        if (isSelected) {
+            g.setColor(Color.BLACK);
+        } else {
+            g.setColor(Color.GRAY);
+        }
+        ((Graphics2D) g).setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        String label = article.getName();
+
+        if (label.length() > maxWidth * 2) {
+            label = label.substring(0, maxWidth * 2) + "...";
+        }
+        String label2 = null;
+        if (label.length() > maxWidth) {
+            String t = label.substring(0, maxWidth).trim();
+            int lastSpace = t.lastIndexOf(' ');
+            if (lastSpace <= 0) {
+                lastSpace = maxWidth;
+            }
+            label2 = label.substring(lastSpace).trim();
+            label = label.substring(0, lastSpace).trim();
+            if (label2.length() > maxWidth) {
+                label2 = label2.substring(0, maxWidth) + "...";
+            }
+        }
+
+        final BigDecimal priceInCents = article.getPriceInCents();
+        String euro = getPrice(priceInCents);
+
+        int wEuro = (int) g.getFontMetrics().getStringBounds(euro, g).getWidth();
+        if (label2 == null) {
+            g.drawString(label, leftMargin, posY + 39);
+        } else {
+            g.drawString(label, leftMargin, posY + 26);
+            g.drawString(label2, leftMargin, posY + 52);
+        }
+        g.drawString(euro, cellWidth - 5 - wEuro, posY + 39);
+    }
+
+    public int getLeftMargin() {
+        return 10;
+    }
+
+    public static String getPrice(final BigDecimal price) {
+        return TicketCellRenderer.centsToString(price.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue()) + "€";
     }
 
 }

@@ -24,16 +24,21 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ListMap;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class CommandeClientSQLElement extends ComptaSQLConfElement {
 
@@ -85,6 +90,27 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
+    protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
+        super.archive(row, cutLinks);
+        // Mise à jour des stocks
+        SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+        SQLSelect sel = new SQLSelect();
+        sel.addSelect(eltMvtStock.getTable().getField("ID"));
+        Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+        Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+        sel.setWhere(w.and(w2));
+
+        @SuppressWarnings("rawtypes")
+        List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+        if (l != null) {
+            for (int i = 0; i < l.size(); i++) {
+                Object[] tmp = (Object[]) l.get(i);
+                eltMvtStock.archive(((Number) tmp[0]).intValue());
+            }
+        }
+    }
+
+    @Override
     protected SQLTableModelSourceOnline createTableSource() {
         final SQLTableModelSourceOnline source = super.createTableSource();
         // TODO: refaire un renderer pour les commandes transférées en BL
@@ -120,7 +146,7 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
         SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
         SQLRow rowCmd = getTable().getRow(commandeID);
         List<SQLRow> rows = rowCmd.getReferentRows(elt.getTable());
-        CollectionMap<SQLRow, List<SQLRowValues>> map = new CollectionMap<SQLRow, List<SQLRowValues>>();
+        final ListMap<SQLRow, SQLRowValues> map = new ListMap<SQLRow, SQLRowValues>();
         for (SQLRow sqlRow : rows) {
             // on récupére l'article qui lui correspond
             SQLRowValues rowArticle = new SQLRowValues(eltArticle.getTable());
@@ -141,7 +167,7 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
             rowValsElt.put("T_PA_TTC",
                     ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal((rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0)), MathContext.DECIMAL128));
 
-            map.put(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
+            map.add(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
 
         }
         MouvementStockSQLElement.createCommandeF(map, rowCmd.getForeignRow("ID_TARIF").getForeignRow("ID_DEVISE"), rowCmd.getString("NUMERO") + " - " + rowCmd.getString("NOM"));

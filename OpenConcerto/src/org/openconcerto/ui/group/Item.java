@@ -13,6 +13,9 @@
  
  package org.openconcerto.ui.group;
 
+import java.util.Collection;
+import java.util.Collections;
+
 import net.jcip.annotations.GuardedBy;
 
 public class Item {
@@ -69,6 +72,19 @@ public class Item {
 
     public final Item getChildFromID(final String id) {
         return this.getDescFromID(id, 1);
+    }
+
+    /**
+     * Get all descendant leaves, including this.
+     * 
+     * @return the descendant non-group.
+     */
+    public Collection<Item> getDescendantItems() {
+        return Collections.singletonList(this);
+    }
+
+    protected void getDescendantItems(final Collection<Item> res) {
+        res.add(this);
     }
 
     public final Item getDescFromID(final String id) {

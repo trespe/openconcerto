@@ -18,6 +18,7 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLSystem;
+import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.ReloadPanel;
@@ -39,6 +40,7 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.Collection;
 import java.util.Date;
 import java.util.List;
 
@@ -55,6 +57,8 @@ import javax.swing.SwingUtilities;
 import javax.swing.text.JTextComponent;
 
 public class BackupPanel extends JPanel implements ActionListener {
+
+    public static final String RIGHT_CODE = "BACKUP";
 
     private final DateFormat format = new SimpleDateFormat("EEEE", getTM().getTranslationsLocale());
 
@@ -75,6 +79,7 @@ public class BackupPanel extends JPanel implements ActionListener {
 
     BackupProps props;
 
+    // listDB null means all roots of conf
     public BackupPanel(List<String> listDB, List<File> dirs2Save, boolean startNow, BackupProps props) {
         super(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
@@ -87,6 +92,8 @@ public class BackupPanel extends JPanel implements ActionListener {
         // TODO SHOW ERRORS
 
         this.listDb = listDB;
+        if (dirs2Save == null)
+            throw new NullPointerException("Null dirs");
         this.dirs2save = dirs2Save;
 
         JPanel topPanel = new JPanel(new VFlowLayout(VFlowLayout.MIDDLE, 4, 2, true));
@@ -190,7 +197,10 @@ public class BackupPanel extends JPanel implements ActionListener {
 
         JPanel panelButton = new JPanel();
         this.buttonClose = new JButton(getTM().translate("close"));
-        if (!startNow) {
+        final boolean canBackup = UserRightsManager.getCurrentUserRights().haveRight(RIGHT_CODE);
+        this.buttonBackup.setEnabled(canBackup);
+        // display the disabled button since the backup won't happen
+        if (!startNow || !canBackup) {
             panelButton.add(this.buttonBackup);
         }
         panelButton.add(this.buttonClose);
@@ -250,8 +260,10 @@ public class BackupPanel extends JPanel implements ActionListener {
     }
 
     public final void sauvegarde() {
+        // also check right (set in the constructor)
         if (!this.buttonBackup.isEnabled())
             return;
+        assert UserRightsManager.getCurrentUserRights().haveRight(RIGHT_CODE);
 
         this.barDB.setStringPainted(false);
         this.buttonBackup.setEnabled(false);
@@ -302,7 +314,7 @@ public class BackupPanel extends JPanel implements ActionListener {
                         props.setProperty("LastBackupDestination", BackupPanel.this.textDest.getText());
 
                         // Sauvegarde de la base
-                        if (BackupPanel.this.listDb != null) {
+                        if (BackupPanel.this.listDb == null || BackupPanel.this.listDb.size() > 0) {
 
                             final DBRoot root = Configuration.getInstance().getRoot();
                             final DBSystemRoot sysRoot = root.getDBSystemRoot();
@@ -310,19 +322,19 @@ public class BackupPanel extends JPanel implements ActionListener {
 
                             // Sauvegarde pour H2
                             if (system == SQLSystem.H2) {
+                                // always backup everything for H2 (for others better to backup on
+                                // the server)
                                 sysRoot.getDataSource().execute("backup to " + root.getBase().quoteString(new File(fDest, "Base.zip").getAbsolutePath()));
-                                // TODO don't backup H2 files below ('backup to' is the only safe
-                                // way);
                             } else {
                                 // Sauvegarde autres bases
                                 File fBase = new File(fDest, "Base");
                                 Copy copy;
                                 try {
                                     copy = new Copy(true, fBase, sysRoot, false, false);
-                                    for (String db : BackupPanel.this.listDb) {
+                                    final Collection<String> rootsToBackup = BackupPanel.this.listDb == null ? sysRoot.getChildrenNames() : BackupPanel.this.listDb;
+                                    for (String db : rootsToBackup) {
                                         copy.applyTo(db, null);
                                     }
-
                                 } catch (SQLException e) {
                                     e.printStackTrace();
                                     errors++;

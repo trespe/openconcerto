@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -70,6 +71,7 @@ public class ODXMLDocument {
         return res;
     }
 
+    static private final int ITERATIONS_WARNING_COUNT = 2000;
     // namespaces for the name attributes
     static private final Map<String, String> namePrefixes;
     static {
@@ -101,6 +103,7 @@ public class ODXMLDocument {
     private final Document content;
     private final XMLFormatVersion version;
     private final ChildCreator childCreator;
+    private final Map<String, Integer> styleNamesLast;
 
     // before making it public, assure that content is really of version "version"
     // eg by checking some namespace
@@ -110,6 +113,12 @@ public class ODXMLDocument {
         this.content = content;
         this.version = version;
         this.childCreator = new ChildCreator(this.content.getRootElement(), ELEMS_ORDER.get(this.getVersion()));
+        this.styleNamesLast = new LinkedHashMap<String, Integer>(4, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(java.util.Map.Entry<String, Integer> eldest) {
+                return this.size() > 15;
+            }
+        };
     }
 
     public ODXMLDocument(Document content) {
@@ -292,13 +301,38 @@ public class ODXMLDocument {
      * @see Style#getStyleDesc(Class, XMLVersion)
      */
     public final String findUnusedName(final StyleDesc<?> desc, final String baseName) {
-        for (int i = 0; i < 1000; i++) {
+        final Integer lastI = this.styleNamesLast.get(baseName);
+        final int offset = lastI == null ? 0 : lastI.intValue();
+        int iterationCount = 0;
+        int i = offset;
+        String res = null;
+        while (res == null) {
             final String name = baseName + i;
             final Element elem = this.getStyle(desc, name);
-            if (elem == null)
-                return name;
+            iterationCount++;
+            // don't increment i if we succeed since we don't know if the found name will indeed be
+            // used
+            if (elem == null) {
+                res = name;
+            } else {
+                i++;
+                // warn early before it takes too long
+                if (iterationCount == ITERATIONS_WARNING_COUNT) {
+                    Log.get().warning("After " + iterationCount + " iterations, no unused name found for " + baseName + " (" + desc + ")");
+                }
+            }
         }
-        return null;
+        this.styleNamesLast.put(baseName, i);
+        if (iterationCount >= ITERATIONS_WARNING_COUNT) {
+            // MAYBE trigger an optimize pass that merges equal styles.
+            Log.get().warning(iterationCount + " iterations were needed to find an unused name for " + baseName + " (" + desc + ")");
+        }
+        return res;
+    }
+
+    // Useful if many styles are removed (to avoid "ce12345")
+    final void clearStyleNameCache() {
+        this.styleNamesLast.clear();
     }
 
     public final void addAutoStyle(final Element styleElem) {

@@ -15,7 +15,6 @@
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable;
-import org.openconcerto.erp.core.common.ui.DeviseNumericCellEditor;
 import org.openconcerto.erp.core.common.ui.DeviseNumericHTConvertorCellEditor;
 import org.openconcerto.erp.core.common.ui.DeviseTableCellRenderer;
 import org.openconcerto.erp.core.common.ui.QteCellEditor;
@@ -304,6 +303,8 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
 
         SQLRowValues defautRow = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(e.getTable()));
         defautRow.put("ID_TAXE", TaxeCache.getCache().getFirstTaxe().getID());
+        defautRow.put("CODE", "");
+        defautRow.put("NOM", "");
         model = new RowValuesTableModel(e, list, e.getTable().getField("NOM"), false, defautRow);
 
         this.table = new RowValuesTable(model, getConfigurationFile());

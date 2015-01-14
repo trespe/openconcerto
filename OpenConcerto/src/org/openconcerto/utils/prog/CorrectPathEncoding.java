@@ -583,9 +583,9 @@ public class CorrectPathEncoding {
             // case 0xEB:
         case 0xEC:
         case 0xED:
+        case 0xEE:
             cp = cp1252;
             break;
-        // case 0xEE:
         // case 0xEF:
 
         case 0xF0:

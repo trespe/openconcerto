@@ -19,6 +19,7 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLSyntax;
+import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.utils.CollectionUtils;
@@ -29,6 +30,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 
 /**
@@ -72,6 +75,8 @@ public final class AlterTable extends ChangeTable<AlterTable> {
     }
 
     public final AlterTable dropColumn(String name) {
+        if (this.getSyntax().getSystem() == SQLSystem.MSSQL)
+            this.alterColumnDefault(name, null);
         return this.addClause("DROP COLUMN " + SQLBase.quoteIdentifier(name), ClauseType.DROP_COL);
     }
 
@@ -139,8 +144,16 @@ public final class AlterTable extends ChangeTable<AlterTable> {
      * @return this.
      */
     public final AlterTable alterColumn(String fname, SQLField from, Set<Properties> toTake) {
-        for (final String s : this.getSyntax().getAlterField(this.t.getField(fname), from, toTake))
-            this.addClause(s, ClauseType.ALTER_COL);
+        return this.addClauses(this.getSyntax().getAlterField(this.t.getField(fname), from, toTake));
+    }
+
+    private final AlterTable addClauses(final Map<ClauseType, List<String>> res) {
+        for (final Entry<ClauseType, List<String>> e : res.entrySet()) {
+            final ClauseType type = e.getKey();
+            for (final String s : e.getValue()) {
+                this.addClause(s, type);
+            }
+        }
         return thisAsT();
     }
 
@@ -157,9 +170,7 @@ public final class AlterTable extends ChangeTable<AlterTable> {
      * @see #alterColumn(String, SQLField, Set)
      */
     public final AlterTable alterColumn(String fname, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
-        for (final String s : this.getSyntax().getAlterField(this.t.getField(fname), toAlter, type, defaultVal, nullable))
-            this.addClause(s, ClauseType.ALTER_COL);
-        return thisAsT();
+        return this.addClauses(this.getSyntax().getAlterField(this.t.getField(fname), toAlter, type, defaultVal, nullable));
     }
 
     public final AlterTable alterColumnNullable(String f, boolean b) {
@@ -190,6 +201,10 @@ public final class AlterTable extends ChangeTable<AlterTable> {
     }
 
     public final AlterTable dropIndex(final String name) {
+        return this.dropIndex(name, true);
+    }
+
+    private final AlterTable dropIndex(final String name, final boolean exact) {
         return this.addOutsideClause(new OutsideClause() {
             @Override
             public ClauseType getType() {
@@ -198,9 +213,38 @@ public final class AlterTable extends ChangeTable<AlterTable> {
 
             @Override
             public String asString(SQLName tableName) {
-                return getSyntax().getDropIndex(name, tableName);
+                return getSyntax().getDropIndex(exact ? name : getIndexName(tableName, name), tableName);
             }
         });
+    }
+
+    public final AlterTable dropUniqueConstraint(final String name, final boolean partial) {
+        final SQLSystem system = getSyntax().getSystem();
+        if (system == SQLSystem.MSSQL) {
+            return this.dropIndex(name, false);
+        } else if (!partial) {
+            return this.addClause(new DeferredClause() {
+                @Override
+                public String asString(ChangeTable<?> ct, SQLName tableName) {
+                    return getSyntax().getDropConstraint() + getQuotedConstraintName(tableName, name);
+                }
+
+                @Override
+                public ClauseType getType() {
+                    return ClauseType.DROP_CONSTRAINT;
+                }
+            });
+        } else if (system == SQLSystem.POSTGRESQL) {
+            return this.dropIndex(name, false);
+        } else if (system == SQLSystem.H2) {
+            return this.addOutsideClause(new DropUniqueTrigger(name));
+        } else if (system == SQLSystem.MYSQL) {
+            for (final String event : TRIGGER_EVENTS)
+                this.addOutsideClause(new DropUniqueTrigger(name, event));
+            return thisAsT();
+        } else {
+            throw new UnsupportedOperationException("System isn't supported : " + system);
+        }
     }
 
     @Override

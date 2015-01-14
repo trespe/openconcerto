@@ -117,7 +117,7 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
 
         this.setContentPane(this.panel);
         this.initTitle(comp.getElement(), mode);
-        this.setLocation(0, 50);
+        this.setLocationByPlatform(true);
 
         // The minimum size of the frame must be the size when packed
         this.pack();
@@ -182,17 +182,17 @@ public class EditFrame extends JFrame implements IListener, EditPanelListener, D
 
     private final void initTitle(SQLElement element, EditMode mode) {
         switch (mode) {
-            case CREATION:
-                this.setTitle(getCreateMessage(element));
-                break;
-            case MODIFICATION:
-                this.setTitle(getModifyMessage(element));
-                break;
-            case READONLY:
-                this.setTitle(getReadOnlyMessage(element));
-                break;
-            default:
-                throw new IllegalArgumentException("unknown mode : " + mode);
+        case CREATION:
+            this.setTitle(getCreateMessage(element));
+            break;
+        case MODIFICATION:
+            this.setTitle(getModifyMessage(element));
+            break;
+        case READONLY:
+            this.setTitle(getReadOnlyMessage(element));
+            break;
+        default:
+            throw new IllegalArgumentException("unknown mode : " + mode);
         }
     }
 

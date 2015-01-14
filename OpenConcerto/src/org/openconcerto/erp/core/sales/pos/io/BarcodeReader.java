@@ -14,7 +14,12 @@
  package org.openconcerto.erp.core.sales.pos.io;
 
 import org.openconcerto.erp.core.sales.pos.ui.BarcodeListener;
+import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.component.ITextArea;
 
+import java.awt.Dimension;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.KeyEventDispatcher;
 import java.awt.KeyboardFocusManager;
 import java.awt.event.KeyEvent;
@@ -23,7 +28,12 @@ import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
 
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 /**
  * Lecteur code barres, intercepte les événements clavier pour détecter un scan de code. Le code
@@ -31,7 +41,7 @@ import javax.swing.SwingUtilities;
  * */
 public class BarcodeReader implements KeyEventDispatcher {
 
-    public static final int MAX_INTER_KEY = 80;
+    public int maxInterKeyDelay = 80;
     private static final int MIN_BARCODE_LENGTH = 2;
     private final List<BarcodeListener> listeners = new ArrayList<BarcodeListener>(1);
     private String value = "";
@@ -41,9 +51,10 @@ public class BarcodeReader implements KeyEventDispatcher {
     // non final car un TimerTask n'est pas reutilisable
     private TimerTask task;
 
-    public BarcodeReader() {
+    public BarcodeReader(int maxInterKeyDelay) {
         this.timer = null;
         this.task = null;
+        this.maxInterKeyDelay = maxInterKeyDelay;
     }
 
     public synchronized void removeBarcodeListener(BarcodeListener l) {
@@ -98,7 +109,7 @@ public class BarcodeReader implements KeyEventDispatcher {
         }
         int key = e.getKeyCode();
 
-        if (t - this.firstTime > MAX_INTER_KEY && key != KeyEvent.VK_SHIFT) {
+        if (t - this.firstTime > maxInterKeyDelay && key != KeyEvent.VK_SHIFT) {
             // touche normale
             redispatch();
         }
@@ -131,7 +142,7 @@ public class BarcodeReader implements KeyEventDispatcher {
                         redispatchLater();
                     }
                 };
-                this.timer.schedule(this.task, MAX_INTER_KEY);
+                this.timer.schedule(this.task, maxInterKeyDelay);
             }
             // si pas d'evenement, pas de temps associé
             assert this.eve.size() > 0 || this.firstTime == -1;
@@ -165,4 +176,59 @@ public class BarcodeReader implements KeyEventDispatcher {
         this.firstTime = -1;
     }
 
+    public static void main(String[] args) {
+        String delay = "80";
+        if (args.length > 0) {
+            delay = args[0];
+        }
+        final int d = Integer.parseInt(delay);
+        SwingUtilities.invokeLater(new Runnable() {
+
+            @Override
+            public void run() {
+                try {
+                    UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+                System.out.println("BarCode reader");
+                System.out.println("Using inter key delay: " + d);
+                JFrame f = new JFrame();
+                f.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+                JPanel panel = new JPanel();
+                f.setTitle("Barcode reader test");
+                f.setContentPane(panel);
+                panel.setLayout(new GridBagLayout());
+                GridBagConstraints c = new DefaultGridBagConstraints();
+                final JLabel l = new JLabel("BarCode reader output :");
+                panel.add(l, c);
+                c.gridy++;
+                c.weighty = 1;
+                c.weightx = 1;
+                c.fill = GridBagConstraints.BOTH;
+                final ITextArea t1 = new ITextArea();
+                panel.add(new JScrollPane(t1), c);
+
+                BarcodeReader reader = new BarcodeReader(d);
+                reader.addBarcodeListener(new BarcodeListener() {
+
+                    @Override
+                    public void keyReceived(KeyEvent ee) {
+                        System.err.println("BarcodeReader keyReceived() : " + ee);
+                    }
+
+                    @Override
+                    public void barcodeRead(String code) {
+                        t1.append("Barcode OK : '" + code + "'\n");
+                    }
+                });
+
+                f.setSize(new Dimension(640, 480));
+                f.setLocationRelativeTo(null);
+                f.setVisible(true);
+
+            }
+        });
+
+    }
 }

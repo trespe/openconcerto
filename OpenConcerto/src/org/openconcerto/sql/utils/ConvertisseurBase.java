@@ -143,7 +143,7 @@ public class ConvertisseurBase extends ChangeBase {
 
     @Override
     protected Change getChange() {
-        return new Convert(this.getRoot());
+        return new Convert();
     }
 
     static public void main(String[] args) throws IOException {

@@ -18,6 +18,7 @@ import org.openconcerto.utils.Tuple2;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import org.apache.commons.dbutils.ResultSetHandler;
@@ -25,8 +26,17 @@ import org.apache.commons.dbutils.ResultSetHandler;
 public final class SQLRowListRSH implements ResultSetHandler {
 
     // hashCode()/equals() needed for data source cache
-    private static final class RSH implements ResultSetHandler {
+    public static final class RSH implements ResultSetHandler {
         private final Tuple2<SQLTable, List<String>> names;
+
+        // allow to create rows from arbitrary columns (and not just directly from actual fields of
+        // the same table)
+        // ATTN doesn't check that the types of columns are coherent with the types of the fields
+        public RSH(final SQLTable t, final List<String> names) {
+            this(Tuple2.create(t, names));
+            if (!t.getFieldsName().containsAll(names))
+                throw new IllegalArgumentException("Not all names are fields of " + t + " : " + names);
+        }
 
         private RSH(Tuple2<SQLTable, List<String>> names) {
             this.names = names;
@@ -34,7 +44,9 @@ public final class SQLRowListRSH implements ResultSetHandler {
 
         @Override
         public List<SQLRow> handle(ResultSet rs) throws SQLException {
-            return SQLRow.createListFromRS(this.names.get0(), rs, this.names.get1());
+            // since the result will be cached, disallow its modification (e.g.avoid
+            // ConcurrentModificationException)
+            return Collections.unmodifiableList(SQLRow.createListFromRS(this.names.get0(), rs, this.names.get1()));
         }
 
         @Override
@@ -55,37 +67,51 @@ public final class SQLRowListRSH implements ResultSetHandler {
         }
     }
 
-    private static Tuple2<SQLTable, List<String>> getIndexes(SQLSelect sel, final SQLTable passedTable, final boolean findTable) {
-        final List<SQLField> selectFields = sel.getSelectFields();
+    private static TableRef checkTable(final TableRef t) {
+        if (t == null)
+            throw new IllegalArgumentException("null table");
+        if (!t.getTable().isRowable())
+            throw new IllegalArgumentException("table isn't rowable : " + t);
+        return t;
+    }
+
+    private static Tuple2<SQLTable, List<String>> getIndexes(SQLSelect sel, final TableRef passedTable, final boolean findTable) {
+        final List<FieldRef> selectFields = sel.getSelectFields();
         final int size = selectFields.size();
         if (size == 0)
             throw new IllegalArgumentException("empty select : " + sel);
-        final SQLTable t;
+        TableRef t;
         if (findTable) {
             if (passedTable != null)
                 throw new IllegalArgumentException("non null table " + passedTable);
-            t = selectFields.get(0).getTable();
+            t = null;
         } else {
-            if (passedTable == null)
-                throw new IllegalArgumentException("null table");
-            t = passedTable;
+            t = checkTable(passedTable);
         }
-        // cannot pass an alias to this method since getSelectFields() returns SQLField and not
-        // FieldRef
-        final List<TableRef> aliases = sel.getAliases(t);
-        if (aliases.size() != 1)
-            throw new IllegalArgumentException(t + " isn't exactly once : " + aliases);
         final List<String> l = new ArrayList<String>(size);
         for (int i = 0; i < size; i++) {
-            final SQLField field = selectFields.get(i);
-            if (field.getTable().equals(t))
-                l.add(field.getName());
-            else if (findTable)
-                throw new IllegalArgumentException(field + " is not in " + t);
-            else
+            final FieldRef field = selectFields.get(i);
+            if (field == null) {
+                // computed field
                 l.add(null);
+            } else {
+                if (t == null) {
+                    assert findTable;
+                    t = checkTable(field.getTableRef());
+                }
+                assert t != null && t.getTable().isRowable();
+
+                if (field.getTableRef().equals(t)) {
+                    l.add(field.getField().getName());
+                } else if (findTable) {
+                    // prevent ambiguity : either specify a table or there must be only one table
+                    throw new IllegalArgumentException(field + " is not in " + t);
+                } else {
+                    l.add(null);
+                }
+            }
         }
-        return Tuple2.create(t, l);
+        return Tuple2.create(t.getTable(), l);
     }
 
     /**
@@ -103,10 +129,10 @@ public final class SQLRowListRSH implements ResultSetHandler {
      * each metadata.
      * 
      * @param sel the select that will produce the result set.
-     * @param t the table for which to create rows, must appear only once in <code>sel</code>.
+     * @param t the table for which to create rows.
      * @return a handler creating a list of {@link SQLRow}.
      */
-    static public ResultSetHandler createFromSelect(final SQLSelect sel, final SQLTable t) {
+    static public ResultSetHandler createFromSelect(final SQLSelect sel, final TableRef t) {
         return create(getIndexes(sel, t, false));
     }
 

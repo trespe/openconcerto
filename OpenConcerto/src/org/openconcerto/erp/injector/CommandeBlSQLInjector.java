@@ -29,8 +29,9 @@ public class CommandeBlSQLInjector extends SQLInjector {
         final SQLTable tableBl = getDestination();
         map(tableCmd.getField("ID_CLIENT"), tableBl.getField("ID_CLIENT"));
         map(tableCmd.getField("ID"), tableBl.getField("ID_COMMANDE_CLIENT"));
-        map(tableCmd.getField("NOM"), tableBl.getField("NOM"));
-        map(tableCmd.getField("INFOS"), tableBl.getField("INFOS"));
+        if (tableCmd.getTable().contains("ID_POLE_PRODUIT") && tableBl.contains("ID_POLE_PRODUIT")) {
+            map(tableCmd.getField("ID_POLE_PRODUIT"), tableBl.getField("ID_POLE_PRODUIT"));
+        }
     }
 
     @Override
@@ -41,6 +42,11 @@ public class CommandeBlSQLInjector extends SQLInjector {
         final SQLTable tableElementSource = getSource().getTable("COMMANDE_CLIENT_ELEMENT");
         final SQLTable tableElementDestination = getSource().getTable("BON_DE_LIVRAISON_ELEMENT");
         final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+
+        transfertReference(srcRow, rowVals, "NOM", "NOM");
+        transfertReference(srcRow, rowVals, "INFOS", "INFOS");
+
+        transfertNumberReference(srcRow, rowVals, tableElementDestination, "ID_BON_DE_LIVRAISON");
 
         if (myListItem.size() != 0) {
             final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);

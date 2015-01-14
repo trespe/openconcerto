@@ -22,9 +22,11 @@ import java.awt.Color;
 import java.awt.Component;
 import java.awt.Font;
 import java.awt.Graphics;
+import java.awt.Graphics2D;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.math.RoundingMode;
@@ -95,7 +97,8 @@ public class TicketCellRenderer implements ListCellRenderer {
         g.setColor(Color.BLACK);
 
         final int inset = 5;
-        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        ((Graphics2D) g).setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
         final int height = g.getFontMetrics().getMaxAscent() + g.getFontMetrics().getMaxDescent() + inset;
 
         final String s1 = item.getSecond().toString();

@@ -14,7 +14,9 @@
  package org.openconcerto.openoffice;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 import net.jcip.annotations.Immutable;
 
@@ -143,6 +145,10 @@ public enum XMLVersion {
 
     public Namespace[] getALL() {
         return this.nss.values().toArray(new Namespace[this.nss.size()]);
+    }
+
+    public Set<Namespace> getNamespaceSet() {
+        return new HashSet<Namespace>(this.nss.values());
     }
 
     public Namespace getLibrariesNS() {

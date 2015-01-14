@@ -30,6 +30,7 @@ import java.awt.Point;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -367,6 +368,11 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         return new ODPackage(f).toSingle();
     }
 
+    public static ODSingleXMLDocument createFromPackage(InputStream in) throws IOException {
+        // this loads all linked files
+        return new ODPackage(in).toSingle();
+    }
+
     /**
      * Create a document from a flat XML.
      * 
@@ -531,7 +537,7 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
         return this.pkg;
     }
 
-    private final Element getBasicScriptElem() {
+    final Element getBasicScriptElem() {
         return this.getBasicScriptElem(false);
     }
 
@@ -803,17 +809,25 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
      * @return the actually removed libraries.
      */
     public final Set<String> removeBasicLibraries(final Collection<String> libraries) {
-        final Map<String, Element> thisLibrariesElements = this.readBasicLibraries(this.getBasicScriptElem(false)).get1();
+        final Element basicScriptElem = this.getBasicScriptElem(false);
+        final Map<String, Element> thisLibrariesElements = this.readBasicLibraries(basicScriptElem).get1();
+        // don't return if thisLibrariesElements is empty as we also check the package content
+
         final Set<String> res = new HashSet<String>();
         for (final String libToRm : libraries) {
             final Element elemToRm = thisLibrariesElements.get(libToRm);
             if (elemToRm != null) {
-                elemToRm.detach();
+                // also detach empty <libraries>
+                JDOMUtils.detachEmptyParent(elemToRm);
                 res.add(libToRm);
             }
             if (Library.removeFromPackage(this.getPackage(), libToRm))
                 res.add(libToRm);
         }
+        // Detach empty <script>, works because we already detached empty <libraries>
+        if (basicScriptElem != null && basicScriptElem.getChildren().isEmpty())
+            basicScriptElem.detach();
+
         return res;
     }
 
@@ -1371,6 +1385,10 @@ public class ODSingleXMLDocument extends ODXMLDocument implements Cloneable {
      */
     public File saveToPackageAs(File f) throws IOException {
         return this.pkg.saveAs(f);
+    }
+
+    public void saveToPackage(OutputStream f) throws IOException {
+        this.pkg.save(f);
     }
 
     public File save() throws IOException {

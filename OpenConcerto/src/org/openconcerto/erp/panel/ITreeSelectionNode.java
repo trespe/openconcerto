@@ -24,10 +24,9 @@ import javax.swing.tree.DefaultMutableTreeNode;
 
 public class ITreeSelectionNode extends DefaultMutableTreeNode {
 
-    SQLRowAccessor row;
+    private SQLRowAccessor row;
 
     public ITreeSelectionNode(SQLRowAccessor row) {
-        super();
         this.row = row;
     }
 
@@ -36,15 +35,16 @@ public class ITreeSelectionNode extends DefaultMutableTreeNode {
         if (this.row == null) {
             return "";
         } else {
-            List<SQLField> field = Configuration.getInstance().getShowAs().getFieldExpand(this.row.getTable());
-
+            List<SQLField> fields = Configuration.getInstance().getShowAs().getFieldExpand(this.row.getTable());
+            if (fields == null) {
+                throw new IllegalStateException("no field to expand for table " + this.row.getTable());
+            }
             StringBuffer result = new StringBuffer();
-            for (SQLField s : field) {
+            for (SQLField s : fields) {
                 result.append(this.row.getObject(s.getName()).toString() + " ");
             }
             return result.toString().trim();
         }
-        // return (this.row == null) ? "" : this.row.getString("NOM");
     }
 
     public int getId() {

@@ -15,6 +15,7 @@
 
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.utils.i18n.Phrase;
 
 import java.util.Collections;
 import java.util.List;
@@ -40,15 +41,27 @@ public class ConfSQLElement extends SQLElement {
     }
 
     public ConfSQLElement(String tableName) {
-        this(Configuration.getInstance(), tableName);
+        this(tableName, null);
     }
 
     public ConfSQLElement(Configuration conf, String tableName) {
-        this(conf.getRoot().findTable(tableName));
+        this(conf, tableName, null);
     }
 
     public ConfSQLElement(SQLTable table) {
-        super(table);
+        this(table, null);
+    }
+
+    public ConfSQLElement(String tableName, final Phrase name) {
+        this(Configuration.getInstance(), tableName, name);
+    }
+
+    public ConfSQLElement(Configuration conf, String tableName, final Phrase name) {
+        this(conf.getRoot().findTable(tableName), name);
+    }
+
+    public ConfSQLElement(final SQLTable primaryTable, final Phrase name) {
+        super(primaryTable, name);
     }
 
     @Override

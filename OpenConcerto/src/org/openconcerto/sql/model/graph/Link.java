@@ -36,7 +36,7 @@ import java.util.Set;
 
 import net.jcip.annotations.ThreadSafe;
 
-import org.jdom.Element;
+import org.jdom2.Element;
 
 /**
  * Un lien dans le graphe des tables. Par exemple, si la table ECLAIRAGE a un champ ID_LOCAL, alors
@@ -299,7 +299,6 @@ public class Link extends DirectedEdge<SQLTable> {
         final String linkName = linkElem.getAttributeValue("name");
         final Rule updateRule = Rule.fromName(linkElem.getAttributeValue("updateRule"));
         final Rule deleteRule = Rule.fromName(linkElem.getAttributeValue("deleteRule"));
-        @SuppressWarnings("unchecked")
         final List<Element> lElems = linkElem.getAttribute("col") != null ? singletonList(linkElem) : linkElem.getChildren("l");
         final List<SQLField> cols = new ArrayList<SQLField>();
         final List<SQLField> refcols = new ArrayList<SQLField>();

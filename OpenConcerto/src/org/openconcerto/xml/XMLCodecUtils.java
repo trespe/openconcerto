@@ -49,9 +49,9 @@ import java.util.RandomAccess;
 import java.util.Set;
 import java.util.Stack;
 
-import org.jdom.Element;
-import org.jdom.JDOMException;
-import org.jdom.input.SAXBuilder;
+import org.jdom2.Element;
+import org.jdom2.JDOMException;
+import org.jdom2.input.SAXBuilder;
 
 /**
  * To encode and decode using {@link XMLEncoder} and {@link XMLDecoder}.
@@ -365,7 +365,7 @@ public class XMLCodecUtils {
         try {
             return eval(elem, new Stack<Object>(), new HashMap<String, Object>());
         } catch (Exception e) {
-            throw new IllegalStateException("error decoding " + JDOMUtils.output(javaElem), e);
+            throw new IllegalStateException("error decoding " + JDOM2Utils.output(javaElem), e);
         }
     }
 
