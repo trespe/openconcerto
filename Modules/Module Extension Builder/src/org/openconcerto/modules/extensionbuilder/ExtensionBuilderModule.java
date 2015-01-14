@@ -2,7 +2,6 @@ package org.openconcerto.modules.extensionbuilder;
 
 import java.awt.event.ActionEvent;
 import java.io.IOException;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -10,11 +9,10 @@ import java.util.Map;
 import javax.swing.AbstractAction;
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
-import javax.swing.SwingUtilities;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.config.Log;
-import org.openconcerto.erp.config.MainFrame;
+import org.openconcerto.erp.config.MenuManager;
 import org.openconcerto.erp.modules.AbstractModule;
 import org.openconcerto.erp.modules.ComponentsContext;
 import org.openconcerto.erp.modules.DBContext;
@@ -26,7 +24,6 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.utils.SQLCreateTable;
 import org.openconcerto.ui.FrameUtil;
-import org.openconcerto.utils.i18n.TranslationManager;
 
 public final class ExtensionBuilderModule extends AbstractModule {
 
@@ -50,12 +47,26 @@ public final class ExtensionBuilderModule extends AbstractModule {
 
     @Override
     protected void setupComponents(ComponentsContext ctxt) {
-        // ctxt.putAdditionalField("CLIENT", "ID_FIDELITY_CARD");
 
     }
 
     @Override
     protected void setupMenu(MenuContext ctxt) {
+        ctxt.addMenuItem(new AbstractAction("Gestionnaire d'extensions") {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                Log.get().info("Opening Extension Builder frame");
+                JFrame f = new JFrame("OpenConcerto Extension Builder - création simplifiée d'extensions");
+                f.setSize(800, 600);
+                f.setContentPane(new ExtensionListPanel(ExtensionBuilderModule.this));
+                f.setLocationRelativeTo(null);
+                FrameUtil.show(f);
+            }
+        }, "menu.extension");
+
+        // Start extensions...
+        // TODO merge extensions in ModuleManager
         final DBRoot root = ComptaPropsConfiguration.getInstanceCompta().getRootSociete();
         final DBSystemRoot systemRoot = root.getDBSystemRoot();
 
@@ -75,20 +86,7 @@ public final class ExtensionBuilderModule extends AbstractModule {
             e.importFromXML(row.get("XML"));
             this.extensions.add(e);
         }
-
-        ctxt.addMenuItem(new AbstractAction("Gestionnaire d'extensions") {
-
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                Log.get().info("Opening Extension Builder frame");
-                JFrame f = new JFrame("OpenConcerto Extension Builder - création simplifiée d'extensions");
-                f.setSize(800, 600);
-                f.setContentPane(new ExtensionListPanel(ExtensionBuilderModule.this));
-                f.setLocationRelativeTo(null);
-                FrameUtil.show(f);
-            }
-        }, "menu.extension");
-
+        Log.get().info("setupMenu");
         // Start previously started extensions
         for (Extension extension : extensions) {
             if (extension.isAutoStart()) {
@@ -100,6 +98,7 @@ public final class ExtensionBuilderModule extends AbstractModule {
                 }
             }
         }
+        Log.get().info("setupMenu done");
     }
 
     @Override
@@ -111,14 +110,15 @@ public final class ExtensionBuilderModule extends AbstractModule {
         for (Extension extension : extensions) {
             if (extension.isAutoStart()) {
                 try {
-                    extension.start(root);
+                    extension.start(root, true);
                 } catch (Throwable e) {
                     JOptionPane.showMessageDialog(new JFrame(), "Impossible de démarrer l'extension " + extension.getName() + "\n" + e.getMessage());
                     e.printStackTrace();
                 }
             }
         }
-
+        Log.get().info("Starting Extension Builder done");
+        System.err.println("Starting Extension Builder done, action for test1:" + MenuManager.getInstance().getActionForId("test1") + " " + MenuManager.getInstance());
     }
 
     @Override

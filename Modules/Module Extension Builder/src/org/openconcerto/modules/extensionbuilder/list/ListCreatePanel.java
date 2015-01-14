@@ -18,7 +18,7 @@ public class ListCreatePanel extends JPanel {
 
     private FieldDescSelector panel;
 
-    public ListCreatePanel(ListDescriptor n, Extension extension) {
+    public ListCreatePanel(final ListDescriptor n, final Extension extension) {
         this.setLayout(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridwidth = 2;
@@ -53,8 +53,9 @@ public class ListCreatePanel extends JPanel {
 
             @Override
             public void actionPerformed(ActionEvent e) {
+                n.removeAllColumns();
                 panel.setMainTable((String) comboTable.getSelectedItem());
-
+                extension.setChanged();
             }
         });
 

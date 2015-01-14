@@ -153,6 +153,7 @@ public class FieldDescSelector extends JPanel {
     }
 
     public void setMainTable(String table) {
+        this.listDescriptor.setMainTable(table);
         treeModel.fillFromTable(table);
         listModel.removeAllElements();
         for (ColumnDescriptor d : this.listDescriptor.getColumns()) {

@@ -24,6 +24,7 @@ import javax.swing.SwingConstants;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.modules.extensionbuilder.ClickableLabel;
+import org.openconcerto.modules.extensionbuilder.Extension;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLTable;
@@ -33,9 +34,12 @@ import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.utils.Tuple2;
 
 public class TableModifyInfoPanel extends JPanel implements Scrollable {
+    private Extension extension;
+
     // TODO: tooltip sur un champs pour indiquer quelles extensions l'utilisent
 
-    public TableModifyInfoPanel(SQLTable t, final TableDescritor desc, final TableModifyLeftPanel leftPanel) {
+    public TableModifyInfoPanel(Extension extension, SQLTable t, final TableDescritor desc, final TableModifyLeftPanel leftPanel) {
+        this.extension = extension;
         this.setLayout(new GridBagLayout());
         this.setBackground(Color.WHITE);
         GridBagConstraints c = new DefaultGridBagConstraints();
@@ -172,7 +176,7 @@ public class TableModifyInfoPanel extends JPanel implements Scrollable {
     private void addField(final TableDescritor desc, final JPanel p, GridBagConstraints c, final FieldDescriptor field) {
         c.weightx = 1;
         c.gridx = 0;
-        final FieldDescriptorEditor editor = new FieldDescriptorEditor(field);
+        final FieldDescriptorEditor editor = new FieldDescriptorEditor(extension, field);
         p.add(editor, c);
 
         c.gridx++;

@@ -126,7 +126,6 @@ public class ExtensionInfoPanel extends JPanel implements ChangeListener {
 
             }
         });
-        saveButton.setEnabled(extension.isNotSaved());
         panel.add(saveButton);
         // TODO: a mettre en clic droit sur la liste gauche
         final JButton exportButton = new JButton("Exporter");
@@ -252,7 +251,7 @@ public class ExtensionInfoPanel extends JPanel implements ChangeListener {
                     public void run() {
                         final DBRoot root = ComptaPropsConfiguration.getInstanceCompta().getRootSociete();
                         try {
-                            extension.start(root);
+                            extension.start(root, false);
                         } catch (SQLException e1) {
                             e1.printStackTrace();
                         }
