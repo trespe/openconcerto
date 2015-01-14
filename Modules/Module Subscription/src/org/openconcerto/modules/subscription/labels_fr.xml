@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+
+	<TABLE name="ABONNEMENT">
+		<FIELD name="NUMERO" label="Numéro" />
+		<FIELD name="NOM" label="Libellé" />
+		<FIELD name="DESCRIPTION" label="Description" />
+		<FIELD name="INTITULE_FACTURE" label="Intitulé de facturation" />
+		<FIELD name="ID_CLIENT" label="Client" />
+		<FIELD name="ID_SAISIE_VENTE_FACTURE" label="Depuis la facture" />
+		<FIELD name="ID_DEVIS" label="Depuis le devis" />
+		<FIELD name="DATE" label="Date" />
+		<FIELD name="DATE_DEBUT_FACTURE" label="Date de début" />
+		<FIELD name="DATE_FIN_FACTURE" label="Date de fin" />
+		<FIELD name="DATE_DEBUT_DEVIS" label="Date de début" />
+		<FIELD name="DATE_FIN_DEVIS" label="Date de fin" />
+		<FIELD name="NB_MOIS_DEVIS" label="Périodicité en mois" />
+		<FIELD name="NB_MOIS_FACTURE" label="Périodicité en mois" />
+		<FIELD name="CREATE_DEVIS" label="Création automatique des devis" />
+		<FIELD name="CREATE_FACTURE" label="Création automatique des factures" />
+		<FIELD name="INTUTILE_FACTURE" label="Intitulé de facturation" />
+		<FIELD name="DATE_DEBUT_COMMANDE" label="Date de début" />
+		<FIELD name="DATE_FIN_COMMANDE" label="Date de fin" />
+		<FIELD name="ID_COMMANDE_CLIENT" label="Bon de commande" />
+		<FIELD name="NB_MOIS_COMMANDE" label="Périodicité en mois" />
+		<FIELD name="CREATE_COMMANDE" label="Création automatique des bons de commande" />
+	</TABLE>
+
+	<TABLE name="DEVIS">
+		<FIELD name="ID_ABONNEMENT" label="Abonnement" />
+	</TABLE>
+
+	<TABLE name="SAISIE_VENTE_FACTURE">
+		<FIELD name="ID_ABONNEMENT" label="Abonnement" />
+	</TABLE>
+</ROOT>

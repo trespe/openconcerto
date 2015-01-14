@@ -38,16 +38,14 @@ public class TotalHeaderRenderer extends ColumnHeaderRenderer {
             s += " " + h + " heures prévues,";
         }
 
-        if (rows.size() > 0) {
-            if (rows.get(0).getTable().getDBRoot().contains("AFFAIRE_TEMPS")) {
-                // Time spent
-                double t = 0;
-                for (SQLRowAccessor row : rows) {
-                    t += OrderColumnRowRenderer.getTimeSpent(row);
-                }
-                if (t > 0) {
-                    s += " " + hourFormater(t) + " heures passées,";
-                }
+        if (rows.size() > 0 && rows.get(0).getTable().getDBRoot().contains("AFFAIRE_TEMPS")) {
+            // Time spent
+            double t = 0;
+            for (SQLRowAccessor row : rows) {
+                t += OrderColumnRowRenderer.getTimeSpent(row);
+            }
+            if (t > 0) {
+                s += " " + hourFormater(t) + " heures passées,";
             }
         }
         s += " " + GestionDevise.currencyToString(totalHT, true) + " € HT";

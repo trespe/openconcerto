@@ -54,7 +54,7 @@ public class ProjectHistory {
         request.setUndefLabel("Toutes les affaires");
         request.setFieldSeparator(" ");
 
-        this.listPanel = new ListeHistoriquePanel("Affaires", request, mapList, null, null, "Toutes les affaires", true, null);
+        this.listPanel = new ListeHistoriquePanel("Affaires", request, mapList, null, null, "Toutes les affaires", true, null, null);
 
         final IListPanel listeDevis = listPanel.getIListePanelFromTableName("DEVIS");
         GridBagConstraints c = new DefaultGridBagConstraints();
@@ -84,17 +84,20 @@ public class ProjectHistory {
             }
         });
 
+        // If time tracking is installed
         final IListPanel listeTemps = listPanel.getIListePanelFromTableName("AFFAIRE_TEMPS");
-        final ProjectHistoryTimeBottomPanel timePanel = new ProjectHistoryTimeBottomPanel();
-        listeTemps.add(timePanel, c);
-        listeTemps.getListe().getTableModel().addTableModelListener(new TableModelListener() {
+        if (listeTemps != null) {
+            final ProjectHistoryTimeBottomPanel timePanel = new ProjectHistoryTimeBottomPanel();
+            listeTemps.add(timePanel, c);
+            listeTemps.getListe().getTableModel().addTableModelListener(new TableModelListener() {
 
-            @Override
-            public void tableChanged(TableModelEvent e) {
-                timePanel.updateTime(listeTemps.getListe());
-            }
-        });
-
+                @Override
+                public void tableChanged(TableModelEvent e) {
+                    timePanel.updateTime(listeTemps.getListe());
+                }
+            });
+        }
+        // History
         this.panelFrame = new PanelFrame(this.listPanel, "Historique affaires");
         this.panelFrame.addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {

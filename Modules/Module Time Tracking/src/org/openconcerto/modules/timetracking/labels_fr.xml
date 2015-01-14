@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ROOT>
+	<TABLE name="AFFAIRE">
+		<FIELD name="ENVOI_MAIL_AUTO" label="Transmettre les temps au client par mail" />
+	</TABLE>
+
+	<TABLE name="AFFAIRE_TEMPS">
+		<FIELD name="DESCRIPTIF" label="Descriptif de l'intervention" />
+		<FIELD name="ID_AFFAIRE" label="Affaire" />
+		<FIELD name="ID_COMMANDE_CLIENT_ELEMENT" label="Elément de commande" />
+		<FIELD name="ID_USER_COMMON" label="Utilisateur" />
+		<FIELD name="DATE" label="Date" />
+		<FIELD name="TEMPS" label="Temps (h)" />
+		<FIELD name="ENVOYE_PAR_MAIL" label="Envoyé par mail" />
+	</TABLE>
+</ROOT>

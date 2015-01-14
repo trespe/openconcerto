@@ -109,8 +109,7 @@ public final class Module extends AbstractModule {
             @Override
             public Set<FieldPath> getPaths() {
                 final SQLTable tableOrderItemTable = orderItemElement.getTable();
-                final Path p = new Path(tableOrderItemTable);
-                p.add(tableOrderItemTable.getField("ID_COMMANDE_CLIENT"));
+                final Path p = new Path(tableOrderItemTable).addForeignField("ID_COMMANDE_CLIENT");
                 return CollectionUtils.createSet(new FieldPath(p, "NUMERO"));
             }
         });
@@ -195,7 +194,7 @@ public final class Module extends AbstractModule {
                 final SQLElement element = Configuration.getInstance().getDirectory().getElement("AFFAIRE_TEMPS");
                 final EditFrame frame = new EditFrame(element);
                 final SQLRowValues rowVals = new SQLRowValues(element.getTable());
-                final List<SQLRow> rows = IListe.get(e).getSelectedRow().getReferentRows(element.getTable().getTable("COMMANDE_CLIENT"));
+                final List<SQLRow> rows = IListe.get(e).getSelectedRow().asRow().getReferentRows(element.getTable().getTable("COMMANDE_CLIENT"));
                 if (rows.size() < 1) {
                     JOptionPane.showMessageDialog(null, "Aucune commande en cours associée à cette affaire.");
                     return;
