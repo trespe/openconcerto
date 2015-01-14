@@ -45,8 +45,11 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.beans.PropertyChangeEvent;
+import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -207,6 +210,9 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
         // depends on inner table, at creation it's empty and thus valid
         private ValidState validState = ValidState.getTrueInstance();
 
+        private ValidState validStateCloture = ValidState.getTrueInstance();
+        private final SQLRow rowExercice = ComptaPropsConfiguration.getInstanceCompta().getRowSociete().getForeign("ID_EXERCICE_COMMON");
+
         private TableModelListener tableListener = new TableModelListener() {
             public void tableChanged(TableModelEvent e) {
                 SaisieKmComponent.this.tableChanged(e);
@@ -227,7 +233,22 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
             this.labelTotalCredit = new JLabel("0.00", SwingConstants.RIGHT);
             this.labelTotalDebit = new JLabel("0.00", SwingConstants.RIGHT);
             this.date = new JDate();
+            this.date.addValueListener(new PropertyChangeListener() {
 
+                @Override
+                public void propertyChange(PropertyChangeEvent evt) {
+                    Calendar cDeb = rowExercice.getDate("DATE_DEB");
+                    Calendar cClo = rowExercice.getDate("DATE_CLOTURE");
+                    if (date.getValue() != null && cDeb.getTime().after(date.getValue())) {
+                        validStateCloture = new ValidState(false, "La date de saisie doit être supérieure à celle du début de l'exercice!");
+                    } else if (date.getValue() != null && cClo != null && cClo.getTime().after(date.getValue())) {
+                        validStateCloture = new ValidState(false, "La date de saisie doit être supérieure à celle de la période de clôture définie dans l'exercice courant!");
+                    } else {
+                        validStateCloture = ValidState.getTrueInstance();
+                    }
+                    fireValidChange();
+                }
+            });
             this.comboJrnl = new ElementComboBox(false, 20);
 
             // Libellé
@@ -535,7 +556,7 @@ public class SaisieKmSQLElement extends ComptaSQLConfElement {
         @Override
         public synchronized ValidState getValidState() {
             assert SwingUtilities.isEventDispatchThread();
-            return super.getValidState().and(this.validState);
+            return super.getValidState().and(this.validState).and(this.validStateCloture);
         }
 
         private void updateValidState() {

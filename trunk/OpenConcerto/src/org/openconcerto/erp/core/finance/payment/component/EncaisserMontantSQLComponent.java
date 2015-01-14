@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.core.finance.payment.component;
 
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.TypeReglementSQLElement;
@@ -216,6 +217,7 @@ public class EncaisserMontantSQLComponent extends BaseSQLComponent {
                                             rowVals.put("COMPTANT", Boolean.TRUE);
                                             rowVals.put("AJOURS", 0);
                                             rowVals.put("LENJOUR", 0);
+                                            rowVals.put("ID_" + BanqueSQLElement.TABLENAME, rowModeRegl.getInt("ID_" + BanqueSQLElement.TABLENAME));
                                             eltModeRegl.setValue(rowVals);
                                         }
                                     }

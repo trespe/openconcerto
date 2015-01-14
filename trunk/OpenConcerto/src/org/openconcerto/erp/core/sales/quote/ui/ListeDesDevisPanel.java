@@ -13,18 +13,22 @@
  
  package org.openconcerto.erp.core.sales.quote.ui;
 
+import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.sales.invoice.ui.DateEnvoiRenderer;
 import org.openconcerto.erp.core.sales.quote.element.EtatDevisSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.AliasedTable;
 import org.openconcerto.sql.model.FieldPath;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.sql.model.graph.PathBuilder;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.BaseSQLTableModelColumn;
 import org.openconcerto.sql.view.list.IListe;
@@ -32,14 +36,21 @@ import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelColumnPath;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.table.PercentTableCellRenderer;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.math.BigDecimal;
+import java.math.MathContext;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -88,6 +99,8 @@ public class ListeDesDevisPanel extends JPanel {
         ListeAddPanel panelRefuse = createPanel(EtatDevisSQLElement.REFUSE);
         this.map.put(this.tabbedPane.getTabCount(), panelRefuse);
         this.tabbedPane.add("  ", panelRefuse);
+        Map<IListe, SQLField> mapDate = new HashMap<IListe, SQLField>();
+
 
         this.tabbedPane.setSelectedIndex(1);
 
@@ -100,14 +113,14 @@ public class ListeDesDevisPanel extends JPanel {
         this.add(this.tabbedPane, c);
 
         // Date panel
-        Map<IListe, SQLField> map = new HashMap<IListe, SQLField>();
-        map.put(panelAttente.getListe(), eltDevis.getTable().getField("DATE"));
-        map.put(panelAccepte.getListe(), eltDevis.getTable().getField("DATE"));
-        map.put(panelRefuse.getListe(), eltDevis.getTable().getField("DATE"));
-        map.put(panelCours.getListe(), eltDevis.getTable().getField("DATE"));
-        map.put(panelAll.getListe(), eltDevis.getTable().getField("DATE"));
 
-        final IListFilterDatePanel datePanel = new IListFilterDatePanel(map, IListFilterDatePanel.getDefaultMap());
+        mapDate.put(panelAttente.getListe(), eltDevis.getTable().getField("DATE"));
+        mapDate.put(panelAccepte.getListe(), eltDevis.getTable().getField("DATE"));
+        mapDate.put(panelRefuse.getListe(), eltDevis.getTable().getField("DATE"));
+        mapDate.put(panelCours.getListe(), eltDevis.getTable().getField("DATE"));
+        mapDate.put(panelAll.getListe(), eltDevis.getTable().getField("DATE"));
+
+        final IListFilterDatePanel datePanel = new IListFilterDatePanel(mapDate, IListFilterDatePanel.getDefaultMap());
         c.gridy++;
         c.anchor = GridBagConstraints.CENTER;
         c.weighty = 0;
@@ -115,6 +128,7 @@ public class ListeDesDevisPanel extends JPanel {
         this.add(datePanel, c);
         initTabTitles();
     }
+
 
     private void initTabTitles() {
         SwingWorker2<List<String>, Object> worker = new SwingWorker2<List<String>, Object>() {
@@ -131,9 +145,10 @@ public class ListeDesDevisPanel extends JPanel {
                 final List<Map<String, Object>> values = quoteStatesTable.getDBSystemRoot().getDataSource().execute(quoteStates.asString());
                 final List<String> tabNames = new ArrayList<String>();
 
+                final String keyFieldName = quoteStatesTable.getKey().getName();
                 for (Integer id : labelIds) {
                     for (Map<String, Object> m : values) {
-                        if (m.get(quoteStatesTable.getKey().getName()).equals(id)) {
+                        if (m.get(keyFieldName).equals(id)) {
                             tabNames.add(m.get("NOM").toString());
                             break;
                         }
@@ -164,6 +179,24 @@ public class ListeDesDevisPanel extends JPanel {
 
     }
 
+    private BigDecimal getAvancement(SQLRowAccessor r) {
+        Collection<? extends SQLRowAccessor> rows = r.getReferentRows(r.getTable().getTable("TR_DEVIS"));
+        long totalFact = 0;
+        long total = r.getLong("T_HT");
+        for (SQLRowAccessor row : rows) {
+            if (!row.isForeignEmpty("ID_SAISIE_VENTE_FACTURE")) {
+                SQLRowAccessor rowFact = row.getForeign("ID_SAISIE_VENTE_FACTURE");
+                Long l = rowFact.getLong("T_HT");
+                totalFact += l;
+            }
+        }
+        if (total > 0) {
+            return new BigDecimal(totalFact).divide(new BigDecimal(total), MathContext.DECIMAL128).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
+        } else {
+            return BigDecimal.ONE.movePointRight(2);
+        }
+    }
+
     private ListeAddPanel createPanel(int idFilter) {
         // Filter
         final SQLTableModelSourceOnline lAttente = this.eltDevis.getTableSource(true);
@@ -173,6 +206,23 @@ public class ListeDesDevisPanel extends JPanel {
             lAttente.getColumns().add(dateEnvoiCol);
             dateEnvoiCol.setRenderer(new DateEnvoiRenderer());
             dateEnvoiCol.setEditable(true);
+
+            final BaseSQLTableModelColumn colAvancement = new BaseSQLTableModelColumn("Avancement facturation", BigDecimal.class) {
+
+                @Override
+                protected Object show_(SQLRowAccessor r) {
+
+                    return getAvancement(r);
+                }
+
+                @Override
+                public Set<FieldPath> getPaths() {
+                    final Path p = new PathBuilder(eltDevis.getTable()).addTable("TR_DEVIS").addTable("SAISIE_VENTE_FACTURE").build();
+                    return CollectionUtils.createSet(new FieldPath(p, "T_HT"));
+                }
+            };
+            lAttente.getColumns().add(colAvancement);
+            colAvancement.setRenderer(new PercentTableCellRenderer());
         } else {
             dateEnvoiCol = null;
         }

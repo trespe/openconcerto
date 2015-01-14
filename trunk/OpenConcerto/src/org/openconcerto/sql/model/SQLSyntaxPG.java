@@ -15,11 +15,13 @@
 
 import org.openconcerto.sql.changer.correct.FixSerial;
 import org.openconcerto.sql.model.SQLField.Properties;
-import org.openconcerto.sql.model.SQLTable.Index;
+import org.openconcerto.sql.model.SQLTable.SQLIndex;
 import org.openconcerto.sql.model.graph.TablesMap;
+import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
@@ -42,7 +44,6 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -65,27 +66,36 @@ import org.postgresql.PGConnection;
  */
 class SQLSyntaxPG extends SQLSyntax {
 
+    // From http://www.postgresql.org/docs/9.0/interactive/multibyte.html
+    static final short MAX_BYTES_PER_CHAR = 4;
+    // http://www.postgresql.org/docs/9.0/interactive/datatype-character.html
+    private static final short MAX_LENGTH_BYTES = 4;
+    // https://wiki.postgresql.org/wiki/FAQ#What_is_the_maximum_size_for_a_row.2C_a_table.2C_and_a_database.3F
+    private static final int MAX_FIELD_SIZE = 1024 * 1024 * 1024;
+
+    private static final int MAX_VARCHAR_L = (MAX_FIELD_SIZE - MAX_LENGTH_BYTES) / MAX_BYTES_PER_CHAR;
+
     SQLSyntaxPG() {
         super(SQLSystem.POSTGRESQL);
-        this.typeNames.putAll(Boolean.class, "boolean", "bool", "bit");
-        this.typeNames.putAll(Short.class, "smallint");
-        this.typeNames.putAll(Integer.class, "integer", "int", "int4");
-        this.typeNames.putAll(Long.class, "bigint", "int8");
-        this.typeNames.putAll(BigDecimal.class, "decimal", "numeric");
-        this.typeNames.putAll(Float.class, "real", "float4");
-        this.typeNames.putAll(Double.class, "double precision", "float8");
+        this.typeNames.addAll(Boolean.class, "boolean", "bool", "bit");
+        this.typeNames.addAll(Short.class, "smallint");
+        this.typeNames.addAll(Integer.class, "integer", "int", "int4");
+        this.typeNames.addAll(Long.class, "bigint", "int8");
+        this.typeNames.addAll(BigDecimal.class, "decimal", "numeric");
+        this.typeNames.addAll(Float.class, "real", "float4");
+        this.typeNames.addAll(Double.class, "double precision", "float8");
         // since 7.3 default is without timezone
-        this.typeNames.putAll(Timestamp.class, "timestamp", "timestamp without time zone");
-        this.typeNames.putAll(java.util.Date.class, "time", "time without time zone", "date");
-        this.typeNames.putAll(Blob.class, "bytea");
-        this.typeNames.putAll(Clob.class, "varchar", "char", "character varying", "character", "text");
-        this.typeNames.putAll(String.class, "varchar", "char", "character varying", "character", "text");
+        this.typeNames.addAll(Timestamp.class, "timestamp", "timestamp without time zone");
+        this.typeNames.addAll(java.util.Date.class, "time", "time without time zone", "date");
+        this.typeNames.addAll(Blob.class, "bytea");
+        this.typeNames.addAll(Clob.class, "varchar", "char", "character varying", "character", "text");
+        this.typeNames.addAll(String.class, "varchar", "char", "character varying", "character", "text");
     }
 
     public String getInitRoot(final String name) {
         final String sql;
         try {
-            final String fileContent = FileUtils.read(SQLSyntaxPG.class.getResourceAsStream("pgsql-functions.sql"), "UTF8");
+            final String fileContent = FileUtils.readUTF8(SQLSyntaxPG.class.getResourceAsStream("pgsql-functions.sql"));
             sql = fileContent.replace("${rootName}", SQLBase.quoteIdentifier(name));
         } catch (IOException e) {
             throw new IllegalStateException("cannot read functions", e);
@@ -109,6 +119,11 @@ class SQLSyntaxPG extends SQLSyntax {
 
     public String getAuto() {
         return " serial";
+    }
+
+    @Override
+    public int getMaximumVarCharLength() {
+        return MAX_VARCHAR_L;
     }
 
     private String changeFKChecks(DBRoot r, final String action) {
@@ -161,7 +176,7 @@ class SQLSyntaxPG extends SQLSyntax {
                 //
                 + "WHERE ci.relkind IN ('i','') AND n.nspname <> 'pg_catalog' AND n.nspname !~ '^pg_toast'\n"
                 //
-                + " AND n.nspname = '" + t.getSchema().getName() + "' AND ct.relname ~ '^(" + t.getName() + ")$'\n"
+                + " AND n.nspname = " + t.getBase().quoteString(t.getSchema().getName()) + " AND ct.relname = " + t.getBase().quoteString(t.getName()) + "\n"
                 //
                 + "ORDER BY \"NON_UNIQUE\", \"TYPE\", \"INDEX_NAME\", \"ORDINAL_POSITION\";";
         // don't cache since we don't listen on system tables
@@ -173,7 +188,7 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     @Override
-    public List<String> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
+    public Map<ClauseType, List<String>> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
         final List<String> res = new ArrayList<String>();
         if (toAlter.contains(Properties.NULLABLE))
             res.add(this.setNullable(f, nullable));
@@ -185,7 +200,7 @@ class SQLSyntaxPG extends SQLSyntax {
             newType = getType(f);
         if (toAlter.contains(Properties.DEFAULT))
             res.add(this.setDefault(f, defaultVal));
-        return res;
+        return ListMap.singleton(ClauseType.ALTER_COL, res);
     }
 
     @Override
@@ -209,9 +224,8 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     @Override
-    protected String getCreateIndex(final String cols, final SQLName tableName, Index i) {
+    protected String getCreateIndex(final String cols, final SQLName tableName, SQLIndex i) {
         final String method = i.getMethod() != null ? " USING " + i.getMethod() : "";
-        // TODO handle where
         return "ON " + tableName.quote() + " " + method + cols;
     }
 
@@ -278,7 +292,7 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     @Override
-    protected void _storeData(final SQLTable t, final File f) {
+    protected void _storeData(final SQLTable t, final File f) throws IOException {
         // if there's no fields, there's no data
         if (t.getFields().size() == 0)
             return;
@@ -307,12 +321,12 @@ class SQLSyntaxPG extends SQLSyntax {
                 }
             });
         } catch (Exception e) {
-            throw new IllegalStateException("unable to store " + t + " into " + f, e);
+            throw new IOException("unable to store " + t + " into " + f, e);
         }
     }
 
     static SQLSelect selectAll(final SQLTable t) {
-        final SQLSelect sel = new SQLSelect(t.getBase(), true);
+        final SQLSelect sel = new SQLSelect(true);
         for (final SQLField field : t.getOrderedFields()) {
             // MySQL despite accepting 'boolean', 'true' and 'false' keywords doesn't really
             // support booleans
@@ -340,8 +354,8 @@ class SQLSyntaxPG extends SQLSyntax {
     }
 
     @Override
-    public SQLBase createBase(SQLServer server, String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
-        return new PGSQLBase(server, name, login, pass, dsInit);
+    public SQLBase createBase(SQLServer server, String name, final IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+        return new PGSQLBase(server, name, systemRootInit, login, pass, dsInit);
     }
 
     @Override
@@ -410,7 +424,8 @@ class SQLSyntaxPG extends SQLSyntax {
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException {
         final String sel = "select nsp.nspname as \"TABLE_SCHEMA\", rel.relname as \"TABLE_NAME\", c.conname as \"CONSTRAINT_NAME\", c.oid as cid, \n"
-                + "case c.contype when 'u' then 'UNIQUE' when 'c' then 'CHECK' when 'f' then 'FOREIGN KEY' when 'p' then 'PRIMARY KEY' end as \"CONSTRAINT_TYPE\", att.attname as \"COLUMN_NAME\", c.conkey as \"colsNum\", att.attnum as \"colNum\"\n"
+                + "case c.contype when 'u' then 'UNIQUE' when 'c' then 'CHECK' when 'f' then 'FOREIGN KEY' when 'p' then 'PRIMARY KEY' end as \"CONSTRAINT_TYPE\", att.attname as \"COLUMN_NAME\", pg_get_constraintdef(c.oid) as \"DEFINITION\","
+                + "c.conkey as \"colsNum\", att.attnum as \"colNum\"\n"
                 // from
                 + "from pg_catalog.pg_constraint c\n" + "join pg_namespace nsp on nsp.oid = c.connamespace\n" + "left join pg_class rel on rel.oid = c.conrelid\n"
                 + "left join pg_attribute att on  att.attrelid = c.conrelid and att.attnum = ANY(c.conkey)\n"
@@ -485,19 +500,5 @@ class SQLSyntaxPG extends SQLSyntax {
     @Override
     public String getDropTrigger(Trigger t) {
         return "DROP TRIGGER " + SQLBase.quoteIdentifier(t.getName()) + " on " + t.getTable().getSQLName().quote();
-    }
-
-    @Override
-    public String getUpdate(SQLTable t, List<String> tables, Map<String, String> setPart) {
-        String res = t.getSQLName().quote() + " SET\n" + CollectionUtils.join(setPart.entrySet(), ",\n", new ITransformer<Entry<String, String>, String>() {
-            @Override
-            public String transformChecked(Entry<String, String> input) {
-                // pg require that fields are unprefixed
-                return SQLBase.quoteIdentifier(input.getKey()) + " = " + input.getValue();
-            }
-        });
-        if (tables.size() > 0)
-            res += " FROM " + CollectionUtils.join(tables, ", ");
-        return res;
     }
 }

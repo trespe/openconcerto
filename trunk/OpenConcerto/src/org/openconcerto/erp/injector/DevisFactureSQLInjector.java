@@ -16,11 +16,16 @@
 import java.math.BigDecimal;
 import java.util.Collection;
 
+import org.openconcerto.erp.preferences.GenerationDocGlobalPreferencePanel;
+import org.openconcerto.erp.preferences.GestionCommercialeGlobalPreferencePanel;
+import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.UndefinedRowValuesCache;
+import org.openconcerto.sql.preferences.SQLPreferences;
 
 public class DevisFactureSQLInjector extends SQLInjector {
     public DevisFactureSQLInjector(final DBRoot root) {
@@ -30,10 +35,14 @@ public class DevisFactureSQLInjector extends SQLInjector {
         map(tableDevis.getField("PORT_HT"), tableFacture.getField("PORT_HT"));
         map(tableDevis.getField("REMISE_HT"), tableFacture.getField("REMISE_HT"));
         map(tableDevis.getField("ID_CLIENT"), tableFacture.getField("ID_CLIENT"));
-        map(tableDevis.getField("OBJET"), tableFacture.getField("NOM"));
         map(tableDevis.getField("ID_COMMERCIAL"), tableFacture.getField("ID_COMMERCIAL"));
         map(tableDevis.getField("ID_DEVIS"), tableFacture.getField("ID_DEVIS"));
-        map(tableDevis.getField("INFOS"), tableFacture.getField("INFOS"));
+        if (tableDevis.getTable().contains("ID_POLE_PRODUIT")) {
+            map(tableDevis.getField("ID_POLE_PRODUIT"), tableFacture.getField("ID_POLE_PRODUIT"));
+        }
+        if (tableDevis.getTable().contains("ID_CONTACT")) {
+            map(tableDevis.getField("ID_CONTACT"), tableFacture.getField("ID_CONTACT"));
+        }
     }
 
     @Override
@@ -44,6 +53,9 @@ public class DevisFactureSQLInjector extends SQLInjector {
         final SQLTable tableElementSource = getSource().getTable("DEVIS_ELEMENT");
         final SQLTable tableElementDestination = getSource().getTable("SAISIE_VENTE_FACTURE_ELEMENT");
         final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+        transfertReference(srcRow, rowVals, "OBJET", "NOM");
+        transfertReference(srcRow, rowVals, "INFOS", "INFOS");
+        transfertNumberReference(srcRow, rowVals, tableElementDestination, "ID_SAISIE_VENTE_FACTURE");
 
         if (myListItem.size() != 0) {
             final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);

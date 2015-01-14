@@ -451,4 +451,10 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
         }
         this.sqlName = sqlName;
     }
+
+    @Override
+    public void setEnabled(boolean enabled) {
+        this.setEditable(enabled);
+    }
+
 }

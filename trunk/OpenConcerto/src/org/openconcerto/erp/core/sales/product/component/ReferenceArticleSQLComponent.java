@@ -40,6 +40,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.preferences.DefaultProps;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Component;
@@ -136,9 +137,8 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
         public void update(DocumentEvent e) {
             ReferenceArticleSQLComponent.this.textMarge.getDocument().removeDocumentListener(ReferenceArticleSQLComponent.this.listenerMargeTextMarge);
             if (ReferenceArticleSQLComponent.this.textPVHT.getText().trim().length() > 0 && ReferenceArticleSQLComponent.this.textPAHT.getText().trim().length() > 0) {
-                BigDecimal vt = new BigDecimal(ReferenceArticleSQLComponent.this.textPVHT.getText());
-
-                BigDecimal ha = new BigDecimal(ReferenceArticleSQLComponent.this.textPAHT.getText());
+                final BigDecimal vt = StringUtils.getBigDecimalFromUserText(ReferenceArticleSQLComponent.this.textPVHT.getText());
+                final BigDecimal ha = StringUtils.getBigDecimalFromUserText(ReferenceArticleSQLComponent.this.textPAHT.getText());
 
                 if (vt != null && ha != null) {
                     if (vt.signum() != 0 && ha.signum() != 0) {
@@ -180,10 +180,10 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
     private void updateVtFromMarge() {
         if (this.textPAHT.getText().trim().length() > 0) {
 
-            BigDecimal ha = new BigDecimal(this.textPAHT.getText());
+            BigDecimal ha = StringUtils.getBigDecimalFromUserText(this.textPAHT.getText());
             if (ha != null && this.textMarge.getText().trim().length() > 0) {
 
-                BigDecimal d = new BigDecimal(this.textMarge.getText());
+                BigDecimal d = StringUtils.getBigDecimalFromUserText(this.textMarge.getText());
                 if (DefaultNXProps.getInstance().getBooleanValue(TotalPanel.MARGE_MARQUE, false)) {
                     final BigDecimal e = BigDecimal.ONE.subtract(d.divide(BigDecimal.valueOf(100), MathContext.DECIMAL128));
                     if (e.signum() == 0) {
@@ -822,15 +822,13 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
             @Override
             public void update(DocumentEvent e) {
 
-                if (!isFilling() && fieldHAD.getText().trim().length() > 0) {
-
-                    BigDecimal ha = new BigDecimal(fieldHAD.getText());
-
-                    BigDecimal taux = BigDecimal.ONE;
-                    if (boxDevise != null && boxDevise.getSelectedRow() != null && !boxDevise.getSelectedRow().isUndefined()) {
-                        taux = (BigDecimal) boxDevise.getSelectedRow().getObject("TAUX");
-                        textPAHT.setText(taux.multiply(ha, MathContext.DECIMAL128).setScale(getTable().getField("PA_DEVISE").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
+                if (!isFilling() && boxDevise != null && boxDevise.getSelectedRow() != null && !boxDevise.getSelectedRow().isUndefined()) {
+                    BigDecimal ha = StringUtils.getBigDecimalFromUserText(fieldHAD.getText());
+                    if (ha == null) {
+                        ha = BigDecimal.ZERO;
                     }
+                    final BigDecimal taux = (BigDecimal) boxDevise.getSelectedRow().getObject("TAUX");
+                    textPAHT.setText(taux.multiply(ha, MathContext.DECIMAL128).setScale(getTable().getField("PA_DEVISE").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
 
                 }
             }
@@ -1208,35 +1206,29 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
     private void setTextHT() {
         this.textPVHT.getDocument().removeDocumentListener(this.htDocListener);
-        String textTTC = this.textPVTTC.getText().trim();
-        if (textTTC.length() > 0) {
-            BigDecimal ttc = new BigDecimal(textTTC);
+        final BigDecimal ttc = StringUtils.getBigDecimalFromUserText(this.textPVTTC.getText());
+        if (ttc != null) {
             int id = this.comboSelTaxe.getSelectedId();
             if (id > 1) {
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
                 this.textPVHT.setText(ttc.divide(BigDecimal.valueOf(taux).add(BigDecimal.ONE), MathContext.DECIMAL128)
                         .setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
-
             }
         }
         this.textPVHT.getDocument().addDocumentListener(this.htDocListener);
     }
 
     private void setTextTTC() {
-        System.out.println("setTTC");
         this.textPVTTC.getDocument().removeDocumentListener(this.ttcDocListener);
-
-        String textHT = this.textPVHT.getText().trim();
-        if (textHT.length() > 0) {
-            BigDecimal ht = new BigDecimal(textHT);
+        final BigDecimal ht = StringUtils.getBigDecimalFromUserText(this.textPVHT.getText());
+        if (ht != null) {
             int id = this.comboSelTaxe.getSelectedId();
             if (id > 1) {
-                Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
-                float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
+                final Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
+                final float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
                 this.textPVTTC.setText(ht.multiply(BigDecimal.valueOf(taux).add(BigDecimal.ONE), MathContext.DECIMAL128)
                         .setScale(getTable().getField("PV_TTC").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
-
             }
         }
         this.textPVTTC.getDocument().addDocumentListener(this.ttcDocListener);
@@ -1262,16 +1254,21 @@ public class ReferenceArticleSQLComponent extends BaseSQLComponent {
 
     public SQLRowValues getDetailsRowValues() {
         final SQLRowValues rowVals = new SQLRowValues(getTable());
-        String textHA = this.textMetrique1HA.getText();
-        rowVals.put("PRIX_METRIQUE_HA_1", textHA.trim().length() == 0 ? BigDecimal.ZERO : new BigDecimal(textHA));
 
-        String textVT = this.textMetrique1VT.getText();
-        rowVals.put("PRIX_METRIQUE_VT_1", textVT.trim().length() == 0 ? BigDecimal.ZERO : new BigDecimal(textVT));
+        BigDecimal pAchat = StringUtils.getBigDecimalFromUserText(this.textMetrique1HA.getText());
+        if (pAchat == null) {
+            pAchat = BigDecimal.ZERO;
+        }
+        rowVals.put("PRIX_METRIQUE_HA_1", pAchat);
 
+        BigDecimal pVente = StringUtils.getBigDecimalFromUserText(this.textMetrique1VT.getText());
+        if (pVente == null) {
+            pVente = BigDecimal.ZERO;
+        }
+        rowVals.put("PRIX_METRIQUE_VT_1", pVente);
         put(rowVals, this.textValMetrique1);
         put(rowVals, this.textValMetrique2);
         put(rowVals, this.textValMetrique3);
-        System.err.println("Unchecked value " + this.comboSelModeVente.getSelectedId());
         rowVals.put("ID_MODE_VENTE_ARTICLE", this.comboSelModeVente.getSelectedId());
 
         return rowVals;

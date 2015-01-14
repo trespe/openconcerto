@@ -56,8 +56,10 @@ public final class SQLSelect {
 
     // [String], eg : [SITE.ID_SITE, AVG(AGE)]
     private final List<String> select;
-    // [SQLField], eg : [|SITE.ID_SITE|], known fields in this select (addRawSelect)
-    private final List<SQLField> selectFields;
+    // names of columns (explicit aliases and field names), e.g. [ID_SITE, null]
+    private final List<String> selectNames;
+    // e.g. : [|SITE.ID_SITE|], known fields in this select (addRawSelect)
+    private final List<FieldRef> selectFields;
     private Where where;
     private final List<FieldRef> groupBy;
     private Where having;
@@ -91,7 +93,7 @@ public final class SQLSelect {
      * Create a new SQLSelect.
      * 
      * @param base the database of the request.
-     * @deprecated use {@link #SQLSelect(DBSystemRoot)}
+     * @deprecated use {@link #SQLSelect(DBSystemRoot, boolean)}
      */
     public SQLSelect(SQLBase base) {
         this(base, false);
@@ -127,7 +129,8 @@ public final class SQLSelect {
      */
     public SQLSelect(DBSystemRoot sysRoot, boolean plain) {
         this.select = new ArrayList<String>();
-        this.selectFields = new ArrayList<SQLField>();
+        this.selectNames = new ArrayList<String>();
+        this.selectFields = new ArrayList<FieldRef>();
         this.where = null;
         this.groupBy = new ArrayList<FieldRef>();
         this.having = null;
@@ -162,7 +165,8 @@ public final class SQLSelect {
     public SQLSelect(SQLSelect orig) {
         // ATTN synch les implémentations des attributs (LinkedHashSet, ...)
         this.select = new ArrayList<String>(orig.select);
-        this.selectFields = new ArrayList<SQLField>(orig.selectFields);
+        this.selectNames = new ArrayList<String>(orig.selectNames);
+        this.selectFields = new ArrayList<FieldRef>(orig.selectFields);
         this.where = orig.where == null ? null : new Where(orig.where);
         this.groupBy = new ArrayList<FieldRef>(orig.groupBy);
         this.having = orig.having == null ? null : new Where(orig.having);
@@ -178,6 +182,7 @@ public final class SQLSelect {
 
         this.waitTrx = orig.waitTrx;
         this.waitTrxTables = new ArrayList<String>(orig.waitTrxTables);
+        this.limit = orig.limit;
     }
 
     public final SQLSystem getSQLSystem() {
@@ -287,21 +292,36 @@ public final class SQLSelect {
     }
 
     /**
-     * Fields names of the SELECT
+     * SQL expressions of the SELECT.
      * 
-     * @return a list of fields names used by the SELECT
+     * @return a list of expressions used by the SELECT, e.g. "T.*, A.f", "count(*)".
      */
     public List<String> getSelect() {
-        return this.select;
+        return Collections.unmodifiableList(this.select);
     }
 
     /**
-     * Fields of the SELECT
+     * Column names of the SELECT. Should always have the same length and same indexes as the result
+     * set, i.e. will contain <code>null</code> for computed columns without aliases. But the length
+     * may not be equal to that of {@link #getSelect()}, e.g. when using
+     * {@link #addSelectStar(TableRef)} which add one expression but all the fields.
      * 
-     * @return a list of fields used by the SELECT
+     * @return a list of column names of the SELECT, <code>null</code> for indexes without any.
      */
-    public final List<SQLField> getSelectFields() {
-        return this.selectFields;
+    public List<String> getSelectNames() {
+        return Collections.unmodifiableList(this.selectNames);
+    }
+
+    /**
+     * Fields of the SELECT. Should always have the same length and same indexes as the result set,
+     * i.e. will contain <code>null</code> for computed columns. But the length may not be equal to
+     * that of {@link #getSelect()}, e.g. when using {@link #addSelectStar(TableRef)} which add one
+     * expression but all the fields.
+     * 
+     * @return a list of fields used by the SELECT, <code>null</code> for indexes without any.
+     */
+    public final List<FieldRef> getSelectFields() {
+        return Collections.unmodifiableList(this.selectFields);
     }
 
     public List<String> getOrder() {
@@ -472,27 +492,39 @@ public final class SQLSelect {
     }
 
     public SQLSelect addSelect(FieldRef f, String function, String alias) {
+        final String defaultAlias;
         String s = f.getFieldRef();
         if (function != null) {
             s = function + "(" + s + ")";
+            defaultAlias = function;
+        } else {
+            defaultAlias = f.getField().getName();
         }
-        this.from.add(this.declaredTables.add(f));
-        this.selectFields.add(f.getField());
-        return this.addRawSelect(s, alias);
+        return this.addRawSelect(f, s, alias, defaultAlias);
     }
 
     /**
      * To add an item that is not a field.
      * 
-     * @param expr any legal exp in a SELECT statement (eg a constant, a complex function, etc).
+     * @param expr any legal exp in a SELECT statement (e.g. a constant, a complex function, etc).
      * @param alias a name for the expression, may be <code>null</code>.
      * @return this.
      */
     public SQLSelect addRawSelect(String expr, String alias) {
+        return this.addRawSelect(null, expr, alias, null);
+    }
+
+    // private since we can't check that f is used in expr
+    // defaultName only used if alias is null
+    private SQLSelect addRawSelect(FieldRef f, String expr, String alias, String defaultName) {
         if (alias != null) {
             expr += " as " + SQLBase.quoteIdentifier(alias);
         }
         this.select.add(expr);
+        if (f != null)
+            this.from.add(this.declaredTables.add(f));
+        this.selectFields.add(f);
+        this.selectNames.add(alias != null ? alias : defaultName);
         return this;
     }
 
@@ -509,7 +541,10 @@ public final class SQLSelect {
     public SQLSelect addSelectStar(TableRef table) {
         this.select.add(SQLBase.quoteIdentifier(table.getAlias()) + ".*");
         this.from.add(this.declaredTables.add(table));
-        this.selectFields.addAll(table.getTable().getOrderedFields());
+        final List<SQLField> allFields = table.getTable().getOrderedFields();
+        this.selectFields.addAll(allFields);
+        for (final SQLField f : allFields)
+            this.selectNames.add(f.getName());
         return this;
     }
 
@@ -1003,7 +1038,11 @@ public final class SQLSelect {
      * @return all fields known to this instance.
      */
     public final Set<SQLField> getFields() {
-        final Set<SQLField> res = new HashSet<SQLField>(this.getSelectFields());
+        final Set<SQLField> res = new HashSet<SQLField>(this.getSelectFields().size());
+        for (final FieldRef f : this.getSelectFields()) {
+            if (f != null)
+                res.add(f.getField());
+        }
         for (final SQLSelectJoin j : getJoins())
             res.addAll(getFields(j.getWhere()));
         res.addAll(getFields(this.getWhere()));

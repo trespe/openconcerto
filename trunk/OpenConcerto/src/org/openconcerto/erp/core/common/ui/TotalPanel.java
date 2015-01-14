@@ -430,8 +430,13 @@ public class TotalPanel extends JPanel implements TableModelListener {
         final BigDecimal valPortHT;
 
         clearTextField();
+        // Clone rows to be thread safe
+        final List<SQLRowValues> vals = articleTable.getRowValuesAtLevel(1);
+        final List<SQLRowValues> list = new ArrayList<SQLRowValues>(vals.size());
+        for (SQLRowValues sqlRowValues : vals) {
+            list.add(sqlRowValues.asRowValues());
+        }
 
-        final List<SQLRowValues> list = articleTable.getModel().getCopyOfValues();
 
         final TotalCalculatorParameters params = new TotalCalculatorParameters(list);
 
@@ -582,12 +587,9 @@ public class TotalPanel extends JPanel implements TableModelListener {
                         BigDecimal m = BigDecimal.ZERO;
                         BigDecimal d = BigDecimal.ZERO;
                         if (totalHA.signum() != 0) {
-                            // d = totalHT.subtract(valRemiseHT).subtract(totalHA);
                             d = totalHT.subtract(totalHA);
-                            if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
-                                if (totalHT.signum() != 0) {
-                                    m = d.divide(totalHT, MathContext.DECIMAL128).movePointRight(2);
-                                }
+                            if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false) && totalHT.signum() != 0) {
+                                m = d.divide(totalHT, MathContext.DECIMAL128).movePointRight(2);
                             } else {
                                 m = d.divide(totalHA, MathContext.DECIMAL128).movePointRight(2);
                             }
@@ -606,9 +608,9 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
                         BigDecimal m2 = BigDecimal.ZERO;
                         BigDecimal e = BigDecimal.ZERO;
-                        if (totalHASel.compareTo(BigDecimal.ZERO) > 0) {
+                        if (totalHASel.signum() != 0) {
                             e = totalHTSel.subtract(totalHASel);
-                            if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false)) {
+                            if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false) && totalHTSel.signum() != 0) {
                                 m2 = e.divide(totalHTSel, MathContext.DECIMAL128).movePointRight(2);
                             } else {
                                 m2 = e.divide(totalHASel, MathContext.DECIMAL128).movePointRight(2);

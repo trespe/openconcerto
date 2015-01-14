@@ -105,14 +105,57 @@ public abstract class DropperQueue<T> extends Thread {
     }
 
     /**
-     * Signal that this thread must stop definitely.
+     * Signal that this thread must stop indefinitely. This method interrupts
+     * {@link #process(Object)}.
+     * 
+     * @see #die(boolean)
      */
-    public synchronized final void die() {
-        this.stop = true;
-        this.signalChange(true);
+    public final void die() {
+        this.die(true);
     }
 
-    public synchronized final boolean isDead() {
+    /**
+     * Signal that this thread must stop indefinitely. Once this method returns, it is guaranteed
+     * that no new item will be processed, and that this thread will {@link #isDead() die}. But if
+     * this thread is currently {@link #process(Object) processing} an item, then the method will
+     * finish normally if :
+     * <ul>
+     * <li><code>mayInterruptIfRunning</code> is <code>false</code></li>
+     * <li><code>mayInterruptIfRunning</code> is <code>true</code> but the {@link #interrupt()}
+     * isn't checked by the implementing subclass</li>
+     * </ul>
+     * 
+     * @param mayInterruptIfRunning <code>true</code> to interrupt while in {@link #process(Object)}
+     * @see #isDying()
+     */
+    public synchronized final void die(boolean mayInterruptIfRunning) {
+        this.stop = true;
+        this.signalChange(mayInterruptIfRunning);
+    }
+
+    /**
+     * Whether this queue is dying.
+     * 
+     * @return <code>true</code> if {@link #die(boolean)} has been called and
+     *         {@link #process(Object)} is still executing.
+     * @see #isDead()
+     */
+    public synchronized final boolean isDying() {
+        return this.dieCalled() && this.isExecuting();
+    }
+
+    /**
+     * Whether this queue is active.
+     * 
+     * @return <code>true</code> if {@link #process(Object)} isn't executed and won't ever be again.
+     * @see #isDying()
+     */
+    public final boolean isDead() {
+        // either we're dead because die() has been called, or because process() threw an Error
+        return !this.isAlive();
+    }
+
+    public synchronized final boolean dieCalled() {
         return this.stop;
     }
 
@@ -120,7 +163,7 @@ public abstract class DropperQueue<T> extends Thread {
 
     @Override
     public void run() {
-        while (!this.isDead()) {
+        while (!this.dieCalled()) {
             try {
                 this.await();
                 final T item;

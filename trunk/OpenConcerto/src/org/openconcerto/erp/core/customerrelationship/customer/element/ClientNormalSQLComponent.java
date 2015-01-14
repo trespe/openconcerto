@@ -17,6 +17,8 @@
 package org.openconcerto.erp.core.customerrelationship.customer.element;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.component.AdresseSQLComponent;
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
@@ -39,15 +41,18 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
-import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
-import org.openconcerto.sql.sqlobject.ITextWithCompletion;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
+import org.openconcerto.sql.sqlobject.SQLSearchableTextCombo;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
+import org.openconcerto.sql.sqlobject.itemview.VWRowItemView;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
+import org.openconcerto.ui.JComponentUtils;
+import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.TitledSeparator;
+import org.openconcerto.ui.component.ComboLockedMode;
 import org.openconcerto.ui.component.ITextArea;
 
 import java.awt.Component;
@@ -62,9 +67,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
 import java.util.Date;
-import java.util.List;
 
 import javax.swing.ButtonGroup;
 import javax.swing.Icon;
@@ -79,6 +82,7 @@ import javax.swing.SwingConstants;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+// Client without CTech link (i.e. there's one and only table in the DB)
 public class ClientNormalSQLComponent extends BaseSQLComponent {
 
     int idDefaultCompteClient = 1;
@@ -89,15 +93,6 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
 
     protected boolean showMdr = true;
 
-    private JTabbedPane tabbedAdresse = new JTabbedPane() {
-        public void insertTab(String title, Icon icon, Component component, String tip, int index) {
-            if (component instanceof JComponent) {
-                ((JComponent) component).setOpaque(false);
-            }
-            super.insertTab(title, icon, component, tip, index);
-        }
-
-    };
     ElementSQLObject componentPrincipale, componentLivraison, componentFacturation;
     AdresseClientItemTable adresseTable = new AdresseClientItemTable();
     JCheckBox boxGestionAutoCompte;
@@ -105,7 +100,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
     private JCheckBox boxAffacturage, boxComptant;
     private DeviseField fieldMontantFactMax;
     ISQLCompteSelector compteSel;
-    JComponent textNom;
+    private SQLRowItemView textNom;
     // ITextWithCompletion textNom;
     final ElementComboBox comboPole = new ElementComboBox();
     DecimalFormat format = new DecimalFormat("000");
@@ -116,6 +111,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
     private SQLRowItemView eltModeRegl;
     private JUniqueTextField textCode;
     private JLabel labelCpt;
+    private ModeDeReglementSQLComponent modeReglComp;
 
     public ClientNormalSQLComponent(SQLElement elt) {
         super(elt);
@@ -124,11 +120,6 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
     public void addViews() {
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
-
-        this.addView("ID_MODE_REGLEMENT", REQ + ";" + DEC + ";" + SEP);
-        this.eltModeRegl = this.getView("ID_MODE_REGLEMENT");
-        final ElementSQLObject comp = (ElementSQLObject) this.eltModeRegl.getComp();
-        final ModeDeReglementSQLComponent modeReglComp = (ModeDeReglementSQLComponent) comp.getSQLChild();
 
         // Raison sociale
         JLabel labelRS = new JLabel(getLabelFor("FORME_JURIDIQUE"));
@@ -168,9 +159,10 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         c.gridwidth = 1;
         c.weightx = 0.5;
 
-            this.textNom = new ITextArea();
-        DefaultGridBagConstraints.lockMinimumSize(textNom);
-        this.add(this.textNom, c);
+        final JComponent nomComp;
+            nomComp = new JTextField();
+        DefaultGridBagConstraints.lockMinimumSize(nomComp);
+        this.add(nomComp, c);
 
         if (getTable().getFieldsName().contains("ID_PAYS")) {
             c.gridx++;
@@ -339,8 +331,6 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
 
         });
 
-        // Secteur activité
-        final boolean customerIsKD;
 
         // Champ Module
         c.gridx = 0;
@@ -353,80 +343,26 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         c.gridy++;
         c.gridwidth = 1;
 
-        // Adresse
+        final JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab("Adresses", createAdressesComponent());
+        tabs.addTab("Contacts", createContactComponent());
+        JPanel pReglement = createReglementComponent();
+        if (showMdr) {
+            tabs.addTab("Mode de règlement", pReglement);
+        }
+        tabs.addTab("Comptabilité", createComptabiliteComponent());
+
+        tabs.setMinimumSize(new Dimension(tabs.getPreferredSize().width, tabs.getPreferredSize().height));
+
         c.gridx = 0;
         c.gridy++;
         c.weightx = 1;
         c.weighty = 0;
         c.gridwidth = GridBagConstraints.REMAINDER;
-        TitledSeparator sep = new TitledSeparator("Adresse");
-        this.add(sep, c);
-
-        // Adr principale
-        this.addView("ID_ADRESSE", REQ + ";" + DEC + ";" + SEP);
-        this.componentPrincipale = (ElementSQLObject) this.getView("ID_ADRESSE");
-        this.componentPrincipale.setOpaque(false);
-        this.tabbedAdresse.add(getLabelFor("ID_ADRESSE"), this.componentPrincipale);
-
-        // Adr facturation
-        JPanel panelFacturation = new JPanel(new GridBagLayout());
-        panelFacturation.setOpaque(false);
-        GridBagConstraints cPanelF = new GridBagConstraints(0, 0, 1, 1, 1, 0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 1, 2, 1), 0, 0);
-
-        this.addView("ID_ADRESSE_F", DEC + ";" + SEP);
-        this.componentFacturation = (ElementSQLObject) this.getView("ID_ADRESSE_F");
-        this.componentFacturation.setOpaque(false);
-        panelFacturation.add(this.componentFacturation, cPanelF);
-        this.checkAdrFacturation = new JCheckBox("Adresse de facturation identique à la principale");
-        this.checkAdrFacturation.setOpaque(false);
-        cPanelF.gridy++;
-        panelFacturation.add(this.checkAdrFacturation, cPanelF);
-            this.tabbedAdresse.add(getLabelFor("ID_ADRESSE_F"), panelFacturation);
-        // Adr livraison
-        JPanel panelLivraison = new JPanel(new GridBagLayout());
-        panelLivraison.setOpaque(false);
-        GridBagConstraints cPanelL = new GridBagConstraints(0, 0, 1, 1, 1, 0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 1, 2, 1), 0, 0);
-
-        this.addView("ID_ADRESSE_L", DEC + ";" + SEP);
-        this.componentLivraison = (ElementSQLObject) this.getView("ID_ADRESSE_L");
-        this.componentLivraison.setOpaque(false);
-        panelLivraison.add(this.componentLivraison, cPanelL);
-
-        this.checkAdrLivraison = new JCheckBox("Adresse de livraison identique à l'adresse principale");
-        this.checkAdrLivraison.setOpaque(false);
-        cPanelL.gridy++;
-        panelLivraison.add(this.checkAdrLivraison, cPanelL);
-            this.tabbedAdresse.add(getLabelFor("ID_ADRESSE_L"), panelLivraison);
-        String labelAdrSuppl = "Adresses supplémentaires";
-        this.tabbedAdresse.add(labelAdrSuppl, this.adresseTable);
-
-        c.gridx = 0;
-        c.gridy++;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        this.tabbedAdresse.setOpaque(false);
-        this.add(this.tabbedAdresse, c);
-
         c.anchor = GridBagConstraints.WEST;
         c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(tabs, c);
 
-        // Contact
-
-        TitledSeparator sepContact = new TitledSeparator("Contacts client");
-        c.weightx = 1;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.gridx = 0;
-        c.gridy++;
-        this.add(sepContact, c);
-
-        this.table = new ContactItemTable(this.defaultContactRowVals);
-        this.table.setPreferredSize(new Dimension(this.table.getSize().width, 150));
-        c.gridx = 0;
-        c.gridy++;
-        c.anchor = GridBagConstraints.WEST;
-        c.fill = GridBagConstraints.BOTH;
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.weighty = 0.7;
-        this.add(this.table, c);
         c.fill = GridBagConstraints.HORIZONTAL;
         c.gridwidth = 1;
         c.weighty = 0;
@@ -434,26 +370,10 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
 
         // Mode de régelement
 
-        TitledSeparator reglSep = new TitledSeparator(getLabelFor("ID_MODE_REGLEMENT"));
-        c.gridwidth = GridBagConstraints.REMAINDER;
-        c.gridy++;
-        c.gridx = 0;
-        this.add(reglSep, c);
-
-        c.gridy++;
-        c.gridx = 0;
-        this.add(comp, c);
-
-        if (!showMdr) {
-            reglSep.setVisible(false);
-            comp.setCreated(false);
-            comp.setVisible(false);
-        }
-
         if (getTable().getFieldsName().contains("ID_TARIF")) {
 
             // Tarif
-            TitledSeparator tarifSep = new TitledSeparator("Tarif spécial à appliquer");
+            JLabel tarifSep = new JLabel("Tarif spécial à appliquer");
             c.gridwidth = GridBagConstraints.REMAINDER;
             c.gridy++;
             c.gridx = 0;
@@ -463,7 +383,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
             c.gridx = 0;
             c.gridwidth = 1;
             c.weightx = 0;
-            this.add(new JLabel(getLabelFor("ID_TARIF")), c);
+            this.add(new JLabel(getLabelFor("ID_TARIF"), SwingConstants.RIGHT), c);
             c.gridx++;
             c.weightx = 1;
             c.gridwidth = GridBagConstraints.REMAINDER;
@@ -473,7 +393,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         }
         if (getTable().getFieldsName().contains("ID_LANGUE")) {
             // Tarif
-            TitledSeparator langueSep = new TitledSeparator("Langue à appliquer sur les documents");
+            JLabel langueSep = new JLabel("Langue à appliquer sur les documents");
             c.gridwidth = GridBagConstraints.REMAINDER;
             c.gridy++;
             c.gridx = 0;
@@ -483,7 +403,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
             c.gridx = 0;
             c.gridwidth = 1;
             c.weightx = 0;
-            this.add(new JLabel(getLabelFor("ID_LANGUE")), c);
+            this.add(new JLabel(getLabelFor("ID_LANGUE"), SwingConstants.RIGHT), c);
             c.gridx++;
             c.weightx = 1;
             c.gridwidth = GridBagConstraints.REMAINDER;
@@ -509,44 +429,9 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
             c.gridy++;
             this.add(addOnPanel, c);
         }
-        // Compte associé
-        this.compteSel = new ISQLCompteSelector(true);
-        this.boxGestionAutoCompte = new JCheckBox("Gestion Automatique des comptes");
-        TitledSeparator sepCompte = new TitledSeparator("Compte associé");
-        this.labelCpt = new JLabel(getLabelFor("ID_COMPTE_PCE"));
 
-        if (!Boolean.valueOf(DefaultNXProps.getInstance().getProperty("HideCompteClient"))) {
-
-            c.gridx = 0;
-            c.gridy++;
-            c.weightx = 1;
-            c.weighty = 0;
-            c.gridwidth = GridBagConstraints.REMAINDER;
-
-            this.add(sepCompte, c);
-
-            c.gridwidth = 1;
-            c.gridy++;
-            c.gridx = 0;
-            c.weightx = 0;
-            this.add(this.labelCpt, c);
-
-            c.gridwidth = GridBagConstraints.REMAINDER;
-            c.gridx++;
-            c.weightx = 1;
-
-            this.add(this.compteSel, c);
-
-            this.boxGestionAutoCompte.addActionListener(new ActionListener() {
-                @Override
-                public void actionPerformed(ActionEvent e) {
-
-                    setCompteVisible(!(boxGestionAutoCompte.isSelected() && getSelectedID() <= 1));
-                }
-            });
-        }
         // Infos
-        TitledSeparator infosSep = new TitledSeparator(getLabelFor("INFOS"));
+        JLabel infosSep = new JLabel(getLabelFor("INFOS"));
         c.gridwidth = GridBagConstraints.REMAINDER;
         c.gridy++;
         c.gridx = 0;
@@ -579,7 +464,8 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         });
 
         this.addSQLObject(textType, "FORME_JURIDIQUE");
-        this.addView(this.textNom, "NOM", REQ);
+        this.addView(nomComp, "NOM", REQ);
+        this.textNom = this.getView(nomComp);
         this.addSQLObject(this.textCode, "CODE");
         this.addSQLObject(textFax, "FAX");
         this.addSQLObject(textSiren, "SIRET");
@@ -594,6 +480,143 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         this.checkAdrFacturation.setSelected(true);
         this.checkAdrLivraison.setSelected(true);
 
+    }
+
+    private Component createAdressesComponent() {
+        final JTabbedPane tabbedAdresse = new JTabbedPane() {
+            public void insertTab(String title, Icon icon, Component component, String tip, int index) {
+                if (component instanceof JComponent) {
+                    ((JComponent) component).setOpaque(false);
+                }
+                super.insertTab(title, icon, component, tip, index);
+            }
+
+        };
+        final GridBagConstraints c = new DefaultGridBagConstraints();
+        // Adr principale
+        this.addView("ID_ADRESSE", REQ + ";" + DEC + ";" + SEP);
+        this.componentPrincipale = (ElementSQLObject) this.getView("ID_ADRESSE");
+        this.componentPrincipale.setOpaque(false);
+        tabbedAdresse.add(getLabelFor("ID_ADRESSE"), this.componentPrincipale);
+        tabbedAdresse.setOpaque(false);
+        // Adr facturation
+        JPanel panelFacturation = new JPanel(new GridBagLayout());
+        panelFacturation.setOpaque(false);
+        GridBagConstraints cPanelF = new GridBagConstraints(0, 0, 1, 1, 1, 0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 1, 2, 1), 0, 0);
+
+        this.addView("ID_ADRESSE_F", DEC + ";" + SEP);
+        this.componentFacturation = (ElementSQLObject) this.getView("ID_ADRESSE_F");
+        this.componentFacturation.setOpaque(false);
+        panelFacturation.add(this.componentFacturation, cPanelF);
+        this.checkAdrFacturation = new JCheckBox("Adresse de facturation identique à la principale");
+        this.checkAdrFacturation.setOpaque(false);
+        cPanelF.gridy++;
+        panelFacturation.add(this.checkAdrFacturation, cPanelF);
+            tabbedAdresse.add(getLabelFor("ID_ADRESSE_F"), panelFacturation);
+        // Adr livraison
+        JPanel panelLivraison = new JPanel(new GridBagLayout());
+        panelLivraison.setOpaque(false);
+        GridBagConstraints cPanelL = new GridBagConstraints(0, 0, 1, 1, 1, 0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 1, 2, 1), 0, 0);
+
+        this.addView("ID_ADRESSE_L", DEC + ";" + SEP);
+        this.componentLivraison = (ElementSQLObject) this.getView("ID_ADRESSE_L");
+        ((AdresseSQLComponent) this.componentLivraison.getSQLChild()).setDestinataireVisible(true);
+        this.componentLivraison.setOpaque(false);
+
+        panelLivraison.add(this.componentLivraison, cPanelL);
+
+        this.checkAdrLivraison = new JCheckBox("Adresse de livraison identique à l'adresse principale");
+        this.checkAdrLivraison.setOpaque(false);
+        cPanelL.gridy++;
+        panelLivraison.add(this.checkAdrLivraison, cPanelL);
+            tabbedAdresse.add(getLabelFor("ID_ADRESSE_L"), panelLivraison);
+        String labelAdrSuppl = "Adresses supplémentaires";
+        tabbedAdresse.add(labelAdrSuppl, this.adresseTable);
+
+        c.gridx = 0;
+        c.gridy++;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+
+        return tabbedAdresse;
+    }
+
+    private JPanel createContactComponent() {
+
+        this.table = new ContactItemTable(this.defaultContactRowVals);
+        this.table.setPreferredSize(new Dimension(this.table.getSize().width, 150));
+        this.table.setOpaque(false);
+        return table;
+    }
+
+    private JPanel createReglementComponent() {
+
+        this.addView("ID_MODE_REGLEMENT", REQ + ";" + DEC + ";" + SEP);
+        this.eltModeRegl = this.getView("ID_MODE_REGLEMENT");
+
+        final JPanel p = new JPanel();
+        p.setOpaque(false);
+        p.setLayout(new GridBagLayout());
+        final GridBagConstraints c = new DefaultGridBagConstraints();
+        final ElementSQLObject comp = (ElementSQLObject) this.eltModeRegl.getComp();
+        this.modeReglComp = (ModeDeReglementSQLComponent) comp.getSQLChild();
+
+        final JLabelBold label = new JLabelBold(getLabelFor("ID_MODE_REGLEMENT"));
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.weightx = 1;
+        c.fill = GridBagConstraints.NONE;
+        c.gridy++;
+        c.gridx = 0;
+        p.add(label, c);
+        c.gridy++;
+        c.gridx = 0;
+        // FIXME: comp?
+        comp.setOpaque(false);
+        p.add(comp, c);
+        return p;
+    }
+
+    private Component createComptabiliteComponent() {
+        final JPanel p = new JPanel();
+        p.setOpaque(false);
+        p.setLayout(new GridBagLayout());
+        final GridBagConstraints c = new DefaultGridBagConstraints();
+        // Compte associé
+        this.compteSel = new ISQLCompteSelector(true);
+        this.boxGestionAutoCompte = new JCheckBox("Gestion Automatique des comptes");
+        JLabelBold sepCompte = new JLabelBold("Compte associé");
+        this.labelCpt = new JLabel(getLabelFor("ID_COMPTE_PCE"));
+
+        if (!Boolean.valueOf(DefaultNXProps.getInstance().getProperty("HideCompteClient"))) {
+
+            c.gridx = 0;
+            c.gridy++;
+            c.weightx = 1;
+            c.weighty = 0;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+
+            p.add(sepCompte, c);
+
+            c.gridwidth = 1;
+            c.gridy++;
+            c.gridx = 0;
+            c.weightx = 0;
+            p.add(this.labelCpt, c);
+
+            c.gridwidth = GridBagConstraints.REMAINDER;
+            c.gridx++;
+            c.weightx = 1;
+
+            p.add(this.compteSel, c);
+
+            this.boxGestionAutoCompte.addActionListener(new ActionListener() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+
+                    setCompteVisible(!(boxGestionAutoCompte.isSelected() && getSelectedID() <= 1));
+                }
+            });
+        }
+        return p;
     }
 
     private void setCompteVisible(boolean b) {
@@ -617,15 +640,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
                 SQLRow rowCpt = row.getForeignRow("ID_COMPTE_PCE");
                 String num = rowCpt.getString("NUMERO");
                 String initialClient = "";
-                String text;
-                if (this.textNom instanceof ITextArea) {
-                    ITextArea textNomArea = (ITextArea) this.textNom;
-                    text = textNomArea.getText();
-                } else {
-                    ITextWithCompletion textNomArea = (ITextWithCompletion) this.textNom;
-                    text = textNomArea.getValue();
-                }
-                // final String text = (String) this.textNom.getText();
+                final String text = getNameValue();
                 if (text != null && text.trim().length() > 1) {
                     initialClient += text.trim().toUpperCase().charAt(0);
                 }
@@ -643,20 +658,17 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         }
     }
 
+    private String getNameValue() {
+        return (String) ((VWRowItemView<?>) this.textNom).getWrapper().getValue();
+    }
+
     @Override
     public void select(SQLRowAccessor r) {
 
-        int idAdrL = 1;
-        int idAdrF = 1;
-        if (r != null && r.getID() > 1) {
-            final SQLRow row = this.getTable().getRow(r.getID());
-            idAdrL = row.getInt("ID_ADRESSE_L");
-            idAdrF = row.getInt("ID_ADRESSE_F");
-        }
         super.select(r);
 
-        this.checkAdrLivraison.setSelected(idAdrL == 1);
-        this.checkAdrFacturation.setSelected(idAdrF == 1);
+        this.checkAdrLivraison.setSelected(r == null || r.isForeignEmpty("ID_ADRESSE_L"));
+        this.checkAdrFacturation.setSelected(r == null || r.isForeignEmpty("ID_ADRESSE_F"));
         if (r != null) {
             this.table.insertFrom("ID_CLIENT", r.asRowValues());
             this.adresseTable.insertFrom("ID_CLIENT", r.getID());
@@ -669,14 +681,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
     private void createCompteClientAuto(int idClient) {
         SQLRowValues rowVals = getTable().getRow(idClient).createEmptyUpdateRow();
         String initialClient = "";
-        String text;
-        if (this.textNom instanceof ITextArea) {
-            ITextArea textNomArea = (ITextArea) this.textNom;
-            text = textNomArea.getText();
-        } else {
-            ITextWithCompletion textNomArea = (ITextWithCompletion) this.textNom;
-            text = textNomArea.getValue();
-        }
+        final String text = getNameValue();
         if (text != null && text.trim().length() > 1) {
             initialClient += text.trim().toUpperCase().charAt(0);
         }

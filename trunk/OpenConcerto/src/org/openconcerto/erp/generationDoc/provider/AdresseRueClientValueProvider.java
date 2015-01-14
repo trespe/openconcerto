@@ -30,6 +30,7 @@ public class AdresseRueClientValueProvider extends AdresseClientProvider {
     }
 
     public static void register() {
+        SpreadSheetCellValueProviderManager.put("address.customer.address", new AdresseRueClientValueProvider(ADRESSE_PRINCIPALE));
         SpreadSheetCellValueProviderManager.put("address.customer.invoice.address", new AdresseRueClientValueProvider(ADRESSE_FACTURATION));
         SpreadSheetCellValueProviderManager.put("address.customer.shipment.address", new AdresseRueClientValueProvider(ADRESSE_LIVRAISON));
 

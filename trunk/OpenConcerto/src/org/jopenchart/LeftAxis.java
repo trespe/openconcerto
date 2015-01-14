@@ -9,6 +9,7 @@ public class LeftAxis extends Axis {
     public LeftAxis(Axis a) {
         super("y");
         this.addLabels(a.getLabels());
+        this.setColor(a.getColor());
     }
 
     public LeftAxis() {

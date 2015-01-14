@@ -13,16 +13,11 @@
  
  package org.openconcerto.erp.core.finance.payment.ui;
 
-import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.ChequeType;
 import org.openconcerto.erp.model.GestionChequesModel;
-import org.openconcerto.erp.rights.ComptaTotalUserRight;
-import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
@@ -40,14 +35,12 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
-import java.sql.SQLException;
 import java.util.Date;
 
 import javax.swing.AbstractAction;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.text.JTextComponent;
 
@@ -218,48 +211,15 @@ abstract class ChequeListPanel extends ListeAddPanel {
         getListe().addRowAction(actionSource);
         getListe().addIListeAction(new PredicateRowAction(new AbstractAction("Sélectionner tout") {
             public void actionPerformed(ActionEvent e) {
-
                 ChequeListPanel.this.model.selectionDecaisseAll();
             }
         }, false, true).setPredicate(IPredicate.truePredicate()));
         getListe().addIListeAction(new PredicateRowAction(new AbstractAction("Désélectionner tout") {
             public void actionPerformed(ActionEvent e) {
-
                 ChequeListPanel.this.model.deselectionAll();
             }
         }, false, true).setPredicate(IPredicate.truePredicate()));
 
-        if (UserManager.getInstance().getCurrentUser().getRights().haveRight(ComptaTotalUserRight.MENU)) {
-
-            getListe().addRowAction(new AbstractAction("Régularisation en comptabilité") {
-
-                public void actionPerformed(ActionEvent e) {
-                    final SQLRow rowCheque = IListe.get(e).fetchSelectedRow();
-
-                    String price = GestionDevise.currencyToString(rowCheque.getLong("MONTANT"));
-                    SQLRow rowClient = rowCheque.getForeignRow("ID_CLIENT");
-                    String nomClient = rowClient.getString("NOM");
-                    String piece = "";
-                    SQLRow rowMvt = rowCheque.getForeignRow("ID_MOUVEMENT");
-                    if (rowMvt != null) {
-                        SQLRow rowPiece = rowMvt.getForeignRow("ID_PIECE");
-                        piece = rowPiece.getString("NOM");
-                    }
-                    int answer = JOptionPane.showConfirmDialog(ChequeListPanel.this, "Etes vous sûr de vouloir régulariser ce cheque de " + nomClient + " d'un montant de " + price
-                            + "€ avec une saisie au kilometre?\nNom de la piéce : " + piece + "\nAttention, cette opération est irréversible.");
-                    if (answer == JOptionPane.YES_OPTION) {
-
-                        SQLRowValues rowVals = rowCheque.asRowValues();
-                        rowVals.put("REG_COMPTA", Boolean.TRUE);
-                        try {
-                            rowVals.commit();
-                        } catch (SQLException e1) {
-                            e1.printStackTrace();
-                        }
-                    }
-                }
-            });
-        }
     }
 
     protected abstract String getDepositLabel();

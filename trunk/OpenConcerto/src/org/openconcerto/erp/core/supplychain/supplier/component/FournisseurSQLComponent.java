@@ -181,6 +181,17 @@ public class FournisseurSQLComponent extends BaseSQLComponent {
         JCheckBox boxUE = new JCheckBox(getLabelFor("UE"));
         this.add(boxUE, c);
 
+        if (getTable().contains("ID_DEVISE")) {
+            c.gridx++;
+            c.weightx = 0;
+            this.add(new JLabel(getLabelFor("ID_DEVISE"), SwingConstants.RIGHT), c);
+            c.gridx++;
+            c.weightx = 0.5;
+            ElementComboBox devise = new ElementComboBox(true, 35);
+            this.add(devise, c);
+            this.addView(devise, "ID_DEVISE");
+        }
+
         // Champ Module
         c.gridx = 0;
         c.gridy++;

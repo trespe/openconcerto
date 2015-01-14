@@ -13,6 +13,8 @@
  
  package org.openconcerto.ui.table;
 
+import org.openconcerto.ui.component.ComponentWrapper;
+
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Graphics;
@@ -88,7 +90,7 @@ public class AlternateTableCellRenderer extends TableCellRendererDecorator {
 
     private static final ProxyComp altComp = new ProxyComp();
 
-    private static final class ProxyComp extends JComponent {
+    private static final class ProxyComp extends JComponent implements ComponentWrapper.I {
 
         private Component comp;
         private JComponent jComp;
@@ -102,6 +104,11 @@ public class AlternateTableCellRenderer extends TableCellRendererDecorator {
             final Map<Color, Color> jCompMap = this.jComp == null ? null : getBGColorMap(this.jComp);
             this.oddBGColorMap = jCompMap == null ? DEFAULT_MAP : jCompMap;
             return this;
+        }
+
+        @Override
+        public Component getComponent() {
+            return this.comp;
         }
 
         private Color getAlternateColor(final Color c) {

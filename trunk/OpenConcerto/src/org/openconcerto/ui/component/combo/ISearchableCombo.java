@@ -28,6 +28,7 @@ import org.openconcerto.ui.valuewrapper.ValueChangeSupport;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
+import org.openconcerto.utils.Value;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.cc.IdentityHashSet;
 import org.openconcerto.utils.checks.ValidListener;
@@ -305,7 +306,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                     if (showing)
                         hideCompletionPopup();
                     else
-                        updateAutoCompletion(true);
+                        updateAutoCompletion(null);
                 }
             }
 
@@ -414,7 +415,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         super.setEnabled(b);
         this.text.setEnabled(b);
         // don't let the user think he can click, if there's nothing
-        this.btn.setEnabled(b && this.cache != null);
+        this.btn.setEnabled(b && this.getCache() != null);
     }
 
     protected final ComboLockedMode getMode() {
@@ -464,12 +465,17 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         // the btn should now be enabled
         this.setEnabled(this.isEnabled());
 
-        if (this.getMode().isListMutable()) {
-            if (!(acache instanceof IMutableListModel))
-                throw new IllegalArgumentException(this + " is unlocked but " + acache + " is not mutable");
-            final IMutableListModel<T> mutable = (IMutableListModel<T>) acache;
-            final boolean isReloadable = mutable instanceof Reloadable;
-            final Reloadable rel = isReloadable ? (Reloadable) mutable : null;
+        final boolean isMutable = acache instanceof IMutableListModel;
+        final IMutableListModel<T> mutable = isMutable ? (IMutableListModel<T>) acache : null;
+        if (!isMutable && this.getMode().isListMutable())
+            throw new IllegalArgumentException(this + " is unlocked but " + acache + " is not mutable");
+
+        final boolean isReloadable = acache instanceof Reloadable;
+        final Reloadable rel = isReloadable ? (Reloadable) acache : null;
+
+        // add even if mode is not mutable, as this can be overridden by
+        // MutableListComboPopupListener
+        if (isMutable || isReloadable) {
             new MutableListComboPopupListener(new MutableListCombo() {
                 public ComboLockedMode getMode() {
                     return ISearchableCombo.this.getMode();
@@ -479,18 +485,40 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                     return getTextComp();
                 }
 
+                @Override
+                public boolean canModifyCache() {
+                    return mutable != null;
+                }
+
+                @Override
                 public void addCurrentText() {
+                    final Value<T> toAdd;
                     if (ISearchableCombo.this.parsedValidState.isValid()) {
-                        final T newItem = getValue();
+                        toAdd = Value.getSome(getValue());
+                    } else {
+                        // The current value might not be valid precisely because it is not part of
+                        // the list. So try to parse the current text to add it to the list.
+                        toAdd = parseCurrentText();
+                    }
+                    if (toAdd.hasValue()) {
+                        final T newItem = toAdd.getValue();
                         if (newItem != null && !mutable.getList().contains(newItem)) {
                             mutable.addElement(newItem);
                         }
-                    } else {
-                        JOptionPane.showMessageDialog(ISearchableCombo.this, ISearchableCombo.this.parsedValidState.getValidationText(), TM.tr("searchableCombo.cannotAdd.title"),
-                                JOptionPane.ERROR_MESSAGE);
                     }
                 }
 
+                private final Value<T> parseCurrentText() {
+                    try {
+                        return Value.getSome(stringToT(SimpleDocumentListener.getText(getTextComp().getDocument())));
+                    } catch (Exception exn) {
+                        JOptionPane.showMessageDialog(ISearchableCombo.this, "La valeur n'est pas correcte: " + exn.getLocalizedMessage(), TM.tr("searchableCombo.cannotAdd.title"),
+                                JOptionPane.ERROR_MESSAGE);
+                        return Value.getNone();
+                    }
+                }
+
+                @Override
                 public void removeCurrentText() {
                     mutable.removeElement(getValue());
                 }
@@ -665,13 +693,13 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
 
     public final void setSelectedIndex(final int anIndex) {
         // pasted from JComboBox
-        final int size = this.getCache().getSize();
+        final int size = this.getModel().getSize();
         if (anIndex == -1) {
             setSelectedItem(null);
         } else if (anIndex < -1 || anIndex >= size) {
             throw new IllegalArgumentException("setSelectedIndex: " + anIndex + " out of bounds");
         } else {
-            setSelectedItem(this.getCache().getElementAt(anIndex));
+            setSelectedItem(this.getModel().getElementAt(anIndex).getOriginal());
         }
     }
 
@@ -799,22 +827,22 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                 }
             }
             if (this.isSearchable())
-                this.updateAutoCompletion(false);
+                this.updateAutoCompletion(text);
         }
     }
 
     // ** completion thread
 
-    private void updateAutoCompletion(final boolean showAll) {
+    // null meaning show all existing values
+    private void updateAutoCompletion(final String t) {
         if (this.getCache() == null) {
             return;
         }
 
-        final String t = this.text.getText();
         if (this.completionThread != null) {
             this.completionThread.stopNow();
         }
-        this.completionThread = new ISearchableComboCompletionThread<T>(this, showAll, t);
+        this.completionThread = new ISearchableComboCompletionThread<T>(this, t);
         this.completionThread.setPriority(Thread.MIN_PRIORITY);
         this.completionThread.start();
     }
@@ -1066,18 +1094,20 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
             private boolean consume;
 
             private final boolean isAtLastLine(final JTextComponent src) {
-                if (src.getDocument().getLength() == 0)
+                if (src.getDocument().getLength() == 0) {
                     return true;
-                else {
+                } else {
                     try {
                         final Rectangle caretView = src.modelToView(src.getCaret().getDot());
                         final Rectangle lastView = src.modelToView(src.getDocument().getLength() - 1);
-                        return caretView.y >= lastView.y;
+                        // has happened with OpenConcerto
+                        if (caretView != null && lastView != null)
+                            return caretView.y >= lastView.y;
                     } catch (BadLocationException e1) {
                         // shouldn't happen since we're using the caret
                         e1.printStackTrace();
-                        return false;
                     }
+                    return false;
                 }
             }
 
@@ -1096,7 +1126,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
                         e.consume();
                     } else if (this.isAtLastLine(src)) {
                         // act like we clicked the btn
-                        updateAutoCompletion(true);
+                        updateAutoCompletion(null);
                     }
 
                 } else if (e.getKeyCode() == KeyEvent.VK_UP) {
@@ -1146,9 +1176,15 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         });
         this.text.addFocusListener(new FocusAdapter() {
             @Override
+            public void focusGained(FocusEvent e) {
+                firePropertyChange("textCompFocused", false, true);
+            }
+
+            @Override
             public void focusLost(FocusEvent e) {
                 // close the popup when we leave this component (like JComboBox)
                 hideCompletionPopup();
+                firePropertyChange("textCompFocused", true, false);
             }
         });
         this.text.addMouseListener(this.clickL);
@@ -1246,6 +1282,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
 
     // document
 
+    @Override
     public Document getDocument() {
         if (this.isLocked())
             return null;
@@ -1253,6 +1290,7 @@ public class ISearchableCombo<T> extends JPanel implements ValueWrapper<T>, Docu
         return this.getTextComp().getDocument();
     }
 
+    @Override
     public JTextComponent getTextComp() {
         return this.text;
     }

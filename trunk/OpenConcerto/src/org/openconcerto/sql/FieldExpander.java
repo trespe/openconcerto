@@ -28,6 +28,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
+@ThreadSafe
 public abstract class FieldExpander {
 
     static private final FieldExpander EMPTY = new FieldExpander() {
@@ -42,7 +46,9 @@ public abstract class FieldExpander {
     }
 
     // eg |TABLEAU.ID_OBSERVATION| -> [[DESIGNATION], []]
+    @GuardedBy("this")
     private final Map<IFieldPath, List<FieldPath>> cache;
+    @GuardedBy("this")
     private final Map<List<? extends IFieldPath>, List<Tuple2<Path, List<FieldPath>>>> cacheGroupBy;
 
     public FieldExpander() {
@@ -55,7 +61,7 @@ public abstract class FieldExpander {
      * If for the same input expandOnce() will now return a different output, you have to call this
      * method.
      */
-    protected void clearCache() {
+    protected synchronized void clearCache() {
         this.cache.clear();
         this.cacheGroupBy.clear();
     }
@@ -64,7 +70,7 @@ public abstract class FieldExpander {
 
     protected abstract List<SQLField> expandOnce(SQLField field);
 
-    protected final List<FieldPath> expandOnce(IFieldPath field) {
+    protected synchronized final List<FieldPath> expandOnce(IFieldPath field) {
         final List<SQLField> e = this.expandOnce(field.getField());
         if (e == null)
             return null;
@@ -98,7 +104,7 @@ public abstract class FieldExpander {
      * @param field le nom du champ à expandre, eg "SITE.ID_ETABLISSEMENT".
      * @return les champs.
      */
-    public final List<FieldPath> expand(IFieldPath field) {
+    public synchronized final List<FieldPath> expand(IFieldPath field) {
         // eg field == BATIMENT.ID_SITE
         if (this.cache.containsKey(field)) {
             return this.cache.get(field);
@@ -135,7 +141,7 @@ public abstract class FieldExpander {
      * 
      * @param vals the SQLRowValues to expand.
      */
-    public final void expand(SQLRowValues vals) {
+    public synchronized final void expand(SQLRowValues vals) {
         final Set<SQLField> fks = vals.getTable().getForeignKeys();
         for (final String fName : vals.getFields()) {
             final SQLField ffield = vals.getTable().getField(fName);
@@ -163,7 +169,7 @@ public abstract class FieldExpander {
      * @return the complete expansion, eg [ [LOCAL.DESIGNATION], [BAT.DES], [SITE.DES, ADRESSE.CP],
      *         [ETABLISSEMENT.DES] ].
      */
-    public final List<Tuple2<Path, List<FieldPath>>> expandGroupBy(List<? extends IFieldPath> fieldsOrig) {
+    public synchronized final List<Tuple2<Path, List<FieldPath>>> expandGroupBy(List<? extends IFieldPath> fieldsOrig) {
         if (this.cacheGroupBy.containsKey(fieldsOrig))
             return this.cacheGroupBy.get(fieldsOrig);
 

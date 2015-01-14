@@ -25,7 +25,6 @@ import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.CompareUtils.Equalizer;
 import org.openconcerto.utils.ExceptionHandler;
@@ -55,8 +54,8 @@ public class UserRightsManager {
      */
     public static final String ADMIN_FIELD = "ADMIN";
     private static UserRightsManager instance;
-    private static final CollectionMap<String, Tuple2<String, Boolean>> SUPERUSER_RIGHTS = CollectionMap.singleton(null, Tuple2.create((String) null, true));
-    private static final CollectionMap<String, Tuple2<String, Boolean>> NO_RIGHTS = CollectionMap.singleton(null, Tuple2.create((String) null, false));
+    private static final ListMap<String, Tuple2<String, Boolean>> SUPERUSER_RIGHTS = ListMap.singleton(null, Tuple2.create((String) null, true));
+    private static final ListMap<String, Tuple2<String, Boolean>> NO_RIGHTS = ListMap.singleton(null, Tuple2.create((String) null, false));
     public static final List<MacroRight> DEFAULT_MACRO_RIGHTS = Collections.synchronizedList(new ArrayList<MacroRight>());
     static {
         // "addRight() ambiguous"
@@ -69,7 +68,7 @@ public class UserRightsManager {
     /**
      * Call setInstance() if none exists.
      * 
-     * @param conf where to find the table.
+     * @param root where to find the table.
      * @return the instance created, <code>null</code> if an instance already existed or if no table
      *         could be found.
      * @see #clearInstanceIfSame(UserRightsManager)
@@ -145,7 +144,7 @@ public class UserRightsManager {
     // Gérer un droit avec une classe
     private final Map<String, MacroRight> macroRights;
     // {user -> {code -> [<object, bool>]}}
-    private final Map<Integer, CollectionMap<String, Tuple2<String, Boolean>>> rights;
+    private final Map<Integer, ListMap<String, Tuple2<String, Boolean>>> rights;
     private final SQLTable table;
     @GuardedBy("this")
     private SQLTableModifiedListener tableL;
@@ -156,7 +155,7 @@ public class UserRightsManager {
         if (t == null)
             throw new NullPointerException("Missing table");
         this.macroRights = new HashMap<String, MacroRight>();
-        this.rights = new HashMap<Integer, CollectionMap<String, Tuple2<String, Boolean>>>();
+        this.rights = new HashMap<Integer, ListMap<String, Tuple2<String, Boolean>>>();
         this.javaRights = new ListMap<Integer, RightTuple>();
         this.table = t;
         this.tableL = new SQLTableModifiedListener() {
@@ -322,7 +321,7 @@ public class UserRightsManager {
     }
 
     private final Boolean haveRightP(final int userID, final String code, final String object, final Equalizer<? super String> objectMatcher, Set<String> unicity) {
-        final CollectionMap<String, Tuple2<String, Boolean>> rightsForUser = getRightsForUser(userID);
+        final ListMap<String, Tuple2<String, Boolean>> rightsForUser = getRightsForUser(userID);
         // super-user
         if (rightsForUser == SUPERUSER_RIGHTS)
             return true;
@@ -373,12 +372,12 @@ public class UserRightsManager {
         }
     }
 
-    private CollectionMap<String, Tuple2<String, Boolean>> getRightsForUser(final int userID) {
+    private ListMap<String, Tuple2<String, Boolean>> getRightsForUser(final int userID) {
         synchronized (this.rights) {
             if (this.rights.containsKey(userID))
                 return this.rights.get(userID);
             else {
-                final CollectionMap<String, Tuple2<String, Boolean>> rightsForUser = loadRightsForUser(userID);
+                final ListMap<String, Tuple2<String, Boolean>> rightsForUser = loadRightsForUser(userID);
                 this.rights.put(userID, rightsForUser);
                 return rightsForUser;
             }
@@ -391,13 +390,13 @@ public class UserRightsManager {
      * @param userID which user.
      * @return the user's rights by CODE.
      */
-    private final CollectionMap<String, Tuple2<String, Boolean>> loadRightsForUser(final int userID) {
+    private final ListMap<String, Tuple2<String, Boolean>> loadRightsForUser(final int userID) {
         try {
             final SQLRow userRow = this.getTable().getForeignTable("ID_USER_COMMON").getRow(userID);
             if (userRow != null && userRow.getBoolean(SUPERUSER_FIELD))
                 return SUPERUSER_RIGHTS;
 
-            final CollectionMap<String, Tuple2<String, Boolean>> res = new CollectionMap<String, Tuple2<String, Boolean>>(ArrayList.class);
+            final ListMap<String, Tuple2<String, Boolean>> res = new ListMap<String, Tuple2<String, Boolean>>();
             final Set<Tuple2<String, String>> unicity = new HashSet<Tuple2<String, String>>();
             // only superuser can modify RIGHTs
             expand(res, unicity, TableAllRights.createRight(TableAllRights.CODE_MODIF, this.getTable().getForeignTable("ID_RIGHT"), false));
@@ -460,11 +459,11 @@ public class UserRightsManager {
         }
     }
 
-    private final void expand(final CollectionMap<String, Tuple2<String, Boolean>> res, final Set<Tuple2<String, String>> unicity, final RightTuple t) {
+    private final void expand(final ListMap<String, Tuple2<String, Boolean>> res, final Set<Tuple2<String, String>> unicity, final RightTuple t) {
         this.expand(res, unicity, t.get0(), t.get1(), t.get2());
     }
 
-    private final void expand(final CollectionMap<String, Tuple2<String, Boolean>> res, final Set<Tuple2<String, String>> unicity, final String rightCode, final String object, final Boolean haveRight) {
+    private final void expand(final ListMap<String, Tuple2<String, Boolean>> res, final Set<Tuple2<String, String>> unicity, final String rightCode, final String object, final Boolean haveRight) {
         if (haveRight == null)
             throw new IllegalStateException("HAVE_RIGHT cannot be null");
 
@@ -476,7 +475,7 @@ public class UserRightsManager {
             // we need to have unique rights, otherwise simple queries will still work since they
             // will stop at the first match. But for queries with null object we need to traverse
             // all rights.
-            res.put(rightCode, Tuple2.create(object, haveRight));
+            res.add(rightCode, Tuple2.create(object, haveRight));
         }
     }
 
@@ -529,7 +528,7 @@ public class UserRightsManager {
     }
 
     private final Set<String> getObjectsP(final int userID, final String code, Set<String> unicity) {
-        final CollectionMap<String, Tuple2<String, Boolean>> rightsForUser = getRightsForUser(userID);
+        final ListMap<String, Tuple2<String, Boolean>> rightsForUser = getRightsForUser(userID);
         // don't let it proceed, otherwise it will then load objects for undef
         if (rightsForUser == NO_RIGHTS)
             return null;

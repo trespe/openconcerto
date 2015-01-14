@@ -25,7 +25,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -37,14 +36,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.SortedSet;
-import java.util.TreeMap;
-import java.util.TreeSet;
 import java.util.regex.Pattern;
-
-import org.apache.commons.collections.Transformer;
-import org.apache.commons.collections.TransformerUtils;
 
 /**
  * Une classe regroupant des méthodes utilitaires pour les collections.
@@ -238,116 +230,6 @@ public class CollectionUtils {
     }
 
     /**
-     * Permet d'organiser une collection en une hiérarchie à l'aide de Map. Avec <code>
-     * Col = [
-     * Obs1(bat=BAT A, local=A1, num=1),
-     * Obs2(bat=BAT B, local=B1, num=2),
-     * Obs3(bat=BAT B, local=B2, num=3),
-     * Obs4(bat=BAT B, local=B2, num=4)
-     * ]
-     * <code>
-     * ainsi que deux extracteurs pour trouver le batiment et le local, et enfin itemOrdering suivant le numero, on a
-     * { BAT A => {A1 => {Obs1}}, {BAT B => {B1 => {Obs2}, B2 => {Obs3, Obs4}}}}.
-     * 
-     * @param col la collection à organiser.
-     * @param propExtractors les extracteurs de propriétes.
-     * @param propComp les Comparator pour les propriétés renvoyées par les extracteurs, peut être
-     *        <code>null</code> si les propriétés sont des Comparable.
-     * @param itemOrdering comment ordonner les éléments dans la dernière tranche, peut être
-     *        <code>null</code> si les éléments sont des Comparable.
-     * @return une hiérarchie de SortedMap et en dernier un SortedSet.
-     */
-    static public final SortedMap organize(Collection col, List<? extends Transformer> propExtractors, List<? extends Comparator> propComp, Comparator itemOrdering) {
-        if (propExtractors.size() == 0)
-            throw new IllegalArgumentException("Empty property extractors");
-
-        if (propComp == null)
-            propComp = Collections.nCopies(propExtractors.size(), null);
-        else if (propExtractors.size() != propComp.size())
-            throw new IllegalArgumentException("Size mismatch between " + propExtractors + " and " + propComp);
-
-        final SortedMap res = new TreeMap(propComp.get(0));
-
-        Iterator iter = col.iterator();
-        while (iter.hasNext()) {
-            final Object item = iter.next();
-            Map m = res;
-
-            for (int i = 0; i < propExtractors.size() - 1; i++) {
-                final Transformer extractor = propExtractors.get(i);
-                final Object property = extractor.transform(item);
-                Map newM = (Map) m.get(property);
-                if (newM == null) {
-                    newM = new TreeMap(propComp.get(i + 1));
-                    m.put(property, newM);
-                }
-                m = newM;
-            }
-            final Object property = propExtractors.get(propExtractors.size() - 1).transform(item);
-            SortedSet s = (SortedSet) m.get(property);
-            if (s == null) {
-                s = new TreeSet(itemOrdering);
-                m.put(property, s);
-            }
-            s.add(item);
-        }
-
-        return res;
-    }
-
-    /**
-     * Permet d'aplatir une hiérarchie. Exemple :
-     * 
-     * <pre>
-     *   A-
-     *      A1
-     *      A2
-     *   B-
-     *      B1
-     *         B11
-     *         B12
-     * </pre>
-     * 
-     * devient <code>[A, A1, A2, B, B1, B11, B12]</code>.
-     * 
-     * @param hierarchy la hiérarchie à aplatir.
-     * @param itemTransf la transformation à faire sur les feuilles.
-     * @return la liste correspondante.
-     */
-    static public final List flatten(Map hierarchy, Transformer itemTransf) {
-        final List res = new ArrayList();
-
-        final Iterator iter = hierarchy.keySet().iterator();
-        while (iter.hasNext()) {
-            final Object obj = iter.next();
-            res.add(obj);
-            final Object value = hierarchy.get(obj);
-            if (value instanceof Map)
-                res.addAll(flatten((Map) value, itemTransf));
-            else if (value instanceof Collection) {
-                final Collection items = (Collection) value;
-                final Iterator itemIter = items.iterator();
-                while (itemIter.hasNext()) {
-                    final Object item = itemIter.next();
-                    res.add(itemTransf.transform(item));
-                }
-            } else
-                throw new IllegalArgumentException("Illegal value: " + value);
-        }
-        return res;
-    }
-
-    /**
-     * Permet d'aplatir une hiérarchie.
-     * 
-     * @param hierarchy la hiérarchie à aplatir.
-     * @return la liste correspondante.
-     */
-    static public final List flatten(Map hierarchy) {
-        return flatten(hierarchy, TransformerUtils.nopTransformer());
-    }
-
-    /**
      * Convertit une map en 2 listes, une pour les clefs, une pour les valeurs.
      * 
      * @param map la Map à convertir.
@@ -535,6 +417,22 @@ public class CollectionUtils {
         return lastI;
     }
 
+    public final static <T> int getEqualsCount(final Iterator<? extends T> a, final Iterator<? extends T> b) {
+        return getEqualsCount(a, b, null);
+    }
+
+    public final static <A, B> int getEqualsCount(final Iterator<A> a, final Iterator<B> b, final ITransformer<A, B> transf) {
+        int res = 0;
+        while (a.hasNext() && b.hasNext()) {
+            final A itemA = a.next();
+            final B itemB = b.next();
+            if (!CompareUtils.equals(transf == null ? itemA : transf.transformChecked(itemA), itemB))
+                break;
+            res++;
+        }
+        return res;
+    }
+
     public static <T> Collection<T> select(final Collection<T> a, final IPredicate<? super T> pred) {
         return select(a, pred, new ArrayList<T>());
     }
@@ -653,6 +551,18 @@ public class CollectionUtils {
         return org.apache.commons.collections.CollectionUtils.subtract(a, b);
     }
 
+    public static final <T> T coalesce(T o1, T o2) {
+        return o1 != null ? o1 : o2;
+    }
+
+    public static final <T> T coalesce(T... objects) {
+        for (T o : objects) {
+            if (o != null)
+                return o;
+        }
+        return null;
+    }
+
     /**
      * Return the first item of <code>l</code> if it's the only one, otherwise <code>null</code>.
      * 
@@ -727,7 +637,7 @@ public class CollectionUtils {
 
     @SuppressWarnings("unchecked")
     public static <T> Iterator<T> emptyIterator() {
-        return (Iterator<T>) EMPTY_ITERATOR;
+        return EMPTY_ITERATOR;
     }
 
     public static <T> LinkedList<T> toLinkedList(final Iterator<T> iter) {
@@ -837,7 +747,7 @@ public class CollectionUtils {
 
     @SuppressWarnings("unchecked")
     public static <T> IdentitySet<T> emptyIdentitySet() {
-        return (IdentitySet<T>) EMPTY_SET;
+        return EMPTY_SET;
     }
 
     private static final class EmptyIdentitySet extends AbstractSet<Object> implements IdentitySet<Object>, Serializable {
@@ -910,7 +820,7 @@ public class CollectionUtils {
      * @param <M> type of map.
      * @param m the map to fill.
      * @param keys the keys to add.
-     * @param v the value to put.
+     * @param val the value to put.
      * @return the passed map.
      */
     public static <K, V, M extends Map<K, V>> M fillMap(final M m, final Collection<? extends K> keys, final V val) {

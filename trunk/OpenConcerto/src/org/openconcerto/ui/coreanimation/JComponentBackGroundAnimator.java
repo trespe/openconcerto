@@ -18,6 +18,7 @@ import java.awt.event.FocusEvent;
 import java.awt.event.FocusListener;
 
 import javax.swing.JComponent;
+import javax.swing.JFormattedTextField;
 
 public class JComponentBackGroundAnimator extends JComponentAnimator implements Pulse {
 
@@ -30,6 +31,7 @@ public class JComponentBackGroundAnimator extends JComponentAnimator implements 
 
     private final Color bgColor;
     private final Boolean opaque;
+    private final boolean enabled;
 
     public JComponentBackGroundAnimator(JComponent f) {
         this(f, false);
@@ -40,6 +42,7 @@ public class JComponentBackGroundAnimator extends JComponentAnimator implements 
         // FIXME the background might not be what we expect, e.g. here the component is disabled and
         // return grey, but in resetState() is enabled and should be white
         this.bgColor = f.isBackgroundSet() ? f.getBackground() : null;
+        this.enabled = f.isEnabled();
         if (setOpaque) {
             this.opaque = f.isOpaque();
             f.setOpaque(true);
@@ -58,51 +61,59 @@ public class JComponentBackGroundAnimator extends JComponentAnimator implements 
         return "BGA:" + this.chk.getClass();
     }
 
+    protected boolean isFocusSensitive() {
+        return this.chk instanceof JFormattedTextField;
+    }
+
     @Override
     public void resetState() {
+        if (this.opaque != null)
+            this.chk.setOpaque(this.opaque);
         // FIXME see constructor, here reset the possibly UIResource background
         this.chk.setBackground(this.bgColor);
 
-        boolean hadFocus = this.chk.hasFocus();
-        // then force refresh, so that ComponentUI has a chance to set the correct background
-        if (this.chk.isEnabled()) {
-            this.chk.setEnabled(false);
-            this.chk.setEnabled(true);
-        } else {
-            this.chk.setEnabled(true);
-            this.chk.setEnabled(false);
-        }
-        if (this.opaque != null)
-            this.chk.setOpaque(this.opaque);
-
-        // MAYBE use setEditable()
-        if (hadFocus) {
-            // Megatrick to avoid focus listeners to do bad things like selecting text...
-            final FocusListener[] listeners = this.chk.getFocusListeners();
-            for (int i = 0; i < listeners.length; i++) {
-                FocusListener focusListener = listeners[i];
-                this.chk.removeFocusListener(focusListener);
-            }
-
-            this.chk.addFocusListener(new FocusListener() {
-
-                @Override
-                public void focusLost(FocusEvent e) {
-
+        final boolean hadFocus = this.chk.hasFocus();
+        final boolean nowEnabled = this.chk.isEnabled();
+        if (!hadFocus || nowEnabled != this.enabled || !this.isFocusSensitive()) {
+            // then force refresh, so that ComponentUI has a chance to set the correct background
+            // MAYBE use setEditable()
+            if (hadFocus) {
+                assert nowEnabled : "Has focus but not enabled : " + this.chk;
+                // Megatrick to avoid focus listeners to do bad things like selecting text...
+                final FocusListener[] listeners = this.chk.getFocusListeners();
+                for (int i = 0; i < listeners.length; i++) {
+                    FocusListener focusListener = listeners[i];
+                    this.chk.removeFocusListener(focusListener);
                 }
 
-                @Override
-                public void focusGained(FocusEvent e) {
-                    JComponentBackGroundAnimator.this.chk.removeFocusListener(this);
-                    for (int i = 0; i < listeners.length; i++) {
-                        FocusListener focusListener = listeners[i];
-                        JComponentBackGroundAnimator.this.chk.addFocusListener(focusListener);
+                this.chk.addFocusListener(new FocusListener() {
+
+                    @Override
+                    public void focusLost(FocusEvent e) {
+
                     }
 
-                }
-            });
-            this.chk.requestFocus();
+                    @Override
+                    public void focusGained(FocusEvent e) {
+                        JComponentBackGroundAnimator.this.chk.removeFocusListener(this);
+                        for (int i = 0; i < listeners.length; i++) {
+                            FocusListener focusListener = listeners[i];
+                            JComponentBackGroundAnimator.this.chk.addFocusListener(focusListener);
+                        }
 
+                    }
+                });
+            }
+            if (nowEnabled) {
+                this.chk.setEnabled(false);
+                this.chk.setEnabled(true);
+            } else {
+                this.chk.setEnabled(true);
+                this.chk.setEnabled(false);
+            }
+            if (hadFocus) {
+                this.chk.requestFocus();
+            }
         }
     }
 }

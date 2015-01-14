@@ -13,17 +13,16 @@
  
  package org.openconcerto.xml.persistence;
 
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ListMap;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.collections.BidiMap;
-import org.apache.commons.collections.MultiMap;
 import org.apache.commons.collections.bidimap.DualHashBidiMap;
 import org.jdom.Element;
 
@@ -92,14 +91,12 @@ public class XMLFactory {
      * @param elems une collection d'Element.
      * @return un Map indexée par les classes des objets.
      */
-    public static MultiMap fromXML(Collection elems) {
-        MultiMap res = new CollectionMap();
-        Iterator iter = elems.iterator();
-        while (iter.hasNext()) {
-            final Element elem = (Element) iter.next();
-            final Class clazz = getClass(elem.getName());
+    public static Map<Class<?>, List<XMLable>> fromXML(Collection<? extends Element> elems) {
+        final ListMap<Class<?>, XMLable> res = new ListMap<Class<?>, XMLable>();
+        for (final Element elem : elems) {
+            final Class<?> clazz = getClass(elem.getName());
             if (clazz != null)
-                res.put(clazz, fromXML(elem));
+                res.add(clazz, fromXML(elem));
         }
         return res;
     }

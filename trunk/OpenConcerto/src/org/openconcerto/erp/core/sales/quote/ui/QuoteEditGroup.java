@@ -25,15 +25,12 @@ public class QuoteEditGroup extends Group {
         g.addItem("sales.quote.date");
         g.addItem("sales.quote.label", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
         g.addItem("sales.quote.saleman");
+        g.addItem("sales.quote.state");
         this.add(g);
 
         final Group gCustomer = new Group("sales.quote.customer");
         gCustomer.addItem("sales.quote.customer", LayoutHints.DEFAULT_LARGE_FIELD_HINTS);
         add(gCustomer);
-
-        final Group gAddress = new Group("sales.quote.address");
-        gAddress.addItem("sales.quote.address.alternative");
-        add(gAddress);
 
         final Group gElements = new Group("sales.quote.items");
         gElements.addItem("sales.quote.items.list", LayoutHints.DEFAULT_LIST_HINTS);

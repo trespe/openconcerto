@@ -34,7 +34,6 @@ import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
-import org.openconcerto.sql.sqlobject.ISQLElementWithCodeSelector;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.users.UserManager;
@@ -101,7 +100,7 @@ public class CourrierClientSQLElement extends ComptaSQLConfElement {
             JUniqueTextField textNumero;
             JDate date;
             SQLTextCombo objet;
-            ISQLElementWithCodeSelector selAffaire;
+            ElementComboBox selAffaire;
             ElementComboBox comboModele = new ElementComboBox();
             ElementComboBox boxAdresse;
             JCheckBox checkImpression = new JCheckBox("Impression");
@@ -133,7 +132,6 @@ public class CourrierClientSQLElement extends ComptaSQLConfElement {
                 c.fill = GridBagConstraints.HORIZONTAL;
                 this.add(this.date, c);
 
-                final SQLElement eltAffaire;
                 // Objet
                 c.gridy++;
                 c.gridx = 0;

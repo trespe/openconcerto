@@ -22,8 +22,8 @@ public class MySQLBase extends SQLBase {
 
     private List<String> modes;
 
-    MySQLBase(SQLServer server, String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
-        super(server, name, login, pass, dsInit);
+    MySQLBase(SQLServer server, String name, IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+        super(server, name, systemRootInit, login, pass, dsInit);
         this.modes = null;
     }
 
@@ -44,6 +44,8 @@ public class MySQLBase extends SQLBase {
     @Override
     public final String quoteString(String s) {
         final String res = super.quoteString(s);
+        if (s == null)
+            return res;
         // ATTN if shouldEscape() return false (from global mode) but session mode is the opposite,
         // then SQL can be injected :
         // toto \'; drop table ;

@@ -31,6 +31,22 @@
 		<FIELD name="CODE" label="Code" />
 		<FIELD name="INFOS" label="Informations" />
 	</TABLE>
+	<TABLE name="BANQUE">
+		<FIELD name="NOM" label="Nom" />
+		<FIELD name="NUMERO_RUE" label="Numéro de rue" />
+		<FIELD name="VOIE" label="Voie" />
+		<FIELD name="RUE" label="Rue" />
+		<FIELD name="VILLE" label="Ville" />
+		<FIELD name="CODE_ETS" label="Code Ets" />
+		<FIELD name="CODE_GUICHET" label="Code guichet" />
+		<FIELD name="NUMERO_COMPTE" label="N° compte" />
+		<FIELD name="CLE_RICE" label="Clé rice" />
+		<FIELD name="DOMICILIATION" label="Domiciliation" />
+		<FIELD name="BIC" label="BIC" />
+		<FIELD name="IBAN" label="IBAN" />
+		<FIELD name="CODE" label="Code" />
+		<FIELD name="INFOS" label="Informations" />
+	</TABLE>
 	<TABLE name="CAISSE_COTISATION">
 		<FIELD name="NOM" label="Libellé" />
 		<FIELD name="ID_ADRESSE_COMMON" label="Adresse" />
@@ -201,6 +217,7 @@
 		<FIELD name="RCS" label="RCS" />
 		<FIELD name="CAPITAL" label="Capital" />
 		<FIELD name="NUMERO_URSSAF" label="Numéro URSSAF" />
+		<FIELD name="ID_DEVISE" label="Devise" />
 	</TABLE>
 	<TABLE name="TYPE_MODELE">
 		<FIELD name="NOM" label="Nom" />

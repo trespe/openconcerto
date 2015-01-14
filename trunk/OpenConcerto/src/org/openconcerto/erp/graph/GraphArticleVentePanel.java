@@ -46,10 +46,9 @@ public class GraphArticleVentePanel extends JPanel {
         }
 
         ChartPanel p = new ChartPanel(chart);
-        this.setOpaque(true);
+        p.setOpaque(false);
         this.setBackground(Color.WHITE);
         this.add(p);
-
     }
 
     protected void updateDataset(List<String> labels, List<Number> values) {
@@ -63,6 +62,7 @@ public class GraphArticleVentePanel extends JPanel {
 
         sel.addSelectFunctionStar("COUNT");
         final SQLDataSource dataSource = Configuration.getInstance().getBase().getDataSource();
+        @SuppressWarnings("unchecked")
         List<Object[]> rowsArticle = (List<Object[]>) dataSource.execute(sel.asString() + " GROUP BY \"SAISIE_VENTE_FACTURE_ELEMENT\".\"" + field + "\"", new ArrayListHandler());
 
         Collections.sort(rowsArticle, new Comparator<Object[]>() {

@@ -150,8 +150,18 @@ public class EditionFichePayePanel extends JPanel implements MouseListener {
         this.add(this.bar, c);
 
         // Button
-        JButton buttonValid = new JButton("Valider");
-        JButton buttonFermer = new JButton("Fermer");
+        final JButton buttonValid = new JButton("Valider");
+        final JButton buttonFermer = new JButton("Fermer");
+
+        PropertyChangeListener dateListener = new PropertyChangeListener() {
+
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                buttonValid.setEnabled(dateDeb.getValue() != null && dateFin.getValue() != null && dateDeb.getValue().before(dateFin.getValue()));
+            }
+        };
+        dateDeb.addValueListener(dateListener);
+        dateFin.addValueListener(dateListener);
 
         c.gridy++;
         c.gridwidth = 1;

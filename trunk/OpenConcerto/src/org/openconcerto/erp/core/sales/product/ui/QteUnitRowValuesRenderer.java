@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.sales.product.ui;
 
 import org.openconcerto.erp.core.common.ui.DeviseNiceTableCellRenderer;
+import org.openconcerto.erp.core.common.ui.NumericFormat;
 
 import java.awt.Color;
 import java.awt.Component;
@@ -27,11 +28,9 @@ public class QteUnitRowValuesRenderer extends DeviseNiceTableCellRenderer {
 
     // Black
     private final static Color lightBlack = new Color(215, 215, 215);
-    DecimalFormat decimalFormat = new DecimalFormat("##,##0.######");
+    DecimalFormat decimalFormat = NumericFormat.getQtyDecimalFormat();
 
     public QteUnitRowValuesRenderer() {
-        // AlternateTableCellRenderer.setBGColorMap(this, CollectionUtils.createMap(light,
-        // lightGrey, lightBlack, lightBlackGrey));
     }
 
     @Override
@@ -40,7 +39,6 @@ public class QteUnitRowValuesRenderer extends DeviseNiceTableCellRenderer {
         Component comp = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
         ((JLabel) comp).setHorizontalAlignment(SwingConstants.RIGHT);
         if (!table.getModel().isCellEditable(row, column) && !isSelected) {
-
             comp.setBackground(lightBlack);
         }
         if (value == null) {

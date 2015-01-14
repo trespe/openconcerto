@@ -28,6 +28,7 @@
 	<menu id="supplier.order.create" label="Commande fournisseur" />
 	<menu id="supplier.receipt.create" label="Bon de réception" />
 	<menu id="supplier.purchase.create" label="Achat fournisseur" />
+	<menu id="supplier.invoice.purchase.create"  label="Facture fournisseur" />
 	<menu id="supplier.credit.create" label="Avoir fournisseur" />
 	<menu id="stock.io.create" label="Mouvement de stock" />
 
@@ -62,6 +63,7 @@
 	<menu id="supplier.order.list" label="Liste des commandes fournisseur" />
 	<menu id="supplier.receipt.list" label="Liste des bons de réception" />
 	<menu id="supplier.purchase.list" label="Liste des saisies d'achat" />
+	<menu id="supplier.invoice.purchase.list" label="Liste des factures fournisseurs" />
 	<menu id="supplier.credit.list" label="Liste des avoirs fournisseur" />
 	<menu id="product.list" label="Liste des articles" />
 	<menu id="product.reference.list" label="Liste des références" />
@@ -159,6 +161,7 @@
 	<item id="sales.quote.label" label="Référence" />
 	<item id="sales.quote.customer" label="Client" />
 	<item id="sales.quote.saleman" label="Commercial" />
+	<item id="sales.quote.state" label="Etat" />
 	<item id="sales.quote.address.alternative" label="Adresse alternative" />
 	<item id="sales.quote.info.general" label="Informations complémentaires" />
 	<action id="sales.quote.accept" label="Marquer comme accepté" />

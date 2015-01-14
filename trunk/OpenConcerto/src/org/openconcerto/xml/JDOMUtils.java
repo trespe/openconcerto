@@ -13,12 +13,12 @@
  
  package org.openconcerto.xml;
 
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.cc.IPredicate;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
-import java.io.UnsupportedEncodingException;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
@@ -206,6 +206,20 @@ public final class JDOMUtils {
             if (elem.getNamespace(ns.getPrefix()) == null)
                 elem.addNamespaceDeclaration(ns);
         }
+    }
+
+    /**
+     * Detach the passed element, and if its parent becomes empty, detach it too.
+     * 
+     * @param elem the element to detach.
+     * @return the parent.
+     */
+    public static Element detachEmptyParent(final Element elem) {
+        final Element parent = elem.getParentElement();
+        elem.detach();
+        if (parent != null && parent.getChildren().isEmpty())
+            parent.detach();
+        return parent;
     }
 
     /**
@@ -429,14 +443,32 @@ public final class JDOMUtils {
         };
     }
 
+    /**
+     * The namespace for the passed content.
+     * 
+     * @param input any JDOM document content.
+     * @return <code>null</code> if the passed object cannot have a namespace,
+     *         {@link Namespace#NO_NAMESPACE} if it could have one but has none.
+     */
+    static public final Namespace getNamespace(Object input) {
+        final Namespace res;
+        if (input instanceof Element) {
+            res = ((Element) input).getNamespace();
+        } else if (input instanceof Attribute) {
+            res = ((Attribute) input).getNamespace();
+        } else {
+            res = null;
+        }
+        return res;
+    }
+
     // @return SAXException If a SAX error occurs during parsing of doc.
     static SAXException validate(final Document doc, final Schema schema, final ErrorHandler errorHandler) {
-        ByteArrayInputStream ins;
-        try {
-            ins = new ByteArrayInputStream(output(doc).getBytes("UTF8"));
-        } catch (UnsupportedEncodingException e) {
-            throw new IllegalStateException("unicode not found ", e);
-        }
+        return validate(output(doc), schema, errorHandler);
+    }
+
+    static SAXException validate(final String doc, final Schema schema, final ErrorHandler errorHandler) {
+        final ByteArrayInputStream ins = new ByteArrayInputStream(doc.getBytes(StringUtils.UTF8));
         final Validator validator = schema.newValidator();
         // ATTN workaround : contrary to documentation setting to null swallow exceptions
         if (errorHandler != null)
@@ -454,12 +486,16 @@ public final class JDOMUtils {
     }
 
     static void validateDTD(final Document doc, final SAXBuilder b, final ErrorHandler errorHandler) throws JDOMException {
+        validateDTD(output(doc), b, errorHandler);
+    }
+
+    static void validateDTD(final String doc, final SAXBuilder b, final ErrorHandler errorHandler) throws JDOMException {
         final ErrorHandler origEH = b.getErrorHandler();
         final boolean origValidation = b.getValidation();
         try {
             b.setErrorHandler(errorHandler);
             b.setValidation(true);
-            JDOMUtils.parseStringDocument(output(doc), b);
+            JDOMUtils.parseStringDocument(doc, b);
         } finally {
             b.setErrorHandler(origEH);
             b.setValidation(origValidation);

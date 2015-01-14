@@ -17,7 +17,6 @@ import org.openconcerto.openoffice.Log;
 import org.openconcerto.openoffice.ODDocument;
 import org.openconcerto.openoffice.ODFrame;
 import org.openconcerto.openoffice.ODValueType;
-import org.openconcerto.openoffice.OOXML;
 import org.openconcerto.openoffice.StyleDesc;
 import org.openconcerto.openoffice.XMLVersion;
 import org.openconcerto.openoffice.spreadsheet.BytesProducer.ByteArrayProducer;
@@ -174,20 +173,11 @@ public class MutableCell<D extends ODDocument> extends Cell<D> {
         }
     }
 
-    // ATTN this removes any content associated with this cell be it notes, cell anchored objects,
-    // etc. This is because it's difficult to tell apart the text content and the rest (e.g. notes),
-    // for example in Calc office:annotation is a child of table:cell whereas in Writer it's a child
-    // of text:p.
     private void setTextP(String value) {
-        if (value == null)
+        if (value == null) {
             this.getElement().removeContent();
-        else {
-            // try to reuse the first text:p to keep style
-            final Element child = this.getElement().getChild("p", getNS().getTEXT());
-            final Element t = child != null ? child : new Element("p", getNS().getTEXT());
-            t.setContent(OOXML.get(this.getODDocument().getFormatVersion(), false).encodeWSasList(value));
-
-            this.getElement().setContent(t);
+        } else {
+            new Lines(this.getODDocument(), value).setText(getElement(), getTextValueMode());
         }
     }
 

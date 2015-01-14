@@ -24,7 +24,6 @@ import org.openconcerto.utils.cc.IClosure;
 import java.io.File;
 import java.util.Properties;
 
-import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 public class ServerFinderConfig {
@@ -90,17 +89,9 @@ public class ServerFinderConfig {
     }
 
     public void setFile(File file) {
-        if (file == null) {
-            JOptionPane.showMessageDialog(new JFrame(), "Dossier de base de données non défini");
-        } else if (!file.exists()) {
-            JOptionPane.showMessageDialog(new JFrame(), "Dossier de base de données inexistant");
-        } else {
-            final File h2File = new File(file, "OpenConcerto.h2.db");
-            if (!h2File.exists()) {
-                JOptionPane.showMessageDialog(new JFrame(), "Le dossier de base de données ne contient pas OpenConcerto.h2.db");
-            } else if (h2File.length() < 50000) {
-                JOptionPane.showMessageDialog(new JFrame(), "Le dossier de base de données contient un fichier OpenConcerto.h2.db vide");
-            }
+        final String err = ServerFinderPanel.testH2DBDir(file);
+        if (err != null) {
+            JOptionPane.showMessageDialog(null, err);
         }
         this.file = file;
     }

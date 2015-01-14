@@ -35,6 +35,7 @@ public class AdresseVilleCPClientValueProvider extends AdresseClientProvider {
     }
 
     public static void register() {
+        SpreadSheetCellValueProviderManager.put("address.customer.country.code", new AdresseVilleCPClientValueProvider(ADRESSE_PRINCIPALE));
         SpreadSheetCellValueProviderManager.put("address.customer.invoice.country.code", new AdresseVilleCPClientValueProvider(ADRESSE_FACTURATION));
         SpreadSheetCellValueProviderManager.put("address.customer.shipment.country.code", new AdresseVilleCPClientValueProvider(ADRESSE_LIVRAISON));
     }

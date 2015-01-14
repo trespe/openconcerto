@@ -18,12 +18,12 @@ import static org.openconcerto.openoffice.ODPackage.RootElement.META;
 import static org.openconcerto.openoffice.ODPackage.RootElement.STYLES;
 import org.openconcerto.openoffice.spreadsheet.SpreadSheet;
 import org.openconcerto.openoffice.text.TextDocument;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CopyUtils;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.FileUtils;
 import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.PropertiesUtils;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.StringInputStream;
 import org.openconcerto.utils.StringUtils;
@@ -63,7 +63,6 @@ import java.util.Set;
 import java.util.zip.ZipEntry;
 
 import net.jcip.annotations.GuardedBy;
-import net.jcip.annotations.Immutable;
 
 import org.jdom.Attribute;
 import org.jdom.DocType;
@@ -117,7 +116,8 @@ public class ODPackage {
      * 
      * @author Sylvain CUAZ
      */
-    @Immutable
+    // full name needed for javac 1.6.0_45
+    @net.jcip.annotations.Immutable
     public static enum RootElement {
         /** Contains the entire document, see 3.1.2 of OpenDocument-v1.2-part1-cd04 */
         SINGLE_CONTENT("office", "document", null),
@@ -272,7 +272,7 @@ public class ODPackage {
 
     private static final int mimetypeZipEndOffset = 250;
 
-    // ATTN ins is *not* always closed
+    // ATTN ins is *not* closed if f != null
     private static ODPackage create(final File f, InputStream ins, final String name) throws IOException {
         // first use extension
         final Tuple2<ContentTypeVersioned, Boolean> fromExt = name != null ? ContentTypeVersioned.fromExtension(FileUtils.getExtension(name)) : Tuple2.<ContentTypeVersioned, Boolean> nullInstance();
@@ -317,6 +317,8 @@ public class ODPackage {
     }
 
     private static ContentTypeVersioned getType(final InputStream in) throws IOException {
+        // don't want to close underlying stream
+        @SuppressWarnings("resource")
         final DataInputStream ins = new DataInputStream(in, true);
         if (ins.read() != 'P' || ins.read() != 'K')
             return null;
@@ -583,10 +585,10 @@ public class ODPackage {
      *         if validation couldn't occur.
      */
     public final Map<String, String> validateSubDocuments() {
-        return this.validateSubDocuments(true);
+        return this.validateSubDocuments(true, true);
     }
 
-    public final Map<String, String> validateSubDocuments(final boolean allowChangeToValidate) {
+    public final Map<String, String> validateSubDocuments(final boolean allowChangeToValidate, final boolean ignoreForeign) {
         final OOXML ooxml = this.getFormatVersion().getXML();
         if (!ooxml.canValidate())
             return null;
@@ -600,12 +602,12 @@ public class ODPackage {
                     if (docType != null && doc.getDocType() == null)
                         doc.setDocType(docType);
                 }
-                final String valid = ooxml.getValidator(doc).isValid();
+                final String valid = ooxml.getValidator(doc, ignoreForeign).isValid();
                 if (valid != null)
                     res.put(s, valid);
             }
         }
-        final String valid = ooxml.getValidator(this.createManifest().getDocument()).isValid();
+        final String valid = ooxml.getValidator(this.createManifest().getDocument(), ignoreForeign).isValid();
         if (valid != null)
             res.put(Manifest.ENTRY_NAME, valid);
         return res;
@@ -916,13 +918,13 @@ public class ODPackage {
 
     static private final String checkStyles(ODXMLDocument doc, Element styles) {
         try {
-            final CollectionMap<String, String> stylesNames = getStylesNames(doc, styles, doc.getChild("automatic-styles"));
+            final SetMap<String, String> stylesNames = getStylesNames(doc, styles, doc.getChild("automatic-styles"));
             // text:style-name : text:p, text:span
             // table:style-name : table:table, table:row, table:column, table:cell
             // draw:style-name : draw:text-box
             // style:data-style-name : <style:style style:family="table-cell">
             // TODO check by family
-            final Set<String> names = new HashSet<String>(stylesNames.values());
+            final Set<String> names = new HashSet<String>(stylesNames.allValues());
             final Iterator attrs = doc.getXPath(".//@text:style-name | .//@table:style-name | .//@draw:style-name | .//@style:data-style-name | .//@style:list-style-name")
                     .selectNodes(doc.getDocument()).iterator();
             while (attrs.hasNext()) {
@@ -939,9 +941,9 @@ public class ODPackage {
         return null;
     }
 
-    static private final CollectionMap<String, String> getStylesNames(final ODXMLDocument doc, final Element styles, final Element autoStyles) throws IllegalStateException {
+    static private final SetMap<String, String> getStylesNames(final ODXMLDocument doc, final Element styles, final Element autoStyles) throws IllegalStateException {
         // section 14.1 § Style Name : style:family + style:name is unique
-        final CollectionMap<String, String> res = new CollectionMap<String, String>(HashSet.class);
+        final SetMap<String, String> res = new SetMap<String, String>();
 
         final List<Element> nodes = new ArrayList<Element>();
         if (styles != null)
@@ -958,7 +960,7 @@ public class ODPackage {
                     final String family = attr.getParent().getAttributeValue("family", attr.getNamespace());
                     if (res.getNonNull(family).contains(styleName))
                         throw new IllegalStateException("duplicate style in " + family + " :  " + styleName);
-                    res.put(family, styleName);
+                    res.add(family, styleName);
                 }
             }
             {
@@ -972,7 +974,7 @@ public class ODPackage {
                 final Iterator listIter = doc.getXPath("./text:list-style | " + xpDataStyles).selectNodes(nodes).iterator();
                 while (listIter.hasNext()) {
                     final Element elem = (Element) listIter.next();
-                    res.put(elem.getQualifiedName(), elem.getAttributeValue("name", doc.getVersion().getSTYLE()));
+                    res.add(elem.getQualifiedName(), elem.getAttributeValue("name", doc.getVersion().getSTYLE()));
                 }
             }
         } catch (JDOMException e) {
@@ -1157,6 +1159,12 @@ public class ODPackage {
         return manifest;
     }
 
+    /**
+     * Save this package to the passed stream.
+     * 
+     * @param out the stream to write to, it will be closed.
+     * @throws IOException if an error occurs.
+     */
     public final void save(OutputStream out) throws IOException {
         // from 22.2.1 (D1.2)
         if (this.isSingle()) {

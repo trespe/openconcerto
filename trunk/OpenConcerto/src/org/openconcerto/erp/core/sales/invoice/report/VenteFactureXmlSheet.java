@@ -14,13 +14,11 @@
  package org.openconcerto.erp.core.sales.invoice.report;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.generationDoc.AbstractSheetXMLWithDate;
 import org.openconcerto.erp.preferences.PrinterNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLTable;
-
-import java.util.List;
 
 public class VenteFactureXmlSheet extends AbstractSheetXMLWithDate {
 

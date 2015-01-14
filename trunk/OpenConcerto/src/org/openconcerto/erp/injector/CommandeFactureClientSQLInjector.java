@@ -28,9 +28,9 @@ public class CommandeFactureClientSQLInjector extends SQLInjector {
         final SQLTable tableCommande = getSource();
         final SQLTable tableFacture = getDestination();
         map(tableCommande.getField("ID_CLIENT"), tableFacture.getField("ID_CLIENT"));
-        map(tableCommande.getField("NOM"), tableFacture.getField("NOM"));
-        map(tableCommande.getField("INFOS"), tableFacture.getField("INFOS"));
-
+        if (tableCommande.getTable().contains("ID_POLE_PRODUIT")) {
+            map(tableCommande.getField("ID_POLE_PRODUIT"), tableFacture.getField("ID_POLE_PRODUIT"));
+        }
     }
 
     @Override
@@ -41,7 +41,9 @@ public class CommandeFactureClientSQLInjector extends SQLInjector {
         final SQLTable tableElementSource = getSource().getTable("COMMANDE_CLIENT_ELEMENT");
         final SQLTable tableElementDestination = getSource().getTable("SAISIE_VENTE_FACTURE_ELEMENT");
         final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
-
+        transfertReference(srcRow, rowVals, "NOM", "NOM");
+        transfertReference(srcRow, rowVals, "INFOS", "INFOS");
+        transfertNumberReference(srcRow, rowVals, tableElementDestination, "ID_SAISIE_VENTE_FACTURE");
         if (myListItem.size() != 0) {
             final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);
             for (SQLRowAccessor rowElt : myListItem) {

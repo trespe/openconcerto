@@ -14,6 +14,7 @@
  package org.openconcerto.erp.graph;
 
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.utils.GestionDevise;
 
 import java.awt.Color;
@@ -42,7 +43,7 @@ import org.jopenchart.ChartPanel;
 import org.jopenchart.DataModelListener;
 import org.jopenchart.barchart.VerticalGroupBarChart;
 
-public class GraphCAPanel extends JPanel implements ChangeListener {
+public class GraphCAPanel extends JPanel implements ChangeListener, DataModelListener {
     private final JSpinner s1 = new JSpinner();
     private final JSpinner s2 = new JSpinner();
     private final JSpinner s3 = new JSpinner();
@@ -50,6 +51,7 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
     private CADataModel model2;
     private CADataModel model3;
     private final VerticalGroupBarChart chart = new VerticalGroupBarChart();
+    private JLabel title = new JLabelBold("-");
 
     /**
      * Chiffres d'affaires, affichés en barres
@@ -59,6 +61,12 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
 
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
+        c.insets = new Insets(4, 6, 4, 4);
+        this.setBackground(Color.WHITE);
+        title.setOpaque(false);
+        this.add(title, c);
+        c.gridy++;
+
         c.insets = new Insets(0, 0, 0, 0);
 
         List<Color> colors = new ArrayList<Color>();
@@ -116,6 +124,7 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
                 return axisX.getLabels().get(chart.getHighlight().getIndexOnModel()).getLabel() + " " + m.getYear() + ": " + n.longValue() + " €";
             }
         };
+        panel.setBackground(Color.WHITE);
         this.add(panel, c);
 
         c.gridy++;
@@ -148,6 +157,11 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
         s1.addChangeListener(this);
         s2.addChangeListener(this);
         s3.addChangeListener(this);
+
+        model1.addDataModelListener(this);
+        model2.addDataModelListener(this);
+        model3.addDataModelListener(this);
+        updateTitle();
     }
 
     private void addLeftAxisUpdater(final CADataModel model) {
@@ -213,5 +227,26 @@ public class GraphCAPanel extends JPanel implements ChangeListener {
             });
 
         }
+    }
+
+    @Override
+    public void dataChanged() {
+        SwingUtilities.invokeLater(new Runnable() {
+
+            @Override
+            public void run() {
+                updateTitle();
+
+            }
+        });
+
+    }
+
+    protected void updateTitle() {
+        String s = "          ";
+        s += this.s1.getValue().toString() + " : " + this.model1.getTotal() + " €     ";
+        s += this.s2.getValue().toString() + " : " + this.model2.getTotal() + " €     ";
+        s += this.s3.getValue().toString() + " : " + this.model3.getTotal() + " €";
+        this.title.setText(s);
     }
 }

@@ -13,7 +13,7 @@
  
  package org.openconcerto.erp.core.sales.quote.action;
 
-import org.openconcerto.erp.action.CreateFrameAbstractAction;
+import org.openconcerto.erp.action.CreateListFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.IListFilterDatePanel;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
@@ -62,12 +62,13 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.JOptionPane;
 import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 import javax.swing.SwingConstants;
 import javax.swing.table.DefaultTableCellRenderer;
 
-public class ListeDesDevisAction extends CreateFrameAbstractAction implements MouseListener {
+public class ListeDesDevisAction extends CreateListFrameAbstractAction implements MouseListener {
 
     DateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
@@ -79,6 +80,10 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
 
     IListFrame frame = null;
     final DevisSQLElement element = (DevisSQLElement) Configuration.getInstance().getDirectory().getElement("DEVIS");
+
+    public String getTableName() {
+        return "DEVIS";
+    }
 
     public JFrame createFrame() {
             final String pluralName = this.element.getPluralName();
@@ -128,6 +133,8 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
                                     }
                                     ooConnexion.loadDocument(file, false);
 
+                                } catch (LinkageError ex) {
+                                    JOptionPane.showMessageDialog(new JFrame(), "Merci d'installer OpenOffice ou LibreOffice");
                                 } catch (Exception ex) {
                                     ex.printStackTrace();
                                     ExceptionHandler.handle("Impossible de charger le document OpenOffice", ex);
@@ -202,4 +209,5 @@ public class ListeDesDevisAction extends CreateFrameAbstractAction implements Mo
 
     public void mouseExited(MouseEvent e) {
     }
+
 }

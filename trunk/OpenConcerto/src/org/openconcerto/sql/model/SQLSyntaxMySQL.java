@@ -14,15 +14,17 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.model.SQLField.Properties;
-import org.openconcerto.sql.model.SQLTable.Index;
+import org.openconcerto.sql.model.SQLTable.SQLIndex;
 import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.model.graph.TablesMap;
+import org.openconcerto.sql.utils.ChangeTable;
 import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
 import org.openconcerto.sql.utils.SQLUtils;
 import org.openconcerto.sql.utils.SQLUtils.SQLFactory;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.ListMap;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.cc.ITransformer;
@@ -64,18 +66,18 @@ class SQLSyntaxMySQL extends SQLSyntax {
 
     SQLSyntaxMySQL() {
         super(SQLSystem.MYSQL);
-        this.typeNames.putAll(Boolean.class, "boolean", "bool", "bit");
-        this.typeNames.putAll(Short.class, "smallint");
-        this.typeNames.putAll(Integer.class, "integer", "int");
-        this.typeNames.putAll(Long.class, "bigint");
-        this.typeNames.putAll(BigDecimal.class, "decimal", "numeric");
-        this.typeNames.putAll(Float.class, "float");
-        this.typeNames.putAll(Double.class, "double precision", "real");
-        this.typeNames.putAll(Timestamp.class, "timestamp");
-        this.typeNames.putAll(java.util.Date.class, "time");
-        this.typeNames.putAll(Blob.class, "blob", "tinyblob", "mediumblob", "longblob", "varbinary", "binary");
-        this.typeNames.putAll(Clob.class, "text", "tinytext", "mediumtext", "longtext", "varchar", "char");
-        this.typeNames.putAll(String.class, "varchar", "char");
+        this.typeNames.addAll(Boolean.class, "boolean", "bool", "bit");
+        this.typeNames.addAll(Short.class, "smallint");
+        this.typeNames.addAll(Integer.class, "integer", "int");
+        this.typeNames.addAll(Long.class, "bigint");
+        this.typeNames.addAll(BigDecimal.class, "decimal", "numeric");
+        this.typeNames.addAll(Float.class, "float");
+        this.typeNames.addAll(Double.class, "double precision", "real");
+        this.typeNames.addAll(Timestamp.class, "timestamp");
+        this.typeNames.addAll(java.util.Date.class, "time");
+        this.typeNames.addAll(Blob.class, "blob", "tinyblob", "mediumblob", "longblob", "varbinary", "binary");
+        this.typeNames.addAll(Clob.class, "text", "tinytext", "mediumtext", "longtext", "varchar", "char");
+        this.typeNames.addAll(String.class, "varchar", "char");
     }
 
     public String getIDType() {
@@ -103,6 +105,12 @@ class SQLSyntaxMySQL extends SQLSyntax {
     }
 
     @Override
+    public int getMaximumVarCharLength() {
+        // http://dev.mysql.com/doc/refman/5.0/en/char.html
+        return (65535 - 2) / SQLSyntaxPG.MAX_BYTES_PER_CHAR;
+    }
+
+    @Override
     protected Tuple2<Boolean, String> getCast() {
         return null;
     }
@@ -115,7 +123,7 @@ class SQLSyntaxMySQL extends SQLSyntax {
     @Override
     public String transfDefaultJDBC2SQL(SQLField f) {
         final Class<?> javaType = f.getType().getJavaType();
-        String res = (String) f.getDefaultValue();
+        String res = f.getDefaultValue();
         if (res == null)
             // either no default or NULL default
             // see http://dev.mysql.com/doc/refman/5.0/en/data-type-defaults.html
@@ -190,13 +198,21 @@ class SQLSyntaxMySQL extends SQLSyntax {
     }
 
     @Override
-    protected String getCreateIndex(String cols, SQLName tableName, Index i) {
+    protected String getCreateIndex(String cols, SQLName tableName, SQLIndex i) {
         final String method = i.getMethod() != null ? " USING " + i.getMethod() : "";
         return super.getCreateIndex(cols, tableName, i) + method;
     }
 
     @Override
-    public List<String> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
+    public boolean isUniqueException(SQLException exn) {
+        final SQLException e = SQLUtils.findWithSQLState(exn);
+        // 1062 is the real "Duplicate entry" error, 1305 happens when we emulate partial unique
+        // constraint
+        return e.getErrorCode() == 1062 || (e.getErrorCode() == 1305 && e.getMessage().contains(ChangeTable.MYSQL_FAKE_PROCEDURE + " does not exist"));
+    }
+
+    @Override
+    public Map<ClauseType, List<String>> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
         final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
         final String newType = toAlter.contains(Properties.TYPE) ? type : getType(f);
         String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, newType);
@@ -204,7 +220,7 @@ class SQLSyntaxMySQL extends SQLSyntax {
         if (!newNullable && newDef != null && newDef.trim().toUpperCase().equals("NULL"))
             newDef = null;
 
-        return Collections.singletonList("MODIFY COLUMN " + f.getQuotedName() + " " + getFieldDecl(newType, newDef, newNullable));
+        return ListMap.singleton(ClauseType.ALTER_COL, "MODIFY COLUMN " + f.getQuotedName() + " " + getFieldDecl(newType, newDef, newNullable));
     }
 
     @Override
@@ -218,14 +234,14 @@ class SQLSyntaxMySQL extends SQLSyntax {
     }
 
     @Override
-    protected void _storeData(final SQLTable t, final File file) {
+    protected void _storeData(final SQLTable t, final File file) throws IOException {
         checkServerLocalhost(t);
-        final CollectionMap<String, String> charsets = new CollectionMap<String, String>();
+        final ListMap<String, String> charsets = new ListMap<String, String>();
         for (final SQLField f : t.getFields()) {
             final Object charset = f.getInfoSchema().get("CHARACTER_SET_NAME");
             // non string field
             if (charset != null)
-                charsets.put(charset, f.getName());
+                charsets.add(charset.toString(), f.getName());
         }
         if (charsets.size() > 1)
             // MySQL dumps strings in binary, so fields must be consistent otherwise the
@@ -240,22 +256,25 @@ class SQLSyntaxMySQL extends SQLSyntax {
                 return base.quoteString(input.getName());
             }
         });
+        final File tmp = File.createTempFile(SQLSyntaxMySQL.class.getSimpleName() + "storeData", ".txt");
+        // MySQL cannot overwrite files. Also on Windows tmp is in the user profile which the
+        // service cannot access ; conversely tmpdir of MySQL is not readable by normal users,
+        // in that case grant traverse and write permission to MySQL (e.g. Network Service).
+        tmp.delete();
+        final SQLSelect sel = new SQLSelect(true).addSelectStar(t);
+        // store the data in the temp file
+        base.getDataSource().execute("SELECT " + cols + " UNION " + sel.asString() + " INTO OUTFILE " + base.quoteString(tmp.getAbsolutePath()) + " " + getDATA_OPTIONS(base) + ";");
+        // then read it to remove superfluous escape char and convert to utf8
+        final BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(tmp), charset));
+        Writer w = null;
         try {
-            final File tmp = File.createTempFile(SQLSyntaxMySQL.class.getSimpleName() + "storeData", ".txt");
-            // mysql cannot overwrite files
-            tmp.delete();
-            final SQLSelect sel = new SQLSelect(true).addSelectStar(t);
-            // store the data in the temp file
-            base.getDataSource().execute("SELECT " + cols + " UNION " + sel.asString() + " INTO OUTFILE " + base.quoteString(tmp.getAbsolutePath()) + " " + getDATA_OPTIONS(base) + ";");
-            // then read it to remove superfluous escape char and convert to utf8
-            final BufferedReader r = new BufferedReader(new InputStreamReader(new FileInputStream(tmp), charset));
-            final Writer w = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), "UTF8"));
+            w = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), StringUtils.UTF8));
             normalizeData(r, w, 1000 * 1024);
+        } finally {
             r.close();
-            w.close();
+            if (w != null)
+                w.close();
             tmp.delete();
-        } catch (IOException e) {
-            throw new IllegalStateException(e);
         }
     }
 
@@ -329,8 +348,8 @@ class SQLSyntaxMySQL extends SQLSyntax {
     }
 
     @Override
-    public SQLBase createBase(SQLServer server, String name, String login, String pass, IClosure<SQLDataSource> dsInit) {
-        return new MySQLBase(server, name, login, pass, dsInit);
+    SQLBase createBase(SQLServer server, String name, final IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+        return new MySQLBase(server, name, systemRootInit, login, pass, dsInit);
     }
 
     @Override
@@ -423,7 +442,7 @@ class SQLSyntaxMySQL extends SQLSyntax {
     @Override
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException {
-        final String sel = "SELECT null as \"TABLE_SCHEMA\", c.\"TABLE_NAME\", c.\"CONSTRAINT_NAME\", tc.\"CONSTRAINT_TYPE\", \"COLUMN_NAME\", c.\"ORDINAL_POSITION\"\n"
+        final String sel = "SELECT null as \"TABLE_SCHEMA\", c.\"TABLE_NAME\", c.\"CONSTRAINT_NAME\", tc.\"CONSTRAINT_TYPE\", \"COLUMN_NAME\", c.\"ORDINAL_POSITION\", NULL as \"DEFINITION\"\n"
                 // from
                 + " FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE c\n"
                 // "-- sub-select otherwise at least 15s\n" +

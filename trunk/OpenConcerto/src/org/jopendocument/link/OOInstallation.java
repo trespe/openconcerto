@@ -22,6 +22,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -37,6 +38,8 @@ import java.util.regex.Pattern;
  * @see #getInstance()
  */
 public class OOInstallation {
+
+    public static final String PREFER_OPENOFFICE = "preferOpenOffice";
 
     private static OOInstallation instance;
 
@@ -88,8 +91,17 @@ public class OOInstallation {
 
     // handle windows x64
     private static String findRootPath() {
-        final String[] rootPaths = { "HKEY_LOCAL_MACHINE\\SOFTWARE\\LibreOffice", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\LibreOffice", "HKEY_LOCAL_MACHINE\\SOFTWARE\\OpenOffice.org",
+        final String[] loRootPaths = { "HKEY_LOCAL_MACHINE\\SOFTWARE\\LibreOffice", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\LibreOffice" };
+        final String[] ooRootPaths = { "HKEY_LOCAL_MACHINE\\SOFTWARE\\OpenOffice", "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\OpenOffice", "HKEY_LOCAL_MACHINE\\SOFTWARE\\OpenOffice.org",
                 "HKEY_LOCAL_MACHINE\\SOFTWARE\\Wow6432Node\\OpenOffice.org" };
+        final List<String> rootPaths = new ArrayList<String>(loRootPaths.length + ooRootPaths.length);
+        if (Boolean.getBoolean(PREFER_OPENOFFICE)) {
+            rootPaths.addAll(Arrays.asList(ooRootPaths));
+            rootPaths.addAll(Arrays.asList(loRootPaths));
+        } else {
+            rootPaths.addAll(Arrays.asList(loRootPaths));
+            rootPaths.addAll(Arrays.asList(ooRootPaths));
+        }
         for (final String p : rootPaths) {
             if (DesktopEnvironment.test("reg", "query", p))
                 return p;
@@ -99,7 +111,8 @@ public class OOInstallation {
 
     private static File findBundleDir() throws IOException {
         final Mac de = (Mac) DesktopEnvironment.getDE();
-        for (final String bundleID : new String[] { LOBundleID, OOBundleID }) {
+        final String[] bundleIDs = Boolean.getBoolean(PREFER_OPENOFFICE) ? new String[] { OOBundleID, LOBundleID } : new String[] { LOBundleID, OOBundleID };
+        for (final String bundleID : bundleIDs) {
             final File url = de.getAppDir(bundleID);
             if (url != null)
                 return url;
@@ -185,7 +198,7 @@ public class OOInstallation {
 
             final String layerPath;
             if (!libreOffice) {
-                layerPath = "\\Layers\\OpenOffice.org";
+                layerPath = rootPath.contains("OpenOffice.org") ? "\\Layers\\OpenOffice.org" : "\\Layers\\OpenOffice";
             } else if (DesktopEnvironment.test("reg", "query", rootPath + "\\Layers")) {
                 layerPath = "\\Layers\\LibreOffice";
             } else {

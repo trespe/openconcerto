@@ -26,8 +26,15 @@ public class FormatedGlobalQtyTotalProvider implements SpreadSheetCellValueProvi
 
     private final boolean shortName;
 
-    private FormatedGlobalQtyTotalProvider(boolean shortName) {
+    private static enum Type {
+        NORMAL, SHIPMENT
+    }
+
+    private final Type type;
+
+    private FormatedGlobalQtyTotalProvider(Type t, boolean shortName) {
         this.shortName = shortName;
+        this.type = t;
     }
 
     public Object getValue(SpreadSheetCellValueContext context) {
@@ -37,29 +44,32 @@ public class FormatedGlobalQtyTotalProvider implements SpreadSheetCellValueProvi
             return null;
         }
 
-        final int qte = row.getInt("QTE");
+        final int qte = row.getInt(this.type == Type.NORMAL ? "QTE" : "QTE_LIVREE");
 
         if (row.getInt("ID_UNITE_VENTE") == UniteVenteArticleSQLElement.A_LA_PIECE) {
             return String.valueOf(qte);
         }
         String result = "";
-        if (qte > 1) {
-            result += qte + " x ";
-        }
-        final BigDecimal qteUV = row.getBigDecimal("QTE_UNITAIRE");
+        if (qte > 0) {
+            if (qte > 1) {
+                result += qte + " x ";
+            }
+            final BigDecimal qteUV = row.getBigDecimal("QTE_UNITAIRE");
 
-        result += NumericFormat.getQtyDecimalFormat().format(qteUV);
-        final SQLRowAccessor rMode = row.getForeign("ID_UNITE_VENTE");
-        result += " " + ((this.shortName) ? rMode.getString("CODE") : rMode.getString("NOM"));
-        // 3 x 5.5 meters
-        // 1 x 6.3 meters -> 6.3 meters
+            result += NumericFormat.getQtyDecimalFormat().format(qteUV);
+            final SQLRowAccessor rMode = row.getForeign("ID_UNITE_VENTE");
+            result += " " + ((this.shortName) ? rMode.getString("CODE") : rMode.getString("NOM"));
+            // 3 x 5.5 meters
+            // 1 x 6.3 meters -> 6.3 meters
+        }
         return result;
 
     }
 
     public static void register() {
-        SpreadSheetCellValueProviderManager.put("supplychain.element.qtyunit.short", new FormatedGlobalQtyTotalProvider(true));
-        SpreadSheetCellValueProviderManager.put("supplychain.element.qtyunit", new FormatedGlobalQtyTotalProvider(false));
+        SpreadSheetCellValueProviderManager.put("supplychain.element.qtyunit.short", new FormatedGlobalQtyTotalProvider(Type.NORMAL, true));
+        SpreadSheetCellValueProviderManager.put("supplychain.element.qtyunit", new FormatedGlobalQtyTotalProvider(Type.NORMAL, false));
+        SpreadSheetCellValueProviderManager.put("supplychain.element.qtyunit.deliver.short", new FormatedGlobalQtyTotalProvider(Type.SHIPMENT, true));
+        SpreadSheetCellValueProviderManager.put("supplychain.element.qtyunit.deliver", new FormatedGlobalQtyTotalProvider(Type.SHIPMENT, false));
     }
-
 }

@@ -14,62 +14,59 @@
  package org.openconcerto.openoffice.text;
 
 import org.openconcerto.openoffice.ODDocument;
-import org.openconcerto.openoffice.Style;
-import org.openconcerto.openoffice.XMLVersion;
+import org.openconcerto.openoffice.ODPackage;
+import org.openconcerto.openoffice.XMLFormatVersion;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import org.jdom.Attribute;
 import org.jdom.Element;
-import org.jdom.JDOMException;
-import org.jdom.xpath.XPath;
 
 /**
  * A text paragraph, the basic unit of text. See §4.1 of the OpenDocument specification.
  */
 public class Paragraph extends TextNode<ParagraphStyle> {
 
-    static Element createEmpty(XMLVersion ns) {
-        return new Element("p", ns.getTEXT());
-    }
+    public static final TextNodeDesc<?> NODE_DESC = new TextNodeDesc<Paragraph>(Paragraph.class) {
 
-    static private XPath textStylesPath = null;
-
-    static private Set<String> getTextStyles(final Element elem) {
-        final Set<String> res = new HashSet<String>();
-        synchronized (Paragraph.class) {
-            if (textStylesPath == null)
-                try {
-                    textStylesPath = XPath.newInstance(".//text:span/@text:style-name");
-                } catch (JDOMException e) {
-                    // shouldn't happen since it's a constant
-                    throw new IllegalStateException(e);
-                }
-            try {
-                for (final Object o : textStylesPath.selectNodes(elem))
-                    res.add(((Attribute) o).getValue());
-            } catch (JDOMException e) {
-                throw new IllegalArgumentException("could'nt evaluate with " + elem, e);
-            }
+        @Override
+        public Element createProto(XMLFormatVersion vers) {
+            return new Element("p", vers.getXMLVersion().getTEXT());
         }
-        return res;
+
+        @Override
+        public Paragraph wrapNode(ODDocument doc, Element e) {
+            return new Paragraph(e, doc);
+        }
+
+        @Override
+        protected Paragraph wrapNode(XMLFormatVersion vers, Element elem) {
+            return new Paragraph(elem, vers);
+        }
+    };
+
+    static public Element createEmpty(XMLFormatVersion ns) {
+        return NODE_DESC.createEmptyElement(ns);
     }
 
-    Paragraph(Element elem, TextDocument parent) {
+    // not public since, local element cannot be checked against vers
+    protected Paragraph(Element local, final XMLFormatVersion vers) {
+        super(local, ParagraphStyle.class, vers);
+    }
+
+    public Paragraph(Element elem, ODDocument parent) {
         super(elem, ParagraphStyle.class, parent);
     }
 
-    public Paragraph(Element elem) {
-        this(elem, null);
+    public Paragraph(Element elem, ODPackage pkg) {
+        this(elem, pkg.getFormatVersion());
+        if (pkg.getXMLFile(elem.getDocument()) == null)
+            throw new IllegalArgumentException("Element not in package");
     }
 
-    public Paragraph(XMLVersion ns) {
-        this(createEmpty(ns));
+    public Paragraph(XMLFormatVersion ns) {
+        this(createEmpty(ns), ns);
     }
 
     public Paragraph() {
-        this(XMLVersion.getDefault());
+        this(XMLFormatVersion.getDefault());
     }
 
     public Paragraph(String text) {
@@ -90,40 +87,6 @@ public class Paragraph extends TextNode<ParagraphStyle> {
             return null;
         else
             return getStyle(condName);
-    }
-
-    public final void addContent(String text) {
-        this.getElement().addContent(text);
-    }
-
-    public final void addTab() {
-        this.getElement().addContent(new Element("tab", getElement().getNamespace()));
-    }
-
-    public final void addStyledContent(String text, String styleName) {
-        if (styleName.equals(getStyleName())) {
-            this.addContent(text);
-        } else {
-            final Element span = new Element("span", getElement().getNamespace());
-            span.setAttribute("style-name", styleName, getElement().getNamespace());
-            span.addContent(text);
-            getElement().addContent(span);
-        }
-    }
-
-    private final Set<String> getUsedTextStyles() {
-        return getTextStyles(getElement());
-    }
-
-    @Override
-    protected void checkDocument(ODDocument doc) {
-        if (this.getStyleName() != null && getStyle(doc.getPackage(), doc.getContentDocument()) == null)
-            throw new IllegalArgumentException("unknown style " + getStyleName() + " in " + doc);
-        for (final String styleName : this.getUsedTextStyles()) {
-            if (doc.getPackage().getStyle(Style.getStyleDesc(TextStyle.class, doc.getVersion()), styleName) == null) {
-                throw new IllegalArgumentException(this + " is using a text:span with an undefined style : " + styleName);
-            }
-        }
     }
 
     @Override

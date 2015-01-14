@@ -19,13 +19,12 @@ import org.openconcerto.erp.core.sales.pos.io.TicketPrinter;
 import org.openconcerto.erp.core.sales.pos.model.Article;
 import org.openconcerto.erp.core.sales.pos.model.Paiement;
 import org.openconcerto.erp.core.sales.pos.model.Ticket;
+import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
 
 import java.awt.event.KeyEvent;
 import java.util.ArrayList;
 import java.util.List;
-
-import javax.swing.JOptionPane;
 
 public class CaisseControler implements BarcodeListener {
 
@@ -48,7 +47,7 @@ public class CaisseControler implements BarcodeListener {
         this.t.addPaiement(this.p2);
         this.t.addPaiement(this.p3);
 
-        this.r = new BarcodeReader();
+        this.r = new BarcodeReader(Caisse.getScanDelay());
         this.r.start();
         this.r.addBarcodeListener(this);
 
@@ -128,7 +127,7 @@ public class CaisseControler implements BarcodeListener {
 
     // Totaux
     public int getTotal() {
-        return this.t.getTotal();
+        return this.t.getTotalInCents();
     }
 
     public int getPaidTotal() {
@@ -189,12 +188,11 @@ public class CaisseControler implements BarcodeListener {
             if (a != null) {
                 this.incrementArticle(a);
                 this.setArticleSelected(a);
-            }
-            Ticket t = Ticket.getTicketFromCode(code);
-            if (t != null) {
-                caisseFrame.showTickets(t);
             } else {
-                JOptionPane.showMessageDialog(this.caisseFrame, "Ticket " + code + " introuvable, peut-être a-t-il été importé ou effacé.");
+                Ticket t = Ticket.getTicketFromCode(code);
+                if (t != null) {
+                    caisseFrame.showTickets(t);
+                }
             }
         }
 
@@ -245,7 +243,7 @@ public class CaisseControler implements BarcodeListener {
     }
 
     public void saveAndClearTicket() {
-        if (this.t.getTotal() > 0) {
+        if (this.t.getTotalInCents() > 0) {
             if (this.getPaidTotal() >= this.getTotal()) {
                 this.t.save();
                 t = new Ticket(Caisse.getID());
@@ -267,7 +265,7 @@ public class CaisseControler implements BarcodeListener {
     }
 
     public void printTicket() {
-        if (this.t.getTotal() > 0) {
+        if (this.t.getTotalInCents() > 0) {
             if (this.getPaidTotal() >= this.getTotal()) {
                 final TicketPrinter prt = Caisse.getTicketPrinter();
                 t.print(prt);
@@ -284,8 +282,13 @@ public class CaisseControler implements BarcodeListener {
             final TicketPrinter prt = Caisse.getTicketPrinter();
             prt.openDrawer();
         } catch (Exception e) {
-            e.printStackTrace();
+            ExceptionHandler.handle("Drawer error", e);
         }
+
+    }
+
+    public void switchListMode() {
+        caisseFrame.t.switchListMode();
 
     }
 }

@@ -37,7 +37,6 @@ import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
-import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
@@ -51,9 +50,11 @@ import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.users.rights.TableAllRights;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.users.rights.UserRightsManager.RightTuple;
+import org.openconcerto.sql.utils.BackupPanel;
 import org.openconcerto.task.config.ComptaBasePropsConfiguration;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
+import org.openconcerto.ui.component.MutableListComboPopupListener;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.JImage;
 import org.openconcerto.utils.cc.IClosure;
@@ -65,7 +66,6 @@ import java.awt.GridBagLayout;
 import java.awt.Image;
 import java.awt.Insets;
 import java.io.InputStream;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -95,8 +95,6 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
         // needed as done() must come after us
         assert SwingUtilities.isEventDispatchThread();
         final ComptaPropsConfiguration comptaPropsConfiguration = ((ComptaPropsConfiguration) Configuration.getInstance());
-
-        // Vérification de la licence
 
         Runnable r = new Runnable() {
 
@@ -139,6 +137,7 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                     }
                     // needed by openEmergencyModuleManager()
                     UserRightsManager.getInstance().addRightForAdmins(new RightTuple(ModuleManager.MODULE_DB_RIGHT, true));
+                    UserRightsManager.getInstance().addRightForAdmins(new RightTuple(BackupPanel.RIGHT_CODE, true));
                     // finish filling the configuration before going any further, otherwise the
                     // SQLElementDirectory is not coherent
                     ModuleManager.getInstance().setup(comptaPropsConfiguration.getRootSociete(), comptaPropsConfiguration);
@@ -151,7 +150,7 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                     }
                     MenuManager.setInstance((Gestion.isMinimalMode() ? new MinimalMenuConfiguration() : new DefaultMenuConfiguration()).createMenuAndActions());
 
-                    User user = UserManager.getInstance().getCurrentUser();
+                    final User user = UserManager.getInstance().getCurrentUser();
                     // Si l'utilisateur n'est pas superUser ou si il n'a pas de droit d'accéder
                     // à toutes les société
                     final int userId = user.getId();
@@ -199,6 +198,8 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                         public void run() {
                             // even for quick login, check the license before displaying the main
                             // frame
+
+                            MutableListComboPopupListener.setLockOverridable(user.getRights().isSuperUser());
 
                             StatusPanel.getInstance().fireStatusChanged();
                             final MainFrame f = new MainFrame();
@@ -249,40 +250,14 @@ public class NouvelleConnexionAction extends CreateFrameAbstractAction {
                     // don't close ConnexionPanel until the main frame is shown
                     showMainFrame.get();
                 } catch (Throwable e) {
+                    if (e.getMessage() != null && e.getMessage().contains("TR_BON_DE_LIVRAISON not found")) {
+                        JOptionPane.showMessageDialog(new JFrame(), "Votre base de données n'est pas à jour.\nUtilisez l'outil de configuration et pensez à l'achat du manuel!!!");
+                        return;
+                    }
                     ExceptionHandler.handle("Erreur de connexion", e);
                 }
             }
 
-            private void fixEcriture() {
-                // FIXME Bug archive ecriture (ecriture non archivé ayant un id_mouvement=1)
-                SQLElement elt = Configuration.getInstance().getDirectory().getElement("ECRITURE");
-                SQLSelect sel = new SQLSelect();
-                sel.addSelect(elt.getTable().getKey());
-
-                Where w = new Where(elt.getTable().getField("ID_MOUVEMENT"), "=", 1);
-                sel.setWhere(w);
-                System.err.println(sel.asString());
-                List<SQLRow> lerrors = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), new SQLRowListRSH(elt.getTable()));
-                for (SQLRow row : lerrors) {
-                    System.err.println("FIX ERROR ID_MOUVEMENT ON ECRITURE ROW " + row.getID());
-                    SQLRowValues rowVals = row.createEmptyUpdateRow();
-                    rowVals.put("ARCHIVE", 1);
-                    try {
-                        rowVals.update();
-                    } catch (SQLException e) {
-                        // TODO Auto-generated catch block
-                        e.printStackTrace();
-                    }
-
-                }
-
-                if (lerrors.size() > 0) {
-                    System.err.println(lerrors.size() + " erreurs");
-                    Thread.dumpStack();
-                    // JOptionPane.showMessageDialog(null, lerrors.size() +
-                    // " erreurs ont été trouvé et corrigé dans la base.");
-                }
-            }
         };
 
         final JImage image = new JImage(ComptaBasePropsConfiguration.class.getResource("logo.png"));

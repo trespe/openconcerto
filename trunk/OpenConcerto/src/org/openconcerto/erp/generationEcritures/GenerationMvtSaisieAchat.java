@@ -101,7 +101,9 @@ public class GenerationMvtSaisieAchat extends GenerationEcritures implements Run
         this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteAchat));
         this.mEcritures.put("DEBIT", new Long(prixHT.getLongValue()));
         this.mEcritures.put("CREDIT", new Long(0));
-        ajoutEcriture();
+        SQLRow rowEcr = ajoutEcriture();
+
+        addAssocAnalytiqueFromProvider(rowEcr, saisieRow);
 
         // compte TVA
         if (prixTVA.getLongValue() > 0) {

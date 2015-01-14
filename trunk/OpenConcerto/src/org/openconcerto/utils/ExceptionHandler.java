@@ -16,7 +16,8 @@
  */
 package org.openconcerto.utils;
 
-import static java.lang.System.getProperty;
+import org.openconcerto.utils.SystemInfo.Info;
+import org.openconcerto.utils.cc.IFactory;
 import org.openconcerto.utils.io.PercentEncoder;
 
 import java.awt.Component;
@@ -45,6 +46,7 @@ import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.Charset;
+import java.util.Map;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.logging.Level;
@@ -76,9 +78,20 @@ public class ExceptionHandler extends RuntimeException {
     private static final Pattern NL_PATTERN = Pattern.compile("\r?\n");
     private static final String ILM_CONTACT = "http://www.ilm-informatique.fr/contact";
     private static String ForumURL = null;
+    private static IFactory<String> SOFTWARE_INFOS = null;
 
     public static void setForumURL(String url) {
         ForumURL = url;
+    }
+
+    public synchronized static void setSoftwareInformations(final IFactory<String> f) {
+        SOFTWARE_INFOS = f;
+    }
+
+    public synchronized static String computeSoftwareInformations() {
+        if (SOFTWARE_INFOS == null)
+            return "";
+        return SOFTWARE_INFOS.createChecked();
     }
 
     static private void copyToClipboard(final String s) {
@@ -301,10 +314,12 @@ public class ExceptionHandler extends RuntimeException {
                         name = productInfo.getName();
                         version = productInfo.getProperty(ProductInfo.VERSION, version);
                     }
-                    final String java = getProperty("java.runtime.version") != null ? getProperty("java.runtime.version") : getProperty("java.version");
-                    final String os = getProperty("os.name") + " " + getProperty("os.version") + " (" + getProperty("os.arch") + ")";
+
+                    final Map<Info, String> systemInfos = SystemInfo.get(false);
+                    final String os = systemInfos.remove(Info.OS);
+                    final String java = systemInfos.toString();
                     final String encodedData = "java=" + PercentEncoder.encode(java, cs) + "&os=" + PercentEncoder.encode(os, cs) + "&software=" + PercentEncoder.encode(name + version, cs)
-                            + "&stack=" + PercentEncoder.encode(textArea.getText(), cs);
+                            + "&stack=" + PercentEncoder.encode(computeSoftwareInformations() + "\n\n" + textArea.getText(), cs);
                     final String request = "http://bugreport.ilm-informatique.fr:5000/bugreport";
                     final URL url = new URL(request);
                     final HttpURLConnection connection = (HttpURLConnection) url.openConnection();
@@ -413,7 +428,12 @@ public class ExceptionHandler extends RuntimeException {
                 al.actionPerformed(null);
             }
         });
-        f.setVisible(true);
+        try {
+            f.setVisible(true);
+        } catch (Exception e) {
+            // Catch to avoid infinite loop
+            e.printStackTrace();
+        }
     }
 
     private String getTrace() {

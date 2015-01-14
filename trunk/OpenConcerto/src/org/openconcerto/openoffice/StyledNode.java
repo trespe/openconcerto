@@ -13,6 +13,7 @@
  
  package org.openconcerto.openoffice;
 
+import org.jdom.Attribute;
 import org.jdom.Document;
 import org.jdom.Element;
 
@@ -30,11 +31,20 @@ public abstract class StyledNode<S extends Style, D extends ODDocument> extends 
         return Style.getStyleDesc(styleClass, XMLVersion.getVersion(local));
     }
 
-    static public final void setStyleName(final Element elem, final String name) {
-        if (name == null)
+    static public final Attribute setStyleName(final Element elem, final String name) {
+        if (name == null) {
             elem.removeAttribute("style-name", elem.getNamespace());
-        else
-            elem.setAttribute("style-name", name, elem.getNamespace());
+            return null;
+        } else {
+            Attribute res = elem.getAttribute("style-name", elem.getNamespace());
+            if (res == null) {
+                res = new Attribute("style-name", name, elem.getNamespace());
+                elem.setAttribute(res);
+            } else {
+                res.setValue(name);
+            }
+            return res;
+        }
     }
 
     private final StyleDesc<S> styleClass;
@@ -122,7 +132,7 @@ public abstract class StyledNode<S extends Style, D extends ODDocument> extends 
         return this.getElement().getAttributeValue("style-name", this.getElement().getNamespace());
     }
 
-    public final void setStyleName(final String name) {
-        setStyleName(this.getElement(), name);
+    public final Attribute setStyleName(final String name) {
+        return setStyleName(this.getElement(), name);
     }
 }

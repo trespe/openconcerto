@@ -48,11 +48,11 @@ public class JournauxMoisSheet extends JournauxSheet {
         this.mapStyleRow = new HashMap();
         String schema = ((ComptaPropsConfiguration) Configuration.getInstance()).getSocieteBaseName();
 
-        String select = "SELECT SUM(\"DEBIT\"), SUM(\"CREDIT\"), date_part('month', \"DATE\"), date_part('year', \"DATE\"),\"JOURNAL\".\"ID\" FROM \"" + schema + "\".\"ECRITURE\" , \"" + schema
+        String select = "SELECT SUM(\"DEBIT\"), SUM(\"CREDIT\"), EXTRACT(MONTH FROM \"DATE\"), EXTRACT(YEAR FROM \"DATE\"),\"JOURNAL\".\"ID\" FROM \"" + schema + "\".\"ECRITURE\" , \"" + schema
                 + "\".\"JOURNAL\" ";
 
-        String groupBy = " GROUP BY date_part('year', \"DATE\"), date_part('month', \"DATE\"),\"JOURNAL\".\"ID\"";
-        String orderBy = " ORDER BY \"JOURNAL\".\"ID\",date_part('year', \"DATE\"), date_part('month', \"DATE\")";
+        String groupBy = " GROUP BY EXTRACT(YEAR FROM \"DATE\"), EXTRACT(MONTH FROM \"DATE\"),\"JOURNAL\".\"ID\"";
+        String orderBy = " ORDER BY \"JOURNAL\".\"ID\",EXTRACT(YEAR FROM \"DATE\"), EXTRACT(MONTH FROM \"DATE\")";
         if (this.idS != null && this.idS.length > 0) {
             select += " WHERE";
             for (int i = 0; i < this.idS.length; i++) {

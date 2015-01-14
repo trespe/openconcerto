@@ -15,6 +15,8 @@
 
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.request.SQLRowItemView;
+import org.openconcerto.sql.sqlobject.SQLTextCombo.AbstractComboCacheSQL;
+import org.openconcerto.sql.sqlobject.SQLTextCombo.ITextComboCacheExistingValues;
 import org.openconcerto.sql.sqlobject.SQLTextCombo.ITextComboCacheSQL;
 import org.openconcerto.sql.sqlobject.itemview.RowItemViewComponent;
 import org.openconcerto.ui.component.ComboLockedMode;
@@ -27,6 +29,8 @@ import org.openconcerto.ui.component.combo.ISearchableTextCombo;
  * @author Sylvain CUAZ
  */
 public class SQLSearchableTextCombo extends ISearchableTextCombo implements RowItemViewComponent {
+
+    private boolean useFieldValues = false;
 
     public SQLSearchableTextCombo() {
         this(ComboLockedMode.UNLOCKED);
@@ -52,10 +56,39 @@ public class SQLSearchableTextCombo extends ISearchableTextCombo implements RowI
         super(mode, rows, columns, textArea);
     }
 
+    public final boolean getUseFieldValues() {
+        return this.useFieldValues;
+    }
+
+    /**
+     * Whether to use the existing values for the field or values listed in the
+     * {@link SQLTextCombo#getTableName() completion} table.
+     * 
+     * @param useFieldValues <code>true</code> to use existing values (thus incompatible with a
+     *        mutable list), <code>false</code> to use the completion table.
+     * @return this.
+     * @throws IllegalStateException if the cache is already
+     *         {@link #initCache(org.openconcerto.utils.model.IListModel) initialized} or if the mode
+     *         {@link ComboLockedMode#isListMutable()} and <code>useFieldValues</code> is
+     *         <code>true</code>.
+     */
+    public final SQLSearchableTextCombo setUseFieldValues(final boolean useFieldValues) {
+        if (this.getCache() != null)
+            throw new IllegalStateException("Cache already created");
+        if (this.useFieldValues != useFieldValues) {
+            if (useFieldValues && this.getMode().isListMutable())
+                throw new IllegalStateException("Cannot modify list when using field values");
+            this.useFieldValues = useFieldValues;
+        }
+        return this;
+    }
+
     @Override
     public void init(SQLRowItemView v) {
-        if (this.getCache() == null)
-            this.initCache(new ISQLListModel(v.getField()).load());
+        if (this.getCache() == null) {
+            final AbstractComboCacheSQL cache = this.useFieldValues ? new ITextComboCacheExistingValues(v.getField()) : new ITextComboCacheSQL(v.getField());
+            this.initCache(new ISQLListModel(cache).load());
+        }
     }
 
     /**
@@ -74,7 +107,7 @@ public class SQLSearchableTextCombo extends ISearchableTextCombo implements RowI
             this(new ITextComboCacheSQL(f));
         }
 
-        public ISQLListModel(final ITextComboCacheSQL c) {
+        public ISQLListModel(final AbstractComboCacheSQL c) {
             super(c);
         }
     }

@@ -21,15 +21,14 @@
  * @param <E> input type
  * @param <X> exception type
  */
-public abstract class ExnClosure<E, X extends Exception> extends ExnTransformer<E, Object, X> {
+public abstract class ExnClosure<E, X extends Exception> extends ExnTransformer<E, Object, X> implements IExnClosure<E, X> {
 
     public final void execute(Object input) {
         this.transform(input);
     }
 
     /**
-     * Execute this closure, making sure that an exception of type <code>exnClass</code> is
-     * thrown.
+     * Execute this closure, making sure that an exception of type <code>exnClass</code> is thrown.
      * 
      * @param <Y> type of exception to throw.
      * @param input the input of the closure.
@@ -47,5 +46,6 @@ public abstract class ExnClosure<E, X extends Exception> extends ExnTransformer<
         return null;
     }
 
+    @Override
     public abstract void executeChecked(E input) throws X;
 }

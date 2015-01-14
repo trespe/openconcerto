@@ -26,8 +26,8 @@ import org.openconcerto.sql.view.list.LineListener;
 import org.openconcerto.sql.view.list.ListAccess;
 import org.openconcerto.sql.view.list.ListSQLLine;
 import org.openconcerto.sql.view.search.SearchSpec;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.IFutureTask;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.RecursionType;
 import org.openconcerto.utils.SleepingQueue;
@@ -90,9 +90,9 @@ public final class SearchQueue extends SleepingQueue {
     }
 
     @Override
-    protected void dying() {
-        super.dying();
+    protected void willDie() {
         this.getModel().getLinesSource().rmLineListener(this.lineListener);
+        super.willDie();
     }
 
     /**
@@ -101,18 +101,18 @@ public final class SearchQueue extends SleepingQueue {
      * @param r the row that has changed.
      * @return the refreshed lines and their changed paths.
      */
-    public CollectionMap<ListSQLLine, Path> getAffectedLines(final SQLRow r) {
-        return this.execGetAffected(r, new CollectionMap<ListSQLLine, Path>(), true);
+    public ListMap<ListSQLLine, Path> getAffectedLines(final SQLRow r) {
+        return this.execGetAffected(r, new ListMap<ListSQLLine, Path>(), true);
     }
 
-    public CollectionMap<Path, ListSQLLine> getAffectedPaths(final SQLRow r) {
-        return this.execGetAffected(r, new CollectionMap<Path, ListSQLLine>(), false);
+    public ListMap<Path, ListSQLLine> getAffectedPaths(final SQLRow r) {
+        return this.execGetAffected(r, new ListMap<Path, ListSQLLine>(), false);
     }
 
-    private <K, V> CollectionMap<K, V> execGetAffected(final SQLRow r, final CollectionMap<K, V> res, final boolean byLine) {
-        return this.execute(new Callable<CollectionMap<K, V>>() {
+    private <K, V> ListMap<K, V> execGetAffected(final SQLRow r, final ListMap<K, V> res, final boolean byLine) {
+        return this.execute(new Callable<ListMap<K, V>>() {
             @Override
-            public CollectionMap<K, V> call() throws Exception {
+            public ListMap<K, V> call() throws Exception {
                 return getAffected(r, res, byLine);
             }
         });
@@ -136,7 +136,7 @@ public final class SearchQueue extends SleepingQueue {
     }
 
     // must be called from within this queue, as this method use fullList
-    private <K, V> CollectionMap<K, V> getAffected(final SQLRow r, CollectionMap<K, V> res, boolean byLine) {
+    private <K, V> ListMap<K, V> getAffected(final SQLRow r, ListMap<K, V> res, boolean byLine) {
         final SQLTable t = r.getTable();
         final int id = r.getID();
         if (id < SQLRow.MIN_VALID_ID)
@@ -175,15 +175,20 @@ public final class SearchQueue extends SleepingQueue {
                     }
                     if (put) {
                         // add to the list of paths that have been refreshed
-                        if (byLine)
-                            res.put(line, p);
-                        else
-                            res.put(p, line);
+                        add(byLine, res, p, line);
                     }
                 }
             }
         }
         return res;
+    }
+
+    @SuppressWarnings("unchecked")
+    <V, K> void add(boolean byLine, ListMap<K, V> res, final Path p, final ListSQLLine line) {
+        if (byLine)
+            res.add((K) line, (V) p);
+        else
+            res.add((K) p, (V) line);
     }
 
     private synchronized void changeFullList(final int id, final ListSQLLine modifiedLine, final Collection<Integer> modifiedCols) {

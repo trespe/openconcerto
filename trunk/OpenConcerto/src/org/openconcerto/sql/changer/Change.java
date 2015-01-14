@@ -17,6 +17,7 @@ import org.openconcerto.sql.PropsConfiguration;
 import org.openconcerto.sql.model.DBStructureItem;
 import org.openconcerto.sql.model.DBSystemRoot;
 import org.openconcerto.sql.model.SQLName;
+import org.openconcerto.utils.ProductInfo;
 import org.openconcerto.utils.StringUtils;
 
 import java.io.File;
@@ -36,36 +37,46 @@ public abstract class Change {
         props.put(PropsConfiguration.JDBC_CONNECTION + "allowMultiQueries", "true");
     }
 
-    protected final DBStructureItem<?> root;
-
-    protected Change(final DBStructureItem<?> root) {
-        this.root = root;
+    protected final void exec(String... nameNparams) throws SQLException, IOException {
+        this.exec((DBStructureItem<?>) null, nameNparams);
     }
 
-    public Change() throws IOException {
-        this(new PropsConfiguration(new File("changeBase.properties"), props).getRoot());
-    }
-
-    protected final void exec(String... nameNparams) throws SQLException {
+    protected final void exec(final DBStructureItem<?> root, String... nameNparams) throws SQLException, IOException {
         if (nameNparams.length == 0)
             throw new IllegalArgumentException("usage: " + this.getClass().getName() + " changer params...");
 
         final String[] params = new String[nameNparams.length - 1];
         System.arraycopy(nameNparams, 1, params, 0, params.length);
-        this.exec(nameNparams[0], params);
+        this.exec(root, nameNparams[0], params);
     }
 
-    protected final void exec(String changerName, String... params) throws SQLException {
+    // changerName can be a full class name (in this case it has to be in package) or simple class
+    // name (in that case the packages returned by getPackages() will be searched).
+    // params are SQLNames relative to this.root
+    private final void exec(final DBStructureItem<?> root, String changerName, String... params) throws SQLException, IOException {
         final Class<? extends Changer> changer = this.findClass(changerName);
         if (changer == null)
             throw new IllegalArgumentException(changerName + " not found.");
 
-        exec(changer, params);
+        // allow to use SQL structure cache
+        if (ProductInfo.getInstance() == null) {
+            ProductInfo.setInstance(new ProductInfo(changer.getName()));
+        }
+
+        if (root == null)
+            exec(changer, params);
+        else
+            exec(root, changer, params);
     }
 
-    public void exec(final Class<? extends Changer> changer, String... params) throws SQLException {
+    public void exec(final Class<? extends Changer> changer, String... params) throws IOException, SQLException {
+        final String pathname = System.getProperty("confFile", "changeBase.properties");
+        this.exec(new PropsConfiguration(new File(pathname), props).getRoot(), changer, params);
+    }
+
+    public void exec(final DBStructureItem<?> root, final Class<? extends Changer> changer, String... params) throws SQLException {
         if (params.length == 0) {
-            Changer.change(this.root, changer);
+            Changer.change(root, changer);
         } else {
             final List<SQLName> names = new ArrayList<SQLName>(params.length);
             final Set<String> children = new HashSet<String>();
@@ -74,25 +85,29 @@ public abstract class Change {
                 names.add(n);
                 children.add(n.getFirst());
             }
-            if (this.root instanceof DBSystemRoot) {
-                final DBSystemRoot sysRoot = (DBSystemRoot) this.root;
+            if (root instanceof DBSystemRoot) {
+                final DBSystemRoot sysRoot = (DBSystemRoot) root;
                 if (!sysRoot.getChildrenNames().containsAll(children))
                     sysRoot.addRoots(new ArrayList<String>(children));
             }
             for (final SQLName name : names)
-                Changer.change(this.root.getDescendant(name), changer);
+                Changer.change(root.getDescendant(name), changer);
         }
     }
 
     public final Class<? extends Changer> findClass(final String converter) {
-        final String normalized = StringUtils.firstUp(converter);
-        Class<? extends Changer> res = null;
-        for (final String pkg : this.getPackages()) {
-            res = this.findClass(pkg, normalized);
-            if (res != null)
-                return res;
+        if (converter.indexOf('.') > 0) {
+            return findClassFromFullName(converter);
+        } else {
+            final String normalized = StringUtils.firstUp(converter);
+            Class<? extends Changer> res = null;
+            for (final String pkg : this.getPackages()) {
+                res = this.findClass(pkg, normalized);
+                if (res != null)
+                    return res;
+            }
+            return null;
         }
-        return null;
     }
 
     protected List<String> getPackages() {
@@ -107,8 +122,12 @@ public abstract class Change {
     }
 
     protected final Class<? extends Changer> findClass(String pkgName, final String converter) {
+        return this.findClassFromFullName(pkgName + '.' + converter);
+    }
+
+    protected final Class<? extends Changer> findClassFromFullName(String className) {
         try {
-            final Class<?> c = Class.forName(pkgName + '.' + converter);
+            final Class<?> c = Class.forName(className);
             return c.asSubclass(Changer.class);
         } catch (ClassNotFoundException e) {
             return null;

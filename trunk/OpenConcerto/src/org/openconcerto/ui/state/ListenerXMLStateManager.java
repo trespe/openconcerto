@@ -16,6 +16,7 @@
 import org.openconcerto.ui.Log;
 import org.openconcerto.utils.FileUtils;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileInputStream;
@@ -86,32 +87,42 @@ public abstract class ListenerXMLStateManager<T, L extends EventListener> extend
         throw new UnsupportedOperationException("Override one of writeState() methods");
     }
 
+    protected File getBadFile(File file) {
+        return FileUtils.addSuffix(file, ".bad");
+    }
+
     @Override
     protected final boolean readState(File file) {
+        final DocumentBuilder docBuilder;
+        try {
+            final DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
+            docBuilder = docBuilderFactory.newDocumentBuilder();
+        } catch (ParserConfigurationException e) {
+            e.printStackTrace();
+            return false;
+        }
         final InputSource is = new InputSource();
         try {
             // don't use docBuilder.parse(File) : if an error occurs, the file isn't closed
-            is.setByteStream(new FileInputStream(file));
+            is.setByteStream(new BufferedInputStream(new FileInputStream(file)));
             is.setSystemId(file.toURI().toASCIIString());
 
-            DocumentBuilderFactory docBuilderFactory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder docBuilder = docBuilderFactory.newDocumentBuilder();
-            Document doc = docBuilder.parse(is);
+            final Document doc = docBuilder.parse(is);
+            // don't rely on parse() to close()
+            is.getByteStream().close();
 
             // normalize text representation
             doc.getDocumentElement().normalize();
 
             return this.readState(doc);
-
-        } catch (ParserConfigurationException t) {
-            t.printStackTrace();
         } catch (Exception t) {
             String msg = file + " is not valid";
             if (is.getByteStream() != null) {
-                final File newFile = new File(file.getParentFile(), file.getName() + ".bad");
+                final File newFile = getBadFile(file);
                 msg += ", trying to rename it to " + newFile + " : ";
                 try {
                     is.getByteStream().close();
+                    newFile.delete();
                     msg += file.renameTo(newFile);
                 } catch (IOException e) {
                     msg += e.getMessage();

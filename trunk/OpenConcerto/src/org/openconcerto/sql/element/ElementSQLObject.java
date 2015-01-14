@@ -40,7 +40,8 @@ import java.beans.PropertyChangeSupport;
  */
 public abstract class ElementSQLObject extends BaseSQLObject implements SQLForeignRowItemView {
 
-    protected boolean required;
+    private boolean required;
+    private boolean createdUIVisible = true;
     private final SQLComponent parent;
     private final SQLComponent comp;
 
@@ -95,6 +96,29 @@ public abstract class ElementSQLObject extends BaseSQLObject implements SQLForei
         this.required = required;
         if (this.required)
             this.setCreated(true);
+        uiChanged();
+    }
+
+    protected final boolean deleteAllowed() {
+        return !this.required;
+    }
+
+    /**
+     * Whether the UI to create and delete are visible. If the UI isn't visible, the creation must
+     * be managed by {@link #setCreated(boolean)}.
+     * 
+     * @param b <code>true</code> if the buttons should be visible, <code>false</code> to hide them.
+     */
+    public final void setCreatedUIVisible(boolean b) {
+        this.createdUIVisible = b;
+        uiChanged();
+    }
+
+    public final boolean isCreatedUIVisible() {
+        return this.createdUIVisible;
+    }
+
+    protected void uiChanged() {
     }
 
     /**
@@ -139,16 +163,17 @@ public abstract class ElementSQLObject extends BaseSQLObject implements SQLForei
         return this.created;
     }
 
+    @Override
     public void setValue(SQLRowAccessor r) {
         // a row with no ID is displayable but not the undefined row
-        final boolean displayableRow = r != null && r.getID() != r.getTable().getUndefinedID();
+        final boolean displayableRow = r != null && !r.isUndefined();
         if (displayableRow) {
             // d'abord setCreated, car il fait un reset()
             this.setCreated(true);
             this.setCurrentID(r);
         } else {
             // reset
-            this.setCreated(this.required);
+            this.setCreated(!this.deleteAllowed());
             this.setCurrentID(null);
         }
         compChanged();
@@ -215,8 +240,9 @@ public abstract class ElementSQLObject extends BaseSQLObject implements SQLForei
         return this.comp;
     }
 
+    @Override
     public String toString() {
-        return "ElementSQLObject on " + this.getField() + " created: " + this.isCreated() + " id: " + this.getCurrentID();
+        return "ElementSQLObject on " + this.getFields() + " created: " + this.isCreated() + " id: " + this.getCurrentID();
     }
 
     /**

@@ -142,7 +142,7 @@ public class Copy {
         DBRoot r = this.sysRoot.contains(rootName) ? this.sysRoot.getRoot(rootName) : null;
 
         if (!this.noStruct) {
-            System.err.print("Structure... ");
+            System.err.print("Structure of " + rootName + " ... ");
             if (this.store) {
                 if (r == null)
                     throw new IllegalArgumentException(rootName + " does not exist in " + this.sysRoot);
@@ -168,7 +168,11 @@ public class Copy {
                 }
             } else {
                 final SQLSystem system = this.sysRoot.getServer().getSQLSystem();
-                final String sql = FileUtils.read(getSQLFile(rootName, tableName, system), "UTF8");
+                String sql = FileUtils.readUTF8(getSQLFile(rootName, tableName, system));
+                // for tables export there's no CREATE SCHEMA generated
+                if (r == null && tableName != null) {
+                    sql = new SQLCreateRoot(SQLSyntax.get(this.sysRoot), rootName).asString() + ";\n" + sql;
+                }
                 // 'CREATE SCHEMA' doit être la première instruction d'un traitement de requêtes.
                 if (system == SQLSystem.MSSQL)
                     SQLUtils.executeScript(sql, this.sysRoot);
@@ -181,7 +185,7 @@ public class Copy {
         }
 
         if (!this.noData) {
-            System.err.println("Data... ");
+            System.err.println("Data of " + rootName + " ... ");
             final SQLSyntax syntax = this.sysRoot.getServer().getSQLSystem().getSyntax();
             final Set<String> tableNames = tableName == null ? null : singleton(tableName);
             // TODO support table with non-ASCII chars

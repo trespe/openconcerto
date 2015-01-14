@@ -23,9 +23,9 @@ public class Chart {
     // Colors
     protected List<Color> definedColors = new ArrayList<Color>(1);
 
-    private static final AreaRenderer DEFAULT_AREA_RENDER = new SolidAreaRenderer(Color.WHITE);
+    public static final AreaRenderer WHITE_BG_RENDERER = new SolidAreaRenderer(Color.WHITE);
 
-    private AreaRenderer bgRenderer = DEFAULT_AREA_RENDER;
+    private AreaRenderer bgRenderer;
 
     private Dimension dimension;
 
@@ -67,6 +67,10 @@ public class Chart {
         definedColors.add(color);
     }
 
+    public void addColor(Color color) {
+        definedColors.add(color);
+    }
+
     public void setColors(List<Color> colors) {
         definedColors.clear();
         definedColors.addAll(colors);
@@ -95,8 +99,9 @@ public class Chart {
     public void render(Graphics2D g) {
         prepareRendering(g);
         renderBackground(g);
-        renderAxis(g);
+
         renderPlot(g);
+        renderAxis(g);
         renderLabels(g);
     }
 
@@ -104,7 +109,9 @@ public class Chart {
     }
 
     public void renderBackground(Graphics2D g) {
-        bgRenderer.render(g);
+        if (bgRenderer != null) {
+            bgRenderer.render(g);
+        }
         if (model.getState() == DataModel.LOADING) {
             g.setColor(Color.LIGHT_GRAY);
             final String str = "Chargement des données en cours...";

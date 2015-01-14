@@ -15,7 +15,7 @@
 
 import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.graph.Path;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ListMap;
 
 import java.util.Collection;
 
@@ -35,7 +35,7 @@ final class UpdateOneRunnable extends AbstractUpdateOneRunnable {
             // finding lines
             if (line == null)
                 this.getReq().fireLineChanged(this.getID(), line, null);
-            final CollectionMap<Path, ListSQLLine> affectedPaths = this.getAffectedPaths();
+            final ListMap<Path, ListSQLLine> affectedPaths = this.getAffectedPaths();
             // the line should be in the list (since SQLTableModelLinesSource.get()
             // returned it), so if not yet part of the list add it.
             if (line != null && affectedPaths.getNonNull(Path.get(getTable())).isEmpty())

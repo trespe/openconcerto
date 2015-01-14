@@ -88,8 +88,8 @@ public class GenerationMvtAvoirFournisseur extends GenerationEcritures {
         this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(idCompteAchat));
         this.mEcritures.put("DEBIT", Long.valueOf(0));
         this.mEcritures.put("CREDIT", Long.valueOf(prixHT.getLongValue()));
-
-        ajoutEcriture();
+SQLRow rowEcr =        ajoutEcriture();
+        addAssocAnalytiqueFromProvider(rowEcr, avoirRow);
 
         if (prixTVA.getLongValue() > 0) {
             // compte TVA

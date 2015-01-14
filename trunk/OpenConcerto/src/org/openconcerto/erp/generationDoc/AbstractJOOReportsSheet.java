@@ -37,6 +37,7 @@ import java.text.SimpleDateFormat;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.swing.JFrame;
 import javax.swing.JOptionPane;
 
 public abstract class AbstractJOOReportsSheet {
@@ -217,12 +218,12 @@ public abstract class AbstractJOOReportsSheet {
                     return;
                 }
                 ooConnexion.loadDocument(fileOutOO, false);
-
+            } catch (LinkageError e) {
+                JOptionPane.showMessageDialog(new JFrame(), "Merci d'installer OpenOffice ou LibreOffice");
             } catch (Exception e) {
                 e.printStackTrace();
                 ExceptionHandler.handle("Impossible de charger le document OpenOffice", e);
             }
-
         } else {
             generate(false, true, "");
         }
@@ -236,51 +237,46 @@ public abstract class AbstractJOOReportsSheet {
     public void printDocument() {
         File fileOutOO = getDocumentFile();
         if (fileOutOO.exists()) {
-
             try {
                 final OOConnexion ooConnexion = ComptaPropsConfiguration.getOOConnexion();
                 if (ooConnexion == null) {
                     return;
                 }
                 final Component doc = ooConnexion.loadDocument(fileOutOO, true);
-
                 Map<String, Object> map = new HashMap<String, Object>();
                 map.put("Name", printer);
                 doc.printDocument(map);
                 doc.close();
-
+            } catch (LinkageError e) {
+                JOptionPane.showMessageDialog(new JFrame(), "Merci d'installer OpenOffice ou LibreOffice");
             } catch (Exception e) {
                 e.printStackTrace();
                 ExceptionHandler.handle("Impossible de charger le document OpenOffice", e);
             }
-
         } else {
             generate(true, false, this.printer);
         }
     }
 
     public void fastPrintDocument() {
-
         final File f = getDocumentFile();
-
         if (!f.exists()) {
             generate(true, false, this.printer);
         } else {
-
             try {
                 final OOConnexion ooConnexion = ComptaPropsConfiguration.getOOConnexion();
                 if (ooConnexion == null) {
                     return;
                 }
                 final Component doc = ooConnexion.loadDocument(f, true);
-
                 Map<String, Object> map = new HashMap<String, Object>();
                 map.put("Name", this.printer);
                 Map<String, Object> map2 = new HashMap<String, Object>();
                 map2.put("CopyCount", 1);
                 doc.printDocument(map, map2);
                 doc.close();
-
+            } catch (LinkageError e) {
+                JOptionPane.showMessageDialog(new JFrame(), "Merci d'installer OpenOffice ou LibreOffice");
             } catch (Exception e) {
 
                 ExceptionHandler.handle("Impossible de charger le document OpentOffice", e);
@@ -305,7 +301,6 @@ public abstract class AbstractJOOReportsSheet {
     }
 
     public void exportToPdf() {
-
         // Export vers PDF
         final String fileName = getFileName();
         final File fileOutOO = getDocumentFile();
@@ -315,9 +310,7 @@ public abstract class AbstractJOOReportsSheet {
         if (!fileOutOO.exists()) {
             generate(false, false, "");
         }
-
         try {
-
             final OOConnexion ooConnexion = ComptaPropsConfiguration.getOOConnexion();
             if (ooConnexion == null) {
                 return;
@@ -325,7 +318,8 @@ public abstract class AbstractJOOReportsSheet {
             final Component doc = ooConnexion.loadDocument(fileOutOO, true);
             doc.saveToPDF(fileOutPDF, "writer_pdf_Export");
             doc.close();
-
+        } catch (LinkageError e) {
+            JOptionPane.showMessageDialog(new JFrame(), "Merci d'installer OpenOffice ou LibreOffice");
         } catch (Exception e) {
             e.printStackTrace();
             ExceptionHandler.handle("Impossible de charger le document OpenOffice", e);

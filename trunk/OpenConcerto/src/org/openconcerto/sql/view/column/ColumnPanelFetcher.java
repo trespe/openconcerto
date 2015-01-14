@@ -17,7 +17,6 @@
 package org.openconcerto.sql.view.column;
 
 import org.openconcerto.sql.model.FieldPath;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowListRSH;
@@ -25,7 +24,6 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.graph.Step;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.util.ArrayList;
@@ -52,10 +50,12 @@ public class ColumnPanelFetcher {
      * @param t customize select
      */
     public ColumnPanelFetcher(SQLRowValues rowVals, FieldPath p, ITransformer<SQLSelect, SQLSelect> t) {
+        if (p.getPath().getFirst() != rowVals.getTable())
+            throw new IllegalStateException("Not same start : " + p.getPath().getFirst() + " != " + rowVals.getTable());
         this.rowValsFecth = rowVals;
+        this.rowValsFecth.assurePath(p.getPath()).put(p.getFieldName(), null);
         this.p = p;
         this.t = t;
-
     }
 
     /**
@@ -86,24 +86,8 @@ public class ColumnPanelFetcher {
     private void fetch() {
         final SQLRowValuesListFetcher fetcher = SQLRowValuesListFetcher.create(this.rowValsFecth);
 
-        fetcher.setSelTransf(new ITransformer<SQLSelect, SQLSelect>() {
-
-            @Override
-            public SQLSelect transformChecked(SQLSelect input) {
-                // Jointure jusqu'à la table contenant les colonnes
-                final List<Step> l = ColumnPanelFetcher.this.p.getPath().getSteps();
-                for (Step step : l) {
-                    input.addJoin("LEFT", step.getSingleField());
-                }
-                input.addSelect(ColumnPanelFetcher.this.p.getPath().getSingleStep(ColumnPanelFetcher.this.p.getPath().length() - 1));
-
-                if (ColumnPanelFetcher.this.t != null) {
-                    input = ColumnPanelFetcher.this.t.transformChecked(input);
-                }
-                System.err.println(input.asString());
-                return input;
-            }
-        });
+        if (this.t != null)
+            fetcher.setSelTransf(this.t);
 
         final List<SQLRowValues> rowVals = fetcher.fetch();
 
@@ -120,15 +104,7 @@ public class ColumnPanelFetcher {
         }
 
         for (SQLRowValues sqlRowValues : rowVals) {
-
-            SQLRowAccessor rowValuesStep = sqlRowValues;
-            for (SQLField step : this.p.getPath().getSingleSteps()) {
-                rowValuesStep = rowValuesStep.getForeign(step.getName());
-                if (rowValuesStep.isUndefined()) {
-                    rowValuesStep = null;
-                    break;
-                }
-            }
+            final SQLRowAccessor rowValuesStep = sqlRowValues.followPath(this.p.getPath());
             if (rowValuesStep != null && !rowValuesStep.isUndefined()) {
                 int index = cols.indexOf(rowValuesStep.getID());
                 if (index >= 0 && index < this.values.size()) {
@@ -158,7 +134,7 @@ public class ColumnPanelFetcher {
 
             SQLSelect sel = new SQLSelect();
             sel.addSelectStar(this.p.getTable());
-            List<SQLRow> rows = SQLRowListRSH.execute(sel);
+            final List<SQLRow> rows = new ArrayList<SQLRow>(SQLRowListRSH.execute(sel));
 
             Collections.sort(rows, new Comparator<SQLRow>() {
                 @Override

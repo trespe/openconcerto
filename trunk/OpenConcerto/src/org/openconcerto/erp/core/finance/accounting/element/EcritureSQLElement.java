@@ -33,6 +33,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.ListSQLRequest;
+import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.utils.SQLUtils;
@@ -467,6 +468,7 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
         } else {
 
             System.err.println("Suppression du mouvement d'id 1 impossible.");
+            JOptionPane.showMessageDialog(null, "Impossible d'archiver, le mouvement est indéfini.");
         }
     }
 
@@ -548,6 +550,17 @@ public class EcritureSQLElement extends ComptaSQLConfElement {
             SQLRowValues rowVals = new SQLRowValues(this.getTable());
             rowVals.put("IDUSER_DELETE", UserManager.getInstance().getCurrentUser().getId());
             rowVals.update(row.getID());
+
+            // Annulation du lettrage si l'ecriture est lettrée pour ne pas avoir de lettrage
+            // déséquilibré
+            final String codeLettrage = row.getString("LETTRAGE");
+            if (codeLettrage != null && codeLettrage.trim().length() > 0) {
+                UpdateBuilder builder = new UpdateBuilder(getTable());
+                builder.setObject("LETTRAGE", "");
+                builder.setObject("DATE_LETTRAGE", null);
+                builder.setWhere(new Where(getTable().getField("LETTRAGE"), "=", codeLettrage));
+                getTable().getDBSystemRoot().getDataSource().execute(builder.asString());
+            }
 
             super.archive(row, true);
         } else {

@@ -16,6 +16,7 @@
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.sales.product.ui.FamilleArticlePanel;
+import org.openconcerto.sql.Configuration;
 
 import javax.swing.Action;
 import javax.swing.JFrame;
@@ -28,6 +29,6 @@ public class FamilleArticleAction extends CreateFrameAbstractAction {
     }
 
     public JFrame createFrame() {
-        return new PanelFrame(new FamilleArticlePanel(), "Famille Articles");
+        return new PanelFrame(new FamilleArticlePanel(Configuration.getInstance().getDirectory().getElement("FAMILLE_ARTICLE")), "Famille Articles");
     }
 }

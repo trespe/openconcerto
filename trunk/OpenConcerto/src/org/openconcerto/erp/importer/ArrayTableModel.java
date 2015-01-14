@@ -14,6 +14,7 @@
  package org.openconcerto.erp.importer;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -145,6 +146,10 @@ public class ArrayTableModel {
             System.out.println();
         }
 
+    }
+
+    public List<Object> getLineValuesAt(int rowIndex) {
+        return Collections.unmodifiableList(this.dataVector.get(rowIndex));
     }
 
     public Set<Object> getValueSetForColumn(int column) {

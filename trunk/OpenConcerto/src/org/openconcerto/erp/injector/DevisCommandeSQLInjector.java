@@ -32,11 +32,11 @@ public class DevisCommandeSQLInjector extends SQLInjector {
         map(tableDevis.getField("ID_DEVIS"), tableCommande.getField("IDSOURCE"));
         map(tableDevis.getField("ID_DEVIS"), tableCommande.getField("ID_DEVIS"));
         map(tableDevis.getField("ID_COMMERCIAL"), tableCommande.getField("ID_COMMERCIAL"));
-        map(tableDevis.getField("OBJET"), tableCommande.getField("NOM"));
-        map(tableDevis.getField("INFOS"), tableCommande.getField("INFOS"));
+        if (tableDevis.getTable().contains("ID_POLE_PRODUIT")) {
+            map(tableDevis.getField("ID_POLE_PRODUIT"), tableCommande.getField("ID_POLE_PRODUIT"));
+        }
     }
-    
-    
+
     @Override
     protected void merge(SQLRowAccessor srcRow, SQLRowValues rowVals) {
         super.merge(srcRow, rowVals);
@@ -45,6 +45,9 @@ public class DevisCommandeSQLInjector extends SQLInjector {
         final SQLTable tableElementSource = getSource().getTable("DEVIS_ELEMENT");
         final SQLTable tableElementDestination = getSource().getTable("COMMANDE_CLIENT_ELEMENT");
         final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+        transfertReference(srcRow, rowVals, "OBJET", "NOM");
+        transfertReference(srcRow, rowVals, "INFOS", "INFOS");
+        transfertNumberReference(srcRow, rowVals, tableElementDestination, "ID_COMMANDE_CLIENT");
 
         if (myListItem.size() != 0) {
             final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);

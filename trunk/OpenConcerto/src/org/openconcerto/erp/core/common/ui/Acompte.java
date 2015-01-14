@@ -13,13 +13,15 @@
  
  package org.openconcerto.erp.core.common.ui;
 
+import org.openconcerto.utils.StringUtils;
+
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.text.DecimalFormat;
 
 public class Acompte {
-    private BigDecimal montant;
-    private BigDecimal percent;
+    protected BigDecimal montant;
+    protected BigDecimal percent;
 
     public final static Acompte HUNDRED_PERCENT = new Acompte(new BigDecimal(100), null);
 
@@ -80,14 +82,13 @@ public class Acompte {
         final Acompte a;
         if (s.contains("%")) {
             final String replace = s.replace("%", "");
-            BigDecimal percent = BigDecimal.ZERO;
-            if (replace.trim().length() != 0) {
-                percent = new BigDecimal(replace);
+            BigDecimal percent = StringUtils.getBigDecimalFromUserText(replace);
+            if (percent == null) {
+                percent = BigDecimal.ZERO;
             }
-
             a = new Acompte(percent, null);
         } else {
-            a = new Acompte(null, new BigDecimal(s));
+            a = new Acompte(null, StringUtils.getBigDecimalFromUserText(s));
         }
         return a;
     }

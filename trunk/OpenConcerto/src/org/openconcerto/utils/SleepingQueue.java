@@ -20,10 +20,12 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * A queue that can be put to sleep. Submitted runnables are converted to FutureTask, that can later
@@ -90,7 +92,7 @@ public class SleepingQueue {
 
     private void add(FutureTask<?> t) {
         // no need to synchronize, if die() is called after our test, t won't be executed anyway
-        if (this.isDead())
+        if (this.dieCalled())
             throw new IllegalStateException("Already dead, cannot exec " + t);
 
         this.tasksQueue.put(t);
@@ -115,6 +117,16 @@ public class SleepingQueue {
      * @throws InterruptedException if r should not be added to this queue.
      */
     protected void willPut(Runnable r) throws InterruptedException {
+    }
+
+    /**
+     * An exception was thrown by a task. This implementation merely
+     * {@link Exception#printStackTrace()}.
+     * 
+     * @param exn the exception thrown.
+     */
+    protected void exceptionThrown(final ExecutionException exn) {
+        exn.printStackTrace();
     }
 
     /**
@@ -171,7 +183,7 @@ public class SleepingQueue {
     }
 
     private void setBeingRun(final FutureTask<?> beingRun) {
-        final Future old;
+        final Future<?> old;
         synchronized (this) {
             old = this.beingRun;
             this.beingRun = beingRun;
@@ -187,19 +199,113 @@ public class SleepingQueue {
         return this.tasksQueue.isSleeping();
     }
 
-    public void setSleeping(boolean sleeping) {
-        if (this.tasksQueue.setSleeping(sleeping)) {
+    public boolean setSleeping(boolean sleeping) {
+        final boolean res = this.tasksQueue.setSleeping(sleeping);
+        if (res) {
             this.support.firePropertyChange("sleeping", null, this.isSleeping());
         }
+        return res;
     }
 
     /**
      * Stops this queue. Once this method returns, it is guaranteed that no other task will be taken
-     * from the queue to be started, and that this thread will die.
+     * from the queue to be started, and that this queue will die. But the already executing task
+     * will complete unless it checks for interrupt.
+     * 
+     * @return the future killing.
      */
-    public final void die() {
-        this.tasksQueue.die();
-        this.dying();
+    public final Future<?> die() {
+        return this.die(true, null, null);
+    }
+
+    /**
+     * Stops this queue. Once the returned future completes successfully then no task is executing (
+     * {@link #isDead()} will happen sometimes later, the time for the thread to terminate). If the
+     * returned future throws an exception because of the passed runnables or of {@link #willDie()}
+     * or {@link #dying()}, one can check with {@link #dieCalled()} to see if the queue is dying.
+     * 
+     * @param force <code>true</code> if this is guaranteed to die (even if <code>willDie</code> or
+     *        {@link #willDie()} throw an exception).
+     * @param willDie the last actions to take before killing this queue.
+     * @param dying the last actions to take before this queue is dead.
+     * @return the future killing, which will return <code>dying</code> result.
+     * @see #dieCalled()
+     */
+    public final <V> Future<V> die(final boolean force, final Runnable willDie, final Callable<V> dying) {
+        // reset sleeping to original value if die not effective
+        final AtomicBoolean resetSleeping = new AtomicBoolean(false);
+        final FutureTask<V> res = new FutureTask<V>(new Callable<V>() {
+            @Override
+            public V call() throws Exception {
+                Exception willDieExn = null;
+                try {
+                    willDie();
+                    if (willDie != null) {
+                        willDie.run();
+                        // handle Future like runnable, i.e. check right away for exception
+                        if (willDie instanceof Future) {
+                            final Future<?> f = (Future<?>) willDie;
+                            assert f.isDone() : "Ran but not done: " + f;
+                            try {
+                                f.get();
+                            } catch (ExecutionException e) {
+                                throw (Exception) e.getCause();
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    if (!force)
+                        throw e;
+                    else
+                        willDieExn = e;
+                }
+                try {
+                    // don't interrupt ourselves
+                    SleepingQueue.this.tasksQueue.die(false);
+                    assert SleepingQueue.this.tasksQueue.isDying();
+                    // since there's already been an exception, throw it as soon as possible
+                    // also dying() might itself throw an exception for the same reason or we now
+                    // have 2 exceptions to throw
+                    if (willDieExn != null)
+                        throw willDieExn;
+                    dying();
+                    final V res;
+                    if (dying != null)
+                        res = dying.call();
+                    else
+                        res = null;
+
+                    return res;
+                } finally {
+                    // if die is effective, this won't have any consequences
+                    if (resetSleeping.get())
+                        SleepingQueue.this.tasksQueue.setSleeping(true);
+                }
+            }
+        });
+        // die as soon as possible not after all currently queued tasks
+        this.tasksQueue.itemsDo(new IClosure<Deque<FutureTask<?>>>() {
+            @Override
+            public void executeChecked(Deque<FutureTask<?>> input) {
+                // since we cancel the current task, we might as well remove all of them since they
+                // might depend on the cancelled one
+                input.clear();
+                input.addFirst(res);
+                // die as soon as possible, even if there's a long task already running
+                final FutureTask<?> beingRun = getBeingRun();
+                // since we hold the lock on items
+                assert beingRun != res : "beingRun: " + beingRun + " ; res: " + res;
+                if (beingRun != null)
+                    beingRun.cancel(true);
+            }
+        });
+        // force execution of our task
+        resetSleeping.set(this.setSleeping(false));
+        return res;
+    }
+
+    protected void willDie() {
+        // nothing by default
     }
 
     protected void dying() {
@@ -207,9 +313,26 @@ public class SleepingQueue {
     }
 
     /**
-     * Whether this queue is dying, ie if die() has been called.
+     * Whether this will die. If this method returns <code>true</code>, it is guaranteed that no
+     * other task will be taken from the queue to be started, and that this queue will die. But the
+     * already executing task will complete unless it checks for interrupt. Note: this method
+     * doesn't return <code>true</code> right after {@link #die()} as the method is asynchronous and
+     * if {@link #willDie()} fails it may not die at all ; as explained in its comment you may use
+     * its returned future to wait for the killing.
      * 
-     * @return <code>true</code> if this queue will not execute any more tasks.
+     * @return <code>true</code> if this queue will not execute any more tasks (but it may finish
+     *         one last task).
+     * @see #isDead()
+     */
+    public final boolean dieCalled() {
+        return this.tasksQueue.dieCalled();
+    }
+
+    /**
+     * Whether this queue is dead, i.e. if die() has been called and all tasks have completed.
+     * 
+     * @return <code>true</code> if this queue will not execute any more tasks and isn't executing
+     *         any.
      * @see #die()
      */
     public final boolean isDead() {
@@ -275,10 +398,10 @@ public class SleepingQueue {
             } catch (CancellationException e) {
                 // don't care
             } catch (InterruptedException e) {
-                // f was interrupted : eg we're dying or f was canceled
+                // f was interrupted : e.g. we're dying or f was cancelled
             } catch (ExecutionException e) {
-                // f.run() raised an exn
-                e.printStackTrace();
+                // f.run() raised an exception
+                exceptionThrown(e);
             }
         }
     }

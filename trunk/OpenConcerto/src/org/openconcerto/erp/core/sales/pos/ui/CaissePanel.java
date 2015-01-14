@@ -38,12 +38,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 
 public class CaissePanel extends JPanel implements CaisseListener {
     private CaisseControler controler;
 
     private StatusBar st;
+    private ArticleSelectorPanel articleSelectorPanel;
+    private ArticleSearchPanel articleSearchPanel;
+
+    private JPanel articleSelector;
 
     public CaissePanel(final CaisseFrame caisseFrame) {
         this.setLayout(new GridBagLayout());
@@ -52,7 +57,7 @@ public class CaissePanel extends JPanel implements CaisseListener {
         GridBagConstraints c = new GridBagConstraints();
         c.gridx = 0;
         c.gridy = 0;
-        c.weightx = 1;
+        c.weightx = 0;
         c.weighty = 0;
 
         this.controler = new CaisseControler(caisseFrame);
@@ -69,9 +74,9 @@ public class CaissePanel extends JPanel implements CaisseListener {
                         if (Caisse.isCopyActive())
                             CaissePanel.this.controler.printTicket();
                     } catch (UnsatisfiedLinkError ex) {
-                        ExceptionHandler.handle("Erreur de configuration de la liaison à l'imprimante", ex);
+                        JOptionPane.showMessageDialog(CaissePanel.this, "Erreur de configuration de la liaison à l'imprimante");
                     } catch (Throwable ex) {
-                        ExceptionHandler.handle("Erreur d'impression du ticket", ex);
+                        JOptionPane.showMessageDialog(CaissePanel.this, "Erreur d'impression du ticket");
                     }
                     try {
                         CaissePanel.this.controler.saveAndClearTicket();
@@ -110,7 +115,10 @@ public class CaissePanel extends JPanel implements CaisseListener {
         c.weightx = 1;
         c.gridy--;
         c.gridheight = 2;
-        this.add(new ArticleSelectorPanel(this.controler), c);
+        articleSelectorPanel = new ArticleSelectorPanel(this.controler);
+        articleSearchPanel = new ArticleSearchPanel(this.controler);
+        articleSelector = articleSelectorPanel;
+        this.add(articleSelector, c);
 
         c.gridx++;
         c.weightx = 0;
@@ -121,7 +129,7 @@ public class CaissePanel extends JPanel implements CaisseListener {
     @SuppressWarnings("unchecked")
     private void loadArticles() {
 
-        Map<Integer, Categorie> m = new HashMap<Integer, Categorie>();
+        final Map<Integer, Categorie> categoriesMap = new HashMap<Integer, Categorie>();
 
         SQLElement eltFam = Configuration.getInstance().getDirectory().getElement("FAMILLE_ARTICLE");
         SQLElement eltArticle = Configuration.getInstance().getDirectory().getElement("ARTICLE");
@@ -133,8 +141,8 @@ public class CaissePanel extends JPanel implements CaisseListener {
         List<SQLRow> l = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(selFamille.asString(), SQLRowListRSH.createFromSelect(selFamille, eltFam.getTable()));
 
         for (SQLRow row : l) {
-
-            final Categorie cP = m.get(row.getInt("ID_FAMILLE_ARTICLE_PERE"));
+            // Map id -> Category
+            final Categorie cP = categoriesMap.get(row.getInt("ID_FAMILLE_ARTICLE_PERE"));
             Categorie c;
             if (cP != null) {
                 c = new Categorie(row.getString("NOM"));
@@ -143,25 +151,30 @@ public class CaissePanel extends JPanel implements CaisseListener {
                 c = new Categorie(row.getString("NOM"), true);
             }
 
-            m.put(row.getID(), c);
+            categoriesMap.put(row.getID(), c);
         }
 
-        SQLSelect selArticle = new SQLSelect(Configuration.getInstance().getBase());
+        final SQLSelect selArticle = new SQLSelect();
         selArticle.addSelectStar(eltArticle.getTable());
         List<SQLRow> l2 = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(selArticle.asString(), SQLRowListRSH.createFromSelect(selArticle, eltArticle.getTable()));
 
         final Categorie cUnclassified = new Categorie("Non classés", true);
         for (SQLRow row : l2) {
 
-            Categorie s1 = m.get(row.getInt("ID_FAMILLE_ARTICLE"));
+            Categorie s1 = categoriesMap.get(row.getInt("ID_FAMILLE_ARTICLE"));
             if (s1 == null) {
                 s1 = cUnclassified;
-                m.put(row.getID(), cUnclassified);
+                categoriesMap.put(row.getInt("ID_FAMILLE_ARTICLE"), cUnclassified);
             }
             final String name = row.getString("NOM").trim();
             if (name.length() > 0) {
                 final Article a = new Article(s1, name, row.getID());
-                a.setBarCode(row.getString("CODE_BARRE"));
+                final String barcode = row.getString("CODE_BARRE");
+                if (barcode == null || barcode.trim().isEmpty()) {
+                    a.setBarCode(row.getString("CODE"));
+                } else {
+                    a.setBarCode(barcode);
+                }
                 a.setCode(row.getString("CODE"));
                 a.setIdTaxe(row.getInt("ID_TAXE"));
                 a.setPriceHTInCents((BigDecimal) row.getObject("PV_HT"));
@@ -260,5 +273,21 @@ public class CaissePanel extends JPanel implements CaisseListener {
     @Override
     public void caisseStateChanged() {
         repaint();
+    }
+
+    public void switchListMode() {
+
+        GridBagConstraints c = ((GridBagLayout) this.getLayout()).getConstraints(articleSelector);
+        this.remove(articleSelector);
+
+        if (articleSelector == this.articleSearchPanel) {
+            articleSelector = this.articleSelectorPanel;
+        } else {
+            articleSelector = this.articleSearchPanel;
+        }
+        this.add(articleSelector, c);
+        this.validate();
+        this.repaint();
+
     }
 }

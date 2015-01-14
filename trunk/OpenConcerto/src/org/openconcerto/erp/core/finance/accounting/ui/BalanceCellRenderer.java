@@ -20,7 +20,6 @@ import java.awt.Component;
 
 import javax.swing.JTable;
 
-
 public class BalanceCellRenderer extends CompteCellRenderer {
 
     private int colNumeroCompte;
@@ -31,52 +30,45 @@ public class BalanceCellRenderer extends CompteCellRenderer {
 
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
 
-        String numeroCompte = table.getValueAt(row, this.colNumeroCompte).toString();
+        String numeroCompte = table.getValueAt(row, this.colNumeroCompte).toString().trim();
         String numeroCompteSuiv = null;
 
         if (row < table.getRowCount() - 1) {
-            numeroCompteSuiv = table.getValueAt(row + 1, this.colNumeroCompte).toString();
+            numeroCompteSuiv = table.getValueAt(row + 1, this.colNumeroCompte).toString().trim();
         }
 
         super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
 
         if (!isSelected) {
             // si le numéro compte est composé d'un seul chiffre
-            if (numeroCompte.trim().length() == 1) {
+            final int length = numeroCompte.length();
+            if (length == 1) {
                 this.setBackground(couleurCompteClasse);
                 this.setForeground(Color.BLACK);
-            } else {
-
+            } else if ((numeroCompteSuiv != null) && (length < numeroCompteSuiv.length()) && (numeroCompte.equalsIgnoreCase(numeroCompteSuiv.substring(0, length)))) {
                 // si le compte est racine
-                if ((numeroCompteSuiv != null) && (numeroCompte.trim().length() < numeroCompteSuiv.trim().length())
-                        && (numeroCompte.trim().equalsIgnoreCase(numeroCompteSuiv.trim().substring(0, numeroCompte.length())))) {
-
-                    // on affiche le numero et le libellé pas le reste
-                    // compte racine à 2 chiffres
-                    if (numeroCompte.trim().length() == 2) {
-                        this.setBackground(couleurCompte2);
-                        this.setForeground(Color.BLACK);
-                    } else {
-                        // compte racine à 3 chiffres
-                        if (numeroCompte.trim().length() == 3) {
-                            this.setBackground(couleurCompte3);
-                            this.setForeground(Color.BLACK);
-                        } else {
-                            // autre compte racine
-                            this.setBackground(couleurCompteRacine);
-                            this.setForeground(Color.BLACK);
-                        }
-                    }
-
+                // on affiche le numero et le libellé pas le reste
+                if (length == 2) { // compte racine à 2 chiffres
+                    this.setBackground(couleurCompte2);
+                    this.setForeground(Color.BLACK);
+                } else if (length == 3) {
+                    // compte racine à 3 chiffres
+                    this.setBackground(couleurCompte3);
+                    this.setForeground(Color.BLACK);
                 } else {
-                    // compte normaux
-                    this.setBackground(Color.WHITE);
+                    // autre compte racine
+                    this.setBackground(couleurCompteRacine);
                     this.setForeground(Color.BLACK);
                 }
+            } else {
+                // compte normaux
+                this.setBackground(Color.WHITE);
+                this.setForeground(Color.BLACK);
             }
+
         }
 
-        if (value.getClass() == Long.class) {
+        if (value != null && value.getClass() == Long.class) {
             this.setText(GestionDevise.currencyToString(((Long) value).longValue()));
         }
 

@@ -18,7 +18,10 @@ import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.element.UISQLComponent;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.ui.EmailComposer;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -176,4 +179,20 @@ public abstract class ContactSQLElementBase extends ConfSQLElement {
         }
     }
 
+    protected void sendMail(List<SQLRowAccessor> l) {
+
+        String mail = "";
+        for (SQLRowAccessor rowCli : l) {
+            String string = rowCli.getString("EMAIL");
+            if (string != null && string.trim().length() > 0) {
+                mail += string + ";";
+            }
+        }
+        try {
+            EmailComposer.getInstance().compose(mail, "", "");
+        } catch (Exception exn) {
+            ExceptionHandler.handle(null, "Impossible de créer le courriel", exn);
+        }
+
+    }
 }

@@ -82,14 +82,15 @@ public class Axis {
         int max = 0;
         for (AxisLabel label : this.labels) {
             int h = (int) g.getFontMetrics().getStringBounds(label.getLabel(), g).getHeight();
-            if (h > max)
+            if (h > max) {
                 max = h;
+            }
         }
         return max;
     }
 
     public void render(Graphics2D g) {
-
+        throw new UnsupportedOperationException();
     }
 
     public List<AxisLabel> getLabels() {
@@ -113,8 +114,9 @@ public class Axis {
     }
 
     public int getMarkerLenght() {
-        if (labels.isEmpty())
+        if (labels.isEmpty()) {
             return 0;
+        }
         return markerLenght;
     }
 
@@ -135,12 +137,10 @@ public class Axis {
 
     public void setChart(Chart chart) {
         this.chart = chart;
-
     }
 
     public void removeAllLabels() {
         this.labels.clear();
-
     }
 
     public void setMarkerLenght(int markerLenght) {

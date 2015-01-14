@@ -13,8 +13,8 @@
  
  package org.openconcerto.ftp;
 
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.MessageDigestUtils;
 import org.openconcerto.utils.RecursionType;
 import org.openconcerto.utils.StringInputStream;
@@ -77,7 +77,7 @@ public class IFtp extends FTPClient {
     // path separator (/) is not standard, so cd first where you want to upload
     public List<File> sync(File ldir, final CopyFileListener l, boolean forceUpload) throws IOException, NoSuchAlgorithmException {
         // there might be more than one md5 per file, if an error occured during the last sync()
-        final CollectionMap<String, String> nameToMD5s = new CollectionMap<String, String>();
+        final ListMap<String, String> nameToMD5s = new ListMap<String, String>();
         final Map<String, FTPFile> ftpFiles = new HashMap<String, FTPFile>();
         final FTPFile[] listFiles = this.listFiles();
         if (listFiles == null) {
@@ -98,7 +98,7 @@ public class IFtp extends FTPClient {
                         if (underscore >= 0) {
                             final String fname = name.substring(0, underscore);
                             final String md5 = name.substring(underscore + 1, underscore + 1 + MD5_LENGTH);
-                            nameToMD5s.put(fname, md5);
+                            nameToMD5s.add(fname, md5);
                         }
                     } else {
                         ftpFiles.put(name, rFile);
@@ -117,7 +117,7 @@ public class IFtp extends FTPClient {
         for (final File lFile : ldir.listFiles()) {
             if (lFile.isFile() && lFile.canRead()) {
                 final String lName = lFile.getName();
-                final List<String> md5List = (List<String>) nameToMD5s.getNonNull(lName);
+                final List<String> md5List = nameToMD5s.getNonNull(lName);
                 final String lMD5 = MessageDigestUtils.getMD5(lFile);
                 boolean shouldUpload = true;
                 if (!forceUpload && ftpFiles.containsKey(lFile.getName())) {

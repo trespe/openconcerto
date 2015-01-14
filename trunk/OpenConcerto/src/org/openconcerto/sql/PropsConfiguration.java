@@ -37,6 +37,7 @@ import org.openconcerto.utils.LogUtils;
 import org.openconcerto.utils.MultipleOutputStream;
 import org.openconcerto.utils.NetUtils;
 import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.StreamUtils;
 import org.openconcerto.utils.Value;
 import org.openconcerto.utils.cc.IClosure;
@@ -69,10 +70,17 @@ import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.ResourceBundle.Control;
 import java.util.Set;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
 
 import org.apache.commons.collections.Predicate;
 
@@ -104,6 +112,7 @@ import com.jcraft.jsch.Session;
  * @author Sylvain CUAZ
  * @see #getShowAs()
  */
+@ThreadSafe
 public class PropsConfiguration extends Configuration {
 
     /**
@@ -166,18 +175,26 @@ public class PropsConfiguration extends Configuration {
     private final Properties props;
 
     // sql tree
+    @GuardedBy("treeLock")
     private SQLServer server;
+    @GuardedBy("treeLock")
     private DBSystemRoot sysRoot;
+    @GuardedBy("treeLock")
     private DBRoot root;
+    // created from root
+    @GuardedBy("treeLock")
     private UserRightsManager urMngr;
     // rest
+    @GuardedBy("restLock")
     private ProductInfo productInfo;
-    private ShowAs showAs;
+    private final Addable<ShowAs> showAs;
+    @GuardedBy("restLock")
     private SQLFilter filter;
-    private SQLFieldTranslator translator;
-    private SQLElementDirectory directory;
-    private DirectoryListener directoryListener;
+    private final Addable<SQLFieldTranslator> translator;
+    private final Addable<SQLElementDirectory> directory;
+    @GuardedBy("restLock")
     private File wd;
+    @GuardedBy("restLock")
     private File logDir;
     // split sql tree and the rest since creating the tree is costly
     // and nodes are inter-dependant, while the rest is mostly fast
@@ -185,15 +202,16 @@ public class PropsConfiguration extends Configuration {
     private final Object treeLock = new String("treeLock");
     private final Object restLock = new String("everythingElseLock");
 
-    // * toAdd
-    private final List<Configuration> showAsToAdd;
-    private final List<Configuration> directoryToAdd;
-    private final List<Configuration> translationsToAdd;
-
     // SSL
+    @GuardedBy("treeLock")
     private Session conn;
+    @GuardedBy("treeLock")
     private boolean isUsingSSH;
+
     private FieldMapper fieldMapper;
+
+    @GuardedBy("treeLock")
+    private boolean destroyed;
 
     public PropsConfiguration() throws IOException {
         this(new File("fwk_SQL.properties"), DEFAULTS);
@@ -216,22 +234,139 @@ public class PropsConfiguration extends Configuration {
 
     public PropsConfiguration(final Properties props) {
         this.props = props;
-        this.showAsToAdd = new ArrayList<Configuration>();
-        this.directoryToAdd = new ArrayList<Configuration>();
-        this.translationsToAdd = new ArrayList<Configuration>();
+        // ShowAs is thread-safe
+        this.showAs = new Addable<ShowAs>() {
+
+            @GuardedBy("this")
+            private DirectoryListener directoryListener;
+
+            @Override
+            protected ShowAs create() {
+                final ShowAs res = createShowAs();
+                final SQLElementDirectory dir = getDirectory();
+                synchronized (this) {
+                    assert this.directoryListener == null;
+                    this.directoryListener = new DirectoryListener() {
+                        @Override
+                        public void elementRemoved(final SQLElement elem) {
+                            res.removeTable(elem.getTable());
+                        }
+
+                        @Override
+                        public void elementAdded(final SQLElement elem) {
+                            final CollectionMap<String, String> sa = elem.getShowAs();
+                            if (sa != null) {
+                                for (final Entry<String, Collection<String>> e : sa.entrySet()) {
+                                    try {
+                                        if (e.getKey() == null)
+                                            res.show(elem.getTable(), (List<String>) e.getValue());
+                                        else
+                                            res.show(elem.getTable().getField(e.getKey()), (List<String>) e.getValue());
+                                    } catch (RuntimeException exn) {
+                                        throw new IllegalStateException("Couldn't add showAs for " + elem + " : " + e, exn);
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    // ATTN SQLElementDirectory cannot access ShowAs otherwise deadlock
+                    synchronized (dir) {
+                        for (final SQLElement elem : dir.getElements()) {
+                            this.directoryListener.elementAdded(elem);
+                        }
+                        dir.addListener(this.directoryListener);
+                    }
+                }
+
+                return res;
+            }
+
+            @Override
+            protected void destroy(Future<ShowAs> future) {
+                // don't cancel future, just wait it out. Prevent other callers from getting an
+                // exception.
+                try {
+                    future.get();
+                } catch (Exception e) {
+                    // don't care about the result, we just want it to finish
+                }
+                assert future.isDone();
+                final DirectoryListener l;
+                synchronized (this) {
+                    l = this.directoryListener;
+                }
+                // create() might have thrown an exception before completing
+                if (l != null) {
+                    getDirectory().removeListener(l);
+                }
+                super.destroy(future);
+            }
+
+            @Override
+            protected void add(ShowAs obj, Configuration conf) {
+                obj.putAll(conf.getShowAs());
+            }
+        };
+        // SQLElementDirectory is thread-safe
+        this.directory = new Addable<SQLElementDirectory>() {
+            @Override
+            protected SQLElementDirectory create() {
+                return createDirectory();
+            }
+
+            @Override
+            protected void add(SQLElementDirectory obj, Configuration conf) {
+                obj.putAll(conf.getDirectory());
+            }
+        };
+        // SQLFieldTranslator is thread-safe
+        this.translator = new Addable<SQLFieldTranslator>() {
+            @Override
+            protected SQLFieldTranslator create() {
+                return createTranslator();
+            }
+
+            @Override
+            protected void add(SQLFieldTranslator obj, Configuration conf) {
+                obj.putAll(conf.getTranslator());
+            }
+        };
         this.setUp();
     }
 
     @Override
     public void destroy() {
-        closeSSLConnection();
-        if (this.server != null) {
-            this.server.destroy();
+        synchronized (this.treeLock) {
+            if (this.destroyed)
+                return;
+            this.destroyed = true;
+            if (this.server != null) {
+                this.server.destroy();
+            }
+            closeSSLConnection();
+            if (this.urMngr != null)
+                UserRightsManager.clearInstanceIfSame(this.urMngr);
         }
-        if (this.urMngr != null)
-            UserRightsManager.clearInstanceIfSame(this.urMngr);
-        if (this.directoryListener != null)
-            this.directory.removeListener(this.directoryListener);
+
+        this.showAs.destroy();
+        this.translator.destroy();
+        this.directory.destroy();
+        super.destroy();
+    }
+
+    public final boolean isDestroyed() {
+        synchronized (this.treeLock) {
+            return this.destroyed;
+        }
+    }
+
+    private final void checkDestroyed() {
+        checkDestroyed(this.isDestroyed());
+    }
+
+    static private final void checkDestroyed(final boolean d) {
+        if (d)
+            throw new IllegalStateException("Destroyed");
     }
 
     public final String getProperty(final String name) {
@@ -251,16 +386,22 @@ public class PropsConfiguration extends Configuration {
     }
 
     protected final void setProductInfo(final ProductInfo productInfo) {
-        this.productInfo = productInfo;
+        synchronized (this.restLock) {
+            this.productInfo = productInfo;
+        }
     }
 
     private void setUp() {
-        this.setProductInfo(ProductInfo.getInstance());
-        this.sysRoot = null;
-        this.setTranslator(null);
-        this.setDirectory(null);
-        this.setShowAs(null);
-        this.setFilter(null);
+        synchronized (this.treeLock) {
+            this.destroyed = false;
+            this.server = null;
+            this.sysRoot = null;
+            this.root = null;
+        }
+        synchronized (this.restLock) {
+            this.setProductInfo(ProductInfo.getInstance());
+            this.setFilter(null);
+        }
     }
 
     public final SQLSystem getSystem() {
@@ -354,7 +495,9 @@ public class PropsConfiguration extends Configuration {
     }
 
     public final boolean isUsingSSH() {
-        return this.isUsingSSH;
+        synchronized (this.treeLock) {
+            return this.isUsingSSH;
+        }
     }
 
     public final boolean hasWANProperties() {
@@ -447,6 +590,7 @@ public class PropsConfiguration extends Configuration {
     }
 
     private void openSSLConnection(final String addr, final int port) {
+        checkDestroyed();
         final String username = getSSLUserName();
         final String pass = getSSLPassword();
         boolean isAuthenticated = false;
@@ -498,20 +642,26 @@ public class PropsConfiguration extends Configuration {
     }
 
     private void closeSSLConnection() {
-        if (this.conn != null) {
-            this.conn.disconnect();
-            this.conn = null;
+        synchronized (this.treeLock) {
+            if (this.conn != null) {
+                this.conn.disconnect();
+                this.conn = null;
+            }
         }
     }
 
     // the result can be modified (avoid that each subclass recreates an instance)
+    // but it can be null (meaning map all)
     protected Collection<String> getRootsToMap() {
+        final String rootsToMap = getProperty("systemRoot.rootsToMap");
+        if ("*".equals(rootsToMap))
+            return null;
+
         final Set<String> res = new HashSet<String>();
 
         final Value<String> rootName = getRootNameValue();
         if (rootName.hasValue())
             res.add(rootName.getValue());
-        final String rootsToMap = getProperty("systemRoot.rootsToMap");
         if (rootsToMap != null)
             res.addAll(SQLRow.toList(rootsToMap));
 
@@ -530,6 +680,18 @@ public class PropsConfiguration extends Configuration {
     protected DBSystemRoot createSystemRoot() {
         // all ds params specified by createServer()
         final DBSystemRoot res = this.getServer(false).getSystemRoot(this.getSystemRootName());
+        setupSystemRoot(res, true);
+        return res;
+    }
+
+    // to be called after having a data source
+    protected final void setupSystemRoot(final DBSystemRoot res) {
+        this.setupSystemRoot(res, false);
+    }
+
+    private void setupSystemRoot(final DBSystemRoot res, final boolean brandNew) {
+        if (!brandNew)
+            res.unsetRootPath();
         // handle case when the root is not yet created
         if (res.getChildrenNames().contains(this.getRootName()))
             res.setDefaultRoot(this.getRootName());
@@ -538,7 +700,6 @@ public class PropsConfiguration extends Configuration {
             if (res.getChildrenNames().contains(root))
                 res.appendToRootPath(root);
         }
-        return res;
     }
 
     // called at the end of the DBSystemRoot constructor (before having a data source)
@@ -548,6 +709,7 @@ public class PropsConfiguration extends Configuration {
     protected void initDS(final SQLDataSource ds) {
         ds.setCacheEnabled(true);
         // supported by postgreSQL from 9.1-901, see also Connection#setClientInfo
+        // also supported by MS SQL
         final String appID = getAppID();
         if (appID != null)
             ds.addConnectionProperty("ApplicationName", appID);
@@ -614,7 +776,7 @@ public class PropsConfiguration extends Configuration {
         return DATE_FORMAT;
     }
 
-    public void setupLogging(final String dirName, final boolean redirectToFile) {
+    private final File getValidLogDir(final String dirName) {
         final File logDir;
         try {
             final File softLogDir = new File(this.getWD() + "/" + dirName + "/" + getHostname() + "-" + System.getProperty("user.name"));
@@ -635,7 +797,17 @@ public class PropsConfiguration extends Configuration {
         } catch (final IOException e) {
             throw new IllegalStateException("unable to create log dir", e);
         }
-        this.logDir = logDir;
+        return logDir;
+    }
+
+    public void setupLogging(final String dirName, final boolean redirectToFile) {
+        final File logDir;
+        synchronized (this.restLock) {
+            if (this.logDir != null)
+                throw new IllegalStateException("Already set to " + this.logDir);
+            logDir = getValidLogDir(dirName);
+            this.logDir = logDir;
+        }
         final String logNameBase = this.getAppName() + "_" + getLogDateFormat().format(new Date());
 
         // must be done before setUpConsoleHandler(), otherwise log output not redirected
@@ -704,7 +876,9 @@ public class PropsConfiguration extends Configuration {
     }
 
     public final File getLogDir() {
-        return this.logDir;
+        synchronized (this.restLock) {
+            return this.logDir;
+        }
     }
 
     public void tearDownLogging() {
@@ -720,38 +894,7 @@ public class PropsConfiguration extends Configuration {
     }
 
     protected ShowAs createShowAs() {
-        final ShowAs res = new ShowAs(this.getRoot());
-        assert this.directoryListener == null;
-        this.directoryListener = new DirectoryListener() {
-            @Override
-            public void elementRemoved(final SQLElement elem) {
-                res.removeTable(elem.getTable());
-            }
-
-            @Override
-            public void elementAdded(final SQLElement elem) {
-                final CollectionMap<String, String> sa = elem.getShowAs();
-                if (sa != null) {
-                    for (final Entry<String, Collection<String>> e : sa.entrySet()) {
-                        try {
-                            if (e.getKey() == null)
-                                res.show(elem.getTable(), (List<String>) e.getValue());
-                            else
-                                res.show(elem.getTable().getField(e.getKey()), (List<String>) e.getValue());
-                        } catch (RuntimeException exn) {
-                            throw new IllegalStateException("Couldn't add showAs for " + elem + " : " + e, exn);
-                        }
-                    }
-                }
-            }
-        };
-        synchronized (this.getDirectory()) {
-            for (final SQLElement elem : this.getDirectory().getElements()) {
-                this.directoryListener.elementAdded(elem);
-            }
-            this.getDirectory().addListener(this.directoryListener);
-        }
-        return res;
+        return new ShowAs(this.getRoot());
     }
 
     protected SQLElementDirectory createDirectory() {
@@ -818,37 +961,116 @@ public class PropsConfiguration extends Configuration {
      */
     @Override
     public final Configuration add(final Configuration conf) {
-        if (this.showAs != null)
-            this.getShowAs().putAll(conf.getShowAs());
-        else
-            this.showAsToAdd.add(conf);
-
-        if (this.translator != null)
-            this.getTranslator().putAll(conf.getTranslator());
-        else
-            this.translationsToAdd.add(conf);
-
-        if (this.directory != null)
-            this.getDirectory().putAll(conf.getDirectory());
-        else
-            this.directoryToAdd.add(conf);
-
+        this.showAs.add(conf);
+        this.translator.add(conf);
+        this.directory.add(conf);
         return this;
+    }
+
+    private abstract class Addable<T> {
+
+        @GuardedBy("this")
+        private boolean destroyed;
+        @GuardedBy("this")
+        private final List<Configuration> toAdd;
+        @GuardedBy("this")
+        private Future<T> f;
+
+        protected Addable() {
+            super();
+            synchronized (this) {
+                this.toAdd = new ArrayList<Configuration>();
+                this.f = null;
+                this.destroyed = false;
+            }
+        }
+
+        public final void add(final Configuration conf) {
+            final boolean computeStarted;
+            synchronized (this) {
+                computeStarted = isComputeStarted();
+                if (!computeStarted)
+                    this.toAdd.add(conf);
+            }
+            if (computeStarted) {
+                // T must be thread-safe
+                add(this.get(), conf);
+            }
+        }
+
+        // synchronize on this (and not some private lock) to allow callers to do something before
+        // the result changes
+        protected final boolean isComputeStarted() {
+            synchronized (this) {
+                return this.f != null;
+            }
+        }
+
+        public final T get() {
+            // result
+            final Future<T> future;
+            // to run
+            final FutureTask<T> futureTask;
+            synchronized (this) {
+                checkDestroyed(this.destroyed);
+                if (this.f == null) {
+                    final List<Configuration> l = new ArrayList<Configuration>(this.toAdd);
+                    this.toAdd.clear();
+                    futureTask = new FutureTask<T>(new Callable<T>() {
+                        @Override
+                        public T call() throws Exception {
+                            final T res = create();
+                            // don't call alien code with lock
+                            assert !Thread.holdsLock(Addable.this);
+                            for (final Configuration s : l) {
+                                // deadlock if get() is called (will hang on future.get())
+                                add(res, s);
+                            }
+                            return res;
+                        }
+                    });
+                    this.f = futureTask;
+                    future = futureTask;
+                } else {
+                    futureTask = null;
+                    future = this.f;
+                }
+            }
+            if (futureTask != null)
+                futureTask.run();
+            try {
+                return future.get();
+            } catch (InterruptedException e) {
+                throw new RTInterruptedException(e);
+            } catch (ExecutionException e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        protected abstract T create();
+
+        protected abstract void add(final T obj, final Configuration conf);
+
+        public final void destroy() {
+            final Future<T> future;
+            synchronized (this) {
+                this.destroyed = true;
+                future = this.f;
+            }
+            if (future != null)
+                destroy(future);
+        }
+
+        // nothing by default
+        protected void destroy(final Future<T> future) {
+        }
     }
 
     // *** getters
 
     @Override
     public final ShowAs getShowAs() {
-        synchronized (this.restLock) {
-            if (this.showAs == null) {
-                this.setShowAs(this.createShowAs());
-                for (final Configuration s : this.showAsToAdd)
-                    this.getShowAs().putAll(s.getShowAs());
-                this.showAsToAdd.clear();
-            }
-        }
-        return this.showAs;
+        return this.showAs.get();
     }
 
     @Override
@@ -859,19 +1081,21 @@ public class PropsConfiguration extends Configuration {
     @Override
     public final DBRoot getRoot() {
         synchronized (this.treeLock) {
+            checkDestroyed();
             if (this.root == null)
                 this.setRoot(this.createRoot());
+            return this.root;
         }
-        return this.root;
     }
 
     @Override
     public final DBSystemRoot getSystemRoot() {
         synchronized (this.treeLock) {
+            checkDestroyed();
             if (this.sysRoot == null)
                 this.sysRoot = this.createSystemRoot();
+            return this.sysRoot;
         }
-        return this.sysRoot;
     }
 
     /**
@@ -902,6 +1126,7 @@ public class PropsConfiguration extends Configuration {
 
     private final SQLServer getServer(final boolean initSysRoot) {
         synchronized (this.treeLock) {
+            checkDestroyed();
             if (this.server == null) {
                 this.setServer(this.createServer());
                 // necessary otherwise the returned server has no datasource
@@ -909,8 +1134,8 @@ public class PropsConfiguration extends Configuration {
                 if (initSysRoot && this.server.getSQLSystem().getLevel(DBSystemRoot.class) == HierarchyLevel.SQLSERVER)
                     this.getSystemRoot();
             }
+            return this.server;
         }
-        return this.server;
     }
 
     @Override
@@ -918,38 +1143,24 @@ public class PropsConfiguration extends Configuration {
         synchronized (this.restLock) {
             if (this.filter == null)
                 this.setFilter(this.createFilter());
+            return this.filter;
         }
-        return this.filter;
     }
 
     @Override
     public final SQLFieldTranslator getTranslator() {
-        synchronized (this.restLock) {
-            if (this.translator == null) {
-                this.setTranslator(this.createTranslator());
-                for (final Configuration s : this.translationsToAdd)
-                    this.getTranslator().putAll(s.getTranslator());
-                this.translationsToAdd.clear();
-            }
-        }
-        return this.translator;
+        return this.translator.get();
     }
 
     @Override
     public final SQLElementDirectory getDirectory() {
-        synchronized (this.restLock) {
-            if (this.directory == null) {
-                this.setDirectory(this.createDirectory());
-                for (final Configuration s : this.directoryToAdd)
-                    this.getDirectory().putAll(s.getDirectory());
-                this.directoryToAdd.clear();
-            }
-        }
-        return this.directory;
+        return this.directory.get();
     }
 
     public final ProductInfo getProductInfo() {
-        return this.productInfo;
+        synchronized (this.restLock) {
+            return this.productInfo;
+        }
     }
 
     @Override
@@ -966,8 +1177,8 @@ public class PropsConfiguration extends Configuration {
         synchronized (this.restLock) {
             if (this.wd == null)
                 this.setWD(this.createWD());
+            return this.wd;
         }
-        return this.wd;
     }
 
     // *** setters
@@ -984,20 +1195,9 @@ public class PropsConfiguration extends Configuration {
 
     private final void setRoot(final DBRoot root) {
         this.root = root;
+        checkDestroyed();
         // be sure to try to set a manager to avoid giving all permissions to everyone
         this.urMngr = createUserRightsManager(root);
-    }
-
-    private final void setShowAs(final ShowAs showAs) {
-        this.showAs = showAs;
-    }
-
-    private final void setTranslator(final SQLFieldTranslator translator) {
-        this.translator = translator;
-    }
-
-    private final void setDirectory(final SQLElementDirectory directory) {
-        this.directory = directory;
     }
 
     private final void setWD(final File dir) {

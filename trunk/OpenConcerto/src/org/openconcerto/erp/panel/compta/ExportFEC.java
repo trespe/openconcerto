@@ -77,6 +77,9 @@ public class ExportFEC extends AbstractExport {
         sel.addSelect(tableEcriture.getField("NOM"));
         sel.addSelect(tableEcriture.getField("DEBIT"));
         sel.addSelect(tableEcriture.getField("CREDIT"));
+        sel.addSelect(tableEcriture.getField("DATE_LETTRAGE"));
+        sel.addSelect(tableEcriture.getField("LETTRAGE"));
+        sel.addSelect(tableEcriture.getField("DATE_VALIDE"));
 
         sel.addFieldOrder(tableEcriture.getField("DATE"));
         sel.addFieldOrder(tableMouvement.getField("NUMERO"));
@@ -146,11 +149,22 @@ public class ExportFEC extends AbstractExport {
             // Credit
             addAmountField(line, (Number) array[9]);
             // EcritureLet
-            addEmptyField(line);
+            addField(line, (String) array[11]);
+
             // DateLet
-            addEmptyField(line);
+            if (array[10] != null) {
+                final String ecritureDateLettrage = dateFormat.format(array[10]);
+                line.add(ecritureDateLettrage);
+            } else {
+                line.add("");
+            }
             // ValidDate
-            line.add(ecritureDate);
+            if (array[12] != null) {
+                final String ecritureDateValid = dateFormat.format(array[12]);
+                line.add(ecritureDateValid);
+            } else {
+                line.add("");
+            }
             // Montantdevise
             addEmptyField(line);
             // Idevise
@@ -167,5 +181,6 @@ public class ExportFEC extends AbstractExport {
             }
             bufOut.write(this.recordSep);
         }
+        bufOut.close();
     }
 }

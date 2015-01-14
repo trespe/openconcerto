@@ -44,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.jdom.Attribute;
 import org.jdom.Element;
 
 public class OOXMLField extends OOXMLElement {
@@ -84,8 +85,8 @@ public class OOXMLField extends OOXMLElement {
             // {
             String field = this.elt.getAttributeValue("name");
 
-            final SQLField sqlField = this.row.getTable().getField(field);
-            boolean isForeignField = this.row.getTable().getForeignKeys().contains(sqlField);
+            final SQLField sqlField = (field == null || field.trim().length() == 0) ? null : this.row.getTable().getField(field);
+            boolean isForeignField = (sqlField == null) ? false : this.row.getTable().getForeignKeys().contains(sqlField);
 
             // le champ est une clef etrangere, on recupere la valeur du sous composant
             if (isForeignField && this.elt.getChild("field") != null) {
@@ -280,6 +281,17 @@ public class OOXMLField extends OOXMLElement {
     }
 
     protected Object getSpecialValue(String typeComp) {
+
+        SpreadSheetCellValueProvider provider = SpreadSheetCellValueProviderManager.get(typeComp);
+        if (provider != null) {
+            final SpreadSheetCellValueContext context = new SpreadSheetCellValueContext(this.row);
+            List<Attribute> attrs = this.elt.getAttributes();
+            for (Attribute attr : attrs) {
+                context.put(attr.getName(), attr.getValue());
+            }
+            return provider.getValue(context);
+        }
+
         String field = this.elt.getAttributeValue("name");
         final Object result = this.row.getObject(field);
 
@@ -348,6 +360,8 @@ public class OOXMLField extends OOXMLElement {
             } else if (typeComp.equalsIgnoreCase("Ville")) {
                 stringValue = (result == null) ? "" : result.toString();
                 return stringValue;
+            } else if (typeComp.equalsIgnoreCase("Traduction")) {
+                return getTraduction();
             } else if (typeComp.equalsIgnoreCase("VilleCP")) {
                 // Code postal de la ville
                 return this.row.getString("CODE_POSTAL");

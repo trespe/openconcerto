@@ -21,6 +21,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
 import org.openconcerto.sql.request.ComboSQLRequest;
+import org.openconcerto.sql.request.ComboSQLRequest.KeepMode;
 import org.openconcerto.sql.view.search.SearchSpec;
 import org.openconcerto.sql.view.search.SearchSpecUtils;
 import org.openconcerto.ui.SwingThreadUtils;
@@ -33,6 +34,7 @@ import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.MutableValueObject;
 import org.openconcerto.utils.model.DefaultIMutableListModel;
+import org.openconcerto.utils.model.ISearchable;
 import org.openconcerto.utils.model.NewSelection;
 
 import java.beans.PropertyChangeEvent;
@@ -58,7 +60,7 @@ import net.jcip.annotations.GuardedBy;
  * 
  * @author Sylvain CUAZ
  */
-public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> implements SQLTableModifiedListener, MutableValueObject<IComboSelectionItem>, EmptyObj {
+public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> implements SQLTableModifiedListener, MutableValueObject<IComboSelectionItem>, EmptyObj, ISearchable {
 
     private final ComboSQLRequest req;
 
@@ -67,6 +69,8 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     private boolean isADirtyDrityGirl = true;
     private boolean isOnScreen = false;
     private boolean sleepAllowed = true;
+    @GuardedBy("this")
+    private int requestDelay = 50;
 
     // supports
     private final EmptyChangeSupport emptySupp;
@@ -192,6 +196,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     }
 
     void setRunning(final boolean b) {
+        assert SwingUtilities.isEventDispatchThread();
         if (this.running != b) {
             this.running = b;
             if (this.running) {
@@ -245,6 +250,20 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         return this.sleepAllowed;
     }
 
+    public synchronized final int getRequestDelay() {
+        return this.requestDelay;
+    }
+
+    /**
+     * Set the delay before the request is executed. I.e. if two {@link #fillCombo()} are less than
+     * <code>delay</code> apart the first one won't be executed.
+     * 
+     * @param delay the delay in milliseconds.
+     */
+    public synchronized final void setRequestDelay(final int delay) {
+        this.requestDelay = delay;
+    }
+
     /**
      * Reload this combo. This method is thread-safe.
      */
@@ -295,6 +314,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
             // and thus done() and r might never be called
             if (r != null)
                 this.runnables.add(r);
+            final int delay = this.getRequestDelay();
             // copy the current search, if it changes fillCombo() will be called
             final SearchSpec search = this.getSearch();
             // commencer l'update après, sinon modeToSelect == 0
@@ -303,7 +323,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
                 @Override
                 protected List<IComboSelectionItem> doInBackground() throws InterruptedException {
                     // attends 1 peu pour voir si on va pas être annulé
-                    Thread.sleep(50);
+                    Thread.sleep(delay);
                     return SearchSpecUtils.filter(IComboModel.this.req.getComboItems(readCache), search);
                 }
 
@@ -463,8 +483,11 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
             return this.getSelectedValue();
         else if (this.getWantedID() == SQLRow.NONEXISTANT_ID)
             return null;
-        else
+        else if (this.getRequest().getKeepMode() == KeepMode.NONE)
             return new IComboSelectionItem(getWantedID(), null);
+        else
+            // no point in passing an SQLRowValues as the graph would be limited to just this row
+            return new IComboSelectionItem(new SQLRow(this.getForeignTable(), getWantedID()), null);
     }
 
     /**
@@ -598,7 +621,7 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
                         error = " archivée";
                     else
                         error = " existe mais est non atteignable: " + row.findDistantArchived(2);
-                    newItem = new IComboSelectionItem(id, "ERREUR !!! " + row + error);
+                    newItem = new IComboSelectionItem(row, "ERREUR !!! " + row + error);
                     newItem.setFlag(IComboSelectionItem.ERROR_FLAG);
                 }
                 this.addItem(newItem);
@@ -754,5 +777,25 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
     public final boolean isUpdating() {
         assert SwingUtilities.isEventDispatchThread();
         return this.updating;
+    }
+
+    @Override
+    public boolean isSearchable() {
+        return !this.getRequest().getSearchFields().isEmpty();
+    }
+
+    @Override
+    public boolean setSearch(String s, Runnable r) {
+        if (this.getRequest().setSearch(s)) {
+            if (r != null) {
+                synchronized (this) {
+                    this.runnables.add(r);
+                }
+            }
+            return true;
+        } else {
+            SwingUtilities.invokeLater(r);
+            return false;
+        }
     }
 }

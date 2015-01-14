@@ -189,6 +189,7 @@
 		<FIELD name="RCS" label="RCS" />
 		<FIELD name="CAPITAL" label="Capital" />
 		<FIELD name="NUMERO_URSSAF" label="URSSAF number" />
+		<FIELD name="ID_DEVISE" label="Currency" />
 	</TABLE>
 
 	<TABLE name="TYPE_MODELE">

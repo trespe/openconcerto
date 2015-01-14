@@ -357,6 +357,10 @@ public abstract class EmailClient {
     public static abstract class Thunderbird extends EmailClient {
 
         public static Thunderbird createFromExe(final File exe) {
+            if (exe == null)
+                throw new NullPointerException();
+            if (!exe.isFile())
+                return null;
             return new ThunderbirdPath(exe);
         }
 
@@ -452,12 +456,18 @@ public abstract class EmailClient {
         case AppleMail:
             return AppleMail;
         case Thunderbird:
-            if (args.length == 2)
-                return Thunderbird.createFromExe(new File(args[1]));
-            else if (args.length == 3)
-                return Thunderbird.createFromCommandLine(args[1], args[2]);
-            else
+            EmailClient res = null;
+            if (args.length == 2) {
+                final File exe = new File(args[1]);
+                res = Thunderbird.createFromExe(exe);
+                if (res == null)
+                    throw new IOException("Invalid exe : " + exe);
+            } else if (args.length == 3) {
+                res = Thunderbird.createFromCommandLine(args[1], args[2]);
+            } else {
                 throw new IllegalArgumentException(t + " needs 1 or 2 arguments");
+            }
+            return res;
         default:
             throw new IllegalStateException("Unknown type " + t);
         }

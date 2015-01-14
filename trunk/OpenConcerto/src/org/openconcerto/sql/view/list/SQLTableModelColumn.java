@@ -16,10 +16,13 @@
 import org.openconcerto.sql.model.FieldPath;
 import org.openconcerto.sql.model.IFieldPath;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.sql.model.SQLFieldsSet;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.utils.cc.IClosure;
 import org.openconcerto.utils.convertor.ValueConvertor;
 
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -79,7 +82,32 @@ public abstract class SQLTableModelColumn {
         return res;
     }
 
+    /**
+     * The paths needed to {@link #show(SQLRowAccessor)}.
+     * 
+     * @return a set of paths.
+     */
     public abstract Set<FieldPath> getPaths();
+
+    /**
+     * The fields modified in {@link #put(ListSQLLine, Object)}. This implementation returns
+     * {@link #getFields()}.
+     * 
+     * @return a set of paths.
+     */
+    public SQLFieldsSet getWriteFields() {
+        return new SQLFieldsSet(this.getFields());
+    }
+
+    /**
+     * The tables for which rows can be inserted or deleted in {@link #put(ListSQLLine, Object)}.
+     * This implementation returns an empty set.
+     * 
+     * @return the tables.
+     */
+    public Set<SQLTable> getWriteTables() {
+        return Collections.emptySet();
+    }
 
     /**
      * Which columns does show() needs.

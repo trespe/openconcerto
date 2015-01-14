@@ -13,9 +13,9 @@
  
  package org.openconcerto.utils.cache;
 
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.Log;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.cache.CacheResult.State;
 import org.openconcerto.utils.cc.Transformer;
 
@@ -53,7 +53,7 @@ public class ICache<K, V, D> {
     private final String name;
     private final Map<K, CacheTimeOut<K>> timeoutTasks;
     private Map<D, CacheWatcher<K, D>> watchers;
-    private final CollectionMap<K, CacheWatcher<K, D>> watchersByKey;
+    private final SetMap<K, CacheWatcher<K, D>> watchersByKey;
 
     private ICache<K, V, D> parent;
 
@@ -89,7 +89,7 @@ public class ICache<K, V, D> {
         this.timeoutTasks = new HashMap<K, CacheTimeOut<K>>();
 
         this.watchers = null;
-        this.watchersByKey = new CollectionMap<K, CacheWatcher<K, D>>(HashSet.class);
+        this.watchersByKey = new SetMap<K, CacheWatcher<K, D>>();
 
         this.parent = null;
     }
@@ -236,7 +236,7 @@ public class ICache<K, V, D> {
             if (this.watchers != null) {
                 final CacheWatcher<K, D> watcher = this.watchers.get(datum);
                 watcher.add(sel);
-                this.watchersByKey.put(sel, watcher);
+                this.watchersByKey.add(sel, watcher);
             }
         }
 
@@ -244,7 +244,7 @@ public class ICache<K, V, D> {
         this.timeoutTasks.put(sel, timeout);
         this.getTimer().schedule(timeout, this.delay * 1000);
 
-        return (Set<CacheWatcher<K, D>>) this.watchersByKey.getNonNull(sel);
+        return this.watchersByKey.getNonNull(sel);
     }
 
     public final synchronized void clear(K select) {
@@ -252,7 +252,7 @@ public class ICache<K, V, D> {
         if (this.cache.containsKey(select)) {
             this.cache.remove(select);
             this.timeoutTasks.remove(select).cancel();
-            final Set<CacheWatcher<K, D>> keyWatchers = (Set<CacheWatcher<K, D>>) this.watchersByKey.remove(select);
+            final Set<CacheWatcher<K, D>> keyWatchers = this.watchersByKey.remove(select);
             // a key can specify no watchers at all
             if (keyWatchers != null) {
                 for (final CacheWatcher<K, D> w : keyWatchers) {

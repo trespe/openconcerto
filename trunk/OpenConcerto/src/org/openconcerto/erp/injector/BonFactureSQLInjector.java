@@ -31,8 +31,9 @@ public class BonFactureSQLInjector extends SQLInjector {
         // map(tableDevis.getField("PORT_HT"), tableCommande.getField("PORT_HT"));
         // map(tableDevis.getField("REMISE_HT"), tableCommande.getField("REMISE_HT"));
         map(tableBon.getField("ID_CLIENT"), tableFacture.getField("ID_CLIENT"));
-        map(tableBon.getField("NOM"), tableFacture.getField("NOM"));
-        map(tableBon.getField("INFOS"), tableFacture.getField("INFOS"));
+        if (tableBon.getTable().contains("ID_POLE_PRODUIT")) {
+            map(tableBon.getField("ID_POLE_PRODUIT"), tableFacture.getField("ID_POLE_PRODUIT"));
+        }
     }
 
     @Override
@@ -43,6 +44,9 @@ public class BonFactureSQLInjector extends SQLInjector {
         final SQLTable tableElementSource = getSource().getTable("BON_DE_LIVRAISON_ELEMENT");
         final SQLTable tableElementDestination = getSource().getTable("SAISIE_VENTE_FACTURE_ELEMENT");
         final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+        transfertReference(srcRow, rowVals, "NOM", "NOM");
+        transfertReference(srcRow, rowVals, "INFOS", "INFOS");
+        transfertNumberReference(srcRow, rowVals, tableElementDestination, "ID_SAISIE_VENTE_FACTURE");
 
         if (myListItem.size() != 0) {
             final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);

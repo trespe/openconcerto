@@ -27,6 +27,7 @@ import javax.swing.Action;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.DefaultListCellRenderer;
+import javax.swing.Icon;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JPopupMenu;
@@ -58,7 +59,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
         this.list.addMouseMotionListener(new ListMouseMotionHandler());
     }
 
-    final void setMaxVisibleRows(int maxVisibleRows) {
+    final void setMaxVisibleRows(final int maxVisibleRows) {
         this.maxVisibleRows = maxVisibleRows;
     }
 
@@ -78,22 +79,24 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
         this.list.setFocusable(false);
         this.list.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         this.list.addMouseListener(new MouseAdapter() {
-            public void mouseReleased(MouseEvent e) {
+            @Override
+            public void mouseReleased(final MouseEvent e) {
                 validateSelection();
             }
         });
         this.list.setCellRenderer(new DefaultListCellRenderer() {
             @SuppressWarnings("unchecked")
             @Override
-            public Component getListCellRendererComponent(JList list, Object value, int index, boolean isSelected, boolean cellHasFocus) {
+            public Component getListCellRendererComponent(final JList list, final Object value, final int index, final boolean isSelected, final boolean cellHasFocus) {
                 // MAYBE optimize
                 final JLabel comp = (JLabel) super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
                 comp.setFont(getCombo().getFont());
                 final String text;
                 if (value instanceof Action) {
+                    final Action val = (Action) value;
                     comp.setFont(comp.getFont().deriveFont(Font.ITALIC));
-                    text = (String) ((Action) value).getValue(Action.NAME);
-                    comp.setIcon(null);
+                    text = (String) val.getValue(Action.NAME);
+                    comp.setIcon((Icon) val.getValue(Action.SMALL_ICON));
                 } else {
                     final ISearchableComboItem<T> val = (ISearchableComboItem<T>) value;
                     text = val.asString();
@@ -113,7 +116,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
             }
         });
         // Scroller
-        JScrollPane scroller = new JScrollPane(this.list, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        final JScrollPane scroller = new JScrollPane(this.list, ScrollPaneConstants.VERTICAL_SCROLLBAR_AS_NEEDED, ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scroller.setFocusable(false);
         scroller.getVerticalScrollBar().setFocusable(false);
         scroller.setBorder(BorderFactory.createEmptyBorder());
@@ -127,33 +130,35 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
         setFocusable(false);
     }
 
+    @Override
     public Dimension getPreferredSize() {
-        Dimension d = super.getPreferredSize();
+        final Dimension d = super.getPreferredSize();
 
         int width = d.width;
         if (width > 500)
             width = 500;
         width = Math.max(width, this.minWitdh) + 2;
 
-        Dimension newD = new Dimension(width, d.height);
+        final Dimension newD = new Dimension(width, d.height);
         return newD;
     }
 
-    public void setMinWith(int i) {
+    public void setMinWith(final int i) {
         this.minWitdh = i;
     }
 
     protected class ListMouseMotionHandler extends MouseMotionAdapter {
-        public void mouseMoved(MouseEvent anEvent) {
+        @Override
+        public void mouseMoved(final MouseEvent anEvent) {
             updateListBoxSelection(anEvent.getPoint());
         }
     }
 
-    protected void updateListBoxSelection(Point location) {
+    protected void updateListBoxSelection(final Point location) {
         this.updateListBoxSelection(location, true);
     }
 
-    private void updateListBoxSelection(Point location, boolean shouldScroll) {
+    private void updateListBoxSelection(final Point location, final boolean shouldScroll) {
         if (this.list == null)
             return;
         int index = this.list.locationToIndex(location);
@@ -172,7 +177,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
     }
 
     public void selectNext() {
-        int i = this.list.getSelectedIndex() + 1;
+        final int i = this.list.getSelectedIndex() + 1;
         if (i < this.getListModel().getSize()) {
             this.list.setSelectedIndex(i);
             this.list.ensureIndexIsVisible(i);
@@ -180,7 +185,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
     }
 
     public void selectNextPage() {
-        int i = Math.min(MAXROW + Math.max(this.list.getSelectedIndex(), 0), this.getListModel().getSize() - 1);
+        final int i = Math.min(MAXROW + Math.max(this.list.getSelectedIndex(), 0), this.getListModel().getSize() - 1);
         if (i < this.getListModel().getSize()) {
             this.list.setSelectedIndex(i);
             this.list.ensureIndexIsVisible(i);
@@ -188,17 +193,17 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
     }
 
     public void selectPrevious() {
-        int i = this.list.getSelectedIndex() - 1;
+        final int i = this.list.getSelectedIndex() - 1;
         if (i >= 0) {
             this.list.setSelectedIndex(i);
             this.list.ensureIndexIsVisible(i);
         } else {
-            this.setVisible(false);
+            this.close();
         }
     }
 
     public void selectPreviousPage() {
-        int i = Math.max(0, this.list.getSelectedIndex() - MAXROW);
+        final int i = Math.max(0, this.list.getSelectedIndex() - MAXROW);
         this.list.setSelectedIndex(i);
         this.list.ensureIndexIsVisible(i);
     }
@@ -215,7 +220,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
                 ((Action) sel).actionPerformed(new ActionEvent(this.getCombo(), ActionEvent.ACTION_PERFORMED, this.getCombo().getName()));
             } else
                 throw new IllegalStateException("unknown selection: " + sel);
-            this.setVisible(false);
+            this.close();
         }
     }
 
@@ -235,7 +240,7 @@ public class ISearchableComboPopup<T> extends JPopupMenu {
             this.list.setVisibleRowCount(rowCount);
             if (this.isShowing()) {
                 // since "visible row count" is not dynamic
-                setVisible(false);
+                close();
             }
         }
         // si on est pas déjà affiché

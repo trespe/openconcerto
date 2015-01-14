@@ -161,13 +161,15 @@ public class Ville {
     }
 
     public static synchronized void removeVille(final Ville v) {
-        villes.remove(v);
-        final String villeEtCode = v.getVilleEtCode();
-        villesNames.remove(villeEtCode);
-        map.remove(villeEtCode);
+        if (v != null) {
+            villes.remove(v);
+            final String villeEtCode = v.getVilleEtCode();
+            villesNames.remove(villeEtCode);
+            map.remove(villeEtCode);
 
-        accessor.delete(v);
-        fireListModified();
+            accessor.delete(v);
+            fireListModified();
+        }
     }
 
     // ** getter

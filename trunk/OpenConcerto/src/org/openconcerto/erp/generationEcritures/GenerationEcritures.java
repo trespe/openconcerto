@@ -14,7 +14,12 @@
  package org.openconcerto.erp.generationEcritures;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.common.ui.TotalCalculator;
+import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
+import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
+import org.openconcerto.erp.generationEcritures.provider.AnalytiqueProvider;
+import org.openconcerto.erp.generationEcritures.provider.AnalytiqueProviderManager;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.erp.preferences.GestionPieceCommercialePanel;
 import org.openconcerto.sql.Configuration;
@@ -28,6 +33,7 @@ import org.openconcerto.utils.ExceptionHandler;
 
 import java.math.BigDecimal;
 import java.sql.SQLException;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -69,7 +75,7 @@ public class GenerationEcritures {
      * @return Id de l'ecriture crée
      * @throws IllegalArgumentException
      */
-    synchronized public int ajoutEcriture() throws IllegalArgumentException {
+    synchronized public SQLRow ajoutEcriture() throws IllegalArgumentException {
 
         long debit = ((Long) this.mEcritures.get("DEBIT")).longValue();
         long credit = ((Long) this.mEcritures.get("CREDIT")).longValue();
@@ -78,6 +84,9 @@ public class GenerationEcritures {
         Number n = (Number) this.mEcritures.get("ID_JOURNAL");
         if (n != null) {
             SQLRow rowJrnl = journalTable.getRow(n.intValue());
+            if (rowJrnl == null) {
+                throw new IllegalArgumentException("Le journal qui a pour ID " + n + " a été archivé.");
+            }
             this.mEcritures.put("JOURNAL_NOM", rowJrnl.getString("NOM"));
             this.mEcritures.put("JOURNAL_CODE", rowJrnl.getString("CODE"));
         }
@@ -143,7 +152,7 @@ public class GenerationEcritures {
             if (valEcriture.getInvalid() == null) {
                 // ajout de l'ecriture
                 SQLRow ecritureRow = valEcriture.insert();
-                return ecritureRow.getID();
+                return ecritureRow;
             } else {
                 System.err.println("GenerationEcritures.java :: Error in values for insert in table " + GenerationEcritures.ecritureTable.getName() + " : " + valEcriture.toString());
                 throw new IllegalArgumentException("Erreur lors de la génération des écritures données incorrectes. " + valEcriture);
@@ -159,9 +168,35 @@ public class GenerationEcritures {
             e.printStackTrace();
         }
 
-        return -1;
+        return null;
     }
 
+    private static SQLTable tableAssoc = null;
+    private static SQLTable tablePoste = Configuration.getInstance().getDirectory().getElement("POSTE_ANALYTIQUE").getTable();
+
+    public void addAssocAnalytique(SQLRow rowEcr, int idPoste) throws SQLException {
+        if (tablePoste.getUndefinedID() == idPoste) {
+            return;
+        }
+        if (tableAssoc == null) {
+            tableAssoc = Configuration.getInstance().getDirectory().getElement("ASSOCIATION_ANALYTIQUE").getTable();
+        }
+        SQLRowValues rowVals = new SQLRowValues(tableAssoc);
+        rowVals.put("ID_POSTE_ANALYTIQUE", idPoste);
+        rowVals.put("POURCENT", 100.0);
+        rowVals.put("ID_ECRITURE", rowEcr.getID());
+        rowVals.put("MONTANT", rowEcr.getLong("DEBIT") - rowEcr.getLong("CREDIT"));
+        rowVals.commit();
+
+    }
+
+    public void addAssocAnalytiqueFromProvider(SQLRow rowEcr, SQLRow rowSource) throws SQLException {
+
+        Collection<AnalytiqueProvider> l = AnalytiqueProviderManager.getAll();
+        for (AnalytiqueProvider analytiqueProvider : l) {
+            analytiqueProvider.addAssociation(rowEcr, rowSource);
+        }
+    }
 
     /**
      * Génération d'un groupe d'écritures respectant la partie double.
@@ -407,4 +442,42 @@ public class GenerationEcritures {
 
     }
 
+    /**
+     * Définit le journal en fonction de la banque sélectionnée
+     * 
+     * @param sqlRow sqlRow contenant la foreignKey Banque
+     */
+    protected void fillJournalBanqueFromRow(SQLRow sqlRow) {
+        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+        if (!sqlRow.isForeignEmpty("ID_" + BanqueSQLElement.TABLENAME)) {
+            SQLRow rowBanque = sqlRow.getForeignRow("ID_" + BanqueSQLElement.TABLENAME);
+            if (!rowBanque.isForeignEmpty("ID_JOURNAL")) {
+                SQLRow rowJournal = rowBanque.getForeignRow("ID_JOURNAL");
+                this.mEcritures.put("ID_JOURNAL", rowJournal.getID());
+            }
+        }
+    }
+
+    /**
+     * Définit le compte en fonction de la banque sélectionnée
+     * 
+     * @param sqlRow sqlRow contenant la foreignKey Banque
+     * @throws Exception
+     */
+    protected void fillCompteBanqueFromRow(SQLRow sqlRow, String defaultProps, boolean achat) throws Exception {
+
+        int idPce = base.getTable("TYPE_REGLEMENT").getRow(2).getInt("ID_COMPTE_PCE_" + (achat ? "FOURN" : "CLIENT"));
+        if (idPce <= 1) {
+            idPce = ComptePCESQLElement.getIdComptePceDefault(defaultProps);
+        }
+        if (!sqlRow.isForeignEmpty("ID_" + BanqueSQLElement.TABLENAME)) {
+            SQLRow rowBanque = sqlRow.getForeignRow("ID_" + BanqueSQLElement.TABLENAME);
+            if (!rowBanque.isForeignEmpty("ID_COMPTE_PCE")) {
+                SQLRow rowCompteBanque = rowBanque.getForeignRow("ID_COMPTE_PCE");
+                idPce = rowCompteBanque.getID();
+            }
+        }
+
+        this.mEcritures.put("ID_COMPTE_PCE", idPce);
+    }
 }

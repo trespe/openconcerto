@@ -13,6 +13,7 @@
  
  package org.openconcerto.erp.generationEcritures;
 
+import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.ComptePCESQLElement;
 import org.openconcerto.erp.core.finance.accounting.element.JournalSQLElement;
 import org.openconcerto.erp.core.finance.payment.element.ModeDeReglementSQLElement;
@@ -83,7 +84,7 @@ public class GenerationMvtReglementVenteFacture extends GenerationEcritures impl
                     if (typeRegRow.getID() == 4) {
                         this.mEcritures.put("ID_JOURNAL", GenerationMvtReglementVenteFacture.journalCaisse);
                     } else {
-                        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+                        fillJournalBanqueFromRow(modeRegRow);
                     }
 
                     this.idMvt = idPere;
@@ -106,11 +107,7 @@ public class GenerationMvtReglementVenteFacture extends GenerationEcritures impl
                     ajoutEcriture();
 
                     // compte de reglement, caisse, cheque, ...
-                    int idCompteRegl = typeRegRow.getInt("ID_COMPTE_PCE_CLIENT");
-                    if (idCompteRegl <= 1) {
-                        idCompteRegl = ComptePCESQLElement.getIdComptePceDefault("VenteCB");
-                    }
-                    this.mEcritures.put("ID_COMPTE_PCE", new Integer(idCompteRegl));
+                    fillCompteBanqueFromRow(modeRegRow, "VenteCB", false);
                     this.mEcritures.put("DEBIT", new Long(prixTTC.getLongValue()));
                     this.mEcritures.put("CREDIT", new Long(0));
                     ajoutEcriture();
@@ -180,6 +177,10 @@ public class GenerationMvtReglementVenteFacture extends GenerationEcritures impl
         valEncaisse.put("ID_CLIENT", new Integer(saisieRow.getInt("ID_CLIENT")));
         valEncaisse.put("DATE_VENTE", new java.sql.Date(this.date.getTime()));
         valEncaisse.put("DATE_MIN_DEPOT", new java.sql.Date(dateEch.getTime()));
+        if (saisieRow.isForeignEmpty("ID_MODE_REGLEMENT")) {
+            SQLRow rowModeRegl = saisieRow.getForeignRow("ID_MODE_REGLEMENT");
+            valEncaisse.put("ID_" + BanqueSQLElement.TABLENAME, rowModeRegl.getInt("ID_" + BanqueSQLElement.TABLENAME));
+        }
         SQLRow rowMvtPere = tableMouvement.getRow(idPere);
         this.idMvt = getNewMouvement("CHEQUE_A_ENCAISSER", 1, idPere, rowMvtPere.getInt("ID_PIECE"));
         valEncaisse.put("ID_MOUVEMENT", new Integer(this.idMvt));

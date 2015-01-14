@@ -14,6 +14,7 @@
  package org.openconcerto.erp.generationDoc;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.config.Log;
 import org.openconcerto.erp.core.common.element.StyleSQLElement;
 import org.openconcerto.openoffice.ODPackage;
 import org.openconcerto.openoffice.spreadsheet.MutableCell;
@@ -147,10 +148,15 @@ public class OOgenerationXML {
             List<Element> listElts = racine.getChildren("element");
 
             // Création et génération du fichier OO
-            final InputStream template = TemplateManager.getInstance().getTemplate(templateId, langage, typeTemplate);
-
-            final SpreadSheet spreadSheet = new ODPackage(template).getSpreadSheet();
+            final InputStream templateStream = TemplateManager.getInstance().getTemplate(templateId, langage, typeTemplate);
+            if (templateStream == null) {
+                ExceptionHandler.handle("Modèle " + templateId + " " + ((rowLanguage == null) ? "" : rowLanguage.getString("CHEMIN")) + " " + typeTemplate + " manquant.");
+                return null;
+            }
+            final SpreadSheet spreadSheet;
             try {
+                spreadSheet = new ODPackage(templateStream).getSpreadSheet();
+
                 // On remplit les cellules de la feuille
                 parseElementsXML(listElts, row, spreadSheet);
 
@@ -163,6 +169,7 @@ public class OOgenerationXML {
                 }
             } catch (Exception e) {
                 ExceptionHandler.handle("Impossible de remplir le document " + templateId + " " + ((rowLanguage == null) ? "" : rowLanguage.getString("CHEMIN")), e);
+                return null;
             }
 
             if (meta != null) {
@@ -376,7 +383,7 @@ public class OOgenerationXML {
         // on remplit chaque ligne à partir des rows recuperées
         int numeroRef = 0;
         for (SQLRowAccessor rowElt : rowsEltCache.get(ref)) {
-            numeroRef++;
+
             if (!cache && rowElt.getTable().getFieldRaw("ID_TAXE") != null) {
                 SQLRowAccessor rowTaxe = getForeignRow(rowElt, rowElt.getTable().getField("ID_TAXE"));
                 BigDecimal ht = BigDecimal.ZERO;
@@ -398,12 +405,14 @@ public class OOgenerationXML {
             }
 
             final boolean included = isIncluded(tableElement.getFilterId(), tableElement.getForeignTableWhere(), tableElement.getFilterId(), tableElement.getFieldWhere(), rowElt);
-            if (included || tableElement.getTypeStyleWhere()) {
+            String styleName = null;
+            if (tableElement.getSQLElement().getTable().contains("ID_STYLE")) {
+                styleName = styleElt.getTable().getRow(rowElt.getInt("ID_STYLE")).getString("NOM");
+            }
 
-                String styleName = null;
-                if (tableElement.getSQLElement().getTable().contains("ID_STYLE")) {
-                    styleName = styleElt.getTable().getRow(rowElt.getInt("ID_STYLE")).getString("NOM");
-                }
+            if ((included || tableElement.getTypeStyleWhere()) && (styleName == null || !styleName.equalsIgnoreCase("Invisible"))) {
+
+                numeroRef++;
 
                 if (included && tableElement.getTypeStyleWhere()) {
                     styleName = "Titre 1";
@@ -413,17 +422,11 @@ public class OOgenerationXML {
                     styleName = "Normal";
                 }
 
-                String tmp;
-                if (styleName != null && tableElement.getListBlankLineStyle().contains(styleName)) {
-                    tmp = null;
-                } else {
-                    tmp = styleName;
-                }
-
                 // Blank Line Style
                 boolean first = true;
                 int toAdd = 0;
                 if (styleName != null && tableElement.getListBlankLineStyle().contains(styleName) && first) {
+
                     toAdd++;
                     currentLine++;
                     first = false;
@@ -587,7 +590,9 @@ public class OOgenerationXML {
                     System.err.println("OOgenerationXML.fillTaxe() --> name == null");
                 } else {
                     Object value = m.get(name);
-                    if (name.equalsIgnoreCase("MONTANT_TVA")) {
+                    if (name.equalsIgnoreCase("MONTANT_HT")) {
+                        value = ((BigDecimal) m.get("MONTANT_HT"));
+                    } else if (name.equalsIgnoreCase("MONTANT_TVA")) {
                         // value = Math.round(((Long) m.get("MONTANT_HT") * rowTaxe.getFloat("TAUX")
                         // / 100.0));
                         value = ((BigDecimal) m.get("MONTANT_HT")).multiply(new BigDecimal(rowTaxe.getFloat("TAUX")), MathContext.DECIMAL128).movePointLeft(2);
@@ -689,7 +694,8 @@ public class OOgenerationXML {
                                 }
                                 y++;
                             } catch (IllegalArgumentException e) {
-                                JOptionPane.showMessageDialog(null, "La cellule " + location + " n'existe pas ou est fusionnée.", "Erreur pendant la génération", JOptionPane.ERROR_MESSAGE);
+
+                                ExceptionHandler.handle("La cellule " + location + " n'existe pas ou est fusionnée.", e);
                             }
                         }
                     }
@@ -910,12 +916,8 @@ public class OOgenerationXML {
             int nbPage = fillTable(tableau, row, sheet, mapStyle, true, rowLanguage);
 
             return nbPage > 1;
-        } catch (final JDOMException e) {
-
-            e.printStackTrace();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
+        } catch (Throwable e) {
+            Log.get().severe(e.getMessage());
             e.printStackTrace();
         }
         return false;

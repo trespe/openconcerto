@@ -17,28 +17,36 @@
 package org.openconcerto.sql.model;
 
 import static org.openconcerto.sql.model.SQLBase.quoteIdentifier;
+import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionUtils;
+import org.openconcerto.utils.Value;
 import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.XMLCodecUtils;
 
+import java.math.BigDecimal;
 import java.sql.DatabaseMetaData;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.logging.Level;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import net.jcip.annotations.GuardedBy;
 import net.jcip.annotations.ThreadSafe;
 
-import org.jdom.Element;
+import org.jdom2.Element;
 
 /**
  * Un champ SQL. Pour obtenir une instance de cette classe il faut utiliser
@@ -121,7 +129,9 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
     // all following attributes guarded by "this"
     private SQLType type;
     private final Map<String, Object> metadata;
-    private Object defaultValue;
+    private String defaultValue;
+    @GuardedBy("this")
+    private Value<Object> parsedDefaultValue;
     private Boolean nullable;
     // from information_schema.COLUMNS
     private final Map<String, Object> infoSchemaCols;
@@ -145,7 +155,9 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         // pg_get_expr(adbin) (see 44.6. pg_attrdef), this sometimes result in
         // <nextval('"Preventec_Common"."DISCIPLINE_ID_seq"'::regclass)> !=
         // <nextval('"DISCIPLINE_ID_seq"'::regclass)>
-        this.defaultValue = metadata.get("COLUMN_DEF");
+        this.defaultValue = (String) metadata.get("COLUMN_DEF");
+        // don't parse now, as it might not be possible : i.e. function calls
+        this.parsedDefaultValue = null;
         this.fullName = this.getTable().getName() + "." + this.getName();
         this.nullable = nullableStr2Obj((String) metadata.get("IS_NULLABLE"));
 
@@ -159,6 +171,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         this.type = f.type;
         this.metadata = new HashMap<String, Object>(f.metadata);
         this.defaultValue = f.defaultValue;
+        this.parsedDefaultValue = f.parsedDefaultValue;
         this.fullName = f.fullName;
         this.nullable = f.nullable;
         this.infoSchemaCols = new HashMap<String, Object>(f.infoSchemaCols);
@@ -172,6 +185,7 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         this.metadata.clear();
         this.metadata.putAll(f.metadata);
         this.defaultValue = f.defaultValue;
+        this.parsedDefaultValue = f.parsedDefaultValue;
         this.nullable = f.nullable;
         this.setColsFromInfoSchema(f.infoSchemaCols);
         this.xml = f.xml;
@@ -250,16 +264,18 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         final SQLSystem sys = getServer().getSQLSystem();
         if (sys == SQLSystem.H2) {
             final String name = (String) this.infoSchemaCols.get("SEQUENCE_NAME");
-            if (name != null)
-                return new SQLName(name);
+            if (name != null) {
+                // H2 doesn't provide the schema name, but requires it when altering a field
+                return new SQLName(getDBRoot().getName(), name);
+            }
         } else if (sys == SQLSystem.POSTGRESQL) {
             if (allowRequest) {
                 final String req = "SELECT pg_get_serial_sequence(" + getTable().getBase().quoteString(getTable().getSQLName().quote()) + ", " + getTable().getBase().quoteString(this.getName()) + ")";
                 final String name = (String) getDBSystemRoot().getDataSource().executeScalar(req);
                 if (name != null)
                     return SQLName.parse(name);
-            } else {
-                final String def = ((String) this.getDefaultValue()).trim();
+            } else if (this.getDefaultValue() != null) {
+                final String def = this.getDefaultValue().trim();
                 if (def.startsWith("nextval")) {
                     final Matcher matcher = SEQ_PATTERN.matcher(def);
                     if (matcher.matches()) {
@@ -273,8 +289,58 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         return null;
     }
 
-    public synchronized Object getDefaultValue() {
+    /**
+     * The SQL default value.
+     * 
+     * @return the default value, e.g. <code>"1"</code> or <code>"'none'"</code>.
+     * @see DatabaseMetaData#getColumns(String, String, String, String)
+     */
+    public synchronized String getDefaultValue() {
         return this.defaultValue;
+    }
+
+    /**
+     * Try to parse the SQL {@link #getDefaultValue() default value}. Numbers are always parsed to
+     * {@link BigDecimal}.
+     * 
+     * @return {@link Value#getNone()} if parsing failed, otherwise the parsed value.
+     */
+    public synchronized Value<Object> getParsedDefaultValue() {
+        if (this.parsedDefaultValue == null) {
+            final Class<?> javaType = this.getType().getJavaType();
+            final String defaultVal = SQLSyntax.getNormalizedDefault(this);
+            try {
+                Object p = null;
+                if (defaultVal == null || defaultVal.trim().equalsIgnoreCase("null")) {
+                    p = null;
+                } else if (String.class.isAssignableFrom(javaType)) {
+                    // Strings can be encoded a lot of different ways, see SQLBase.quoteString()
+                    if (defaultVal.charAt(0) == '\'' && defaultVal.indexOf('\\') == -1)
+                        p = SQLBase.unquoteStringStd(defaultVal);
+                    else
+                        this.parsedDefaultValue = Value.getNone();
+                } else if (Number.class.isAssignableFrom(javaType)) {
+                    p = new BigDecimal(defaultVal);
+                } else if (Boolean.class.isAssignableFrom(javaType)) {
+                    p = Boolean.parseBoolean(defaultVal);
+                } else if (Timestamp.class.isAssignableFrom(javaType)) {
+                    p = Timestamp.valueOf(SQLBase.unquoteStringStd(defaultVal));
+                } else if (Time.class.isAssignableFrom(javaType)) {
+                    p = Time.valueOf(SQLBase.unquoteStringStd(defaultVal));
+                } else if (Date.class.isAssignableFrom(javaType)) {
+                    p = java.sql.Date.valueOf(SQLBase.unquoteStringStd(defaultVal));
+                } else {
+                    throw new IllegalStateException("Unsupported type " + this.getType());
+                }
+                if (this.parsedDefaultValue == null)
+                    this.parsedDefaultValue = Value.<Object> getSome(p);
+            } catch (Exception e) {
+                Log.get().log(Level.FINE, "Couldn't parse " + this.defaultValue, e);
+                this.parsedDefaultValue = Value.getNone();
+            }
+            assert this.parsedDefaultValue != null;
+        }
+        return this.parsedDefaultValue;
     }
 
     /**

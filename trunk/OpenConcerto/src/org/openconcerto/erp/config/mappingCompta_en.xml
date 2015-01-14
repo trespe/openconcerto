@@ -9,6 +9,7 @@
 	<TABLE name="ADRESSE">
 		<FIELD name="RAISON_SOCIALE" label="Name" />
 		<FIELD name="RUE" label="Street" />
+		<FIELD name="PROVINCE" label="State" titlelabel="State" />
 		<FIELD name="PAYS" label="Country" />
 		<FIELD name="CEDEX" label="Cedex" />
 		<FIELD name="HAS_CEDEX" label="Cedex" />
@@ -17,6 +18,8 @@
 		<FIELD name="DEST" label="Contact" />
 		<FIELD name="NUMERO_CANTON" label="State code" />
 		<FIELD name="NUMERO_COMMUNE" label="" />
+		<FIELD name="TYPE" label="Type" />
+		<FIELD name="EMAIL_CONTACT" label="Email contact" />
 	</TABLE>
 	<TABLE name="AFFACTURAGE">
 		<FIELD name="NB_FACT" label="Number of invoice" />
@@ -68,6 +71,7 @@
 	</TABLE>
 
 	<TABLE name="ARTICLE_TARIF">
+		<FIELD name="ID_ARTICLE" label="Product" />
 		<FIELD name="ID_TARIF" label="Price list" />
 		<FIELD name="ID_TAXE" label="Tax" />
 		<FIELD name="ID_DEVISE" label="Currency" />
@@ -900,7 +904,7 @@
 	</TABLE>
 
 	<TABLE name="FICHE_PAYE">
-		<FIELD name="ANNEE" label="Year"  />
+		<FIELD name="ANNEE" label="Year" />
 		<FIELD name="ID_SALARIE" label="Salarié" titlelabel="Salarié" />
 		<FIELD name="IDPROFIL_PAYE" label="Profil de paye" titlelabel="Profil de paye" />
 		<FIELD name="SAL_BRUT" label="Salaire brut" titlelabel="Salaire brut" />
@@ -911,7 +915,7 @@
 		<FIELD name="CSG" label="Base CSG" titlelabel="Base CSG" />
 		<FIELD name="ID_CUMULS_PAYE" label="Cumuls" titlelabel="Cumuls" />
 		<FIELD name="ACOMPTE" label="Deposit" />
-		<FIELD name="ID_MOIS" label="Month"  />
+		<FIELD name="ID_MOIS" label="Month" />
 		<FIELD name="VALIDE" label="Valide" titlelabel="Valide" />
 		<FIELD name="DU" label="Du" titlelabel="Du" />
 		<FIELD name="AU" label="Au" titlelabel="Au" />
@@ -1086,7 +1090,7 @@
 	</TABLE>
 
 	<TABLE name="MODE_REGLEMENT_PAYE">
-		<FIELD name="NOM" label="Month"  />
+		<FIELD name="NOM" label="Month" />
 	</TABLE>
 
 	<TABLE name="MODELE">
@@ -1154,8 +1158,8 @@
 		<FIELD name="COURRIER_START" label="Next number" />
 	</TABLE>
 	<TABLE name="OBJECTIF_COMMERCIAL">
-		<FIELD name="ANNEE" label="Year"  />
-		<FIELD name="MOIS" label="Month"  />
+		<FIELD name="ANNEE" label="Year" />
+		<FIELD name="MOIS" label="Month" />
 		<FIELD name="MARGE_HT" label="Marge HT" titlelabel="Marge HT" />
 		<FIELD name="POURCENT_MARGE" label="% Marge" titlelabel="% Marge" />
 		<FIELD name="CHIFFRE_AFFAIRE" label="Chiffre d'affaire" titlelabel="Chiffre d'affaire" />

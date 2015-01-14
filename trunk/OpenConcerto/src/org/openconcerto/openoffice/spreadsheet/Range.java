@@ -39,7 +39,8 @@ public final class Range {
         final String sheet2 = SpreadSheet.parseSheetName(m.group(6));
 
         final Point start = Table.resolve(m.group(4));
-        final Point end = Table.resolve(m.group(9));
+        final String cell2 = m.group(9);
+        final Point end = cell2 == null ? null : Table.resolve(cell2);
 
         return new Range(sheet1, start, sheet2, end);
     }
@@ -68,7 +69,7 @@ public final class Range {
      * @param startPoint coordinate of the start.
      * @param endSheet name of the end sheet, can be <code>null</code> if the range doesn't span
      *        multiple sheets.
-     * @param endPoint coordinate of the end.
+     * @param endPoint coordinate of the end, can be <code>null</code> for single cell range.
      */
     public Range(String startSheet, Point startPoint, String endSheet, Point endPoint) {
         super();
@@ -76,8 +77,13 @@ public final class Range {
             throw new NullPointerException("null start sheet, but non null endSheet : " + endSheet);
         this.sheet1 = startSheet;
         this.sheet2 = endSheet == null ? startSheet : endSheet;
+        if (startPoint == null)
+            throw new NullPointerException("Null start point");
         this.start = startPoint;
-        this.end = endPoint;
+        if (endPoint == null && spanSheets())
+            throw new IllegalArgumentException("End cell must be passed for range spanning sheets : " + getStartSheet() + " to " + getEndSheet());
+        this.end = endPoint == null ? this.start : endPoint;
+        assert this.start != null && this.end != null;
     }
 
     public final String getStartSheet() {
@@ -128,13 +134,20 @@ public final class Range {
         final StringBuilder sb = new StringBuilder(32);
         if (this.getStartSheet() != null)
             sb.append(this.getStartSheet());
+        // the RelaxNG pattern requires the dot
         sb.append(".");
         sb.append(Table.getAddress(getStartPoint()));
-        sb.append(":");
-        if (this.spanSheets())
+        if (this.spanSheets()) {
+            sb.append(":");
             sb.append(this.getEndSheet());
-        sb.append(".");
-        sb.append(Table.getAddress(getEndPoint()));
+            sb.append(".");
+            sb.append(Table.getAddress(getEndPoint()));
+        } else if (!getEndPoint().equals(getStartPoint())) {
+            sb.append(":");
+            // the RelaxNG pattern requires the dot
+            sb.append(".");
+            sb.append(Table.getAddress(getEndPoint()));
+        }
         return sb.toString();
     }
 }

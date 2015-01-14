@@ -15,6 +15,8 @@
 
 import org.openconcerto.sql.model.SQLField.Properties;
 import org.openconcerto.sql.model.graph.TablesMap;
+import org.openconcerto.sql.utils.ChangeTable.ClauseType;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.NetUtils;
 import org.openconcerto.utils.Tuple2;
 
@@ -33,21 +35,21 @@ class SQLSyntaxH2 extends SQLSyntax {
 
     SQLSyntaxH2() {
         super(SQLSystem.H2);
-        this.typeNames.putAll(Boolean.class, "boolean", "bool", "bit");
-        this.typeNames.putAll(Integer.class, "integer", "int", "int4", "mediumint");
-        this.typeNames.putAll(Byte.class, "tinyint");
-        this.typeNames.putAll(Short.class, "smallint", "int2");
-        this.typeNames.putAll(Long.class, "bigint", "int8");
-        this.typeNames.putAll(BigDecimal.class, "decimal", "numeric", "number");
-        this.typeNames.putAll(Float.class, "real");
-        this.typeNames.putAll(Double.class, "double precision", "float", "float4", "float8");
-        this.typeNames.putAll(Timestamp.class, "timestamp", "smalldatetime", "datetime");
-        this.typeNames.putAll(java.util.Date.class, "date");
-        this.typeNames.putAll(Blob.class, "blob", "tinyblob", "mediumblob", "longblob", "image",
+        this.typeNames.addAll(Boolean.class, "boolean", "bool", "bit");
+        this.typeNames.addAll(Integer.class, "integer", "int", "int4", "mediumint");
+        this.typeNames.addAll(Byte.class, "tinyint");
+        this.typeNames.addAll(Short.class, "smallint", "int2");
+        this.typeNames.addAll(Long.class, "bigint", "int8");
+        this.typeNames.addAll(BigDecimal.class, "decimal", "numeric", "number");
+        this.typeNames.addAll(Float.class, "real");
+        this.typeNames.addAll(Double.class, "double precision", "float", "float4", "float8");
+        this.typeNames.addAll(Timestamp.class, "timestamp", "smalldatetime", "datetime");
+        this.typeNames.addAll(java.util.Date.class, "date");
+        this.typeNames.addAll(Blob.class, "blob", "tinyblob", "mediumblob", "longblob", "image",
         // byte[]
                 "bytea", "raw", "varbinary", "longvarbinary", "binary");
-        this.typeNames.putAll(Clob.class, "clob", "text", "tinytext", "mediumtext", "longtext");
-        this.typeNames.putAll(String.class, "varchar", "longvarchar", "char", "character", "CHARACTER VARYING");
+        this.typeNames.addAll(Clob.class, "clob", "text", "tinytext", "mediumtext", "longtext");
+        this.typeNames.addAll(String.class, "varchar", "longvarchar", "char", "character", "CHARACTER VARYING");
     }
 
     @Override
@@ -56,11 +58,17 @@ class SQLSyntaxH2 extends SQLSyntax {
     }
 
     @Override
+    public int getMaximumVarCharLength() {
+        // http://www.h2database.com/html/datatypes.html#varchar_type
+        return Integer.MAX_VALUE;
+    }
+
+    @Override
     public boolean isAuto(SQLField f) {
         if (f.getDefaultValue() == null)
             return false;
 
-        final String def = ((String) f.getDefaultValue()).toUpperCase();
+        final String def = f.getDefaultValue().toUpperCase();
         // we used to use IDENTITY which translate to long
         return (f.getType().getJavaType() == Integer.class || f.getType().getJavaType() == Long.class) && def.contains("NEXT VALUE") && def.contains("SYSTEM_SEQUENCE");
     }
@@ -98,7 +106,7 @@ class SQLSyntaxH2 extends SQLSyntax {
     }
 
     @Override
-    public List<String> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
+    public Map<ClauseType, List<String>> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
         final List<String> res = new ArrayList<String>();
         if (toAlter.contains(Properties.TYPE)) {
             // MAYBE implement AlterTableAlterColumn.CHANGE_ONLY_TYPE
@@ -117,7 +125,7 @@ class SQLSyntaxH2 extends SQLSyntax {
         // e.g. ALTER COLUMN "VARCHAR" varchar(150) DEFAULT 'testAllProps' NULL
         if (toAlter.contains(Properties.NULLABLE))
             res.add(this.setNullable(f, nullable));
-        return res;
+        return ListMap.singleton(ClauseType.ALTER_COL, res);
     }
 
     @Override
@@ -132,7 +140,7 @@ class SQLSyntaxH2 extends SQLSyntax {
 
     @Override
     public String transfDefaultJDBC2SQL(SQLField f) {
-        String res = (String) f.getDefaultValue();
+        String res = f.getDefaultValue();
         if (res != null && f.getType().getJavaType() == String.class && res.trim().toUpperCase().startsWith("STRINGDECODE")) {
             // MAYBE create an attribute with a mem h2 db, instead of using db of f
             res = (String) f.getTable().getBase().getDataSource().executeScalar("CALL " + res);
@@ -247,7 +255,7 @@ class SQLSyntaxH2 extends SQLSyntax {
     public List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException {
         final String sel = "SELECT \"TABLE_SCHEMA\", \"TABLE_NAME\", \"CONSTRAINT_NAME\", \n"
         //
-                + "case \"CONSTRAINT_TYPE\"  when 'REFERENTIAL' then 'FOREIGN KEY' else \"CONSTRAINT_TYPE\" end as \"CONSTRAINT_TYPE\", \"COLUMN_LIST\"\n"
+                + "case \"CONSTRAINT_TYPE\"  when 'REFERENTIAL' then 'FOREIGN KEY' else \"CONSTRAINT_TYPE\" end as \"CONSTRAINT_TYPE\", \"COLUMN_LIST\", \"CHECK_EXPRESSION\" AS \"DEFINITION\"\n"
                 //
                 + "FROM INFORMATION_SCHEMA.CONSTRAINTS " + getTablesMapJoin(b, tables)
                 // where
@@ -265,5 +273,12 @@ class SQLSyntaxH2 extends SQLSyntax {
     @Override
     public String getDropTrigger(Trigger t) {
         return "DROP TRIGGER " + new SQLName(t.getTable().getSchema().getName(), t.getName()).quote();
+    }
+
+    @Override
+    public String getUpdate(SQLTable t, List<String> tables, Map<String, String> setPart) throws UnsupportedOperationException {
+        if (tables.size() > 0)
+            throw new UnsupportedOperationException();
+        return super.getUpdate(t, tables, setPart);
     }
 }

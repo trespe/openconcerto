@@ -14,19 +14,39 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.model.SQLField.Properties;
+import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.model.graph.TablesMap;
+import org.openconcerto.sql.utils.ChangeTable.ClauseType;
 import org.openconcerto.sql.utils.ChangeTable.OutsideClause;
+import org.openconcerto.sql.utils.SQLUtils;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.ListMap;
+import org.openconcerto.utils.ProcessStreams;
+import org.openconcerto.utils.ProcessStreams.Action;
+import org.openconcerto.utils.RTInterruptedException;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.cc.IClosure;
+import org.openconcerto.utils.cc.ITransformer;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
 import java.sql.Blob;
 import java.sql.Clob;
 import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.util.ArrayList;
+import java.sql.Types;
+import java.util.Arrays;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,29 +56,43 @@ class SQLSyntaxMS extends SQLSyntax {
 
     SQLSyntaxMS() {
         super(SQLSystem.MSSQL);
-        this.typeNames.putAll(Boolean.class, "bit");
-        this.typeNames.putAll(Short.class, "smallint");
-        this.typeNames.putAll(Integer.class, "unsigned smallint", "int");
-        this.typeNames.putAll(Long.class, "unsigned int", "bigint");
-        this.typeNames.putAll(BigDecimal.class, "unsigned bigint", "decimal", "numeric", "smallmoney", "money");
-        this.typeNames.putAll(Float.class, "real");
-        this.typeNames.putAll(Double.class, "float");
-        this.typeNames.putAll(Timestamp.class, "smalldatetime", "datetime");
-        this.typeNames.putAll(java.sql.Date.class, "date");
-        this.typeNames.putAll(java.sql.Time.class, "time");
-        this.typeNames.putAll(Blob.class, "image",
+        this.typeNames.addAll(Boolean.class, "bit");
+        // tinyint is unsigned
+        this.typeNames.addAll(Short.class, "smallint", "tinyint");
+        this.typeNames.addAll(Integer.class, "int");
+        this.typeNames.addAll(Long.class, "bigint");
+        this.typeNames.addAll(BigDecimal.class, "decimal", "numeric", "smallmoney", "money");
+        this.typeNames.addAll(Float.class, "real");
+        this.typeNames.addAll(Double.class, "float");
+        this.typeNames.addAll(Timestamp.class, "smalldatetime", "datetime");
+        this.typeNames.addAll(java.sql.Date.class, "date");
+        this.typeNames.addAll(java.sql.Time.class, "time");
+        this.typeNames.addAll(Blob.class, "image",
         // byte[]
                 "varbinary", "binary");
-        this.typeNames.putAll(Clob.class, "text", "ntext", "unitext");
-        this.typeNames.putAll(String.class, "char", "varchar", "nchar", "nvarchar", "unichar", "univarchar");
+        this.typeNames.addAll(Clob.class, "text", "ntext", "unitext");
+        this.typeNames.addAll(String.class, "char", "varchar", "nchar", "nvarchar", "unichar", "univarchar");
+    }
+
+    @Override
+    SQLBase createBase(SQLServer server, String name, final IClosure<? super DBSystemRoot> systemRootInit, String login, String pass, IClosure<? super SQLDataSource> dsInit) {
+        return new MSSQLBase(server, name, systemRootInit, login, pass, dsInit);
+    }
+
+    @Override
+    public String getInitSystemRoot() {
+        final String sql;
+        try {
+            final String fileContent = FileUtils.readUTF8(SQLSyntaxPG.class.getResourceAsStream("mssql-functions.sql"));
+            sql = fileContent.replace("${rootName}", SQLBase.quoteIdentifier("dbo"));
+        } catch (IOException e) {
+            throw new IllegalStateException("cannot read functions", e);
+        }
+        return sql;
     }
 
     @Override
     public boolean isAuto(SQLField f) {
-        // FIXME test
-        if (f.getDefaultValue() == null)
-            return false;
-
         return f.getType().getJavaType() == Integer.class && "YES".equals(f.getMetadata("IS_AUTOINCREMENT"));
     }
 
@@ -75,6 +109,12 @@ class SQLSyntaxMS extends SQLSyntax {
     @Override
     public String getBooleanType() {
         return "bit";
+    }
+
+    @Override
+    public int getMaximumVarCharLength() {
+        // http://msdn.microsoft.com/en-us/library/ms176089(v=sql.105).aspx
+        return 8000;
     }
 
     @Override
@@ -105,6 +145,12 @@ class SQLSyntaxMS extends SQLSyntax {
     }
 
     @Override
+    protected String getRuleSQL(final Rule r) {
+        // MSSQL doesn't support RESTRICT
+        return (r.equals(Rule.RESTRICT) ? Rule.NO_ACTION : r).asString();
+    }
+
+    @Override
     public String disableFKChecks(DBRoot b) {
         return fkChecks(b, false);
     }
@@ -121,6 +167,33 @@ class SQLSyntaxMS extends SQLSyntax {
         return fkChecks(b, true);
     }
 
+    @Override
+    public List<Map<String, Object>> getIndexInfo(SQLTable t) throws SQLException {
+        final String query = "SELECT NULL AS \"TABLE_CAT\", schema_name(t.schema_id) as \"TABLE_SCHEM\", t.name as \"TABLE_NAME\",\n" +
+        //
+                "~idx.is_unique as \"NON_UNIQUE\", NULL AS \"INDEX_QUALIFIER\", idx.name as \"INDEX_NAME\", NULL as \"TYPE\",\n" +
+                //
+                "indexCols.key_ordinal as \"ORDINAL_POSITION\", cols.name as \"COLUMN_NAME\",\n" +
+                //
+                "case when indexCols.is_descending_key = 1 then 'D' else 'A' end as \"ASC_OR_DESC\", null as \"CARDINALITY\", null as \"PAGES\",\n" +
+                //
+                "filter_definition as \"FILTER_CONDITION\"\n" +
+                //
+                "  FROM [test].[sys].[objects] t\n" +
+                //
+                "  join [test].[sys].[indexes] idx on idx.object_id = t.object_id\n" +
+                //
+                "  join [test].[sys].[index_columns] indexCols on idx.index_id = indexCols.index_id and idx.object_id = indexCols.object_id\n" +
+                //
+                "  join [test].[sys].[columns] cols on t.object_id = cols.object_id and cols.column_id = indexCols.column_id \n" +
+                //
+                "  where schema_name(t.schema_id) = " + t.getBase().quoteString(t.getSchema().getName()) + " and t.name = " + t.getBase().quoteString(t.getName()) + "\n"
+                //
+                + "ORDER BY \"NON_UNIQUE\", \"TYPE\", \"INDEX_NAME\", \"ORDINAL_POSITION\";";
+        // don't cache since we don't listen on system tables
+        return (List<Map<String, Object>>) t.getDBSystemRoot().getDataSource().execute(query, new IResultSetHandler(SQLDataSource.MAP_LIST_HANDLER, false));
+    }
+
     @SuppressWarnings("unchecked")
     @Override
     public Map<String, Object> normalizeIndexInfo(final Map m) {
@@ -135,31 +208,45 @@ class SQLSyntaxMS extends SQLSyntax {
         return "DROP INDEX " + SQLBase.quoteIdentifier(name) + " on " + tableName.quote() + ";";
     }
 
-    protected String setNullable(SQLField f, boolean b) {
-        return "ALTER COLUMN " + f.getQuotedName() + " SET " + (b ? "" : "NOT") + " NULL";
+    @Override
+    public boolean isUniqueException(SQLException exn) {
+        return SQLUtils.findWithSQLState(exn).getErrorCode() == 2601;
     }
 
-    // FIXME
     @Override
-    public List<String> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
-        final List<String> res = new ArrayList<String>();
-        if (toAlter.contains(Properties.TYPE)) {
-            // MAYBE implement AlterTableAlterColumn.CHANGE_ONLY_TYPE
-            final String newDef = toAlter.contains(Properties.DEFAULT) ? defaultVal : getDefault(f, type);
+    public Map<ClauseType, List<String>> getAlterField(SQLField f, Set<Properties> toAlter, String type, String defaultVal, Boolean nullable) {
+        final ListMap<ClauseType, String> res = new ListMap<ClauseType, String>();
+        if (toAlter.contains(Properties.TYPE) || toAlter.contains(Properties.NULLABLE)) {
+            final String newType = toAlter.contains(Properties.TYPE) ? type : getType(f);
             final boolean newNullable = toAlter.contains(Properties.NULLABLE) ? nullable : getNullable(f);
-            res.add("ALTER COLUMN " + f.getQuotedName() + " " + getFieldDecl(type, newDef, newNullable));
-        } else {
-            if (toAlter.contains(Properties.NULLABLE))
-                res.add(this.setNullable(f, nullable));
-            if (toAlter.contains(Properties.DEFAULT))
-                res.add(this.setDefault(f, defaultVal));
+            res.add(ClauseType.ALTER_COL, "ALTER COLUMN " + f.getQuotedName() + " " + getFieldDecl(newType, null, newNullable));
+        }
+        if (toAlter.contains(Properties.DEFAULT)) {
+            final Constraint existingConstraint = f.getTable().getConstraint(ConstraintType.DEFAULT, Arrays.asList(f.getName()));
+            if (existingConstraint != null) {
+                res.add(ClauseType.DROP_CONSTRAINT, "DROP CONSTRAINT " + SQLBase.quoteIdentifier(existingConstraint.getName()));
+            }
+            if (defaultVal != null) {
+                res.add(ClauseType.ADD_CONSTRAINT, "ADD DEFAULT " + defaultVal + " FOR " + f.getQuotedName());
+            }
         }
         return res;
     }
 
     @Override
+    public String getRenameTable(SQLName table, String newName) {
+        return "sp_rename " + SQLBase.quoteStringStd(table.quote()) + ", " + SQLBase.quoteStringStd(newName);
+    }
+
+    @Override
+    public String getDropTableIfExists(SQLName name) {
+        final String quoted = name.quote();
+        return "IF OBJECT_ID(" + SQLBase.quoteStringStd(quoted) + ", 'U') IS NOT NULL DROP TABLE " + quoted;
+    }
+
+    @Override
     public String getDropRoot(String name) {
-        // FIXME
+        // Only works if getInitSystemRoot() was executed
         // http://ranjithk.com/2010/01/31/script-to-drop-all-objects-of-a-schema/
         return "exec CleanUpSchema " + SQLBase.quoteStringStd(name) + ", 'w' ;";
     }
@@ -174,81 +261,197 @@ class SQLSyntaxMS extends SQLSyntax {
         return null;
     }
 
-    private static final Pattern nullPatrn = Pattern.compile("\\N", Pattern.LITERAL);
-    private static final Pattern backSlashPatrn = Pattern.compile("\\\"", Pattern.LITERAL);
-    private static final Pattern newlinePatrn = Pattern.compile("\n");
-    private static final Pattern newlineAndIDPatrn = Pattern.compile("\n(?=\\p{Digit}+\\|)");
-
-    private static final Pattern commaSepPatrn = Pattern.compile("(?<!\\\\)\",\"");
-    private static final Pattern firstLastQuotePatrn = Pattern.compile("(^\")|(\"$)", Pattern.MULTILINE);
-
-    // zero-width lookbehind to handle sequential boolean
-    private static final Pattern boolTPatrn = Pattern.compile("(?<=\\|)t\\|");
-    private static final Pattern boolFPatrn = Pattern.compile("(?<=\\|)f\\|");
-    private static final Pattern boolTEndPatrn = Pattern.compile("\\|t$", Pattern.MULTILINE);
-    private static final Pattern boolFEndPatrn = Pattern.compile("\\|f$", Pattern.MULTILINE);
-
-    // 2007-12-21 10:39:09.031+01 with microseconds part being variable length and optional
-    private static final Pattern dateWithOffsetPatrn = Pattern.compile("(\\|\\p{Digit}{4}-\\p{Digit}{2}-\\p{Digit}{2} \\p{Digit}{2}:\\p{Digit}{2}:\\p{Digit}{2}(.\\p{Digit}{1,3})?)\\+\\p{Digit}{2}");
-
     @Override
     public void _loadData(final File f, final SQLTable t) throws IOException {
-        // FIXME null handling ?
-        final String data = FileUtils.read(f, "UTF-8");
-        final String sansNull = nullPatrn.matcher(data).replaceAll("\"\"");
+        final String data = FileUtils.readUTF8(f);
+        final File temp = File.createTempFile(FileUtils.sanitize("mssql_loadData_" + t.getName()), ".txt");
 
-        String tmp = sansNull;
+        // no we cant't use UTF16 since Java write BE and MS ignores the BOM, always using LE.
+        final BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(temp), Charset.forName("x-UTF-16LE-BOM")));
 
-        // remove header with column names
-        tmp = tmp.substring(tmp.indexOf('\n') + 1, tmp.length());
+        final List<SQLField> fields = t.getOrderedFields();
+        final int fieldsCount = fields.size();
+        final BitSet booleanFields = new BitSet(fieldsCount);
+        int fieldIndex = 0;
+        for (final SQLField field : fields) {
+            final int type = field.getType().getType();
+            booleanFields.set(fieldIndex++, type == Types.BOOLEAN || type == Types.BIT);
+        }
+        fieldIndex = 0;
 
-        // remove pipes in data
-        tmp = tmp.replace('|', ' ');
-        // remove inner "
-        tmp = commaSepPatrn.matcher(tmp).replaceAll("|");
-        // remove first and last "
-        tmp = firstLastQuotePatrn.matcher(tmp).replaceAll("");
-        // remove escape character (only remove \" so we can spot \|)
-        tmp = backSlashPatrn.matcher(tmp).replaceAll(String.valueOf('"'));
-
-        // for pg types
-        if (true) {
-            tmp = boolTPatrn.matcher(tmp).replaceAll("1|");
-            tmp = boolFPatrn.matcher(tmp).replaceAll("0|");
-            tmp = boolTEndPatrn.matcher(tmp).replaceAll("|1");
-            tmp = boolFEndPatrn.matcher(tmp).replaceAll("|0");
-
-            tmp = dateWithOffsetPatrn.matcher(tmp).replaceAll("$1");
+        try {
+            // skip fields names
+            int i = data.indexOf('\n') + 1;
+            while (i < data.length()) {
+                final String twoChars = i + 2 <= data.length() ? data.substring(i, i + 2) : null;
+                if ("\\N".equals(twoChars)) {
+                    i += 2;
+                } else if ("\"\"".equals(twoChars)) {
+                    writer.write("\0");
+                    i += 2;
+                } else {
+                    final Tuple2<String, Integer> unDoubleQuote = StringUtils.unDoubleQuote(data, i);
+                    String unquoted = unDoubleQuote.get0();
+                    if (booleanFields.get(fieldIndex)) {
+                        if (unquoted.equalsIgnoreCase("false")) {
+                            unquoted = "0";
+                        } else if (unquoted.equalsIgnoreCase("true")) {
+                            unquoted = "1";
+                        }
+                    }
+                    writer.write(unquoted);
+                    i = unDoubleQuote.get1();
+                }
+                fieldIndex++;
+                if (i < data.length()) {
+                    final char c = data.charAt(i);
+                    if (c == ',') {
+                        writer.write(FIELD_DELIM);
+                        i++;
+                    } else if (c == '\n') {
+                        writer.write(ROW_DELIM);
+                        i++;
+                        if (fieldIndex != fieldsCount)
+                            throw new IOException("Expected " + fieldsCount + " fields but got : " + fieldIndex);
+                        fieldIndex = 0;
+                    } else {
+                        throw new IOException("Unexpected character after field : " + c);
+                    }
+                }
+            }
+            if (fieldIndex != 0 && fieldIndex != fieldsCount)
+                throw new IOException("Expected " + fieldsCount + " fields but got : " + fieldIndex);
+        } finally {
+            writer.close();
         }
 
-        // we can't specify \n as ROWTERMINATOR ms automatically prepends \r
-        // http://msdn.microsoft.com/en-us/library/ms191485.aspx
-        if (t.isRowable() && t.getOrderedFields().get(0) != t.getKey())
-            throw new IllegalArgumentException("MS needs ID first for " + t + " " + t.getOrderedFields());
-        String winNL;
-        if (t.isRowable()) {
-            winNL = newlineAndIDPatrn.matcher(tmp).replaceAll("\r\n");
-            // newlineAndIDPatrn doesn't match the last newline
-            winNL = winNL.substring(0, winNL.length() - 1) + "\r\n";
-        } else {
-            winNL = newlinePatrn.matcher(tmp).replaceAll("\r\n");
-        }
-
-        if (t.getName().equals("RIGHT"))
-            System.err.println("SQLSyntaxMS._loadData()\n\n" + tmp);
-
-        final File temp = File.createTempFile("mssql_loadData", ".txt", new File("."));
-        FileUtils.write(winNL, temp, "UTF-16", false);
-        checkServerLocalhost(t);
-        t.getDBSystemRoot().getDataSource()
-                .execute(t.getBase().quote("bulk insert %f from %s with ( DATAFILETYPE='widechar', FIELDTERMINATOR = '|', FIRSTROW=1, KEEPIDENTITY ) ;", t, temp.getAbsolutePath()));
+        execute_bcp(t, false, temp);
         temp.delete();
+
+        // MAYBE when on localhost, remove the bcp requirement (OTOH bcp should already be
+        // installed, just perhaps not in the path)
+        // checkServerLocalhost(t);
+        // "bulk insert " + t.getSQL() + " from " + b.quoteString(temp.getAbsolutePath()) +
+        // " with ( DATAFILETYPE='widechar', FIELDTERMINATOR = " + b.quoteString(FIELD_DELIM)
+        // + ", ROWTERMINATOR= " + b.quoteString(ROW_DELIM) +
+        // ", FIRSTROW=1, KEEPIDENTITY, KEEPNULLS ) ;"
     }
 
-    // FIXME
+    private static final String FIELD_DELIM = "<|!!|>";
+    private static final String ROW_DELIM = "...#~\n~#...";
+
+    protected void execute_bcp(final SQLTable t, final boolean dump, final File f) throws IOException {
+        final ProcessBuilder pb = new ProcessBuilder("bcp");
+        pb.command().add(t.getSQLName().quote());
+        pb.command().add(dump ? "out" : "in");
+        pb.command().add(f.getAbsolutePath());
+        // UTF-16LE with a BOM
+        pb.command().add("-w");
+        pb.command().add("-t" + FIELD_DELIM);
+        pb.command().add("-r" + ROW_DELIM);
+        // needed if table name is a keyword (e.g. RIGHT)
+        pb.command().add("-q");
+        pb.command().add("-S" + t.getServer().getName());
+        pb.command().add("-U" + t.getDBSystemRoot().getDataSource().getUsername());
+        pb.command().add("-P" + t.getDBSystemRoot().getDataSource().getPassword());
+        if (!dump) {
+            // retain null
+            pb.command().add("-k");
+            // keep identity
+            pb.command().add("-E");
+        }
+
+        final Process p = pb.start();
+        ProcessStreams.handle(p, Action.REDIRECT);
+        try {
+            final int returnCode = p.waitFor();
+            if (returnCode != 0)
+                throw new IOException("Did not finish correctly : " + returnCode + "\n" + pb.command());
+        } catch (InterruptedException e) {
+            throw new RTInterruptedException(e);
+        }
+    }
+
+    // For bcp : http://www.microsoft.com/en-us/download/details.aspx?id=16978
     @Override
-    protected void _storeData(final SQLTable t, final File f) {
-        checkServerLocalhost(t);
+    protected void _storeData(final SQLTable t, final File f) throws IOException {
+        final File tmpFile = File.createTempFile(FileUtils.sanitize("mssql_dump_" + t.getName()), ".dat");
+        execute_bcp(t, true, tmpFile);
+        final int readerBufferSize = 32768;
+        final BufferedReader reader = new BufferedReader(new InputStreamReader(new FileInputStream(tmpFile), StringUtils.UTF16), readerBufferSize);
+        final List<SQLField> orderedFields = t.getOrderedFields();
+        final int fieldsCount = orderedFields.size();
+        final String cols = CollectionUtils.join(orderedFields, ",", new ITransformer<SQLField, String>() {
+            @Override
+            public String transformChecked(SQLField input) {
+                return SQLBase.quoteIdentifier(input.getName());
+            }
+        });
+        final FileOutputStream outs = new FileOutputStream(f);
+        BufferedWriter writer = null;
+        try {
+            writer = new BufferedWriter(new OutputStreamWriter(outs, StringUtils.UTF8));
+            writer.write(cols);
+            writer.write('\n');
+            final StringBuilder sb = new StringBuilder(readerBufferSize * 2);
+            String row = readUntil(reader, sb, ROW_DELIM);
+            final Pattern fieldPattern = Pattern.compile(FIELD_DELIM, Pattern.LITERAL);
+            while (row != null) {
+                if (row.length() > 0) {
+                    // -1 to have every (even empty) field
+                    final String[] fields = fieldPattern.split(row, -1);
+                    if (fields.length != fieldsCount)
+                        throw new IOException("Invalid fields count, expected " + fieldsCount + " but was " + fields.length + "\n" + row);
+                    int i = 0;
+                    for (final String field : fields) {
+                        final String quoted;
+                        if (field.length() == 0) {
+                            quoted = "\\N";
+                        } else if (field.equals("\0")) {
+                            quoted = "\"\"";
+                        } else {
+                            quoted = StringUtils.doubleQuote(field);
+                        }
+                        writer.write(quoted);
+                        if (++i < fieldsCount)
+                            writer.write(',');
+                    }
+                    writer.write('\n');
+                }
+                row = readUntil(reader, sb, ROW_DELIM);
+            }
+        } finally {
+            tmpFile.delete();
+            if (writer != null)
+                writer.close();
+            else
+                outs.close();
+            reader.close();
+        }
+    }
+
+    private String readUntil(BufferedReader reader, StringBuilder sb, String rowDelim) throws IOException {
+        if (sb.capacity() == 0)
+            return null;
+        final int existing = sb.indexOf(rowDelim);
+        if (existing >= 0) {
+            final String res = sb.substring(0, existing);
+            sb.delete(0, existing + rowDelim.length());
+            return res;
+        } else {
+            final char[] buffer = new char[sb.capacity() / 3];
+            final int readCount = reader.read(buffer);
+            if (readCount <= 0) {
+                final String res = sb.toString();
+                sb.setLength(0);
+                sb.trimToSize();
+                assert sb.capacity() == 0;
+                return res;
+            } else {
+                sb.append(buffer, 0, readCount);
+                return readUntil(reader, sb, rowDelim);
+            }
+        }
     }
 
     @Override
@@ -294,14 +497,16 @@ class SQLSyntaxMS extends SQLSyntax {
 
     @Override
     public String getColumnsQuery(SQLBase b, TablesMap tables) {
-        // TODO
-        return null;
+        return "SELECT TABLE_SCHEMA as \"" + INFO_SCHEMA_NAMES_KEYS.get(0) + "\", TABLE_NAME as \"" + INFO_SCHEMA_NAMES_KEYS.get(1) + "\", COLUMN_NAME as \"" + INFO_SCHEMA_NAMES_KEYS.get(2)
+                + "\" , CHARACTER_SET_NAME as \"CHARACTER_SET_NAME\", COLLATION_NAME as \"COLLATION_NAME\" from INFORMATION_SCHEMA.COLUMNS\n" +
+                // requested tables
+                getTablesMapJoin(b, tables, "TABLE_SCHEMA", "TABLE_NAME");
     }
 
     @Override
     public List<Map<String, Object>> getConstraints(SQLBase b, TablesMap tables) throws SQLException {
         final String where = getTablesMapJoin(b, tables, "SCHEMA_NAME(t.schema_id)", "t.name");
-        final String sel = "SELECT SCHEMA_NAME(t.schema_id) AS \"TABLE_SCHEMA\", t.name AS \"TABLE_NAME\", k.name AS \"CONSTRAINT_NAME\", case k.type when 'UQ' then 'UNIQUE' when 'PK' then 'PRIMARY KEY' end as \"CONSTRAINT_TYPE\", col_name(c.object_id, c.column_id) AS \"COLUMN_NAME\", c.key_ordinal AS \"ORDINAL_POSITION\"\n"
+        final String sel = "SELECT SCHEMA_NAME(t.schema_id) AS \"TABLE_SCHEMA\", t.name AS \"TABLE_NAME\", k.name AS \"CONSTRAINT_NAME\", case k.type when 'UQ' then 'UNIQUE' when 'PK' then 'PRIMARY KEY' end as \"CONSTRAINT_TYPE\", col_name(c.object_id, c.column_id) AS \"COLUMN_NAME\", c.key_ordinal AS \"ORDINAL_POSITION\", null AS [DEFINITION]\n"
                 + "FROM sys.key_constraints k\n"
                 //
                 + "JOIN sys.index_columns c ON c.object_id = k.parent_object_id AND c.index_id = k.unique_index_id\n"
@@ -310,10 +515,20 @@ class SQLSyntaxMS extends SQLSyntax {
                 + where
                 + "\nUNION ALL\n"
                 //
-                + "SELECT SCHEMA_NAME(t.schema_id) AS \"TABLE_SCHEMA\", t.name AS \"TABLE_NAME\", k.name AS \"CONSTRAINT_NAME\", 'CHECK' as \"CONSTRAINT_TYPE\", col.name AS \"COLUMN_NAME\", 1 AS \"ORDINAL_POSITION\"\n"
+                + "SELECT SCHEMA_NAME(t.schema_id) AS \"TABLE_SCHEMA\", t.name AS \"TABLE_NAME\", k.name AS \"CONSTRAINT_NAME\", 'CHECK' as \"CONSTRAINT_TYPE\", col.name AS \"COLUMN_NAME\", 1 AS \"ORDINAL_POSITION\", k.[definition] AS [DEFINITION]\n"
                 + "FROM sys.check_constraints k\n"
                 //
                 + "join sys.tables t on k.parent_object_id = t.object_id\n"
+                //
+                + "left join sys.columns col on k.parent_column_id = col.column_id and col.object_id = t.object_id\n"
+                //
+                + where
+                + "\nUNION ALL\n"
+                //
+                + "SELECT SCHEMA_NAME(t.schema_id) AS [TABLE_SCHEMA], t.name AS [TABLE_NAME], k.name AS [CONSTRAINT_NAME], 'DEFAULT' as [CONSTRAINT_TYPE], col.name AS [COLUMN_NAME], 1 AS [ORDINAL_POSITION], k.[definition] AS [DEFINITION]\n"
+                + "FROM sys.[default_constraints] k\n"
+                //
+                + "JOIN sys.tables t ON t.object_id = k.parent_object_id\n"
                 //
                 + "left join sys.columns col on k.parent_column_id = col.column_id and col.object_id = t.object_id\n"
                 //
@@ -344,7 +559,7 @@ class SQLSyntaxMS extends SQLSyntax {
 
     @Override
     public String getFormatTimestamp(String sqlTS, boolean basic) {
-        final String extended = "CONVERT(nvarchar(30), " + sqlTS + ", 126) + '000'";
+        final String extended = "CONVERT(nvarchar(30), CAST(" + sqlTS + " as datetime), 126) + '000'";
         if (basic) {
             return "replace( replace( " + extended + ", '-', ''), ':' , '' )";
         } else {

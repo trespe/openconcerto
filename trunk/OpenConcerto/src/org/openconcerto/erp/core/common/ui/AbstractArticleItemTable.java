@@ -32,10 +32,14 @@ import org.openconcerto.sql.view.list.RowValuesTableRenderer;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.table.XTableColumnModel;
+import org.openconcerto.utils.ExceptionHandler;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.io.File;
+import java.math.BigDecimal;
+import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.Set;
@@ -177,7 +181,7 @@ public abstract class AbstractArticleItemTable extends JPanel {
     }
 
     /**
-     * @return le poids total de tous les éléments du tableau
+     * @return le poids total de tous les éléments (niveau 1) du tableau
      */
     public float getPoidsTotal() {
 
@@ -186,7 +190,7 @@ public abstract class AbstractArticleItemTable extends JPanel {
         if (poidsTColIndex >= 0) {
             for (int i = 0; i < this.table.getRowCount(); i++) {
                 final Number tmp = (Number) this.model.getValueAt(i, poidsTColIndex);
-                if (tmp != null) {
+                if (tmp != null && this.model.getRowValuesAt(i).getInt("NIVEAU") == 1) {
                     poids += tmp.floatValue();
                 }
             }
@@ -228,10 +232,18 @@ public abstract class AbstractArticleItemTable extends JPanel {
             }
             // crée les articles si il n'existe pas
 
+            int idArt = -1;
             if (modeAvance)
-                ReferenceArticleSQLElement.getIdForCNM(rowArticle, createArticle);
+                idArt = ReferenceArticleSQLElement.getIdForCNM(rowArticle, createArticle);
             else {
-                ReferenceArticleSQLElement.getIdForCN(rowArticle, createArticle);
+                idArt = ReferenceArticleSQLElement.getIdForCN(rowArticle, createArticle);
+            }
+            if (createArticle && idArt > 1 && rowElt.isForeignEmpty("ID_ARTICLE")) {
+                try {
+                    rowElt.createEmptyUpdateRow().put("ID_ARTICLE", idArt).update();
+                } catch (SQLException e) {
+                    ExceptionHandler.handle("Erreur lors de l'affectation de l'article crée!", e);
+                }
             }
             // ReferenceArticleSQLElement.getIdForCNM(rowArticle, true);
         }
@@ -256,5 +268,67 @@ public abstract class AbstractArticleItemTable extends JPanel {
             XTableColumnModel columnModel = this.table.getColumnModel();
             columnModel.setColumnVisible(columnModel.getColumnByModelIndex(col), visible);
         }
+    }
+
+    protected void calculTarifNomenclature(int index) {
+
+        int rowCount = this.model.getRowCount();
+        SQLRowValues rowValsSource = this.getRowValuesTable().getRowValuesTableModel().getRowValuesAt(index);
+        int niveauSource = rowValsSource.getInt("NIVEAU");
+        if (niveauSource > 1) {
+            int startFrom = index;
+            for (int i = index + 1; i < rowCount; i++) {
+                SQLRowValues rowVals = this.getRowValuesTable().getRowValuesTableModel().getRowValuesAt(i);
+                if (rowVals.getInt("NIVEAU") == niveauSource) {
+                    startFrom = i;
+                } else {
+                    break;
+                }
+            }
+
+            if (startFrom == index) {
+
+                int indexToUpdate = index;
+                BigDecimal prixUnitHT = BigDecimal.ZERO;
+                BigDecimal prixUnitHA = BigDecimal.ZERO;
+                for (int i = index; i >= 0; i--) {
+                    indexToUpdate = i;
+                    SQLRowValues rowVals = this.getRowValuesTable().getRowValuesTableModel().getRowValuesAt(i);
+                    final int niveauCourant = rowVals.getInt("NIVEAU");
+                    if (niveauCourant < niveauSource) {
+
+                        break;
+                    } else if (niveauCourant == niveauSource) {
+                        // Cumul des valeurs
+                        prixUnitHT = prixUnitHT.add(rowVals.getBigDecimal("PV_HT").multiply(new BigDecimal(rowVals.getInt("QTE"))).multiply(rowVals.getBigDecimal("QTE_UNITAIRE")));
+                        prixUnitHA = prixUnitHA.add(rowVals.getBigDecimal("PA_HT").multiply(new BigDecimal(rowVals.getInt("QTE"))).multiply(rowVals.getBigDecimal("QTE_UNITAIRE")));
+                    }
+                }
+
+                this.model.putValue(prixUnitHA, indexToUpdate, "PRIX_METRIQUE_HA_1");
+                // this.model.putValue(prixUnitHA, indexToUpdate, "PA_HT");
+                this.model.putValue(ComptaPropsConfiguration.getInstanceCompta().getRowSociete().getForeignID("ID_DEVISE"), indexToUpdate, "ID_DEVISE");
+                this.model.putValue(prixUnitHT, indexToUpdate, "PV_U_DEVISE");
+                this.model.putValue(prixUnitHT, indexToUpdate, "PRIX_METRIQUE_VT_1");
+                // this.model.putValue(prixUnitHT, indexToUpdate, "PV_HT");
+                // if (indexToUpdate < rowCount) {
+                // calculTarifNomenclature(indexToUpdate);
+                // }
+            } else {
+                calculTarifNomenclature(startFrom);
+            }
+        }
+    }
+
+    public List<SQLRowValues> getRowValuesAtLevel(int level) {
+        final int rowCount = this.model.getRowCount();
+        final List<SQLRowValues> result = new ArrayList<SQLRowValues>(rowCount);
+        for (int i = 0; i < rowCount; i++) {
+            final SQLRowValues row = this.model.getRowValuesAt(i);
+            if (row.getObject("NIVEAU") == null || row.getInt("NIVEAU") == level) {
+                result.add(row);
+            }
+        }
+        return result;
     }
 }

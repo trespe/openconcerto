@@ -56,7 +56,6 @@ public class DefaultElementSQLObject extends ElementSQLObject {
     private JButton createBtn;
     private JButton supprBtn;
     private JSeparator separator;
-    private boolean isDecorated = true;
     private boolean isSeparatorVisible = true;
     private JPanel editP;
     private JPanel createP;
@@ -79,13 +78,19 @@ public class DefaultElementSQLObject extends ElementSQLObject {
     }
 
     public void setDecorated(boolean decorated) {
-        this.isDecorated = decorated;
         if (this.expandBtn != null)
             this.expandBtn.setVisible(decorated);
-        if (this.supprBtn != null)
-            this.supprBtn.setVisible(decorated);
-        if (this.createBtn != null)
-            this.createBtn.setVisible(decorated);
+    }
+
+    @Override
+    protected void uiChanged() {
+        super.uiChanged();
+        updateBtns();
+    }
+
+    protected void updateBtns() {
+        this.createBtn.setVisible(this.isCreatedUIVisible());
+        this.supprBtn.setVisible(this.isCreatedUIVisible() && this.deleteAllowed() && !Boolean.FALSE.equals(this.isExpanded()));
     }
 
     @Override
@@ -137,11 +142,11 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         if (this.editP != null)
             this.editP.setVisible(false);
         this.getCreatePanel().setVisible(true);
+        this.createBtn.requestFocusInWindow();
         // don't call setCurrentID() otherwise, when updating we won't know
         // what observation to archive
         this.revalidate();
         this.repaint();
-        this.expanded = false;
     }
 
     private final JPanel getCreatePanel() {
@@ -157,10 +162,10 @@ public class DefaultElementSQLObject extends ElementSQLObject {
 
     @Override
     protected final void setEditPanel() {
-        this.supprBtn.setVisible(!this.required && this.isDecorated);
         if (this.createP != null)
             this.createP.setVisible(false);
         this.getEditPanel().setVisible(true);
+        this.getEditPanel().requestFocusInWindow();
         // toujours afficher un composant vierge à la création
         // do it after add() as it calls SQLRowView.activate() which refresh comp from the db
         // possibly resurecting a deleted row
@@ -218,8 +223,14 @@ public class DefaultElementSQLObject extends ElementSQLObject {
         this.expandBtn.setEnabled(this.getCurrentID() != SQLRow.NONEXISTANT_ID && this.getValidState().isValid());
     }
 
-    private final boolean isExpanded() {
-        return this.expanded;
+    /**
+     * Whether the edit panel is expanded.
+     * 
+     * @return <code>true</code> if the edit panel is expanded, <code>false</code> if not and
+     *         <code>null</code> if not {@link #isCreated()}.
+     */
+    private final Boolean isExpanded() {
+        return this.isCreated() ? this.expanded : null;
     }
 
     private void expand(boolean b) {
@@ -227,11 +238,10 @@ public class DefaultElementSQLObject extends ElementSQLObject {
             throw new IllegalStateException("cannot expand if not created");
         }
 
-        this.getSQLChild().setVisible(b);
-        if (!this.required)
-            this.supprBtn.setVisible(b);
-        this.validate();
         this.expanded = b;
+        this.updateBtns();
+        this.getSQLChild().setVisible(b);
+        this.validate();
     }
 
     private void toggleExpand() {

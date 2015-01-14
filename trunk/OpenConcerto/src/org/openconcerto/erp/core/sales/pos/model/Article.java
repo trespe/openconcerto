@@ -91,7 +91,7 @@ public class Article {
     @Override
     public String toString() {
 
-        return "Article:" + this.name + " " + this.priceInCents + " cents";
+        return "Article:" + this.name + " " + this.priceInCents + " cents" + " HT:" + priceHTInCents;
     }
 
     public static Article getArticleFromBarcode(String code) {

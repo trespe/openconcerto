@@ -39,7 +39,8 @@ public class GenerationMvtReglementChequeFourn extends GenerationEcritures {
         this.nom = "Reglement cheque " + rowFournisseur.getString("NOM");
         this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
         this.mEcritures.put("NOM", this.nom);
-        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+
+        fillJournalBanqueFromRow(rowCheque);
         this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
         // compte Fournisseurs
@@ -58,14 +59,8 @@ public class GenerationMvtReglementChequeFourn extends GenerationEcritures {
         this.mEcritures.put("CREDIT", new Long(0));
         ajoutEcriture();
 
-        int idPce = base.getTable("TYPE_REGLEMENT").getRow(2).getInt("ID_COMPTE_PCE_FOURN");
-        if (idPce <= 1) {
-
-            idPce = ComptePCESQLElement.getIdComptePceDefault("AchatCheque");
-
-        }
         // compte de reglement cheque, ...
-        this.mEcritures.put("ID_COMPTE_PCE", new Integer(idPce));
+        fillCompteBanqueFromRow(rowCheque, "AchatCheque", true);
         this.mEcritures.put("DEBIT", new Long(0));
         this.mEcritures.put("CREDIT", new Long(montant));
         ajoutEcriture();

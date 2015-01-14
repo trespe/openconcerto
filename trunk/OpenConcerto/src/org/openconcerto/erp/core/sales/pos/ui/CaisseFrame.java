@@ -93,8 +93,11 @@ public class CaisseFrame extends JFrame {
                         f.pack();
                         f.setLocation(0, 0);
                         Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-                        f.setSize(screenSize);
-
+                        if (Caisse.getScreenWidth() > 0 && Caisse.getScreenHeight() > 0) {
+                            f.setSize(new Dimension(Caisse.getScreenWidth(), Caisse.getScreenHeight()));
+                        } else {
+                            f.setSize(screenSize);
+                        }
                         System.out.println("Affichage de l'interface");
                         f.setVisible(true);
                         if (screenSize.getWidth() < 1280 || screenSize.getHeight() < 720) {
@@ -102,13 +105,15 @@ public class CaisseFrame extends JFrame {
                                     "La résolution de votre écran est trop faible.\nLa largeur doit être au minium de 1280 pixels.\nLa hauteur doit être au minium de 720 pixels.");
                         }
 
-                    } catch (Exception e) {
+                    } catch (Throwable e) {
+                        // Catch throwable to be able to see NoClassDefFound and other hard issues
                         ExceptionHandler.handle("Erreur d'initialisation de la caisse (main)", e);
                     }
 
                 }
             });
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // Catch throwable to be able to see NoClassDefFound and other hard issues
             ExceptionHandler.handle("Erreur d'initialisation de la caisse", e);
         }
     }

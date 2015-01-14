@@ -16,13 +16,16 @@
  */
 package org.openconcerto.sql.model;
 
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.CollectionMap2Itf.SetMapItf;
+import org.openconcerto.utils.SetMap;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
+
+import net.jcip.annotations.Immutable;
 
 /**
  * Un ensemble de champs SQL. Les champs sont indexés par table, et on peut donc connaître
@@ -32,18 +35,54 @@ import java.util.Set;
  * @see #getFields(SQLTable)
  * @author ILM Informatique 12 mai 2004
  */
+@Immutable
 public class SQLFieldsSet {
+    static private final SQLFieldsSet EMPTY = new SQLFieldsSet(SetMap.<SQLTable, SQLField> empty(), true);
 
-    // SQLTable => {SQLField}
-    private final CollectionMap<SQLTable, SQLField> tables;
-    private String name;
-
-    /**
-     * Crée un ensemble vide.
-     */
-    public SQLFieldsSet() {
-        this(new HashSet<SQLField>());
+    static public SQLFieldsSet empty() {
+        return EMPTY;
     }
+
+    static public SQLFieldsSet create(final SQLTable t, final String... names) {
+        final SetMapItf<SQLTable, SQLField> res = createMap();
+        for (final String name : names) {
+            res.add(t, t.getField(name));
+        }
+        return new SQLFieldsSet(res, false);
+    }
+
+    static public SQLFieldsSet create(final Map<SQLTable, ? extends Collection<SQLField>> fields) {
+        final SetMapItf<SQLTable, SQLField> res = createMap();
+        res.merge(fields);
+        return new SQLFieldsSet(res, false);
+    }
+
+    static private final SetMapItf<SQLTable, SQLField> toSetMap(final Collection<SQLField> fields) {
+        final SetMapItf<SQLTable, SQLField> res = createMap();
+        for (final SQLField f : fields)
+            res.add(f.getTable(), f);
+        return res;
+    }
+
+    static private SetMapItf<SQLTable, SQLField> createMap() {
+        return new SetMap<SQLTable, SQLField>() {
+            @Override
+            public Set<SQLField> createCollection(Collection<? extends SQLField> v) {
+                final LinkedHashSet<SQLField> res = new LinkedHashSet<SQLField>(8);
+                res.addAll(v);
+                return res;
+            }
+        };
+    }
+
+    static public final Set<String> getNames(final Collection<SQLField> fields) {
+        final Set<String> res = new HashSet<String>(fields.size());
+        for (final SQLField f : fields)
+            res.add(f.getName());
+        return res;
+    }
+
+    private final SetMapItf<SQLTable, SQLField> tables;
 
     /**
      * Crée un ensemble composé des champs passés.
@@ -51,28 +90,15 @@ public class SQLFieldsSet {
      * @param fields un ensemble de SQLField, l'ensemble n'est pas modifié.
      */
     public SQLFieldsSet(final Collection<SQLField> fields) {
-        this.tables = new CollectionMap<SQLTable, SQLField>(LinkedHashSet.class);
-        this.setFields(fields);
+        this(toSetMap(fields), false);
     }
 
-    private void setFields(final Collection<SQLField> fields) {
-        this.tables.clear();
-        for (final SQLField field : fields) {
-            this.add(field);
-        }
+    private SQLFieldsSet(final SetMapItf<SQLTable, SQLField> fields, final boolean unmodif) {
+        this.tables = unmodif ? fields : SetMap.unmodifiableMap(fields);
     }
 
-    /**
-     * Ajoute un champ.
-     * 
-     * @param field le champ a ajouté.
-     */
-    public final void add(final SQLField field) {
-        this.tables.put(field.getTable(), field);
-    }
-
-    public final void retain(final SQLTable t) {
-        this.tables.keySet().retainAll(Collections.singleton(t));
+    public final SetMapItf<SQLTable, SQLField> getFields() {
+        return this.tables;
     }
 
     /**
@@ -82,7 +108,7 @@ public class SQLFieldsSet {
      * @return l'ensemble des champs appartenant à la table.
      */
     public final Set<SQLField> getFields(final SQLTable table) {
-        return (Set<SQLField>) this.tables.getNonNull(table);
+        return this.tables.getNonNull(table);
     }
 
     public final Set<SQLField> getFields(final String table) {
@@ -94,10 +120,7 @@ public class SQLFieldsSet {
     }
 
     public final Set<String> getFieldsNames(final SQLTable table) {
-        final Set<String> res = new HashSet<String>();
-        for (final SQLField f : this.getFields(table))
-            res.add(f.getName());
-        return res;
+        return getNames(this.getFields(table));
     }
 
     /**
@@ -106,25 +129,12 @@ public class SQLFieldsSet {
      * @return l'ensemble des SQLTable.
      */
     public final Set<SQLTable> getTables() {
-        return Collections.unmodifiableSet(this.tables.keySet());
-    }
-
-    /**
-     * Retourne toutes les champs.
-     * 
-     * @return l'ensemble des SQLField.
-     */
-    public final Set<SQLField> asSet() {
-        return new HashSet<SQLField>(this.tables.values());
-    }
-
-    public final void setName(final String string) {
-        this.name = string;
+        return this.tables.keySet();
     }
 
     @Override
     public String toString() {
-        return super.toString() + " " + this.name;
+        return this.getClass().getSimpleName() + " " + this.tables;
     }
 
 }

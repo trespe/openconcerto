@@ -15,7 +15,6 @@
 
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.CollectionMap;
 
 import java.util.HashMap;
 import java.util.Iterator;
@@ -62,13 +61,13 @@ class SQLElementRowR extends BaseSQLElementRow {
     private boolean equalsRec(SQLElementRowR o, Map<SQLRow, SQLRow> copies) {
         if (!SQLElementRow.equals(this.getRow(), o.getRow()))
             return false;
-        final CollectionMap<SQLTable, SQLRow> children1 = this.getElem().getChildrenRows(this.getRow());
-        final CollectionMap<SQLTable, SQLRow> children2 = this.getElem().getChildrenRows(o.getRow());
+        final Map<SQLTable, List<SQLRow>> children1 = this.getElem().getChildrenRows(this.getRow());
+        final Map<SQLTable, List<SQLRow>> children2 = this.getElem().getChildrenRows(o.getRow());
         if (!children1.keySet().equals(children2.keySet()))
             return false;
         for (final SQLTable childT : children1.keySet()) {
-            final List<SQLRow> l1 = (List<SQLRow>) children1.getNonNull(childT);
-            final List<SQLRow> l2 = (List<SQLRow>) children2.getNonNull(childT);
+            final List<SQLRow> l1 = children1.get(childT);
+            final List<SQLRow> l2 = children2.get(childT);
             if (l1.size() != l2.size())
                 return false;
 

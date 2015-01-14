@@ -18,6 +18,10 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.AbstractArticleItemTable;
+import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable.TypeCalcul;
+import org.openconcerto.erp.core.common.ui.Acompte;
+import org.openconcerto.erp.core.common.ui.AcompteField;
+import org.openconcerto.erp.core.common.ui.AcompteRowItemView;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.sales.quote.element.DevisSQLElement;
@@ -49,9 +53,7 @@ import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.VFlowLayout;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.utils.ExceptionHandler;
-
 import org.openconcerto.utils.cc.ITransformer;
-
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Color;
@@ -255,6 +257,48 @@ public class DevisSQLComponent extends BaseSQLComponent {
         addRequiredSQLObject(comboClient, "ID_CLIENT");
 
         final ElementComboBox boxTarif = new ElementComboBox();
+            if (getTable().contains("ID_CONTACT")) {
+                // Contact Client
+                c.gridx = 0;
+                c.gridy++;
+                c.gridwidth = 1;
+                final JLabel labelContact = new JLabel(getLabelFor("ID_CONTACT"));
+                labelContact.setHorizontalAlignment(SwingConstants.RIGHT);
+                c.weightx = 0;
+                c.gridwidth = 1;
+                c.fill = GridBagConstraints.HORIZONTAL;
+                this.add(labelContact, c);
+
+                final ElementComboBox comboContact = new ElementComboBox();
+                c.gridx++;
+                c.gridwidth = 1;
+                c.weightx = 0;
+                c.weighty = 0;
+                c.fill = GridBagConstraints.NONE;
+                this.add(comboContact, c);
+                final SQLElement contactElement = getElement().getForeignElement("ID_CONTACT");
+                comboContact.init(contactElement, contactElement.getComboRequest(true));
+                DefaultGridBagConstraints.lockMinimumSize(comboContact);
+                this.addView(comboContact, "ID_CONTACT");
+                comboClient.addModelListener("wantedID", new PropertyChangeListener() {
+
+                    @Override
+                    public void propertyChange(PropertyChangeEvent evt) {
+                        int wantedID = comboClient.getWantedID();
+                        System.err.println("SET WHERE ID_CLIENT = " + wantedID);
+                        if (wantedID != SQLRow.NONEXISTANT_ID && wantedID >= SQLRow.MIN_VALID_ID) {
+
+                            final SQLRow rowClient = getTable().getForeignTable("ID_CLIENT").getRow(wantedID);
+                            int idClient = rowClient.getID();
+                            comboContact.getRequest().setWhere(new Where(contactElement.getTable().getField("ID_CLIENT"), "=", idClient));
+                        } else {
+                            comboContact.getRequest().setWhere(null);
+                            DevisSQLComponent.this.table.setTarif(null, false);
+                        }
+                    }
+                });
+
+            }
 
         if (getTable().getFieldsName().contains("DATE_VALIDITE")) {
             c.gridx++;
@@ -295,6 +339,32 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
         // Table d'élément
             this.table = new DevisItemTable();
+
+            final AcompteField acompteField = new AcompteField();
+            acompteField.getDocument().addDocumentListener(new SimpleDocumentListener() {
+
+                @Override
+                public void update(DocumentEvent e) {
+                    Acompte a = acompteField.getValue();
+                    ((DevisItemTable) table).calculPourcentage(a, TypeCalcul.CALCUL_REMISE);
+                }
+            });
+
+            // Remise
+            c.gridy++;
+            c.gridx = 0;
+            c.weightx = 0;
+            c.weighty = 0;
+            c.gridwidth = 1;
+            JLabel comp = new JLabel(getLabelFor("MONTANT_REMISE"), SwingConstants.RIGHT);
+            // this.add(comp, c);
+            c.gridx++;
+            c.gridwidth = GridBagConstraints.REMAINDER;
+
+            c.weightx = 1;
+            // this.add(acompteField, c);
+            this.addView(new AcompteRowItemView(acompteField), "MONTANT_REMISE,POURCENT_REMISE", null);
+
 
         c.fill = GridBagConstraints.BOTH;
         c.gridx = 0;

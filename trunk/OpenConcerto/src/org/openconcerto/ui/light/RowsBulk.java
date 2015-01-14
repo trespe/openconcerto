@@ -24,12 +24,16 @@ import java.util.List;
 public class RowsBulk implements Externalizable {
 
     private List<Row> rows;
+    private int offset;
+    private int total;
 
     public RowsBulk() {// Serialization
     }
 
-    public RowsBulk(List<Row> rows) {
+    public RowsBulk(List<Row> rows, int offset, int total) {
         this.rows = rows;
+        this.offset = offset;
+        this.total = total;
     }
 
     // Sending by column : size gain is 5%
@@ -56,7 +60,8 @@ public class RowsBulk implements Externalizable {
             }
 
         }
-
+        this.offset = in.readInt();
+        this.total = in.readInt();
     }
 
     @Override
@@ -88,11 +93,19 @@ public class RowsBulk implements Externalizable {
             }
 
         }
-
+        out.writeInt(offset);
+        out.writeInt(total);
     }
 
     public List<Row> getRows() {
         return this.rows;
     }
 
+    public int getOffset() {
+        return offset;
+    }
+
+    public int getTotal() {
+        return total;
+    }
 }

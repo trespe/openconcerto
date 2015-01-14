@@ -13,9 +13,8 @@
  
  package org.openconcerto.xml.persistence;
 
-import org.openconcerto.utils.CollectionMap;
-
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -47,7 +46,7 @@ public interface PersistenceIO {
 
     public Set<String> getIDs(Class clazz) throws IOException;
 
-    public CollectionMap<Class, String> getIDs() throws IOException;
+    public Map<Class<?>, Set<String>> getIDs() throws IOException;
 
     public void delete(Class clazz, String id) throws IOException;
 

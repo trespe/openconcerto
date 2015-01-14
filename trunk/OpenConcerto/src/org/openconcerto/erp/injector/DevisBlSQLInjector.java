@@ -30,11 +30,11 @@ public class DevisBlSQLInjector extends SQLInjector {
         map(tableDevis.getField("ID_CLIENT"), tableBon.getField("ID_CLIENT"));
         mapDefaultValues(tableBon.getField("SOURCE"), tableBon.getName());
         map(tableDevis.getField("ID_DEVIS"), tableBon.getField("IDSOURCE"));
-        map(tableDevis.getField("OBJET"), tableBon.getField("NOM"));
-        map(tableDevis.getField("INFOS"), tableBon.getField("INFOS"));
+        if (tableDevis.getTable().contains("ID_POLE_PRODUIT")) {
+            map(tableDevis.getField("ID_POLE_PRODUIT"), tableBon.getField("ID_POLE_PRODUIT"));
+        }
     }
-    
-    
+
     @Override
     protected void merge(SQLRowAccessor srcRow, SQLRowValues rowVals) {
         super.merge(srcRow, rowVals);
@@ -43,6 +43,9 @@ public class DevisBlSQLInjector extends SQLInjector {
         final SQLTable tableElementSource = getSource().getTable("DEVIS_ELEMENT");
         final SQLTable tableElementDestination = getSource().getTable("BON_DE_LIVRAISON_ELEMENT");
         final Collection<? extends SQLRowAccessor> myListItem = srcRow.asRow().getReferentRows(tableElementSource);
+        transfertReference(srcRow, rowVals, "NOM", "NOM");
+        transfertReference(srcRow, rowVals, "INFOS", "INFOS");
+        transfertNumberReference(srcRow, rowVals, tableElementDestination, "ID_BON_DE_LIVRAISON");
 
         if (myListItem.size() != 0) {
             final SQLInjector injector = SQLInjector.getInjector(tableElementSource, tableElementDestination);

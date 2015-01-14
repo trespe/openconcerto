@@ -19,6 +19,7 @@ import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.component.ITextArea;
 
@@ -29,13 +30,13 @@ import java.util.LinkedHashSet;
 
 import javax.swing.JComponent;
 import javax.swing.JLabel;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 
 public class AdresseSQLComponent extends BaseSQLComponent {
     private final JLabel labelDest = new JLabel(getLabelFor("DEST"));
-    private final JTextArea destinataire = new JTextArea();
+    private final ITextArea destinataire = new ITextArea();
+    private boolean destVisible = false;
 
     public AdresseSQLComponent(SQLElement elt) {
         super(elt);
@@ -93,7 +94,21 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         final JTextField cedex = new JTextField(6);
         c.gridx++;
         c.fill = GridBagConstraints.NONE;
+        DefaultGridBagConstraints.lockMinimumSize(cedex);
         this.add(cedex, c);
+        // Province / Etat
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 0;
+        c.gridwidth = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        final JLabel labelProvince = new JLabel(getLabelFor("PROVINCE"), SwingConstants.RIGHT);
+        this.add(labelProvince, c);
+        final SQLTextCombo province = new SQLTextCombo();
+        c.gridx++;
+        c.fill = GridBagConstraints.NONE;
+        DefaultGridBagConstraints.lockMinimumSize(province);
+        this.add(province, c);
 
         // Pays
         c.gridy++;
@@ -103,28 +118,45 @@ public class AdresseSQLComponent extends BaseSQLComponent {
         c.fill = GridBagConstraints.HORIZONTAL;
         final JLabel labelPays = new JLabel(getLabelFor("PAYS"), SwingConstants.RIGHT);
         this.add(labelPays, c);
-        final JTextField pays = new JTextField(16);
+        final SQLTextCombo pays = new SQLTextCombo();
         c.gridx++;
         c.fill = GridBagConstraints.NONE;
+        DefaultGridBagConstraints.lockMinimumSize(pays);
         this.add(pays, c);
+
+        // Email
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 0;
+        c.gridwidth = 1;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        final JLabel labelEmail = new JLabel(getLabelFor("EMAIL_CONTACT"), SwingConstants.RIGHT);
+        this.add(labelEmail, c);
+        final JTextField email = new JTextField(25);
+        c.gridx++;
+        c.fill = GridBagConstraints.NONE;
+        DefaultGridBagConstraints.lockMinimumSize(email);
+        this.add(email, c);
 
         this.addSQLObject(textRue, "RUE");
         this.addInitedView(villeRIV, REQ);
         this.addView(cedex, "CEDEX");
         this.addView(destinataire, "DEST");
-
+        this.addView(province, "PROVINCE");
         this.addRequiredSQLObject(pays, "PAYS");
+        this.addView(email, "EMAIL_CONTACT");
 
     }
 
     protected SQLRowValues createDefaults() {
         final SQLRowValues rowVals = new SQLRowValues(getTable());
         rowVals.put("PAYS", "France");
-        setDestinataireVisible(false);
+        setDestinataireVisible(destVisible);
         return rowVals;
     }
 
     public void setDestinataireVisible(boolean b) {
+        this.destVisible = b;
         this.destinataire.setVisible(b);
         this.labelDest.setVisible(b);
     }

@@ -14,6 +14,7 @@
  package org.openconcerto.sql.utils;
 
 import static java.util.Collections.singletonList;
+import org.openconcerto.sql.Log;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLName;
@@ -21,17 +22,21 @@ import org.openconcerto.sql.model.SQLSyntax;
 import org.openconcerto.sql.model.SQLSystem;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTable.Index;
+import org.openconcerto.sql.model.SQLTable.SQLIndex;
 import org.openconcerto.sql.model.SQLType;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.model.graph.SQLKey;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.ReflectUtils;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -40,6 +45,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * Construct a statement about a table.
@@ -50,6 +56,39 @@ import java.util.Set;
  * @see SQLCreateTable
  */
 public abstract class ChangeTable<T extends ChangeTable<T>> {
+
+    private static final String TRIGGER_SUFFIX = "_trigger";
+    protected static final String[] TRIGGER_EVENTS = { "INSERT", "UPDATE" };
+
+    // group 1 is the columns, group 2 the where
+    public static final Pattern H2_UNIQUE_TRIGGER_PATTERN = Pattern.compile("\\snew " + PartialUniqueTrigger.class.getName() + "\\(\\s*java.util.Arrays.asList\\((.+)\\)\\s*,(.+)\\)");
+    public static final Pattern H2_LIST_PATTERN = Pattern.compile("\\s*,\\s*");
+
+    public static final String MYSQL_TRIGGER_SUFFIX_1 = getTriggerSuffix(TRIGGER_EVENTS[0]);
+    public static final String MYSQL_TRIGGER_SUFFIX_2 = getTriggerSuffix(TRIGGER_EVENTS[1]);
+    public static final String MYSQL_FAKE_PROCEDURE = "Unique constraint violation";
+    public static final String MYSQL_TRIGGER_EXCEPTION = "call " + SQLBase.quoteIdentifier(MYSQL_FAKE_PROCEDURE);
+    // group 1 is the table name, group 2 the where
+    public static final Pattern MYSQL_UNIQUE_TRIGGER_PATTERN = Pattern.compile("IF\\s*\\(\\s*" + Pattern.quote("SELECT COUNT(*)") + "\\s+FROM\\s+(.+)\\s+where\\s+(.+)\\)\\s*>\\s*1\\s+then\\s+"
+            + Pattern.quote(MYSQL_TRIGGER_EXCEPTION), Pattern.CASE_INSENSITIVE);
+    // to split the where
+    public static final Pattern MYSQL_WHERE_PATTERN = Pattern.compile("\\s+and\\s+", Pattern.CASE_INSENSITIVE);
+    // to find the column name
+    public static final Pattern MYSQL_WHERE_EQ_PATTERN = Pattern.compile("(NEW.)?(.+)\\s*=\\s*(NEW.)?\\2");
+
+    public static final String getIndexName(final String triggerName, final SQLSystem system) {
+        if (system == SQLSystem.MYSQL && triggerName.endsWith(MYSQL_TRIGGER_SUFFIX_1)) {
+            return triggerName.substring(0, triggerName.length() - MYSQL_TRIGGER_SUFFIX_1.length());
+        } else if (system == SQLSystem.H2 && triggerName.endsWith(TRIGGER_SUFFIX)) {
+            return triggerName.substring(0, triggerName.length() - TRIGGER_SUFFIX.length());
+        } else {
+            return null;
+        }
+    }
+
+    static private String getTriggerSuffix(final String event) {
+        return (event == null ? "" : '_' + event.toLowerCase()) + TRIGGER_SUFFIX;
+    }
 
     public static enum ClauseType {
         ADD_COL, ADD_CONSTRAINT, ADD_INDEX, DROP_COL, DROP_CONSTRAINT, DROP_INDEX, ALTER_COL, OTHER
@@ -357,9 +396,9 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     private String rootName, name;
     private final SQLSyntax syntax;
     private final List<FCSpec> fks;
-    private final CollectionMap<ClauseType, String> clauses;
-    private final CollectionMap<ClauseType, DeferredClause> inClauses;
-    private final CollectionMap<ClauseType, DeferredClause> outClauses;
+    private final ListMap<ClauseType, String> clauses;
+    private final ListMap<ClauseType, DeferredClause> inClauses;
+    private final ListMap<ClauseType, DeferredClause> outClauses;
 
     public ChangeTable(final SQLSyntax syntax, final String rootName, final String name) {
         super();
@@ -367,9 +406,9 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         this.rootName = rootName;
         this.name = name;
         this.fks = new ArrayList<FCSpec>();
-        this.clauses = new CollectionMap<ClauseType, String>();
-        this.inClauses = new CollectionMap<ClauseType, DeferredClause>();
-        this.outClauses = new CollectionMap<ClauseType, DeferredClause>();
+        this.clauses = new ListMap<ClauseType, String>();
+        this.inClauses = new ListMap<ClauseType, DeferredClause>();
+        this.outClauses = new ListMap<ClauseType, DeferredClause>();
 
         // check that (T) this; will succeed
         if (this.getClass() != ReflectUtils.getTypeArguments(this, ChangeTable.class).get(0))
@@ -405,14 +444,14 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
         if (this.getSyntax() != ct.getSyntax())
             throw new IllegalArgumentException("not same syntax: " + this.getSyntax() + " != " + ct.getSyntax());
         this.setName(ct.getName());
-        for (final Entry<ClauseType, Collection<String>> e : ct.clauses.entrySet()) {
+        for (final Entry<ClauseType, ? extends Collection<String>> e : ct.clauses.entrySet()) {
             for (final String s : e.getValue())
                 this.addClause(s, e.getKey());
         }
-        for (final DeferredClause c : ct.inClauses.values()) {
+        for (final DeferredClause c : ct.inClauses.allValues()) {
             this.addClause(c);
         }
-        for (final DeferredClause c : ct.outClauses.values()) {
+        for (final DeferredClause c : ct.outClauses.allValues()) {
             this.addOutsideClause(c);
         }
         for (final FCSpec fk : ct.fks) {
@@ -428,8 +467,33 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @param name the name of the column.
      * @param count the number of char.
      * @return this.
+     * @throws IllegalArgumentException if <code>count</code> is too high.
      */
     public final T addVarCharColumn(String name, int count) {
+        return this.addVarCharColumn(name, count, false);
+    }
+
+    /**
+     * Adds a varchar column not null and with '' as the default.
+     * 
+     * @param name the name of the column.
+     * @param count the number of characters.
+     * @param lenient <code>true</code> if <code>count</code> should be restricted to the maximum
+     *        allowed value of the system, <code>false</code> will throw an exception.
+     * @return this.
+     * @throws IllegalArgumentException if <code>count</code> is too high and <code>lenient</code>
+     *         is <code>false</code>.
+     */
+    public final T addVarCharColumn(final String name, int count, final boolean lenient) throws IllegalArgumentException {
+        final int max = getSyntax().getMaximumVarCharLength();
+        if (count > max) {
+            if (lenient) {
+                Log.get().fine("Truncated " + name + " from " + count + " to " + max);
+                count = max;
+            } else {
+                throw new IllegalArgumentException("Count too high : " + count + " > " + max);
+            }
+        }
         return this.addColumn(name, "varchar(" + count + ") default '' NOT NULL");
     }
 
@@ -480,7 +544,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @see SQLSyntax#getTypeNames(Class)
      */
     public final <N extends Number> T addNumberColumn(String name, Class<N> javaType, N defaultVal, boolean nullable) {
-        final Set<String> typeNames = getSyntax().getTypeNames(javaType);
+        final Collection<String> typeNames = getSyntax().getTypeNames(javaType);
         if (typeNames.size() == 0)
             throw new IllegalArgumentException(javaType + " isn't supported by " + getSyntax());
         return this.addColumn(name, typeNames.iterator().next(), getNumberDefault(defaultVal), nullable);
@@ -661,19 +725,224 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     }
 
     public T addUniqueConstraint(final String name, final List<String> cols) {
-        // for many systems (at least pg & h2) constraint names must be unique in a schema
-        return this.addClause(new DeferredClause() {
-            @Override
-            public String asString(ChangeTable<?> ct, SQLName tableName) {
-                final String constrName = SQLSyntax.getSchemaUniqueName(tableName.getName(), name);
-                return ct.getConstraintPrefix() + "CONSTRAINT " + SQLBase.quoteIdentifier(constrName) + " UNIQUE (" + SQLSyntax.quoteIdentifiers(cols) + ")";
-            }
+        return this.addUniqueConstraint(name, cols, null);
+    }
 
+    /**
+     * Add a unique constraint. If the table already exists, an initial check will be performed. As
+     * per the standard <code>NULL</code> means unknown and therefore equal with nothing.
+     * <p>
+     * NOTE: on some systems, an index or even triggers will be created instead (particularly with a
+     * where).
+     * </p>
+     * 
+     * @param name name of the constraint.
+     * @param cols the columns of the constraint, e.g. ["DESIGNATION"].
+     * @param where an optional where to limit the rows checked, can be <code>null</code>, e.g.
+     *        "not ARCHIVED".
+     * @return this.
+     */
+    public T addUniqueConstraint(final String name, final List<String> cols, final String where) {
+        final int size = cols.size();
+        if (size == 0)
+            throw new IllegalArgumentException("No cols");
+        final SQLSystem system = getSyntax().getSystem();
+        // MS treat all NULL equals contrary to the standard
+        if (system == SQLSystem.MSSQL) {
+            return this.addOutsideClause(createUniquePartialIndex(name, cols, where));
+        } else if (where == null) {
+            return this.addClause(new DeferredClause() {
+                @Override
+                public String asString(ChangeTable<?> ct, SQLName tableName) {
+                    return ct.getConstraintPrefix() + "CONSTRAINT " + getQuotedConstraintName(tableName, name) + " UNIQUE (" + SQLSyntax.quoteIdentifiers(cols) + ")";
+                }
+
+                @Override
+                public ClauseType getType() {
+                    return ClauseType.ADD_CONSTRAINT;
+                }
+            });
+        } else if (system == SQLSystem.POSTGRESQL) {
+            return this.addOutsideClause(createUniquePartialIndex(name, cols, where));
+        } else if (system == SQLSystem.H2) {
+            // initial select to check uniqueness
+            if (this instanceof AlterTable) {
+                // TODO should implement SIGNAL instead of abusing CSVREAD
+                this.addOutsideClause(new DeferredClause() {
+                    @Override
+                    public ClauseType getType() {
+                        return ClauseType.OTHER;
+                    }
+
+                    @Override
+                    public String asString(ChangeTable<?> ct, SQLName tableName) {
+                        final String select = getInitialCheckSelect(cols, where, tableName);
+                        return "SELECT CASE WHEN (" + select + ") > 0 then CSVREAD('Unique constraint violation') else 'OK' end case;";
+                    }
+                });
+            }
+            final String javaWhere = StringUtils.doubleQuote(where);
+            final String javaCols = "java.util.Arrays.asList(" + CollectionUtils.join(cols, ", ", new ITransformer<String, String>() {
+                @Override
+                public String transformChecked(final String col) {
+                    return StringUtils.doubleQuote(col);
+                }
+            }) + ")";
+            final String body = "AS $$ org.h2.api.Trigger create(){ return new " + PartialUniqueTrigger.class.getName() + "(" + javaCols + ", " + javaWhere + "); } $$";
+            assert H2_UNIQUE_TRIGGER_PATTERN.matcher(body).find();
+            return this.addOutsideClause(new UniqueTrigger(name, Arrays.asList(TRIGGER_EVENTS)) {
+                @Override
+                protected String getBody(SQLName tableName) {
+                    return body;
+                }
+            });
+        } else if (system == SQLSystem.MYSQL) {
+            // initial select to check uniqueness
+            if (this instanceof AlterTable) {
+                this.addOutsideClause(new DeferredClause() {
+                    @Override
+                    public ClauseType getType() {
+                        return ClauseType.OTHER;
+                    }
+
+                    @Override
+                    public String asString(ChangeTable<?> ct, SQLName tableName) {
+                        final String procName = SQLBase.quoteIdentifier("checkUniqueness_" + tableName.getName());
+                        String res = "DROP PROCEDURE IF EXISTS " + procName + ";\n";
+                        res += "CREATE PROCEDURE " + procName + "() BEGIN\n";
+                        final String select = getInitialCheckSelect(cols, where, tableName);
+                        // don't put newline right after semicolon to avoid splitting here
+                        res += "IF (" + select + ") > 0 THEN " + MYSQL_TRIGGER_EXCEPTION + "; END IF; \n";
+                        res += "END;\n";
+                        res += "CALL " + procName + ";";
+                        return res;
+                    }
+                });
+            }
+            final UniqueTrigger trigger = new UniqueTrigger(name, Arrays.asList(TRIGGER_EVENTS[0])) {
+                @Override
+                protected String getBody(final SQLName tableName) {
+                    final String body = "BEGIN IF " + getNotNullWhere(cols, "NEW.") + " THEN\n" +
+                    //
+                            "IF ( SELECT COUNT(*) from " + tableName + " where " + where + " and " + CollectionUtils.join(cols, " and ", new ITransformer<String, String>() {
+                                @Override
+                                public String transformChecked(String col) {
+                                    return SQLBase.quoteIdentifier(col) + " = NEW." + SQLBase.quoteIdentifier(col);
+                                }
+                            }) + ") > 1 then\n" + MYSQL_TRIGGER_EXCEPTION + "; END IF; \n"
+                            // don't put newline right after semicolon to avoid splitting here
+                            + "END IF; \n" + "END";
+                    return body;
+                }
+            };
+            this.addOutsideClause(trigger);
+            for (int i = 1; i < TRIGGER_EVENTS.length; i++) {
+                this.addOutsideClause(new UniqueTrigger(name, Arrays.asList(TRIGGER_EVENTS[i])) {
+                    @Override
+                    protected String getBody(final SQLName tableName) {
+                        return trigger.getBody(tableName);
+                    }
+                });
+            }
+            return thisAsT();
+        } else {
+            throw new UnsupportedOperationException("System isn't supported : " + system);
+        }
+    }
+
+    protected final DeferredClause createUniquePartialIndex(final String name, final List<String> cols, final String userWhere) {
+        // http://stackoverflow.com/questions/767657/how-do-i-create-a-unique-constraint-that-also-allows-nulls
+        final Where notNullWhere = getSyntax().getSystem() == SQLSystem.MSSQL ? Where.createRaw(getNotNullWhere(cols)) : null;
+        final Where w = Where.and(notNullWhere, Where.createRaw(userWhere));
+        return getSyntax().getCreateIndex(new SQLIndex(name, cols, true, true, w.toString()));
+    }
+
+    // Null is equal with nothing :
+    // http://www.postgresql.org/docs/9.4/static/ddl-constraints.html#DDL-CONSTRAINTS-UNIQUE-CONSTRAINTS
+    static private String getNotNullWhere(final List<String> cols) {
+        return getNotNullWhere(cols, "");
+    }
+
+    static private String getNotNullWhere(final List<String> cols, final String prefix) {
+        return CollectionUtils.join(cols, " and ", new ITransformer<String, String>() {
             @Override
-            public ClauseType getType() {
-                return ClauseType.ADD_CONSTRAINT;
+            public String transformChecked(String col) {
+                return prefix + SQLBase.quoteIdentifier(col) + " IS NOT NULL";
             }
         });
+    }
+
+    private String getInitialCheckSelect(final List<String> cols, final String where, SQLName tableName) {
+        final Where notNullWhere = Where.createRaw(getNotNullWhere(cols));
+        final Where w = Where.and(notNullWhere, Where.createRaw(where));
+        return "SELECT count(*) FROM " + tableName + " where " + w + " group by " + SQLSyntax.quoteIdentifiers(cols) + " having count(*)>1";
+    }
+
+    static protected final String getQuotedConstraintName(final SQLName tableName, final String name) {
+        return SQLBase.quoteIdentifier(getIndexName(tableName, name));
+    }
+
+    static protected final String getIndexName(final SQLName tableName, final String name) {
+        // for many systems (at least pg & h2) constraint names must be unique in a schema
+        return SQLSyntax.getSchemaUniqueName(tableName.getName(), name);
+    }
+
+    static private SQLName getTriggerName(final SQLName tableName, final String indexName, final String event) {
+        // put the trigger in the same schema (tidier and required for MySQL)
+        return new SQLName(tableName.getItem(-2), SQLSyntax.getSchemaUniqueName(tableName.getName(), indexName + getTriggerSuffix(event)));
+    }
+
+    static private abstract class UniqueTrigger implements DeferredClause {
+
+        private final String indexName;
+        private final List<String> events;
+
+        public UniqueTrigger(String indexName, final List<String> events) {
+            super();
+            this.indexName = indexName;
+            this.events = events;
+        }
+
+        @Override
+        public final ClauseType getType() {
+            return ClauseType.OTHER;
+        }
+
+        @Override
+        public final String asString(ChangeTable<?> ct, SQLName tableName) {
+            // if there's only one event, it means the system doesn't support multiple so we need to
+            // get a unique trigger name for each one
+            final SQLName triggerName = getTriggerName(tableName, this.indexName, CollectionUtils.getSole(this.events));
+            return "CREATE TRIGGER " + triggerName + " AFTER " + CollectionUtils.join(this.events, ", ") + " on " + tableName + " FOR EACH ROW " + this.getBody(tableName) + ';';
+        }
+
+        protected abstract String getBody(SQLName tableName);
+    }
+
+    static protected final class DropUniqueTrigger implements DeferredClause {
+
+        private final String indexName;
+        private final String event;
+
+        protected DropUniqueTrigger(String indexName) {
+            this(indexName, null);
+        }
+
+        protected DropUniqueTrigger(String indexName, String event) {
+            super();
+            this.indexName = indexName;
+            this.event = event;
+        }
+
+        @Override
+        public final ClauseType getType() {
+            return ClauseType.OTHER;
+        }
+
+        @Override
+        public final String asString(ChangeTable<?> ct, SQLName tableName) {
+            return "DROP TRIGGER IF EXISTS " + getTriggerName(tableName, this.indexName, this.event) + ";";
+        }
     }
 
     protected abstract String getConstraintPrefix();
@@ -686,13 +955,13 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      * @return this.
      */
     public final T addClause(String s, final ClauseType type) {
-        this.clauses.put(type, s);
+        this.clauses.add(type, s);
         return thisAsT();
     }
 
     protected final List<String> getClauses(SQLName tableName, ClauseType type) {
         if (this.inClauses.size() == 0)
-            return (List<String>) this.clauses.getNonNull(type);
+            return this.clauses.getNonNull(type);
         else {
             final List<String> res = new ArrayList<String>(this.clauses.getNonNull(type));
             for (final DeferredClause c : this.inClauses.getNonNull(type))
@@ -709,7 +978,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
     }
 
     public final T addClause(DeferredClause s) {
-        this.inClauses.put(s.getType(), s);
+        this.inClauses.add(s.getType(), s);
         return thisAsT();
     }
 
@@ -721,7 +990,7 @@ public abstract class ChangeTable<T extends ChangeTable<T>> {
      */
     public final T addOutsideClause(DeferredClause s) {
         if (s != null)
-            this.outClauses.put(s.getType(), s);
+            this.outClauses.add(s.getType(), s);
         return thisAsT();
     }
 

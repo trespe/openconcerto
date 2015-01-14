@@ -23,6 +23,10 @@ import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
 import org.openconcerto.erp.core.sales.order.ui.CommandeClientItemTable;
+import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater.Type;
+import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.panel.PanelOOSQLComponent;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
@@ -32,7 +36,9 @@ import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
@@ -54,6 +60,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 import java.util.Date;
+import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -66,6 +73,8 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
+
+import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
@@ -409,7 +418,11 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
             idCommande = super.insert(order);
             this.table.updateField("ID_COMMANDE_CLIENT", idCommande);
-
+            try {
+                updateStock(idCommande);
+            } catch (SQLException e1) {
+                ExceptionHandler.handle("Erreur lors de la mise à du stock!", e1);
+            }
             // Création des articles
             this.table.createArticle(idCommande, this.getElement());
             // generation du document
@@ -486,19 +499,48 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
             return;
         }
         super.update();
-        this.table.updateField("ID_COMMANDE_CLIENT", getSelectedID());
-        this.table.createArticle(getSelectedID(), this.getElement());
+        final int id = getSelectedID();
+        this.table.updateField("ID_COMMANDE_CLIENT", id);
+        this.table.createArticle(id, this.getElement());
+
+        final SQLRow row = getTable().getRow(id);
+        try {
+            updateStock(id);
+        } catch (SQLException e1) {
+            ExceptionHandler.handle("Erreur lors de la mise à du stock!", e1);
+        }
 
         // generation du document
-
         try {
-            CommandeClientXmlSheet sheet = new CommandeClientXmlSheet(getTable().getRow(getSelectedID()));
+            CommandeClientXmlSheet sheet = new CommandeClientXmlSheet(row);
             sheet.createDocumentAsynchronous();
             sheet.showPrintAndExportAsynchronous(CommandeClientSQLComponent.this.panelOO.isVisualisationSelected(), CommandeClientSQLComponent.this.panelOO.isImpressionSelected(), true);
         } catch (Exception e) {
             ExceptionHandler.handle("Impossible de créer la commande", e);
         }
 
+    }
+
+    protected String getLibelleStock(SQLRowAccessor row, SQLRowAccessor rowElt) {
+        return "Commande client N°" + row.getString("NUMERO");
+    }
+
+    /**
+     * Mise à jour des stocks pour chaque article composant la facture
+     * 
+     * @throws SQLException
+     */
+    private void updateStock(int id) throws SQLException {
+
+        SQLRow row = getTable().getRow(id);
+        StockItemsUpdater stockUpdater = new StockItemsUpdater(new StockLabel() {
+            @Override
+            public String getLabel(SQLRowAccessor rowOrigin, SQLRowAccessor rowElt) {
+                return getLibelleStock(rowOrigin, rowElt);
+            }
+        }, row, row.getReferentRows(getTable().getTable("COMMANDE_CLIENT_ELEMENT")), Type.VIRTUAL_DELIVER);
+
+        stockUpdater.update();
     }
 
     public void setDefaults() {

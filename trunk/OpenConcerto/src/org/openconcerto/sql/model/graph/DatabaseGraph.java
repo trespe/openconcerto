@@ -38,9 +38,10 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Link.Rule;
 import org.openconcerto.sql.model.graph.ToRefreshSpec.ToRefreshActual;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ArrayComparator;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.FileUtils;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.cc.IPredicate;
 
 import java.io.BufferedWriter;
@@ -55,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -69,10 +71,10 @@ import net.jcip.annotations.GuardedBy;
 import net.jcip.annotations.ThreadSafe;
 
 import org.apache.commons.collections.CollectionUtils;
-import org.jdom.Document;
-import org.jdom.Element;
-import org.jdom.JDOMException;
-import org.jdom.input.SAXBuilder;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.JDOMException;
+import org.jdom2.input.SAXBuilder;
 import org.jgrapht.Graphs;
 import org.jgrapht.graph.DirectedMultigraph;
 
@@ -96,6 +98,21 @@ public class DatabaseGraph extends BaseGraph {
     private static final String XML_VERSION = "20121024-1614";
     private static final String FILENAME = "graph.xml";
 
+    // Some systems follow the JDBC to the letter and order by PKTABLE_CAT, PKTABLE_SCHEM,
+    // PKTABLE_NAME, KEY_SEQ : thus ignoring FK_NAME
+    static final Comparator<Object[]> IMPORTED_KEYS_COMP;
+
+    static {
+        // PKTABLE_CAT, PKTABLE_SCHEM, PKTABLE_NAME, FK_NAME, KEY_SEQ
+        final List<Comparator<Object[]>> comps = new ArrayList<Comparator<Object[]>>();
+        comps.add(ArrayComparator.createNatural(0, String.class));
+        comps.add(ArrayComparator.createNatural(1, String.class));
+        comps.add(ArrayComparator.createNatural(2, String.class));
+        comps.add(ArrayComparator.createNatural(11, String.class));
+        comps.add(ArrayComparator.createNatural(8, Short.class));
+        IMPORTED_KEYS_COMP = CompareUtils.createComparator(comps);
+    }
+
     // passedBase is the base that was passed for the catalog parameter of getImportedKeys() or
     // getExportedKeys()
     public static SQLTable getTableFromJDBCMetaData(final SQLBase passedBase, final String jdbcCat, final String jdbcSchem, final String jdbcName) {
@@ -118,6 +135,7 @@ public class DatabaseGraph extends BaseGraph {
         if (server.getSQLSystem() == SQLSystem.MYSQL)
             // MySQL returns all lowercase foreignTableName, see Bug #18446 :
             // INFORMATION_SCHEMA.KEY_COLUMN_USAGE.REFERENCED_TABLE_NAME always lowercase
+            // also http://bugs.mysql.com/bug.php?id=60773
             res = getTableIgnoringCase(schema, jdbcName);
         else
             res = (SQLTable) schema.getCheckedChild(jdbcName);
@@ -378,12 +396,19 @@ public class DatabaseGraph extends BaseGraph {
         }
     }
 
+    private Rule getRule(final Number n, final SQLSystem sys) {
+        final Rule res = Rule.fromShort(n.shortValue());
+        // MS SQL incorrectly report RESTRICT as it doesn't support it
+        return sys == SQLSystem.MSSQL && Rule.RESTRICT.equals(res) ? Rule.NO_ACTION : res;
+    }
+
     private void map(final DBRoot r, final String tableName, final Set<String> tableNames) throws SQLException {
         // either we refresh the whole root and we must know which tables to use
         // or we refresh only one table and tableNames is useless
         assert tableName == null ^ tableNames == null;
-        final CollectionMap<String, String> metadataFKs = new CollectionMap<String, String>(new HashSet<String>());
-        final List importedKeys = this.base.getDataSource().useConnection(new ConnectionHandlerNoSetup<List, SQLException>() {
+        final SetMap<String, String> metadataFKs = new SetMap<String, String>();
+        @SuppressWarnings("unchecked")
+        final List<Object[]> importedKeys = this.base.getDataSource().useConnection(new ConnectionHandlerNoSetup<List, SQLException>() {
             @Override
             public List handle(final SQLDataSource ds) throws SQLException {
                 final DatabaseMetaData metaData = ds.getConnection().getMetaData();
@@ -393,12 +418,18 @@ public class DatabaseGraph extends BaseGraph {
         // accumulators for multi-field foreign key
         final List<SQLField> from = new ArrayList<SQLField>();
         final List<SQLField> to = new ArrayList<SQLField>();
+        final SQLSystem sys = this.base.getServer().getSQLSystem();
         Rule updateRule = null;
         Rule deleteRule = null;
         String name = null;
-        final Iterator ikIter = importedKeys.iterator();
+        // Follow the JDBC to the letter and order by PKTABLE_CAT, PKTABLE_SCHEM, PKTABLE_NAME,
+        // KEY_SEQ : thus ignoring FK_NAME
+        if (sys == SQLSystem.MSSQL) {
+            Collections.sort(importedKeys, IMPORTED_KEYS_COMP);
+        }
+        final Iterator<Object[]> ikIter = importedKeys.iterator();
         while (ikIter.hasNext()) {
-            final Object[] m = (Object[]) ikIter.next();
+            final Object[] m = ikIter.next();
 
             // FKTABLE_SCHEM
             assert CompareUtils.equals(m[5], r.getSchema().getName());
@@ -426,7 +457,7 @@ public class DatabaseGraph extends BaseGraph {
                 throw new IllegalStateException("Could not find what " + key.getSQLName() + " references", e);
             }
 
-            metadataFKs.put(fkTableName, keyName);
+            metadataFKs.add(fkTableName, keyName);
             if (seq == 1) {
                 // if we start a new link add the current one
                 if (from.size() > 0)
@@ -442,9 +473,9 @@ public class DatabaseGraph extends BaseGraph {
             final Rule prevUpdateRule = updateRule;
             final Rule prevDeleteRule = deleteRule;
             // "UPDATE_RULE"
-            updateRule = Rule.fromShort(((Number) m[9]).shortValue());
+            updateRule = getRule((Number) m[9], sys);
             // "DELETE_RULE"
-            deleteRule = Rule.fromShort(((Number) m[10]).shortValue());
+            deleteRule = getRule((Number) m[10], sys);
             if (seq > 1) {
                 if (prevUpdateRule != updateRule)
                     throw new IllegalStateException("Incoherent update rules " + prevUpdateRule + " != " + updateRule);
@@ -612,12 +643,10 @@ public class DatabaseGraph extends BaseGraph {
                 if (!CompareUtils.equals(xmlVersion, actualVersion))
                     throw new IOException("wrong DB version, expected " + actualVersion + " got: " + xmlVersion);
                 final Set<String> fromXMLTableNames = fromXML.get(rootName);
-                for (final Object o : doc.getRootElement().getChildren()) {
-                    final Element tableElem = (Element) o;
+                for (final Element tableElem : doc.getRootElement().getChildren()) {
                     final SQLTable t = r.getTable(tableElem.getAttributeValue("name"));
                     if (fromXMLTableNames.contains(t.getName())) {
-                        for (final Object lo : tableElem.getChildren()) {
-                            final Element linkElem = (Element) lo;
+                        for (final Element linkElem : tableElem.getChildren()) {
                             addLink(Link.fromXML(t, linkElem));
                         }
                         // t was loaded (even if it had no links)
@@ -702,12 +731,12 @@ public class DatabaseGraph extends BaseGraph {
     public Link getLink(final SQLTable table, final Direction dir, final IPredicate<? super Link> pred, final boolean nullIfNone) {
         final Set<Link> res = this.getLinks(table, dir, pred);
         if (res.size() > 1) {
-            throw new IllegalStateException("More than one link : " + res);
+            throw new IllegalStateException("More than one link from " + table + " with direction " + dir + " and predicate " + pred + " : " + res);
         } else if (res.size() == 0) {
             if (nullIfNone)
                 return null;
             else
-                throw new IllegalStateException("No link");
+                throw new IllegalStateException("No link from " + table + " with direction " + dir + " and predicate " + pred);
         }
         return res.iterator().next();
     }
@@ -900,7 +929,7 @@ public class DatabaseGraph extends BaseGraph {
      * Renvoie la clause WHERE pour faire la jointure en t1 et t2. Par exemple entre MISSION et
      * RAPPORT : <br/>
      * RAPPORT.ID_MISSION=MISSION.ID_MISSION OR MISSION.ID_RAPPORT_INITIAL=RAPPORT.ID_RAPPORT. Pour
-     * un sous-ensemble des liens, utiliser {@link #getWhereClause(SQLTable, SQLTable, Set)}, pour
+     * un sous-ensemble des liens, utiliser {@link #getWhereClause(TableRef, TableRef, Step)}, pour
      * un seul champ {@link #getWhereClause(SQLField)}.
      * 
      * @param t1 la premiere table.

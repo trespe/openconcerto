@@ -171,7 +171,10 @@ public class TranslationManager {
                 Log.get().warning("TranslationManager has no resources to load (" + this.getLocale() + ")");
             }
             for (Class<?> c : this.classes) {
-                loadTranslation(this.getLocale(), c);
+                boolean loaded = loadTranslation(this.getLocale(), c);
+                if (!loaded) {
+                    Log.get().warning("TranslationManager was unable to load translation " + c.getCanonicalName() + " for locale " + this.getLocale());
+                }
             }
         }
     }
@@ -195,7 +198,8 @@ public class TranslationManager {
         return res;
     }
 
-    private void loadTranslation(final Locale l, Class<?> c) {
+    private boolean loadTranslation(final Locale l, Class<?> c) {
+        boolean translationLoaded = false;
         // we want more specific translations to replace general ones, i.e. root Locale first
         for (final InputStream input : findStream(l, c, false)) {
             // create new instances to check if there's no duplicates in each resource
@@ -205,7 +209,9 @@ public class TranslationManager {
             this.menuTranslation.putAll(menuTranslation);
             this.itemTranslation.putAll(itemTranslation);
             this.actionTranslation.putAll(actionTranslation);
+            translationLoaded = true;
         }
+        return translationLoaded;
     }
 
     static private void loadTranslation(final InputStream input, final Map<String, String> menuTranslation, final Map<String, String> itemTranslation, final Map<String, String> actionTranslation) {

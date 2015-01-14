@@ -20,12 +20,17 @@ import org.openconcerto.erp.core.supplychain.order.component.SaisieAchatSQLCompo
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.element.TreesOfSQLRows;
+import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLSelect;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 
 import java.awt.event.ActionEvent;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,6 +39,8 @@ import java.util.Set;
 import javax.swing.AbstractAction;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
+
+import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class CommandeSQLElement extends ComptaSQLConfElement {
 
@@ -119,4 +126,27 @@ public class CommandeSQLElement extends ComptaSQLConfElement {
         editFactureFrame.setState(JFrame.NORMAL);
         editFactureFrame.setVisible(true);
     }
+
+    @Override
+    protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
+        // TODO Auto-generated method stub
+        super.archive(row, cutLinks);
+        // Mise à jour des stocks
+        SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+        SQLSelect sel = new SQLSelect();
+        sel.addSelect(eltMvtStock.getTable().getField("ID"));
+        Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+        Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+        sel.setWhere(w.and(w2));
+
+        @SuppressWarnings("rawtypes")
+        List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+        if (l != null) {
+            for (int i = 0; i < l.size(); i++) {
+                Object[] tmp = (Object[]) l.get(i);
+                eltMvtStock.archive(((Number) tmp[0]).intValue());
+            }
+        }
+    }
+
 }

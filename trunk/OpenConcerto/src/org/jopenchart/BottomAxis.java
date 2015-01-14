@@ -11,6 +11,7 @@ public class BottomAxis extends Axis {
         super("x");
         this.addLabels(a.getLabels());
         this.leftAlign = leftAlign;
+        this.setColor(a.getColor());
     }
 
     public BottomAxis(boolean leftAlign) {

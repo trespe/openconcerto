@@ -71,8 +71,12 @@ public class ListeDebiteursXmlSheet extends AbstractListeSheetXml {
         Where w = new Where(echTable.getField("REGLE"), "=", Boolean.FALSE);
         w = w.and(new Where(echTable.getField("REG_COMPTA"), "=", Boolean.FALSE));
         w = w.and(new Where(clientTable.getKey(), "=", echTable.getField("ID_CLIENT")));
+        final SQLTable vfTable = echTable.getForeignTable("ID_SAISIE_VENTE_FACTURE");
+        w = w.and(new Where(vfTable.getKey(), "=", echTable.getField("ID_SAISIE_VENTE_FACTURE")));
         sel.setWhere(w);
-        sel.addFieldOrder(clientTable.getField("NOM"));
+
+        sel.addFieldOrder(vfTable.getField("NUMERO"));
+
         List<SQLRow> l = (List<SQLRow>) eltEch.getTable().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
 
         List<Map<String, Object>> listValues = new ArrayList<Map<String, Object>>();
@@ -136,5 +140,4 @@ public class ListeDebiteursXmlSheet extends AbstractListeSheetXml {
         this.styleAllSheetValues.put(0, styleValues);
 
     }
-
 }

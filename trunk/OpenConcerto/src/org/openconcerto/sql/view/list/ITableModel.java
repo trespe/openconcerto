@@ -18,7 +18,6 @@ import static org.openconcerto.sql.view.list.ITableModel.SleepState.HIBERNATING;
 import static org.openconcerto.sql.view.list.ITableModel.SleepState.SLEEPING;
 import org.openconcerto.sql.Log;
 import org.openconcerto.sql.element.SQLComponent;
-import org.openconcerto.sql.model.SQLFieldsSet;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -29,7 +28,7 @@ import org.openconcerto.sql.users.rights.UserRights;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.sql.view.list.search.SearchQueue;
 import org.openconcerto.sql.view.search.SearchSpec;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.TableSorter;
 
 import java.beans.PropertyChangeEvent;
@@ -42,6 +41,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Timer;
 import java.util.TimerTask;
+import java.util.concurrent.Callable;
+import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -421,8 +422,12 @@ public class ITableModel extends AbstractTableModel {
 
     private boolean hasRight(final SQLTableModelColumn col) {
         final UserRights u = UserRightsManager.getCurrentUserRights();
-        for (final SQLTable t : new SQLFieldsSet(col.getFields()).getTables()) {
+        for (final SQLTable t : col.getWriteFields().getTables()) {
             if (!TableAllRights.hasRight(u, TableAllRights.MODIFY_ROW_TABLE, t))
+                return false;
+        }
+        for (final SQLTable t : col.getWriteTables()) {
+            if (!TableAllRights.hasRight(u, TableAllRights.ADD_ROW_TABLE, t) || !TableAllRights.hasRight(u, TableAllRights.DELETE_ROW_TABLE, t))
                 return false;
         }
         return true;
@@ -474,7 +479,7 @@ public class ITableModel extends AbstractTableModel {
      * @param id an ID in <code>t</code>.
      * @return all affected lines in the fullList (un-searched).
      */
-    public CollectionMap<ListSQLLine, Path> getAffectedLines(final SQLTable t, final int id) {
+    public ListMap<ListSQLLine, Path> getAffectedLines(final SQLTable t, final int id) {
         return this.getSearchQueue().getAffectedLines(new SQLRow(t, id));
     }
 
@@ -766,17 +771,31 @@ public class ITableModel extends AbstractTableModel {
             print("dying");
             if (this.autoHibernate != null)
                 this.autoHibernate.cancel();
-            this.updateQ.die();
-            this.getSearchQueue().die();
+            // only kill searchQ once updateQ is really dead, otherwise the currently executing
+            // update might finish once the searchQ is already dead.
+            final Future<Future<?>> dieSearch = this.updateQ.die(true, null, new Callable<Future<?>>() {
+                @Override
+                public Future<?> call() throws Exception {
+                    return getSearchQueue().die();
+                }
+            });
             this.moveQ.die();
             this.getLinesSource().die();
             this.getReq().rmColumnListener(this.colListener);
+            try {
+                // first get() OK : updateQ correctly killed
+                // second get() OK : searchQ correctly killed
+                final Object fRes = dieSearch.get().get();
+                assert fRes == null : "Wrong result : " + fRes;
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
         }
     }
 
     private synchronized final boolean isDead() {
         // in ctor queue can be null, but we're obviously not dead
-        return this.updateQ != null && this.updateQ.isDead();
+        return this.updateQ != null && this.updateQ.dieCalled();
     }
 
 }

@@ -490,7 +490,7 @@ public abstract class SheetXml {
      * @param fileName nom du fichier à créer ex:FACTURE_2007/03/001
      * @return un nom fichier valide ex:FACTURE_2007-03-001
      */
-    static String getValidFileName(String fileName) {
+    public static String getValidFileName(String fileName) {
         final StringBuffer result = new StringBuffer(fileName.length());
         for (int i = 0; i < fileName.length(); i++) {
             char ch = fileName.charAt(i);

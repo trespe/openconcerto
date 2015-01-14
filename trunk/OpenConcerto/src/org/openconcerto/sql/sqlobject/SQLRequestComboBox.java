@@ -100,6 +100,7 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     // le mode actuel
     private ComboMode mode;
     // le mode à sélectionner à la fin du updateAll
+    // null when not used
     private ComboMode modeToSelect;
 
     // to speed up the combo
@@ -116,9 +117,7 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
     public SQLRequestComboBox(boolean addUndefined, int preferredWidthInChar) {
         this.setOpaque(false);
         this.mode = ComboMode.EDITABLE;
-        // necessary when uiInit() is called with a model already updating
-        // (otherwise when it finishes modeToSelect will still be null)
-        this.modeToSelect = this.mode;
+        this.modeToSelect = null;
         if (preferredWidthInChar > 0) {
             final char[] a = new char[preferredWidthInChar];
             Arrays.fill(a, ' ');
@@ -175,7 +174,7 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         this.uiInit(new IComboModel(req));
     }
 
-    private boolean hasModel() {
+    protected final boolean hasModel() {
         return this.req != null;
     }
 
@@ -192,7 +191,7 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         this.req.addListener("updating", new PropertyChangeListener() {
             @Override
             public void propertyChange(PropertyChangeEvent evt) {
-                updatingChanged((Boolean) evt.getNewValue());
+                updateEnabled();
             }
         });
         // since modelValueChanged() updates the UI use selectedValue (i.e. IComboSelectionItem
@@ -280,7 +279,20 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
             }
         });
 
+        this.combo.addPropertyChangeListener("textCompFocused", new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                updateEnabled();
+            }
+        });
+
         this.uiLayout();
+
+        // Initialise UI : mode was set in the constructor, but the UI wasn't updated (since it is
+        // either not created or depending on the request). Do it before setRunning() since it might
+        // trigger setEnabled() and the one below would be unnecessary.
+        if (!updateEnabled())
+            this.setEnabled(this.getEnabled());
 
         // *without* : resetValue() => doUpdateAll() since it was never filled
         // then this is made displayable => setRunning(true) => dirty = true since not on screen
@@ -292,14 +304,35 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         this.req.setRunning(true);
     }
 
-    private final void updatingChanged(final Boolean newValue) {
-        if (Boolean.TRUE.equals(newValue)) {
-            this.modeToSelect = this.getEnabled();
-            // ne pas interagir pendant le chargement
-            this.setEnabled(ComboMode.DISABLED, true);
+    private final boolean updateEnabled() {
+        boolean res = false;
+        if (isDisabledState()) {
+            // don't overwrite, happens if updateEnabled() is called twice and isDisabledState() is
+            // false both times. In that case getEnabled() would return DISABLED
+            if (this.modeToSelect == null) {
+                this.modeToSelect = this.getEnabled();
+                // ne pas interagir pendant le chargement
+                this.setEnabled(ComboMode.DISABLED, true);
+                res = true;
+            }
         } else {
-            this.setEnabled(this.modeToSelect);
+            // only use modeToSelect once. If updateEnabled() is called twice and isDisabledState()
+            // is true both times and modeToSelect wasn't cleared it could be obsolete (another
+            // setEnabled() could have been called)
+            if (this.modeToSelect != null) {
+                final ComboMode m = this.modeToSelect;
+                this.modeToSelect = null;
+                this.setEnabled(m, true);
+                res = true;
+            }
         }
+        return res;
+    }
+
+    // disable combo when updating, except if the user is currently using it (e.g. when using a
+    // request that search the DB interactively)
+    private final boolean isDisabledState() {
+        return this.isUpdating() && !this.combo.getTextComp().isFocusOwner();
     }
 
     public final List<Action> getActions() {
@@ -479,6 +512,7 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
         this.setEnabled(b ? ComboMode.EDITABLE : ComboMode.ENABLED);
     }
 
+    @Override
     public final void setEnabled(boolean b) {
         // FIXME add mode to RIV
         this.setEnabled(b ? ComboMode.EDITABLE : ComboMode.ENABLED);
@@ -490,7 +524,7 @@ public class SQLRequestComboBox extends JPanel implements SQLForeignRowItemView,
 
     private final void setEnabled(ComboMode mode, boolean priv) {
         assert SwingUtilities.isEventDispatchThread();
-        if (!priv && this.isUpdating()) {
+        if (!priv && this.isDisabledState()) {
             this.modeToSelect = mode;
         } else {
             this.mode = mode;

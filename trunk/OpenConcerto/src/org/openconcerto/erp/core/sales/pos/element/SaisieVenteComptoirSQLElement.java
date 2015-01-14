@@ -34,16 +34,16 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
-import org.openconcerto.sql.sqlobject.ISQLElementWithCodeSelector;
 import org.openconcerto.sql.sqlobject.SQLSearchableTextCombo;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.warning.JLabelWarning;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.ListMap;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.checks.EmptyListener;
 import org.openconcerto.utils.checks.EmptyObj;
 import org.openconcerto.utils.checks.ValidState;
@@ -95,6 +95,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
         l.add("ID_CLIENT");
         l.add("ID_MODE_REGLEMENT");
         l.add("MONTANT_HT");
+        l.add("MONTANT_SERVICE");
         l.add("MONTANT_TTC");
         return l;
     }
@@ -131,7 +132,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             private JCheckBox checkCommande;
             private JDate dateSaisie;
 
-            private ISQLElementWithCodeSelector nomArticle;
+            private ElementComboBox nomArticle;
             private Date dateEch;
             private JLabel labelEcheancejours = new JLabel("jours");
             private ElementComboBox comboAvoir;
@@ -224,9 +225,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 c.gridy++;
                 c.gridx = 0;
 
-                SQLTable sqlTableArticle = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("ARTICLE");
-                SQLElement article = Configuration.getInstance().getDirectory().getElement(sqlTableArticle);
-                this.nomArticle = new ISQLElementWithCodeSelector(article, article.getTable().getField("CODE"));
+                this.nomArticle = new ElementComboBox();
 
                 JLabel labelNomArticle = new JLabel(getLabelFor("ID_ARTICLE"));
                 c.weightx = 0;
@@ -311,6 +310,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 // Montant HT
                 c.fill = GridBagConstraints.HORIZONTAL;
+
                 c.weightx = 0;
                 c.gridy++;
                 c.gridx = 0;
@@ -569,6 +569,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 Set<String> s = new HashSet<String>();
                 s.addAll(super.getPartialResetNames());
                 s.add("MONTANT_TTC");
+                s.add("MONTANT_SERVICE");
+                s.add("MONTANT_HT");
                 s.add("NOM");
                 s.add("ID_AVOIR_CLIENT");
                 s.add("ID_ARTICLE");
@@ -747,13 +749,12 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             public int insert(SQLRow order) {
 
                 // On teste si l'article n'existe pas, on le crée
-                if (Integer.parseInt(this.nomArticle.getValue().toString()) == -1) {
-
+                if (this.nomArticle.isEmpty()) {
                     createArticle();
                 }
 
                 if (this.textNom.getValue() == null || this.textNom.getValue().trim().length() <= 0) {
-                    this.textNom.setValue(this.nomArticle.getTextMain());
+                    this.textNom.setValue(this.nomArticle.getTextComp().getText());
                 }
                 final int id = super.insert(order);
                 // on verifie si le produit est à commander
@@ -781,8 +782,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                             try {
                                 final SQLRow row = rowVals.insert();
-                                CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
-                                        Arrays.asList(row.getID()), false);
+                                final ListMap<SQLRow, SQLRowValues> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
+                                        Arrays.asList(row), false);
                                 MouvementStockSQLElement.createCommandeF(map, null);
 
                             } catch (SQLException e) {
@@ -831,8 +832,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             private void createArticle() {
                 System.out.println("Création de l'article");
 
-                String tNomArticle = this.nomArticle.getTextMain();
-                String codeArticle = this.nomArticle.getTextOpt();
+                String tNomArticle = this.nomArticle.getTextComp().getText();
+                String codeArticle = "";// this.nomArticle.getTextOpt();
 
                 if (tNomArticle.trim().length() == 0 && codeArticle.trim().length() == 0) {
                     return;
@@ -841,8 +842,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                 SQLTable articleTable = getTable().getBase().getTable("ARTICLE");
 
                 int idTaxe = this.comboTaxe.getSelectedId();
-                BigDecimal prix = new BigDecimal(this.textMontantHT.getText().replaceAll(",", "."));
-                BigDecimal prixTTC = new BigDecimal(this.textMontantTTC.getText().replaceAll(",", "."));
+                final BigDecimal prix = StringUtils.getBigDecimalFromUserText(this.textMontantHT.getText());
+                final BigDecimal prixTTC = StringUtils.getBigDecimalFromUserText(this.textMontantTTC.getText());
 
                 if (tNomArticle.trim().length() == 0) {
                     tNomArticle = "Nom Indefini";
@@ -866,8 +867,7 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
 
                 try {
                     SQLRow row = vals.insert();
-                    this.nomArticle.loadCache();
-                    this.nomArticle.setValue(row.getID());
+                    this.nomArticle.setValue(row);
                 } catch (SQLException e) {
 
                     e.printStackTrace();
@@ -900,13 +900,12 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                         }
                     }
 
-                    if (this.textNom.getValue().trim().length() <= 0) {
-                        this.textNom.setValue(this.nomArticle.getTextMain());
+                    if (this.textNom.getValue() != null && this.textNom.getValue().trim().length() <= 0) {
+                        this.textNom.setValue(this.nomArticle.getTextComp().getText());
                     }
 
                     // On teste si l'article n'existe pas, on le crée
-                    if (Integer.parseInt(this.nomArticle.getValue().toString()) == -1) {
-
+                    if (this.nomArticle.getValue() == null || Integer.parseInt(this.nomArticle.getValue().toString()) == -1) {
                         createArticle();
                     }
 
@@ -933,8 +932,8 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
                         rowVals.put("DATE", row.getObject("DATE"));
                         try {
                             SQLRow rowNew = rowVals.insert();
-                            final CollectionMap<SQLRow, List<SQLRowValues>> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
-                                    Arrays.asList(rowNew.getID()), false);
+                            final ListMap<SQLRow, SQLRowValues> map = ((MouvementStockSQLElement) Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK")).updateStock(
+                                    Arrays.asList(rowNew), false);
                             ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
                                 @Override
@@ -957,15 +956,22 @@ public class SaisieVenteComptoirSQLElement extends ComptaSQLConfElement {
             @Override
             public void select(SQLRowAccessor r) {
                 this.textMontantTTC.getDocument().removeDocumentListener(this.docTTCListen);
-                this.nomArticle.removeValueListener(this.propertyChangeListener);
+                this.nomArticle.rmValueListener(this.propertyChangeListener);
 
                 super.select(r);
 
-                checkService.setSelected(r != null && r.getLong("MONTANT_SERVICE") > 0);
+                checkService.setSelected(r != null && r.getObject("MONTANT_SERVICE") != null && r.getLong("MONTANT_SERVICE") > 0);
 
                 this.textMontantTTC.getDocument().addDocumentListener(this.docTTCListen);
                 this.nomArticle.addValueListener(this.propertyChangeListener);
             }
+
+            @Override
+            public void select(SQLRowAccessor r, Set<String> views) {
+                super.select(r, views);
+                checkService.setSelected(r != null && r.getObject("MONTANT_SERVICE") != null && r.getLong("MONTANT_SERVICE") > 0);
+            }
+
         };
     }
 

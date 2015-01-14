@@ -23,6 +23,9 @@ import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
 import org.openconcerto.erp.core.supplychain.order.ui.CommandeItemTable;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater;
+import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater.Type;
+import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
 import org.openconcerto.erp.generationDoc.gestcomm.CommandeXmlSheet;
 import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
@@ -33,6 +36,7 @@ import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
@@ -59,6 +63,7 @@ import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
+import java.util.List;
 
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
@@ -71,6 +76,8 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
+
+import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
@@ -649,6 +656,12 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             // Création des articles
             this.table.createArticle(idCommande, this.getElement());
 
+            try {
+                updateStock(idCommande);
+            } catch (SQLException e) {
+                ExceptionHandler.handle("Erreur lors de la mise à jour du stock!", e);
+            }
+
             // generation du document
             final CommandeXmlSheet sheet = new CommandeXmlSheet(getTable().getRow(idCommande));
             sheet.createDocumentAsynchronous();
@@ -714,14 +727,66 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         }
 
         super.update();
-        this.table.updateField("ID_COMMANDE", getSelectedID());
-        this.table.createArticle(getSelectedID(), this.getElement());
+        final int id = getSelectedID();
+        this.table.updateField("ID_COMMANDE", id);
+        this.table.createArticle(id, this.getElement());
+        ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
 
+            @Override
+            public void run() {
+                try {
+                    // On efface les anciens mouvements de stocks
+                    SQLRow row = getTable().getRow(id);
+                    SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+                    SQLSelect sel = new SQLSelect();
+                    sel.addSelect(eltMvtStock.getTable().getField("ID"));
+                    Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+                    Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+                    sel.setWhere(w.and(w2));
+
+                    List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+                    if (l != null) {
+                        for (int i = 0; i < l.size(); i++) {
+                            Object[] tmp = (Object[]) l.get(i);
+
+                            eltMvtStock.archive(((Number) tmp[0]).intValue());
+
+                        }
+                    }
+                    // Mise à jour du stock
+                    updateStock(id);
+                } catch (Exception e) {
+                    ExceptionHandler.handle("Update error", e);
+                }
+            }
+        });
         // generation du document
-        final CommandeXmlSheet sheet = new CommandeXmlSheet(getTable().getRow(getSelectedID()));
+        final CommandeXmlSheet sheet = new CommandeXmlSheet(getTable().getRow(id));
         sheet.createDocumentAsynchronous();
         sheet.showPrintAndExportAsynchronous(this.checkVisu.isSelected(), this.checkImpression.isSelected(), true);
 
+    }
+
+    protected String getLibelleStock(SQLRowAccessor row, SQLRowAccessor rowElt) {
+        return "Commande fournisseur N°" + row.getString("NUMERO");
+    }
+
+    /**
+     * Mise à jour des stocks pour chaque article composant la facture
+     * 
+     * @throws SQLException
+     */
+    private void updateStock(int id) throws SQLException {
+
+        SQLRow row = getTable().getRow(id);
+        StockItemsUpdater stockUpdater = new StockItemsUpdater(new StockLabel() {
+            @Override
+            public String getLabel(SQLRowAccessor rowOrigin, SQLRowAccessor rowElt) {
+                return getLibelleStock(rowOrigin, rowElt);
+            }
+        }, row, row.getReferentRows(getTable().getTable("COMMANDE_ELEMENT")), Type.REAL_RECEPT);
+
+        stockUpdater.update();
     }
 
     public void setDefaults() {

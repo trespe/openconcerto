@@ -30,6 +30,7 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -324,10 +325,15 @@ public class SQLRowView extends BaseSQLRequest {
         return new LinkedHashSet<SQLRowItemView>(this.getViewsFast());
     }
 
+    public Map<String, SQLRowItemView> getViewsMap() {
+        return Collections.unmodifiableMap(this.views);
+    }
+
     private final Collection<SQLRowItemView> getViewsFast() {
         return this.viewsOrdered;
     }
 
+    @Override
     public String toString() {
         return this.getClass() + " with " + this.getViewsFast();
     }

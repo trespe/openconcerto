@@ -9,6 +9,7 @@
 	<TABLE name="ADRESSE">
 		<FIELD name="RAISON_SOCIALE" label="Raison sociale" titlelabel="Raison sociale" />
 		<FIELD name="RUE" label="Rue" titlelabel="Rue" />
+		<FIELD name="PROVINCE" label="Province / état" titlelabel="Province" />
 		<FIELD name="PAYS" label="Pays" titlelabel="Pays" />
 		<FIELD name="CEDEX" label="Cedex" titlelabel="Cedex" />
 		<FIELD name="HAS_CEDEX" label="Cedex" titlelabel="Cedex" />
@@ -17,6 +18,8 @@
 		<FIELD name="DEST" label="Nom du Destinataire" titlelabel="Destinataire" />
 		<FIELD name="NUMERO_CANTON" label="Numéro canton" titlelabel="Numéro canton" />
 		<FIELD name="NUMERO_COMMUNE" label="Numéro commune" titlelabel="Numéro commune" />
+		<FIELD name="TYPE" label="Type" />
+		<FIELD name="EMAIL_CONTACT" label="Email contact" />
 	</TABLE>
 	<TABLE name="AFFACTURAGE">
 		<FIELD name="NB_FACT" label="Nombre de factures" titlelabel="Nombre de factures" />
@@ -25,6 +28,9 @@
 	</TABLE>
 	<TABLE name="AFFAIRE">
 		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="CCI" label="CCI" titlelabel="CCI" />
+		<FIELD name="TYPE_ETABLISSEMENT" label="Type d'établissement" />
+		<FIELD name="DUREE_TRAVAUX" label="Durée des travaux" />
 		<FIELD name="CCI" label="CCI" titlelabel="CCI" />
 		<FIELD name="ID_VERIFICATEUR" label="Chargé d'affaire" titlelabel="Chargé d'affaire" />
 		<FIELD name="DATE_DEMARRAGE" label="Date de démarrage" titlelabel="Date de démarrage" />
@@ -143,6 +149,10 @@
 
 	<TABLE name="ASSOCIATION_ANALYTIQUE">
 		<FIELD name="ID_POSTE_ANALYTIQUE" label="Poste analytique" titlelabel="Poste analytique" />
+
+		<FIELD name="POURCENT" label="Pourcentage réparti" />
+
+		<FIELD name="MONTANT" label="Montant réparti" />
 	</TABLE>
 
 	<TABLE name="ASSOCIATION_COMPTE_ANALYTIQUE">
@@ -298,6 +308,25 @@
 		<FIELD name="ID_JOURNAL" label="Journal" titlelabel="Journal" />
 		<FIELD name="AFFACTURAGE" label="Banque d'affacturage" titlelabel="Banque d'affacturage" />
 		<FIELD name="INFOS" label="Informations" titlelabel="Informations" />
+	</TABLE>
+	<TABLE name="BANQUE">
+		<FIELD name="NOM" label="Nom" />
+		<FIELD name="NUMERO_RUE" label="Numéro de rue" />
+		<FIELD name="VOIE" label="Voie" />
+		<FIELD name="RUE" label="Rue" />
+		<FIELD name="VILLE" label="Ville" />
+		<FIELD name="CODE_ETS" label="Code Ets" />
+		<FIELD name="CODE_GUICHET" label="Code guichet" />
+		<FIELD name="NUMERO_COMPTE" label="N° compte" />
+		<FIELD name="CLE_RICE" label="Clé rice" />
+		<FIELD name="ID_JOURNAL" label="Journal" />
+		<FIELD name="ID_COMPTE_PCE" label="Compte PCE" />
+		<FIELD name="AFFACTURAGE" label="Affacturage" />
+		<FIELD name="DOMICILIATION" label="Domiciliation" />
+		<FIELD name="BIC" label="BIC" />
+		<FIELD name="IBAN" label="IBAN" />
+		<FIELD name="CODE" label="Code" />
+		<FIELD name="INFOS" label="Informations" />
 	</TABLE>
 
 	<TABLE name="BON_RECEPTION">
@@ -483,6 +512,7 @@
 	</TABLE>
 
 	<TABLE name="CLIENT">
+		<FIELD name="ID_TARIF_MISSION_LIBELLE" label="Tarif" titlelabel="Tarif" />
 		<FIELD name="ID_TYPE_CLIENT" label="Type de client" />
 		<FIELD name="ID_GROUPE_CLIENT" label="Groupe" />
 		<FIELD name="ID_PAYS" label="Pays" titlelabel="Pays" />
@@ -527,6 +557,8 @@
 		<FIELD name="MAX_FACTURE" label="Facturation limitée à" titlelabel="Facturation limitée à" />
 		<FIELD name="COMPTANT" label="Règlement comptant obligatoire" titlelabel="Règlement comptant obligatoire" />
 		<FIELD name="ID_TARIF" label="Tarif" titlelabel="Tarif" />
+		<FIELD name="EXTRANET_LOGIN" label="Identifiant extranet" />
+		<FIELD name="EXTRANET_PASSWORD" label="Mot de passe extranet" />
 	</TABLE>
 
 	<TABLE name="CODE_REGIME">
@@ -836,6 +868,32 @@
 	</TABLE>
 
 	<TABLE name="DEVIS">
+
+		<FIELD name="CONTACT_MAIL_RAPPORT" label="Email dest. suppl." />
+		<FIELD name="SITE_DIFF" label="Site d'intervention différent du donneur d'ordre" titlelabel="Site d'intervention différent du donneur d'ordre" />
+		<FIELD name="DESIGNATION_SITE" label="Désignation du site" />
+		<FIELD name="ADRESSE_SITE" label="Adresse du site" />
+		<FIELD name="VILLE_SITE" label="Ville du site" />
+		<FIELD name="TEL_SITE" label="Téléphone du site" />
+		<FIELD name="TEL_P_SITE" label="Téléphone portable du site" />
+		<FIELD name="FAX_SITE" label="Fax du site" />
+		<FIELD name="MAIL_SITE" label="Email du site" />
+		<FIELD name="CONTACT_SITE" label="Contact du site" />
+
+		<FIELD name="DONNEUR_DIFF" label="Donneur d'ordre différent du client" />
+		<FIELD name="DESIGNATION_DONNEUR" label="Désignation du donneur d'ordre" />
+		<FIELD name="ADRESSE_DONNEUR" label="Adresse du donneur d'ordre" />
+		<FIELD name="VILLE_DONNEUR" label="Ville du donneur d'ordre" />
+		<FIELD name="TEL_DONNEUR" label="Téléphone du donneur d'ordre" />
+		<FIELD name="TEL_P_DONNEUR" label="Téléphone portable du donneur d'ordre" />
+		<FIELD name="FAX_DONNEUR" label="Fax du donneur d'ordre" />
+		<FIELD name="MAIL_DONNEUR" label="Email du donneur d'ordre" />
+		<FIELD name="CONTACT_DONNEUR" label="Contact du donneur d'ordre" />
+		<FIELD name="SIREN_DONNEUR" label="Siren du donneur d'ordre" />
+
+		<FIELD name="DATE_DEMANDE" label="Date demande client" titlelabel="Date demande client" />
+
+		<FIELD name="MONTANT_REMISE" label="Remise globale" />
 		<FIELD name="ID_MODELE" label="Modèle" titlelabel="Modèle" />
 		<FIELD name="PROBABILITE" label="Probabilité" titlelabel="Probabilité" />
 		<FIELD name="DATE_VALIDITE" label="Valable jusqu'au" titlelabel="Valable jusqu'au" />
@@ -903,6 +961,34 @@
 		<FIELD name="NB_COLIS" label="Nb Colis" titlelabel="Nb Colis" />
 		<FIELD name="POIDS_COLIS_NET" label="Pds Colis" titlelabel="Pds Colis" />
 		<FIELD name="T_POIDS_COLIS_NET" label="Pds Colis Total" titlelabel="Pds Colis Total" />
+
+
+		<FIELD name="MONTANT_INITIAL" label="Montant initial" titlelabel="Montant initial" />
+		<FIELD name="INDICE_0" label="Indice 0" titlelabel="Indice 0" />
+		<FIELD name="INDICE_N" label="Indice N" titlelabel="Indice N" />
+		<FIELD name="Q18" label="Extension Q18" titlelabel="Extension Q18" />
+		<FIELD name="TARIF_Q18_HT" label="Tarif Q18 HT" titlelabel="Tarif Q18 HT" />
+		<FIELD name="OBJET_INSPECTE" label="Objet inspecté" titlelabel="Objet inspecté" />
+		<FIELD name="REFERENTIEL_INSPECTION" label="Référentiel inspection" titlelabel="Référentiel inspection" />
+		<FIELD name="LOCAL_OBJET_INSPECTE" label="Localisation objet" titlelabel="Localisation objet" />
+		<FIELD name="ID_SECTEUR_ACTIVITE" label="Secteur d'activité" titlelabel="Secteur d'activité" />
+		<FIELD name="ID_NATURE_MISSION" label="Nature de la mission" titlelabel="Nature de la mission" />
+		<FIELD name="ID_DOMAINE" label="Domaine" titlelabel="Domaine" />
+		<FIELD name="MONTANT_REVISABLE" label="Révisable" titlelabel="Révisable" />
+		<FIELD name="INFOS_OBJET_INSPECTE" label="Commentaires objet" titlelabel="Commentaires objet" />
+		<FIELD name="ID_SITE_INTERVENTION" label="Site d'intervention" titlelabel="Site d'intervention" />
+		<FIELD name="ID_PERIODICITE" label="Périodicité" titlelabel="Périodicité" />
+		<FIELD name="DATE" label="Date d'intervention" titlelabel="Date d'intervention" />
+		<FIELD name="POURCENT_SERVICE" label="Pourcentage service" titlelabel="Pourcentage service" />
+		<FIELD name="POURCENT_CCIP" label="CCIP" titlelabel="CCIP" />
+		<FIELD name="DATE_FIN" label="Date de fin d'intervention" titlelabel="Date de fin d'intervention" />
+		<FIELD name="ID_DEPARTEMENT" label="Département" />
+		<FIELD name="POURCENT_ACOMPTE" label="% Acompte" />
+		<FIELD name="NOM_MISSION" label="Mission" />
+		<FIELD name="NB_RAPPORT" label="Nb ex. rapports" />
+		<FIELD name="DUREE_MISSION" label="Durée approx." />
+		<FIELD name="FONCTION_SIGN" label="Fonction signataire" />
+		<FIELD name="DATE_SIGN" label="Date de signature" />
 	</TABLE>
 
 	<TABLE name="ECHANTILLON_ELEMENT">
@@ -1191,6 +1277,7 @@
 	<TABLE name="FOURNISSEUR">
 		<FIELD name="ID_COMPTE_PCE_CHARGE" label="Compte de charge par défaut" titlelabel="Compte de charge par défaut" />
 		<FIELD name="TYPE" label="Type" titlelabel="Type" />
+		<FIELD name="ID_DEVISE" label="Devise" titlelabel="Devise" />
 		<FIELD name="RESPONSABLE" label="Responsable" titlelabel="Responsable" />
 		<FIELD name="TEL_P" label="Mobile" titlelabel="Mobile" />
 		<FIELD name="INFOS" label="Informations complèmentaires" titlelabel="Informations complèmentaires" />
@@ -1262,6 +1349,7 @@
 		<FIELD name="AJOURS" label="à" titlelabel="à" />
 		<FIELD name="LENJOUR" label="le" titlelabel="le" />
 		<FIELD name="ID_BANQUE_POLE_PRODUIT" label="Banque" titlelabel="Banque" />
+		<FIELD name="ID_BANQUE" label="Banque" titlelabel="Banque" />
 		<FIELD name="ID_TYPE_REGLEMENT" label="Type de règlement" titlelabel="Type de règlement" />
 		<FIELD name="DATE" label="Daté du" titlelabel="Daté du" />
 		<FIELD name="ETS" label="Ets" titlelabel="Ets" />
@@ -1397,7 +1485,7 @@
 	</TABLE>
 
 	<TABLE name="POSTE_ANALYTIQUE">
-		<FIELD name="NOM" label="Libellé" titlelabel="Libellé" />
+		<FIELD name="NOM" label="Nom du Poste" titlelabel="Nom du Poste" />
 		<FIELD name="ID_AXE_ANALYTIQUE" label="Axe" titlelabel="Axe" />
 	</TABLE>
 
@@ -1785,8 +1873,8 @@
 	</TABLE>
 
 	<TABLE name="TAXE">
-		<FIELD name="NOM" label="Libellé"/>
-		<FIELD name="TAUX" label="Taux"/>
+		<FIELD name="NOM" label="Libellé" />
+		<FIELD name="TAUX" label="Taux" />
 		<FIELD name="DEFAULT" label="Taxe par défaut" titlelabel="Taxe par défaut" />
 		<FIELD name="ID_COMPTE_PCE" label="Compte" titlelabel="Compte" />
 		<FIELD name="ID_COMPTE_PCE_COLLECTE" label="Compte TVA collectée" />

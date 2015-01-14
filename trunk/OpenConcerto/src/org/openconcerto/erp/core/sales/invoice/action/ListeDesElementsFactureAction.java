@@ -22,6 +22,7 @@ import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.IListFrame;
+import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 
 import java.awt.GridBagConstraints;
@@ -41,7 +42,8 @@ public class ListeDesElementsFactureAction extends CreateFrameAbstractAction {
     public JFrame createFrame() {
         final SQLElement element = Configuration.getInstance().getDirectory().getElement("SAISIE_VENTE_FACTURE_ELEMENT");
 
-        final ListeViewPanel listeAddPanel = new ListeViewPanel(element);
+        IListe liste = new IListe(element.getTableSource(true));
+        final ListeViewPanel listeAddPanel = new ListeViewPanel(element, liste);
         listeAddPanel.getListe().getRequest().setWhere(new Where(element.getTable().getField("ID_SAISIE_VENTE_FACTURE"), ">", 1));
         List<SQLField> l = new ArrayList<SQLField>();
         l.add(element.getTable().getField("T_PV_HT"));

@@ -109,7 +109,7 @@ public class ListeDesTicketsPanel extends JPanel implements ListSelectionListene
                 Ticket article = (Ticket) object;
                 String label = "Ticket " + article.getCode();
 
-                String euro = TicketCellRenderer.centsToString(article.getTotal()) + "€";
+                String euro = TicketCellRenderer.centsToString(article.getTotalInCents()) + "€";
 
                 int wEuro = (int) g.getFontMetrics().getStringBounds(euro, g).getWidth();
                 g.drawString(label, 10, posY + 39);

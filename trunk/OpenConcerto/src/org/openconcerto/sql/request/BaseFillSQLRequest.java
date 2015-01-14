@@ -14,23 +14,37 @@
  package org.openconcerto.sql.request;
 
 import org.openconcerto.sql.FieldExpander;
+import org.openconcerto.sql.model.FieldRef;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
+import org.openconcerto.sql.model.SQLSearchMode;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.model.graph.Path;
+import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import java.util.regex.Pattern;
+
+import net.jcip.annotations.GuardedBy;
 
 public abstract class BaseFillSQLRequest extends BaseSQLRequest {
 
+    private final static Pattern QUERY_SPLIT_PATTERN = Pattern.compile("\\s+");
     private static boolean DEFAULT_SELECT_LOCK = true;
 
     /**
@@ -56,6 +70,10 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
 
     private final SQLTable primaryTable;
     private Where where;
+    @GuardedBy("this")
+    private Map<SQLField, SQLSearchMode> searchFields;
+    @GuardedBy("this")
+    private List<String> searchQuery;
     private ITransformer<SQLSelect, SQLSelect> selTransf;
     private boolean lockSelect;
 
@@ -70,6 +88,8 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
             throw new NullPointerException();
         this.primaryTable = primaryTable;
         this.where = w;
+        this.searchFields = Collections.emptyMap();
+        this.searchQuery = Collections.emptyList();
         this.selTransf = null;
         this.lockSelect = getDefaultLockSelect();
         this.graph = null;
@@ -80,6 +100,8 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         super();
         this.primaryTable = req.getPrimaryTable();
         this.where = req.where;
+        this.searchFields = req.searchFields;
+        this.searchQuery = req.searchQuery;
         this.selTransf = req.selTransf;
         this.lockSelect = req.lockSelect;
         // TODO copy
@@ -180,6 +202,79 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
         return this.where;
     }
 
+    /**
+     * Whether this request is searchable.
+     * 
+     * @param b <code>true</code> if the {@link #getFields() local fields} should be used,
+     *        <code>false</code> to not be searchable.
+     */
+    public final void setSearchable(final boolean b) {
+        this.setSearchFields(b ? this.getFields() : Collections.<SQLField> emptyList());
+    }
+
+    /**
+     * Set the fields used to search.
+     * 
+     * @param searchFields only rows with these fields containing the terms will match.
+     * @see #setSearch(String)
+     */
+    public final void setSearchFields(final Collection<SQLField> searchFields) {
+        this.setSearchFields(CollectionUtils.<SQLField, SQLSearchMode> createMap(searchFields));
+    }
+
+    /**
+     * Set the fields used to search.
+     * 
+     * @param searchFields for each field to search, how to match.
+     * @see #setSearch(String)
+     */
+    public final void setSearchFields(Map<SQLField, SQLSearchMode> searchFields) {
+        searchFields = new HashMap<SQLField, SQLSearchMode>(searchFields);
+        final Iterator<Entry<SQLField, SQLSearchMode>> iter = searchFields.entrySet().iterator();
+        while (iter.hasNext()) {
+            final Entry<SQLField, SQLSearchMode> e = iter.next();
+            if (!String.class.isAssignableFrom(e.getKey().getType().getJavaType())) {
+                iter.remove();
+            } else if (e.getValue() == null) {
+                e.setValue(SQLSearchMode.CONTAINS);
+            }
+        }
+        searchFields = Collections.unmodifiableMap(searchFields);
+        synchronized (this) {
+            this.searchFields = searchFields;
+        }
+        fireWhereChange();
+    }
+
+    public Map<SQLField, SQLSearchMode> getSearchFields() {
+        synchronized (this) {
+            return this.searchFields;
+        }
+    }
+
+    /**
+     * Set the search query. The query will be used to match rows using
+     * {@link #setSearchFields(Map)}. I.e. if there's no field set, this method won't have any
+     * effect.
+     * 
+     * @param s the search query.
+     * @return <code>true</code> if the request changed.
+     */
+    public boolean setSearch(String s) {
+        // no need to trim() since trailing empty strings are not returned
+        final List<String> split = Arrays.asList(QUERY_SPLIT_PATTERN.split(s));
+        synchronized (this) {
+            if (!split.equals(this.searchQuery)) {
+                this.searchQuery = split;
+                if (!this.getSearchFields().isEmpty()) {
+                    this.fireWhereChange();
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     public final void setLockSelect(boolean lockSelect) {
         this.lockSelect = lockSelect;
     }
@@ -198,7 +293,41 @@ public abstract class BaseFillSQLRequest extends BaseSQLRequest {
     protected abstract Collection<SQLField> getFields();
 
     protected SQLSelect transformSelect(final SQLSelect sel) {
+        final Map<SQLField, SQLSearchMode> searchFields;
+        final List<String> searchQuery;
+        synchronized (this) {
+            searchFields = this.getSearchFields();
+            searchQuery = this.searchQuery;
+        }
+        final Where w;
+        final Set<String> matchScore = new HashSet<String>();
+        if (!searchFields.isEmpty()) {
+            Where where = null;
+            for (final String searchTerm : searchQuery) {
+                Where termWhere = null;
+                for (final FieldRef selF : sel.getSelectFields()) {
+                    final SQLSearchMode mode = searchFields.get(selF.getField());
+                    if (mode != null) {
+                        termWhere = Where.createRaw(createWhere(selF, mode, searchTerm)).or(termWhere);
+                        if (!mode.equals(SQLSearchMode.EQUALS))
+                            matchScore.add("case when " + createWhere(selF, SQLSearchMode.EQUALS, searchTerm) + " then 1 else 0 end");
+                    }
+                }
+                where = Where.and(termWhere, where);
+            }
+            w = where;
+        } else {
+            w = null;
+        }
+        sel.andWhere(w);
+        if (!matchScore.isEmpty())
+            sel.getOrder().add(0, CollectionUtils.join(matchScore, " + ") + " DESC");
+
         return this.selTransf == null ? sel : this.selTransf.transformChecked(sel);
+    }
+
+    protected String createWhere(final FieldRef selF, final SQLSearchMode mode, final String searchQuery) {
+        return "lower(" + selF.getFieldRef() + ") " + mode.generateSQL(selF.getField().getDBRoot(), searchQuery.toLowerCase());
     }
 
     public final ITransformer<SQLSelect, SQLSelect> getSelectTransf() {

@@ -19,8 +19,8 @@ import org.openconcerto.sql.model.SQLRowValuesCluster.State;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableEvent;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
-import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.SQLTableModifiedListener;
+import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.view.list.UpdateRunnable.RmAllRunnable;
 import org.openconcerto.utils.IFutureTask;
 import org.openconcerto.utils.RecursionType;
@@ -94,9 +94,9 @@ final class UpdateQueue extends SleepingQueue {
     // *** listeners
 
     @Override
-    protected void dying() {
+    protected void willDie() {
         this.rmTableListener();
-        super.dying();
+        super.willDie();
     }
 
     private void addTableListener() {

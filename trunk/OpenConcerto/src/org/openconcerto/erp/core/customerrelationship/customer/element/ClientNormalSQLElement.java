@@ -17,7 +17,6 @@ import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.customerrelationship.customer.report.FicheClientXmlSheet;
 import org.openconcerto.erp.preferences.PrinterNXProps;
-import org.openconcerto.map.model.Ville;
 import org.openconcerto.ql.LabelCreator;
 import org.openconcerto.ql.QLPrinter;
 import org.openconcerto.sql.Configuration;
@@ -60,10 +59,7 @@ public class ClientNormalSQLElement extends ComptaSQLConfElement {
                         for (String string2 : s) {
                             c.addLineNormal(string2);
                         }
-
-                        Ville v = Ville.getVilleFromVilleEtCode(foreignRow.getString("VILLE"));
-                        c.addLineNormal(v.getCodepostal() + " " + v.getName());
-
+                        c.addLineNormal(foreignRow.getString("CODE_POSTAL") + " " + foreignRow.getString("VILLE"));
                         final QLPrinter prt = new QLPrinter(property);
                         try {
                             prt.print(c.getImage());

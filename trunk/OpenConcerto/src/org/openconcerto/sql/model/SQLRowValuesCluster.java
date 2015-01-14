@@ -19,6 +19,7 @@ import org.openconcerto.sql.model.SQLRowValues.ReferentChangeListener;
 import org.openconcerto.sql.model.graph.Link.Direction;
 import org.openconcerto.sql.model.graph.Path;
 import org.openconcerto.sql.utils.SQLUtils;
+import org.openconcerto.utils.CollectionMap2.Mode;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.Matrix;
@@ -38,9 +39,9 @@ import java.util.EventObject;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -78,8 +79,6 @@ public class SQLRowValuesCluster {
      */
     private final List<Link> links;
     private final IdentitySet<SQLRowValues> items;
-    // only used in store(), MAYBE returned from store() and remove getRow()
-    private final Map<SQLRowValues, Node> nodes;
     // { vals -> listener on vals' graph }
     private Map<SQLRowValues, List<ValueChangeListener>> listeners;
 
@@ -87,22 +86,26 @@ public class SQLRowValuesCluster {
         this.links = new ArrayList<Link>();
         // SQLRowValues equals() depends on their values, but we must tell apart each reference
         this.items = new IdentityHashSet<SQLRowValues>();
-        this.nodes = new IdentityHashMap<SQLRowValues, Node>();
         this.listeners = null;
     }
 
     SQLRowValuesCluster(SQLRowValues vals) {
         this();
-        this.links.add(new Link(vals));
+        addVals(-1, vals);
+    }
+
+    // add a lonely node to this
+    private final void addVals(final int index, final SQLRowValues vals) {
+        assert vals.getGraph(false) == null;
+        if (index < 0)
+            this.links.add(new Link(vals));
+        else
+            this.links.add(index, new Link(vals));
         this.items.add(vals);
     }
 
     private final SQLRowValues getHead() {
         return this.links.get(0).getSrc();
-    }
-
-    private final Map<SQLRowValues, Node> getNodes() {
-        return this.nodes;
     }
 
     private final DBSystemRoot getSystemRoot() {
@@ -129,6 +132,13 @@ public class SQLRowValuesCluster {
     private final void containsCheck(SQLRowValues vals) {
         if (!this.contains(vals))
             throw new IllegalArgumentException(vals + " not in " + this);
+    }
+
+    public final Set<SQLTable> getTables() {
+        final Set<SQLTable> res = new HashSet<SQLTable>();
+        for (final SQLRowValues v : this.items)
+            res.add(v.getTable());
+        return res;
     }
 
     void remove(SQLRowValues src, SQLField f, SQLRowValues dest) {
@@ -168,8 +178,8 @@ public class SQLRowValuesCluster {
                         newCluster.getListeners().put(key, this.listeners.remove(key));
                 }
             }
-            assert !newCluster.items.isEmpty() && !CollectionUtils.containsAny(this.items, newCluster.items);
-            this.nodes.keySet().retainAll(reachable);
+            assert !this.items.isEmpty() && !newCluster.items.isEmpty() && !CollectionUtils.containsAny(this.items, newCluster.items) : "Empty or shared items while removing " + f + " -> " + dest
+                    + " from " + src;
 
             for (final SQLRowValues vals : newCluster.getItems())
                 vals.setGraph(newCluster);
@@ -178,38 +188,64 @@ public class SQLRowValuesCluster {
 
     void add(SQLRowValues src, SQLField f, SQLRowValues dest) {
         assert dest != null;
-        assert src.getGraph() == this;
-        assert this.contains(src);
         assert src.getTable() == f.getTable();
+        final boolean containsSrc = this.contains(src);
+        final boolean containsDest = this.contains(dest);
+        if (!containsSrc && !containsDest)
+            throw new IllegalArgumentException("Neither source nor destination are contained in this :\n" + src + "\n" + dest);
 
         final Link toAdd = new Link(src, f, dest);
-        if (this.contains(dest)) {
+        if (containsSrc && containsDest) {
             // both source and dest are in us
             this.links.add(toAdd);
         } else {
-            assert src.getGraph() != dest.getGraph();
-            final SQLRowValuesCluster destGraph = dest.getGraph();
-            // merge the two graphs
-            // add dest before since it will be needed to store us
-            this.links.add(0, toAdd);
-            this.links.addAll(0, destGraph.links);
-            destGraph.links.clear();
-            this.items.addAll(destGraph.getItems());
-            for (final SQLRowValues newlyAdded : destGraph.getItems()) {
-                newlyAdded.setGraph(this);
+            assert src.getGraph(false) != dest.getGraph(false);
+            final SQLRowValues rowToAdd;
+            final int index;
+            if (containsSrc) {
+                rowToAdd = dest;
+                // merge the two graphs
+                // add dest before since it will be needed to store us
+                // add dest after any other link from us, to keep the order of foreigns (needed for
+                // deepCopy())
+                final int srcIndex = this.links.indexOf(new Link(src));
+                if (srcIndex < 0)
+                    throw new IllegalStateException("Source link not found for " + src);
+                index = srcIndex;
+            } else {
+                assert containsDest;
+                rowToAdd = src;
+                index = -1;
             }
-            destGraph.items.clear();
-            if (destGraph.listeners != null) {
-                this.getListeners().putAll(destGraph.listeners);
-                destGraph.listeners = null;
+            final SQLRowValuesCluster graphToAdd = rowToAdd.getGraph(false);
+
+            if (index >= 0)
+                this.links.add(index, toAdd);
+            // to preserve memory a single node has no graph unless required
+            // this way rowToAdd never had to create a Cluster, it will use us.
+            if (graphToAdd == null) {
+                this.addVals(index, rowToAdd);
+                rowToAdd.setGraph(this);
+            } else {
+                if (index < 0)
+                    this.links.addAll(graphToAdd.links);
+                else
+                    this.links.addAll(index, graphToAdd.links);
+                graphToAdd.links.clear();
+                this.items.addAll(graphToAdd.items);
+                for (final SQLRowValues newlyAdded : graphToAdd.items) {
+                    newlyAdded.setGraph(this);
+                }
+                graphToAdd.items.clear();
+                if (graphToAdd.listeners != null) {
+                    this.getListeners().putAll(graphToAdd.listeners);
+                    graphToAdd.listeners = null;
+                }
             }
+            if (index < 0)
+                this.links.add(toAdd);
         }
         assert src.getGraph() == dest.getGraph();
-    }
-
-    public final SQLRow getRow(SQLRowValues vals) {
-        this.containsCheck(vals);
-        return this.nodes.get(vals).getStoredRow();
     }
 
     private IdentitySet<SQLRowValues> getReachable(final SQLRowValues from) {
@@ -230,35 +266,46 @@ public class SQLRowValuesCluster {
         }
     }
 
-    synchronized final SQLRowValues deepCopy(SQLRowValues v) {
+    final SQLRowValues deepCopy(SQLRowValues v) {
         // copy all rowValues of this graph
         final Map<SQLRowValues, SQLRowValues> noLinkCopy = new IdentityHashMap<SQLRowValues, SQLRowValues>();
         for (final SQLRowValues n : this.getItems())
             noLinkCopy.put(n, new SQLRowValues(n, ForeignCopyMode.NO_COPY));
 
-        // and link them together
-        for (final SQLRowValues n : this.getItems()) {
-            // use referents instead of foreigns to copy order
-            for (final Entry<SQLField, Set<SQLRowValues>> e : n.getReferents().entrySet())
-                for (final SQLRowValues ref : e.getValue()) {
-                    noLinkCopy.get(ref).put(e.getKey().getName(), noLinkCopy.get(n));
-                }
+        // and link them together in order
+        for (final Link l : this.links) {
+            if (l.getField() != null) {
+                noLinkCopy.get(l.getSrc()).put(l.getField().getName(), noLinkCopy.get(l.getDest()));
+            } else {
+                assert noLinkCopy.containsKey(l.getSrc());
+            }
         }
 
         return noLinkCopy.get(v);
     }
 
-    public synchronized final void store(final StoreMode mode) throws SQLException {
-        this.store(mode, true);
+    public final StoreResult insert() throws SQLException {
+        return this.insert(false, false);
+    }
+
+    public final StoreResult insert(boolean insertPK, boolean insertOrder) throws SQLException {
+        return this.store(new Insert(insertPK, insertOrder));
+    }
+
+    public final StoreResult store(final StoreMode mode) throws SQLException {
+        return this.store(mode, true);
     }
 
     // checkValidity false useful when we want to avoid loading the graph
-    public synchronized final void store(final StoreMode mode, final boolean checkValidity) throws SQLException {
-        this.reset();
+    public final StoreResult store(final StoreMode mode, final boolean checkValidity) throws SQLException {
+        final Map<SQLRowValues, Node> nodes = new IdentityHashMap<SQLRowValues, Node>(this.size());
+        for (final SQLRowValues vals : this.getItems()) {
+            nodes.put(vals, new Node(vals));
+        }
         // check validity first, avoid beginning a transaction for nothing
         // do it after reset otherwise check previous values
         if (checkValidity)
-            for (final Node n : this.getNodes().values()) {
+            for (final Node n : nodes.values()) {
                 n.noLink.checkValidity();
             }
         // this will hold the links and their ID as they are known
@@ -304,7 +351,7 @@ public class SQLRowValuesCluster {
                     final StoringLink toStore = storingLinks.remove(0);
                     if (!toStore.canStore())
                         throw new IllegalStateException();
-                    final Node n = getNodes().get(toStore.getSrc());
+                    final Node n = nodes.get(toStore.getSrc());
 
                     // merge the maximum of links starting from the row to be stored
                     boolean lastDBAccess = true;
@@ -314,6 +361,9 @@ public class SQLRowValuesCluster {
                         if (sl.getSrc() == toStore.getSrc()) {
                             if (sl.canStore()) {
                                 iter.remove();
+                                // sl can either be the main row or one the link from the row
+                                // (bear in mind that toStore can be not the main row if the link
+                                // destination has already been inserted)
                                 if (sl.destID != null)
                                     n.noLink.put(sl.getField().getName(), sl.destID);
                             } else {
@@ -333,7 +383,7 @@ public class SQLRowValuesCluster {
                         for (final StoringLink sl : storingLinks) {
                             if (sl.getDest() == toStore.getSrc()) {
                                 sl.destID = r.getIDNumber();
-                                getNodes().get(sl.getSrc()).noLink.put(sl.getField().getName(), r.getIDNumber());
+                                nodes.get(sl.getSrc()).noLink.put(sl.getField().getName(), r.getIDNumber());
                             }
                         }
                     }
@@ -343,7 +393,7 @@ public class SQLRowValuesCluster {
                     // wait for the last DB access
                     if (lastDBAccess)
                         for (final Map.Entry<String, SQLRowValues> e : toStore.getSrc().getForeigns().entrySet()) {
-                            final SQLRowValues foreign = getNodes().get(e.getValue()).getStoredValues();
+                            final SQLRowValues foreign = nodes.get(e.getValue()).getStoredValues();
                             assert foreign != null : "since this the last db access for this row, all foreigns should have been inserted";
                             // check coherence
                             if (n.getStoredValues().getLong(e.getKey()) != foreign.getIDNumber().longValue())
@@ -360,12 +410,67 @@ public class SQLRowValuesCluster {
             // affected
             n.getTable().fire(n);
         }
+
+        return new StoreResult(nodes);
     }
 
-    private final void reset() {
-        this.getNodes().clear();
-        for (final SQLRowValues vals : this.getItems()) {
-            this.getNodes().put(vals, new Node(vals));
+    static public final class WalkOptions {
+        private final Direction direction;
+        private RecursionType recType;
+        private boolean allowCycle;
+        private boolean includeStart;
+        private boolean ignoreForeignsOrder;
+
+        public WalkOptions(final Direction dir) {
+            if (dir == null)
+                throw new NullPointerException("No direction");
+            this.direction = dir;
+            this.recType = RecursionType.BREADTH_FIRST;
+            this.allowCycle = false;
+            this.includeStart = true;
+            this.ignoreForeignsOrder = true;
+        }
+
+        public Direction getDirection() {
+            return this.direction;
+        }
+
+        public RecursionType getRecursionType() {
+            return this.recType;
+        }
+
+        public WalkOptions setRecursionType(RecursionType recType) {
+            if (recType == null)
+                throw new NullPointerException("No type");
+            this.recType = recType;
+            return this;
+        }
+
+        public boolean isCycleAllowed() {
+            return this.allowCycle;
+        }
+
+        public WalkOptions setCycleAllowed(boolean allowCycle) {
+            this.allowCycle = allowCycle;
+            return this;
+        }
+
+        public boolean isStartIncluded() {
+            return this.includeStart;
+        }
+
+        public WalkOptions setStartIncluded(boolean includeStart) {
+            this.includeStart = includeStart;
+            return this;
+        }
+
+        public boolean isForeignsOrderIgnored() {
+            return this.ignoreForeignsOrder;
+        }
+
+        public WalkOptions setForeignsOrderIgnored(boolean ignoreForeignsOrder) {
+            this.ignoreForeignsOrder = ignoreForeignsOrder;
+            return this;
         }
     }
 
@@ -401,12 +506,12 @@ public class SQLRowValuesCluster {
     }
 
     public final <T> StopRecurseException walk(final SQLRowValues start, T acc, ITransformer<State<T>, T> closure, RecursionType recType, final Direction foreign) {
-        return this.walk(start, acc, closure, recType, foreign, true);
+        return this.walk(start, acc, closure, new WalkOptions(foreign).setRecursionType(recType));
     }
 
-    final <T> StopRecurseException walk(final SQLRowValues start, T acc, ITransformer<State<T>, T> closure, RecursionType recType, final Direction foreign, final boolean includeStart) {
+    public final <T> StopRecurseException walk(final SQLRowValues start, T acc, ITransformer<State<T>, T> closure, final WalkOptions options) {
         this.containsCheck(start);
-        return this.walk(new State<T>(Collections.singletonList(start), Path.get(start.getTable()), acc, closure), recType, foreign, includeStart);
+        return this.walk(new State<T>(Collections.singletonList(start), Path.get(start.getTable()), acc, closure), options, options.isStartIncluded());
     }
 
     /**
@@ -414,32 +519,31 @@ public class SQLRowValuesCluster {
      * 
      * @param <T> type of acc.
      * @param state the current position in the graph.
-     * @param recType how to recurse.
-     * @param direction how to cross foreign keys.
+     * @param options how to walk the graph.
      * @param computeThisState <code>false</code> if the <code>state</code> should not be
      *        {@link State#compute() computed}.
      * @return the exception that stopped the recursion, <code>null</code> if none was thrown.
      */
-    private final <T> StopRecurseException walk(final State<T> state, RecursionType recType, final Direction direction, final boolean computeThisState) {
-        if (computeThisState && recType == RecursionType.BREADTH_FIRST) {
+    private final <T> StopRecurseException walk(final State<T> state, final WalkOptions options, final boolean computeThisState) {
+        if (computeThisState && options.getRecursionType() == RecursionType.BREADTH_FIRST) {
             final StopRecurseException e = state.compute();
             if (e != null)
                 return e;
         }
         // get the foreign or referents rowValues
         StopRecurseException res = null;
-        if (direction != Direction.REFERENT) {
-            res = rec(state, recType, direction, Direction.FOREIGN);
+        if (options.getDirection() != Direction.REFERENT) {
+            res = rec(state, options, Direction.FOREIGN);
         }
         if (res != null)
             return res;
-        if (direction != Direction.FOREIGN) {
-            res = rec(state, recType, direction, Direction.REFERENT);
+        if (options.getDirection() != Direction.FOREIGN) {
+            res = rec(state, options, Direction.REFERENT);
         }
         if (res != null)
             return res;
 
-        if (computeThisState && recType == RecursionType.DEPTH_FIRST) {
+        if (computeThisState && options.getRecursionType() == RecursionType.DEPTH_FIRST) {
             final StopRecurseException e = state.compute();
             if (e != null)
                 return e;
@@ -447,29 +551,30 @@ public class SQLRowValuesCluster {
         return null;
     }
 
-    private <T> StopRecurseException rec(final State<T> state, RecursionType recType, final Direction direction, final Direction actualDirection) {
+    private <T> StopRecurseException rec(final State<T> state, final WalkOptions options, final Direction actualDirection) {
         final SQLRowValues current = state.getCurrent();
         final List<SQLRowValues> currentValsPath = state.getValsPath();
         final SetMap<SQLField, SQLRowValues> nextVals;
         if (actualDirection == Direction.FOREIGN) {
             final Map<SQLField, SQLRowValues> foreigns = current.getForeignsBySQLField();
-            nextVals = new SetMap<SQLField, SQLRowValues>(foreigns.size());
+            nextVals = new SetMap<SQLField, SQLRowValues>(new LinkedHashMap<SQLField, Set<SQLRowValues>>(foreigns.size()), Mode.NULL_FORBIDDEN);
             nextVals.mergeScalarMap(foreigns);
         } else {
             assert actualDirection == Direction.REFERENT;
             nextVals = current.getReferents();
         }
-        // predictable and repeatable order
+        // predictable and repeatable order (SQLRowValues.referents has no order, but .foreigns has)
         final List<SQLField> keys = new ArrayList<SQLField>(nextVals.keySet());
-        Collections.sort(keys, FIELD_COMPARATOR);
+        if (actualDirection == Direction.REFERENT || options.isForeignsOrderIgnored())
+            Collections.sort(keys, FIELD_COMPARATOR);
         for (final SQLField f : keys) {
             for (final SQLRowValues v : nextVals.getNonNull(f)) {
                 // avoid infinite loop (don't use equals so that we can go over several equals rows)
-                if (!state.identityContains(v)) {
+                if (options.isCycleAllowed() || !state.identityContains(v)) {
                     final Path path = state.getPath().add(f, actualDirection);
                     final List<SQLRowValues> valsPath = new ArrayList<SQLRowValues>(currentValsPath);
                     valsPath.add(v);
-                    final StopRecurseException e = this.walk(new State<T>(valsPath, path, state.getAcc(), state.closure), recType, direction, true);
+                    final StopRecurseException e = this.walk(new State<T>(valsPath, path, state.getAcc(), state.closure), options, true);
                     if (e != null && e.isCompletely())
                         return e;
                 }
@@ -687,7 +792,7 @@ public class SQLRowValuesCluster {
         return sb.toString();
     }
 
-    final String getFirstDifference(final SQLRowValues vals, final SQLRowValues other) {
+    final String getFirstDifference(final SQLRowValues vals, final SQLRowValues other, final boolean useForeignsOrder) {
         this.containsCheck(vals);
         if (this == other.getGraph())
             return null;
@@ -698,29 +803,41 @@ public class SQLRowValuesCluster {
             return "unequal :\n" + vals + " !=\n" + other;
         if (this.size() == 1)
             return null;
+
         // BREADTH_FIRST no need to go deep if the first values are not equals
+        final WalkOptions walkOptions = new WalkOptions(Direction.ANY).setRecursionType(RecursionType.BREADTH_FIRST).setForeignsOrderIgnored(!useForeignsOrder);
+
         final List<SQLRowValues> flatList = new ArrayList<SQLRowValues>();
+        final List<Path> paths = new ArrayList<Path>();
         this.walk(vals, flatList, new ITransformer<State<List<SQLRowValues>>, List<SQLRowValues>>() {
             @Override
             public List<SQLRowValues> transformChecked(State<List<SQLRowValues>> input) {
                 input.getAcc().add(input.getCurrent());
+                paths.add(input.getPath());
                 return input.getAcc();
             }
-        }, RecursionType.BREADTH_FIRST, Direction.ANY);
+        }, walkOptions);
         assert flatList.size() == this.size() : "missing rows";
+
         // now walk the other graph, checking that each row is equal
-        // (this works because walk() always goes with the same order, see #FIELD_COMPARATOR)
+        // (this works because walk() always goes with the same order, see #FIELD_COMPARATOR and
+        // WalkOptions.setForeignsOrderIgnored())
         final AtomicInteger index = new AtomicInteger(0);
         final StopRecurseException stop = other.getGraph().walk(other, null, new ITransformer<State<Object>, Object>() {
             @Override
             public Object transformChecked(State<Object> input) {
-                final SQLRowValues thisVals = flatList.get(index.getAndIncrement());
+                final Path thisPath = paths.get(index.get());
+                if (!thisPath.equals(input.getPath()))
+                    throw new StopRecurseException("unequal graph at index " + index.get() + " " + thisPath + " != " + input.getPath());
+
+                final SQLRowValues thisVals = flatList.get(index.get());
                 final SQLRowValues oVals = input.getCurrent();
                 if (!thisVals.equalsJustThis(oVals))
                     throw new StopRecurseException("unequal at " + input.getPath() + " :\n" + thisVals + " !=\n" + oVals);
+                index.incrementAndGet();
                 return input.getAcc();
             }
-        }, RecursionType.BREADTH_FIRST, Direction.ANY);
+        }, walkOptions);
         return stop == null ? null : stop.getMessage();
     }
 
@@ -915,25 +1032,45 @@ public class SQLRowValuesCluster {
         }
     }
 
+    public static final class StoreResult {
+        private final Map<SQLRowValues, Node> nodes;
+
+        public StoreResult(final Map<SQLRowValues, Node> nodes) {
+            this.nodes = nodes;
+        }
+
+        public final int getStoredCount() {
+            return this.nodes.size();
+        }
+
+        public final SQLRow getStoredRow(SQLRowValues vals) {
+            return this.nodes.get(vals).getStoredRow();
+        }
+
+        public final SQLRowValues getStoredValues(SQLRowValues vals) {
+            return this.nodes.get(vals).getStoredValues();
+        }
+    }
+
     private static final class Node {
 
         // don't use noLink since it might contains foreigns if store() was just called
         // or it might be out of sync with vals since the graph is only recreated on foreign change
         /** vals without any links */
-        private SQLRowValues noLink;
+        private final SQLRowValues noLink;
         private final List<SQLTableEvent> modif;
 
-        public Node(final SQLRowValues vals) {
+        private Node(final SQLRowValues vals) {
             this.modif = new ArrayList<SQLTableEvent>();
             this.noLink = new SQLRowValues(vals, ForeignCopyMode.NO_COPY);
         }
 
-        public SQLTableEvent store(StoreMode mode) throws SQLException {
+        private SQLTableEvent store(StoreMode mode) throws SQLException {
             assert !this.isStored();
             return this.addEvent(mode.execOn(this.noLink));
         }
 
-        public SQLTableEvent update() throws SQLException {
+        private SQLTableEvent update() throws SQLException {
             assert this.isStored();
 
             // fields that have been updated since last store

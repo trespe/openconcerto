@@ -15,6 +15,7 @@
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
+import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.ui.IListTotalPanel;
 import org.openconcerto.erp.core.sales.product.ui.FamilleArticlePanel;
 import org.openconcerto.erp.panel.ITreeSelection;
@@ -70,14 +71,14 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
     }
 
     public JFrame createFrame() {
-        final FamilleArticlePanel panelFam = new FamilleArticlePanel();
+        final SQLElement elt = Configuration.getInstance().getDirectory().getElement(this.sqlTableArticle);
+        final FamilleArticlePanel panelFam = new FamilleArticlePanel(elt.getForeignElement("ID_FAMILLE_ARTICLE"));
 
         // Renderer pour les devises
         // frame.getPanel().getListe().getJTable().setDefaultRenderer(Long.class, new
         // DeviseNiceTableCellRenderer());
-        final SQLElement elt = Configuration.getInstance().getDirectory().getElement(this.sqlTableArticle);
         final SQLTableModelSourceOnline createTableSource = elt.createTableSource(getWhere(panelFam));
-        createTableSource.getColumns().add(new BaseSQLTableModelColumn("Valeur HT du stock", BigDecimal.class) {
+        final BaseSQLTableModelColumn colStock = new BaseSQLTableModelColumn("Valeur HT du stock", BigDecimal.class) {
 
             @Override
             protected Object show_(SQLRowAccessor r) {
@@ -105,7 +106,9 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
                 Path p2 = new Path(table).addForeignField("ID_STOCK");
                 return CollectionUtils.createSet(new FieldPath(p, "PA_HT"), new FieldPath(p2, "QTE_REEL"));
             }
-        });
+        };
+        colStock.setRenderer(ComptaSQLConfElement.CURRENCY_RENDERER);
+        createTableSource.getColumns().add(colStock);
         IListe liste = new IListe(createTableSource);
         final ListeAddPanel panel = new ListeAddPanel(elt, liste);
 

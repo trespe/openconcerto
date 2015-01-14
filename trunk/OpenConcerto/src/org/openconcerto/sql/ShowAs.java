@@ -29,6 +29,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.ThreadSafe;
+
 /**
  * Gère la représentation des clefs externes. TODO Pour ne pas avoir la désignation du site :
  * pouvoir spécifier ELEMENT_TABLEAU.ID_TABLEAU_ELECTRIQUE => DESIGNATION,
@@ -36,12 +39,16 @@ import java.util.Map;
  * 
  * @author Sylvain CUAZ
  */
+@ThreadSafe
 public class ShowAs extends FieldExpander {
 
+    @GuardedBy("this")
     private DBRoot root;
     // eg /OBSERVATION/ -> [ID_ARTICLE_1, DESIGNATION]
+    @GuardedBy("this")
     private final Map<SQLTable, List<SQLField>> byTables;
     // eg |TABLEAU.ID_OBSERVATION| -> [DESIGNATION]
+    @GuardedBy("this")
     private final Map<SQLField, List<SQLField>> byFields;
 
     public ShowAs(DBRoot root) {
@@ -52,14 +59,14 @@ public class ShowAs extends FieldExpander {
         this.setRoot(root);
     }
 
-    public final void putAll(ShowAs s) {
+    public synchronized final void putAll(ShowAs s) {
         CollectionUtils.addIfNotPresent(this.byFields, s.byFields);
         CollectionUtils.addIfNotPresent(this.byTables, s.byTables);
         // s might have replaced some of our entries
         this.clearCache();
     }
 
-    public List<SQLField> getFieldExpand(SQLTable table) {
+    public synchronized List<SQLField> getFieldExpand(SQLTable table) {
         return this.byTables.get(table);
     }
 
@@ -68,15 +75,15 @@ public class ShowAs extends FieldExpander {
      * 
      * @param root the base to use.
      */
-    public final void setRoot(DBRoot root) {
+    public synchronized final void setRoot(DBRoot root) {
         this.root = root;
     }
 
-    private SQLField getField(String fieldName) {
+    private synchronized SQLField getField(String fieldName) {
         return this.root.getDesc(SQLName.parse(fieldName), SQLField.class);
     }
 
-    private SQLTable getTable(String tableName) {
+    private synchronized SQLTable getTable(String tableName) {
         try {
             return this.root.getDesc(SQLName.parse(tableName), SQLTable.class);
         } catch (DBStructureItemNotFound e) {
@@ -93,14 +100,14 @@ public class ShowAs extends FieldExpander {
     }
 
     // TODO a listener to remove tables and fields as they are dropped
-    public final void removeTable(SQLTable t) {
+    public synchronized final void removeTable(SQLTable t) {
         this.byTables.remove(t);
         for (final SQLField f : t.getFields())
             this.byFields.remove(f);
         this.clearCache();
     }
 
-    public final void clear() {
+    public synchronized final void clear() {
         this.setRoot(null);
         this.byTables.clear();
         this.byFields.clear();
@@ -120,7 +127,7 @@ public class ShowAs extends FieldExpander {
      * @param tableName le nom de la table, eg "ETABLISSEMENT".
      * @param fields les noms des champs, eg ["DESCRIPTION", "NUMERO"].
      */
-    public void show(String tableName, List<String> fields) {
+    public synchronized void show(String tableName, List<String> fields) {
         final SQLTable table = this.getTable(tableName);
         if (table != null) {
             this.show(table, fields);
@@ -133,7 +140,7 @@ public class ShowAs extends FieldExpander {
         this.show(table, Arrays.asList(fields));
     }
 
-    public void show(SQLTable table, List<String> fields) {
+    public synchronized void show(SQLTable table, List<String> fields) {
         this.byTables.put(table, namesToFields(fields, table));
         this.clearCache();
     }
@@ -151,11 +158,11 @@ public class ShowAs extends FieldExpander {
      * @param fieldName le nom du champ, eg "CONTACT.ID_ETABLISSEMENT".
      * @param fields les noms des champs, eg ["DESCRIPTION"].
      */
-    public void showField(String fieldName, List<String> fields) {
+    public synchronized void showField(String fieldName, List<String> fields) {
         this.show(getField(fieldName), fields);
     }
 
-    public final void show(SQLField field, List<String> fields) {
+    public synchronized final void show(SQLField field, List<String> fields) {
         this.byFields.put(field, namesToFields(fields, field.getTable().getBase().getGraph().getForeignTable(field)));
         this.clearCache();
     }
@@ -163,7 +170,7 @@ public class ShowAs extends FieldExpander {
     // *** expand
 
     @Override
-    protected List<SQLField> expandOnce(SQLField field) {
+    protected synchronized List<SQLField> expandOnce(SQLField field) {
         // c'est une clef externe, donc elle pointe sur une table
         final SQLTable foreignTable = field.getTable().getBase().getGraph().getForeignTable(field);
         final List<SQLField> res;
@@ -184,12 +191,12 @@ public class ShowAs extends FieldExpander {
      * @param fieldName le nom du champ à expandre, eg "SITE.ID_ETABLISSEMENT".
      * @return la liste des champs, eg [|ETABLISSEMENT.DESCRIPTION|, |ETABLISSEMENT.NUMERO|].
      */
-    public List<SQLField> simpleExpand(String fieldName) {
+    public synchronized List<SQLField> simpleExpand(String fieldName) {
         return this.simpleExpand(getField(fieldName));
     }
 
     @Override
-    public String toString() {
+    public synchronized String toString() {
         return super.toString() + " byTables: " + this.byTables + " byFields: " + this.byFields;
     }
 

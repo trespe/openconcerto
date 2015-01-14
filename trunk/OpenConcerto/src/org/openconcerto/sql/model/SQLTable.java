@@ -14,6 +14,7 @@
  package org.openconcerto.sql.model;
 
 import org.openconcerto.sql.Log;
+import org.openconcerto.sql.model.SQLSelect.ArchiveMode;
 import org.openconcerto.sql.model.SQLSyntax.ConstraintType;
 import org.openconcerto.sql.model.SQLTableEvent.Mode;
 import org.openconcerto.sql.model.graph.DatabaseGraph;
@@ -23,15 +24,16 @@ import org.openconcerto.sql.model.graph.TablesMap;
 import org.openconcerto.sql.request.UpdateBuilder;
 import org.openconcerto.sql.utils.ChangeTable;
 import org.openconcerto.sql.utils.SQLCreateMoveableTable;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionUtils;
 import org.openconcerto.utils.ListMap;
+import org.openconcerto.utils.SetMap;
+import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.Tuple3;
+import org.openconcerto.utils.Value;
 import org.openconcerto.utils.cc.CopyOnWriteMap;
-import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.change.CollectionChangeEventCreator;
 import org.openconcerto.xml.JDOMUtils;
 
@@ -54,11 +56,13 @@ import java.util.ListIterator;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import net.jcip.annotations.GuardedBy;
 
 import org.apache.commons.dbutils.ResultSetHandler;
-import org.jdom.Element;
+import org.jdom2.Element;
 
 /**
  * Une table SQL. Connait ses champs, notamment sa clef primaire et ses clefs externes. Une table
@@ -130,6 +134,12 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             UNDEFINED_IDs.put(schema, r);
         }
         return UNDEFINED_IDs.get(schema);
+    }
+
+    static final void removeUndefID(SQLSchema s) {
+        synchronized (UNDEFINED_IDs) {
+            UNDEFINED_IDs.remove(s);
+        }
     }
 
     static final Tuple2<Boolean, Number> getUndefID(SQLSchema b, String tableName) {
@@ -354,21 +364,20 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
 
     // * from XML
 
-    @SuppressWarnings("unchecked")
     void loadFields(Element xml) {
         synchronized (this) {
             this.version = SQLSchema.getVersion(xml);
         }
 
         final LinkedHashMap<String, SQLField> newFields = new LinkedHashMap<String, SQLField>();
-        for (final Element elementField : (List<Element>) xml.getChildren("field")) {
+        for (final Element elementField : xml.getChildren("field")) {
             final SQLField f = SQLField.create(this, elementField);
             newFields.put(f.getName(), f);
         }
 
         final Element primary = xml.getChild("primary");
         final List<String> newPrimaryKeys = new ArrayList<String>();
-        for (final Element elementField : (List<Element>) primary.getChildren("field")) {
+        for (final Element elementField : primary.getChildren("field")) {
             final String fieldName = elementField.getAttributeValue("name");
             newPrimaryKeys.add(fieldName);
         }
@@ -379,7 +388,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
 
                 final Element triggersElem = xml.getChild("triggers");
                 if (triggersElem != null)
-                    for (final Element triggerElem : (List<Element>) triggersElem.getChildren()) {
+                    for (final Element triggerElem : triggersElem.getChildren()) {
                         this.addTrigger(Trigger.fromXML(this, triggerElem));
                     }
 
@@ -387,7 +396,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
                 if (constraintsElem == null)
                     this.addConstraint((Constraint) null);
                 else
-                    for (final Element elem : (List<Element>) constraintsElem.getChildren()) {
+                    for (final Element elem : constraintsElem.getChildren()) {
                         this.addConstraint(Constraint.fromXML(this, elem));
                     }
 
@@ -539,11 +548,15 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
                 this.clearNonPersistent();
                 this.version = table.version;
                 this.setState(table.fields, table.getPKsNames(), table.undefinedID);
-                this.triggers.putAll(table.triggers);
-                if (table.constraints == null)
+                for (final Trigger t : table.triggers.values()) {
+                    this.addTrigger(new Trigger(this, t));
+                }
+                if (table.constraints == null) {
                     this.constraints = null;
-                else {
-                    this.constraints.addAll(table.constraints);
+                } else {
+                    for (final Constraint c : table.constraints) {
+                        this.constraints.add(new Constraint(this, c));
+                    }
                 }
                 this.setType(table.getType());
                 this.setComment(table.getComment());
@@ -559,7 +572,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         return (m instanceof LinkedHashMap);
     }
 
-    private synchronized void setState(Map<String, SQLField> fields, final List<String> primaryKeys, final Integer undef) {
+    private void setState(Map<String, SQLField> fields, final List<String> primaryKeys, final Integer undef) {
         assert isOrdered(fields);
         // checks new fields' table (don't use ==, see below)
         for (final SQLField newField : fields.values()) {
@@ -643,8 +656,11 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
     }
 
     /**
-     * The CHECK and UNIQUE constraints on this table. This is useful since FOREIGN KEY and PRIMARY
-     * KEY are already available through {@link #getForeignKeys()} and {@link #getPrimaryKeys()}.
+     * The CHECK and UNIQUE constraints on this table. This is useful since types
+     * {@link ConstraintType#FOREIGN_KEY FOREIGN_KEY} and {@link ConstraintType#PRIMARY_KEY
+     * PRIMARY_KEY} are already available through {@link #getForeignKeys()} and
+     * {@link #getPrimaryKeys()} ; type {@link ConstraintType#DEFAULT DEFAULT} through
+     * {@link SQLField#getDefaultValue()}.
      * 
      * @return the constraints or <code>null</code> if they couldn't be retrieved.
      */
@@ -653,7 +669,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             return null;
         final Set<Constraint> res = new HashSet<Constraint>();
         for (final Constraint c : this.constraints) {
-            if (c.getType() != ConstraintType.FOREIGN_KEY && c.getType() != ConstraintType.PRIMARY_KEY) {
+            if (c.getType() == ConstraintType.CHECK || c.getType() == ConstraintType.UNIQUE) {
                 res.add(c);
             }
         }
@@ -810,6 +826,79 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         return new HashSet<SQLField>(this.fields.values());
     }
 
+    static public enum VirtualFields {
+        ORDER {
+            @Override
+            public Set<SQLField> getFields(SQLTable t) {
+                final SQLField orderField = t.getOrderField();
+                return orderField == null ? Collections.<SQLField> emptySet() : Collections.singleton(orderField);
+            }
+        },
+        ARCHIVE {
+            @Override
+            Set<SQLField> getFields(SQLTable t) {
+                final SQLField f = t.getArchiveField();
+                return f == null ? Collections.<SQLField> emptySet() : Collections.singleton(f);
+            }
+        },
+        METADATA {
+            @Override
+            Set<SQLField> getFields(SQLTable t) {
+                final Set<SQLField> res = new HashSet<SQLField>(4);
+                res.add(t.getCreationDateField());
+                res.add(t.getCreationUserField());
+                res.add(t.getModifDateField());
+                res.add(t.getModifUserField());
+                res.remove(null);
+                return res;
+            }
+        },
+        PRIMARY_KEY {
+            @Override
+            Set<SQLField> getFields(SQLTable t) {
+                return t.getPrimaryKeys();
+            }
+        },
+        FOREIGN_KEYS {
+            @Override
+            public Set<SQLField> getFields(SQLTable t) {
+                return t.getForeignKeys();
+            }
+        };
+
+        abstract Set<SQLField> getFields(final SQLTable t);
+    }
+
+    public final Set<SQLField> getFields(final VirtualFields vf) {
+        return vf.getFields(this);
+    }
+
+    public final Set<SQLField> getFields(final Set<VirtualFields> vf) {
+        final Set<SQLField> res = new HashSet<SQLField>();
+        for (final VirtualFields v : vf) {
+            res.addAll(this.getFields(v));
+        }
+        return res;
+    }
+
+    public final Set<String> getFieldsNames(final Set<VirtualFields> vf) {
+        final Set<String> res = new HashSet<String>();
+        for (final VirtualFields v : vf) {
+            for (final SQLField f : this.getFields(v)) {
+                res.add(f.getName());
+            }
+        }
+        return res;
+    }
+
+    public final Set<SQLField> getFieldsExcluding(final Set<VirtualFields> vf) {
+        final Set<SQLField> res = getFields();
+        for (final VirtualFields v : vf) {
+            res.removeAll(this.getFields(v));
+        }
+        return res;
+    }
+
     /**
      * Retourne les champs du contenu de cette table. C'est à dire ni la clef primaire, ni les
      * champs d'archive et d'ordre.
@@ -826,10 +915,7 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         res.remove(this.getArchiveField());
         res.remove(this.getOrderField());
         if (!includeMetadata) {
-            res.remove(this.getCreationDateField());
-            res.remove(this.getCreationUserField());
-            res.remove(this.getModifDateField());
-            res.remove(this.getModifUserField());
+            res.removeAll(this.getFields(VirtualFields.METADATA));
         }
         return res;
     }
@@ -884,8 +970,13 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
     }
 
     public int getRowCount(final boolean includeUndefined) {
+        return this.getRowCount(includeUndefined, ArchiveMode.BOTH);
+    }
+
+    public int getRowCount(final boolean includeUndefined, final ArchiveMode archiveMode) {
         final SQLSelect sel = new SQLSelect(true).addSelectFunctionStar("count").addFrom(this);
         sel.setExcludeUndefined(!includeUndefined);
+        sel.setArchivedPolicy(archiveMode);
         final Number count = (Number) this.getBase().getDataSource().execute(sel.asString(), new IResultSetHandler(SQLDataSource.SCALAR_HANDLER, false));
         return count.intValue();
     }
@@ -899,16 +990,16 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         return this.getMaxOrder(true);
     }
 
-    synchronized BigDecimal getMaxOrder(Boolean useCache) {
-        if (!this.isOrdered())
+    public BigDecimal getMaxOrder(Boolean useCache) {
+        final SQLField orderField = this.getOrderField();
+        if (orderField == null)
             throw new IllegalStateException(this + " is not ordered");
-
-        final SQLSelect sel = new SQLSelect(true).addSelect(this.getOrderField(), "max");
+        final SQLSelect sel = new SQLSelect(true).addSelect(orderField, "max");
         try {
             final BigDecimal maxOrder = (BigDecimal) this.getBase().getDataSource().execute(sel.asString(), new IResultSetHandler(SQLDataSource.SCALAR_HANDLER, useCache));
             return maxOrder == null ? BigDecimal.ONE.negate() : maxOrder;
         } catch (ClassCastException e) {
-            throw new IllegalStateException(this.getOrderField().getSQLName() + " must be " + SQLSyntax.get(this).getOrderDefinition(), e);
+            throw new IllegalStateException(orderField.getSQLName() + " must be " + SQLSyntax.get(this).getOrderDefinition(), e);
         }
     }
 
@@ -1464,8 +1555,6 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         final boolean checkComment = otherSystem == null || this.getServer().getSQLSystem().isTablesCommentSupported() && otherSystem.isTablesCommentSupported();
         if (checkComment && !CompareUtils.equals(this.getComment(), o.getComment()))
             return "comment unequal : '" + this.getComment() + "' != '" + o.getComment() + "'";
-        if (!CompareUtils.equals(this.getConstraints(), o.getConstraints()))
-            return "constraints unequal : '" + this.getConstraints() + "' != '" + o.getConstraints() + "'";
         return this.equalsChildren(o, otherSystem);
     }
 
@@ -1499,19 +1588,57 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
                 return "unequal delete rule for " + l + ": " + l.getDeleteRule() + " != " + ol.getDeleteRule();
         }
 
-        // indexes
+        final Set<Constraint> thisConstraints;
+        final Set<Constraint> otherConstraints;
         try {
+            final Tuple2<Set<Constraint>, Set<Index>> thisConstraintsAndIndexes = this.getConstraintsAndIndexes();
+            final Tuple2<Set<Constraint>, Set<Index>> otherConstraintsAndIndexes = o.getConstraintsAndIndexes();
             // order irrelevant
-            final Set<Index> thisIndexesSet = new HashSet<Index>(this.getIndexes());
-            final Set<Index> oIndexesSet = new HashSet<Index>(o.getIndexes());
+            final Set<Index> thisIndexesSet = thisConstraintsAndIndexes.get1();
+            final Set<Index> oIndexesSet = otherConstraintsAndIndexes.get1();
             if (!thisIndexesSet.equals(oIndexesSet))
                 return "indexes differences: " + thisIndexesSet + "\n" + oIndexesSet;
+            thisConstraints = thisConstraintsAndIndexes.get0();
+            otherConstraints = otherConstraintsAndIndexes.get0();
         } catch (SQLException e) {
             // MAYBE fetch indexes with the rest to avoid exn now
             return "couldn't get indexes: " + ExceptionUtils.getStackTrace(e);
         }
+        if (!CompareUtils.equals(thisConstraints, otherConstraints))
+            return "constraints unequal : '" + thisConstraints + "' != '" + otherConstraints + "'";
 
         return null;
+    }
+
+    private final Tuple2<Set<Constraint>, Set<Index>> getConstraintsAndIndexes() throws SQLException {
+        final Set<Constraint> thisConstraints;
+        final Set<Index> thisIndexes;
+        if (this.getServer().getSQLSystem() != SQLSystem.MSSQL) {
+            thisConstraints = this.getConstraints();
+            thisIndexes = new HashSet<Index>(this.getIndexes(true));
+        } else {
+            thisConstraints = new HashSet<Constraint>(this.getConstraints());
+            thisIndexes = new HashSet<Index>();
+            for (final Index i : this.getIndexes()) {
+                final Value<String> where = i.getMSUniqueWhere();
+                if (!where.hasValue()) {
+                    // regular index
+                    thisIndexes.add(i);
+                } else if (where.getValue() == null) {
+                    final Map<String, Object> map = new HashMap<String, Object>();
+                    map.put("CONSTRAINT_NAME", i.getName());
+                    map.put("CONSTRAINT_TYPE", "UNIQUE");
+                    map.put("COLUMN_NAMES", i.getCols());
+                    map.put("DEFINITION", null);
+                    thisConstraints.add(new Constraint(this, map));
+                } else {
+                    // remove extra IS NOT NULL, but does *not* translate [ARCHIVE]=(0) into
+                    // "ARCHIVE" = 0
+                    thisIndexes.add(this.createUniqueIndex(i.getName(), i.getCols(), where.getValue()));
+                }
+            }
+        }
+        return Tuple2.create(thisConstraints, thisIndexes);
     }
 
     private final Rule getRule(Rule r, SQLSystem thisSystem, SQLSystem otherSystem) {
@@ -1572,20 +1699,31 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             }
         // indexes
         try {
-            final IPredicate<Index> pred = system.autoCreatesFKIndex() ? new IPredicate<Index>() {
-                @Override
-                public boolean evaluateChecked(Index i) {
-                    // if auto create index, do not output current one, as it would be redundant
-                    // (plus its name could clash with the automatic one)
-                    return !getForeignKeysFields().contains(i.getFields());
+            // MS unique constraint are not standard so we're forced to create indexes "where col is
+            // not null" in addUniqueConstraint(). Thus when converting to another system we must
+            // parse indexes to recreate actual constraints.
+            final boolean convertMSIndex = this.getServer().getSQLSystem() == SQLSystem.MSSQL && system != SQLSystem.MSSQL;
+            final Set<List<SQLField>> foreignKeysFields = getForeignKeysFields();
+            for (final Index i : this.getIndexes(true)) {
+                Value<String> msWhere = null;
+                if (convertMSIndex && (msWhere = i.getMSUniqueWhere()).hasValue()) {
+                    if (msWhere.getValue() != null)
+                        Log.get().warning("MS filter might not be valid in " + system + " : " + msWhere.getValue());
+                    res.addUniqueConstraint(i.getName(), i.getCols(), msWhere.getValue());
+                } else if (!system.autoCreatesFKIndex() || !foreignKeysFields.contains(i.getFields())) {
+                    // partial unique index sometimes cannot be handled natively by the DB system
+                    if (i.isUnique() && i.getFilter() != null && !system.isIndexFilterConditionSupported())
+                        res.addUniqueConstraint(i.getName(), i.getCols(), i.getFilter());
+                    else
+                        res.addOutsideClause(syntax.getCreateIndex(i));
                 }
-            } : null;
-            for (final ChangeTable.OutsideClause c : syntax.getCreateIndexes(this, pred))
-                res.addOutsideClause(c);
+            }
         } catch (SQLException e) {
             // MAYBE fetch indexes with the rest to avoid exn now
             throw new IllegalStateException("could not get indexes", e);
         }
+        // TODO triggers, but they are system dependent and we would have to parse the SQL
+        // definitions to replace the different root/table name in DeferredClause.asString()
         if (this.getComment() != null)
             res.addOutsideClause(syntax.getSetTableComment(getComment()));
         return res;
@@ -1614,12 +1752,19 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
      * @return the indexes mapped by column names.
      * @throws SQLException if an error occurs.
      */
-    public final CollectionMap<String, Index> getIndexesByField() throws SQLException {
+    public final SetMap<String, Index> getIndexesByField() throws SQLException {
         final List<Index> indexes = this.getIndexes();
-        final CollectionMap<String, Index> res = new CollectionMap<String, Index>(new HashSet<Index>(4), indexes.size());
+        final SetMap<String, Index> res = new SetMap<String, Index>(indexes.size()) {
+            @Override
+            public Set<Index> createCollection(Collection<? extends Index> v) {
+                final HashSet<Index> res = new HashSet<Index>(4);
+                res.addAll(v);
+                return res;
+            }
+        };
         for (final Index i : indexes)
             for (final String col : i.getCols())
-                res.put(col, i);
+                res.add(col, i);
         return res;
     }
 
@@ -1647,6 +1792,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
      * @throws SQLException if an error occurs.
      */
     public synchronized final List<Index> getIndexes() throws SQLException {
+        return this.getIndexes(false);
+    }
+
+    protected synchronized final List<Index> getIndexes(final boolean normalized) throws SQLException {
         // in pg, a unique constraint creates a unique index that is not removeable
         // (except of course if we drop the constraint)
         // in mysql unique constraints and indexes are one and the same thing
@@ -1680,6 +1829,10 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         if (canAdd(currentIndex, uniqConstraints))
             indexes.add(currentIndex);
 
+        if (normalized) {
+            indexes.addAll(this.getPartialUniqueIndexes());
+        }
+
         // MAYBE another request to find out index.getMethod() (eg pg.getIndexesReq())
         return indexes;
     }
@@ -1691,54 +1844,86 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
         return !currentIndex.isUnique() || !uniqConstraints.contains(currentIndex.getCols());
     }
 
-    public final class Index {
+    // MAYBE inline
+    protected synchronized final List<Index> getPartialUniqueIndexes() throws SQLException {
+        final SQLSystem thisSystem = this.getServer().getSQLSystem();
+        final List<Index> indexes = new ArrayList<Index>();
+        // parse triggers, TODO remove them from triggers to output in getCreateTable()
+        if (thisSystem == SQLSystem.H2) {
+            for (final Trigger t : this.triggers.values()) {
+                final Matcher matcher = ChangeTable.H2_UNIQUE_TRIGGER_PATTERN.matcher(t.getSQL());
+                if (matcher.find()) {
+                    final String indexName = ChangeTable.getIndexName(t.getName(), thisSystem);
+                    final String[] javaCols = ChangeTable.H2_LIST_PATTERN.split(matcher.group(1).trim());
+                    final List<String> cols = new ArrayList<String>(javaCols.length);
+                    for (final String javaCol : javaCols) {
+                        cols.add(StringUtils.unDoubleQuote(javaCol));
+                    }
+                    final String where = StringUtils.unDoubleQuote(matcher.group(2).trim());
+                    indexes.add(createUniqueIndex(indexName, cols, where));
+                }
+            }
+        } else if (thisSystem == SQLSystem.MYSQL) {
+            for (final Trigger t : this.triggers.values()) {
+                if (t.getAction().contains(ChangeTable.MYSQL_TRIGGER_EXCEPTION)) {
+                    final String indexName = ChangeTable.getIndexName(t.getName(), thisSystem);
+                    // MySQL needs a pair of triggers
+                    final Trigger t2 = indexName == null ? null : this.triggers.get(indexName + ChangeTable.MYSQL_TRIGGER_SUFFIX_2);
+                    // and their body must match
+                    if (t2 != null && t2.getAction().equals(t.getAction())) {
+                        final Matcher matcher = ChangeTable.MYSQL_UNIQUE_TRIGGER_PATTERN.matcher(t.getAction());
+                        if (!matcher.find())
+                            throw new IllegalStateException("Couldn't parse " + t.getAction());
+                        // parse table name
+                        final SQLName parsedName = SQLName.parse(matcher.group(1).trim());
+                        if (!this.getName().equals(parsedName.getName()))
+                            throw new IllegalStateException("Name mismatch : " + this.getSQLName() + " != " + parsedName);
+
+                        final String[] wheres = ChangeTable.MYSQL_WHERE_PATTERN.split(matcher.group(2).trim());
+                        final String userWhere = wheres[0];
+
+                        final List<String> cols = new ArrayList<String>(wheres.length - 1);
+                        for (int i = 1; i < wheres.length; i++) {
+                            final Matcher eqMatcher = ChangeTable.MYSQL_WHERE_EQ_PATTERN.matcher(wheres[i].trim());
+                            if (!eqMatcher.matches())
+                                throw new IllegalStateException("Invalid where clause " + wheres[i]);
+                            cols.add(SQLName.parse(eqMatcher.group(2).trim()).getName());
+                        }
+                        if (cols.isEmpty())
+                            throw new IllegalStateException("No columns in " + Arrays.asList(wheres));
+                        indexes.add(createUniqueIndex(indexName, cols, userWhere));
+                    }
+                }
+            }
+        }
+        return indexes;
+    }
+
+    public static class SQLIndex {
+
+        private static final Pattern NORMALIZE_SPACES = Pattern.compile("\\s+");
 
         private final String name;
+        // SQL, e.g. : lower("name"), "age"
         private final List<String> attrs;
-        private final List<String> cols;
         private final boolean unique;
         private String method;
-        private String filter;
+        private final String filter;
 
-        Index(final Map<String, Object> row) {
-            this((String) row.get("INDEX_NAME"), (String) row.get("COLUMN_NAME"), (Boolean) row.get("NON_UNIQUE"), (String) row.get("FILTER_CONDITION"));
+        public SQLIndex(final String name, final List<String> attributes, final boolean unique, final String filter) {
+            this(name, attributes, false, unique, filter);
         }
 
-        Index(final String name, String col, Boolean nonUnique, String filter) {
+        public SQLIndex(final String name, final List<String> attributes, final boolean quoteAll, final boolean unique, final String filter) {
             super();
             this.name = name;
-            this.attrs = new ArrayList<String>();
-            this.cols = new ArrayList<String>();
-            this.unique = !nonUnique;
+            this.attrs = new ArrayList<String>(attributes.size());
+            for (final String attr : attributes)
+                this.addAttr(quoteAll ? SQLBase.quoteIdentifier(attr) : attr);
+            this.unique = unique;
             this.method = null;
-            this.filter = filter;
-
-            this.add(this.name, col, this.unique);
-        }
-
-        public final SQLTable getTable() {
-            return SQLTable.this;
-        }
-
-        /**
-         * Adds a column to this multi-field index.
-         * 
-         * @param name the name of the index.
-         * @param col the column to add.
-         * @param unique whether the index is unique.
-         * @throws IllegalStateException if <code>name</code> and <code>unique</code> are not the
-         *         same as these.
-         */
-        final void add(final String name, String col, boolean unique) {
-            if (!name.equals(this.name) || this.unique != unique)
-                throw new IllegalStateException("incoherence");
-            this.attrs.add(col);
-            if (getTable().contains(col))
-                this.cols.add(col);
-        }
-
-        final void add(final Index o) {
-            this.add(o.getName(), o.cols.get(0), o.unique);
+            // helps when comparing
+            this.filter = filter == null ? null : NORMALIZE_SPACES.matcher(filter.trim()).replaceAll(" ");
         }
 
         public final String getName() {
@@ -1755,24 +1940,11 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
          * @return the components of this index, eg ["lower(name)", "age"].
          */
         public final List<String> getAttrs() {
-            return this.attrs;
+            return Collections.unmodifiableList(this.attrs);
         }
 
-        /**
-         * The table columns in this index. Note that due to db system limitation this list is
-         * incomplete (eg missing name).
-         * 
-         * @return the columns, eg ["age"].
-         */
-        public final List<String> getCols() {
-            return this.cols;
-        }
-
-        public final List<SQLField> getFields() {
-            final List<SQLField> res = new ArrayList<SQLField>(this.getCols().size());
-            for (final String f : this.getCols())
-                res.add(getTable().getField(f));
-            return res;
+        protected final void addAttr(final String attr) {
+            this.attrs.add(attr);
         }
 
         public final void setMethod(String method) {
@@ -1792,29 +1964,145 @@ public final class SQLTable extends SQLIdentifier implements SQLData, TableRef {
             return this.filter;
         }
 
-        final boolean isPKIndex() {
-            return this.isUnique() && this.getAttrs().equals(getPKsNames());
-        }
-
         @Override
         public String toString() {
-            return getClass().getSimpleName() + " " + this.getName() + " unique: " + this.isUnique() + " cols: " + this.getAttrs();
+            return getClass().getSimpleName() + " " + this.getName() + " unique: " + this.isUnique() + " cols: " + this.getAttrs() + " filter: " + this.getFilter();
         }
 
         // ATTN don't use name since it is often auto-generated (eg by a UNIQUE field)
         @Override
         public boolean equals(Object obj) {
-            if (obj instanceof Index) {
-                final Index o = (Index) obj;
-                return this.isUnique() == o.isUnique() && this.getAttrs().equals(o.getAttrs());
-            } else
+            if (obj instanceof SQLIndex) {
+                final SQLIndex o = (SQLIndex) obj;
+                return this.isUnique() == o.isUnique() && this.getAttrs().equals(o.getAttrs()) && CompareUtils.equals(this.getFilter(), o.getFilter())
+                        && CompareUtils.equals(this.getMethod(), o.getMethod());
+            } else {
                 return false;
+            }
         }
 
         // ATTN use cols, so use only after cols are done
         @Override
         public int hashCode() {
             return this.getAttrs().hashCode() + ((Boolean) this.isUnique()).hashCode();
+        }
+    }
+
+    private final Index createUniqueIndex(final String name, final List<String> cols, final String where) {
+        final Index res = new Index(name, cols.get(0), false, where);
+        for (int i = 1; i < cols.size(); i++) {
+            res.addFromMD(cols.get(i));
+        }
+        return res;
+    }
+
+    private final String removeParens(String filter) {
+        if (filter != null) {
+            filter = filter.trim();
+            final SQLSystem sys = this.getServer().getSQLSystem();
+            // postgreSQL always wrap filter with parens, ATTN we shouldn't remove from
+            // "(A) and (B)" but still support "(A = (0))"
+            if ((sys == SQLSystem.POSTGRESQL || sys == SQLSystem.MSSQL) && filter.startsWith("(") && filter.endsWith(")")) {
+                filter = filter.substring(1, filter.length() - 1);
+            }
+        }
+        return filter;
+    }
+
+    public final class Index extends SQLIndex {
+
+        private final List<String> cols;
+
+        Index(final Map<String, Object> row) {
+            this((String) row.get("INDEX_NAME"), (String) row.get("COLUMN_NAME"), (Boolean) row.get("NON_UNIQUE"), (String) row.get("FILTER_CONDITION"));
+        }
+
+        Index(final String name, String col, Boolean nonUnique, String filter) {
+            super(name, Collections.<String> emptyList(), !nonUnique, removeParens(filter));
+            this.cols = new ArrayList<String>();
+            this.addFromMD(col);
+        }
+
+        public final SQLTable getTable() {
+            return SQLTable.this;
+        }
+
+        /**
+         * The table columns in this index. Note that due to DB system limitation this list is
+         * incomplete (e.g. missing expressions).
+         * 
+         * @return the unquoted columns, e.g. ["age"].
+         */
+        public final List<String> getCols() {
+            return this.cols;
+        }
+
+        public final List<SQLField> getFields() {
+            final List<SQLField> res = new ArrayList<SQLField>(this.getCols().size());
+            for (final String f : this.getCols())
+                res.add(getTable().getField(f));
+            return res;
+        }
+
+        /**
+         * Adds a column to this multi-field index.
+         * 
+         * @param name the name of the index.
+         * @param col the column to add.
+         * @param unique whether the index is unique.
+         * @throws IllegalStateException if <code>name</code> and <code>unique</code> are not the
+         *         same as these.
+         */
+        private final void add(final Index o) {
+            assert o.getAttrs().size() == 1;
+            if (!o.getName().equals(this.getName()) || this.isUnique() != o.isUnique())
+                throw new IllegalStateException("incoherence");
+            this.cols.addAll(o.getCols());
+            this.addAttr(o.getAttrs().get(0));
+        }
+
+        // col is either an expression or a column name
+        protected void addFromMD(String col) {
+            if (getTable().contains(col)) {
+                // e.g. age
+                this.cols.add(col);
+                this.addAttr(SQLBase.quoteIdentifier(col));
+            } else {
+                // e.g. lower("name")
+                this.addAttr(col);
+            }
+        }
+
+        final boolean isPKIndex() {
+            return this.isUnique() && this.getCols().equals(getTable().getPKsNames()) && this.getCols().size() == this.getAttrs().size();
+        }
+
+        private final Pattern getColPattern(final String col) {
+            // e.g. ([NOM] IS NOT NULL AND [PRENOM] IS NOT NULL AND [ARCHIVE]=(0))
+            return Pattern.compile("(?i:\\s+AND\\s+)?" + Pattern.quote(new SQLName(col).quoteMS()) + "\\s+(?i)IS\\s+NOT\\s+NULL(\\s+AND\\s+)?");
+        }
+
+        // in MS SQL we're forced to add IS NOT NULL to get the standard behaviour
+        // return none if it's not a unique index, otherwise the value of the where for the partial
+        // index (can be null)
+        final Value<String> getMSUniqueWhere() {
+            assert getServer().getSQLSystem() == SQLSystem.MSSQL;
+            if (this.isUnique() && this.getFilter() != null) {
+                String filter = this.getFilter().trim();
+                // for each column, remove its NOT NULL clause
+                for (final String col : getCols()) {
+                    final Matcher matcher = this.getColPattern(col).matcher(filter);
+                    if (matcher.find()) {
+                        filter = matcher.replaceFirst("").trim();
+                    } else {
+                        return Value.getNone();
+                    }
+                }
+                // what is the left is the actual filter
+                filter = filter.trim();
+                return Value.getSome(filter.isEmpty() ? null : filter);
+            }
+            return Value.getNone();
         }
     }
 }

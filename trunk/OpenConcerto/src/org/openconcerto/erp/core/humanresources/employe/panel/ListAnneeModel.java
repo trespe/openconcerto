@@ -40,6 +40,7 @@ public class ListAnneeModel<T> extends AbstractListModel {
         sel.addSelect(tableObjectif.getField("ANNEE"));
         sel.setWhere(new Where(tableObjectif.getField("ID_COMMERCIAL"), "=", idCommercial));
         sel.setDistinct(true);
+        sel.addFieldOrder(sel.getAlias(tableObjectif.getField("ANNEE")));
 
         List<Object[]> listAnnee = (List<Object[]>) Configuration.getInstance().getBase().getDataSource().executeA(sel.asString());
         clear();

@@ -58,10 +58,13 @@ public class AssociationAnalytiqueTable extends JPanel {
 
         final List<SQLTableElement> list = new ArrayList<SQLTableElement>();
 
-        final SQLTableElement tableElementAnalytique = new SQLTableElement(ELEMENT.getTable().getField("ID_POSTE_ANALYTIQUE"));
-        list.add(tableElementAnalytique);
+        // final SQLTableElement tableElementAnalytique = new
+        // SQLTableElement(ELEMENT.getTable().getField("ID_POSTE_ANALYTIQUE"));
+        // list.add(tableElementAnalytique);
 
-        final RowValuesTableModel model = new RowValuesTableModel(ELEMENT, list, ELEMENT.getTable().getField("ID_POSTE_ANALYTIQUE"), true, defaultRow);
+        // final RowValuesTableModel model = new RowValuesTableModel(ELEMENT, list,
+        // ELEMENT.getTable().getField("ID_POSTE_ANALYTIQUE"), true, defaultRow);
+        final RowValuesTableModel model = new AssociationAnalytiqueItemModel().getModel();
 
         this.table = new RowValuesMultiLineEditTable(model, null, "ANALYTIQUE") {
             @Override

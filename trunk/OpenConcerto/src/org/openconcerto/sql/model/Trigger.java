@@ -13,29 +13,49 @@
  
  package org.openconcerto.sql.model;
 
+import org.openconcerto.xml.JDOMUtils;
 import org.openconcerto.xml.XMLCodecUtils;
 
+import java.util.HashMap;
 import java.util.Map;
 
-import org.jdom.Element;
+import net.jcip.annotations.GuardedBy;
+import net.jcip.annotations.Immutable;
 
+import org.jdom2.Element;
+
+@Immutable
 public final class Trigger {
 
     @SuppressWarnings("unchecked")
     public static Trigger fromXML(final SQLTable t, Element elem) {
-        return new Trigger(t, (Map<String, Object>) XMLCodecUtils.decode1((Element) elem.getChildren().get(0)));
+        return new Trigger(t, elem.getAttributeValue("name"), (Map<String, Object>) XMLCodecUtils.decode1(elem.getChildren().get(0)));
     }
 
     private final SQLTable t;
     private final String name;
     private final Map<String, Object> m;
-    private String xml;
+    @GuardedBy("this")
+    private String xml = null;
+
+    private Trigger(final SQLTable t, final String name, final Map<String, Object> row) {
+        this.t = t;
+        this.name = name;
+        this.m = row;
+    }
 
     Trigger(final SQLTable t, final Map<String, Object> row) {
         this.t = t;
-        this.name = (String) row.get("TRIGGER_NAME");
-        this.m = row;
-        this.xml = null;
+        this.m = new HashMap<String, Object>(row);
+        this.name = (String) this.m.remove("TRIGGER_NAME");
+    }
+
+    Trigger(final SQLTable t, final Trigger trigger) {
+        this.t = t;
+        this.m = trigger.m;
+        this.name = trigger.name;
+        // don't bother synchronising for xml since when we copy a Trigger it generally has never
+        // been used.
     }
 
     public final SQLTable getTable() {
@@ -55,10 +75,14 @@ public final class Trigger {
         return (String) this.m.get("SQL");
     }
 
-    public String toXML() {
+    public final String getAction() {
+        return (String) this.m.get("ACTION");
+    }
+
+    public synchronized String toXML() {
         // this is immutable so only compute once the XML
         if (this.xml == null)
-            this.xml = "<trigger>" + XMLCodecUtils.encodeSimple(this.m) + "</trigger>";
+            this.xml = "<trigger name=\"" + JDOMUtils.OUTPUTTER.escapeAttributeEntities(getName()) + "\">" + XMLCodecUtils.encodeSimple(this.m) + "</trigger>";
         return this.xml;
     }
 

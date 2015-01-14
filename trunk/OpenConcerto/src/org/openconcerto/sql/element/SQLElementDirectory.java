@@ -18,8 +18,8 @@ import org.openconcerto.sql.TM;
 import org.openconcerto.sql.model.DBStructureItemNotFound;
 import org.openconcerto.sql.model.SQLName;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.cc.ITransformer;
 import org.openconcerto.utils.i18n.LocalizedInstances;
 import org.openconcerto.utils.i18n.Phrase;
@@ -32,7 +32,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -71,9 +70,9 @@ public final class SQLElementDirectory {
     };
 
     private final Map<SQLTable, SQLElement> elements;
-    private final CollectionMap<String, SQLTable> tableNames;
-    private final CollectionMap<String, SQLTable> byCode;
-    private final CollectionMap<Class<? extends SQLElement>, SQLTable> byClass;
+    private final SetMap<String, SQLTable> tableNames;
+    private final SetMap<String, SQLTable> byCode;
+    private final SetMap<Class<? extends SQLElement>, SQLTable> byClass;
     private final List<DirectoryListener> listeners;
 
     private String phrasesPkgName;
@@ -83,9 +82,9 @@ public final class SQLElementDirectory {
         this.elements = new HashMap<SQLTable, SQLElement>();
         // to mimic elements behaviour, if we add twice the same table
         // the second one should replace the first one
-        this.tableNames = new CollectionMap<String, SQLTable>(HashSet.class);
-        this.byCode = new CollectionMap<String, SQLTable>(HashSet.class);
-        this.byClass = new CollectionMap<Class<? extends SQLElement>, SQLTable>(HashSet.class);
+        this.tableNames = new SetMap<String, SQLTable>();
+        this.byCode = new SetMap<String, SQLTable>();
+        this.byClass = new SetMap<Class<? extends SQLElement>, SQLTable>();
 
         this.listeners = new ArrayList<DirectoryListener>();
 
@@ -93,7 +92,7 @@ public final class SQLElementDirectory {
         this.elementNames = new HashMap<String, SQLElementNames>();
     }
 
-    private static <K> SQLTable getSoleTable(CollectionMap<K, SQLTable> m, K key) throws IllegalArgumentException {
+    private static <K> SQLTable getSoleTable(SetMap<K, SQLTable> m, K key) throws IllegalArgumentException {
         final Collection<SQLTable> res = m.getNonNull(key);
         if (res.size() > 1)
             throw new IllegalArgumentException(key + " is not unique: " + CollectionUtils.join(res, ",", new ITransformer<SQLTable, SQLName>() {
@@ -141,9 +140,9 @@ public final class SQLElementDirectory {
     public synchronized final SQLElement addSQLElement(SQLElement elem) {
         final SQLElement res = this.removeSQLElement(elem.getTable());
         this.elements.put(elem.getTable(), elem);
-        this.tableNames.put(elem.getTable().getName(), elem.getTable());
-        this.byCode.put(elem.getCode(), elem.getTable());
-        this.byClass.put(elem.getClass(), elem.getTable());
+        this.tableNames.add(elem.getTable().getName(), elem.getTable());
+        this.byCode.add(elem.getCode(), elem.getTable());
+        this.byClass.add(elem.getClass(), elem.getTable());
         for (final DirectoryListener dl : this.listeners) {
             dl.elementAdded(elem);
         }

@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.common.ui;
 
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.utils.StringUtils;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
@@ -48,11 +49,8 @@ public class DeviseNumericRemiseCellEditor extends DeviseNumericCellEditor imple
             final AbstractAction htToPercent = new AbstractAction("Convertir le montant HT en %") {
 
                 public void actionPerformed(ActionEvent e) {
-
-                    String s = textField.getText().trim();
-                    if (s.length() > 0) {
-
-                        BigDecimal prixHTRemise = new BigDecimal(s);
+                    final BigDecimal prixHTRemise = StringUtils.getBigDecimalFromUserText(textField.getText());
+                    if (prixHTRemise != null) {
                         BigDecimal divide = prixHTRemise.divide(ht, MathContext.DECIMAL128).movePointRight(2);
                         divide = divide.setScale(precision, RoundingMode.HALF_UP);
                         textField.setText(divide.toString());
@@ -65,11 +63,8 @@ public class DeviseNumericRemiseCellEditor extends DeviseNumericCellEditor imple
             final AbstractAction ttcToPercent = new AbstractAction("Convertir le montant TTC en %") {
 
                 public void actionPerformed(ActionEvent e) {
-
-                    String s = textField.getText().trim();
-                    if (s.length() > 0) {
-
-                        BigDecimal prixTTCRemise = new BigDecimal(s);
+                    final BigDecimal prixTTCRemise = StringUtils.getBigDecimalFromUserText(textField.getText());
+                    if (prixTTCRemise != null) {
                         BigDecimal divide = prixTTCRemise.divide(ttc, MathContext.DECIMAL128).movePointRight(2);
                         divide = divide.setScale(precision, RoundingMode.HALF_UP);
                         textField.setText(divide.toString());

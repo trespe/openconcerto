@@ -13,7 +13,14 @@
  
  package org.openconcerto.erp.core.customerrelationship.customer.element;
 
+import java.awt.event.ActionEvent;
+
+import javax.swing.AbstractAction;
+
 import org.openconcerto.erp.config.Gestion;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 
 public class ContactSQLElement extends ContactSQLElementBase {
 
@@ -31,10 +38,21 @@ public class ContactSQLElement extends ContactSQLElementBase {
 
     public ContactSQLElement() {
         this("CONTACT");
+
     }
 
     protected ContactSQLElement(String tableName) {
         super(tableName);
         this.setL18nLocation(Gestion.class);
+        PredicateRowAction action = new PredicateRowAction(new AbstractAction() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                sendMail(IListe.get(e).getSelectedRows());
+
+            }
+        }, true, "customerrelationship.customer.email.send");
+        action.setPredicate(IListeEvent.getNonEmptySelectionPredicate());
+        getRowActions().add(action);
     }
 }

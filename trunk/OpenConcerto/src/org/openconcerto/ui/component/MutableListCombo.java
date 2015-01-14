@@ -24,6 +24,14 @@ public interface MutableListCombo {
 
     ComboLockedMode getMode();
 
+    /**
+     * Whether the cache can be modified.
+     * 
+     * @return <code>true</code> if {@link #addCurrentText()} and {@link #removeCurrentText()} can
+     *         be called, <code>false</code> otherwise.
+     */
+    boolean canModifyCache();
+
     void addCurrentText();
 
     void removeCurrentText();

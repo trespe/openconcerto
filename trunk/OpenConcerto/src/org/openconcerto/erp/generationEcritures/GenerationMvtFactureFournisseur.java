@@ -108,7 +108,8 @@ public class GenerationMvtFactureFournisseur extends GenerationEcritures impleme
                 this.mEcritures.put("ID_COMPTE_PCE", Integer.valueOf(row.getID()));
                 this.mEcritures.put("CREDIT", Long.valueOf(0));
                 this.mEcritures.put("DEBIT", Long.valueOf(b));
-                int idEcr = ajoutEcriture();
+                SQLRow rowEcr = ajoutEcriture();
+                addAssocAnalytiqueFromProvider(rowEcr, saisieRow);
             }
         }
 

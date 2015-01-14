@@ -45,7 +45,9 @@ public class GenerationMvtReglementAvoirChequeClient extends GenerationEcritures
         this.nom = "Reglement avoir client par chéque";
         this.mEcritures.put("DATE", new java.sql.Date(this.date.getTime()));
         this.mEcritures.put("NOM", this.nom);
-        this.mEcritures.put("ID_JOURNAL", JournalSQLElement.BANQUES);
+
+        fillJournalBanqueFromRow(chequeAvoirRow);
+
         this.mEcritures.put("ID_MOUVEMENT", new Integer(this.idMvt));
 
         // compte Clients
@@ -63,11 +65,7 @@ public class GenerationMvtReglementAvoirChequeClient extends GenerationEcritures
         ajoutEcriture();
 
         // compte de reglement cheque, ...
-        int idPce = base.getTable("TYPE_REGLEMENT").getRow(2).getInt("ID_COMPTE_PCE_CLIENT");
-        if (idPce <= 1) {
-            idPce = ComptePCESQLElement.getIdComptePceDefault("VenteCheque");
-        }
-        this.mEcritures.put("ID_COMPTE_PCE", new Integer(idPce));
+        fillCompteBanqueFromRow(chequeAvoirRow, "VenteCheque", false);
         this.mEcritures.put("DEBIT", new Long(0));
         this.mEcritures.put("CREDIT", new Long(this.montant));
         ajoutEcriture();

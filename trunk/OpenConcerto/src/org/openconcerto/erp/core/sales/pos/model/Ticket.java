@@ -273,11 +273,24 @@ public class Ticket {
             final Integer nb = item.getSecond();
             Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
             BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
-
             BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(nb), MathContext.DECIMAL128).multiply(tauxTVA, MathContext.DECIMAL128);
-            prt.addToBuffer(DefaultTicketPrinter.formatRight(MAX_QTE_WIDTH, String.valueOf(nb)) + " "
-                    + DefaultTicketPrinter.formatLeft(maxWidth - 2 - MAX_PRICE_WIDTH - MAX_QTE_WIDTH, article.getName()) + " "
-                    + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(multiply.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue())));
+
+            if (article.getCode() != null && !article.getCode().isEmpty()) {
+                // 2 lines
+                final String qtyString = DefaultTicketPrinter.formatRight(MAX_QTE_WIDTH, String.valueOf(nb));
+                final String codeString = DefaultTicketPrinter.formatLeft(maxWidth - 2 - MAX_PRICE_WIDTH - MAX_QTE_WIDTH, article.getCode());
+                final String priceString = DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(multiply.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue()));
+                prt.addToBuffer(qtyString + " " + codeString + " " + priceString);
+                final String nameString = DefaultTicketPrinter.formatLeft(maxWidth - MAX_QTE_WIDTH - 1, article.getName());
+                prt.addToBuffer("      " + nameString);
+            } else {
+                // 1 line
+                final String qtyString = DefaultTicketPrinter.formatRight(MAX_QTE_WIDTH, String.valueOf(nb));
+                final String nameString = DefaultTicketPrinter.formatLeft(maxWidth - 2 - MAX_PRICE_WIDTH - MAX_QTE_WIDTH, article.getName());
+                final String priceString = DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(multiply.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue()));
+                prt.addToBuffer(qtyString + " " + nameString + " " + priceString);
+            }
+
         }
 
         StringBuilder spacer = new StringBuilder();
@@ -288,8 +301,19 @@ public class Ticket {
             spacer.append('=');
         }
         prt.addToBuffer(spacer.toString());
-        prt.addToBuffer(DefaultTicketPrinter.formatRight(maxWidth - 8, "Total") + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(getTotal())),
+
+        final TotalCalculator calc = getTotalCalculator();
+        int totalTTCInCents = calc.getTotalTTC().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
+        int totalTVHAInCents = calc.getTotalTVA().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
+
+
+        prt.addToBuffer(
+                DefaultTicketPrinter.formatRight(maxWidth - MAX_PRICE_WIDTH, "MONTANT TOTAL TTC (Euros) : ")
+                        + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(totalTTCInCents)),
                 DefaultTicketPrinter.BOLD);
+        prt.addToBuffer(
+                DefaultTicketPrinter.formatRight(maxWidth - MAX_PRICE_WIDTH, "Dont TVA : ") + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(totalTVHAInCents)),
+                DefaultTicketPrinter.NORMAL);
         prt.addToBuffer("");
         //
         for (Paiement paiement : this.paiements) {
@@ -314,8 +338,8 @@ public class Ticket {
             }
         }
         // Montant Rendu
-        if (getTotal() < getPaidTotal()) {
-            int montantInCents = getPaidTotal() - getTotal();
+        if (getTotalInCents() < getPaidTotal()) {
+            int montantInCents = getPaidTotal() - getTotalInCents();
             String type = "Rendu : " + TicketCellRenderer.centsToString(montantInCents);
             if (montantInCents > 100) {
                 type += " euros";
@@ -333,8 +357,8 @@ public class Ticket {
         prt.addToBuffer("");
         prt.addToBuffer(getCode(), DefaultTicketPrinter.BARCODE);
         prt.addToBuffer("");
-        prt.addToBuffer("Nous utilisons le logiciel OpenConcerto.");
-        prt.addToBuffer("Logiciel libre, open source et gratuit!");
+        prt.addToBuffer("Ticket créé par l'ERP OpenConcerto.");
+
         try {
             prt.printBuffer();
         } catch (Exception e) {
@@ -398,7 +422,12 @@ public class Ticket {
         return this.paiements;
     }
 
-    public int getTotal() {
+    public int getTotalInCents() {
+        final TotalCalculator calc = getTotalCalculator();
+        return calc.getTotalTTC().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
+    }
+
+    public TotalCalculator getTotalCalculator() {
         final SQLTable tableElt = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().findTable("SAISIE_VENTE_FACTURE_ELEMENT");
         final TotalCalculator calc = new TotalCalculator("T_PA_HT", "T_PV_HT", null);
         final String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
@@ -417,7 +446,7 @@ public class Ticket {
 
         }
         calc.checkResult();
-        return calc.getTotalTTC().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
+        return calc;
     }
 
     public List<Pair<Article, Integer>> getArticles() {

@@ -21,10 +21,14 @@ import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.users.rights.UserRights;
 import org.openconcerto.sql.users.rights.UserRightsManager;
 import org.openconcerto.ui.FormLayouter;
-import org.openconcerto.ui.SystemInfoPanel;
 import org.openconcerto.ui.component.HTMLTextField;
 import org.openconcerto.utils.ProductInfo;
+import org.openconcerto.utils.SystemInfo;
+import org.openconcerto.utils.cc.IFactory;
 import org.openconcerto.utils.i18n.I18nUtils;
+
+import java.util.HashMap;
+import java.util.Map;
 
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -37,16 +41,26 @@ import javax.swing.JPanel;
  */
 public class SoftwareInfoPanel extends JPanel {
 
-    public SoftwareInfoPanel() {
-        final FormLayouter l = new FormLayouter(this, 1);
+    public static enum Info {
+        RIGHTS, USER, APP_NAME, APP_VERSION, SECURE_LINK, DB_URL, DIRS
+    }
+
+    public static final IFactory<String> FACTORY = new IFactory<String>() {
+        @Override
+        public String createChecked() {
+            return get(false).toString();
+        }
+    };
+
+    public static Map<Info, String> get(final boolean html) {
+        final Map<Info, String> res = new HashMap<Info, String>();
 
         final UserRightsManager userRightsManager = UserRightsManager.getInstance();
-        l.add(TM.tr("infoPanel.rights"), new JLabel(org.openconcerto.utils.i18n.TM.tr(I18nUtils.getYesNoKey(userRightsManager != null))));
+        res.put(Info.RIGHTS, org.openconcerto.utils.i18n.TM.tr(I18nUtils.getYesNoKey(userRightsManager != null)));
         final User user = UserManager.getUser();
         if (user != null) {
             final UserRights userRights = UserRightsManager.getCurrentUserRights();
-            final String userS = user.toString() + (userRights.isSuperUser() ? " (superuser)" : "");
-            l.add(org.openconcerto.utils.i18n.TM.tr("user"), new JLabel(userS));
+            res.put(Info.USER, user.toString() + (userRights.isSuperUser() ? " (superuser)" : ""));
         }
 
         final Configuration conf = Configuration.getInstance();
@@ -68,13 +82,35 @@ public class SoftwareInfoPanel extends JPanel {
             name = productInfo.getName();
             version = productInfo.getProperty(ProductInfo.VERSION, TM.tr("infoPanel.noVersion"));
         }
-        l.add(TM.tr("infoPanel.appName"), new JLabel(name));
-        l.add(TM.tr("infoPanel.version"), new JLabel(version));
+        res.put(Info.APP_NAME, name);
+        res.put(Info.APP_VERSION, version);
         if (propsConf != null && propsConf.isUsingSSH()) {
-            l.add(TM.tr("infoPanel.secureLink"), new JLabel(propsConf.getWanHostAndPort()));
+            res.put(Info.SECURE_LINK, propsConf.getWanHostAndPort());
         }
-        l.add(TM.tr("infoPanel.dbURL"), new JLabel(conf.getSystemRoot().getDataSource().getUrl()));
-        final String logs = propsConf == null ? "" : " ; " + SystemInfoPanel.getLink(TM.tr("infoPanel.logs"), propsConf.getLogDir().toURI());
-        l.add(TM.tr("infoPanel.dirs"), new HTMLTextField(SystemInfoPanel.getLink(TM.tr("infoPanel.docs"), conf.getWD().toURI()) + logs));
+        res.put(Info.DB_URL, conf.getSystemRoot().getDataSource().getUrl());
+        final String logs = propsConf == null ? "" : " ; " + SystemInfo.getLink(TM.tr("infoPanel.logs"), propsConf.getLogDir().toURI(), html);
+        res.put(Info.DIRS, SystemInfo.getLink(TM.tr("infoPanel.docs"), conf.getWD().toURI(), html) + logs);
+
+        return res;
+    }
+
+    public SoftwareInfoPanel() {
+        final Map<Info, String> infos = get(true);
+        final FormLayouter l = new FormLayouter(this, 1);
+
+        l.add(TM.tr("infoPanel.rights"), new JLabel(infos.get(Info.RIGHTS)));
+        final String user = infos.get(Info.USER);
+        if (user != null) {
+            l.add(org.openconcerto.utils.i18n.TM.tr("user"), new JLabel(user));
+        }
+
+        l.add(TM.tr("infoPanel.appName"), new JLabel(infos.get(Info.APP_NAME)));
+        l.add(TM.tr("infoPanel.version"), new JLabel(infos.get(Info.APP_VERSION)));
+        final String secureLink = infos.get(Info.SECURE_LINK);
+        if (secureLink != null) {
+            l.add(TM.tr("infoPanel.secureLink"), new JLabel(secureLink));
+        }
+        l.add(TM.tr("infoPanel.dbURL"), new JLabel(infos.get(Info.DB_URL)));
+        l.add(TM.tr("infoPanel.dirs"), new HTMLTextField(infos.get(Info.DIRS)));
     }
 }

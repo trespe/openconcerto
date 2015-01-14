@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.customerrelationship.customer.action;
 
 import org.openconcerto.erp.action.CreateFrameAbstractAction;
+import org.openconcerto.erp.action.CreateListFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.customerrelationship.customer.report.FicheClientXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.ui.EcheanceRenderer;
@@ -40,12 +41,16 @@ import javax.swing.Action;
 import javax.swing.JFrame;
 import javax.swing.JTable;
 
-public class ListeDesClientsAction extends CreateFrameAbstractAction {
-    private static SQLTable tableModeReglement = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT").getTable();
+public class ListeDesClientsAction extends CreateListFrameAbstractAction {
 
     public ListeDesClientsAction() {
         super();
         this.putValue(Action.NAME, "Liste des clients");
+    }
+
+    @Override
+    public String getTableName() {
+        return "CLIENT";
     }
 
     protected SQLTableModelSource getTableSource() {
@@ -55,6 +60,8 @@ public class ListeDesClientsAction extends CreateFrameAbstractAction {
 
     public JFrame createFrame() {
         SQLTable tableClient = ((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete().getTable("CLIENT");
+        SQLTable tableModeReglement = Configuration.getInstance().getDirectory().getElement("MODE_REGLEMENT").getTable();
+
         final ListeAddPanel panel = new ListeAddPanel(Configuration.getInstance().getDirectory().getElement(tableClient), new IListe(getTableSource()));
         IListFrame frame = new IListFrame(panel);
 
@@ -73,7 +80,6 @@ public class ListeDesClientsAction extends CreateFrameAbstractAction {
             }
         }
 
-       
         panel.setSearchFullMode(true);
         panel.setSelectRowOnAdd(false);
         return frame;

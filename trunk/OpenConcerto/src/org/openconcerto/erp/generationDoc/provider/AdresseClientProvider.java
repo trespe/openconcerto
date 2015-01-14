@@ -20,6 +20,7 @@ import org.openconcerto.erp.generationDoc.SpreadSheetCellValueProvider;
 
 public abstract class AdresseClientProvider implements SpreadSheetCellValueProvider {
 
+    public static int ADRESSE_PRINCIPALE = 0;
     public static int ADRESSE_FACTURATION = 1;
     public static int ADRESSE_LIVRAISON = 2;
 
@@ -36,21 +37,23 @@ public abstract class AdresseClientProvider implements SpreadSheetCellValueProvi
             }
         }
 
-        // Adresse Facturation
+
         SQLRowAccessor rCli = r.getForeign("ID_CLIENT");
-        String field;
-        if (type == ADRESSE_FACTURATION) {
-            field = "ID_ADRESSE_F";
-        } else {
-            field = "ID_ADRESSE_L";
+        SQLRowAccessor adrResult;
+            adrResult = rCli.getForeign("ID_ADRESSE");
+        if (type != ADRESSE_PRINCIPALE) {
+            String field;
+            if (type == ADRESSE_FACTURATION) {
+                field = "ID_ADRESSE_F";
+            } else {
+                field = "ID_ADRESSE_L";
+            }
+            SQLRowAccessor rAdr = rCli.getForeign(field);
+            if (rAdr != null && !rAdr.isUndefined()) {
+                adrResult = rAdr;
+            }
         }
-        SQLRowAccessor rAdr = rCli.getForeign(field);
-        if (rAdr != null && !rAdr.isUndefined()) {
-            return rAdr;
-        }
-
-            return rCli.getForeign("ID_ADRESSE");
-
+        return adrResult;
     }
 
 }

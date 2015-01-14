@@ -284,6 +284,19 @@ public enum SQLSystem {
         public boolean autoCreatesFKIndex() {
             return false;
         }
+
+        @Override
+        public boolean isIndexFilterConditionSupported() {
+            return true;
+        }
+
+        @Override
+        public boolean isTablesCommentSupported() {
+            // comments are not directly supported in MS, see sp_addextendedproperty
+            // 'MS_Description' :
+            // http://stackoverflow.com/questions/378700/is-it-possible-to-add-a-description-comment-to-a-table-in-microsoft-sql-2000
+            return false;
+        }
     },
     DERBY("Apache Derby");
 

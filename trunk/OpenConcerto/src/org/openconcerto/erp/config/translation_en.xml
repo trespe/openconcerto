@@ -1,4 +1,4 @@
-<translation lang="fr">
+<translation lang="en">
 	<!-- File -->
 	<menu id="menu.file" label="File" />
 	<menu id="backup" label="Backup" />
@@ -28,6 +28,7 @@
 	<menu id="supplier.order.create" label="Supplier order" />
 	<menu id="supplier.receipt.create" label="Supplier receipt" />
 	<menu id="supplier.purchase.create" label="Supplier purchase" />
+	<menu id="supplier.invoice.purchase.create"  label="Supplier invoice" />
 	<menu id="supplier.credit.create" label="Supplier credit" />
 	<menu id="stock.io.create" label="Stock" />
 
@@ -50,7 +51,7 @@
 	<menu id="mission.notice.list" label="" />
 	<menu id="customer.order.list" label="Orders" />
 	<menu id="customer.delivery.list" label="Deliveries" />
-	<menu id="sales.list" label="Sales" />
+	<menu id="sales.list" label="Invoices" />
 	<menu id="customer.invoice.list" label="Invoices" />
 	<menu id="payment.factoring.create" label="" />
 	<menu id="payment.factoring.list" label="" />
@@ -62,6 +63,7 @@
 	<menu id="supplier.order.list" label="Supplier orders" />
 	<menu id="supplier.receipt.list" label="Supplier receipts" />
 	<menu id="supplier.purchase.list" label="Purchases" />
+	<menu id="supplier.invoice.purchase.list" label="Supplier invoices" />
 	<menu id="supplier.credit.list" label="Supplier credits" />
 	<menu id="product.list" label="Product list" />
 	<menu id="product.reference.list" label="Reference list" />
@@ -115,8 +117,8 @@
 	<menu id="supplier.payment.check.list" label="Supplier checks" />
 	<menu id="supplier.payment.check.pending.list" label="Pending checks to suppliers" />
 	<!-- Payroll -->
-	<menu id="menu.payroll" label="Paye" />
-	<menu id="payroll.list.report.print" label="Apyroll report" />
+	<menu id="menu.payroll" label="Payroll" />
+	<menu id="payroll.list.report.print" label="Payroll report" />
 	<menu id="payroll.profile.list" label="Profiles" />
 	<menu id="payroll.history" label="History" />
 	<menu id="payroll.create" label="Payroll" />
@@ -145,10 +147,71 @@
 	<menu id="mission.sample.list" label="" />
 	<menu id="mission.code.list" label="" />
 	<menu id="department.list" label="" />
-	<!-- Help -->
+	<!-- Test -->
 	<menu id="menu.test" label="Tests" />
 	<!-- Help -->
 	<menu id="menu.help" label="Help" />
 	<menu id="information" label="About" />
 	<menu id="tips" label="Tips" />
+	
+	<!-- Quote -->
+	<item id="sales.quote.number" label="Number" />
+	<item id="sales.quote.date" label="Date" />
+	<item id="sales.quote.label" label="Reference" />
+	<item id="sales.quote.customer" label="Customer" />
+	<item id="sales.quote.saleman" label="Saleman" />
+	<item id="sales.quote.state" label="State" />
+	<item id="sales.quote.address.alternative" label="Alternative address" />
+	<item id="sales.quote.info.general" label="Additional Information" />
+	<action id="sales.quote.accept" label="Mark as accepted" />
+	<action id="sales.quote.refuse" label="Mark as refused" />
+	<action id="sales.quote.create.invoice" label="Transfer to invoice" />
+	<action id="sales.quote.create.supplier.order" label="Transfer to supplier order" />
+	<action id="sales.quote.clone" label="Copy from" />
+	<action id="sales.quote.create.customer.order" label="Transfer to customer order" />
+	<action id="sales.quote.accept.create.customer.order" label="Mark as accepted and transfer to customer order" />
+	<!-- Customer -->
+	<action id="customerrelationship.customer.label.print" label="Print customer label" />
+	<action id="customerrelationship.customer.info.create" label="Create customer info" />
+	<action id="customerrelationship.customer.email.send" label="Send an email" />
+	<!-- Matching -->
+	<action id="financing.accouning.entries.source.show" label="Show source" />
+	<action id="financing.accouning.entries.match" label="Match entry" />
+	<action id="financing.accouning.entries.unmatch" label="Unmatch entry" />
+	<!-- Invoice -->
+	<item id="sales.invoice.number" label="Number" />
+	<item id="sales.invoice.date" label="Date" />
+	<item id="sales.invoice.label" label="Reference" />
+	<item id="sales.invoice.customer" label="Customer" />
+	<item id="sales.invoice.saleman" label="Saleman" />
+	<item id="sales.invoice.address.alternative" label="Alternative address" />
+	<item id="sales.invoice.info.general" label="Additional Information" />
+	<action id="sales.invoice.purchase.update" label="Update purchase total" />
+	<action id="sales.invoice.comment.add" label="Add a comment" />
+	<action id="sales.invoice.create.delivery" label="Transfer to delivery order" />
+	<action id="sales.invoice.create.credit" label="Transfer to credit" />
+	<action id="sales.invoice.clone" label="Copy from" />
+	<action id="sales.invoice.info.show" label="Customer info" />
+	<action id="sales.invoice.create.supplier.order" label="Transfer to supplier order" />
+	<action id="sales.shipment.create.invoice" label="Transfer to invoice" />
+
+	<!-- Document -->
+	<action id="document.quickprint" label="Quick print" />
+	<action id="document.print" label="Print..." />
+	<action id="document.print.all" label="Print documents" />
+	<action id="document.preview" label="Preview document" />
+	<action id="document.modify" label="Modify docucment with OpenOffice" />
+	<action id="document.create" label="Create document" />
+	<action id="document.pdf.send.email" label="Send PDF by email" />
+	<action id="document.send.email" label="Send by email" />
+
+	<!-- Supplier order -->
+	<action id="supplychain.order.create.purchase" label="Transfer to purchase" />
+	<action id="supplychain.order.create.receipt" label="Transfer to supplier receipt" />
+
+	<!-- Customer order -->
+	<action id="sales.order.create.deliverynote" label="Transfer to delivey note" />
+	<action id="sales.order.create.invoice" label="Transfer to invoice" />
+	<action id="sales.order.create.supplier.order" label="Transfer to supplier order" />
+	
 </translation>

@@ -16,6 +16,7 @@
 import org.openconcerto.utils.Tuple2;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -112,6 +113,20 @@ public class Group extends Item {
 
     public boolean contains(final String id) {
         return getDescFromID(id) != null;
+    }
+
+    @Override
+    public final Collection<Item> getDescendantItems() {
+        final List<Item> res = new ArrayList<Item>();
+        this.getDescendantItems(res);
+        return res;
+    }
+
+    @Override
+    protected void getDescendantItems(final Collection<Item> res) {
+        for (final Tuple2<Item, Integer> t : this.list) {
+            t.get0().getDescendantItems(res);
+        }
     }
 
     @Override

@@ -778,4 +778,16 @@ abstract public class IListPanel extends JPanel implements ActionListener {
         this.selectRowOnAdd = b;
     }
 
+    public JButton getButtonAdd() {
+        return buttonAjouter;
+    }
+
+    public JButton getButtonModify() {
+        return buttonModifier;
+    }
+
+    public JButton getButtonDelete() {
+        return buttonEffacer;
+    }
+
 }

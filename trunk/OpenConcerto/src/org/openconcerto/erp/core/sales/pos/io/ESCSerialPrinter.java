@@ -24,6 +24,8 @@ import java.util.Calendar;
 import java.util.List;
 
 public class ESCSerialPrinter extends DefaultTicketPrinter {
+    private static final int GS = 0x1D;
+    private static final int ESC = 0x1B;
     private String port;
 
     /**
@@ -46,50 +48,80 @@ public class ESCSerialPrinter extends DefaultTicketPrinter {
         this.modes.add(mode);
     }
 
-    public void openDrawer() throws Exception {
-        SerialPort serialPort = getSerialPort();
+    public synchronized void openDrawer() throws Exception {
+        final SerialPort serialPort = getSerialPort();
 
         OutputStream out = serialPort.getOutputStream();
-        // Pin 2, 200ms
-        out.write(0x10);
-        out.write(0x14);
+        boolean useESCP = false;
+        if (useESCP) {
+            // Pin 2, 200ms min
+            out.write(ESC);
+            out.write(0x70);
+            out.write(0x00); // Pin 2
+            out.write(100); // 2x100ms On
+            out.write(100); // 2x100ms Off
+            try {
+                // 300ms to ensure opening
+                Thread.sleep(300);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            // Pin 2, 200ms min
+            out.write(ESC);
+            out.write(0x70);
+            out.write(0x01); // Pin 5
+            out.write(100); // 2x100ms On
+            out.write(100); // 2x100ms Off
+            try {
+                // 300ms to ensure opening
+                Thread.sleep(300);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+
+        }
+
+        // Pin 2, 200ms min
+        out.write(0x10);// DLE
+        out.write(0x14);// DC4
         out.write(0x01);
-        out.write(0x00);
+        out.write(0x00);// Pin 2
         out.write(0x02);
-        out.flush();
+        // Vista 32bits bug: out.flush(); // Crash, works fine without
 
         try {
+            // 300ms to ensure opening
             Thread.sleep(300);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
         // Pin 5, 200ms
-        out.write(0x10);
-        out.write(0x14);
+        out.write(0x10);// DLE
+        out.write(0x14);// DC4
         out.write(0x01);
-        out.write(0x01);
+        out.write(0x01);// Pin 5
         out.write(0x02);
         try {
             Thread.sleep(300);
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        out.flush();
+        // Vista 32bits bug: out.flush(); // Crash, works fine without
         out.close();
 
         serialPort.close();
     }
 
-    public void printBuffer() throws Exception {
+    public synchronized void printBuffer() throws Exception {
         System.out.println("Port " + this.port);
         SerialPort serialPort = getSerialPort();
 
         OutputStream out = serialPort.getOutputStream();
         // Init
-        out.write(0x1B);
+        out.write(ESC);
         out.write(0x40);
         // French characters
-        out.write(0x1B);
+        out.write(ESC);
         out.write(0x52);
         out.write(0x01);
         //
@@ -104,21 +136,21 @@ public class ESCSerialPrinter extends DefaultTicketPrinter {
                 System.out.println("Barcode:" + string);
 
                 //
-                out.write(0x1D);
+                out.write(GS);
                 out.write(0x48);
                 out.write(0x02); // en bas
 
                 //
-                out.write(0x1D);
+                out.write(GS);
                 out.write(0x77);
                 out.write(0x02); // Zoom 2
 
                 //
-                out.write(0x1D);
+                out.write(GS);
                 out.write(0x68);
                 out.write(60); // Hauteur
                 // Code 39
-                out.write(0x1D);
+                out.write(GS);
                 out.write(0x6B);
                 out.write(0x04); // Code 39
                 for (int k = 0; k < string.length(); k++) {
@@ -129,15 +161,15 @@ public class ESCSerialPrinter extends DefaultTicketPrinter {
                 out.write(0x00); // End
             } else {
                 if (mode == NORMAL) {
-                    out.write(0x1B);
+                    out.write(ESC);
                     out.write(0x21);
                     out.write(0);// Default
                 } else if (mode == BOLD) {
-                    out.write(0x1B);
+                    out.write(ESC);
                     out.write(0x21);
                     out.write(8);// Emphasis
                 } else if (mode == BOLD_LARGE) {
-                    out.write(0x1D);
+                    out.write(GS);
                     out.write(0x21);
                     out.write(0x11);//
                 }
@@ -171,8 +203,8 @@ public class ESCSerialPrinter extends DefaultTicketPrinter {
         out.write(0x0A);
         out.write(0x0A);
         // Coupe
-        out.write(0x1D);
-        out.write(0x56);
+        out.write(GS);
+        out.write(0x56); // V
         out.write(0x01);
         out.close();
         serialPort.close();
@@ -234,7 +266,7 @@ public class ESCSerialPrinter extends DefaultTicketPrinter {
 
     }
 
-    private static void listPorts() {
+    public static void listPorts() {
         java.util.Enumeration<CommPortIdentifier> portEnum = CommPortIdentifier.getPortIdentifiers();
         while (portEnum.hasMoreElements()) {
             CommPortIdentifier portIdentifier = portEnum.nextElement();

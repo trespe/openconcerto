@@ -15,7 +15,7 @@
 
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.graph.Path;
-import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.ListMap;
 
 import java.util.Collection;
 
@@ -39,10 +39,10 @@ final class ChangeFKRunnable extends AbstractUpdateOneRunnable {
     }
 
     public void run() {
-        final CollectionMap<Path, ListSQLLine> affectedPaths = getAffectedPaths();
+        final ListMap<Path, ListSQLLine> affectedPaths = getAffectedPaths();
         // updateLines() do not check previous ID, it just load the new values at the specified path
         // thus we just add our path to the affected paths and it will change to the new ID.
-        affectedPaths.put(this.p, this.l);
+        affectedPaths.add(this.p, this.l);
         updateLines(affectedPaths);
     }
 

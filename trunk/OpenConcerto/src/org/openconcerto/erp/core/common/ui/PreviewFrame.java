@@ -29,9 +29,19 @@ public class PreviewFrame extends JFrame {
     private PreviewFrame(OpenDocument doc, String title) {
         super(title);
         this.setContentPane(new ODSViewerPanel(doc, new DefaultXMLDocumentPrinter()));
-        GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+        init();
+    }
+
+    public PreviewFrame(String title, String url, String odspXml) {
+        this.setContentPane(new ODSViewerPanel(url, odspXml, new DefaultXMLDocumentPrinter(), true));
+        this.setTitle(title);
+        init();
+    }
+
+    private void init() {
+        final GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
         this.setMaximizedBounds(ge.getMaximumWindowBounds());
-        Dimension maxD = ge.getMaximumWindowBounds().getSize();
+        final Dimension maxD = ge.getMaximumWindowBounds().getSize();
         this.setMaximumSize(maxD);
         this.pack();
         Dimension d = this.getSize();
@@ -60,6 +70,6 @@ public class PreviewFrame extends JFrame {
                 }
             });
         }
-    }
 
+    }
 }

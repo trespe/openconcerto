@@ -25,6 +25,7 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -33,9 +34,9 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
-import org.jdom.Document;
-import org.jdom.Element;
-import org.jdom.input.SAXBuilder;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.input.SAXBuilder;
 
 public class XMLStructureSource extends StructureSource<IOException> {
 
@@ -43,7 +44,7 @@ public class XMLStructureSource extends StructureSource<IOException> {
      * Date format used in xml files.
      */
     public static final DateFormat XMLDATE_FMT = new SimpleDateFormat("yyyyMMdd-HHmmss.SSSZ");
-    public static final String version = "20140213-1231";
+    public static final String version = "20141001-1155";
 
     private final Map<String, Element> xmlSchemas;
 
@@ -88,13 +89,20 @@ public class XMLStructureSource extends StructureSource<IOException> {
         String problems = "";
         final TablesMap outOfDateTables = new TablesMap();
         final SAXBuilder sxb = new SAXBuilder();
+        final Set<String> schemaNamesToLoad = new HashSet<String>();
+        final List<DBItemFileCache> schemaFilesToLoad = new ArrayList<DBItemFileCache>();
         for (final DBItemFileCache savedSchema : this.dir.getSavedDesc(SQLSchema.class, SQLBase.FILENAME)) {
             final String schemaName = savedSchema.getName();
             // ignore out of scope for this refresh and inexistent schemas
             if (!this.allSchemas.contains(schemaName) || !this.isInScope(schemaName))
                 continue;
-
-            final String schemaDBVersion = SQLSchema.getVersion(this.getBase(), schemaName);
+            schemaFilesToLoad.add(savedSchema);
+            schemaNamesToLoad.add(schemaName);
+        }
+        final Map<String, String> schemaDBVersions = SQLSchema.getVersions(this.getBase(), schemaNamesToLoad);
+        for (final DBItemFileCache savedSchema : schemaFilesToLoad) {
+            final String schemaName = savedSchema.getName();
+            final String schemaDBVersion = schemaDBVersions.get(schemaName);
 
             final File schemaFile = savedSchema.getFile(SQLBase.FILENAME);
             String schemaProblem = "";
@@ -140,9 +148,7 @@ public class XMLStructureSource extends StructureSource<IOException> {
 
                 this.schemas.add(schemaName);
                 final IncludeExclude<String> tablesToRefresh = this.getTablesInScope(schemaName);
-                final List l = schemaElem.getChildren("table");
-                for (int i = 0; i < l.size(); i++) {
-                    final Element elementTable = (Element) l.get(i);
+                for (final Element elementTable : schemaElem.getChildren("table")) {
                     final String tableName = elementTable.getAttributeValue("name");
                     if (tablesToRefresh.isIncluded(tableName)) {
                         if (isVersionBad(SQLSchema.getVersion(elementTable), schemaDBVersion).length() == 0)
@@ -153,6 +159,7 @@ public class XMLStructureSource extends StructureSource<IOException> {
                 }
             }
         }
+
         if (problems.length() > 0)
             SQLBase.logCacheError(this.dir, new IllegalStateException("invalid files : " + problems));
         if (outOfDateTables.size() > 0)

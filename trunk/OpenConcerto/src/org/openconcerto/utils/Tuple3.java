@@ -27,13 +27,14 @@ import java.util.List;
  */
 public class Tuple3<A, B, C> extends Tuple2<A, B> {
 
-    public static final class List3<A> extends Tuple3<A, A, A> {
+    public static class List3<A> extends Tuple3<A, A, A> {
         public List3(A a1, A a2, A a3) {
             super(a1, a2, a3);
         }
 
         @SuppressWarnings("unchecked")
-        public List<A> asList() {
+        @Override
+        public final List<A> asList() {
             return Arrays.asList(get0(), get1(), get2());
         }
     }

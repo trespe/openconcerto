@@ -14,7 +14,6 @@
  package org.openconcerto.openoffice;
 
 import static java.util.Collections.singleton;
-import org.openconcerto.openoffice.ODPackage.RootElement;
 import org.openconcerto.openoffice.spreadsheet.CellStyle;
 import org.openconcerto.openoffice.spreadsheet.ColumnStyle;
 import org.openconcerto.openoffice.spreadsheet.RowStyle;
@@ -23,7 +22,6 @@ import org.openconcerto.openoffice.style.PageLayoutStyle;
 import org.openconcerto.openoffice.style.data.DataStyle;
 import org.openconcerto.openoffice.text.ParagraphStyle;
 import org.openconcerto.openoffice.text.TextStyle;
-import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.SetMap;
 import org.openconcerto.utils.Tuple2;
 import org.openconcerto.xml.JDOMUtils;
@@ -65,18 +63,18 @@ public class Style extends ODNode {
     // need a CollectionMap e.g. [ "style:style", "style:data-style-name" ] ->
     // DataStyle.DATA_STYLES_DESCS
     @GuardedBy("class2Desc")
-    private static final Map<XMLVersion, CollectionMap<Tuple2<String, String>, StyleDesc<?>>> attribute2Desc;
+    private static final Map<XMLVersion, SetMap<Tuple2<String, String>, StyleDesc<?>>> attribute2Desc;
     static {
         final int versionsCount = XMLVersion.values().length;
         family2Desc = new HashMap<XMLVersion, Map<String, StyleDesc<?>>>(versionsCount);
         elemName2Desc = new HashMap<XMLVersion, Map<String, StyleDesc<?>>>(versionsCount);
         class2Desc = new HashMap<XMLVersion, Map<Class<? extends Style>, StyleDesc<?>>>(versionsCount);
-        attribute2Desc = new HashMap<XMLVersion, CollectionMap<Tuple2<String, String>, StyleDesc<?>>>(versionsCount);
+        attribute2Desc = new HashMap<XMLVersion, SetMap<Tuple2<String, String>, StyleDesc<?>>>(versionsCount);
         for (final XMLVersion v : XMLVersion.values()) {
             family2Desc.put(v, new HashMap<String, StyleDesc<?>>());
             elemName2Desc.put(v, new HashMap<String, StyleDesc<?>>());
             class2Desc.put(v, new HashMap<Class<? extends Style>, StyleDesc<?>>());
-            attribute2Desc.put(v, new CollectionMap<Tuple2<String, String>, StyleDesc<?>>(128));
+            attribute2Desc.put(v, new SetMap<Tuple2<String, String>, StyleDesc<?>>(128));
         }
     }
 
@@ -176,9 +174,9 @@ public class Style extends ODNode {
      * @param version the version.
      * @return the mapping from attribute to description.
      */
-    private static CollectionMap<Tuple2<String, String>, StyleDesc<?>> getAttr2Desc(final XMLVersion version) {
+    private static SetMap<Tuple2<String, String>, StyleDesc<?>> getAttr2Desc(final XMLVersion version) {
         synchronized (class2Desc) {
-            final CollectionMap<Tuple2<String, String>, StyleDesc<?>> map = attribute2Desc.get(version);
+            final SetMap<Tuple2<String, String>, StyleDesc<?>> map = attribute2Desc.get(version);
             if (map.isEmpty()) {
                 for (final StyleDesc<?> desc : getDesc(version)) {
                     fillMap(map, desc, desc.getRefElementsMap());
@@ -190,11 +188,13 @@ public class Style extends ODNode {
         }
     }
 
-    private static void fillMap(final CollectionMap<Tuple2<String, String>, StyleDesc<?>> map, final StyleDesc<?> desc, final SetMap<String, String> elemsByAttrs) {
+    private static void fillMap(final SetMap<Tuple2<String, String>, StyleDesc<?>> map, final StyleDesc<?> desc, final SetMap<String, String> elemsByAttrs) {
         for (final Entry<String, Set<String>> e : elemsByAttrs.entrySet()) {
             for (final String elementName : e.getValue()) {
                 final Tuple2<String, String> key = Tuple2.create(elementName, e.getKey());
-                map.put(key, desc);
+                final boolean added = map.add(key, desc);
+                if (!added)
+                    throw new IllegalArgumentException("Already added " + desc + " for " + key);
             }
         }
     }
@@ -249,25 +249,59 @@ public class Style extends ODNode {
      *         <code><style:page-layout style:name="pm1"></code>.
      */
     public static Element getReferencedStyleElement(final ODPackage pkg, final Attribute styleAttr) {
-        final Style res = getReferencedStyle(pkg, styleAttr);
-        if (res != null)
-            return res.getElement();
-        else
-            return null;
+        return (Element) getReferencedStyle(pkg, null, styleAttr, ResolveMode.RESOLVE_ELEMENT);
     }
 
     public static Style getReferencedStyle(final ODPackage pkg, final Attribute styleAttr) {
+        return (Style) getReferencedStyle(pkg, null, styleAttr, ResolveMode.RESOLVE_STYLE);
+    }
+
+    /**
+     * Resolve the style referenced by the passed attribute. The attribute is not necessarily in the
+     * passed package, i.e. this method can be used to test whether the referenced style is defined
+     * in a package (e.g. before actually adding the attribute).
+     * 
+     * @param pkg the package where <code>styleAttr</code> should be resolved.
+     * @param styleAttrDoc the document from where to resolve <code>styleAttr</code>, can be
+     *        <code>null</code> if <code>styleAttr</code> has a document. The document must be in
+     *        <code>pkg</code>.
+     * @param styleAttr any attribute, e.g. <code>style:page-layout-name="pm1"</code> of a
+     *        style:master-page.
+     * @return <code>null</code> if <code>styleAttr</code> is <code>null</code> of if it isn't a
+     *         style attribute, {@link ReferenceStatus#RESOLVED} if <code>pkg</code> contains the
+     *         referenced style, {@link ReferenceStatus#NOT_RESOLVED} otherwise.
+     */
+    public static ResolveResult resolveReference(final ODPackage pkg, final Document styleAttrDoc, final Attribute styleAttr) {
+        return (ResolveResult) getReferencedStyle(pkg, styleAttrDoc, styleAttr, ResolveMode.RESOLVE_REFERENCE);
+    }
+
+    public static enum ResolveResult {
+        RESOLVED, NOT_RESOLVED
+    }
+
+    private static enum ResolveMode {
+        RESOLVE_REFERENCE, RESOLVE_ELEMENT, RESOLVE_STYLE
+    }
+
+    private static Object getReferencedStyle(final ODPackage pkg, Document styleAttrDoc, final Attribute styleAttr, final ResolveMode mode) {
         if (styleAttr == null)
             return null;
-        assert styleAttr.getDocument() == pkg.getDocument(RootElement.CONTENT.getZipEntry()) || styleAttr.getDocument() == pkg.getDocument(RootElement.STYLES.getZipEntry()) : "attribute not defined in either the content or the styles of "
-                + pkg;
-        final Collection<StyleDesc<?>> descs = getAttr2Desc(pkg.getVersion()).getNonNull(Tuple2.create(styleAttr.getParent().getQualifiedName(), styleAttr.getQualifiedName()));
+        final Collection<StyleDesc<?>> descs = getAttr2Desc(pkg.getVersion()).get(Tuple2.create(styleAttr.getParent().getQualifiedName(), styleAttr.getQualifiedName()));
+        if (descs == null)
+            return null;
+        if (styleAttrDoc == null)
+            styleAttrDoc = styleAttr.getDocument();
         for (final StyleDesc<?> desc : descs) {
-            final Element res = pkg.getStyle(styleAttr.getDocument(), desc, styleAttr.getValue());
+            final Element res = pkg.getStyle(styleAttrDoc, desc, styleAttr.getValue());
             if (res != null)
-                return desc.create(pkg, res);
+                if (mode == ResolveMode.RESOLVE_STYLE)
+                    return desc.create(pkg, res);
+                else if (mode == ResolveMode.RESOLVE_ELEMENT)
+                    return res;
+                else
+                    return ResolveResult.RESOLVED;
         }
-        return null;
+        return mode == ResolveMode.RESOLVE_REFERENCE ? ResolveResult.NOT_RESOLVED : null;
     }
 
     public static <S extends Style> StyleDesc<S> getStyleDesc(Class<S> clazz, final XMLVersion version) {
