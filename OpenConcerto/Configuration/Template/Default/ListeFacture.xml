@@ -1,38 +1,35 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?> 
-
-<contentDocument>	
-	
-	<table firstLine="6" endLine="34" endPageLine="34" lastColumn="P" base="Societe" table="SAISIE_VENTE_FACTURE">
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<contentDocument>
+	<table firstLine="6" endLine="34" endPageLine="34" lastColumn="P" table="SAISIE_VENTE_FACTURE">
 		<element location="A" type="fill">
-			<field base="Societe" name="DATE"/>
+			<field name="DATE" />
 		</element>
 		<element location="B" type="fill">
-			<field base="Societe" name="NUMERO"/>
-		</element>					
+			<field name="NUMERO" />
+		</element>
 		<element location="D" type="fill">
-			<field base="Societe" name="NUMERO_AFFAIRE"/>
+			<field name="NUMERO_AFFAIRE" />
 		</element>
 		<element location="G" type="fill">
-			<field base="Societe" name="MONTANT_TTC"/>
+			<field name="MONTANT_TTC" />
 		</element>
 		<element location="H" type="fill">
-			<field base="Societe" name="MONTANT_HT"/>
+			<field name="MONTANT_HT" />
 		</element>
 		<element location="K" type="fill">
-			<field base="Societe" name="CLIENT"/>
+			<field name="CLIENT" />
 		</element>
 		<element location="L" type="fill">
-			<field base="Societe" name="NOM_AFFAIRE"/>
+			<field name="NOM_AFFAIRE" />
 		</element>
 		<element location="M" type="fill">
-			<field base="Societe" name="DATE_ECHEANCE"/>
+			<field name="DATE_ECHEANCE" />
 		</element>
 		<element location="N" type="fill">
-			<field base="Societe" name="TYPE_REGLEMENT"/>
+			<field name="TYPE_REGLEMENT" />
 		</element>
 		<element location="P" type="fill">
-			<field base="Societe" name="INFOS"/>
+			<field name="INFOS" />
 		</element>
 	</table>
-	
 </contentDocument>

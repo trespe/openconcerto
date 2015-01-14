@@ -1,7 +1,6 @@
-﻿<?xml version="1.0" encoding="UTF-8" ?> 
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<contentDocument>
 
-<contentDocument>	
-	
 	<element location="H1" type="Value" ValueName="DATE_DEPOT">
 	</element>
 
@@ -11,30 +10,29 @@
 	<element location="K56" type="Value" ValueName="TOTAL">
 	</element>
 
-	<table firstLine="4" endLine="42" endPageLine="47" lastColumn="L" base="Societe" table="CHEQUE_A_ENCAISSER">
+	<table firstLine="4" endLine="42" endPageLine="47" lastColumn="L" table="CHEQUE_A_ENCAISSER">
 		<element location="A" type="fill">
-			<field base="Societe" name="BANQUE"/>
+			<field name="BANQUE" />
 		</element>
 
 		<element location="B" type="fill">
-			<field base="Societe" name="DATE"/>
+			<field name="DATE" />
 		</element>
 
 		<element location="C" type="fill">
-			<field base="Societe" name="NUMERO"/>
-		</element>		
+			<field name="NUMERO" />
+		</element>
 
 		<element location="E" type="fill">
-			<field base="Societe" name="NOM_CLIENT"/>
+			<field name="NOM_CLIENT" />
 		</element>
 
 		<element location="J" type="fill">
-			<field base="Societe" name="SOURCE"/>
+			<field name="SOURCE" />
 		</element>
 
 		<element location="K" type="fill">
-			<field base="Societe" name="MONTANT"/>
+			<field name="MONTANT" />
 		</element>
 	</table>
-	
 </contentDocument>
