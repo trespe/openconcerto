@@ -28,7 +28,7 @@ public class LeadSQLComponent extends GroupSQLComponent {
     }
 
     @Override
-    public JComponent getEditor(String id) {
+    public JComponent createEditor(String id) {
         if (id.equals("INFORMATION")) {
             final JTextArea jTextArea = new JTextArea();
             jTextArea.setFont(new JLabel().getFont());
@@ -38,6 +38,6 @@ public class LeadSQLComponent extends GroupSQLComponent {
         } else if (id.equals("DATE")) {
             return new JDate(true);
         }
-        return super.getEditor(id);
+        return super.createEditor(id);
     }
 }
