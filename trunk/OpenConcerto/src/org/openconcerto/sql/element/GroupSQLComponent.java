@@ -98,7 +98,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
             return;
         }
 
-        if (size.isSeparated()) {
+        if (size.isSeparated() || size.isSplit()) {
             x = 0;
             c.gridx = 0;
             c.gridy++;
@@ -151,7 +151,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
                 c.weightx = 0;
                 c.weighty = 0;
                 // Label
-                if (size.isSeparated()) {
+                if (size.isSplit()) {
                     c.gridwidth = 4;
                     c.weightx = 1;
                     c.fill = GridBagConstraints.NONE;
@@ -159,7 +159,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
                     c.fill = GridBagConstraints.HORIZONTAL;
                 }
                 panel.add(getLabel(id), c);
-                if (size.isSeparated()) {
+                if (size.isSplit()) {
                     c.gridy++;
                     c.gridx = 0;
                 } else {
@@ -185,13 +185,13 @@ public class GroupSQLComponent extends BaseSQLComponent {
                 c.weighty = 0;
             }
             if (size.largeWidth()) {
-                if (size.isSeparated()) {
+                if (size.isSplit()) {
                     c.gridwidth = this.columns * 2;
                 } else {
                     c.gridwidth = this.columns * 2 - 1;
                 }
             } else {
-                if (size.showLabel() && !size.isSeparated()) {
+                if (size.showLabel() && !size.isSplit()) {
                     c.gridwidth = 1;
                 } else {
                     c.gridwidth = 2;
@@ -215,7 +215,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
             }
 
             if (size.largeWidth()) {
-                if (size.isSeparated()) {
+                if (size.isSplit()) {
                     c.gridx += 4;
                 } else {
                     c.gridx += 3;
@@ -224,7 +224,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
                 c.gridx++;
             }
 
-            if (c.gridx >= this.columns * 2) {
+            if (c.gridx >= this.columns * 2 || size.isSeparated()) {
                 c.gridx = 0;
                 c.gridy++;
                 x = 0;
@@ -365,7 +365,6 @@ public class GroupSQLComponent extends BaseSQLComponent {
     protected JComponent createLabel(final String id) {
         final JLabel jLabel = new JLabel();
         jLabel.setHorizontalAlignment(SwingConstants.RIGHT);
-        registerPopupMenu(jLabel, id);
         return jLabel;
     }
 
@@ -379,8 +378,8 @@ public class GroupSQLComponent extends BaseSQLComponent {
                     final JPopupMenu popMenu = new JPopupMenu();
                     final JMenu menuItemInfo = new JMenu("Information");
                     menuItemInfo.add(new JMenuItem("id: " + id));
-                    menuItemInfo.add(new JMenuItem("label: " + getLabel(id).getClass().getName()));
-                    menuItemInfo.add(new JMenuItem("editor: " + getEditor(id).getClass().getName()));
+                    menuItemInfo.add(new JMenuItem("label: " + getLabel(id).getClass().getName() + ":" + getLabel(id)));
+                    menuItemInfo.add(new JMenuItem("editor: " + getEditor(id).getClass().getName() + ":" + getEditor(id)));
                     popMenu.add(menuItemInfo);
                     final JMenuItem menuItemDoc = new JMenuItem("Modifier la documentation");
                     menuItemDoc.addActionListener(new ActionListener() {
@@ -413,7 +412,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
         if (label == null) {
             label = createLabel(id);
             this.labels.put(id, label);
-
+            registerPopupMenu(label, id);
             final RowItemDesc rivDesc = getRIVDescForId(id);
             updateUI(id, rivDesc);
         }

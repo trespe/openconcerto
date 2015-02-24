@@ -13,11 +13,18 @@
  
  package org.openconcerto.erp.core.supplychain.stock.element;
 
+import org.openconcerto.erp.preferences.DefaultNXProps;
+import org.openconcerto.sql.model.SQLInjector;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.request.UpdateBuilder;
+import org.openconcerto.ui.preferences.DefaultProps;
+import org.openconcerto.utils.ListMap;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -82,6 +89,37 @@ public class StockItem {
         this.virtualQty = virtual;
     }
 
+    public void fillCommandeFournisseur(ListMap<SQLRow, SQLRowValues> cmd) {
+
+        DefaultProps props = DefaultNXProps.getInstance();
+        String stockMin = props.getStringProperty("ArticleStockMin");
+        Boolean bStockMin = !stockMin.equalsIgnoreCase("false");
+        boolean gestionStockMin = (bStockMin == null || bStockMin.booleanValue());
+        if (article.getTable().getFieldsName().contains("QTE_MIN") && gestionStockMin && article.getObject("QTE_MIN") != null && getRealQty() < article.getInt("QTE_MIN")) {
+            // final float qteShow = qteNvlle;
+            SQLInjector inj = SQLInjector.getInjector(article.getTable(), article.getTable().getTable("COMMANDE_ELEMENT"));
+            final SQLRow asRow = article.asRow();
+            SQLRowValues rowValsElt = new SQLRowValues(inj.createRowValuesFrom(asRow));
+            rowValsElt.put("ID_STYLE", 2);
+            final SQLRowAccessor unite = article.getForeign("ID_UNITE_VENTE");
+            final double qteElt = article.getInt("QTE_MIN") - getRealQty();
+            if (unite.isUndefined() || unite.getBoolean("A_LA_PIECE")) {
+                rowValsElt.put("QTE", Math.round(qteElt));
+                rowValsElt.put("QTE_UNITAIRE", BigDecimal.ONE);
+            } else {
+                rowValsElt.put("QTE", 1);
+                rowValsElt.put("QTE_UNITAIRE", new BigDecimal(qteElt));
+            }
+            rowValsElt.put("ID_TAXE", rowValsElt.getObject("ID_TAXE"));
+            rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * qteElt);
+            rowValsElt.put("T_PA_HT", rowValsElt.getLong("PA_HT") * qteElt);
+            rowValsElt.put("T_PA_TTC", rowValsElt.getLong("T_PA_HT") * (rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0));
+
+            cmd.add(asRow.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
+        }
+
+    }
+
     /**
      * Mise à jour des quantités de stocks. Stock Reel : inc/dec QTE_REEL, inc/dec
      * QTE_LIV_ATTENTE/inc/dec QTE_RECEPT_ATTENTE Stock Th : inc/dec QTE_TH, inc/dec
@@ -119,6 +157,7 @@ public class StockItem {
             this.realQty = qteNvlle;
 
         } else {
+            // THEORIQUE
             final double qteNvlle;
             final double qteOrigin = this.virtualQty;
             if (archive) {
@@ -163,6 +202,13 @@ public class StockItem {
 
     public boolean isStockInit() {
         return !this.article.isForeignEmpty("ID_STOCK");
+    }
+
+    public void clearStockValues() {
+        this.realQty = 0;
+        this.deliverQty = 0;
+        this.receiptQty = 0;
+        this.virtualQty = 0;
     }
 
     public String getUpdateRequest() {

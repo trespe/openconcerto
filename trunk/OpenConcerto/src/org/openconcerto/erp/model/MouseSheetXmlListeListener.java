@@ -367,19 +367,36 @@ public class MouseSheetXmlListeListener {
         if (this.generateIsVisible) {
             l.add(new RowAction(new AbstractAction() {
                 public void actionPerformed(ActionEvent ev) {
-                    createDocument(ev);
+                    List<SQLRowAccessor> l = IListe.get(ev).getSelectedRows();
+
+                    if (l.size() == 1) {
+                        createDocument(ev);
+                    } else {
+                        createDocuments(l);
+                    }
                 }
             }, this.generateHeader, "document.create") {
 
                 @Override
                 public boolean enabledFor(List<SQLRowAccessor> selection) {
-                    return selection != null && selection.size() == 1;
+                    return selection != null && selection.size() > 0;
                 }
 
             });
         }
 
         return l;
+    }
+
+    private void createDocuments(List<SQLRowAccessor> selection) {
+        int a = JOptionPane.showConfirmDialog(null, "Voulez vous recréer l'ensemble des documents sélectionnés?", "Génération de documents", JOptionPane.YES_NO_OPTION);
+        if (a == JOptionPane.YES_OPTION) {
+            for (SQLRowAccessor sqlRowAccessor : selection) {
+                final AbstractSheetXml sheet = createAbstractSheet(sqlRowAccessor.getTable().getRow(sqlRowAccessor.getID()));
+                sheet.createDocumentAsynchronous();
+                sheet.showPrintAndExportAsynchronous(false, false, true);
+            }
+        }
     }
 
     private void createDocument(ActionEvent ev) {

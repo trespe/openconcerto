@@ -20,6 +20,7 @@ import org.openconcerto.erp.core.supplychain.receipt.component.BonReceptionSQLCo
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.element.TreesOfSQLRows;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
@@ -35,7 +36,6 @@ import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
-
 
 public class BonReceptionSQLElement extends ComptaSQLConfElement {
 
@@ -96,23 +96,26 @@ public class BonReceptionSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
-        super.archive(row, cutLinks);
+    protected void archive(TreesOfSQLRows trees, boolean cutLinks) throws SQLException {
 
-        // Mise à jour des stocks
-        SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-        SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
-        sel.addSelect(eltMvtStock.getTable().getField("ID"));
-        Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
-        Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
-        sel.setWhere(w.and(w2));
+        for (SQLRow row : trees.getRows()) {
 
-        List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
-        if (l != null) {
-            for (int i = 0; i < l.size(); i++) {
-                Object[] tmp = (Object[]) l.get(i);
-                eltMvtStock.archive(((Number) tmp[0]).intValue());
+            // Mise à jour des stocks
+            SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+            SQLSelect sel = new SQLSelect(eltMvtStock.getTable().getBase());
+            sel.addSelect(eltMvtStock.getTable().getField("ID"));
+            Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+            Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+            sel.setWhere(w.and(w2));
+
+            List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+            if (l != null) {
+                for (int i = 0; i < l.size(); i++) {
+                    Object[] tmp = (Object[]) l.get(i);
+                    eltMvtStock.archive(((Number) tmp[0]).intValue());
+                }
             }
         }
+        super.archive(trees, cutLinks);
     }
 }

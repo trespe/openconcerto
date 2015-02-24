@@ -428,12 +428,8 @@ public class ExceptionHandler extends RuntimeException {
                 al.actionPerformed(null);
             }
         });
-        try {
-            f.setVisible(true);
-        } catch (Exception e) {
-            // Catch to avoid infinite loop
-            e.printStackTrace();
-        }
+
+        f.setVisible(true);
     }
 
     private String getTrace() {

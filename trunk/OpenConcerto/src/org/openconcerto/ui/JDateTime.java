@@ -22,6 +22,7 @@ import java.awt.GridBagLayout;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.text.ParseException;
 import java.util.Date;
 
 import javax.swing.JComponent;
@@ -131,6 +132,11 @@ public final class JDateTime extends JPanel implements ValueWrapper<Date> {
     @Override
     public void rmValueListener(PropertyChangeListener l) {
         this.supp.removePropertyChangeListener("value", l);
+    }
+
+    public void commitEdit() throws ParseException {
+        this.date.commitEdit();
+        this.time.commitEdit();
     }
 
     @Override

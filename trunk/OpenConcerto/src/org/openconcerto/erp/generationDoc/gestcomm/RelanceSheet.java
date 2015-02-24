@@ -78,7 +78,9 @@ public class RelanceSheet extends AbstractJOOReportsSheet {
         final SQLRow clientRowNX = this.rowRelance.getForeignRow("ID_CLIENT");
             rowClient = clientRowNX;
         SQLRow rowAdresse = rowClient.getForeignRow("ID_ADRESSE");
-
+        if (!clientRowNX.isForeignEmpty("ID_ADRESSE_F")) {
+            rowAdresse = clientRowNX.getForeign("ID_ADRESSE_F");
+        }
         // Client compte
         SQLRow rowCompteClient = clientRowNX.getForeignRow("ID_COMPTE_PCE");
         String numero = rowCompteClient.getString("NUMERO");

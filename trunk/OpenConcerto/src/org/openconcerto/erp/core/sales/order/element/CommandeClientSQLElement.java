@@ -20,6 +20,7 @@ import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElem
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.element.TreesOfSQLRows;
 import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
@@ -28,10 +29,10 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ListMap;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -90,24 +91,28 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
-        super.archive(row, cutLinks);
-        // Mise à jour des stocks
-        SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-        SQLSelect sel = new SQLSelect();
-        sel.addSelect(eltMvtStock.getTable().getField("ID"));
-        Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
-        Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
-        sel.setWhere(w.and(w2));
+    protected void archive(TreesOfSQLRows trees, boolean cutLinks) throws SQLException {
 
-        @SuppressWarnings("rawtypes")
-        List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
-        if (l != null) {
-            for (int i = 0; i < l.size(); i++) {
-                Object[] tmp = (Object[]) l.get(i);
-                eltMvtStock.archive(((Number) tmp[0]).intValue());
+        for (SQLRow row : trees.getRows()) {
+
+            // Mise à jour des stocks
+            SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+            SQLSelect sel = new SQLSelect();
+            sel.addSelect(eltMvtStock.getTable().getField("ID"));
+            Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+            Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+            sel.setWhere(w.and(w2));
+
+            @SuppressWarnings("rawtypes")
+            List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+            if (l != null) {
+                for (int i = 0; i < l.size(); i++) {
+                    Object[] tmp = (Object[]) l.get(i);
+                    eltMvtStock.archive(((Number) tmp[0]).intValue());
+                }
             }
         }
+        super.archive(trees, cutLinks);
     }
 
     @Override
@@ -163,9 +168,9 @@ public class CommandeClientSQLElement extends ComptaSQLConfElement {
             rowValsElt.put("ID_STYLE", sqlRow.getObject("ID_STYLE"));
             rowValsElt.put("QTE", sqlRow.getObject("QTE"));
             rowValsElt.put("T_POIDS", rowValsElt.getLong("POIDS") * rowValsElt.getInt("QTE"));
-            rowValsElt.put("T_PA_HT", ((BigDecimal) rowValsElt.getObject("PA_HT")).multiply(new BigDecimal(rowValsElt.getInt("QTE")), MathContext.DECIMAL128));
+            rowValsElt.put("T_PA_HT", ((BigDecimal) rowValsElt.getObject("PA_HT")).multiply(new BigDecimal(rowValsElt.getInt("QTE")), DecimalUtils.HIGH_PRECISION));
             rowValsElt.put("T_PA_TTC",
-                    ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal((rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0)), MathContext.DECIMAL128));
+                    ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal((rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0)), DecimalUtils.HIGH_PRECISION));
 
             map.add(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
 

@@ -391,6 +391,9 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
         }
         this.getRequest().add(v);
 
+        if (v instanceof SQLComponentItem) {
+            ((SQLComponentItem) v).added(this, v);
+        }
         if (v.getComp() instanceof SQLComponentItem) {
             ((SQLComponentItem) v.getComp()).added(this, v);
         }
@@ -495,6 +498,23 @@ public abstract class BaseSQLComponent extends SQLComponent implements Scrollabl
 
     protected final SQLRowItemView getView(Component comp) {
         return this.getRequest().getView(comp);
+    }
+
+    /**
+     * Return each view that has at least one of {@link SQLRowItemView#getFields() its fields} in
+     * the passed set.
+     * 
+     * @param fields the fields to search for.
+     * @return all views that contains <code>fields</code>.
+     */
+    public final List<SQLRowItemView> getViews(final Set<SQLField> fields) {
+        final List<SQLRowItemView> res = new ArrayList<SQLRowItemView>();
+        for (final SQLRowItemView v : this.getRequest().getViews()) {
+            if (!Collections.disjoint(fields, v.getFields())) {
+                res.add(v);
+            }
+        }
+        return res;
     }
 
     protected final SQLForeignRowItemView getForeignView(SQLRowItemView v) {

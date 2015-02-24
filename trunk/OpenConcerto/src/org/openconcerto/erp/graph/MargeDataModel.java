@@ -104,7 +104,7 @@ public class MargeDataModel extends DataModel1D {
                             // true);
                             chart.getLeftAxis().getLabels().get(2).setLabel(total.setScale(0, RoundingMode.HALF_UP).toString() + " €");
 
-                            chart.getLeftAxis().getLabels().get(1).setLabel(total.divide(new BigDecimal(2), MathContext.DECIMAL128).setScale(0, RoundingMode.HALF_UP) + " €");
+                            chart.getLeftAxis().getLabels().get(1).setLabel(total.divide(new BigDecimal(2), DecimalUtils.HIGH_PRECISION).setScale(0, RoundingMode.HALF_UP) + " €");
                             chart.setHigherRange(value);
                         }
                         if (((int) value) != 0) {

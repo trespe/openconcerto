@@ -13,8 +13,9 @@
  
  package org.openconcerto.erp.core.common.ui;
 
+import org.openconcerto.utils.DecimalUtils;
+
 import java.math.BigDecimal;
-import java.math.MathContext;
 
 public class Remise extends Acompte {
 
@@ -25,7 +26,7 @@ public class Remise extends Acompte {
     public BigDecimal getResultFrom(BigDecimal montant) {
 
         if (this.percent != null) {
-            return montant.subtract(montant.multiply(percent.movePointLeft(2), MathContext.DECIMAL128));
+            return montant.subtract(montant.multiply(percent.movePointLeft(2), DecimalUtils.HIGH_PRECISION));
         } else if (this.getMontant() == null) {
             return montant;
         } else {

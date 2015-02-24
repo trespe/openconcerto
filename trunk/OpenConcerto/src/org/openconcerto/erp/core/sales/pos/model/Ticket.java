@@ -24,13 +24,13 @@ import org.openconcerto.erp.preferences.DefaultNXProps;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.Pair;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -273,7 +273,7 @@ public class Ticket {
             final Integer nb = item.getSecond();
             Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
             BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
-            BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(nb), MathContext.DECIMAL128).multiply(tauxTVA, MathContext.DECIMAL128);
+            BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(nb), DecimalUtils.HIGH_PRECISION).multiply(tauxTVA, DecimalUtils.HIGH_PRECISION);
 
             if (article.getCode() != null && !article.getCode().isEmpty()) {
                 // 2 lines
@@ -306,11 +306,9 @@ public class Ticket {
         int totalTTCInCents = calc.getTotalTTC().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
         int totalTVHAInCents = calc.getTotalTVA().movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue();
 
-
         prt.addToBuffer(
                 DefaultTicketPrinter.formatRight(maxWidth - MAX_PRICE_WIDTH, "MONTANT TOTAL TTC (Euros) : ")
-                        + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(totalTTCInCents)),
-                DefaultTicketPrinter.BOLD);
+                        + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(totalTTCInCents)), DefaultTicketPrinter.BOLD);
         prt.addToBuffer(
                 DefaultTicketPrinter.formatRight(maxWidth - MAX_PRICE_WIDTH, "Dont TVA : ") + DefaultTicketPrinter.formatRight(MAX_PRICE_WIDTH, TicketCellRenderer.centsToString(totalTVHAInCents)),
                 DefaultTicketPrinter.NORMAL);

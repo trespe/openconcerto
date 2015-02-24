@@ -13,8 +13,11 @@
  
  package org.openconcerto.sql.sqlobject.itemview;
 
+import org.openconcerto.sql.element.RIVPanel;
+import org.openconcerto.sql.element.SQLComponentItem;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.request.SQLRowItemView;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.cc.IPredicate;
 import org.openconcerto.utils.checks.ChainValidListener;
@@ -34,7 +37,7 @@ import java.beans.PropertyChangeListener;
  * @author Sylvain CUAZ
  * @param <T> type of value
  */
-public abstract class VWRowItemView<T> extends BaseRowItemView {
+public abstract class VWRowItemView<T> extends BaseRowItemView implements SQLComponentItem {
 
     private final ValueWrapper<T> wrapper;
     private EmptyObjHelper helper;
@@ -50,6 +53,15 @@ public abstract class VWRowItemView<T> extends BaseRowItemView {
     @Override
     protected void init() {
         this.helper = this.createHelper();
+    }
+
+    @Override
+    public void added(RIVPanel comp, SQLRowItemView v) {
+        // re-use SQLComponentItem even though the second parameter is useless
+        assert v == this;
+        if (getWrapper() instanceof SQLComponentItem) {
+            ((SQLComponentItem) getWrapper()).added(comp, v);
+        }
     }
 
     private final EmptyObjHelper createHelper() {

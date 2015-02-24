@@ -1490,15 +1490,17 @@ public abstract class SQLElement {
      * 
      * @param row the row to copy, can be <code>null</code>.
      * @param parent the parent the copy will be in, <code>null</code> meaning the same as
-     *        <code>row</code>.
+     *        <code>row</code>. If it's an {@link SQLRowValues} it will be used directly, otherwise
+     *        {@link SQLRowAccessor#getIDNumber()} will be used (i.e. if the copy isn't to be linked
+     *        to its parent, pass a {@link SQLRowAccessor#asRow() row}).
      * @return a copy ready to be inserted, or <code>null</code> if <code>row</code> cannot be
      *         copied.
      */
-    public SQLRowValues createCopy(SQLRowAccessor row, SQLRow parent) {
+    public SQLRowValues createCopy(SQLRowAccessor row, SQLRowAccessor parent) {
         return createCopy(row, false, parent);
     }
 
-    public SQLRowValues createCopy(SQLRowAccessor row, final boolean full, SQLRow parent) {
+    public SQLRowValues createCopy(SQLRowAccessor row, final boolean full, SQLRowAccessor parent) {
         // do NOT copy the undefined
         if (row == null || row.isUndefined())
             return null;
@@ -1522,7 +1524,7 @@ public abstract class SQLElement {
             final SQLTable foreignTable = this.getParentForeignField().getForeignTable();
             if (!parent.getTable().equals(foreignTable))
                 throw new IllegalArgumentException(parent + " is not a parent of " + row);
-            copy.put(this.getParentForeignFieldName(), parent.getID());
+            copy.put(this.getParentForeignFieldName(), parent instanceof SQLRowValues ? parent : parent.getIDNumber());
         }
 
         return copy;
@@ -2010,6 +2012,8 @@ public abstract class SQLElement {
             if (!UserRightsManager.getCurrentUserRights().canDelete(getTable()))
                 throw new SQLException("forbidden");
             final TreesOfSQLRows trees = TreesOfSQLRows.createFromIDs(this, ids);
+            // only display main rows since the user might not be aware of the private ones (the UI
+            // might hide the fact that one panel is in fact multiple rows)
             final Map<SQLTable, List<SQLRowAccessor>> descs = trees.getDescendantsByTable();
             final SortedMap<SQLField, Integer> externRefs = trees.getExternReferencesCount();
             final String confirmDelete = getTM().trA("sqlElement.confirmDelete");

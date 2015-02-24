@@ -43,8 +43,8 @@ public class N4DSSalarie {
     private ComptaPropsConfiguration conf = ((ComptaPropsConfiguration) Configuration.getInstance());
     private N4DS n4ds;
 
-    Date d = new Date(113, 0, 1);
-    Date d2 = new Date(113, 11, 31);
+    Date d = new Date(114, 0, 1);
+    Date d2 = new Date(114, 11, 31);
 
     DecimalFormat decimalFormat = new DecimalFormat("0.00");
 
@@ -222,7 +222,9 @@ public class N4DSSalarie {
         n4ds.write("S40.G01.00.004.001", "098");
 
         // Nic de l'établissment du d'affectation du salarié
-        String nic = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
+        final String siret = rowSociete.getString("NUM_SIRET").replaceAll(" ", "");
+        String siren = StringUtils.limitLength(siret, 9);
+        String nic = siret.substring(siren.length(), siret.length());
         n4ds.write("S40.G01.00.005", nic);
 
         /**
@@ -384,19 +386,24 @@ public class N4DSSalarie {
         n4ds.write("S40.G30.04.002", decimalFormat.format(getCSG(rowSalarie)));
 
         // final double baseBrute = getBaseBrute(rowSalarie);
-        if ((baseBrute) < (2.5 * 9.43 * 12 * 151.6667)) {
+        final double smicMensuel = 9.53;
+        if ((baseBrute) < (2.5 * smicMensuel * 12 * 151.6667)) {
 
-            n4ds.write("S40.G30.40.001", String.valueOf("17162.64"));
+            n4ds.write("S40.G30.40.001", String.valueOf("17344.60"));
             n4ds.write("S40.G30.40.002", decimalFormat.format(baseBrute));
         }
-        if ((baseBrute / 12.0 / 151.6667) < (1.6 * 9.43)) {
-            double COEFF_FILLON = (0.281 / 0.6) * ((1.6 * 9.43 * 12 * 151.6667 / (rowSalarie.getForeign("ID_INFOS_SALARIE_PAYE").getFloat("SALAIRE_MOIS") * 12.0)) - 1.0);
+        if ((baseBrute / 12.0 / 151.6667) < (1.6 * smicMensuel)) {
+            double COEFF_FILLON = (0.281 / 0.6) * ((1.6 * smicMensuel * 12 * 151.6667 / (rowSalarie.getForeign("ID_INFOS_SALARIE_PAYE").getFloat("SALAIRE_MOIS") * 12.0)) - 1.0);
             n4ds.write("S40.G30.40.003", decimalFormat.format(baseBrute * COEFF_FILLON));
         } else {
             n4ds.write("S40.G30.40.003", String.valueOf("0.00"));
         }
 
         n4ds.write("S40.G30.40.004", String.valueOf("0.00"));
+        if ((baseBrute) < (2.5 * smicMensuel * 12 * 151.6667)) {
+            n4ds.write("S40.G30.40.005", String.valueOf("17344.60"));
+            n4ds.write("S40.G30.40.006", decimalFormat.format(baseBrute));
+        }
 
         // FIXME base brute fiscale
         n4ds.write("S40.G40.00.035.001", decimalFormat.format(baseBrute));

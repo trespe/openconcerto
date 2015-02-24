@@ -42,9 +42,9 @@ import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.sql.view.list.ValidStateChecker;
 import org.openconcerto.ui.table.XTableColumnModel;
+import org.openconcerto.utils.DecimalUtils;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -280,7 +280,7 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
                     if (o2 != null && o3 != null) {
                         BigDecimal poids = (BigDecimal) o2;
                         int nb = (Integer) o3;
-                        return poids.multiply(new BigDecimal(nb), MathContext.DECIMAL128).setScale(totalPoidsColis.getDecimalDigits(), RoundingMode.HALF_UP);
+                        return poids.multiply(new BigDecimal(nb), DecimalUtils.HIGH_PRECISION).setScale(totalPoidsColis.getDecimalDigits(), RoundingMode.HALF_UP);
                     } else {
                         return row.getObject("T_POIDS_COLIS_NET");
                     }
@@ -420,7 +420,7 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
                 BigDecimal f = (BigDecimal) row.getObject("PV_HT");
                 System.out.println("Qte:" + qte + " et PV_HT:" + f);
                 BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
-                BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), MathContext.DECIMAL128).setScale(totalHT.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
+                BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), DecimalUtils.HIGH_PRECISION).setScale(totalHT.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
                 return r;
             }
 
@@ -443,7 +443,7 @@ public class BonDeLivraisonItemTable extends AbstractVenteArticleItemTable {
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
                 // Long r = new Long(pHT.calculLongTTC(taux / 100f));
                 editorPVHT.setTaxe(taux);
-                BigDecimal r = f.multiply(BigDecimal.ONE.add(BigDecimal.valueOf(taux).movePointLeft(2)), MathContext.DECIMAL128).setScale(6, BigDecimal.ROUND_HALF_UP);
+                BigDecimal r = f.multiply(BigDecimal.ONE.add(BigDecimal.valueOf(taux).movePointLeft(2)), DecimalUtils.HIGH_PRECISION).setScale(6, BigDecimal.ROUND_HALF_UP);
 
                 return r.setScale(tableElementTotalTTC.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
             }

@@ -23,7 +23,6 @@ import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLBackgroundTableCacheItem;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
@@ -161,14 +160,6 @@ public class ComptePCESQLElement extends ComptaSQLConfElement {
                 this.addRequiredSQLObject(textNom, "NOM");
                 this.addSQLObject(textInfos, "INFOS");
                 this.addSQLObject(checkRacine, "RACINE");
-            }
-
-            @Override
-            public void select(SQLRowAccessor r) {
-                super.select(r);
-                if (r != null) {
-                    this.textNumero.setIdSelected(r.getID());
-                }
             }
 
             @Override

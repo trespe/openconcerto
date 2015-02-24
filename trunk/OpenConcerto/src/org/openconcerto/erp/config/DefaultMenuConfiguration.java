@@ -72,7 +72,11 @@ import org.openconcerto.erp.core.humanresources.payroll.action.NouvelAcompteActi
 import org.openconcerto.erp.core.humanresources.payroll.action.NouvelHistoriqueFichePayeAction;
 import org.openconcerto.erp.core.humanresources.payroll.action.NouvelleSaisieKmAction;
 import org.openconcerto.erp.core.reports.stat.action.EvolutionCAAction;
+import org.openconcerto.erp.core.reports.stat.action.EvolutionCACumulAction;
+import org.openconcerto.erp.core.reports.stat.action.EvolutionCmdAction;
+import org.openconcerto.erp.core.reports.stat.action.EvolutionCmdCumulAction;
 import org.openconcerto.erp.core.reports.stat.action.EvolutionMargeAction;
+import org.openconcerto.erp.core.reports.stat.action.VenteArticleFamilleGraphAction;
 import org.openconcerto.erp.core.reports.stat.action.VenteArticleGraphAction;
 import org.openconcerto.erp.core.reports.stat.action.VenteArticleMargeGraphAction;
 import org.openconcerto.erp.core.sales.credit.action.ListeDesAvoirsClientsAction;
@@ -178,7 +182,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
 
     }
 
-    void registerMenuActions(final MenuAndActions ma) {
+    public void registerMenuActions(final MenuAndActions ma) {
         registerFilesMenuActions(ma);
         registerCreationMenuActions(ma);
         registerListMenuActions(ma);
@@ -308,7 +312,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
         return group;
     }
 
-    private Group createPaymentMenuGroup() {
+    public Group createPaymentMenuGroup() {
         final Group group = new Group(MainFrame.PAYMENT_MENU);
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
 
@@ -340,22 +344,26 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
         return group;
     }
 
-    private Group createStatsMenuGroup() {
+    public Group createStatsMenuGroup() {
         final Group group = new Group(MainFrame.STATS_MENU);
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
 
         group.addItem("sales.graph");
+        group.addItem("sales.graph.cumulate");
+        group.addItem("sales.graph.cmd");
+        group.addItem("sales.graph.cmd.cumulate");
 
             group.addItem("sales.margin.graph");
 
         group.addItem("sales.list.report");
             group.addItem("sales.product.graph");
             group.addItem("sales.product.margin.graph");
+            group.addItem("sales.product.family.graph");
         group.addItem("sales.list.graph");
         return group;
     }
 
-    private Group createStatsDocumentsGroup() {
+    public Group createStatsDocumentsGroup() {
         final Group group = new Group(MainFrame.DECLARATION_MENU);
         // group.addItem("accounting.vat.report");
         group.addItem("accounting.costs.report");
@@ -364,7 +372,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
         return group;
     }
 
-    private Group createAccountingMenuGroup() {
+    public Group createAccountingMenuGroup() {
         final Group group = new Group(MainFrame.STATE_MENU);
         group.addItem("accounting.balance");
         group.addItem("accounting.client.balance");
@@ -548,7 +556,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
 
     }
 
-    private void registerAccountingMenuActions(final MenuAndActions mManager) {
+    public void registerAccountingMenuActions(final MenuAndActions mManager) {
         mManager.registerAction("accounting.balance", new EtatBalanceAction());
         mManager.registerAction("accounting.client.balance", new BalanceAgeeAction());
         mManager.registerAction("accounting.analytical.ledger", new ImpressionJournauxAnalytiqueAction());
@@ -561,28 +569,33 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
         mManager.registerAction("accounting.closing", new NouveauClotureAction());
     }
 
-    private void registerStatsDocumentsActions(final MenuAndActions mManager) {
+    public void registerStatsDocumentsActions(final MenuAndActions mManager) {
         // mManager.registerAction("accounting.vat.report", new DeclarationTVAAction());
         mManager.registerAction("accounting.costs.report", new EtatChargeAction());
         mManager.registerAction("accounting.balance.report", new CompteResultatBilanAction());
         mManager.registerAction("employe.social.report", new N4DSAction());
     }
 
-    private void registerStatsMenuActions(final MenuAndActions mManager) {
+    public void registerStatsMenuActions(final MenuAndActions mManager) {
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
 
         mManager.registerAction("sales.graph", new EvolutionCAAction());
+        mManager.registerAction("sales.graph.cumulate", new EvolutionCACumulAction());
+
+        mManager.registerAction("sales.graph.cmd", new EvolutionCmdAction());
+        mManager.registerAction("sales.graph.cmd.cumulate", new EvolutionCmdCumulAction());
 
             mManager.registerAction("sales.margin.graph", new EvolutionMargeAction());
 
         mManager.registerAction("sales.list.report", new GenListeVenteAction());
             mManager.registerAction("sales.product.graph", new VenteArticleGraphAction());
             mManager.registerAction("sales.product.margin.graph", new VenteArticleMargeGraphAction());
+            mManager.registerAction("sales.product.family.graph", new VenteArticleFamilleGraphAction());
         mManager.registerAction("sales.list.graph", new EtatVenteAction());
 
     }
 
-    private void registerPaymentMenuActions(final MenuAndActions mManager) {
+    public void registerPaymentMenuActions(final MenuAndActions mManager) {
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
 
         if (rights.haveRight(ComptaUserRight.MENU) || rights.haveRight(ComptaUserRight.POINTAGE_LETTRAGE)) {
@@ -622,7 +635,7 @@ public class DefaultMenuConfiguration implements MenuConfiguration {
 
     }
 
-    private void registerOrganizationMenuActions(final MenuAndActions mManager) {
+    public void registerOrganizationMenuActions(final MenuAndActions mManager) {
         final UserRights rights = UserManager.getInstance().getCurrentUser().getRights();
         final ComptaPropsConfiguration configuration = ComptaPropsConfiguration.getInstanceCompta();
         if (rights.haveRight(ComptaUserRight.MENU)) {

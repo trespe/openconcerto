@@ -21,7 +21,6 @@ import org.openconcerto.erp.core.common.ui.AbstractVenteArticleItemTable;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
-import org.openconcerto.erp.core.supplychain.order.element.CommandeSQLElement;
 import org.openconcerto.erp.core.supplychain.order.ui.CommandeItemTable;
 import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater;
 import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater.Type;
@@ -91,6 +90,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
     final JCheckBox boxLivrClient = new JCheckBox("Livrer directement le client");
     private DefaultElementSQLObject compAdr;
     final JPanel panelAdrSpec = new JPanel(new GridBagLayout());
+    protected ElementComboBox boxAdr;
 
     public CommandeSQLComponent() {
         super(Configuration.getInstance().getDirectory().getElement("COMMANDE"));
@@ -194,6 +194,19 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
                 c.gridy++;
                 c.weightx = 0;
                 c.fill = GridBagConstraints.HORIZONTAL;
+
+                this.boxAdr = new ElementComboBox();
+                final SQLElement adrElement = getElement().getForeignElement("ID_ADRESSE");
+                boxAdr.init(adrElement);
+                c.gridwidth = 1;
+                final JLabel labelAdrLiv = new JLabel("Adresse de livraison existante");
+                this.add(labelAdrLiv, c);
+                c.gridx++;
+                c.gridwidth = 2;
+                this.add(boxAdr, c);
+
+                c.gridx = 0;
+                c.gridy++;
                 this.add(new JLabel(getLabelFor("ID_ADRESSE")), c);
                 c.gridx++;
                 c.gridwidth = GridBagConstraints.REMAINDER;
@@ -201,35 +214,79 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
                 this.addView("ID_ADRESSE");
                 final DefaultElementSQLObject comp = (DefaultElementSQLObject) this.getView("ID_ADRESSE").getComp();
 
-                if (getTable().getFieldsName().contains("LIVRAISON_F")) {
-                    final JCheckBox boxLivr = new JCheckBox("Livré par le fournisseur");
-                    this.add(boxLivr, c);
-                    this.addSQLObject(boxLivr, "LIVRAISON_F");
-                    boxLivr.addActionListener(new ActionListener() {
+                final JCheckBox boxLivr = new JCheckBox("Livré par le fournisseur");
+                this.add(boxLivr, c);
+                this.addSQLObject(boxLivr, "LIVRAISON_F");
+                boxLivr.addActionListener(new ActionListener() {
 
-                        @Override
-                        public void actionPerformed(ActionEvent e) {
-                            if (boxLivr.isSelected() && !comp.isCreated()) {
-                                comp.setCreated(true);
-                                if (CommandeSQLComponent.this.getTable().contains("ID_AFFAIRE")) {
+                    @Override
+                    public void actionPerformed(ActionEvent e) {
+                        if (boxLivr.isSelected() && !comp.isCreated()) {
+                            comp.setCreated(true);
+                            if (CommandeSQLComponent.this.getTable().contains("ID_AFFAIRE")) {
 
-                                    SQLRowValues rowVals = getLivraisonAdr(((ElementComboBox) CommandeSQLComponent.this.getView("ID_AFFAIRE").getComp()).getSelectedRow());
+                                final SQLRow selectedRow = ((ElementComboBox) CommandeSQLComponent.this.getView("ID_AFFAIRE").getComp()).getSelectedRow();
+                                SQLRowValues rowVals = getLivraisonAdr(selectedRow);
 
-                                    comp.setValue(rowVals);
+                                comp.setValue(rowVals);
+
+                                if (selectedRow != null && !selectedRow.isUndefined()) {
+                                    final SQLRow clientRow = selectedRow.getForeign("ID_CLIENT");
+                                    Where w = new Where(boxAdr.getRequest().getPrimaryTable().getField("ID_CLIENT"), "=", clientRow.getID());
+                                    w = w.or(new Where(boxAdr.getRequest().getPrimaryTable().getKey(), "=", clientRow.getInt("ID_ADRESSE")));
+                                    // w = w.or(new
+                                    // Where(boxAdr.getRequest().getPrimaryTable().getKey(), "=",
+                                    // clientRow.getInt("ID_ADRESSE_F")));
+                                    w = w.or(new Where(boxAdr.getRequest().getPrimaryTable().getKey(), "=", clientRow.getInt("ID_ADRESSE_L")));
+                                    if (clientRow.getTable().contains("ID_ADRESSE_L_2")) {
+                                        w = w.or(new Where(boxAdr.getRequest().getPrimaryTable().getKey(), "=", clientRow.getInt("ID_ADRESSE_L_2")));
+                                    }
+                                    if (clientRow.getTable().contains("ID_ADRESSE_L_3")) {
+                                        w = w.or(new Where(boxAdr.getRequest().getPrimaryTable().getKey(), "=", clientRow.getInt("ID_ADRESSE_L_3")));
+                                    }
+                                    boxAdr.getRequest().setWhere(w);
+                                } else {
+                                    boxAdr.getRequest().setWhere(null);
                                 }
 
-                            } else {
-                                if (!boxLivr.isSelected()) {
-                                    comp.setCreated(false);
-                                }
+                            }
+
+                        } else {
+                            if (!boxLivr.isSelected()) {
+                                comp.setCreated(false);
                             }
                         }
-                    });
-                }
+                    }
+                });
 
                 c.gridy++;
                 this.add(comp, c);
                 this.add(this.getView("ID_ADRESSE").getComp(), c);
+
+                comp.addValueListener(new PropertyChangeListener() {
+
+                    @Override
+                    public void propertyChange(PropertyChangeEvent evt) {
+                        boxAdr.setVisible(comp.isCreated());
+                        labelAdrLiv.setVisible(comp.isCreated());
+                    }
+                });
+
+                boxAdr.addValueListener(new PropertyChangeListener() {
+
+                    @Override
+                    public void propertyChange(PropertyChangeEvent evt) {
+                        final SQLRow selectedRow = boxAdr.getSelectedRow();
+                        if (selectedRow != null && !selectedRow.isUndefined()) {
+                            SQLRowValues rowVals = selectedRow.asRowValues();
+                            rowVals.clearPrimaryKeys();
+                            comp.setValue(rowVals);
+                        }
+                    }
+                });
+                boxAdr.setVisible(false);
+                labelAdrLiv.setVisible(false);
+
             } else {
 
                 c.gridy++;
@@ -438,7 +495,7 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         addRequiredSQLObject(this.numeroUniqueCommande, "NUMERO");
         addSQLObject(this.infos, "INFOS");
 
-        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class));
+        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(getElement().getClass()));
 
         // radioEtat.setValue(EtatDevisSQLElement.EN_ATTENTE);
         // this.numeroUniqueDevis.addLabelWarningMouseListener(new MouseAdapter() {
@@ -668,11 +725,11 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             sheet.showPrintAndExportAsynchronous(this.checkVisu.isSelected(), this.checkImpression.isSelected(), true);
 
             // incrémentation du numéro auto
-            if (NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
+            if (NumerotationAutoSQLElement.getNextNumero(getElement().getClass()).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
                 SQLRowValues rowVals = new SQLRowValues(this.tableNum);
-                int val = this.tableNum.getRow(2).getInt(NumerotationAutoSQLElement.getLabelNumberFor(CommandeSQLElement.class));
+                int val = this.tableNum.getRow(2).getInt(NumerotationAutoSQLElement.getLabelNumberFor(getElement().getClass()));
                 val++;
-                rowVals.put(NumerotationAutoSQLElement.getLabelNumberFor(CommandeSQLElement.class), new Integer(val));
+                rowVals.put(NumerotationAutoSQLElement.getLabelNumberFor(getElement().getClass()), new Integer(val));
 
                 try {
                     rowVals.update(2);
@@ -694,9 +751,6 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
 
     @Override
     public void select(SQLRowAccessor r) {
-        if (r != null) {
-            this.numeroUniqueCommande.setIdSelected(r.getID());
-        }
         if (!getTable().contains("LIVRAISON_F") && r != null && !r.isUndefined()) {
 
             SQLRowAccessor adr = r.getForeign("ID_ADRESSE");
@@ -784,14 +838,14 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
             public String getLabel(SQLRowAccessor rowOrigin, SQLRowAccessor rowElt) {
                 return getLibelleStock(rowOrigin, rowElt);
             }
-        }, row, row.getReferentRows(getTable().getTable("COMMANDE_ELEMENT")), Type.REAL_RECEPT);
+        }, row, row.getReferentRows(getTable().getTable("COMMANDE_ELEMENT")), Type.VIRTUAL_RECEPT);
 
         stockUpdater.update();
     }
 
     public void setDefaults() {
         this.resetValue();
-        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class));
+        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(getElement().getClass()));
         this.table.getModel().clearRows();
     }
 
@@ -821,13 +875,17 @@ public class CommandeSQLComponent extends TransfertBaseSQLComponent {
         rowVals.put("T_DEVISE", Long.valueOf(0));
         rowVals.put("T_TVA", Long.valueOf(0));
         rowVals.put("T_TTC", Long.valueOf(0));
-        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(CommandeSQLElement.class));
+        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(getElement().getClass()));
 
         if (getTable().contains("ID_TAXE_PORT")) {
             rowVals.put("ID_TAXE_PORT", TaxeCache.getCache().getFirstTaxe().getID());
         }
 
         return rowVals;
+    }
+
+    public CommandeItemTable getRowValuesTablePanel() {
+        return this.table;
     }
 
     @Override

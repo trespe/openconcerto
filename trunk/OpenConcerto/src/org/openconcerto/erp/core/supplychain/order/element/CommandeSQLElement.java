@@ -128,25 +128,28 @@ public class CommandeSQLElement extends ComptaSQLConfElement {
     }
 
     @Override
-    protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
-        // TODO Auto-generated method stub
-        super.archive(row, cutLinks);
-        // Mise à jour des stocks
-        SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-        SQLSelect sel = new SQLSelect();
-        sel.addSelect(eltMvtStock.getTable().getField("ID"));
-        Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
-        Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
-        sel.setWhere(w.and(w2));
+    protected void archive(TreesOfSQLRows trees, boolean cutLinks) throws SQLException {
 
-        @SuppressWarnings("rawtypes")
-        List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
-        if (l != null) {
-            for (int i = 0; i < l.size(); i++) {
-                Object[] tmp = (Object[]) l.get(i);
-                eltMvtStock.archive(((Number) tmp[0]).intValue());
+        for (SQLRow row : trees.getRows()) {
+
+            // Mise à jour des stocks
+            SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+            SQLSelect sel = new SQLSelect();
+            sel.addSelect(eltMvtStock.getTable().getField("ID"));
+            Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+            Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+            sel.setWhere(w.and(w2));
+
+            @SuppressWarnings("rawtypes")
+            List l = (List) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+            if (l != null) {
+                for (int i = 0; i < l.size(); i++) {
+                    Object[] tmp = (Object[]) l.get(i);
+                    eltMvtStock.archive(((Number) tmp[0]).intValue());
+                }
             }
         }
+        super.archive(trees, cutLinks);
     }
 
 }

@@ -25,7 +25,6 @@ import org.openconcerto.sql.element.ElementSQLObject;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
-import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
@@ -318,14 +317,6 @@ public class CourrierClientSQLElement extends ComptaSQLConfElement {
                     }
                     return getSelectedID();
                 }
-            }
-
-            @Override
-            public void select(SQLRowAccessor r) {
-                if (r != null) {
-                    this.textNumero.setIdSelected(r.getID());
-                }
-                super.select(r);
             }
 
             @Override

@@ -25,6 +25,7 @@ import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.SwingWorker2;
@@ -36,7 +37,6 @@ import java.awt.GridBagLayout;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
@@ -396,6 +396,7 @@ public class TotalPanel extends JPanel implements TableModelListener {
     }
 
     private static String CLEAR = "";
+    private SwingWorker2<TotalCalculator, Object> worker;
 
     private void clearTextField() {
 
@@ -486,13 +487,14 @@ public class TotalPanel extends JPanel implements TableModelListener {
         }
 
         final Boolean isServiceActive = bServiceActive;
-
-        // Calcul des totaux
-        SwingWorker2<TotalCalculator, Object> worker = new SwingWorker2<TotalCalculator, Object>() {
+        if (worker != null) {
+            worker.cancel(true);
+        }
+        worker = new SwingWorker2<TotalCalculator, Object>() {
 
             @Override
             protected TotalCalculator doInBackground() throws Exception {
-
+                Thread.sleep(100);
                 params.fetchArticle();
 
                 SQLTableElement tableElementTotalDevise = articleTable.getTableElementTotalDevise();
@@ -535,6 +537,10 @@ public class TotalPanel extends JPanel implements TableModelListener {
                 calc.setSelectedRows(selectedRows);
                 calc.setRemise(valRemiseHT, totalHTAvtremise);
 
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException();
+                }
+
 
                 // Total des elements
                 int rowCount = size;
@@ -552,11 +558,17 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
                 // Verification du resultat ht +tva = ttc
                 calc.checkResult();
+                if (Thread.currentThread().isInterrupted()) {
+                    throw new InterruptedException();
+                }
                 return calc;
             }
 
             @Override
             protected void done() {
+                if (isCancelled()) {
+                    return;
+                }
                 TotalCalculator calc;
                 try {
                     calc = get();
@@ -589,9 +601,9 @@ public class TotalPanel extends JPanel implements TableModelListener {
                         if (totalHA.signum() != 0) {
                             d = totalHT.subtract(totalHA);
                             if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false) && totalHT.signum() != 0) {
-                                m = d.divide(totalHT, MathContext.DECIMAL128).movePointRight(2);
+                                m = d.divide(totalHT, DecimalUtils.HIGH_PRECISION).movePointRight(2);
                             } else {
-                                m = d.divide(totalHA, MathContext.DECIMAL128).movePointRight(2);
+                                m = d.divide(totalHA, DecimalUtils.HIGH_PRECISION).movePointRight(2);
                             }
                         }
                         if (d.compareTo(BigDecimal.ZERO) <= 0) {
@@ -611,9 +623,9 @@ public class TotalPanel extends JPanel implements TableModelListener {
                         if (totalHASel.signum() != 0) {
                             e = totalHTSel.subtract(totalHASel);
                             if (DefaultNXProps.getInstance().getBooleanValue(MARGE_MARQUE, false) && totalHTSel.signum() != 0) {
-                                m2 = e.divide(totalHTSel, MathContext.DECIMAL128).movePointRight(2);
+                                m2 = e.divide(totalHTSel, DecimalUtils.HIGH_PRECISION).movePointRight(2);
                             } else {
-                                m2 = e.divide(totalHASel, MathContext.DECIMAL128).movePointRight(2);
+                                m2 = e.divide(totalHASel, DecimalUtils.HIGH_PRECISION).movePointRight(2);
                             }
                         }
                         margeSel.setText("(" + m2.setScale(2, RoundingMode.HALF_UP) + "%) " + GestionDevise.currencyToString(e.setScale(2, RoundingMode.HALF_UP)));

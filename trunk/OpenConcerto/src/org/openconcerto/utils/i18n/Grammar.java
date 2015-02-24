@@ -164,7 +164,7 @@ public abstract class Grammar {
         final String last = l.get(size - 1);
         final VariantKey key = this.getVariantKey(last);
         if (key == null) {
-            Log.get().warning("Unknown key ID " + last + " for " + phrase);
+            Log.get().warning("Unknown key ID '" + last + "' for " + phrase + "\nknown keys : " + getVariantKeys());
             return phrase;
         }
         final String inflection = count == null ? phrase.getVariant(key) : phrase.getNumeralVariant(count.intValue(), key);

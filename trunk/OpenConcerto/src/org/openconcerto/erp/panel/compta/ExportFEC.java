@@ -166,9 +166,9 @@ public class ExportFEC extends AbstractExport {
                 line.add("");
             }
             // Montantdevise
-            addEmptyField(line);
+            addAmountField(line, ((Number) array[8]).longValue() + ((Number) array[9]).longValue());
             // Idevise
-            addEmptyField(line);
+            line.add("EUR");
 
             assert line.size() == fieldsCount;
             for (int i = 0; i < fieldsCount; i++) {

@@ -11,13 +11,9 @@
  * When distributing the software, include this License Header Notice in each file.
  */
  
- /*
- * Créé le 12 déc. 2011
- */
-package org.openconcerto.erp.core.customerrelationship.customer.element;
+ package org.openconcerto.erp.core.customerrelationship.customer.element;
 
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
-import org.openconcerto.erp.core.common.component.AdresseSQLComponent;
 import org.openconcerto.erp.core.common.element.BanqueSQLElement;
 import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
@@ -34,6 +30,7 @@ import org.openconcerto.sql.element.ElementSQLObject;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLBase;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -49,7 +46,6 @@ import org.openconcerto.sql.sqlobject.SQLTextCombo;
 import org.openconcerto.sql.sqlobject.itemview.VWRowItemView;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
-import org.openconcerto.ui.JComponentUtils;
 import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ComboLockedMode;
@@ -67,7 +63,14 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import javax.swing.ButtonGroup;
 import javax.swing.Icon;
@@ -85,29 +88,30 @@ import javax.swing.event.DocumentListener;
 // Client without CTech link (i.e. there's one and only table in the DB)
 public class ClientNormalSQLComponent extends BaseSQLComponent {
 
-    int idDefaultCompteClient = 1;
-    JCheckBox checkAdrLivraison, checkAdrFacturation;
+    private int idDefaultCompteClient = 1;
+    private JCheckBox checkAdrLivraison, checkAdrFacturation;
     private final SQLTable tableNum = getTable().getBase().getTable("NUMEROTATION_AUTO");
     private ElementComboBox boxPays = null;
-    final ElementComboBox boxTarif = new ElementComboBox();
+    private final ElementComboBox boxTarif = new ElementComboBox();
 
     protected boolean showMdr = true;
 
-    ElementSQLObject componentPrincipale, componentLivraison, componentFacturation;
-    AdresseClientItemTable adresseTable = new AdresseClientItemTable();
-    JCheckBox boxGestionAutoCompte;
+    private ElementSQLObject componentPrincipale, componentLivraison, componentFacturation;
+    private AdresseClientItemTable adresseTable = new AdresseClientItemTable();
+    private JCheckBox boxGestionAutoCompte;
+    private Map<SQLField, JCheckBox> mapCheckLivraison = new HashMap<SQLField, JCheckBox>();
 
     private JCheckBox boxAffacturage, boxComptant;
     private DeviseField fieldMontantFactMax;
-    ISQLCompteSelector compteSel;
+    private ISQLCompteSelector compteSel;
     private SQLRowItemView textNom;
     // ITextWithCompletion textNom;
-    final ElementComboBox comboPole = new ElementComboBox();
-    DecimalFormat format = new DecimalFormat("000");
+    private final ElementComboBox comboPole = new ElementComboBox();
+    private final DecimalFormat format = new DecimalFormat("000");
 
-    private SQLTable contactTable = Configuration.getInstance().getDirectory().getElement("CONTACT").getTable();
+    private final SQLTable contactTable = Configuration.getInstance().getDirectory().getElement("CONTACT").getTable();
     private ContactItemTable table;
-    private SQLRowValues defaultContactRowVals = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(this.contactTable));
+    private final SQLRowValues defaultContactRowVals = new SQLRowValues(UndefinedRowValuesCache.getInstance().getDefaultRowValues(this.contactTable));
     private SQLRowItemView eltModeRegl;
     private JUniqueTextField textCode;
     private JLabel labelCpt;
@@ -198,7 +202,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         c.weightx = 0;
         this.add(labelIntraComm, c);
 
-        JTextField textNumIntracomm = new JTextField(20);
+        final JTextField textNumIntracomm = new JTextField(20);
         c.gridx++;
         c.weightx = 0.5;
         DefaultGridBagConstraints.lockMinimumSize(textNumIntracomm);
@@ -220,7 +224,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         // Responsable
         final JLabel responsable = new JLabel(this.getLabelFor("RESPONSABLE"));
         responsable.setHorizontalAlignment(SwingConstants.RIGHT);
-        JTextField textResp = new JTextField();
+        final JTextField textResp = new JTextField();
         c.gridx = 0;
         c.gridy++;
         c.weightx = 0;
@@ -232,14 +236,14 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         DefaultGridBagConstraints.lockMinimumSize(textResp);
         this.add(textResp, c);
 
-        JLabel labelRIB = new JLabel(getLabelFor("RIB"));
+        final JLabel labelRIB = new JLabel(getLabelFor("RIB"));
         labelRIB.setHorizontalAlignment(SwingConstants.RIGHT);
         c.gridx++;
         c.gridwidth = 1;
         c.weightx = 0;
         this.add(labelRIB, c);
 
-        JTextField textRib = new JTextField();
+        final JTextField textRib = new JTextField();
         c.gridx++;
         c.weightx = 0.5;
         DefaultGridBagConstraints.lockMinimumSize(textRib);
@@ -282,7 +286,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         c.weightx = 0;
         this.add(labelMail, c);
 
-        JTextField textMail = new JTextField();
+        final JTextField textMail = new JTextField();
         c.gridx++;
         c.weightx = 0.5;
         DefaultGridBagConstraints.lockMinimumSize(textMail);
@@ -296,7 +300,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         c.weightx = 0;
         this.add(labelPortable, c);
 
-        JTextField textPortable = new JTextField();
+        final JTextField textPortable = new JTextField();
         c.gridx++;
         c.weightx = 0.5;
         DefaultGridBagConstraints.lockMinimumSize(textPortable);
@@ -337,7 +341,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
         final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
-        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
         this.add(addP, c);
 
         c.gridy++;
@@ -350,6 +354,7 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         if (showMdr) {
             tabs.addTab("Mode de règlement", pReglement);
         }
+
         tabs.addTab("Comptabilité", createComptabiliteComponent());
 
         tabs.setMinimumSize(new Dimension(tabs.getPreferredSize().width, tabs.getPreferredSize().height));
@@ -507,29 +512,60 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
         this.addView("ID_ADRESSE_F", DEC + ";" + SEP);
         this.componentFacturation = (ElementSQLObject) this.getView("ID_ADRESSE_F");
         this.componentFacturation.setOpaque(false);
+        this.componentFacturation.setCreatedUIVisible(false);
         panelFacturation.add(this.componentFacturation, cPanelF);
         this.checkAdrFacturation = new JCheckBox("Adresse de facturation identique à la principale");
         this.checkAdrFacturation.setOpaque(false);
         cPanelF.gridy++;
         panelFacturation.add(this.checkAdrFacturation, cPanelF);
             tabbedAdresse.add(getLabelFor("ID_ADRESSE_F"), panelFacturation);
-        // Adr livraison
-        JPanel panelLivraison = new JPanel(new GridBagLayout());
-        panelLivraison.setOpaque(false);
-        GridBagConstraints cPanelL = new GridBagConstraints(0, 0, 1, 1, 1, 0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 1, 2, 1), 0, 0);
+            Set<SQLField> fieldsAdr = getTable().getForeignKeys("ADRESSE");
+            List<SQLField> fieldsAdrOrder = new ArrayList<SQLField>(fieldsAdr);
+            Collections.sort(fieldsAdrOrder, new Comparator<SQLField>() {
+                @Override
+                public int compare(SQLField o1, SQLField o2) {
 
-        this.addView("ID_ADRESSE_L", DEC + ";" + SEP);
-        this.componentLivraison = (ElementSQLObject) this.getView("ID_ADRESSE_L");
-        ((AdresseSQLComponent) this.componentLivraison.getSQLChild()).setDestinataireVisible(true);
-        this.componentLivraison.setOpaque(false);
+                    return o1.getName().compareTo(o2.getName());
+                }
+            });
+            int val = 1;
+            for (SQLField sqlField : fieldsAdrOrder) {
 
-        panelLivraison.add(this.componentLivraison, cPanelL);
+                final String fieldName = sqlField.getName();
+                if (fieldName.startsWith("ID_ADRESSE_L")) {
+                    // Adr livraison
+                    JPanel panelLivraison = new JPanel(new GridBagLayout());
+                    panelLivraison.setOpaque(false);
+                    GridBagConstraints cPanelL = new GridBagConstraints(0, 0, 1, 1, 1, 0, GridBagConstraints.WEST, GridBagConstraints.HORIZONTAL, new Insets(2, 1, 2, 1), 0, 0);
 
-        this.checkAdrLivraison = new JCheckBox("Adresse de livraison identique à l'adresse principale");
-        this.checkAdrLivraison.setOpaque(false);
-        cPanelL.gridy++;
-        panelLivraison.add(this.checkAdrLivraison, cPanelL);
-            tabbedAdresse.add(getLabelFor("ID_ADRESSE_L"), panelLivraison);
+                    this.addView(fieldName, DEC + ";" + SEP);
+                    this.componentLivraison = (ElementSQLObject) this.getView(fieldName);
+                    this.componentLivraison.setOpaque(false);
+                    this.componentLivraison.setCreatedUIVisible(false);
+
+                    panelLivraison.add(this.componentLivraison, cPanelL);
+
+                    checkAdrLivraison = new JCheckBox("Adresse de livraison identique à l'adresse principale");
+                    checkAdrLivraison.setOpaque(false);
+                    cPanelL.gridy++;
+                    panelLivraison.add(checkAdrLivraison, cPanelL);
+                    tabbedAdresse.add(getLabelFor(fieldName) + (val == 1 ? "" : " " + val), panelLivraison);
+                    val++;
+
+                    checkAdrLivraison.addActionListener(new ActionListener() {
+
+                        public void actionPerformed(java.awt.event.ActionEvent e) {
+                            boolean b = checkAdrLivraison.isSelected();
+
+                            componentLivraison.setEditable(!b);
+                            componentLivraison.setCreated(!b);
+                        }
+                    });
+                    checkAdrLivraison.setSelected(true);
+                    this.mapCheckLivraison.put(sqlField, checkAdrLivraison);
+                }
+            }
+
         String labelAdrSuppl = "Adresses supplémentaires";
         tabbedAdresse.add(labelAdrSuppl, this.adresseTable);
 
@@ -667,14 +703,16 @@ public class ClientNormalSQLComponent extends BaseSQLComponent {
 
         super.select(r);
 
-        this.checkAdrLivraison.setSelected(r == null || r.isForeignEmpty("ID_ADRESSE_L"));
-        this.checkAdrFacturation.setSelected(r == null || r.isForeignEmpty("ID_ADRESSE_F"));
+        for (SQLField f : this.mapCheckLivraison.keySet()) {
+            this.mapCheckLivraison.get(f).setSelected(r == null || !r.getFields().contains(f.getName()) || r.isForeignEmpty(f.getName()));
+        }
+        this.checkAdrFacturation.setSelected(r == null || !r.getFields().contains("ID_ADRESSE_F") || r.isForeignEmpty("ID_ADRESSE_F"));
+
         if (r != null) {
             this.table.insertFrom("ID_CLIENT", r.asRowValues());
             this.adresseTable.insertFrom("ID_CLIENT", r.getID());
             this.defaultContactRowVals.put("TEL_DIRECT", r.getString("TEL"));
             this.defaultContactRowVals.put("FAX", r.getString("FAX"));
-            this.textCode.setIdSelected(r.getID());
         }
     }
 

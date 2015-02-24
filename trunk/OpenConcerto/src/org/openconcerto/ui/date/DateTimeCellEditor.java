@@ -11,32 +11,39 @@
  * When distributing the software, include this License Header Notice in each file.
  */
  
- package org.openconcerto.ui;
+ /*
+ * Créé le 30 janv. 2015
+ */
+package org.openconcerto.ui.date;
+
+import org.openconcerto.ui.JDateTime;
 
 import java.awt.Component;
-import java.sql.Timestamp;
+import java.util.Calendar;
 import java.util.Date;
 
 import javax.swing.AbstractCellEditor;
 import javax.swing.JTable;
 import javax.swing.table.TableCellEditor;
 
-public class TimeStampTableCellEditor extends AbstractCellEditor implements TableCellEditor {
-    private final JDate date = new JDate();
+public class DateTimeCellEditor extends AbstractCellEditor implements TableCellEditor {
+
+    private static final long serialVersionUID = -658886621619885412L;
+    private final JDateTime datetime = new JDateTime(false);
 
     @Override
     public Object getCellEditorValue() {
-        final Date d = date.getDate();
-        if (d == null) {
-            return null;
+        Date result = this.datetime.getValue();
+        if (result == null) {
+            result = Calendar.getInstance().getTime();
         }
-        return new Timestamp(d.getTime());
+        return result;
     }
 
     @Override
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-        date.setDate(((Timestamp) value));
-        return date;
+        this.datetime.setValue((Date) value);
+        return this.datetime;
     }
 
 }

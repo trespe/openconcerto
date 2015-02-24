@@ -45,6 +45,7 @@ import org.openconcerto.ui.JLabelBold;
 import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.preferences.DefaultProps;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.GestionDevise;
 
@@ -55,7 +56,6 @@ import java.awt.Insets;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.List;
@@ -422,14 +422,6 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
     }
 
     @Override
-    public void select(SQLRowAccessor r) {
-        if (r != null) {
-            this.textNumeroUnique.setIdSelected(r.getID());
-        }
-        super.select(r);
-    }
-
-    @Override
     public void update() {
 
         if (!this.textNumeroUnique.checkValidation()) {
@@ -537,10 +529,10 @@ public class BonReceptionSQLComponent extends TransfertBaseSQLComponent {
                     BigDecimal qteRecue = new BigDecimal(rowEltBon.getInt("QTE"));
                     BigDecimal prixHACmd = (BigDecimal) rowEltBon.getObject("PRIX_METRIQUE_HA_1");
                     if (qteRecue.compareTo(BigDecimal.ZERO) > 0 && prixHACmd != null) {
-                        BigDecimal totalHARecue = qteRecue.multiply(prixHACmd, MathContext.DECIMAL128);
-                        BigDecimal totalHAStock = qteStock.multiply(prixHA, MathContext.DECIMAL128);
+                        BigDecimal totalHARecue = qteRecue.multiply(prixHACmd, DecimalUtils.HIGH_PRECISION);
+                        BigDecimal totalHAStock = qteStock.multiply(prixHA, DecimalUtils.HIGH_PRECISION);
                         BigDecimal totalQte = qteRecue.add(qteStock);
-                        BigDecimal prixHaPond = totalHARecue.add(totalHAStock).divide(totalQte, MathContext.DECIMAL128);
+                        BigDecimal prixHaPond = totalHARecue.add(totalHAStock).divide(totalQte, DecimalUtils.HIGH_PRECISION);
                         SQLRowValues rowValsArticle = rowArticle.createEmptyUpdateRow();
                         rowValsArticle.put("PRIX_METRIQUE_HA_1", prixHaPond);
                         rowValsArticle.commit();

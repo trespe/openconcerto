@@ -93,4 +93,9 @@ public class DefaultVariantKey implements VariantKey {
     public final String getVariant() {
         return this.variant;
     }
+
+    @Override
+    public String toString() {
+        return this.getClass().getSimpleName() + " '" + this.getID() + "'";
+    }
 }

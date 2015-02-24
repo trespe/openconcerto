@@ -359,4 +359,13 @@ public class TimeUtils {
             return DSTChange.NO;
         }
     }
+
+    static public final Calendar clearTime(final Calendar cal) {
+        // reset doesn't work, see javadoc
+        cal.set(Calendar.HOUR_OF_DAY, 0);
+        cal.clear(Calendar.MINUTE);
+        cal.clear(Calendar.SECOND);
+        cal.clear(Calendar.MILLISECOND);
+        return cal;
+    }
 }

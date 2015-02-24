@@ -18,6 +18,7 @@ import org.openconcerto.utils.Log;
 import org.openconcerto.utils.PropertiesUtils;
 import org.openconcerto.utils.Tuple2;
 
+import java.beans.Introspector;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -40,7 +41,7 @@ import com.ibm.icu.text.MessagePattern.Part.Type;
  * Translation manager. The translations are provided by {@link Translator} instances, they are
  * created either from a class ending in a language tag that implements it, or by properties files
  * that must contain values that will be passed to {@link MessageFormat}. In the latter case,
- * messages can reference {@link #createValue(Map, String) virtual named arguments}.
+ * messages can reference {@link #createValue(Map, Object[], String) virtual named arguments}.
  * 
  * @author Sylvain
  * @see LocalizedInstances
@@ -49,6 +50,11 @@ public class TM {
 
     static public enum MissingMode {
         EXCEPTION, NULL, STRING
+    }
+
+    static public final String NOUN_CLASS_PROP = "nounClass";
+    static {
+        assert NOUN_CLASS_PROP.equals(Introspector.decapitalize(NounClass.class.getSimpleName()));
     }
 
     static private final MissingMode DEFAULT_MISSING_MODE = MissingMode.STRING;
@@ -233,10 +239,12 @@ public class TM {
     /**
      * Try to create a value for a missing key. The syntax of keys must be phraseName(__name)+ and
      * if you need to have __ in a name it must be doubled (i.e. ____). <code>phraseName</code>, as
-     * its name implies, must reference an existing phrase in <code>map</code>. Then this phrase and
-     * the list of <code>name</code> are passed to {@link Grammar#eval(Phrase, Number, List)}. The
-     * count is <code>phraseNameCount</code> if it exists and is a {@link Number}, then
-     * <code>count</code> else <code>null</code>.
+     * its name implies, must reference an existing phrase in <code>map</code>. If this phrase is
+     * suffixed by {@value #NOUN_CLASS_PROP} then the {@link NounClass#getName() name} of the noun
+     * class of the phrase is returned. Else this phrase and the list of <code>name</code> are
+     * passed to {@link Grammar#eval(Phrase, Number, List)}. The count is
+     * <code>phraseNameCount</code> if it exists and is a {@link Number}, then <code>count</code>
+     * else <code>null</code>.
      * 
      * @param map the current map.
      * @param objects the original map as an array.
@@ -282,7 +290,14 @@ public class TM {
         assert first != null;
         final Object firstObj = handleGet(map, first);
         final Phrase phrase = firstObj instanceof Phrase ? (Phrase) firstObj : null;
-        if (phrase != null && phrase.getGrammar() != null) {
+        if (phrase != null && l.size() == 2 && NOUN_CLASS_PROP.equals(l.get(1))) {
+            if (phrase.getNounClass() == null) {
+                Log.get().warning("No noun class for " + phrase);
+                return phrase.getBase();
+            } else {
+                return phrase.getNounClass().getName();
+            }
+        } else if (phrase != null && phrase.getGrammar() != null) {
             Object countObj = handleGet(map, first + "Count");
             if (!(countObj instanceof Number))
                 countObj = handleGet(map, "count");

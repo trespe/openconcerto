@@ -14,13 +14,13 @@
  package org.openconcerto.erp.core.common.ui;
 
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.StringUtils;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 
 import javax.swing.AbstractAction;
@@ -51,7 +51,7 @@ public class DeviseNumericRemiseCellEditor extends DeviseNumericCellEditor imple
                 public void actionPerformed(ActionEvent e) {
                     final BigDecimal prixHTRemise = StringUtils.getBigDecimalFromUserText(textField.getText());
                     if (prixHTRemise != null) {
-                        BigDecimal divide = prixHTRemise.divide(ht, MathContext.DECIMAL128).movePointRight(2);
+                        BigDecimal divide = prixHTRemise.divide(ht, DecimalUtils.HIGH_PRECISION).movePointRight(2);
                         divide = divide.setScale(precision, RoundingMode.HALF_UP);
                         textField.setText(divide.toString());
                     }
@@ -65,7 +65,7 @@ public class DeviseNumericRemiseCellEditor extends DeviseNumericCellEditor imple
                 public void actionPerformed(ActionEvent e) {
                     final BigDecimal prixTTCRemise = StringUtils.getBigDecimalFromUserText(textField.getText());
                     if (prixTTCRemise != null) {
-                        BigDecimal divide = prixTTCRemise.divide(ttc, MathContext.DECIMAL128).movePointRight(2);
+                        BigDecimal divide = prixTTCRemise.divide(ttc, DecimalUtils.HIGH_PRECISION).movePointRight(2);
                         divide = divide.setScale(precision, RoundingMode.HALF_UP);
                         textField.setText(divide.toString());
                     }

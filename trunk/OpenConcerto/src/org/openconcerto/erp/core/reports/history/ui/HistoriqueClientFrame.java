@@ -99,9 +99,17 @@ public class HistoriqueClientFrame {
                 SQLRowAccessor rowSel = HistoriqueClientFrame.this.listPanel.getSelectedRow();
                 int id = (rowSel == null) ? -1 : rowSel.getID();
                 bilanPanel.updateVFData(HistoriqueClientFrame.this.listPanel.getListId("SAISIE_VENTE_FACTURE"), id);
-                bilanPanel.updateTotalVente(id);
             }
         }, "SAISIE_VENTE_FACTURE");
+
+        this.listPanel.addListenerTable(new TableModelListener() {
+            public void tableChanged(TableModelEvent arg0) {
+
+                SQLRowAccessor rowSel = HistoriqueClientFrame.this.listPanel.getSelectedRow();
+                int id = (rowSel == null) ? -1 : rowSel.getID();
+                bilanPanel.updateVFArticleData(HistoriqueClientFrame.this.listPanel.getListId("SAISIE_VENTE_FACTURE_ELEMENT"), id);
+            }
+        }, "SAISIE_VENTE_FACTURE_ELEMENT");
 
         this.panelFrame = new PanelFrame(this.listPanel, "Historique client");
         this.panelFrame.addWindowListener(new WindowAdapter() {

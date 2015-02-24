@@ -394,6 +394,21 @@ public class SQLField extends SQLIdentifier implements FieldRef, IFieldPath {
         return this.getTable();
     }
 
+    /**
+     * Return this field in the passed table.
+     * 
+     * @param table a table, e.g OBSERVATION obs.
+     * @return a field in the passed table, e.g. if this is OBSERVATION.DESIGNATION then
+     *         obs.DESIGNATION.
+     * @throws IllegalArgumentException if this field is not in the same table as the argument.
+     * @see {@link TableRef#getField(String)}
+     */
+    public final FieldRef getFieldRef(TableRef table) throws IllegalArgumentException {
+        if (table.getTable() != this.getTable())
+            throw new IllegalArgumentException("Table mismatch for " + table + " and " + this);
+        return table.getField(this.getName());
+    }
+
     public synchronized String toXML() {
         if (this.xml == null) {
             final StringBuilder sb = new StringBuilder(2048);

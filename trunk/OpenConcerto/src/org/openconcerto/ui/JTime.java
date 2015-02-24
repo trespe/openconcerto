@@ -22,6 +22,7 @@ import org.openconcerto.utils.checks.ValidState;
 import java.awt.BorderLayout;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
@@ -168,6 +169,12 @@ public final class JTime extends JPanel implements ValueWrapper<Date>, TextCompo
     @Override
     public void rmValueListener(PropertyChangeListener l) {
         this.getEditor().removePropertyChangeListener("value", l);
+    }
+
+    // useful since by default this commits on focus lost, as is a table cell editor. So sometimes
+    // the table cell editor is called back before the commit and thus takes the original value.
+    public void commitEdit() throws ParseException {
+        this.text.commitEdit();
     }
 
     @Override

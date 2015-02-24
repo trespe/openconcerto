@@ -36,9 +36,9 @@ import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.sql.view.list.ValidStateChecker;
+import org.openconcerto.utils.DecimalUtils;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -360,7 +360,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
                 int qte = Integer.parseInt(row.getObject("QTE").toString());
                 BigDecimal f = (row.getObject("PA_HT") == null) ? BigDecimal.ZERO : (BigDecimal) row.getObject("PA_HT");
                 BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
-                BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), MathContext.DECIMAL128).setScale(totalHT.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
+                BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), DecimalUtils.HIGH_PRECISION).setScale(totalHT.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
 
                 if (row.getTable().contains("POURCENT_REMISE")) {
                     final Object o2 = row.getObject("POURCENT_REMISE");
@@ -388,7 +388,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
                     int qte = Integer.parseInt(row.getObject("QTE").toString());
                     BigDecimal f = (BigDecimal) row.getObject("PA_DEVISE");
                     BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
-                    BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), MathContext.DECIMAL128).setScale(tableElementTotalDevise.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
+                    BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte)), DecimalUtils.HIGH_PRECISION).setScale(tableElementTotalDevise.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
 
                     if (row.getTable().contains("POURCENT_REMISE")) {
                         final Object o2 = row.getObject("POURCENT_REMISE");
@@ -420,7 +420,7 @@ public abstract class AbstractAchatArticleItemTable extends AbstractArticleItemT
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(idTaux);
 
                 BigDecimal b = (row.getObject("QTE_UNITAIRE") == null) ? BigDecimal.ONE : (BigDecimal) row.getObject("QTE_UNITAIRE");
-                BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte), MathContext.DECIMAL128), MathContext.DECIMAL128).setScale(tableElementTotalTTC.getDecimalDigits(),
+                BigDecimal r = b.multiply(f.multiply(BigDecimal.valueOf(qte), DecimalUtils.HIGH_PRECISION), DecimalUtils.HIGH_PRECISION).setScale(tableElementTotalTTC.getDecimalDigits(),
                         BigDecimal.ROUND_HALF_UP);
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
 

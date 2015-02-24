@@ -18,6 +18,7 @@ import org.openconcerto.erp.core.finance.accounting.element.MouvementSQLElement;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
@@ -34,6 +35,7 @@ import java.util.Date;
 
 import javax.swing.JButton;
 import javax.swing.JTable;
+import javax.swing.table.TableColumn;
 
 public class ListPanelEcheancesClients extends ListeAddPanel {
 
@@ -102,9 +104,24 @@ public class ListPanelEcheancesClients extends ListeAddPanel {
         }
         getListe().getRequest().setWhere(wNotRegle);
 
-        final ListEcheanceClientRenderer rend = new ListEcheanceClientRenderer();
+        final ListEcheanceClientRenderer rend = new ListEcheanceClientRenderer(false);
+        final ListEcheanceClientRenderer rendDate = new ListEcheanceClientRenderer(true);
+        //
+        SQLTableModelColumn colDate = ListPanelEcheancesClients.this.getListe().getSource().getColumn(elementEchT.getField("DATE"));
+        int indexColDate = ListPanelEcheancesClients.this.getListe().getSource().getColumns().indexOf(colDate);
+        for (int i = 0; i < ListPanelEcheancesClients.this.getListe().getJTable().getColumnCount(); i++) {
+            if (ListPanelEcheancesClients.this.getListe().getJTable().getColumnClass(i) != Boolean.class) {
 
-        getListe().getSource().getColumn(elementEchT.getField("DATE")).setRenderer(rend);
+                TableColumn col = ListPanelEcheancesClients.this.getListe().getJTable().getColumnModel().getColumn(i);
+                if (col.getModelIndex() == indexColDate) {
+                    col.setCellRenderer(rendDate);
+                } else {
+                    col.setCellRenderer(rend);
+                }
+            }
+        }
+
+        getListe().getSource().getColumn(elementEchT.getField("DATE")).setRenderer(rendDate);
         ListPanelEcheancesClients.this.buttonAjouter.setVisible(false);
         ListPanelEcheancesClients.this.buttonEffacer.setVisible(false);
         ListPanelEcheancesClients.this.buttonModifier.setVisible(false);
@@ -113,9 +130,15 @@ public class ListPanelEcheancesClients extends ListeAddPanel {
 
         ListPanelEcheancesClients.this.getListe().setSQLEditable(true);
 
+        SQLField fieldDateEch = elementEchT.getField("DATE");
         for (SQLTableModelColumn column : src.getColumns()) {
             if (column.getClass().isAssignableFrom(SQLTableModelColumnPath.class)) {
                 ((SQLTableModelColumnPath) column).setEditable(false);
+            }
+            if (column.getFields().contains(fieldDateEch)) {
+                column.setRenderer(rendDate);
+            } else {
+                column.setRenderer(rend);
             }
         }
 

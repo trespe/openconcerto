@@ -24,7 +24,7 @@ import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.view.EditFrame;
 import org.openconcerto.ui.TextAreaRenderer;
 import org.openconcerto.ui.TextAreaTableCellEditor;
-import org.openconcerto.ui.TimeStampTableCellEditor;
+import org.openconcerto.ui.table.TimestampTableCellEditor;
 import org.openconcerto.utils.CompareUtils;
 
 import java.awt.event.ActionEvent;
@@ -202,7 +202,7 @@ public class SQLTableElement {
                 textEditor.setLimitedSize(this.field.getType().getSize());
                 return textEditor;
             } else if (this.field.getType().getJavaType() == Timestamp.class) {
-                final TimeStampTableCellEditor textEditor = new TimeStampTableCellEditor();
+                final TimestampTableCellEditor textEditor = new TimestampTableCellEditor(false);
                 return textEditor;
             }
         }
@@ -286,7 +286,7 @@ public class SQLTableElement {
         if (this.modifier != null) {
             Object oldValue = row.getObject(this.rowField);
             Object newValue = this.modifier.computeValueFrom(row);
-            //Test pour eviter un deadlock sur les listeners
+            // Test pour eviter un deadlock sur les listeners
             if (!CompareUtils.equals(oldValue, newValue)) {
                 if (this.rowField != null) {
                     row.put(this.rowField, newValue);

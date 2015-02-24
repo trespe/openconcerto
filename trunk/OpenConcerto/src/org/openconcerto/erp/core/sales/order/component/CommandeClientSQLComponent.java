@@ -20,10 +20,8 @@ import org.openconcerto.erp.core.common.element.ComptaSQLConfElement;
 import org.openconcerto.erp.core.common.element.NumerotationAutoSQLElement;
 import org.openconcerto.erp.core.common.ui.DeviseField;
 import org.openconcerto.erp.core.common.ui.TotalPanel;
-import org.openconcerto.erp.core.sales.order.element.CommandeClientSQLElement;
 import org.openconcerto.erp.core.sales.order.report.CommandeClientXmlSheet;
 import org.openconcerto.erp.core.sales.order.ui.CommandeClientItemTable;
-import org.openconcerto.erp.core.supplychain.stock.element.MouvementStockSQLElement;
 import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater;
 import org.openconcerto.erp.core.supplychain.stock.element.StockItemsUpdater.Type;
 import org.openconcerto.erp.core.supplychain.stock.element.StockLabel;
@@ -36,9 +34,7 @@ import org.openconcerto.sql.model.SQLInjector;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
-import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
-import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.sql.sqlobject.JUniqueTextField;
 import org.openconcerto.sql.sqlobject.SQLTextCombo;
@@ -60,7 +56,6 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 import java.util.Date;
-import java.util.List;
 
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -73,8 +68,6 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
-
-import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
 public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
@@ -394,7 +387,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
         addSQLObject(this.infos, "INFOS");
         addSQLObject(this.comboDevis, "ID_DEVIS");
 
-        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class, new Date()));
+        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(getElement().getClass(), new Date()));
 
         this.table.getModel().addTableModelListener(new TableModelListener() {
 
@@ -436,7 +429,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
             }
 
             // incrémentation du numéro auto
-            if (NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class, new Date()).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
+            if (NumerotationAutoSQLElement.getNextNumero(getElement().getClass(), new Date()).equalsIgnoreCase(this.numeroUniqueCommande.getText().trim())) {
                 SQLRowValues rowVals = new SQLRowValues(this.tableNum);
                 int val = this.tableNum.getRow(2).getInt("COMMANDE_CLIENT_START");
                 val++;
@@ -463,10 +456,6 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
     @Override
     public void select(SQLRowAccessor r) {
-
-        if (r != null) {
-            this.numeroUniqueCommande.setIdSelected(r.getID());
-        }
         if (r == null || r.getIDNumber() == null)
             super.select(r);
         else {
@@ -545,7 +534,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
 
     public void setDefaults() {
         this.resetValue();
-        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class, new Date()));
+        this.numeroUniqueCommande.setText(NumerotationAutoSQLElement.getNextNumero(getElement().getClass(), new Date()));
         this.table.getModel().clearRows();
     }
 
@@ -577,7 +566,7 @@ public class CommandeClientSQLComponent extends TransfertBaseSQLComponent {
     protected SQLRowValues createDefaults() {
         SQLRowValues rowVals = new SQLRowValues(getTable());
         rowVals.put("T_POIDS", 0.0F);
-        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(CommandeClientSQLElement.class, new Date()));
+        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(getElement().getClass(), new Date()));
         // User
         // SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
         SQLElement eltComm = Configuration.getInstance().getDirectory().getElement("COMMERCIAL");

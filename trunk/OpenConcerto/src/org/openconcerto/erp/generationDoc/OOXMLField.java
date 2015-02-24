@@ -25,13 +25,13 @@ import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.Nombre;
 import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.Tuple2;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
@@ -213,13 +213,24 @@ public class OOXMLField extends OOXMLElement {
                     Object o = getSpecialValue(typeComp);
 
                     String stringValue;
+                    String scale = this.elt.getAttributeValue("decimalScale");
                     if (o != null) {
+
+                        if (o != null && scale != null && scale.trim().length() > 0) {
+
+                            o = ((BigDecimal) o).setScale(Integer.valueOf(scale));
+                        }
                         if (this.elt.getAttributeValue("upperCase") != null) {
                             o = o.toString().toUpperCase();
                         }
                         stringValue = o.toString();
                     } else {
                         Object o2 = this.row.getObject(field);
+
+                        if (o2 != null && scale != null && scale.trim().length() > 0) {
+
+                            o2 = ((BigDecimal) o2).setScale(Integer.valueOf(scale));
+                        }
 
                         stringValue = (o2 == null) ? "" : o2.toString();
                     }
@@ -326,6 +337,13 @@ public class OOXMLField extends OOXMLElement {
                 if (result instanceof Long) {
                     return new Double(GestionDevise.currencyToString(prix.longValue(), false));
                 } else {
+                    String scale = this.elt.getAttributeValue("decimalScale");
+
+                    if (result != null && scale != null && scale.trim().length() > 0) {
+
+                        return ((BigDecimal) result).setScale(Integer.valueOf(scale));
+                    }
+
                     return result;
                 }
             } else if (typeComp.equalsIgnoreCase("globalAcompte")) {
@@ -363,8 +381,16 @@ public class OOXMLField extends OOXMLElement {
             } else if (typeComp.equalsIgnoreCase("Traduction")) {
                 return getTraduction();
             } else if (typeComp.equalsIgnoreCase("VilleCP")) {
-                // Code postal de la ville
-                return this.row.getString("CODE_POSTAL");
+                if (this.row.getTable().contains("CODE_POSTAL")) {
+                    // Code postal de la ville
+                    return this.row.getString("CODE_POSTAL");
+                } else {
+                    Ville v = Ville.getVilleFromVilleEtCode(this.row.getString(field));
+                    if (v != null) {
+                        return v.getCodepostal();
+                    }
+                    return null;
+                }
             } else if (typeComp.equalsIgnoreCase("DateEcheance")) {
                 // Retourne la date d'échéance
                 int idModeReglement = this.row.getInt("ID_MODE_REGLEMENT");
@@ -501,8 +527,8 @@ public class OOXMLField extends OOXMLElement {
                 BigDecimal d;
                 double coeff = ((double) lN) / ((double) l0);
 
-                d = new BigDecimal(0.15).add(new BigDecimal(0.85).multiply(new BigDecimal(coeff), MathContext.DECIMAL128));
-                p = d.multiply(p0, MathContext.DECIMAL128);
+                d = new BigDecimal(0.15).add(new BigDecimal(0.85).multiply(new BigDecimal(coeff), DecimalUtils.HIGH_PRECISION));
+                p = d.multiply(p0, DecimalUtils.HIGH_PRECISION);
             } else {
                 p = p0;
             }
@@ -510,7 +536,7 @@ public class OOXMLField extends OOXMLElement {
             // p = Math.round(p * (lA / 100.0));
             // }
             if (lremise.signum() != 0 && lremise.compareTo(BigDecimal.ZERO) > 0 && lremise.compareTo(cent) < 100) {
-                p = p.multiply(cent.subtract(lremise).movePointLeft(2), MathContext.DECIMAL128);
+                p = p.multiply(cent.subtract(lremise).movePointLeft(2), DecimalUtils.HIGH_PRECISION);
             }
             cumul += p.setScale(2, RoundingMode.HALF_UP).movePointRight(2).longValue();
         }
@@ -590,16 +616,16 @@ public class OOXMLField extends OOXMLElement {
         }
 
         if (op.equalsIgnoreCase("+")) {
-            return d1.add(d2);
+            return d1.add(d2, DecimalUtils.HIGH_PRECISION);
         } else {
             if (op.equalsIgnoreCase("-")) {
-                return d1.subtract(d2);
+                return d1.subtract(d2, DecimalUtils.HIGH_PRECISION);
             } else {
                 if (op.equalsIgnoreCase("*")) {
-                    return d1.multiply(d2);
+                    return d1.multiply(d2, DecimalUtils.HIGH_PRECISION);
                 } else {
                     if (op.equalsIgnoreCase("/") && d2.compareTo(BigDecimal.ZERO) != 0) {
-                        return d1.divide(d2);
+                        return d1.divide(d2, DecimalUtils.HIGH_PRECISION);
                     }
                 }
             }

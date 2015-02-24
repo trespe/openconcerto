@@ -726,10 +726,6 @@ public class AvoirClientSQLComponent extends TransfertBaseSQLComponent implement
     @Override
     public void select(SQLRowAccessor r) {
         if (r != null) {
-            this.textNumero.setIdSelected(r.getID());
-        }
-
-        if (r != null) {
 
             // Les contacts sont filtrés en fonction du client (ID_AFFAIRE.ID_CLIENT), donc si
             // l'ID_CONTACT est changé avant ID_AFFAIRE le contact ne sera pas présent dans la combo

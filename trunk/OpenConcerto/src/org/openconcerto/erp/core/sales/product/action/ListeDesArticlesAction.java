@@ -35,6 +35,7 @@ import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.PanelFrame;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.Tuple2;
 
 import java.awt.GridBagConstraints;
@@ -45,7 +46,6 @@ import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -90,7 +90,7 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
                     float qte = stock.getFloat("QTE_REEL");
                     BigDecimal ha = r.getBigDecimal("PA_HT");
 
-                    BigDecimal total = ha.multiply(new BigDecimal(qte), MathContext.DECIMAL128);
+                    BigDecimal total = ha.multiply(new BigDecimal(qte), DecimalUtils.HIGH_PRECISION);
                     if (total.signum() == 1) {
                         return total;
                     } else {
@@ -174,7 +174,8 @@ public class ListeDesArticlesAction extends CreateFrameAbstractAction {
         if (panel.getListe().getModel().isSearching())
             title += ", recherche en cours";
 
-        this.panelFrame.setTitle(title);
+        if (this.panelFrame != null)
+            this.panelFrame.setTitle(title);
     }
 
     /**

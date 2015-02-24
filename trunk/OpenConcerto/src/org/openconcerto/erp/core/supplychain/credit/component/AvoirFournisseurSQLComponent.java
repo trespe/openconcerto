@@ -130,7 +130,7 @@ public class AvoirFournisseurSQLComponent extends TransfertBaseSQLComponent impl
         c.gridy++;
         c.gridwidth = GridBagConstraints.REMAINDER;
         final JPanel addP = ComptaSQLConfElement.createAdditionalPanel();
-        this.setAdditionalFieldsPanel(new FormLayouter(addP, 1));
+        this.setAdditionalFieldsPanel(new FormLayouter(addP, 2));
         this.add(addP, c);
 
         c.gridy++;

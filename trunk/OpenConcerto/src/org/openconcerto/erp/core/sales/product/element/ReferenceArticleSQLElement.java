@@ -31,15 +31,25 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.preferences.SQLPreferences;
+import org.openconcerto.sql.view.EditFrame;
+import org.openconcerto.sql.view.EditPanel.EditMode;
+import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
+import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
 import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
+import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.utils.CollectionMap;
+import org.openconcerto.utils.DecimalUtils;
+import org.openconcerto.utils.ListMap;
 
+import java.awt.event.ActionEvent;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.AbstractAction;
 
 import org.apache.commons.dbutils.handlers.ArrayListHandler;
 
@@ -56,7 +66,24 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         super("ARTICLE", "un article", "articles");
 
         getRowActions().addAll(new MouseSheetXmlListeListener(FicheArticleXmlSheet.class).getRowActions());
+        PredicateRowAction clone = new PredicateRowAction(new AbstractAction("Dupliquer") {
 
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+                SQLRowValues rowVals = ReferenceArticleSQLElement.this.createCopy(IListe.get(e).getSelectedId());
+                ListMap<SQLTable, SQLRow> children = ReferenceArticleSQLElement.this.getChildrenRows(IListe.get(e).getSelectedRow().asRow());
+                for (SQLRow child : children.allValues()) {
+                    Configuration.getInstance().getDirectory().getElement(child.getTable()).createCopy(child, false, rowVals);
+                }
+                EditFrame f = new EditFrame(createComponent(), EditMode.CREATION);
+                f.getSQLComponent().select(rowVals);
+                FrameUtil.show(f);
+
+            }
+        }, true, false);
+        clone.setPredicate(IListeEvent.getSingleSelectionPredicate());
+        getRowActions().add(clone);
     }
 
     @Override
@@ -227,32 +254,32 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         if (mode == AU_METRE_CARRE) {
             float surface = valMetrique1 * valMetrique2;
             if (value == PRIX_HA) {
-                return metrique1HA.multiply(BigDecimal.valueOf(surface), MathContext.DECIMAL128);
+                return metrique1HA.multiply(BigDecimal.valueOf(surface), DecimalUtils.HIGH_PRECISION);
             }
-            return metrique1VT.multiply(BigDecimal.valueOf(surface), MathContext.DECIMAL128);
+            return metrique1VT.multiply(BigDecimal.valueOf(surface), DecimalUtils.HIGH_PRECISION);
         }
         // Mode de vente au metre, largeur
         if (mode == AU_METRE_LARGEUR) {
             if (value == PRIX_HA) {
-                return metrique1HA.multiply(BigDecimal.valueOf(valMetrique2), MathContext.DECIMAL128);
+                return metrique1HA.multiply(BigDecimal.valueOf(valMetrique2), DecimalUtils.HIGH_PRECISION);
             }
-            return metrique1VT.multiply(BigDecimal.valueOf(valMetrique2), MathContext.DECIMAL128);
+            return metrique1VT.multiply(BigDecimal.valueOf(valMetrique2), DecimalUtils.HIGH_PRECISION);
         }
         // Mode de vente au metre, longueur
         if (mode == AU_METRE_LONGUEUR) {
             if (value == PRIX_HA) {
-                return metrique1HA.multiply(BigDecimal.valueOf(valMetrique1), MathContext.DECIMAL128);
+                return metrique1HA.multiply(BigDecimal.valueOf(valMetrique1), DecimalUtils.HIGH_PRECISION);
             }
-            return metrique1VT.multiply(BigDecimal.valueOf(valMetrique1), MathContext.DECIMAL128);
+            return metrique1VT.multiply(BigDecimal.valueOf(valMetrique1), DecimalUtils.HIGH_PRECISION);
         }
         // Mode de vente au poids / m2
         if (mode == AU_POID_METRECARRE) {
             float surface = valMetrique1 * valMetrique2;
             float p = surface * valMetrique3;
             if (value == PRIX_HA) {
-                return metrique1HA.multiply(BigDecimal.valueOf(p), MathContext.DECIMAL128);
+                return metrique1HA.multiply(BigDecimal.valueOf(p), DecimalUtils.HIGH_PRECISION);
             }
-            return metrique1VT.multiply(BigDecimal.valueOf(p), MathContext.DECIMAL128);
+            return metrique1VT.multiply(BigDecimal.valueOf(p), DecimalUtils.HIGH_PRECISION);
         }
         throw new IllegalStateException("Unknown mode:" + mode);
 
@@ -317,6 +344,7 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
                     SQLRowValues rowVals = l.get(0).asRowValues();
                     vals.put("ID_FOURNISSEUR", rowVals.getObject("ID_FOURNISSEUR"));
                     vals.put("CODE_BARRE", rowVals.getObject("CODE_BARRE"));
+                    vals.put("QTE_ACHAT", rowVals.getObject("QTE_ACHAT"));
                     rowNew = vals.insert();
                     rowVals.put("ID_ARTICLE", rowNew.getID());
                     rowVals.commit();
@@ -369,7 +397,7 @@ public class ReferenceArticleSQLElement extends ComptaSQLConfElement {
         SQLSelect sel = new SQLSelect(eltArticle.getTable().getBase());
         sel.addSelect(eltArticle.getTable().getField("ID"));
 
-        Where w = new Where(eltArticle.getTable().getField("CODE"), "=", row.getString("CODE"));
+        Where w = new Where(eltArticle.getTable().getField("CODE"), "=", row.getString("CODE").trim());
         if (includeMetrique) {
 
             float value1 = ((Number) row.getObject("VALEUR_METRIQUE_1")).floatValue();

@@ -22,6 +22,8 @@ public class LayoutHints {
     private final boolean largeHeight;
 
     private final boolean showLabel;
+    // true if the layouted element (group or label+editor) is visually separated from the others
+    // elements
     private final boolean separated;
     private final boolean fillWidth;
     private final boolean fillHeight;

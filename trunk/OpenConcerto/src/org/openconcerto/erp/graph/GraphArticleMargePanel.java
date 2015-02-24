@@ -16,9 +16,9 @@
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.utils.DecimalUtils;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -61,8 +61,8 @@ public class GraphArticleMargePanel extends GraphArticleVentePanel {
                 BigDecimal pv2 = (BigDecimal) o2[2];
                 BigDecimal qte2 = new BigDecimal(o2[3].toString());
 
-                BigDecimal marge1 = pv1.subtract(pa1).multiply(qte1, MathContext.DECIMAL128);
-                BigDecimal marge2 = pv2.subtract(pa2).multiply(qte2, MathContext.DECIMAL128);
+                BigDecimal marge1 = pv1.subtract(pa1).multiply(qte1, DecimalUtils.HIGH_PRECISION);
+                BigDecimal marge2 = pv2.subtract(pa2).multiply(qte2, DecimalUtils.HIGH_PRECISION);
                 return marge1.compareTo(marge2);
             }
         });
@@ -72,7 +72,7 @@ public class GraphArticleMargePanel extends GraphArticleVentePanel {
             BigDecimal pa2 = (BigDecimal) o[1];
             BigDecimal pv2 = (BigDecimal) o[2];
             BigDecimal qte2 = new BigDecimal(o[3].toString());
-            BigDecimal marge2 = pv2.subtract(pa2).multiply(qte2, MathContext.DECIMAL128);
+            BigDecimal marge2 = pv2.subtract(pa2).multiply(qte2, DecimalUtils.HIGH_PRECISION);
 
             final String string = o[0].toString();
             values.add(marge2);

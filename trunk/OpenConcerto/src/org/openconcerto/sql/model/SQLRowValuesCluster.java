@@ -178,8 +178,12 @@ public class SQLRowValuesCluster {
                         newCluster.getListeners().put(key, this.listeners.remove(key));
                 }
             }
-            assert !this.items.isEmpty() && !newCluster.items.isEmpty() && !CollectionUtils.containsAny(this.items, newCluster.items) : "Empty or shared items while removing " + f + " -> " + dest
-                    + " from " + src;
+            // http://bugs.java.com/bugdatabase/view_bug.do?bug_id=6612102
+            // resolved in 7b25 : iterator.remove() might decrement the size twice : e.g. size is 0
+            // and thus isEmpty() is true, while there's still elements in this.items
+            assert !this.items.isEmpty() : "Empty items while removing " + f + " -> " + dest + " from " + src;
+            assert !newCluster.items.isEmpty() : "New graph is empty while removing " + f + " -> " + dest + " from " + src;
+            assert !CollectionUtils.containsAny(this.items, newCluster.items) : "Shared items while removing " + f + " -> " + dest + " from " + src;
 
             for (final SQLRowValues vals : newCluster.getItems())
                 vals.setGraph(newCluster);

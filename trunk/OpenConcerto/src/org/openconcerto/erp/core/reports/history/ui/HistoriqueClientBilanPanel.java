@@ -43,10 +43,12 @@ public class HistoriqueClientBilanPanel extends JPanel {
     private final JLabel labelEcheances = new JLabel();
     private final JLabel labelRelances = new JLabel();
     private final JLabel labelTotalVente = new JLabel();
+    private final JLabel labelTotalVentesArticle = new JLabel();
     private long nbVentesCompoir;
     private long totalVentesCompoir;
     private long nbVentesFacture;
     private long totalVentesFacture;
+    private long totalVentesArticle;
     private long nbTotalCheques;
     private long totalCheques;
     private long nbChequesNonEncaisses;
@@ -81,6 +83,8 @@ public class HistoriqueClientBilanPanel extends JPanel {
         add(this.labelRelances);
         // Total vente
         add(this.labelTotalVente);
+        // Toal article vente
+        add(this.labelTotalVentesArticle);
     }
 
     public synchronized void updateRelance(final List<Integer> listId) {
@@ -89,64 +93,6 @@ public class HistoriqueClientBilanPanel extends JPanel {
             setRelances(nb);
             updateLabels();
         }
-    }
-
-    public synchronized void updateTotalVente(final int idClient) {
-        ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
-
-            @Override
-            public void run() {
-
-                final SQLBase base = ((ComptaPropsConfiguration) ComptaPropsConfiguration.getInstance()).getSQLBaseSociete();
-
-                final SQLTable tableVF = base.getTable("SAISIE_VENTE_FACTURE");
-                final SQLTable tableVC = base.getTable("SAISIE_VENTE_COMPTOIR");
-
-                // Total VF
-                final SQLSelect selVF = new SQLSelect();
-                selVF.addSelect(tableVF.getField("T_HT"), "SUM");
-
-                if (idClient > 1) {
-                    selVF.setWhere(tableVF.getField("ID_CLIENT"), "=", idClient);
-                }
-                final String req = selVF.asString();
-                // System.err.println(req);
-                final Object o = base.getDataSource().executeScalar(req);
-                final long totalVF = o == null ? 0 : ((Number) o).longValue();
-
-                // Total VC
-                final SQLSelect selVC = new SQLSelect();
-                selVC.addSelect(tableVC.getField("MONTANT_HT"), "SUM");
-
-                if (idClient > 1) {
-                    selVC.setWhere(tableVC.getField("ID_CLIENT"), "=", idClient);
-                }
-                final String reqVC = selVC.asString();
-                // System.err.println(reqVC);
-                final Object oVC = base.getDataSource().executeScalar(reqVC);
-                final long totalVC = oVC == null ? 0 : ((Number) oVC).longValue();
-
-                final SQLSelect selAllVF = new SQLSelect();
-                selAllVF.addSelect(tableVF.getField("T_HT"), "SUM");
-                final Object o2 = base.getDataSource().executeScalar(selAllVF.asString());
-                final long totalAllVF = o2 == null ? 0 : ((Number) o2).longValue();
-
-                final SQLSelect selAllVC = new SQLSelect();
-                selAllVC.addSelect(tableVC.getField("MONTANT_HT"), "SUM");
-                final Object oVCA = base.getDataSource().executeScalar(selAllVC.asString());
-                final long totalAllVC = oVCA == null ? 0 : ((Number) oVCA).longValue();
-
-                if (totalAllVC + totalAllVF == 0) {
-                    setPoucentageVentes(0);
-                } else {
-                    final double pourCentage = (totalVF + totalVC) / (double) (totalAllVC + totalAllVF) * 100.0;
-                    setPoucentageVentes((int) Math.round(pourCentage * 100.0) / 100);
-                }
-                updateLabels();
-
-            }
-        });
-
     }
 
     public synchronized void updateEcheance(final List<Integer> listId) {
@@ -291,6 +237,31 @@ public class HistoriqueClientBilanPanel extends JPanel {
         });
     }
 
+    public synchronized void updateVFArticleData(final List<Integer> listId, final int idClient) {
+        ComptaPropsConfiguration.getInstanceCompta().getNonInteractiveSQLExecutor().execute(new Runnable() {
+
+            @Override
+            public void run() {
+                final SQLBase base = ((ComptaPropsConfiguration) ComptaPropsConfiguration.getInstance()).getSQLBaseSociete();
+
+                double valueTotal = 0;
+                if (listId != null && listId.size() > 0) {
+                    final SQLSelect select = new SQLSelect();
+                    final SQLTable tableElt = base.getTable("SAISIE_VENTE_FACTURE_ELEMENT");
+                    select.addSelect(tableElt.getField("T_PV_HT"), "SUM");
+                    select.setWhere(new Where(tableElt.getKey(), listId));
+                    final Number n = (Number) base.getDBSystemRoot().getDataSource().executeScalar(select.asString());
+                    if (n != null) {
+                        valueTotal = n.doubleValue();
+                    }
+                }
+
+                setTotalVentesArticle(Math.round(valueTotal * 100.0D));
+                updateLabels();
+            }
+        });
+    }
+
     private void addDatesToMap(final SQLBase base, final SQLSelect selDateFacture, final Map mapDateFact) {
         final List<Object[]> lDateFact = (List<Object[]>) base.getDataSource().execute(selDateFacture.asString(), new ArrayListHandler());
 
@@ -380,6 +351,10 @@ public class HistoriqueClientBilanPanel extends JPanel {
 
     public void setTotalVentesFacture(final long totalInCents) {
         this.totalVentesFacture = totalInCents;
+    }
+
+    public void setTotalVentesArticle(long totalVentesArticle) {
+        this.totalVentesArticle = totalVentesArticle;
     }
 
     // Cheques
@@ -521,6 +496,15 @@ public class HistoriqueClientBilanPanel extends JPanel {
                     HistoriqueClientBilanPanel.this.labelTotalVente.setText(" ventes de " + total + " € HT");
                 } else {
                     HistoriqueClientBilanPanel.this.labelTotalVente.setText(" ventes de " + total + " € HT, soit " + HistoriqueClientBilanPanel.this.poucentageVentes + "% des ventes totales");
+                }
+
+                // % des ventes
+
+                total = GestionDevise.currencyToString(HistoriqueClientBilanPanel.this.totalVentesArticle, true);
+                if (HistoriqueClientBilanPanel.this.totalVentesArticle == 0) {
+                    HistoriqueClientBilanPanel.this.labelTotalVentesArticle.setText(" Aucun article vendu");
+                } else {
+                    HistoriqueClientBilanPanel.this.labelTotalVentesArticle.setText(total + "€ HT d'articles facturés");
                 }
             }
         });

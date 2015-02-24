@@ -62,6 +62,10 @@ public class GenerationMvtAvoirClient extends GenerationEcritures {
         SQLRow rowClient;
             rowClient = avoirRow.getForeignRow("ID_CLIENT");
 
+        if (ecritureTable.contains("CODE_CLIENT")) {
+            this.mEcritures.put("CODE_CLIENT", rowClient.getString("CODE"));
+        }
+
         // iniatilisation des valeurs de la map
         this.date = (Date) avoirRow.getObject("DATE");
         this.nom = avoirRow.getObject("NOM").toString();

@@ -48,6 +48,7 @@ import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.users.UserManager;
 import org.openconcerto.sql.utils.SQLUtils;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.DesktopEnvironment;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Pair;
@@ -57,7 +58,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.ArrayList;
@@ -186,10 +186,10 @@ public class Caisse {
                                 Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
                                 BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
 
-                                final BigDecimal valueHT = article.getPriceHTInCents().multiply(new BigDecimal(nb), MathContext.DECIMAL128);
+                                final BigDecimal valueHT = article.getPriceHTInCents().multiply(new BigDecimal(nb), DecimalUtils.HIGH_PRECISION);
 
                                 rowValsElt.put("T_PV_HT", valueHT);
-                                rowValsElt.put("T_PV_TTC", valueHT.multiply(tauxTVA, MathContext.DECIMAL128));
+                                rowValsElt.put("T_PV_TTC", valueHT.multiply(tauxTVA, DecimalUtils.HIGH_PRECISION));
                                 rowValsElt.put("ID_TAXE", article.getIdTaxe());
                                 rowValsElt.put("CODE", article.getCode());
                                 rowValsElt.put("NOM", article.getName());

@@ -16,6 +16,7 @@
 import org.openconcerto.ui.component.text.TextComponent;
 import org.openconcerto.ui.valuewrapper.ValueWrapper;
 import org.openconcerto.utils.FormatGroup;
+import org.openconcerto.utils.TimeUtils;
 import org.openconcerto.utils.checks.ValidListener;
 import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.i18n.TM.MissingMode;
@@ -78,7 +79,7 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
 
     private static boolean CommitEachValidEditDefault = false;
 
-    public static void setCommitEachValidEditDefault(boolean commitEachValidEditDefault) {
+    public static void setCommitEachValidEditDefault(final boolean commitEachValidEditDefault) {
         CommitEachValidEditDefault = commitEachValidEditDefault;
     }
 
@@ -88,6 +89,7 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
 
     private final boolean fillWithCurrentDate;
     private final boolean commitEachValidEdit;
+    private final Calendar cal;
 
     /**
      * Créé un composant d'édition de date, vide.
@@ -103,7 +105,7 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
      *        d'aujourd'hui, sinon vide.
      * @see #getCommitEachValidEditDefault()
      */
-    public JDate(boolean fillWithCurrentDate) {
+    public JDate(final boolean fillWithCurrentDate) {
         this(fillWithCurrentDate, getCommitEachValidEditDefault());
     }
 
@@ -117,7 +119,7 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
      *        leaving or hitting enter).
      * @see DefaultFormatter#setCommitsOnValidEdit(boolean)
      */
-    public JDate(boolean fillWithCurrentDate, boolean commitEachValidEdit) {
+    public JDate(final boolean fillWithCurrentDate, final boolean commitEachValidEdit) {
         super();
         this.fillWithCurrentDate = fillWithCurrentDate;
         this.commitEachValidEdit = commitEachValidEdit;
@@ -128,11 +130,11 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, InputEvent.ALT_DOWN_MASK), "monthToFuture");
         inputMap.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, InputEvent.ALT_DOWN_MASK), "monthToPast");
         final ActionMap actionMap = this.getEditor().getActionMap();
-        final Calendar cal = Calendar.getInstance(this.getMonthView().getLocale());
-        actionMap.put("dayToPast", createChangeDateAction(cal, Calendar.DAY_OF_YEAR, -1));
-        actionMap.put("dayToFuture", createChangeDateAction(cal, Calendar.DAY_OF_YEAR, 1));
-        actionMap.put("monthToPast", createChangeDateAction(cal, Calendar.MONTH, -1));
-        actionMap.put("monthToFuture", createChangeDateAction(cal, Calendar.MONTH, 1));
+        this.cal = Calendar.getInstance(this.getMonthView().getLocale());
+        actionMap.put("dayToPast", createChangeDateAction(Calendar.DAY_OF_YEAR, -1));
+        actionMap.put("dayToFuture", createChangeDateAction(Calendar.DAY_OF_YEAR, 1));
+        actionMap.put("monthToPast", createChangeDateAction(Calendar.MONTH, -1));
+        actionMap.put("monthToFuture", createChangeDateAction(Calendar.MONTH, 1));
 
         this.resetValue();
     }
@@ -141,27 +143,31 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         return this.fillWithCurrentDate;
     }
 
-    protected AbstractAction createChangeDateAction(final Calendar cal, final int field, final int amount) {
+    protected final Calendar getCal() {
+        return this.cal;
+    }
+
+    protected AbstractAction createChangeDateAction(final int field, final int amount) {
         return new AbstractAction() {
             @Override
-            public void actionPerformed(ActionEvent e) {
+            public void actionPerformed(final ActionEvent e) {
                 Date currentVal = getDate();
                 if (currentVal == null && fillsWithCurrentDate())
                     currentVal = new Date();
                 if (currentVal != null) {
-                    cal.setTime(currentVal);
-                    cal.add(field, amount);
-                    setDate(cal.getTime());
+                    getCal().setTime(currentVal);
+                    getCal().add(field, amount);
+                    setValue(getCal().getTime());
                 }
             }
         };
     }
 
     @Override
-    public void setFormats(DateFormat[] formats) {
+    public void setFormats(final DateFormat[] formats) {
         final InternationalFormatter formatter = new InternationalFormatter(new FormatGroup(formats)) {
             @Override
-            public Object stringToValue(String text) throws ParseException {
+            public Object stringToValue(final String text) throws ParseException {
                 // JXDatePickerFormatter used to handle null date ; InternationalFormatter only use
                 // the formats which obviously fail to parse "" and so revert the empty value.
                 if (text == null || text.isEmpty())
@@ -175,9 +181,9 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
 
     @Override
     public DateFormat[] getFormats() {
-        AbstractFormatterFactory factory = this.getEditor().getFormatterFactory();
+        final AbstractFormatterFactory factory = this.getEditor().getFormatterFactory();
         if (factory != null) {
-            AbstractFormatter formatter = factory.getFormatter(this.getEditor());
+            final AbstractFormatter formatter = factory.getFormatter(this.getEditor());
             if (formatter instanceof JXDatePickerFormatter) {
                 return ((JXDatePickerFormatter) formatter).getFormats();
             } else if (formatter instanceof InternationalFormatter) {
@@ -213,6 +219,11 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         }
     }
 
+    /**
+     * Reset the component as if it has just been created. If {@link #fillsWithCurrentDate()} then
+     * the date at the time this method is called will be used (not the date of creation).
+     */
+    @Override
     public final void resetValue() {
         if (this.fillsWithCurrentDate()) {
             this.setValue(new Date());
@@ -221,10 +232,25 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         }
     }
 
-    public final void setValue(Date date) {
-        this.setDate(date);
+    /**
+     * Set the value after clearing the time part.
+     * 
+     * @param date the new value.
+     */
+    @Override
+    public final void setValue(final Date date) {
+        final Date timeless;
+        if (date == null) {
+            timeless = null;
+        } else {
+            getCal().setTime(date);
+            TimeUtils.clearTime(getCal());
+            timeless = getCal().getTime();
+        }
+        this.setDate(timeless);
     }
 
+    @Override
     public final Date getValue() {
         return this.getDate();
     }
@@ -233,14 +259,17 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         return this.getValue() == null;
     }
 
-    public final void addValueListener(PropertyChangeListener l) {
+    @Override
+    public final void addValueListener(final PropertyChangeListener l) {
         this.getEditor().addPropertyChangeListener("value", l);
     }
 
-    public void rmValueListener(PropertyChangeListener l) {
+    @Override
+    public void rmValueListener(final PropertyChangeListener l) {
         this.getEditor().removePropertyChangeListener("value", l);
     }
 
+    @Override
     public JComponent getComp() {
         return this;
     }
@@ -250,15 +279,17 @@ public final class JDate extends JXDatePicker implements ValueWrapper<Date>, Tex
         return ValidState.getTrueInstance();
     }
 
-    public void addValidListener(ValidListener l) {
+    @Override
+    public void addValidListener(final ValidListener l) {
         // nothing to do
     }
 
     @Override
-    public void removeValidListener(ValidListener l) {
+    public void removeValidListener(final ValidListener l) {
         // nothing to do
     }
 
+    @Override
     public JTextComponent getTextComp() {
         return getEditor();
     }

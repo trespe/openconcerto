@@ -34,6 +34,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.RandomAccessFile;
 import java.io.Reader;
+import java.net.URI;
 import java.net.URL;
 import java.nio.channels.FileChannel;
 import java.nio.charset.Charset;
@@ -55,32 +56,32 @@ public final class FileUtils {
         // all static
     }
 
-    public static void browseFile(File f) {
-        if (Desktop.isDesktopSupported()) {
-            Desktop d = Desktop.getDesktop();
-            if (d.isSupported(Desktop.Action.BROWSE)) {
-
-                try {
+    public static void browseFile(final File f) {
+        try {
+            if (Desktop.isDesktopSupported()) {
+                Desktop d = Desktop.getDesktop();
+                if (d.isSupported(Desktop.Action.BROWSE)) {
                     d.browse(f.getCanonicalFile().toURI());
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
+                } else {
+                    openNative(f);
                 }
             } else {
-                try {
-                    openNative(f);
-                } catch (IOException e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-            }
-        } else {
-            try {
                 openNative(f);
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
             }
+        } catch (IOException e) {
+            ExceptionHandler.handle("Impossible de trouver le dossier " + f.getAbsolutePath(), e);
+        }
+    }
+
+    public static void browse(URI uri) throws Exception {
+        final boolean windows = System.getProperty("os.name").startsWith("Windows");
+        if (windows) {
+            Desktop.getDesktop().browse(uri);
+        } else {
+            String[] cmdarray = new String[] { "xdg-open", uri.toString() };
+            final int res = Runtime.getRuntime().exec(cmdarray).waitFor();
+            if (res != 0)
+                throw new IOException("error (" + res + ") executing " + Arrays.asList(cmdarray));
         }
     }
 
@@ -589,7 +590,6 @@ public final class FileUtils {
     }
 
     public static void write(String s, File f, String charset, boolean append) throws IOException {
-        @SuppressWarnings("resource")
         final FileOutputStream fileStream = new FileOutputStream(f, append);
         final OutputStreamWriter out = charset == null ? new OutputStreamWriter(fileStream) : new OutputStreamWriter(fileStream, charset);
         final BufferedWriter w = new BufferedWriter(out);

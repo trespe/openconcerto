@@ -22,4 +22,9 @@ public class JLabelBold extends JLabel {
         super(s);
         this.setFont(getFont().deriveFont(Font.BOLD));
     }
+
+    @Override
+    public String toString() {
+        return super.toString() + " text:" + this.getText();
+    }
 }

@@ -341,7 +341,12 @@ public class RowValuesTable extends EnhancedTable implements AncestorListener, M
     }
 
     public SQLRowValues getSelectedRowValues() {
-        return this.model.getRowValuesAt(this.getSelectedRow());
+        try {
+            return this.model.getRowValuesAt(this.getSelectedRow());
+        } catch (Exception e) {
+            // can happen when no selected row
+            return null;
+        }
     }
 
     public XTableColumnModel getColumnModel() {

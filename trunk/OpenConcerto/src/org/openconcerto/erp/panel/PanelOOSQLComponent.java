@@ -40,16 +40,23 @@ public class PanelOOSQLComponent extends JPanel {
 
     private final JCheckBox checkImpression = new JCheckBox("Imprimer");
     private final JCheckBox checkVisu = new JCheckBox("Visualiser");
+    private final JCheckBox checkAbo = new JCheckBox("Créer l'abonnement associé");
 
     public PanelOOSQLComponent(final BaseSQLComponent comp) {
         super(new GridBagLayout());
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridx = GridBagConstraints.RELATIVE;
         this.setOpaque(false);
+
+        final SQLTable tableComp = comp.getElement().getTable();
+        if (tableComp.getName().equals("SAISIE_VENTE_FACTURE") && tableComp.getDBRoot().contains("ABONNEMENT")) {
+            this.add(this.checkAbo, c);
+        }
+
         SQLPreferences prefs = SQLPreferences.getMemCached(((ComptaPropsConfiguration) Configuration.getInstance()).getRootSociete());
         if (prefs.getBoolean(GenerationDocGlobalPreferencePanel.MULTIMOD, false)) {
 
-            if (comp.getElement().getTable().getFieldsName().contains("ID_MODELE")) {
+            if (tableComp.getFieldsName().contains("ID_MODELE")) {
                 String labelFor = comp.getLabelFor("ID_MODELE");
                 if (labelFor == null || labelFor.trim().length() == 0) {
                     labelFor = "Modéles";
@@ -64,7 +71,7 @@ public class PanelOOSQLComponent extends JPanel {
                     @Override
                     public SQLSelect transformChecked(SQLSelect input) {
                         SQLTable table = Configuration.getInstance().getDirectory().getElement("TYPE_MODELE").getTable();
-                        Where w = new Where(input.getAlias(table.getField("TABLE")), "=", comp.getElement().getTable().getName());
+                        Where w = new Where(input.getAlias(table.getField("TABLE")), "=", tableComp.getName());
                         input.setWhere(w);
                         return input;
                     }
@@ -73,12 +80,16 @@ public class PanelOOSQLComponent extends JPanel {
                 DefaultGridBagConstraints.lockMinimumSize(boxModele);
                 this.add(boxModele, c);
             } else {
-                System.err.println("Impossible d'ajouter la combo pour le choix des modèles car le champ ID_MODELE n'est pas présent dans la table " + comp.getElement().getTable().getName());
+                System.err.println("Impossible d'ajouter la combo pour le choix des modèles car le champ ID_MODELE n'est pas présent dans la table " + tableComp.getName());
                 Thread.dumpStack();
             }
         }
         this.add(this.checkImpression, c);
         this.add(this.checkVisu, c);
+    }
+
+    public JCheckBox getCheckAbo() {
+        return checkAbo;
     }
 
     public boolean isVisualisationSelected() {
@@ -87,6 +98,10 @@ public class PanelOOSQLComponent extends JPanel {
 
     public boolean isImpressionSelected() {
         return this.checkImpression.isSelected();
+    }
+
+    public boolean isCheckAboSelected() {
+        return this.checkAbo.isSelected();
     }
 
 }

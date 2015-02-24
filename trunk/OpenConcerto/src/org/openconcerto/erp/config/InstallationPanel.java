@@ -1487,11 +1487,22 @@ public class InstallationPanel extends JPanel {
         addContact(root);
 
         final SQLTable tableDevis = root.getTable("DEVIS");
+        AlterTable tDevis = new AlterTable(tableDevis);
+        boolean updateDevis = false;
+        if (!tableDevis.contains("POURCENT_REMISE")) {
+            updateDevis = true;
+            tDevis.addColumn("POURCENT_REMISE", "numeric (12,8)");
+        }
         if (!tableDevis.contains("MONTANT_REMISE")) {
-            AlterTable t = new AlterTable(tableDevis);
-            t.addColumn("POURCENT_REMISE", "numeric (12,8)");
-            t.addColumn("MONTANT_REMISE", "numeric (16,8)");
-            tableDevis.getBase().getDataSource().execute(t.asString());
+            updateDevis = true;
+            tDevis.addColumn("MONTANT_REMISE", "numeric (16,8)");
+        }
+        if (!tableDevis.contains("T_HA")) {
+            updateDevis = true;
+            tDevis.addColumn("T_HA", "bigint", "0", false);
+        }
+        if (updateDevis) {
+            tableDevis.getBase().getDataSource().execute(tDevis.asString());
             tableDevis.getSchema().updateVersion();
             tableDevis.fetchFields();
         }
@@ -1507,14 +1518,30 @@ public class InstallationPanel extends JPanel {
         }
 
         final SQLTable tableAdresse = root.getTable("ADRESSE");
-        if (tableAdresse != null && !tableAdresse.contains("PROVINCE")) {
+        if (tableAdresse != null) {
             AlterTable t = new AlterTable(tableAdresse);
-            t.addVarCharColumn("PROVINCE", 256);
-            t.addVarCharColumn("TYPE", 256);
-            t.addVarCharColumn("EMAIL_CONTACT", 256);
-            tableAdresse.getBase().getDataSource().execute(t.asString());
-            tableAdresse.getSchema().updateVersion();
-            tableAdresse.fetchFields();
+            boolean updateADr = false;
+            if (!tableAdresse.contains("PROVINCE")) {
+                t.addVarCharColumn("PROVINCE", 256);
+                updateADr = true;
+            }
+            if (!tableAdresse.contains("LIBELLE")) {
+                t.addVarCharColumn("LIBELLE", 256);
+                updateADr = true;
+            }
+            if (!tableAdresse.contains("TYPE")) {
+                t.addVarCharColumn("TYPE", 256);
+                updateADr = true;
+            }
+            if (!tableAdresse.contains("EMAIL_CONTACT")) {
+                t.addVarCharColumn("EMAIL_CONTACT", 256);
+                updateADr = true;
+            }
+            if (updateADr) {
+                tableAdresse.getBase().getDataSource().execute(t.asString());
+                tableAdresse.getSchema().updateVersion();
+                tableAdresse.fetchFields();
+            }
         }
         final SQLTable tableClient = root.getTable("CLIENT");
         if (tableClient != null && !tableClient.contains("BLOQUE_LIVRAISON")) {
@@ -1535,7 +1562,33 @@ public class InstallationPanel extends JPanel {
             tableAssoc.getSchema().updateVersion();
             tableAssoc.fetchFields();
         }
+        if (!root.contains("CALENDAR_ITEM")) {
+            final SQLCreateTable createTaskGroupTable = new SQLCreateTable(root, "CALENDAR_ITEM_GROUP");
+            createTaskGroupTable.addVarCharColumn("NAME", 1024);
+            createTaskGroupTable.addVarCharColumn("DESCRIPTION", 1024 * 8);
 
+            final SQLCreateTable createTaskTable = new SQLCreateTable(root, "CALENDAR_ITEM");
+            createTaskTable.addDateAndTimeColumn("START");
+            createTaskTable.addDateAndTimeColumn("END");
+            createTaskTable.addLongColumn("DURATION_S", 0L, false);
+            createTaskTable.addVarCharColumn("SUMMARY", 1024);
+            createTaskTable.addVarCharColumn("DESCRIPTION", 1024 * 8);
+            createTaskTable.addVarCharColumn("FLAGS", 1024);
+            createTaskTable.addVarCharColumn("STATUS", 128);
+            createTaskTable.addForeignColumn(createTaskGroupTable);
+            createTaskTable.addLongColumn("SOURCE_ID", null, true);
+            createTaskTable.addVarCharColumn("SOURCE_TABLE", 256);
+            try {
+                root.getDBSystemRoot().getDataSource().execute(createTaskGroupTable.asString());
+                insertUndef(createTaskGroupTable);
+                root.getDBSystemRoot().getDataSource().execute(createTaskTable.asString());
+                insertUndef(createTaskTable);
+                tableDevis.getSchema().updateVersion();
+            } catch (SQLException ex) {
+                throw new IllegalStateException("Erreur lors de la création de la table TASK", ex);
+            }
+
+        }
         addArticleFournisseur(root);
     }
 
@@ -1968,6 +2021,10 @@ public class InstallationPanel extends JPanel {
 
         SQLTable tableCmdFournElt = root.getTable("COMMANDE_ELEMENT");
         addHAElementField(tableCmdFournElt, root);
+        if (root.contains("DEMANDE_PRIX_ELEMENT")) {
+            SQLTable tableDmdFournElt = root.getTable("DEMANDE_PRIX_ELEMENT");
+            addHAElementField(tableDmdFournElt, root);
+        }
 
         SQLTable tableBonRecptElt = root.getTable("BON_RECEPTION_ELEMENT");
         addHAElementField(tableBonRecptElt, root);
@@ -2340,7 +2397,7 @@ public class InstallationPanel extends JPanel {
 
         List<String> cols = Arrays.asList("PV_HT", "PA_DEVISE_T", "T_PV_HT", "T_PA_TTC", "T_PA_HT", "PA_HT", "T_PV_TTC", "PRIX_METRIQUE_HA_2", "PRIX_METRIQUE_HA_1", "PRIX_METRIQUE_HA_3",
                 "PRIX_METRIQUE_VT_2", "PRIX_METRIQUE_VT_1", "MONTANT_HT", "MONTANT_INITIAL", "PRIX_METRIQUE_VT_3", "MARGE_HT", "PA_DEVISE", "PV_U_DEVISE", "PV_T_DEVISE", "PV_TTC", "TARIF_Q18_HT",
-                "T_PRIX_FINAL_TTC", "PRIX_FINAL_TTC", "PV_UNIT_HT");
+                "T_PRIX_FINAL_TTC", "PRIX_FINAL_TTC", "PV_UNIT_HT", "PREBILAN", "MARGE_PREBILAN_HT");
 
         if ((table.contains("PV_HT") && table.getField("PV_HT").getType().getDecimalDigits() == 0) || (table.contains("PV_UNIT_HT") && table.getField("PV_UNIT_HT").getType().getDecimalDigits() == 0)) {
             AlterTable t = new AlterTable(table);

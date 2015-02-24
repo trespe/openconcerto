@@ -25,6 +25,7 @@ import org.openconcerto.erp.preferences.GestionPieceCommercialePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.model.SQLBase;
 import org.openconcerto.sql.model.SQLRow;
+import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
@@ -329,8 +330,15 @@ public class GenerationEcritures {
 
         TotalCalculator calc = new TotalCalculator("T_PA_HT", fieldTotalHT, null, achat, defaultCompte);
         String val = DefaultNXProps.getInstance().getStringProperty("ArticleService");
-        Boolean bServiceActive = Boolean.valueOf(val);
+        Boolean bServiceActive = Boolean.valueOf(val); 
+                
         calc.setServiceActive(bServiceActive != null && bServiceActive);
+        if (row.getTable().contains("ID_COMPTE_PCE_SERVICE") && !row.isForeignEmpty("ID_COMPTE_PCE_SERVICE")) {
+            SQLRowAccessor serviceCompte = row.getForeign("ID_COMPTE_PCE_SERVICE");
+            if (!serviceCompte.isUndefined()) {
+                calc.setRowDefaultCptService(serviceCompte);
+            }
+        }
         long remise = 0;
         BigDecimal totalAvtRemise = BigDecimal.ZERO;
         if (row.getTable().contains("REMISE_HT")) {

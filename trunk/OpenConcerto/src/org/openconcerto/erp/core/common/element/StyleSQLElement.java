@@ -61,7 +61,7 @@ public class StyleSQLElement extends ComptaSQLConfElement {
             String s = (o == null) ? null : o.toString();
             m.put(s, null);
         }
-
+        m.put("BlankStyle", null);
         return m;
     }
 

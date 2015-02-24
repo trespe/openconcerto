@@ -32,7 +32,7 @@ import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-abstract class AbstractExport {
+public abstract class AbstractExport {
 
     static private final DateFormat FILE_DF = new SimpleDateFormat("yyyyMMdd");
     static private final DateFormat UNIQUE_DF = new SimpleDateFormat("yyyyMMdd_HHmmss");
@@ -40,12 +40,54 @@ abstract class AbstractExport {
     private final String type;
     private final String extension;
     private boolean used;
+    private int nbCharCpt = 0;
+    private int nbCharLimitCpt = 0;
 
     protected AbstractExport(final DBRoot rootSociete, final String type, final String extension) {
         this.rootSociete = rootSociete;
         this.type = type;
         this.extension = extension;
         this.used = false;
+    }
+
+    public String getFormattedCompte(String s) {
+        String result = s;
+        if (s != null) {
+
+            if (this.nbCharCpt > 0 && s.trim().length() > 0) {
+
+                StringBuffer res = new StringBuffer(this.nbCharCpt);
+
+                for (int i = 0; i < Math.max(this.nbCharCpt, s.length()); i++) {
+                    if (i < s.length()) {
+                        res.append(s.charAt(i));
+                    } else {
+                        res.append("0");
+                    }
+                }
+                result = res.toString();
+            }
+            if (this.nbCharLimitCpt > 0 && result.length() > this.nbCharLimitCpt) {
+                result = result.substring(0, this.nbCharLimitCpt);
+            }
+        }
+        return result;
+    }
+
+    public void setNbCharCpt(int nbCharCpt) {
+        this.nbCharCpt = nbCharCpt;
+    }
+
+    public void setNbCharLimitCpt(int nbCharLimitCpt) {
+        this.nbCharLimitCpt = nbCharLimitCpt;
+    }
+
+    public int getNbCharCpt() {
+        return nbCharCpt;
+    }
+
+    public int getNbCharLimitCpt() {
+        return nbCharLimitCpt;
     }
 
     protected final DBRoot getRootSociete() {
