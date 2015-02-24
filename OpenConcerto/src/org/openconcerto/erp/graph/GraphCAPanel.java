@@ -50,15 +50,20 @@ public class GraphCAPanel extends JPanel implements ChangeListener, DataModelLis
     private CADataModel model1;
     private CADataModel model2;
     private CADataModel model3;
+
+    private CAYearDataModel modelYear1;
+    private CAYearDataModel modelYear2;
+    private CAYearDataModel modelYear3;
     private final VerticalGroupBarChart chart = new VerticalGroupBarChart();
     private JLabel title = new JLabelBold("-");
+    private final boolean cumul;
 
     /**
      * Chiffres d'affaires, affichés en barres
      */
-    public GraphCAPanel() {
+    public GraphCAPanel(boolean cumul) {
         final int year = Calendar.getInstance().get(Calendar.YEAR);
-
+        this.cumul = cumul;
         this.setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.insets = new Insets(4, 6, 4, 4);
@@ -99,11 +104,11 @@ public class GraphCAPanel extends JPanel implements ChangeListener, DataModelLis
         chart.setColors(colors);
         chart.setDimension(new Dimension(800, 400));
         // Models
-        model1 = new CADataModel(chart, year - 2);
+        model1 = new CADataModel(chart, year - 2, cumul);
         chart.addModel(model1);
-        model2 = new CADataModel(chart, year - 1);
+        model2 = new CADataModel(chart, year - 1, cumul);
         chart.addModel(model2);
-        model3 = new CADataModel(chart, year);
+        model3 = new CADataModel(chart, year, cumul);
         chart.addModel(model3);
         // Range
         chart.setLowerRange(0);
@@ -126,7 +131,12 @@ public class GraphCAPanel extends JPanel implements ChangeListener, DataModelLis
         };
         panel.setBackground(Color.WHITE);
         this.add(panel, c);
-
+        if (!this.cumul) {
+            c.gridx++;
+            this.add(createYearChartPanel(year), c);
+        }
+        c.gridx = 0;
+        c.gridwidth = GridBagConstraints.REMAINDER;
         c.gridy++;
         c.weightx = 1;
         c.weighty = 0;
@@ -164,11 +174,75 @@ public class GraphCAPanel extends JPanel implements ChangeListener, DataModelLis
         updateTitle();
     }
 
+    private ChartPanel createYearChartPanel(int year) {
+        List<Color> colors = new ArrayList<Color>();
+        colors.add(Color.decode("#4A79A5"));
+        colors.add(Color.decode("#639ACE"));
+        colors.add(Color.decode("#94BAE7"));
+
+        final Axis axisY = new Axis("y");
+        axisY.addLabel(new AxisLabel("0"));
+        axisY.addLabel(new AxisLabel("500 €"));
+        axisY.addLabel(new AxisLabel("1000 €"));
+
+        final Axis axisX = new Axis("x");
+        axisX.addLabel(new AxisLabel("Total", 1));
+
+        final VerticalGroupBarChart chartYear = new VerticalGroupBarChart();
+        chartYear.setBottomAxis(axisX);
+        chartYear.setLeftAxis(axisY);
+        chartYear.setBarWidth(14);
+        chartYear.setColors(colors);
+        chartYear.setDimension(new Dimension(150, 400));
+        // Models
+        modelYear1 = new CAYearDataModel(year - 2);
+        chartYear.addModel(modelYear1);
+        modelYear2 = new CAYearDataModel(year - 1);
+        chartYear.addModel(modelYear2);
+        modelYear3 = new CAYearDataModel(year);
+        chartYear.addModel(modelYear3);
+        // Range
+        chartYear.setLowerRange(0);
+        chartYear.setHigherRange(1000);
+
+        modelYear1.addDataModelListener(new DataModelListener() {
+            @Override
+            public void dataChanged() {
+                updateLeftAxis(chartYear, modelYear1.getMaxValue().floatValue());
+            }
+        });
+        modelYear2.addDataModelListener(new DataModelListener() {
+            @Override
+            public void dataChanged() {
+                updateLeftAxis(chartYear, modelYear2.getMaxValue().floatValue());
+            }
+        });
+        modelYear3.addDataModelListener(new DataModelListener() {
+            @Override
+            public void dataChanged() {
+                updateLeftAxis(chartYear, modelYear3.getMaxValue().floatValue());
+            }
+        });
+
+        final ChartPanel panel = new ChartPanel(chartYear) {
+            @Override
+            public String getToolTipTextFrom(Number n) {
+                if (n == null) {
+                    return null;
+                }
+                CAYearDataModel m = (CAYearDataModel) chartYear.getHighlight().getModel();
+                return axisX.getLabels().get(chartYear.getHighlight().getIndexOnModel()).getLabel() + " " + m.getYear() + ": " + n.longValue() + " €";
+            }
+        };
+        panel.setOpaque(false);
+        return panel;
+    }
+
     private void addLeftAxisUpdater(final CADataModel model) {
         model.addDataModelListener(new DataModelListener() {
             @Override
             public void dataChanged() {
-                updateLeftAxis(model.getMaxValue().floatValue());
+                updateLeftAxis(chart, model.getMaxValue().floatValue());
             }
         });
     }
@@ -194,11 +268,17 @@ public class GraphCAPanel extends JPanel implements ChangeListener, DataModelLis
     @Override
     public void stateChanged(ChangeEvent e) {
         if (e.getSource() == s1) {
-            model1.loadYear(s1.getValue());
+            model1.loadYear(s1.getValue(), this.cumul);
+            if (!this.cumul)
+                modelYear1.loadYear(s1.getValue());
         } else if (e.getSource() == s2) {
-            model2.loadYear(s2.getValue());
+            model2.loadYear(s2.getValue(), this.cumul);
+            if (!this.cumul)
+                modelYear2.loadYear(s2.getValue());
         } else if (e.getSource() == s3) {
-            model3.loadYear(s3.getValue());
+            model3.loadYear(s3.getValue(), this.cumul);
+            if (!this.cumul)
+                modelYear3.loadYear(s3.getValue());
         }
 
     }
@@ -210,19 +290,19 @@ public class GraphCAPanel extends JPanel implements ChangeListener, DataModelLis
         return h;
     }
 
-    public void updateLeftAxis(final float maxValue) {
+    public void updateLeftAxis(final VerticalGroupBarChart chartGroup, final float maxValue) {
         if (maxValue >= getHigherValue()) {
             SwingUtilities.invokeLater(new Runnable() {
 
                 @Override
                 public void run() {
                     long euros = (long) maxValue;
-                    chart.getLeftAxis().removeAllLabels();
+                    chartGroup.getLeftAxis().removeAllLabels();
                     String currencyToString = GestionDevise.currencyToString(euros * 100, true);
-                    chart.getLeftAxis().addLabel(new AxisLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €", euros));
+                    chartGroup.getLeftAxis().addLabel(new AxisLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €", euros));
                     currencyToString = GestionDevise.currencyToString(euros * 100 / 2, true);
-                    chart.getLeftAxis().addLabel(new AxisLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €", euros / 2));
-                    chart.setHigherRange(maxValue);
+                    chartGroup.getLeftAxis().addLabel(new AxisLabel(currencyToString.substring(0, currencyToString.length() - 3) + " €", euros / 2));
+                    chartGroup.setHigherRange(maxValue);
                 }
             });
 

@@ -190,7 +190,11 @@ public abstract class AbstractArticleItemTable extends JPanel {
         if (poidsTColIndex >= 0) {
             for (int i = 0; i < this.table.getRowCount(); i++) {
                 final Number tmp = (Number) this.model.getValueAt(i, poidsTColIndex);
-                if (tmp != null && this.model.getRowValuesAt(i).getInt("NIVEAU") == 1) {
+                int level = 1;
+                if (this.model.getRowValuesAt(i).getObject("NIVEAU") != null) {
+                    level = this.model.getRowValuesAt(i).getInt("NIVEAU");
+                }
+                if (tmp != null && level == 1) {
                     poids += tmp.floatValue();
                 }
             }
@@ -274,7 +278,10 @@ public abstract class AbstractArticleItemTable extends JPanel {
 
         int rowCount = this.model.getRowCount();
         SQLRowValues rowValsSource = this.getRowValuesTable().getRowValuesTableModel().getRowValuesAt(index);
-        int niveauSource = rowValsSource.getInt("NIVEAU");
+        int niveauSource = 1;
+        if (rowValsSource.getObject("NIVEAU") != null) {
+            niveauSource = rowValsSource.getInt("NIVEAU");
+        }
         if (niveauSource > 1) {
             int startFrom = index;
             for (int i = index + 1; i < rowCount; i++) {
@@ -288,15 +295,24 @@ public abstract class AbstractArticleItemTable extends JPanel {
 
             if (startFrom == index) {
 
+                // index à mettre à jour (de niveau n-1)
                 int indexToUpdate = index;
                 BigDecimal prixUnitHT = BigDecimal.ZERO;
                 BigDecimal prixUnitHA = BigDecimal.ZERO;
+
+                // Test pour éviter aucun niveau n-1 dans le tableau (ex : que des niveaux 2)
+                boolean update = false;
+
+                // Calcul du sous total
                 for (int i = index; i >= 0; i--) {
                     indexToUpdate = i;
                     SQLRowValues rowVals = this.getRowValuesTable().getRowValuesTableModel().getRowValuesAt(i);
-                    final int niveauCourant = rowVals.getInt("NIVEAU");
+                    int niveauCourant = 1;
+                    if (rowVals.getObject("NIVEAU") != null) {
+                        niveauCourant = rowVals.getInt("NIVEAU");
+                    }
                     if (niveauCourant < niveauSource) {
-
+                        update = true;
                         break;
                     } else if (niveauCourant == niveauSource) {
                         // Cumul des valeurs
@@ -304,16 +320,17 @@ public abstract class AbstractArticleItemTable extends JPanel {
                         prixUnitHA = prixUnitHA.add(rowVals.getBigDecimal("PA_HT").multiply(new BigDecimal(rowVals.getInt("QTE"))).multiply(rowVals.getBigDecimal("QTE_UNITAIRE")));
                     }
                 }
-
-                this.model.putValue(prixUnitHA, indexToUpdate, "PRIX_METRIQUE_HA_1");
-                // this.model.putValue(prixUnitHA, indexToUpdate, "PA_HT");
-                this.model.putValue(ComptaPropsConfiguration.getInstanceCompta().getRowSociete().getForeignID("ID_DEVISE"), indexToUpdate, "ID_DEVISE");
-                this.model.putValue(prixUnitHT, indexToUpdate, "PV_U_DEVISE");
-                this.model.putValue(prixUnitHT, indexToUpdate, "PRIX_METRIQUE_VT_1");
-                // this.model.putValue(prixUnitHT, indexToUpdate, "PV_HT");
-                // if (indexToUpdate < rowCount) {
-                // calculTarifNomenclature(indexToUpdate);
-                // }
+                if (update) {
+                    this.model.putValue(prixUnitHA, indexToUpdate, "PRIX_METRIQUE_HA_1");
+                    // this.model.putValue(prixUnitHA, indexToUpdate, "PA_HT");
+                    this.model.putValue(ComptaPropsConfiguration.getInstanceCompta().getRowSociete().getForeignID("ID_DEVISE"), indexToUpdate, "ID_DEVISE");
+                    this.model.putValue(prixUnitHT, indexToUpdate, "PV_U_DEVISE");
+                    this.model.putValue(prixUnitHT, indexToUpdate, "PRIX_METRIQUE_VT_1");
+                    // this.model.putValue(prixUnitHT, indexToUpdate, "PV_HT");
+                    // if (indexToUpdate < rowCount) {
+                    // calculTarifNomenclature(indexToUpdate);
+                    // }
+                }
             } else {
                 calculTarifNomenclature(startFrom);
             }

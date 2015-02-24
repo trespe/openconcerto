@@ -24,13 +24,13 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.DecimalUtils;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.List;
 
 import javax.swing.JButton;
@@ -111,7 +111,7 @@ public class TextAreaTicketPanel extends JPanel {
             a.setPriceHTInCents(ht);
             int idTaxe = row2.getInt("ID_TAXE");
             float tva = TaxeCache.getCache().getTauxFromId(idTaxe);
-            a.setPriceInCents(ht.multiply(new BigDecimal(1.0 + (tva / 100.0D)), MathContext.DECIMAL128));
+            a.setPriceInCents(ht.multiply(new BigDecimal(1.0 + (tva / 100.0D)), DecimalUtils.HIGH_PRECISION));
             a.setIdTaxe(idTaxe);
             t.addArticle(a);
             t.setArticleCount(a, row2.getInt("QTE"));

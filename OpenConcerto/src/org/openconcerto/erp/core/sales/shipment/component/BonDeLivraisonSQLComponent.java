@@ -97,7 +97,7 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
     @Override
     protected SQLRowValues createDefaults() {
-        this.textNumeroUnique.setText(NumerotationAutoSQLElement.getNextNumero(BonDeLivraisonSQLElement.class));
+        this.textNumeroUnique.setText(NumerotationAutoSQLElement.getNextNumero(getElement().getClass()));
         this.tableBonItem.getModel().clearRows();
         return super.createDefaults();
     }
@@ -451,9 +451,6 @@ public class BonDeLivraisonSQLComponent extends TransfertBaseSQLComponent {
 
     @Override
     public void select(SQLRowAccessor r) {
-        if (r != null) {
-            this.textNumeroUnique.setIdSelected(r.getID());
-        }
         if (r == null || r.getIDNumber() == null)
             super.select(r);
         else {

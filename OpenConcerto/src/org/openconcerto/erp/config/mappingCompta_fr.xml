@@ -868,7 +868,6 @@
 	</TABLE>
 
 	<TABLE name="DEVIS">
-
 		<FIELD name="CONTACT_MAIL_RAPPORT" label="Email dest. suppl." />
 		<FIELD name="SITE_DIFF" label="Site d'intervention différent du donneur d'ordre" titlelabel="Site d'intervention différent du donneur d'ordre" />
 		<FIELD name="DESIGNATION_SITE" label="Désignation du site" />
@@ -879,7 +878,6 @@
 		<FIELD name="FAX_SITE" label="Fax du site" />
 		<FIELD name="MAIL_SITE" label="Email du site" />
 		<FIELD name="CONTACT_SITE" label="Contact du site" />
-
 		<FIELD name="DONNEUR_DIFF" label="Donneur d'ordre différent du client" />
 		<FIELD name="DESIGNATION_DONNEUR" label="Désignation du donneur d'ordre" />
 		<FIELD name="ADRESSE_DONNEUR" label="Adresse du donneur d'ordre" />
@@ -890,9 +888,7 @@
 		<FIELD name="MAIL_DONNEUR" label="Email du donneur d'ordre" />
 		<FIELD name="CONTACT_DONNEUR" label="Contact du donneur d'ordre" />
 		<FIELD name="SIREN_DONNEUR" label="Siren du donneur d'ordre" />
-
 		<FIELD name="DATE_DEMANDE" label="Date demande client" titlelabel="Date demande client" />
-
 		<FIELD name="MONTANT_REMISE" label="Remise globale" />
 		<FIELD name="ID_MODELE" label="Modèle" titlelabel="Modèle" />
 		<FIELD name="PROBABILITE" label="Probabilité" titlelabel="Probabilité" />
@@ -902,6 +898,7 @@
 		<FIELD name="OBJET" label="Référence" titlelabel="Référence" />
 		<FIELD name="ID_COMMERCIAL" label="Commercial" titlelabel="Commercial" />
 		<FIELD name="ID_CLIENT" label="Client" titlelabel="Client" />
+		<FIELD name="T_HA" label="Total achat HT" titlelabel="Total achat HT" />
 		<FIELD name="T_HT" label="Total HT" titlelabel="Total HT" />
 		<FIELD name="T_TVA" label="Total TVA" titlelabel="Total TVA" />
 		<FIELD name="T_TTC" label="Total TTC" titlelabel="Total TTC" />
@@ -916,7 +913,7 @@
 		<FIELD name="ID_ADRESSE" label="Adresse" titlelabel="Adresse" />
 		<FIELD name="ID_CONTACT" label="Contact" titlelabel="Contact" />
 		<FIELD name="ADRESSE_IDENTIQUE" label="Adresse identique" titlelabel="Adresse identique" />
-		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />
+		<FIELD name="T_DEVISE" label="Total Devise" titlelabel="Total Devise" />	
 	</TABLE>
 	<TABLE name="DEVIS_ELEMENT">
 		<FIELD name="QTE_UNITAIRE" label="Qté U.V." titlelabel="Qté U.V." />

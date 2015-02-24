@@ -31,6 +31,8 @@ import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.BaseSQLComponent;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.model.IResultSetHandler;
+import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowListRSH;
 import org.openconcerto.sql.model.SQLRowValues;
@@ -65,9 +67,12 @@ import java.util.Set;
 import javax.swing.Icon;
 import javax.swing.JCheckBox;
 import javax.swing.JLabel;
+import javax.swing.JOptionPane;
 import javax.swing.JTextField;
 import javax.swing.SwingConstants;
 import javax.swing.event.DocumentEvent;
+
+import org.apache.commons.dbutils.ResultSetHandler;
 
 // FIXME bug JTextField for input bigInt
 
@@ -209,14 +214,18 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
 
             private void updateLabel(JTextField textStart, JTextField textFormat, JLabel label) {
                 if (textStart.getText().trim().length() > 0) {
-                    String numProposition = getNextNumero(textFormat.getText(), Integer.parseInt(textStart.getText()), new Date());
+                    try {
+                        String numProposition = getNextNumero(textFormat.getText(), Integer.parseInt(textStart.getText()), new Date());
 
-                    if (numProposition != null) {
-                        label.setText(" --> " + numProposition);
-                        label.setIcon(null);
-                    } else {
-                        label.setIcon(this.iconWarning);
-                        label.setText("");
+                        if (numProposition != null) {
+                            label.setText(" --> " + numProposition);
+                            label.setIcon(null);
+                        } else {
+                            label.setIcon(this.iconWarning);
+                            label.setText("");
+                        }
+                    } catch (IllegalArgumentException e) {
+                        JOptionPane.showMessageDialog(null, "Le format " + textFormat.getText() + " n'est pas valide!");
                     }
                 } else {
                     label.setIcon(this.iconWarning);
@@ -237,12 +246,21 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
 
     public final static String AUTO_MONTH = "_AUTO_MONTH";
 
-    public static final String getNextNumero(Class<? extends SQLElement> clazz) {
+    /*
+     * 
+     * 
+     * @throws IllegalArgumentException pattern incorrect
+     */
+    public static final String getNextNumero(Class<? extends SQLElement> clazz) throws IllegalArgumentException {
         return getNextNumero(clazz, new Date());
     }
 
-    // Format du type 'Fact'yyyy-MM-dd0000
-    public static final String getNextNumero(Class<? extends SQLElement> clazz, Date d) {
+    /*
+     * Format du type 'Fact'yyyy-MM-dd0000
+     * 
+     * @throws IllegalArgumentException pattern incorrect
+     */
+    public static final String getNextNumero(Class<? extends SQLElement> clazz, Date d) throws IllegalArgumentException {
         SQLRow rowNum = TABLE_NUM.getRow(2);
         String s = map.get(clazz);
 
@@ -287,7 +305,10 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         return Tuple2.create(prefix, suffix);
     }
 
-    protected static final String getNextNumero(String format, Integer start, Date d) {
+    /*
+     * @throws IllegalArgumentException pattern incorrect
+     */
+    protected static final String getNextNumero(String format, Integer start, Date d) throws IllegalArgumentException {
         if (start != null && start < 0) {
             return null;
         }
@@ -394,31 +415,36 @@ public class NumerotationAutoSQLElement extends ComptaSQLConfElement {
         final String prefix = prefixSuffix.get0();
         final String suffix = prefixSuffix.get1();
 
-        final SQLSelect sel = new SQLSelect();
-        sel.addSelect(table.getField("NUMERO"));
-        sel.addSelect(table.getKey());
+        Where w = new Where(table.getField("NUMERO"), "LIKE", "%" + prefix + "%");
+            final SQLSelect sel = new SQLSelect();
+            sel.addSelect(table.getField("NUMERO"));
+            sel.addSelect(table.getKey());
 
-        sel.setWhere(new Where(table.getField("NUMERO"), "LIKE", "%" + prefix + "%"));
-        final List<SQLRow> l = (List<SQLRow>) Configuration.getInstance().getBase().getDataSource().execute(sel.asString(), SQLRowListRSH.createFromSelect(sel));
+            sel.setWhere(w);
+            SQLDataSource source = Configuration.getInstance().getBase().getDataSource();
 
-        final String decimalPattern = "'" + prefix + "'" + suffix;
-        final DecimalFormat format = new DecimalFormat(decimalPattern);
-        int value = 0;
-        for (SQLRow sqlRow : l) {
+            final ResultSetHandler createFromSelect = SQLRowListRSH.createFromSelect(sel);
 
-            final String numero = sqlRow.getString("NUMERO");
-            try {
+            final List<SQLRow> l = (List<SQLRow>) source.execute(sel.asString(), new IResultSetHandler(createFromSelect, false));
 
-                final Number n = format.parse(numero);
-                value = Math.max(value, n.intValue());
-            } catch (ParseException exn) {
-                System.err.println("NumerotationAutoSQLElement.getNextForMonth(): warning: unable to parse " + numero + " with pattern " + decimalPattern + " row:" + sqlRow);
-                exn.printStackTrace();
+            final String decimalPattern = "'" + prefix + "'" + suffix;
+            final DecimalFormat format = new DecimalFormat(decimalPattern);
+            int value = 0;
+            for (SQLRow sqlRow : l) {
+
+                final String numero = sqlRow.getString("NUMERO");
+                try {
+
+                    final Number n = format.parse(numero);
+                    value = Math.max(value, n.intValue());
+                } catch (ParseException exn) {
+                    System.err.println("NumerotationAutoSQLElement.getNextForMonth(): warning: unable to parse " + numero + " with pattern " + decimalPattern + " row:" + sqlRow);
+                    exn.printStackTrace();
+                }
             }
-        }
-        final String result = format.format(value + 1);
-        System.err.println("NumerotationAutoSQLElement.getNextForMonth(): " + result);
-        return result;
+            final String result = format.format(value + 1);
+            System.err.println("NumerotationAutoSQLElement.getNextForMonth(): " + result);
+            return result;
     }
 
     private static String getPattern(SQLElement elt, int num) {

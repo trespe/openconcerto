@@ -27,7 +27,6 @@ import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.FieldPath;
-import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.graph.Path;
@@ -39,13 +38,16 @@ import org.openconcerto.sql.view.list.IListe;
 import org.openconcerto.sql.view.list.IListeAction.IListeEvent;
 import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.list.RowAction.PredicateRowAction;
+import org.openconcerto.sql.view.list.SQLTableModelColumn;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.state.WindowStateManager;
 import org.openconcerto.ui.table.PercentTableCellRenderer;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.NumberUtils;
+import org.openconcerto.utils.Tuple2;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.awt.GridBagConstraints;
@@ -53,7 +55,6 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -72,6 +73,8 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
         super();
         this.putValue(Action.NAME, "Liste des commandes clients");
     }
+
+    private BaseSQLTableModelColumn colAvancement;
 
     public JFrame createFrame() {
         final JFrame frame = new JFrame("Commandes clients");
@@ -182,7 +185,7 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
         allowedActions.add(soldeAction);
         allowedActions.add(cmdAction);
 
-        final BaseSQLTableModelColumn colAvancement = new BaseSQLTableModelColumn("Avancement facturation", BigDecimal.class) {
+        this.colAvancement = new BaseSQLTableModelColumn("Avancement facturation", BigDecimal.class) {
 
             @Override
             protected Object show_(SQLRowAccessor r) {
@@ -196,8 +199,8 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
                 return CollectionUtils.createSet(new FieldPath(p, "T_HT"));
             }
         };
-        tableSource.getColumns().add(colAvancement);
-        colAvancement.setRenderer(new PercentTableCellRenderer());
+        tableSource.getColumns().add(this.colAvancement);
+        this.colAvancement.setRenderer(new PercentTableCellRenderer());
         final ListeAddPanel panel = getPanel(eltCmd, tableSource, allowedActions);
         return panel;
     }
@@ -214,7 +217,7 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
             }
         }
         if (total > 0) {
-            return new BigDecimal(totalFact).divide(new BigDecimal(total), MathContext.DECIMAL128).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
+            return new BigDecimal(totalFact).divide(new BigDecimal(total), DecimalUtils.HIGH_PRECISION).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
         } else {
             return BigDecimal.ONE.movePointRight(2);
         }
@@ -258,9 +261,10 @@ public class ListeDesCommandesClientAction extends CreateFrameAbstractAction {
             }
         };
 
-        final List<SQLField> fields = new ArrayList<SQLField>(2);
-        fields.add(eltCmd.getTable().getField("T_HT"));
-        final IListTotalPanel totalPanel = new IListTotalPanel(panel.getListe(), fields, "Total des commandes de la liste");
+        final List<Tuple2<? extends SQLTableModelColumn, IListTotalPanel.Type>> fields = new ArrayList<Tuple2<? extends SQLTableModelColumn, IListTotalPanel.Type>>(2);
+        fields.add(Tuple2.create(panel.getListe().getSource().getColumn(eltCmd.getTable().getField("T_HT")), IListTotalPanel.Type.SOMME));
+        fields.add(Tuple2.create(this.colAvancement, IListTotalPanel.Type.AVANCEMENT_TTC));
+        final IListTotalPanel totalPanel = new IListTotalPanel(panel.getListe(), fields, null, "Total des commandes de la liste");
 
         final GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridwidth = GridBagConstraints.REMAINDER;

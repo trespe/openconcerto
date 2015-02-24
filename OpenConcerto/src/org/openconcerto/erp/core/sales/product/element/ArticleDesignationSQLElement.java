@@ -49,6 +49,11 @@ public class ArticleDesignationSQLElement extends ComptaSQLConfElement {
         return l;
     }
 
+    @Override
+    protected String getParentFFName() {
+        return "ID_ARTICLE";
+    }
+
     /*
      * (non-Javadoc)
      * 

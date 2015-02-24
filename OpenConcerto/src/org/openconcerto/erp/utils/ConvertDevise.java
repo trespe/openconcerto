@@ -13,8 +13,9 @@
  
  package org.openconcerto.erp.utils;
 
+import org.openconcerto.utils.DecimalUtils;
+
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 
 public class ConvertDevise {
@@ -34,7 +35,7 @@ public class ConvertDevise {
 			int scale) {
 
 		BigDecimal tauxB = taxe.movePointLeft(2).add(BigDecimal.ONE);
-		BigDecimal result = ht.multiply(tauxB, MathContext.DECIMAL128)
+		BigDecimal result = ht.multiply(tauxB, DecimalUtils.HIGH_PRECISION)
 				.setScale(scale, RoundingMode.HALF_UP);
 		return result;
 
@@ -58,7 +59,7 @@ public class ConvertDevise {
 		}
 
 		BigDecimal tauxB = taxe.movePointLeft(2).add(BigDecimal.ONE);
-		BigDecimal result = ttc.divide(tauxB, MathContext.DECIMAL128).setScale(
+        BigDecimal result = ttc.divide(tauxB, DecimalUtils.HIGH_PRECISION).setScale(
 				scale, RoundingMode.HALF_UP);
 		return result;
 

@@ -44,6 +44,11 @@ public class ArticleTarifSQLElement extends ComptaSQLConfElement {
         return l;
     }
 
+    @Override
+    protected String getParentFFName() {
+        return "ID_ARTICLE";
+    }
+
     public SQLComponent createComponent() {
         return new BaseSQLComponent(this) {
 

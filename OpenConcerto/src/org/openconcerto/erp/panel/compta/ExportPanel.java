@@ -21,8 +21,10 @@ import org.openconcerto.sql.model.DBRoot;
 import org.openconcerto.sql.request.ComboSQLRequest;
 import org.openconcerto.sql.sqlobject.ElementComboBox;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.ui.ISpinnerIntegerModel;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.ui.JLabelBold;
+import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.Tuple2;
 
@@ -31,6 +33,8 @@ import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.io.File;
 import java.io.FileNotFoundException;
 
@@ -43,8 +47,11 @@ import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JSpinner;
 import javax.swing.JTextField;
+import javax.swing.SpinnerModel;
 import javax.swing.SwingUtilities;
+import javax.swing.event.ChangeListener;
 
 public class ExportPanel extends JPanel {
     static enum ExportType {
@@ -92,6 +99,9 @@ public class ExportPanel extends JPanel {
     private final JTextField textDestination = new JTextField();
     private final ElementComboBox boxJournal = new ElementComboBox(true);
     private final JCheckBox boxExport = new JCheckBox("Seulement les nouvelles ecritures");
+    private final JCheckBox boxReplaceLib = new JCheckBox("Remplacer le libellé par le nom du client");
+    private JSpinner spinNbChar = new JSpinner(new ISpinnerIntegerModel(0, 20, 0));
+    private JSpinner spinNbCharLimit = new JSpinner(new ISpinnerIntegerModel(0, 20, 0));
 
     public ExportPanel() {
         super(new GridBagLayout());
@@ -201,6 +211,45 @@ public class ExportPanel extends JPanel {
         comboType.setSelectedIndex(0);
         this.add(comboType, c);
 
+        final JPanel p = new JPanel(new GridBagLayout());
+        GridBagConstraints c2 = new DefaultGridBagConstraints();
+        c2.gridx = 0;
+        c2.weightx = 1;
+        c2.gridwidth = GridBagConstraints.REMAINDER;
+        c2.fill = GridBagConstraints.HORIZONTAL;
+        p.add(new TitledSeparator("Option export relation expert", true), c2);
+
+        c2.gridy++;
+        c2.gridx = 0;
+        c2.weightx = 0;
+        c2.gridwidth = 3;
+        c2.fill = GridBagConstraints.HORIZONTAL;
+        p.add(new JLabel("Formater les numéros de compte suivant le nombre de caractères suivants", SwingUtilities.RIGHT), c2);
+        c2.gridx += 3;
+        c2.weightx = 1;
+        c2.gridwidth = 1;
+
+        p.add(this.spinNbChar, c2);
+
+        c2.gridy++;
+        c2.gridx = 0;
+        c2.weightx = 0;
+        c2.gridwidth = 3;
+        c2.fill = GridBagConstraints.HORIZONTAL;
+        p.add(new JLabel("Limiter le nombre de caractéres des numéros compte à", SwingUtilities.RIGHT), c2);
+        c2.gridx += 3;
+        c2.weightx = 1;
+        c2.gridwidth = 1;
+        p.add(this.spinNbCharLimit, c2);
+
+        c.gridy++;
+        c.gridx = 0;
+        c.weightx = 1;
+        c.weighty = 1;
+        c.gridwidth = GridBagConstraints.REMAINDER;
+        c.fill = GridBagConstraints.HORIZONTAL;
+        this.add(p, c);
+
         c.gridy++;
         c.weightx = 1;
         c.gridx = 0;
@@ -219,12 +268,24 @@ public class ExportPanel extends JPanel {
                 export((ExportType) comboType.getSelectedItem());
             }
         });
+        p.setVisible(false);
+        comboType.addActionListener(new ActionListener() {
+
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                p.setVisible((ExportType) comboType.getSelectedItem() == ExportType.RelationExpert);
+
+            }
+        });
     }
 
     protected final void export(ExportType type) {
         try {
-            final Tuple2<File, Number> res = type.createExport(ComptaPropsConfiguration.getInstanceCompta().getRootSociete()).export(this.fileChooser.getSelectedFile(), this.du.getDate(),
-                    this.au.getDate(), this.boxJournal.getSelectedRow(), this.boxExport.isSelected());
+            final AbstractExport createExport = type.createExport(ComptaPropsConfiguration.getInstanceCompta().getRootSociete());
+            createExport.setNbCharCpt((Integer) this.spinNbChar.getValue());
+            createExport.setNbCharLimitCpt((Integer) this.spinNbCharLimit.getValue());
+            final Tuple2<File, Number> res = createExport.export(this.fileChooser.getSelectedFile(), this.du.getDate(), this.au.getDate(), this.boxJournal.getSelectedRow(),
+                    this.boxExport.isSelected());
             if (res.get1().intValue() == 0) {
                 JOptionPane.showMessageDialog(this, "Aucune écriture trouvée. La période est-elle correcte ?");
             } else {

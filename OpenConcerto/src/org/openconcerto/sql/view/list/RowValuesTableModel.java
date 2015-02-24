@@ -23,6 +23,7 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.CompareUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.OrderedSet;
 
@@ -532,10 +533,19 @@ public class RowValuesTableModel extends AbstractTableModel {
                 }
             });
         }
+
+    }
+
+    public void insertFrom(final SQLRowAccessor rowVals) {
+        insertFrom(rowVals, null);
+    }
+
+    public void insertFrom(final SQLRowAccessor rowVals, final SQLField referentField) {
+        insertFrom(rowVals, referentField, null, null);
     }
 
     // Remplit la table à partir de la SQLRow parente
-    public void insertFrom(final SQLRowAccessor rowVals) {
+    public void insertFrom(final SQLRowAccessor rowVals, final SQLField referentField, final SQLField fieldWhere, final Object value) {
         if (!SwingUtilities.isEventDispatchThread()) {
             Thread.dumpStack();
         }
@@ -551,15 +561,22 @@ public class RowValuesTableModel extends AbstractTableModel {
                         List<SQLRow> rowSet = row.getReferentRows(RowValuesTableModel.this.element.getTable());
 
                         for (SQLRow row2 : rowSet) {
-                            SQLRowValues rowVals2 = new SQLRowValues(RowValuesTableModel.this.element.getTable());
-                            rowVals2.loadAbsolutelyAll(row2);
-                            newRows.add(rowVals2);
+                            if (fieldWhere == null || CompareUtils.equals(row2.getObject(fieldWhere.getName()), value)) {
+                                SQLRowValues rowVals2 = new SQLRowValues(RowValuesTableModel.this.element.getTable());
+                                rowVals2.loadAbsolutelyAll(row2);
+                                newRows.add(rowVals2);
+                            }
                         }
 
                     } else {
-                        Collection<? extends SQLRowAccessor> colRows = rowVals.getReferentRows();
+                        final Collection<? extends SQLRowAccessor> colRows;
+                        if (referentField == null) {
+                            colRows = rowVals.getReferentRows(RowValuesTableModel.this.element.getTable());
+                        } else {
+                            colRows = rowVals.getReferentRows(referentField);
+                        }
                         for (SQLRowAccessor rowValues : colRows) {
-                            if (rowValues.getTable().getName().equalsIgnoreCase(RowValuesTableModel.this.element.getTable().getName())) {
+                            if (fieldWhere == null || CompareUtils.equals(rowValues.getObject(fieldWhere.getName()), value)) {
                                 newRows.add(rowValues.asRowValues());
                             }
                         }

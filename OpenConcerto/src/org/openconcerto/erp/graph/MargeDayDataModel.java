@@ -18,11 +18,11 @@ import org.openconcerto.sql.element.SQLElementDirectory;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.NumberUtils;
 import org.openconcerto.utils.RTInterruptedException;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.Calendar;
 import java.util.Date;
@@ -106,7 +106,7 @@ public class MargeDayDataModel extends DataModel1D {
                             chart.getLeftAxis().getLabels().get(2).setLabel(total.setScale(0, RoundingMode.HALF_UP).toString() + " €");
                             // currencyToString = GestionDevise.currencyToString(euros * 100 / 2,
                             // true);
-                            chart.getLeftAxis().getLabels().get(1).setLabel(total.divide(new BigDecimal(2), MathContext.DECIMAL128).setScale(0, RoundingMode.HALF_UP) + " €");
+                            chart.getLeftAxis().getLabels().get(1).setLabel(total.divide(new BigDecimal(2), DecimalUtils.HIGH_PRECISION).setScale(0, RoundingMode.HALF_UP) + " €");
                             chart.setHigherRange(total);
                         }
                         if (total.compareTo(BigDecimal.ZERO) != 0) {

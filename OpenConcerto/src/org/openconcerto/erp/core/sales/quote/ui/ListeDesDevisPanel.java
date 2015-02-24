@@ -38,6 +38,7 @@ import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.table.PercentTableCellRenderer;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.Tuple2;
@@ -46,7 +47,6 @@ import org.openconcerto.utils.cc.ITransformer;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -179,19 +179,73 @@ public class ListeDesDevisPanel extends JPanel {
 
     }
 
-    private BigDecimal getAvancement(SQLRowAccessor r) {
+    private BigDecimal getAvancementCommande(SQLRowAccessor r) {
         Collection<? extends SQLRowAccessor> rows = r.getReferentRows(r.getTable().getTable("TR_DEVIS"));
         long totalFact = 0;
         long total = r.getLong("T_HT");
+
+        for (SQLRowAccessor row : rows) {
+            if (!row.isForeignEmpty("ID_COMMANDE_CLIENT")) {
+                SQLRowAccessor rowFact = row.getForeign("ID_COMMANDE_CLIENT");
+                Long l = rowFact.getLong("T_HT");
+                totalFact += l;
+            }
+        }
+
+        if (total > 0) {
+            return new BigDecimal(totalFact).divide(new BigDecimal(total), DecimalUtils.HIGH_PRECISION).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
+        } else {
+            return BigDecimal.ONE.movePointRight(2);
+        }
+    }
+
+    private BigDecimal getAvancementFacture(SQLRowAccessor r) {
+        Collection<? extends SQLRowAccessor> rows = r.getReferentRows(r.getTable().getTable("TR_DEVIS"));
+        long totalFact = 0;
+        long total = r.getLong("T_HT");
+
+        List<SQLRowAccessor> rowsCmd = new ArrayList<SQLRowAccessor>();
         for (SQLRowAccessor row : rows) {
             if (!row.isForeignEmpty("ID_SAISIE_VENTE_FACTURE")) {
                 SQLRowAccessor rowFact = row.getForeign("ID_SAISIE_VENTE_FACTURE");
                 Long l = rowFact.getLong("T_HT");
                 totalFact += l;
             }
+            if (!row.isForeignEmpty("ID_COMMANDE_CLIENT")) {
+                rowsCmd.add(row.getForeign("ID_COMMANDE_CLIENT"));
+            }
         }
+
+        List<SQLRowAccessor> rowsBL = new ArrayList<SQLRowAccessor>();
+        for (SQLRowAccessor row : rowsCmd) {
+            Collection<? extends SQLRowAccessor> rowsTrCmd = row.getReferentRows(r.getTable().getTable("TR_COMMANDE_CLIENT"));
+            for (SQLRowAccessor sqlRowAccessor : rowsTrCmd) {
+
+                if (!sqlRowAccessor.isForeignEmpty("ID_SAISIE_VENTE_FACTURE")) {
+                    SQLRowAccessor rowFact = sqlRowAccessor.getForeign("ID_SAISIE_VENTE_FACTURE");
+                    Long l = rowFact.getLong("T_HT");
+                    totalFact += l;
+                }
+                if (!sqlRowAccessor.isForeignEmpty("ID_BON_DE_LIVRAISON")) {
+                    rowsBL.add(sqlRowAccessor.getForeign("ID_BON_DE_LIVRAISON"));
+                }
+            }
+        }
+
+        for (SQLRowAccessor row : rowsBL) {
+            Collection<? extends SQLRowAccessor> rowsTrBL = row.getReferentRows(r.getTable().getTable("TR_COMMANDE_CLIENT"));
+            for (SQLRowAccessor sqlRowAccessor : rowsTrBL) {
+
+                if (!sqlRowAccessor.isForeignEmpty("ID_SAISIE_VENTE_FACTURE")) {
+                    SQLRowAccessor rowFact = sqlRowAccessor.getForeign("ID_SAISIE_VENTE_FACTURE");
+                    Long l = rowFact.getLong("T_HT");
+                    totalFact += l;
+                }
+            }
+        }
+
         if (total > 0) {
-            return new BigDecimal(totalFact).divide(new BigDecimal(total), MathContext.DECIMAL128).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
+            return new BigDecimal(totalFact).divide(new BigDecimal(total), DecimalUtils.HIGH_PRECISION).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
         } else {
             return BigDecimal.ONE.movePointRight(2);
         }
@@ -207,18 +261,38 @@ public class ListeDesDevisPanel extends JPanel {
             dateEnvoiCol.setRenderer(new DateEnvoiRenderer());
             dateEnvoiCol.setEditable(true);
 
-            final BaseSQLTableModelColumn colAvancement = new BaseSQLTableModelColumn("Avancement facturation", BigDecimal.class) {
+            final BaseSQLTableModelColumn colAvancementCmd = new BaseSQLTableModelColumn("Commande", BigDecimal.class) {
 
                 @Override
                 protected Object show_(SQLRowAccessor r) {
 
-                    return getAvancement(r);
+                    return getAvancementCommande(r);
+                }
+
+                @Override
+                public Set<FieldPath> getPaths() {
+                    final Path p = new PathBuilder(eltDevis.getTable()).addTable("TR_DEVIS").addTable("COMMANDE_CLIENT").build();
+                    return CollectionUtils.createSet(new FieldPath(p, "T_HT"));
+                }
+            };
+            lAttente.getColumns().add(colAvancementCmd);
+            colAvancementCmd.setRenderer(new PercentTableCellRenderer());
+
+            final BaseSQLTableModelColumn colAvancement = new BaseSQLTableModelColumn("Facturation", BigDecimal.class) {
+
+                @Override
+                protected Object show_(SQLRowAccessor r) {
+
+                    return getAvancementFacture(r);
                 }
 
                 @Override
                 public Set<FieldPath> getPaths() {
                     final Path p = new PathBuilder(eltDevis.getTable()).addTable("TR_DEVIS").addTable("SAISIE_VENTE_FACTURE").build();
-                    return CollectionUtils.createSet(new FieldPath(p, "T_HT"));
+                    final Path p2 = new PathBuilder(eltDevis.getTable()).addTable("TR_DEVIS").addTable("COMMANDE_CLIENT").addTable("TR_COMMANDE_CLIENT").addTable("SAISIE_VENTE_FACTURE").build();
+                    final Path p3 = new PathBuilder(eltDevis.getTable()).addTable("TR_DEVIS").addTable("COMMANDE_CLIENT").addTable("TR_COMMANDE_CLIENT").addTable("BON_DE_LIVRAISON")
+                            .addTable("TR_BON_DE_LIVRAISON").addTable("SAISIE_VENTE_FACTURE").build();
+                    return CollectionUtils.createSet(new FieldPath(p, "T_HT"), new FieldPath(p2, "T_HT"), new FieldPath(p3, "T_HT"));
                 }
             };
             lAttente.getColumns().add(colAvancement);
@@ -262,7 +336,7 @@ public class ListeDesDevisPanel extends JPanel {
             // asList = Arrays.asList(this.eltDevis.getTable().getField("PREBILAN"),
             // this.eltDevis.getTable().getField("T_HT"));
             List<Tuple2<? extends SQLTableModelColumn, IListTotalPanel.Type>> fields = new ArrayList<Tuple2<? extends SQLTableModelColumn, IListTotalPanel.Type>>(2);
-            fields.add(Tuple2.create(pane.getListe().getSource().getColumn(this.eltDevis.getTable().getField("T_HT")), IListTotalPanel.Type.SOMME));
+            fields.add(Tuple2.create(pane.getListe().getSource().getColumn(11), IListTotalPanel.Type.SOMME));
             fields.add(Tuple2.create(pane.getListe().getSource().getColumn(this.eltDevis.getTable().getField("PREBILAN")), IListTotalPanel.Type.SOMME));
             fields.add(Tuple2.create(new BaseSQLTableModelColumn("%MB", String.class) {
 

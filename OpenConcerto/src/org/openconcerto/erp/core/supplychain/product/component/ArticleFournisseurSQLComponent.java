@@ -38,6 +38,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.FormLayouter;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.ui.preferences.DefaultProps;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.StringUtils;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
@@ -50,7 +51,6 @@ import java.awt.event.ActionListener;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.List;
@@ -143,12 +143,12 @@ public class ArticleFournisseurSQLComponent extends BaseSQLComponent {
 
                         if (DefaultNXProps.getInstance().getBooleanValue(TotalPanel.MARGE_MARQUE, false)) {
                             if (vt.compareTo(BigDecimal.ZERO) > 0) {
-                                value = margeHT.divide(vt, MathContext.DECIMAL128).multiply(BigDecimal.valueOf(100), MathContext.DECIMAL128);
+                                value = margeHT.divide(vt, DecimalUtils.HIGH_PRECISION).multiply(BigDecimal.valueOf(100), DecimalUtils.HIGH_PRECISION);
                             } else {
                                 value = BigDecimal.ZERO;
                             }
                         } else {
-                            value = margeHT.divide(ha, MathContext.DECIMAL128).multiply(BigDecimal.valueOf(100), MathContext.DECIMAL128);
+                            value = margeHT.divide(ha, DecimalUtils.HIGH_PRECISION).multiply(BigDecimal.valueOf(100), DecimalUtils.HIGH_PRECISION);
                         }
 
                         if (value.compareTo(BigDecimal.ZERO) > 0) {
@@ -180,14 +180,14 @@ public class ArticleFournisseurSQLComponent extends BaseSQLComponent {
 
                 BigDecimal d = StringUtils.getBigDecimalFromUserText(this.textMarge.getText());
                 if (DefaultNXProps.getInstance().getBooleanValue(TotalPanel.MARGE_MARQUE, false)) {
-                    final BigDecimal e = BigDecimal.ONE.subtract(d.divide(BigDecimal.valueOf(100), MathContext.DECIMAL128));
+                    final BigDecimal e = BigDecimal.ONE.subtract(d.divide(BigDecimal.valueOf(100), DecimalUtils.HIGH_PRECISION));
                     if (e.signum() == 0) {
                         this.textPVHT.setText("0");
                     } else {
-                        this.textPVHT.setText(ha.divide(e, MathContext.DECIMAL128).setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
+                        this.textPVHT.setText(ha.divide(e, DecimalUtils.HIGH_PRECISION).setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
                     }
                 } else {
-                    BigDecimal result = ha.multiply(d.divide(BigDecimal.valueOf(100), MathContext.DECIMAL128).add(BigDecimal.ONE));
+                    BigDecimal result = ha.multiply(d.divide(BigDecimal.valueOf(100), DecimalUtils.HIGH_PRECISION).add(BigDecimal.ONE));
                     this.textPVHT.setText(result.setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
                 }
             }
@@ -713,7 +713,7 @@ public class ArticleFournisseurSQLComponent extends BaseSQLComponent {
                         ha = BigDecimal.ZERO;
                     }
                     final BigDecimal taux = (BigDecimal) boxDevise.getSelectedRow().getObject("TAUX");
-                    textPAHT.setText(taux.multiply(ha, MathContext.DECIMAL128).setScale(getTable().getField("PA_DEVISE").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
+                    textPAHT.setText(taux.multiply(ha, DecimalUtils.HIGH_PRECISION).setScale(getTable().getField("PA_DEVISE").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
 
                 }
             }
@@ -1091,7 +1091,7 @@ public class ArticleFournisseurSQLComponent extends BaseSQLComponent {
             if (id > 1) {
                 Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
-                this.textPVHT.setText(ttc.divide(BigDecimal.valueOf(taux).add(BigDecimal.ONE), MathContext.DECIMAL128)
+                this.textPVHT.setText(ttc.divide(BigDecimal.valueOf(taux).add(BigDecimal.ONE), DecimalUtils.HIGH_PRECISION)
                         .setScale(getTable().getField("PV_HT").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
             }
         }
@@ -1106,7 +1106,7 @@ public class ArticleFournisseurSQLComponent extends BaseSQLComponent {
             if (id > 1) {
                 final Float resultTaux = TaxeCache.getCache().getTauxFromId(id);
                 final float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue() / 100.0F;
-                this.textPVTTC.setText(ht.multiply(BigDecimal.valueOf(taux).add(BigDecimal.ONE), MathContext.DECIMAL128)
+                this.textPVTTC.setText(ht.multiply(BigDecimal.valueOf(taux).add(BigDecimal.ONE), DecimalUtils.HIGH_PRECISION)
                         .setScale(getTable().getField("PV_TTC").getType().getDecimalDigits(), RoundingMode.HALF_UP).toString());
             }
         }

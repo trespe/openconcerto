@@ -209,10 +209,8 @@ public class ScrollableList extends JComponent implements MouseListener, MouseMo
     }
 
     public void setSelectedIndex(int index, boolean scroll) {
-        System.err.println("ScrollableList.setSelectedIndex()! " + index);
         if (index != selectedIndex) {
             this.selectedIndex = index;
-            System.err.println("ScrollableList.setSelectedIndex():" + index);
             if (scroll) {
                 scrollToSelectedIndex();
             }

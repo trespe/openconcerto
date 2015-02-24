@@ -16,26 +16,17 @@
 import org.openconcerto.erp.core.common.ui.DeviseCellEditor;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
-import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.view.list.CellDynamicModifier;
-import org.openconcerto.sql.view.list.RowValuesTable;
-import org.openconcerto.sql.view.list.RowValuesTableControlPanel;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
-import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.DecimalUtils;
 
-import java.awt.GridBagConstraints;
-import java.awt.GridBagLayout;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Vector;
-
-import javax.swing.JScrollPane;
-import javax.swing.ToolTipManager;
 
 public class AssociationAnalytiqueItemModel {
 
@@ -70,7 +61,7 @@ public class AssociationAnalytiqueItemModel {
 
                 long total = row.getForeign("ID_ECRITURE").getLong("DEBIT") - row.getForeign("ID_ECRITURE").getLong("CREDIT");
 
-                BigDecimal pourcent = new BigDecimal(montant).divide(new BigDecimal(total), MathContext.DECIMAL128).abs().movePointRight(2)
+                BigDecimal pourcent = new BigDecimal(montant).divide(new BigDecimal(total), DecimalUtils.HIGH_PRECISION).abs().movePointRight(2)
                         .setScale(tableElementPourcent.getDecimalDigits(), RoundingMode.HALF_UP);
                 return pourcent;
             }

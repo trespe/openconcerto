@@ -218,6 +218,7 @@ public class IListFilterDatePanel extends JPanel {
         GridBagConstraints c = new DefaultGridBagConstraints();
         c.gridx = GridBagConstraints.RELATIVE;
         c.weightx = 0;
+        c.fill = GridBagConstraints.NONE;
 
         // Période pédéfini
         if (map != null && map.keySet().size() > 0) {
@@ -242,8 +243,11 @@ public class IListFilterDatePanel extends JPanel {
         }
         // Filtre
         this.add(new JLabel("Du"), c);
+        c.weightx = 1;
         this.add(this.dateDu, c);
+        c.weightx = 0;
         this.add(new JLabel("Au"), c);
+        c.weightx = 1;
         this.add(this.dateAu, c);
         this.dateAu.addValueListener(this.listener);
         this.dateDu.addValueListener(this.listener);
@@ -451,11 +455,16 @@ public class IListFilterDatePanel extends JPanel {
 
         String name = null;
         for (IListe l : mapList.keySet()) {
-            String confName = l.getConfigFile().getName();
-            if (name == null) {
-                name = confName;
-            } else if (name.compareTo(confName) > 0) {
-                name = confName;
+            final File configFile = l.getConfigFile();
+            if (configFile != null) {
+                String confName = configFile.getName();
+                if (name == null) {
+                    name = confName;
+                } else if (name.compareTo(confName) > 0) {
+                    name = confName;
+                }
+            } else {
+                name = l.getSource().getPrimaryTable().getName();
             }
         }
         return new File(conf.getConfDir(), "DateRanges" + File.separator + name);

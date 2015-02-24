@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.supplychain.stock.element;
 
 import org.openconcerto.sql.model.DBRoot;
+import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
@@ -21,15 +22,19 @@ import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
 import org.openconcerto.sql.utils.SQLUtils;
+import org.openconcerto.utils.DecimalUtils;
+import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.RTInterruptedException;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
+
+import javax.swing.JOptionPane;
+import javax.swing.SwingUtilities;
 
 import org.apache.commons.dbutils.ResultSetHandler;
 
@@ -85,6 +90,8 @@ public class StockItemsUpdater {
         // Mise à jour des stocks des articles non composés
         List<StockItem> stockItems = fetch();
 
+        final ListMap<SQLRow, SQLRowValues> cmd = new ListMap<SQLRow, SQLRowValues>();
+
         for (StockItem stockItem : stockItems) {
             if (stockItem.isStockInit()) {
                 requests.add(stockItem.getUpdateRequest());
@@ -98,6 +105,7 @@ public class StockItemsUpdater {
                 rowValsArt.put("ID_STOCK", rowVals);
                 rowValsArt.commit();
             }
+            stockItem.fillCommandeFournisseur(cmd);
         }
 
         List<? extends ResultSetHandler> handlers = new ArrayList<ResultSetHandler>(requests.size());
@@ -111,6 +119,24 @@ public class StockItemsUpdater {
         if (root.contains("ARTICLE_ELEMENT")) {
             ComposedItemStockUpdater comp = new ComposedItemStockUpdater(root, stockItems);
             comp.update();
+        }
+
+        // FIXME Créer une interface de saisie de commande article en dessous du seuil mini de stock
+        if (cmd.size() > 0) {
+            String msg = "Les articles suivants sont inférieurs au stock minimum : \n";
+            for (SQLRow row : cmd.keySet()) {
+                for (SQLRowValues rowVals : cmd.get(row)) {
+                    msg += rowVals.getString("CODE") + " " + rowVals.getString("NOM") + "\n";
+                }
+            }
+            final String msgFinal = msg;
+            SwingUtilities.invokeLater(new Runnable() {
+
+                @Override
+                public void run() {
+                    JOptionPane.showMessageDialog(null, msgFinal, "Alerte de stock minimum", JOptionPane.WARNING_MESSAGE);
+                }
+            });
         }
 
     }
@@ -195,7 +221,7 @@ public class StockItemsUpdater {
 
                     final int qte = item.getInt("QTE");
                     final BigDecimal qteUV = item.getBigDecimal("QTE_UNITAIRE");
-                    double qteFinal = qteUV.multiply(new BigDecimal(qte), MathContext.DECIMAL128).doubleValue();
+                    double qteFinal = qteUV.multiply(new BigDecimal(qte), DecimalUtils.HIGH_PRECISION).doubleValue();
                     if (!this.type.isEntry()) {
                         qteFinal = -qteFinal;
                     }

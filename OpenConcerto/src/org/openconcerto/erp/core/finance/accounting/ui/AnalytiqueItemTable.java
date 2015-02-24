@@ -25,11 +25,11 @@ import org.openconcerto.sql.view.list.RowValuesTableControlPanel;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.SQLTableElement;
 import org.openconcerto.ui.DefaultGridBagConstraints;
+import org.openconcerto.utils.DecimalUtils;
 
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.List;
 import java.util.Vector;
@@ -79,7 +79,7 @@ public class AnalytiqueItemTable extends JPanel {
 
                 long total = row.getForeign("ID_ECRITURE").getLong("DEBIT") - row.getForeign("ID_ECRITURE").getLong("CREDIT");
 
-                BigDecimal pourcent = new BigDecimal(montant).divide(new BigDecimal(total), MathContext.DECIMAL128).abs().movePointRight(2)
+                BigDecimal pourcent = new BigDecimal(montant).divide(new BigDecimal(total), DecimalUtils.HIGH_PRECISION).abs().movePointRight(2)
                         .setScale(tableElementPourcent.getDecimalDigits(), RoundingMode.HALF_UP);
                 return pourcent;
             }

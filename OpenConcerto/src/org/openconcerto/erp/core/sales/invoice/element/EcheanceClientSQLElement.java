@@ -45,6 +45,7 @@ import org.openconcerto.ui.EmailComposer;
 import org.openconcerto.ui.JDate;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.GestionDevise;
 
 import java.awt.GridBagConstraints;
@@ -52,7 +53,6 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -209,7 +209,7 @@ public class EcheanceClientSQLElement extends ComptaSQLConfElement {
                 SQLRow rowDevise = rowTarif.getForeign("ID_DEVISE");
                 BigDecimal t = (BigDecimal) rowDevise.getObject("TAUX");
                 BigDecimal bigDecimal = new BigDecimal(lRestantDevise);
-                lRestantDevise = t.signum() == 0 ? lRestantDevise : bigDecimal.multiply(t, MathContext.DECIMAL128).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
+                lRestantDevise = t.signum() == 0 ? lRestantDevise : bigDecimal.multiply(t, DecimalUtils.HIGH_PRECISION).setScale(0, BigDecimal.ROUND_HALF_UP).longValue();
                 if (rowDevise.getString("CODE").trim().length() > 0) {
                     devise = rowDevise.getString("CODE");
                 } else {

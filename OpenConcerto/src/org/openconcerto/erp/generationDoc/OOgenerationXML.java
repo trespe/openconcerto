@@ -26,6 +26,7 @@ import org.openconcerto.sql.model.SQLField;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.StreamUtils;
 
@@ -36,7 +37,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collection;
@@ -595,7 +595,7 @@ public class OOgenerationXML {
                     } else if (name.equalsIgnoreCase("MONTANT_TVA")) {
                         // value = Math.round(((Long) m.get("MONTANT_HT") * rowTaxe.getFloat("TAUX")
                         // / 100.0));
-                        value = ((BigDecimal) m.get("MONTANT_HT")).multiply(new BigDecimal(rowTaxe.getFloat("TAUX")), MathContext.DECIMAL128).movePointLeft(2);
+                        value = ((BigDecimal) m.get("MONTANT_HT")).multiply(new BigDecimal(rowTaxe.getFloat("TAUX")), DecimalUtils.HIGH_PRECISION).movePointLeft(2);
                     } else if (name.equalsIgnoreCase("NOM")) {
                         value = rowTaxe.getString("NOM");
                         // TODO prefix et suffix

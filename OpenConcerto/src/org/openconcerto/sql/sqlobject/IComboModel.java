@@ -117,8 +117,14 @@ public class IComboModel extends DefaultIMutableListModel<IComboSelectionItem> i
         this.running = false;
 
         this.setSelectOnAdd(false);
-        // we always change the selection after changing the items
-        this.setOnRemovingOrReplacingSelection(NewSelection.NO);
+        // we always change the selection after changing the items so don't make an extra fire
+        // (replace takes place in reloadComboItem() and doUpdateAll())
+        this.setOnReplacingSelection(NewSelection.NO);
+        // if an item was removed, we obviously can't keep referring to it. E.g. we're creating a
+        // new client and have selected an address that gets deleted. We can't just keep pointing to
+        // the deleted address, the insertion will fail, better to let the user know right ahead.
+        // (remove takes place in reloadComboItem())
+        this.setOnRemovingSelection(NewSelection.NONE);
 
         this.uiInit();
     }

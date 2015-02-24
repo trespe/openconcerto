@@ -13,6 +13,9 @@
  
  package org.openconcerto.sql.sqlobject;
 
+import org.openconcerto.sql.element.BaseSQLComponent;
+import org.openconcerto.sql.element.RIVPanel;
+import org.openconcerto.sql.element.SQLComponentItem;
 import org.openconcerto.sql.model.IResultSetHandler;
 import org.openconcerto.sql.model.SQLDataSource;
 import org.openconcerto.sql.model.SQLField;
@@ -43,6 +46,7 @@ import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.util.List;
 import java.util.Vector;
@@ -63,7 +67,7 @@ import javax.swing.text.JTextComponent;
  * @author Administrateur
  * 
  */
-public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Documented, TextComponent, RowItemViewComponent, MouseListener {
+public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Documented, TextComponent, RowItemViewComponent, SQLComponentItem, MouseListener {
 
     private JTextField textField;
     private JLabelWarning labelWarning;
@@ -301,6 +305,17 @@ public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Do
 
     public SQLField getField() {
         return this.field;
+    }
+
+    @Override
+    public void added(RIVPanel comp, SQLRowItemView v) {
+        ((BaseSQLComponent) comp.getSQLComponent()).addSelectionListener(new PropertyChangeListener() {
+            @Override
+            public void propertyChange(PropertyChangeEvent evt) {
+                setIdSelected(((Number) evt.getNewValue()).intValue());
+            }
+        });
+        // MAYBE add removed() callback
     }
 
     public void setValue(String val) {

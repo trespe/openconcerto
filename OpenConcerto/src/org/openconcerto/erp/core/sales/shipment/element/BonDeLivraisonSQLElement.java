@@ -20,6 +20,7 @@ import org.openconcerto.erp.preferences.GestionArticleGlobalPreferencePanel;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.SQLElement;
+import org.openconcerto.sql.element.TreesOfSQLRows;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.Where;
@@ -39,8 +40,12 @@ public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
     // TODO afficher uniquement les factures non livrees dans la combo
     // MAYBE mettre un niceCellRenderer dans les rowValuesTable
 
+    public BonDeLivraisonSQLElement(String single, String plural) {
+        super("BON_DE_LIVRAISON", single, plural);
+    }
+
     public BonDeLivraisonSQLElement() {
-        super("BON_DE_LIVRAISON", "un bon de livraison", "Bons de livraison");
+        this("un bon de livraison", "Bons de livraison");
     }
 
     protected List<String> getListFields() {
@@ -82,28 +87,32 @@ public class BonDeLivraisonSQLElement extends ComptaSQLConfElement {
         return new BonDeLivraisonSQLComponent();
     }
 
-    protected void archive(SQLRow row, boolean cutLinks) throws SQLException {
-        super.archive(row, cutLinks);
+    @Override
+    protected void archive(TreesOfSQLRows trees, boolean cutLinks) throws SQLException {
 
-        SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
-        if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
+        for (SQLRow row : trees.getRows()) {
 
-            // Mise à jour des stocks
-            SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
-            SQLSelect sel = new SQLSelect();
-            sel.addSelect(eltMvtStock.getTable().getField("ID"));
-            Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
-            Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
-            sel.setWhere(w.and(w2));
+            SQLPreferences prefs = new SQLPreferences(getTable().getDBRoot());
+            if (!prefs.getBoolean(GestionArticleGlobalPreferencePanel.STOCK_FACT, true)) {
 
-            @SuppressWarnings("unchecked")
-            List<Number[]> l = (List<Number[]>) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
-            if (l != null) {
-                for (int i = 0; i < l.size(); i++) {
-                    Number[] tmp = l.get(i);
-                    eltMvtStock.archive(tmp[0].intValue());
+                // Mise à jour des stocks
+                SQLElement eltMvtStock = Configuration.getInstance().getDirectory().getElement("MOUVEMENT_STOCK");
+                SQLSelect sel = new SQLSelect();
+                sel.addSelect(eltMvtStock.getTable().getField("ID"));
+                Where w = new Where(eltMvtStock.getTable().getField("IDSOURCE"), "=", row.getID());
+                Where w2 = new Where(eltMvtStock.getTable().getField("SOURCE"), "=", getTable().getName());
+                sel.setWhere(w.and(w2));
+
+                @SuppressWarnings("unchecked")
+                List<Number[]> l = (List<Number[]>) eltMvtStock.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
+                if (l != null) {
+                    for (int i = 0; i < l.size(); i++) {
+                        Number[] tmp = l.get(i);
+                        eltMvtStock.archive(tmp[0].intValue());
+                    }
                 }
             }
         }
+        super.archive(trees, cutLinks);
     }
 }

@@ -15,13 +15,13 @@
 
 import org.openconcerto.erp.config.Log;
 import org.openconcerto.sql.model.SQLField;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.StringUtils;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 
 import javax.swing.AbstractAction;
@@ -50,7 +50,7 @@ public class DeviseNumericHTConvertorCellEditor extends DeviseNumericCellEditor 
                     if (prixTTC != null) {
                         try {
                             BigDecimal taux = new BigDecimal(taxe).movePointLeft(2).add(BigDecimal.ONE);
-                            BigDecimal divide = prixTTC.divide(taux, MathContext.DECIMAL128);
+                            BigDecimal divide = prixTTC.divide(taux, DecimalUtils.HIGH_PRECISION);
                             divide = divide.setScale(precision, RoundingMode.HALF_UP);
                             textField.setText(divide.toString());
                         } catch (Exception ex) {

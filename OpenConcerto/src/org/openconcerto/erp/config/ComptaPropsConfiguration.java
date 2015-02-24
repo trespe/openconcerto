@@ -100,6 +100,8 @@ import org.openconcerto.erp.core.humanresources.payroll.element.TypeRubriqueNetS
 import org.openconcerto.erp.core.humanresources.payroll.element.VariablePayeSQLElement;
 import org.openconcerto.erp.core.humanresources.payroll.element.VariableSalarieSQLElement;
 import org.openconcerto.erp.core.humanresources.timesheet.element.PointageSQLElement;
+import org.openconcerto.erp.core.project.element.CalendarItemGroupSQLElement;
+import org.openconcerto.erp.core.project.element.CalendarItemSQLElement;
 import org.openconcerto.erp.core.sales.credit.element.AvoirClientElementSQLElement;
 import org.openconcerto.erp.core.sales.credit.element.AvoirClientSQLElement;
 import org.openconcerto.erp.core.sales.invoice.element.EcheanceClientSQLElement;
@@ -164,6 +166,7 @@ import org.openconcerto.erp.generationDoc.provider.PrixUnitaireProvider;
 import org.openconcerto.erp.generationDoc.provider.PrixUnitaireRemiseProvider;
 import org.openconcerto.erp.generationDoc.provider.QteTotalProvider;
 import org.openconcerto.erp.generationDoc.provider.RefClientValueProvider;
+import org.openconcerto.erp.generationDoc.provider.RemiseProvider;
 import org.openconcerto.erp.generationDoc.provider.TotalAcompteProvider;
 import org.openconcerto.erp.generationDoc.provider.TotalCommandeClientProvider;
 import org.openconcerto.erp.generationDoc.provider.UserCreateInitialsValueProvider;
@@ -466,6 +469,7 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
         FormatedGlobalQtyTotalProvider.register();
         MergedGlobalQtyTotalProvider.register();
         PaiementRemainedProvider.register();
+        RemiseProvider.register();
     }
 
     @Override
@@ -835,6 +839,9 @@ public final class ComptaPropsConfiguration extends ComptaBasePropsConfiguration
 
         dir.addSQLElement(new VariableSalarieSQLElement());
         dir.addSQLElement(UniteVenteArticleSQLElement.class);
+
+        dir.addSQLElement(CalendarItemSQLElement.class);
+        dir.addSQLElement(CalendarItemGroupSQLElement.class);
 
         // check that all codes are unique
         Collection<SQLElement> elements = dir.getElements();

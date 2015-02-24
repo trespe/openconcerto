@@ -48,8 +48,11 @@ public class ListEcheanceClientRenderer extends DefaultTableCellRenderer {
     // Rouge
     private final static Color couleurRegCompta = new Color(255, 202, 255);
 
-    public ListEcheanceClientRenderer() {
+    private final boolean date;
+
+    public ListEcheanceClientRenderer(boolean date) {
         super();
+        this.date = date;
     }
 
     public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -59,7 +62,7 @@ public class ListEcheanceClientRenderer extends DefaultTableCellRenderer {
         if (!isSelected) {
 
             setForeground(Color.BLACK);
-            if (value instanceof Date) {
+            if (this.date) {
                 if (!((Date) value).after(new Date())) {
                     setForeground(couleurEcheance);
                 }

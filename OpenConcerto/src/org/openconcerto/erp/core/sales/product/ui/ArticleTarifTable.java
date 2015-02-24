@@ -29,9 +29,9 @@ import org.openconcerto.sql.view.list.RowValuesTable;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.sql.view.list.RowValuesTablePanel;
 import org.openconcerto.sql.view.list.SQLTableElement;
+import org.openconcerto.utils.DecimalUtils;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.util.List;
 import java.util.Vector;
 
@@ -166,7 +166,7 @@ public class ArticleTarifTable extends RowValuesTablePanel {
 
                 float taux = (resultTaux == null) ? 0.0F : resultTaux.floatValue();
                 editorPVHT.setTaxe(taux);
-                BigDecimal r = pHT.multiply(BigDecimal.valueOf(taux).divide(BigDecimal.valueOf(100)).add(BigDecimal.ONE), MathContext.DECIMAL128);
+                BigDecimal r = pHT.multiply(BigDecimal.valueOf(taux).divide(BigDecimal.valueOf(100)).add(BigDecimal.ONE), DecimalUtils.HIGH_PRECISION);
                 return r.setScale(tableElement_PrixVente_TTC.getDecimalDigits(), BigDecimal.ROUND_HALF_UP);
 
             }

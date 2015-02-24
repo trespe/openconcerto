@@ -18,13 +18,15 @@
  */
 package org.jdesktop.swingx.plaf;
 
-import org.jdesktop.swingx.JXDatePicker;
-
-import javax.swing.*;
-import javax.swing.plaf.BorderUIResource;
-import javax.swing.border.LineBorder;
-import java.util.List;
 import java.util.Arrays;
+import java.util.List;
+
+import javax.swing.BorderFactory;
+import javax.swing.border.LineBorder;
+import javax.swing.plaf.BorderUIResource;
+
+import org.jdesktop.swingx.JXDatePicker;
+import org.jdesktop.swingx.plaf.basic.BasicDatePickerUI;
 
 /**
  * @author Joshua Outwater
@@ -37,8 +39,8 @@ public class JXDatePickerAddon extends AbstractComponentAddon {
     
     protected void addBasicDefaults(LookAndFeelAddons addon, List/*<Object>*/ defaults) {
         defaults.addAll(Arrays.asList(new Object[] {
-                new Boolean(defaults.add(JXDatePicker.uiClassID)),
-                new Boolean(defaults.add("org.jdesktop.swingx.plaf.basic.BasicDatePickerUI")),
+                JXDatePicker.uiClassID,
+                BasicDatePickerUI.class.getName(),
                 "JXDatePicker.linkFormat",
                 "Nous sommes le {0,date, dd MMMM yyyy}",
                 "JXDatePicker.longFormat",
@@ -54,5 +56,6 @@ public class JXDatePickerAddon extends AbstractComponentAddon {
                 "JXDatePicker.numColumns",
                 new Integer(10)
         }));
+        addResource(defaults, "org.jdesktop.swingx.plaf.basic.resources.DatePicker");
     }
 }

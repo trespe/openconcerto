@@ -33,8 +33,9 @@ public class CADataModel extends DataModel1D {
     private int year;
     private int total;
 
-    public CADataModel(final VerticalBarChart chart, final int year) {
-        loadYear(year);
+    public CADataModel(final VerticalBarChart chart, final int year, boolean cumul) {
+
+        loadYear(year, cumul);
     }
 
     @Override
@@ -42,7 +43,7 @@ public class CADataModel extends DataModel1D {
         return 12;
     }
 
-    public synchronized void loadYear(Object value) {
+    public synchronized void loadYear(Object value, final boolean cumul) {
         if (!(value instanceof Number)) {
             return;
         }
@@ -100,7 +101,7 @@ public class CADataModel extends DataModel1D {
                         final int value = Math.round(vCA / 100);
                         total += value;
                         if (((int) value) != 0) {
-                            CADataModel.this.setValueAt(i, value);
+                            CADataModel.this.setValueAt(i, cumul ? total : value);
                             fireDataModelChanged();
                             Thread.sleep(20);
                         }

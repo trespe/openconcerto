@@ -234,9 +234,6 @@ public class RelanceSQLElement extends ComptaSQLConfElement {
 
             @Override
             public void select(SQLRowAccessor r) {
-                if (r != null) {
-                    this.textNumero.setIdSelected(r.getID());
-                }
                 super.select(r);
 
                 // numero de facture et client figé

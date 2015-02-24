@@ -106,7 +106,11 @@ public class N4DS {
 
     private void writeS80(PrintStream stream, SQLRow rowSociete) throws IOException {
 
-        final String nic = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
+        // final String nic =
+        // StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
+        final String siret = rowSociete.getString("NUM_SIRET").replaceAll(" ", "");
+        String siren = StringUtils.limitLength(siret, 9);
+        String nic = siret.substring(siren.length(), siret.length());
 
         // // SIREN
         // write("S80.G01.00.001.001", siren);
@@ -147,7 +151,7 @@ public class N4DS {
         write("S80.G01.00.003.010", rowAdr.getString("CODE_POSTAL"));
 
         // Localité
-        write("S80.G01.00.003.012", rowAdr.getString("VILLE").toUpperCase());
+        write("S80.G01.00.003.012", normalizeString2(rowAdr.getString("VILLE")));
 
         // Code Pays, ne doit pas être renseigné pour une adresse en France
         // TODO support des autres pays
@@ -244,18 +248,19 @@ public class N4DS {
 
         // Siren
 
-        String siren = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
-        String nic = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
+        final String siret = rowSociete.getString("NUM_SIRET").replaceAll(" ", "");
+        String siren = StringUtils.limitLength(siret, 9);
+        String nic = siret.substring(siren.length(), siret.length());
         write("S20.G01.00.001", siren);
 
         // Raison sociale
         write("S20.G01.00.002", rowSociete.getString("NOM"));
 
         // FIXME Debut periode
-        write("S20.G01.00.003.001", "01012013");
+        write("S20.G01.00.003.001", "01012014");
 
         // FIXME Fin periode
-        write("S20.G01.00.003.002", "31122013");
+        write("S20.G01.00.003.002", "31122014");
 
         // Code nature
         write("S20.G01.00.004.001", "01");
@@ -305,7 +310,7 @@ public class N4DS {
         write("S20.G01.00.009.010", rowAdr.getString("CODE_POSTAL"));
 
         // Localité
-        write("S20.G01.00.009.012", rowAdr.getString("VILLE").toUpperCase());
+        write("S20.G01.00.009.012", normalizeString2(rowAdr.getString("VILLE")));
 
         write("S20.G01.00.013.002", "1");
 
@@ -325,8 +330,9 @@ public class N4DS {
 
         // Siren
 
-        String siren = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
-        String nic = StringUtils.limitLength(rowSociete.getString("NUM_SIRET").replaceAll(" ", ""), 9);
+        final String siret = rowSociete.getString("NUM_SIRET").replaceAll(" ", "");
+        String siren = StringUtils.limitLength(siret, 9);
+        String nic = siret.substring(siren.length(), siret.length());
         write("S10.G01.00.001.001", siren);
 
         // NIC
@@ -362,13 +368,13 @@ public class N4DS {
         // stream.write("S10.G01.00.003.007",voie);
 
         // TODO: Service de distribution
-        write("S10.G01.00.003.009", rowAdr.getString("VILLE"));
+        write("S10.G01.00.003.009", normalizeString2(rowAdr.getString("VILLE")));
 
         // Code postal
         write("S10.G01.00.003.010", rowAdr.getString("CODE_POSTAL"));
 
         // Localité
-        write("S10.G01.00.003.012", rowAdr.getString("VILLE").toUpperCase());
+        write("S10.G01.00.003.012", normalizeString2(rowAdr.getString("VILLE")));
 
         // Code Pays, ne doit pas être renseigné pour une adresse en France
         // TODO support des autres pays
@@ -394,7 +400,7 @@ public class N4DS {
         write("S10.G01.00.010", "02");
 
         // Norme utilisée
-        write("S10.G01.00.011", "V01X08");
+        write("S10.G01.00.011", "V01X09");
 
         // Code table char
         write("S10.G01.00.012", "01");

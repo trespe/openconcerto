@@ -94,7 +94,7 @@ public class SQLUtils {
      * @throws X if <code>h</code> throw it.
      */
     public static <T, X extends Exception> T executeAtomic(final SQLDataSource ds, final ConnectionHandlerNoSetup<T, X> h) throws SQLException, X {
-        return executeAtomic(ds, h, true);
+        return executeAtomic(ds, h, false);
     }
 
     /**

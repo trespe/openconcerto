@@ -24,17 +24,21 @@
 		<field id="sales.quote.saleman" name="ID_COMMERCIAL" />
 		<field id="sales.quote.address.alternative" name="ID_ADRESSE" />
 		<field id="sales.quote.info.general" name="INFOS" />
-		<field id="sales.quote.state" name="ID_ETAT_DEVIS"/>
+		<field id="sales.quote.state" name="ID_ETAT_DEVIS" />
+		<field id="sales.quote.validity" name="DATE_VALIDITE" />
+		<field id="sales.quote.customer.contact" name="ID_CONTACT" />
+		<field id="sales.quote.customer.tarif" name="ID_TARIF" />
+		<field id="sales.quote.customer.discount" name="MONTANT_REMISE,POURCENT_REMISE" />
 	</table>
 	<table id="sales.quote.item" name="DEVIS_ELEMENT">
-	 	<field id="sales.quote.item.quote" name="ID_DEVIS"/>
-	 	<field id="sales.quote.item.style" name="ID_STYLE"/>
-		<field id="sales.quote.item.code" name="CODE"/>
-		<field id="sales.quote.item.label" name="NOM"/>
-		<field id="sales.quote.item.description" name="DESCRIPTIF"/>
-		<field id="sales.quote.item.purchase.unit.price" name="PA_HT"/>
-		<field id="sales.quote.item.sales.unit.price" name="PV_HT"/>
-        <field id="sales.quote.item.quantity" name="QTE"/>
+		<field id="sales.quote.item.quote" name="ID_DEVIS" />
+		<field id="sales.quote.item.style" name="ID_STYLE" />
+		<field id="sales.quote.item.code" name="CODE" />
+		<field id="sales.quote.item.label" name="NOM" />
+		<field id="sales.quote.item.description" name="DESCRIPTIF" />
+		<field id="sales.quote.item.purchase.unit.price" name="PA_HT" />
+		<field id="sales.quote.item.sales.unit.price" name="PV_HT" />
+		<field id="sales.quote.item.quantity" name="QTE" />
 	</table>
 	<table id="sales.product" name="ARTICLE">
 		<field id="sales.product.code" name="CODE" />

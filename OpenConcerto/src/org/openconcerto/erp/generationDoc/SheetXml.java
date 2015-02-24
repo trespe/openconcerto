@@ -291,8 +291,7 @@ public abstract class SheetXml {
      * */
     public String getTemplateId() {
         if (this.row != null && this.row.getTable().getFieldsName().contains("ID_MODELE")) {
-            SQLRow rowModele = this.row.getForeignRow("ID_MODELE");
-            if (rowModele.isUndefined()) {
+            if (row.isForeignEmpty("ID_MODELE")) {
                 TypeModeleSQLElement typeModele = Configuration.getInstance().getDirectory().getElement(TypeModeleSQLElement.class);
                 String modele = typeModele.getTemplateMapping().get(this.row.getTable().getName());
                 if (modele == null) {
@@ -303,6 +302,7 @@ public abstract class SheetXml {
                     return modele;
                 }
             } else {
+                SQLRow rowModele = this.row.getForeignRow("ID_MODELE");
                 return rowModele.getString("NOM");
             }
         }

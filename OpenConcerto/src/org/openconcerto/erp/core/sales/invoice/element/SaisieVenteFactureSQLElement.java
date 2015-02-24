@@ -67,6 +67,7 @@ import org.openconcerto.ui.DefaultGridBagConstraints;
 import org.openconcerto.ui.table.PercentTableCellRenderer;
 import org.openconcerto.utils.CollectionMap;
 import org.openconcerto.utils.CollectionUtils;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.Tuple2;
@@ -78,15 +79,16 @@ import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.swing.AbstractAction;
@@ -276,7 +278,7 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
 
         final BigDecimal totalAregler = new BigDecimal(r.getLong("T_TTC")).subtract(avoirTTC);
         if (totalAregler.signum() > 0 && totalEch > 0) {
-            return totalAregler.subtract(new BigDecimal(totalEch)).divide(totalAregler, MathContext.DECIMAL128).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
+            return totalAregler.subtract(new BigDecimal(totalEch)).divide(totalAregler, DecimalUtils.HIGH_PRECISION).movePointRight(2).setScale(2, RoundingMode.HALF_UP);
         } else {
             return BigDecimal.ONE.movePointRight(2);
         }
@@ -466,22 +468,22 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
                     if (rowDeviseF != null && !rowDeviseF.isUndefined()) {
                         if (rowDeviseF.getID() == rowDeviseHA.getID()) {
                             rowValsElt.put("PA_DEVISE", rowArticleFind.getObject("PA_DEVISE"));
-                            rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowArticleFind.getObject("PA_DEVISE")).multiply(qte, MathContext.DECIMAL128));
+                            rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowArticleFind.getObject("PA_DEVISE")).multiply(qte, DecimalUtils.HIGH_PRECISION));
                             rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
                         } else {
                             BigDecimal taux = (BigDecimal) rowDeviseF.getObject("TAUX");
                             rowValsElt.put("PA_DEVISE", taux.multiply((BigDecimal) rowValsElt.getObject("PA_HT")));
-                            rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowValsElt.getObject("PA_DEVISE")).multiply(qte, MathContext.DECIMAL128));
+                            rowValsElt.put("PA_DEVISE_T", ((BigDecimal) rowValsElt.getObject("PA_DEVISE")).multiply(qte, DecimalUtils.HIGH_PRECISION));
                             rowValsElt.put("ID_DEVISE", rowDeviseF.getID());
                         }
                     }
 
                     BigDecimal prixHA = (BigDecimal) rowValsElt.getObject("PA_HT");
-                    rowValsElt.put("T_PA_HT", prixHA.multiply(qte, MathContext.DECIMAL128));
+                    rowValsElt.put("T_PA_HT", prixHA.multiply(qte, DecimalUtils.HIGH_PRECISION));
 
-                    rowValsElt.put("T_PA_HT", prixHA.multiply(qte, MathContext.DECIMAL128));
+                    rowValsElt.put("T_PA_HT", prixHA.multiply(qte, DecimalUtils.HIGH_PRECISION));
                     rowValsElt.put("T_PA_TTC",
-                            ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal(rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0), MathContext.DECIMAL128));
+                            ((BigDecimal) rowValsElt.getObject("T_PA_HT")).multiply(new BigDecimal(rowValsElt.getForeign("ID_TAXE").getFloat("TAUX") / 100.0 + 1.0), DecimalUtils.HIGH_PRECISION));
 
                     map.add(rowArticleFind.getForeignRow("ID_FOURNISSEUR"), rowValsElt);
 
@@ -493,4 +495,19 @@ public class SaisieVenteFactureSQLElement extends ComptaSQLConfElement {
         });
 
     }
+
+    public interface DoWithRow {
+        public void process(SQLRow row);
+    }
+
+    Map<String, DoWithRow> specialAction = new HashMap<String, DoWithRow>();
+
+    public DoWithRow getSpecialAction(String key) {
+        return specialAction.get(key);
+    }
+
+    public void putSpecialAction(String key, DoWithRow action) {
+        specialAction.put(key, action);
+    }
+
 }

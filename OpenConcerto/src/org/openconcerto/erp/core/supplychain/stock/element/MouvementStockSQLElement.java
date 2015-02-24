@@ -42,14 +42,13 @@ import org.openconcerto.sql.view.EditPanel.EditMode;
 import org.openconcerto.sql.view.list.RowValuesTableModel;
 import org.openconcerto.ui.FrameUtil;
 import org.openconcerto.ui.preferences.DefaultProps;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.ExceptionHandler;
 import org.openconcerto.utils.ListMap;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map.Entry;
@@ -175,7 +174,7 @@ public class MouvementStockSQLElement extends ComptaSQLConfElement {
 
                         final int qte = rowElt.getInt("QTE");
                         final BigDecimal qteUV = rowElt.getBigDecimal("QTE_UNITAIRE");
-                        double qteFinal = qteUV.multiply(new BigDecimal(qte), MathContext.DECIMAL128).doubleValue();
+                        double qteFinal = qteUV.multiply(new BigDecimal(qte), DecimalUtils.HIGH_PRECISION).doubleValue();
 
                         if (entry) {
                             rowVals.put("QTE", qteFinal);

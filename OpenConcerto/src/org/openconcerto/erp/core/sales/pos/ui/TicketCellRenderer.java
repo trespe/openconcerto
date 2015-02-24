@@ -16,6 +16,7 @@
 import org.openconcerto.erp.core.finance.tax.model.TaxeCache;
 import org.openconcerto.erp.core.sales.pos.model.Article;
 import org.openconcerto.ui.touch.ScrollableList;
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.Pair;
 
 import java.awt.Color;
@@ -28,7 +29,6 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.RenderingHints;
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 
 import javax.swing.JLabel;
@@ -63,7 +63,7 @@ public class TicketCellRenderer implements ListCellRenderer {
         Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
         BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
 
-        BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(item.getSecond()), MathContext.DECIMAL128).multiply(tauxTVA, MathContext.DECIMAL128);
+        BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(item.getSecond()), DecimalUtils.HIGH_PRECISION).multiply(tauxTVA, DecimalUtils.HIGH_PRECISION);
         final JLabel l3 = new JLabel(centsToString(multiply.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue()), SwingConstants.RIGHT);
         p.add(l3, c);
 
@@ -115,7 +115,7 @@ public class TicketCellRenderer implements ListCellRenderer {
         Float tauxFromId = TaxeCache.getCache().getTauxFromId(article.getIdTaxe());
         BigDecimal tauxTVA = new BigDecimal(tauxFromId).movePointLeft(2).add(BigDecimal.ONE);
 
-        BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(item.getSecond()), MathContext.DECIMAL128).multiply(tauxTVA, MathContext.DECIMAL128);
+        BigDecimal multiply = article.getPriceHTInCents().multiply(new BigDecimal(item.getSecond()), DecimalUtils.HIGH_PRECISION).multiply(tauxTVA, DecimalUtils.HIGH_PRECISION);
         final String s3 = centsToString(multiply.movePointRight(2).setScale(0, RoundingMode.HALF_UP).intValue());
         final int width3 = (int) g.getFontMetrics().getStringBounds(s3, g).getWidth() + inset * 2;
         g.drawString(s3, list.getWidth() - width3, height);

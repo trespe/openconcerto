@@ -16,9 +16,9 @@
 import org.openconcerto.erp.generationDoc.SpreadSheetCellValueContext;
 import org.openconcerto.erp.generationDoc.SpreadSheetCellValueProviderManager;
 import org.openconcerto.sql.model.SQLRowAccessor;
+import org.openconcerto.utils.DecimalUtils;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 
 public class PrixUnitaireRemiseProvider extends UserInitialsValueProvider {
@@ -35,7 +35,7 @@ public class PrixUnitaireRemiseProvider extends UserInitialsValueProvider {
         if (row.getTable().contains("POURCENT_ACOMPTE") && row.getObject("POURCENT_ACOMPTE") != null) {
             acompte = ((BigDecimal) row.getObject("POURCENT_ACOMPTE")).movePointLeft(2);
         }
-        BigDecimal result = BigDecimal.ONE.subtract(remise.movePointLeft(2)).multiply(pv, MathContext.DECIMAL128).multiply(acompte, MathContext.DECIMAL128);
+        BigDecimal result = BigDecimal.ONE.subtract(remise.movePointLeft(2)).multiply(pv, DecimalUtils.HIGH_PRECISION).multiply(acompte, DecimalUtils.HIGH_PRECISION);
 
         return result.setScale(2, RoundingMode.HALF_UP);
     }

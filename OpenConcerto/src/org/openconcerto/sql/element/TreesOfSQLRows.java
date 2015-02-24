@@ -31,7 +31,7 @@ import org.openconcerto.sql.model.graph.Link;
 import org.openconcerto.utils.CollectionUtils;
 import org.openconcerto.utils.ListMap;
 import org.openconcerto.utils.SetMap;
-import org.openconcerto.utils.Tuple2;
+import org.openconcerto.utils.Tuple3;
 import org.openconcerto.utils.cc.ITransformer;
 
 import java.sql.SQLException;
@@ -75,6 +75,7 @@ public final class TreesOfSQLRows {
 
     private final SQLElement elem;
     private final Map<SQLRow, SQLRowValues> trees;
+    private final Set<SQLRow> mainRows;
     private SetMap<SQLField, SQLRow> externReferences;
 
     public TreesOfSQLRows(final SQLElement elem, SQLRow row) {
@@ -85,10 +86,12 @@ public final class TreesOfSQLRows {
         super();
         this.elem = elem;
         this.trees = new HashMap<SQLRow, SQLRowValues>(rows.size());
+        // check each row and remove duplicates (i.e. this.trees might be smaller than rows)
         for (final SQLRowAccessor r : rows) {
             this.elem.check(r);
             this.trees.put(r.asRow(), null);
         }
+        this.mainRows = new HashSet<SQLRow>();
         this.externReferences = null;
     }
 
@@ -102,10 +105,12 @@ public final class TreesOfSQLRows {
 
     public final Map<SQLRow, SQLRowValues> getTrees() throws SQLException {
         if (this.externReferences == null) {
-            final Tuple2<Map<SQLRow, SQLRowValues>, SetMap<SQLField, SQLRow>> expand = this.expand();
-            assert expand.get0().keySet().equals(this.trees.keySet());
-            this.trees.putAll(expand.get0());
-            this.externReferences = expand.get1();
+            final Tuple3<Rows, Rows, SetMap<SQLField, SQLRow>> expand = this.expand();
+            assert expand.get0().vals.keySet().equals(this.trees.keySet());
+            // replace nulls by actual SQLRowValues
+            this.trees.putAll(expand.get0().vals);
+            this.mainRows.addAll(expand.get1().vals.keySet());
+            this.externReferences = expand.get2();
         }
         return Collections.unmodifiableMap(this.trees);
     }
@@ -119,9 +124,9 @@ public final class TreesOfSQLRows {
         return res;
     }
 
-    private final Tuple2<Map<SQLRow, SQLRowValues>, SetMap<SQLField, SQLRow>> expand() throws SQLException {
+    private final Tuple3<Rows, Rows, SetMap<SQLField, SQLRow>> expand() throws SQLException {
         final Map<Integer, SQLRowValues> valsMap = new HashMap<Integer, SQLRowValues>();
-        final Map<SQLRow, SQLRowValues> hasBeen = new HashMap<SQLRow, SQLRowValues>();
+        final Rows hasBeen = new Rows();
         final SetMap<SQLField, SQLRow> toCut = new SetMap<SQLField, SQLRow>();
 
         // fetch privates of root rows
@@ -152,7 +157,7 @@ public final class TreesOfSQLRows {
             privates = null;
         }
 
-        final Map<SQLRow, SQLRowValues> res = new HashMap<SQLRow, SQLRowValues>();
+        final Rows res = new Rows();
         for (final SQLRow r : this.getRows()) {
             SQLRowValues vals = valsMap.get(r.getID());
             // when there's no private to fetch
@@ -167,7 +172,7 @@ public final class TreesOfSQLRows {
         expand(getElem().getTable(), valsMap, hasBeen, toCut, false);
         if (privates != null)
             privates.expand();
-        return Tuple2.create(res, toCut);
+        return Tuple3.create(res, hasBeen, toCut);
     }
 
     // NOTE using a collection of vals changed the time it took to archive a site (736 01) from 225s
@@ -177,14 +182,14 @@ public final class TreesOfSQLRows {
      * 
      * @param t the table, eg /LOCAL/.
      * @param valsMap the values to expand, eg {3=>LOCAL(3)->BAT(4), 12=>LOCAL(12)->BAT(4)}.
-     * @param hasBeen the rows alredy expanded, eg {BAT[4], LOCAL[3], LOCAL[12]}.
+     * @param hasBeen the rows already expanded, eg {BAT[4], LOCAL[3], LOCAL[12]}.
      * @param toCut the links to cut, eg {|BAT.ID_PRECEDENT|=> [BAT[2]]}.
      * @param ignorePrivateParentRF <code>true</code> if
      *        {@link SQLElement#getPrivateParentReferentFields() private links} should be ignored.
      * @throws SQLException if a link is {@link ReferenceAction#RESTRICT}.
      */
-    private final void expand(final SQLTable t, final Map<Integer, SQLRowValues> valsMap, final Map<SQLRow, SQLRowValues> hasBeen, final SetMap<SQLField, SQLRow> toCut,
-            final boolean ignorePrivateParentRF) throws SQLException {
+    private final void expand(final SQLTable t, final Map<Integer, SQLRowValues> valsMap, final Rows hasBeen, final SetMap<SQLField, SQLRow> toCut, final boolean ignorePrivateParentRF)
+            throws SQLException {
         if (valsMap.size() == 0)
             return;
 
@@ -223,7 +228,7 @@ public final class TreesOfSQLRows {
             });
             for (final SQLRowValues newVals : fetcher.fetch()) {
                 final SQLRow r = newVals.asRow();
-                final boolean already = hasBeen.containsKey(r);
+                final boolean already = hasBeen.contains(r);
                 switch (action) {
                 case RESTRICT:
                     throw new SQLException(createRestrictDesc(refElem, newVals, link));
@@ -245,7 +250,7 @@ public final class TreesOfSQLRows {
                 }
                 // if already expanded just link and do not add to next
                 if (already) {
-                    hasBeen.get(r).put(ffName, valsMap.get(newVals.getInt(ffName)));
+                    hasBeen.getValues(r).put(ffName, valsMap.get(newVals.getInt(ffName)));
                 }
             }
 
@@ -260,12 +265,12 @@ public final class TreesOfSQLRows {
             final Iterator<SQLRow> iter2 = e.getValue().iterator();
             while (iter2.hasNext()) {
                 final SQLRow rowToCut = iter2.next();
-                final SQLRowValues inGraphRowToCut = hasBeen.get(rowToCut);
+                final SQLRowValues inGraphRowToCut = hasBeen.getValues(rowToCut);
                 if (inGraphRowToCut != null) {
                     // remove from toCut
                     iter2.remove();
                     // add link
-                    final SQLRowValues dest = hasBeen.get(rowToCut.getForeignRow(fieldName, SQLRowMode.NO_CHECK));
+                    final SQLRowValues dest = hasBeen.getValues(rowToCut.getForeignRow(fieldName, SQLRowMode.NO_CHECK));
                     if (dest == null)
                         throw new IllegalStateException("destination of link to cut " + fieldName + " not found for " + rowToCut);
                     inGraphRowToCut.put(fieldName, dest);
@@ -277,21 +282,22 @@ public final class TreesOfSQLRows {
     }
 
     private final class Privates {
-        private final Map<SQLRow, SQLRowValues> hasBeen;
+        private final Rows hasBeen;
         private final SetMap<SQLField, SQLRow> toCut;
         private final Map<SQLTable, Map<Integer, SQLRowValues>> privateRows;
 
-        public Privates(final Map<SQLRow, SQLRowValues> hasBeen, final SetMap<SQLField, SQLRow> toCut) {
+        public Privates(final Rows hasBeen, final SetMap<SQLField, SQLRow> toCut) {
             this.hasBeen = hasBeen;
             this.toCut = toCut;
             this.privateRows = new HashMap<SQLTable, Map<Integer, SQLRowValues>>();
         }
 
+        // main row linked to its private graph
         private void collect(final SQLRowValues mainRow) {
             for (final SQLRowValues privateVals : mainRow.getGraph().getItems()) {
                 if (privateVals != mainRow) {
                     // since newVals isn't in, its privates can't
-                    assert !this.hasBeen.containsKey(privateVals.asRow());
+                    assert !this.hasBeen.contains(privateVals.asRow());
                     Map<Integer, SQLRowValues> map = this.privateRows.get(privateVals.getTable());
                     if (map == null) {
                         map = new HashMap<Integer, SQLRowValues>();
@@ -309,10 +315,34 @@ public final class TreesOfSQLRows {
         }
     }
 
+    // unique SQLRowValues indexed by SQLRow
+    static private final class Rows {
+
+        private final Map<SQLRow, SQLRowValues> vals;
+
+        private Rows() {
+            this.vals = new HashMap<SQLRow, SQLRowValues>();
+        }
+
+        private boolean contains(final SQLRow r) {
+            return this.vals.containsKey(r);
+        }
+
+        private SQLRowValues getValues(final SQLRow r) {
+            return this.vals.get(r);
+        }
+
+        private void put(final SQLRow r, final SQLRowValues newVals) {
+            assert newVals.asRow().equals(r);
+            if (this.vals.put(r, newVals) != null)
+                throw new IllegalStateException("Row already in : " + newVals);
+        }
+    }
+
     // ***
 
     /**
-     * Put all the rows of the trees (except the roots) in a map by table.
+     * Put all the main (i.e. non private) rows of the trees (except the roots) in a map by table.
      * 
      * @return the descendants by table.
      * @throws SQLException if the trees could not be fetched.
@@ -322,7 +352,8 @@ public final class TreesOfSQLRows {
         final Set<SQLRow> roots = this.getRows();
         for (final SQLRowValuesCluster c : this.getClusters()) {
             for (final SQLRowValues v : c.getItems()) {
-                if (!roots.contains(v.asRow()))
+                final SQLRow r = v.asRow();
+                if (!roots.contains(r) && this.mainRows.contains(r))
                     res.add(v.getTable(), v);
             }
         }

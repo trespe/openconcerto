@@ -35,5 +35,6 @@
 	<classpathentry exported="true" kind="lib" path="lib/jOpenDocument-1.4rc2.jar"/>
 	<classpathentry kind="lib" path="lib/jsch-0.1.51.jar"/>
 	<classpathentry kind="lib" path="lib/msv-20090415.jar"/>
+	<classpathentry kind="lib" path="lib/jOpenCalendar.jar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

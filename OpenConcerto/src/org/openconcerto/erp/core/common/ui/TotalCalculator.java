@@ -21,9 +21,9 @@ import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLRowValuesListFetcher;
 import org.openconcerto.sql.model.SQLTable;
+import org.openconcerto.utils.DecimalUtils;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -64,6 +64,10 @@ public class TotalCalculator {
 
     public TotalCalculator(String fieldHA, String fieldHT, String fieldDeviseTotal) {
         this(fieldHA, fieldHT, fieldDeviseTotal, false, null);
+    }
+
+    public void setRowDefaultCptService(SQLRowAccessor rowDefaultCptService) {
+        this.rowDefaultCptService = rowDefaultCptService;
     }
 
     public TotalCalculator(String fieldHA, String fieldHT, String fieldDeviseTotal, boolean achat, SQLRowAccessor defaultCompte) {
@@ -230,7 +234,7 @@ public class TotalCalculator {
             totalTVA = BigDecimal.ZERO;
         } else {
             BigDecimal tauxTVA = BigDecimal.valueOf(TaxeCache.getCache().getTauxFromId(tva.getID())).movePointLeft(2);
-            ttc = tauxTVA.add(BigDecimal.ONE).multiply(ht, MathContext.DECIMAL128);
+            ttc = tauxTVA.add(BigDecimal.ONE).multiply(ht, DecimalUtils.HIGH_PRECISION);
             totalTVA = ttc.subtract(ht);
         }
 
@@ -320,9 +324,9 @@ public class TotalCalculator {
                 totalLineHT = totalLineHT.subtract(new BigDecimal(this.remiseRestante).movePointLeft(2));
                 this.remiseRestante = 0;
             } else {
-                BigDecimal percent = totalLineHT.divide(this.totalHTAvantRemise, MathContext.DECIMAL128);
+                BigDecimal percent = totalLineHT.divide(this.totalHTAvantRemise, DecimalUtils.HIGH_PRECISION);
 
-                BigDecimal remiseApply = percent.multiply(new BigDecimal(this.remiseHT), MathContext.DECIMAL128).setScale(0, RoundingMode.HALF_UP);
+                BigDecimal remiseApply = percent.multiply(new BigDecimal(this.remiseHT), DecimalUtils.HIGH_PRECISION).setScale(0, RoundingMode.HALF_UP);
                 totalLineHT = totalLineHT.subtract(remiseApply.movePointLeft(2));
                 this.remiseRestante -= remiseApply.longValue();
             }

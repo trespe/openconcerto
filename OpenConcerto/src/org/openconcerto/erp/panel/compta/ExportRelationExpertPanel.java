@@ -91,7 +91,7 @@ public class ExportRelationExpertPanel extends AbstractExport {
             line.append('\t');
             // N° Cpt
             final String cpt = tmp[2].toString().trim();
-            line.append(cpt);
+            line.append(getFormattedCompte(cpt));
             line.append('\t');
 
             // ?

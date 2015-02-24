@@ -52,7 +52,9 @@ public class IListTotalPanel extends JPanel {
         SOMME,
         // Marge en pourcentage requiert dans la liste la colonne achat en premier et vente en
         // deuxieme
-        MOYENNE_MARGE;
+        MOYENNE_MARGE,
+        // Requiert le field TTC
+        AVANCEMENT_TTC;
     };
 
     DecimalFormat decimalFormat = new DecimalFormat("##,##0.00");
@@ -116,7 +118,7 @@ public class IListTotalPanel extends JPanel {
             c.weightx = 1;
             this.add(textField, c);
             c.weightx = 0;
-            if (field2.get1() == Type.SOMME || field2.get1() == Type.MOYENNE_DEVISE) {
+            if (field2.get1() == Type.SOMME || field2.get1() == Type.MOYENNE_DEVISE || field2.get1() == Type.AVANCEMENT_TTC) {
                 this.add(new JLabelBold("€"), c);
             } else if (field2.get1() == Type.MOYENNE_POURCENT || field2.get1() == Type.MOYENNE_MARGE) {
                 this.add(new JLabelBold("%"), c);
@@ -163,6 +165,39 @@ public class IListTotalPanel extends JPanel {
                                     mapPourcentSize.put(field.get0(), mapPourcentSize.get(field.get0()).intValue() + 1);
                                 }
 
+                            }
+                        } else if (field.get1() == Type.AVANCEMENT_TTC) {
+
+                            BigDecimal n = mapTotal.get(field.get0());
+                            final SQLTableModelColumn columnTTC = list.getSource().getColumn(list.getSource().getPrimaryTable().getField("T_TTC"));
+                            BigDecimal ttc = BigDecimal.valueOf(((Number) list.getModel().getValueAt(i, list.getSource().getColumns().indexOf(columnTTC))).doubleValue());
+
+                            BigDecimal av = BigDecimal.valueOf(((Number) list.getModel().getValueAt(i, list.getSource().getColumns().indexOf(field.get0()))).doubleValue());
+                            // if
+                            // (list.getSource().getPrimaryTable().getName().equalsIgnoreCase(field.get0().getFields()))
+                            // {
+                            // n2 = (Long) rowAt.getObject(field.getName());
+                            // } else {
+                            // SQLField fk = (SQLField)
+                            // rowAt.getTable().getForeignKeys(field.getTable()).toArray()[0];
+                            // n2 = (Long)
+                            // rowAt.getForeign(fk.getName()).getObject(field.getName());
+                            // }
+
+                            boolean in = true;
+
+                            if (filters != null) {
+                                for (Tuple2<SQLField, ?> tuple2 : filters) {
+                                    in = in && rowAt.getObject(tuple2.get0().getName()).equals(tuple2.get1());
+                                }
+                            }
+
+                            if (in) {
+                                if (n == null) {
+                                    mapTotal.put(field.get0(), ttc.multiply(av).movePointLeft(2));
+                                } else {
+                                    mapTotal.put(field.get0(), n.add(ttc.multiply(av).movePointLeft(2)));
+                                }
                             }
                         } else if (field.get1() != Type.MOYENNE_MARGE) {
                             BigDecimal n = mapTotal.get(field.get0());

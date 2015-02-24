@@ -37,6 +37,7 @@ import org.openconcerto.sql.model.SQLBackgroundTableCache;
 import org.openconcerto.sql.model.SQLRow;
 import org.openconcerto.sql.model.SQLRowAccessor;
 import org.openconcerto.sql.model.SQLRowValues;
+import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.UndefinedRowValuesCache;
 import org.openconcerto.sql.model.Where;
@@ -53,7 +54,10 @@ import org.openconcerto.ui.TitledSeparator;
 import org.openconcerto.ui.VFlowLayout;
 import org.openconcerto.ui.component.ITextArea;
 import org.openconcerto.utils.ExceptionHandler;
+import org.openconcerto.utils.GestionDevise;
+import org.openconcerto.utils.SwingWorker2;
 import org.openconcerto.utils.cc.ITransformer;
+import org.openconcerto.utils.checks.ValidState;
 import org.openconcerto.utils.text.SimpleDocumentListener;
 
 import java.awt.Color;
@@ -63,11 +67,15 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.MouseEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.sql.SQLException;
 import java.util.Calendar;
+import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.swing.BorderFactory;
 import javax.swing.ButtonGroup;
@@ -128,6 +136,14 @@ public class DevisSQLComponent extends BaseSQLComponent {
     }
 
     @Override
+    public Set<String> getPartialResetNames() {
+        Set<String> s = new HashSet<String>();
+        s.add("OBJET");
+        s.add("NUMERO");
+        return s;
+    }
+
+    @Override
     public void addViews() {
         setLayout(new GridBagLayout());
         final GridBagConstraints c = new DefaultGridBagConstraints();
@@ -151,7 +167,8 @@ public class DevisSQLComponent extends BaseSQLComponent {
         c.gridx++;
         c.weightx = 1;
         c.fill = GridBagConstraints.NONE;
-        this.numeroUniqueDevis = new JUniqueTextField(15);
+            this.numeroUniqueDevis = new JUniqueTextField(15);
+
         DefaultGridBagConstraints.lockMinimumSize(this.numeroUniqueDevis);
         DefaultGridBagConstraints.lockMaximumSize(this.numeroUniqueDevis);
         this.add(this.numeroUniqueDevis, c);
@@ -620,6 +637,14 @@ public class DevisSQLComponent extends BaseSQLComponent {
         }
     }
 
+    private ValidState validStateContact = ValidState.getTrueInstance();
+
+    @Override
+    public synchronized ValidState getValidState() {
+        assert SwingUtilities.isEventDispatchThread();
+        return super.getValidState().and(this.validStateContact);
+    }
+
     private JPanel createPanelDiff(final Type_Diff type) {
 
         GridBagConstraints cTabSite = new DefaultGridBagConstraints();
@@ -813,6 +838,8 @@ public class DevisSQLComponent extends BaseSQLComponent {
             this.contactSite.setEditable(b);
             this.faxSite.setEditable(b);
         } else {
+            b = false;
+
             this.sirenDonneur.setEditable(b);
             this.desDonneur.setEditable(b);
             this.adrDonneur.setEditable(b);
@@ -834,7 +861,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
         // Numero incremental auto
         final SQLRowValues rowVals = new SQLRowValues(getTable());
-        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(DevisSQLElement.class));
+        rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(getElement().getClass()));
 
         // User
         // final SQLSelect sel = new SQLSelect(Configuration.getInstance().getBase());
@@ -852,6 +879,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
         if (rowsComm != null) {
             rowVals.put("ID_COMMERCIAL", rowsComm.getID());
         }
+
         if (getTable().getUndefinedID() == SQLRow.NONEXISTANT_ID) {
             rowVals.put("ID_ETAT_DEVIS", EtatDevisSQLElement.EN_ATTENTE);
         } else {
@@ -919,11 +947,11 @@ public class DevisSQLComponent extends BaseSQLComponent {
             }
 
             // incrémentation du numéro auto
-            if (NumerotationAutoSQLElement.getNextNumero(DevisSQLElement.class).equalsIgnoreCase(this.numeroUniqueDevis.getText().trim())) {
+            if (NumerotationAutoSQLElement.getNextNumero(getElement().getClass()).equalsIgnoreCase(this.numeroUniqueDevis.getText().trim())) {
                 final SQLRowValues rowVals = new SQLRowValues(this.tableNum);
-                int val = this.tableNum.getRow(2).getInt(NumerotationAutoSQLElement.getLabelNumberFor(DevisSQLElement.class));
+                int val = this.tableNum.getRow(2).getInt(NumerotationAutoSQLElement.getLabelNumberFor(getElement().getClass()));
                 val++;
-                rowVals.put(NumerotationAutoSQLElement.getLabelNumberFor(DevisSQLElement.class), new Integer(val));
+                rowVals.put(NumerotationAutoSQLElement.getLabelNumberFor(getElement().getClass()), new Integer(val));
                 try {
                     rowVals.update(2);
                 } catch (final SQLException e) {
@@ -945,10 +973,6 @@ public class DevisSQLComponent extends BaseSQLComponent {
 
     @Override
     public void select(final SQLRowAccessor r) {
-        if (r != null) {
-            this.numeroUniqueDevis.setIdSelected(r.getID());
-        }
-
         if (r == null || r.getIDNumber() == null)
             super.select(r);
         else {
@@ -1021,7 +1045,7 @@ public class DevisSQLComponent extends BaseSQLComponent {
             final SQLRow row = devis.getTable().getRow(idDevis);
             final SQLRowValues rowVals = new SQLRowValues(devis.getTable());
             rowVals.put("ID_CLIENT", row.getInt("ID_CLIENT"));
-            rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(DevisSQLElement.class));
+            rowVals.put("NUMERO", NumerotationAutoSQLElement.getNextNumero(getElement().getClass()));
 
 
             this.select(rowVals);

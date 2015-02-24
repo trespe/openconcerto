@@ -13,10 +13,10 @@
  
  package org.openconcerto.erp.core.common.ui;
 
+import org.openconcerto.utils.DecimalUtils;
 import org.openconcerto.utils.StringUtils;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
 import java.text.DecimalFormat;
 
 public class Acompte {
@@ -42,10 +42,10 @@ public class Acompte {
 
     public String toPlainString() {
         if (percent != null) {
-            DecimalFormat format = new DecimalFormat("###.00");
+            DecimalFormat format = new DecimalFormat("##0.00");
             return format.format(percent) + "%";
         } else if (montant != null) {
-            DecimalFormat format = new DecimalFormat("###,###.00");
+            DecimalFormat format = new DecimalFormat("###,##0.00");
             return format.format(montant);
         } else {
             return "";
@@ -66,7 +66,7 @@ public class Acompte {
     public BigDecimal getResultFrom(BigDecimal montant) {
 
         if (this.percent != null) {
-            return montant.multiply(percent.movePointLeft(2), MathContext.DECIMAL128);
+            return montant.multiply(percent.movePointLeft(2), DecimalUtils.HIGH_PRECISION);
         } else if (this.getMontant() == null) {
             return montant;
         } else {
