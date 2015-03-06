@@ -55,7 +55,14 @@ public class QteMultipleRowValuesRenderer extends DefaultTableCellRenderer {
             SQLRowValues rowVals = model.getRowValuesAt(row);
 
             Number qteM = (Number) rowVals.getObject("QTE_ACHAT");
+            if (qteM == null) {
+                qteM = Integer.valueOf(0);
+            }
             Number qte = (Number) rowVals.getObject("QTE");
+            if (qte == null) {
+                qte = Integer.valueOf(0);
+            }
+
             final int qteAchat = qteM.intValue();
             if (qteAchat != 0 && (qte.intValue() % qteAchat != 0)) {
                 if (!isSelected) {

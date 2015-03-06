@@ -240,8 +240,6 @@ public class ServerFinderPanel extends JPanel {
         }
         this.textBase.setText(this.props.getProperty("systemRoot"));
         if (getToken() != null) {
-            this.textIP.setText("Cloud OpenConcerto");
-            this.textPort.setText("");
             this.textFile.setText("");
         }
     }

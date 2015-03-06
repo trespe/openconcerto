@@ -185,7 +185,7 @@ public class GroupSQLComponent extends BaseSQLComponent {
                 c.weighty = 0;
             }
             if (size.largeWidth()) {
-                if (size.isSplit()) {
+                if (size.isSplit() || !size.showLabel()) {
                     c.gridwidth = this.columns * 2;
                 } else {
                     c.gridwidth = this.columns * 2 - 1;

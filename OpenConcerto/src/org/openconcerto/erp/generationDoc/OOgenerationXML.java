@@ -641,6 +641,19 @@ public class OOgenerationXML {
 
     private static boolean isIncluded(int filterID, String foreignTable, int id, String fieldWhere, SQLRowAccessor rowElt) {
 
+        if (rowElt.getTable().getName().equals("FICHE_PAYE_ELEMENT")) {
+            if (!rowElt.getBoolean("IMPRESSION")) {
+                return false;
+            }
+            if (!rowElt.getBoolean("IN_PERIODE")) {
+                return false;
+            }
+        }
+
+        if (fieldWhere != null && fieldWhere.trim().length() > 0 && rowElt.getTable().contains(fieldWhere) && rowElt.getTable().getField(fieldWhere).getType().getJavaType() == Boolean.class) {
+            return rowElt.getBoolean(fieldWhere);
+        }
+
         // No filter
         if (filterID <= 1) {
             return true;

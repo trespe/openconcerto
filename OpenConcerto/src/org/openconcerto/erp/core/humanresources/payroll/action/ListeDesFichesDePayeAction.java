@@ -17,7 +17,9 @@ import org.openconcerto.erp.action.CreateFrameAbstractAction;
 import org.openconcerto.erp.config.ComptaPropsConfiguration;
 import org.openconcerto.erp.core.common.ui.PanelFrame;
 import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheet;
+import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheetXML;
 import org.openconcerto.erp.core.humanresources.payroll.ui.PanelCumulsPaye;
+import org.openconcerto.erp.model.MouseSheetXmlListeListener;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
 import org.openconcerto.sql.model.SQLRow;
@@ -28,6 +30,7 @@ import org.openconcerto.sql.view.IListFrame;
 import org.openconcerto.sql.view.IListener;
 import org.openconcerto.sql.view.ListeAddPanel;
 import org.openconcerto.sql.view.list.IListe;
+import org.openconcerto.sql.view.list.RowAction;
 import org.openconcerto.sql.view.list.SQLTableModelSourceOnline;
 
 import java.awt.event.ActionEvent;
@@ -85,32 +88,12 @@ public class ListeDesFichesDePayeAction extends CreateFrameAbstractAction {
                     JPopupMenu menuDroit = new JPopupMenu();
 
                     final SQLRow rowFiche = ((ComptaPropsConfiguration) Configuration.getInstance()).getSQLBaseSociete().getTable("FICHE_PAYE").getRow(frame.getPanel().getListe().getSelectedId());
-                    final File f = FichePayeSheet.getFile(rowFiche, FichePayeSheet.typeOO);
-                    System.err.println("Display Menu, file --> " + f.getAbsolutePath());
 
-                    AbstractAction actionOpen = new AbstractAction("Voir le document") {
-                        public void actionPerformed(ActionEvent e) {
-                            FichePayeSheet.visualisation(rowFiche, FichePayeSheet.typeOO);
-                        }
-                    };
+                    MouseSheetXmlListeListener l = new MouseSheetXmlListeListener(FichePayeSheetXML.class);
 
-                    AbstractAction actionPrint = new AbstractAction("Imprimer le document") {
-                        public void actionPerformed(ActionEvent e) {
-                            FichePayeSheet.impression(rowFiche);
-                        }
-                    };
-
-                    menuDroit.add(new AbstractAction("Générer le document") {
-                        public void actionPerformed(ActionEvent e) {
-                            FichePayeSheet.generation(rowFiche);
-                        }
-                    });
-
-                    actionPrint.setEnabled(f.exists());
-                    menuDroit.add(actionPrint);
-
-                    actionOpen.setEnabled(f.exists());
-                    menuDroit.add(actionOpen);
+                    for (RowAction action : l.getRowActions()) {
+                        menuDroit.add(action.getAction());
+                    }
 
                     menuDroit.add(new AbstractAction("Détails cumuls et variables") {
                         public void actionPerformed(ActionEvent e) {

@@ -566,7 +566,10 @@ public class TotalPanel extends JPanel implements TableModelListener {
 
             @Override
             protected void done() {
-                if (isCancelled()) {
+                // if cancel() is called after doInBackground() nothing happens
+                // but updating is set to a new instance
+                if (this.isCancelled() || TotalPanel.this.worker != this) {
+                    // une autre maj arrive
                     return;
                 }
                 TotalCalculator calc;

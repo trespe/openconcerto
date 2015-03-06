@@ -116,11 +116,13 @@ public class UpdateManager implements Runnable {
                 BufferedReader bReaderRemote = null;
                 try {
                     ftp.connect(this.server);
-
+                    System.err.println("UpdateManager connected to '" + this.server + "'");
                     boolean logged = ftp.login(this.login, this.pass);
 
                     if (!logged) {
                         throw new IllegalStateException("Identifiants refusés");
+                    } else {
+                        System.err.println("UpdateManager authenticated with '" + this.login + "' '" + pass + "'");
                     }
                     if (this.file == null) {
                         throw new IllegalStateException("Fichier de version non spécifié");
@@ -128,6 +130,9 @@ public class UpdateManager implements Runnable {
                         System.err.println("UpdateManager downloading '" + this.file + "'");
                     }
                     final InputStream retrieveFileStream = ftp.retrieveFileStream(this.file);
+                    if (retrieveFileStream == null) {
+                        throw new IllegalStateException("Téléchargement de " + this.file + " impossible");
+                    }
                     bReaderRemote = new BufferedReader(new InputStreamReader(retrieveFileStream));
 
                     int newVersion = Integer.parseInt(bReaderRemote.readLine());

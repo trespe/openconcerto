@@ -254,6 +254,74 @@ public class InfosSalariePayeSQLElement extends ComptaSQLConfElement {
                 c.weightx = 1;
                 panelBase.add(salaireBase, c);
 
+                if (getTable().contains("PRIME_TRANSPORT")) {
+
+                    // PRIME_TRANSPORT
+                    JLabel labelTransport = new JLabel(getLabelFor("PRIME_TRANSPORT"));
+                    labelTransport.setHorizontalAlignment(SwingConstants.RIGHT);
+
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.gridheight = 1;
+                    c.fill = GridBagConstraints.HORIZONTAL;
+                    panelBase.add(labelTransport, c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    JTextField fieldTransp = new JTextField();
+                    panelBase.add(fieldTransp, c);
+                    addView(fieldTransp, "PRIME_TRANSPORT");
+
+                    // Durée hebdomadaire
+                    JLabel labelPanier = new JLabel(getLabelFor("PRIME_PANIER"));
+                    labelPanier.setHorizontalAlignment(SwingConstants.RIGHT);
+                    JTextField fieldPanier = new JTextField();
+                    c.gridx++;
+                    c.weightx = 0;
+                    panelBase.add(labelPanier, c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    panelBase.add(fieldPanier, c);
+                    addView(fieldPanier, "PRIME_PANIER");
+
+                    // Salaire de base
+                    JLabel labelLogement = new JLabel(getLabelFor("PRIME_LOGEMENT"));
+                    labelLogement.setHorizontalAlignment(SwingConstants.RIGHT);
+                    JTextField fieldLogement = new JTextField();
+                    c.gridx++;
+                    c.weightx = 0;
+                    panelBase.add(labelLogement, c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    panelBase.add(fieldLogement, c);
+                    addView(fieldLogement, "PRIME_LOGEMENT");
+
+                    // PRIME_TRANSPORT
+                    JLabel labelCnam = new JLabel(getLabelFor("NUMERO_CNAM"));
+                    labelCnam.setHorizontalAlignment(SwingConstants.RIGHT);
+                    c.gridy++;
+                    c.gridx = 0;
+                    c.gridheight = 1;
+                    c.fill = GridBagConstraints.HORIZONTAL;
+                    panelBase.add(labelCnam, c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    JTextField fieldCnam = new JTextField();
+                    panelBase.add(fieldCnam, c);
+                    addView(fieldCnam, "NUMERO_CNAM");
+
+                    // Durée hebdomadaire
+                    JLabel labelCNSS = new JLabel(getLabelFor("NUMERO_CNSS"));
+                    labelCNSS.setHorizontalAlignment(SwingConstants.RIGHT);
+                    JTextField fieldCnss = new JTextField();
+                    c.gridx++;
+                    c.weightx = 0;
+                    panelBase.add(labelCNSS, c);
+                    c.gridx++;
+                    c.weightx = 1;
+                    panelBase.add(fieldCnss, c);
+                    addView(fieldCnss, "NUMERO_CNSS");
+
+                }
                 // Taux AT
                 JLabel labelTauxAT = new JLabel(getLabelFor("TAUX_AT"));
                 labelTauxAT.setHorizontalAlignment(SwingConstants.RIGHT);
