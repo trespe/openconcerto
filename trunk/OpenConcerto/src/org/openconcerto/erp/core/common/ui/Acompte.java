@@ -14,6 +14,7 @@
  package org.openconcerto.erp.core.common.ui;
 
 import org.openconcerto.utils.DecimalUtils;
+import org.openconcerto.utils.GestionDevise;
 import org.openconcerto.utils.StringUtils;
 
 import java.math.BigDecimal;
@@ -57,7 +58,7 @@ public class Acompte {
         if (percent != null) {
             return percent.toString() + "%";
         } else if (montant != null) {
-            return montant.toString();
+            return GestionDevise.currencyToString(montant);
         } else {
             return "";
         }

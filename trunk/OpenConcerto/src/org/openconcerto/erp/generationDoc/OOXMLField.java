@@ -346,11 +346,33 @@ public class OOXMLField extends OOXMLElement {
 
                     return result;
                 }
+            } else if (typeComp.equalsIgnoreCase("cumulPaye")) {
+                double val = ((Number) result).doubleValue();
+                double valC = ((Number) this.row.getForeign("ID_CUMULS_PAYE").getObject(field + "_C")).doubleValue();
+                return new Double(val + valC);
             } else if (typeComp.equalsIgnoreCase("globalAcompte")) {
                 Long prix = (Long) result;
                 int pourcent = this.row.getInt("POURCENT_ACOMPTE");
                 long l = Math.round(prix.longValue() / (pourcent / 100.0));
                 return new Double(GestionDevise.currencyToString(l, false));
+            } else if (typeComp.equalsIgnoreCase("DatePaye")) {
+
+                SQLRowAccessor rowRegl = row.getForeign("ID_REGLEMENT_PAYE");
+                Calendar c = Calendar.getInstance();
+
+                c.set(Calendar.MONTH, this.row.getInt("ID_MOIS") - 2);
+                c.set(Calendar.YEAR, Integer.parseInt(this.row.getString("ANNEE")));
+
+                if (rowRegl.getInt("LE") != 31) {
+
+                    c.set(Calendar.MONTH, c.get(Calendar.MONTH) + 1);
+                }
+
+                int max = c.getActualMaximum(Calendar.DAY_OF_MONTH);
+                int day = Math.min(rowRegl.getInt("LE"), max);
+
+                c.set(Calendar.DAY_OF_MONTH, day);
+                return c.getTime();
             } else if (typeComp.equalsIgnoreCase("CumulPrec")) {
 
                 final long cumulPrecedent = getCumulPrecedent(this.row);

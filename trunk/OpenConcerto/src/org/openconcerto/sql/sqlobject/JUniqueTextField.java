@@ -226,7 +226,7 @@ public class JUniqueTextField extends JPanel implements ValueWrapper<String>, Do
             selNum.addSelect(getTable().getKey(), "COUNT");
             final Where w = new Where(getField(), "=", t);
             selNum.setWhere(w);
-            if (JUniqueTextField.this.idSelected > 1) {
+            if (JUniqueTextField.this.idSelected > getTable().getUndefinedID()) {
                 selNum.andWhere(new Where(getTable().getKey(), "!=", JUniqueTextField.this.idSelected));
             }
             final String req = selNum.asString();

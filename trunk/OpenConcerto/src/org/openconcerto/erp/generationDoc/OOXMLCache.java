@@ -21,8 +21,11 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.Where;
+import org.openconcerto.utils.CompareUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,10 +64,10 @@ public class OOXMLCache {
     }
 
     protected List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, SQLTable tableForeign) {
-        return getReferentRows(row, tableForeign, null);
+        return getReferentRows(row, tableForeign, null, null);
     }
 
-    protected List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, final SQLTable tableForeign, String groupBy) {
+    protected List<? extends SQLRowAccessor> getReferentRows(List<? extends SQLRowAccessor> row, final SQLTable tableForeign, String groupBy, final String orderBy) {
         Map<SQLTable, List<SQLRowAccessor>> c = cacheReferent.get(row.get(0));
 
         if (c != null && c.get(tableForeign) != null) {
@@ -127,6 +130,16 @@ public class OOXMLCache {
                 cacheReferent.put(row.get(0), map);
             } else {
                 c.put(tableForeign, list);
+            }
+
+            if (orderBy != null && orderBy.trim().length() > 0) {
+                Collections.sort(list, new Comparator<SQLRowAccessor>() {
+                    @Override
+                    public int compare(SQLRowAccessor o1, SQLRowAccessor o2) {
+
+                        return CompareUtils.compare(o1.getObject(orderBy), o2.getObject(orderBy));
+                    }
+                });
             }
 
             return list;

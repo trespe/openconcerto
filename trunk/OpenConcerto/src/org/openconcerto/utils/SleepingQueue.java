@@ -191,7 +191,7 @@ public class SleepingQueue {
         this.support.firePropertyChange("beingRun", old, beingRun);
     }
 
-    protected final synchronized FutureTask<?> getBeingRun() {
+    public final synchronized FutureTask<?> getBeingRun() {
         return this.beingRun;
     }
 

@@ -20,6 +20,7 @@ import org.openconcerto.erp.core.finance.accounting.report.GrandLivreSheet;
 import org.openconcerto.erp.core.finance.accounting.report.JournauxSheetXML;
 import org.openconcerto.erp.core.humanresources.payroll.report.EtatChargesPayeSheet;
 import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheet;
+import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheetXML;
 import org.openconcerto.erp.core.humanresources.payroll.report.LivrePayeSheet;
 import org.openconcerto.erp.core.sales.invoice.report.ListeVenteXmlSheet;
 import org.openconcerto.erp.core.sales.invoice.report.VenteComptoirSheet;
@@ -138,7 +139,7 @@ public class TemplateNXProps extends TemplateProps {
             register(GrandLivreSheet.TEMPLATE_ID, GrandLivreSheet.TEMPLATE_PROPERTY_NAME, GrandLivreSheet.TEMPLATE_ID);
             register(JournauxSheetXML.TEMPLATE_ID, JournauxSheetXML.TEMPLATE_PROPERTY_NAME, JournauxSheetXML.TEMPLATE_ID);
             register(EtatChargesPayeSheet.TEMPLATE_ID, EtatChargesPayeSheet.TEMPLATE_PROPERTY_NAME, "Etat des charges");
-            register(FichePayeSheet.TEMPLATE_ID, FichePayeSheet.TEMPLATE_PROPERTY_NAME, "Fiche paye");
+            register(FichePayeSheetXML.TEMPLATE_ID, FichePayeSheetXML.TEMPLATE_PROPERTY_NAME, "Fiche paye");
             register(LivrePayeSheet.TEMPLATE_ID, LivrePayeSheet.TEMPLATE_PROPERTY_NAME, "Livre paye");
             register(CourrierClientSheet.TEMPLATE_ID, CourrierClientSheet.TEMPLATE_PROPERTY_NAME, AbstractGenerationDocumentPreferencePanel.getLabelFromTable("COMMANDE"));
             register(PointageXmlSheet.TEMPLATE_ID, PointageXmlSheet.TEMPLATE_PROPERTY_NAME, null);

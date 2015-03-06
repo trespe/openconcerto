@@ -896,6 +896,11 @@ public class FichePayeSQLElement extends ComptaSQLConfElement {
         for (final SQLField field : tableVariableSal.getContentFields()) {
             rowVals.put(field.getName(), Float.valueOf(0));
         }
+
+        if (tableVariableSal.contains("NB_JOUR_MOIS")) {
+            rowVals.put("NB_JOUR_MOIS", Float.valueOf(31));
+            rowVals.put("NB_JOUR_TRAV", Float.valueOf(31));
+        }
         SwingUtilities.invokeLater(new Runnable() {
             public void run() { // FIXME: Ouch: sql in swing!
                 try {

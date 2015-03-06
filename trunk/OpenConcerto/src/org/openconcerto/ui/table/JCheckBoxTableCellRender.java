@@ -31,17 +31,14 @@ public class JCheckBoxTableCellRender extends AbstractCellEditor implements Tabl
     private JCheckBox checkBox;
 
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
-
-        JPanel p = new JPanel();
+        final JPanel p = new JPanel();
         p.setOpaque(true);
         p.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.NORTH;
         c.insets = new Insets(0, 0, 0, 0);
-
         this.checkBox = new JCheckBox();
-
         boolean bValue = ((Boolean) value).booleanValue();
         this.checkBox.setSelected(bValue);
         this.checkBox.addItemListener(this);
@@ -50,7 +47,6 @@ public class JCheckBoxTableCellRender extends AbstractCellEditor implements Tabl
         this.checkBox.setBorderPaintedFlat(false);
         this.checkBox.setMargin(new Insets(0, 0, 0, 0));
         p.add(this.checkBox, c);
-
         return p;
     }
 
@@ -71,12 +67,11 @@ public class JCheckBoxTableCellRender extends AbstractCellEditor implements Tabl
         cb.setBorder(null);
         cb.setBorderPaintedFlat(false);
         cb.setMargin(new Insets(0, 0, 0, 0));
-        cb.setSelected(((Boolean) value).booleanValue());
-        // if (!isSelected) {
-        // p.setBackground(table.getBackground());
-        // } else {
-        // p.setBackground(table.getSelectionBackground());
-        // }
+        if (value == null) {
+            cb.setSelected(false);
+        } else {
+            cb.setSelected(((Boolean) value).booleanValue());
+        }
         c.fill = GridBagConstraints.NONE;
         c.anchor = GridBagConstraints.NORTH;
         c.insets = new Insets(0, 0, 0, 0);

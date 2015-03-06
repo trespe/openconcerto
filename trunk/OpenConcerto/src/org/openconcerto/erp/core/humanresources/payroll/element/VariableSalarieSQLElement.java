@@ -18,6 +18,7 @@ import org.openconcerto.sql.element.SQLComponent;
 import org.openconcerto.sql.element.UISQLComponent;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.swing.JTextField;
@@ -40,6 +41,7 @@ public class VariableSalarieSQLElement extends ComptaSQLConfElement {
                 l.add(field);
             }
         }
+        Collections.sort(l);
         return l;
     }
 
@@ -64,9 +66,9 @@ public class VariableSalarieSQLElement extends ComptaSQLConfElement {
                 for (String i : listFields) {
 
                     if (pos % 2 == 0) {
-                        this.addSQLObject(new JTextField(4), i, "left");
+                        this.addSQLObject(new JTextField(15), i, "left");
                     } else {
-                        this.addSQLObject(new JTextField(4), i, "right");
+                        this.addSQLObject(new JTextField(15), i, "right");
                     }
 
                 }

@@ -43,7 +43,7 @@ public class OOXMLTableElement {
         this.foreignTableWhere = tableau.getAttributeValue("tableForeignWhere");
         this.fieldWhere = tableau.getAttributeValue("fieldWhere");
 
-        if (this.fieldWhere != null) {
+        if (this.fieldWhere != null && row.getTable().contains(fieldWhere)) {
             this.filterId = row.getInt(this.fieldWhere);
         }
 
@@ -124,7 +124,7 @@ public class OOXMLTableElement {
             // }
             // // #endif
 
-            return cache.getReferentRows(this.row, tableElt, this.tableau.getAttributeValue("groupBy"));
+            return cache.getReferentRows(this.row, tableElt, this.tableau.getAttributeValue("groupBy"), this.tableau.getAttributeValue("orderBy"));
 
         } else {
             System.err.println("OOXMLTableElement.getRows() Table " + tableElt + " is null!");

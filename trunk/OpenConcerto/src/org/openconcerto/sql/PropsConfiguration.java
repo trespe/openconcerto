@@ -545,7 +545,7 @@ public class PropsConfiguration extends Configuration {
         try {
             // TODO add and use server.port
             final String[] serverAndPort = getProperty("server.ip").split(":");
-            log.info("ssl tunnel from local port " + localPort + " to remote " + serverAndPort[0] + ":" + serverAndPort[1]);
+            log.info("ssl tunnel from local port " + localPort + " to remote " + serverAndPort);
             this.conn.setPortForwardingL(localPort, serverAndPort[0], Integer.valueOf(serverAndPort[1]));
         } catch (final Exception e1) {
             throw new IllegalStateException("Impossible de créer la liaison sécurisée. Vérifier que le logiciel n'est pas déjà lancé.", e1);

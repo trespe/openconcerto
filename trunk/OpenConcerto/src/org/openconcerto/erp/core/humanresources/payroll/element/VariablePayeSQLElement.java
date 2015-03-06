@@ -151,7 +151,6 @@ public class VariablePayeSQLElement extends ConfSQLElement {
         l.add("NB_PERS_A_CHARGE");
         l.add("PAT");
         l.add("SAL");
-        l.add("BASE");
         l.add("MONTANT");
 
         l.add("SAL_BRUT");
@@ -216,6 +215,12 @@ public class VariablePayeSQLElement extends ConfSQLElement {
         l.add(tableInfos.getField("SALAIRE_MOIS"));
         l.add(tableInfos.getField("TAUX_AT"));
         l.add(tableInfos.getField("CONGES_PAYES"));
+        if (tableInfos.contains("PRIME_TRANSPORT")) {
+            l.add(tableInfos.getField("PRIME_LOGEMENT"));
+            l.add(tableInfos.getField("PRIME_PANIER"));
+            l.add(tableInfos.getField("PRIME_TRANSPORT"));
+        }
+
         mapTree.put("Contrat salarié", l);
 
         List<SQLField> l2 = new ArrayList<SQLField>();

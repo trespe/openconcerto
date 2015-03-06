@@ -38,8 +38,6 @@ public class TotalCalculator {
     private final String fieldHT, fieldHA, fieldDevise;
 
     private SQLRowAccessor rowDefaultCptProduit, rowDefaultCptService, rowDefaultCptTVACollecte, rowDefaultCptTVADeductible, rowDefaultCptAchat;
-    private static final SQLTable tablePrefCompte = Configuration.getInstance().getRoot().findTable("PREFS_COMPTE");
-    private static final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
     private double totalPoids;
 
@@ -78,6 +76,8 @@ public class TotalCalculator {
         this.fieldDevise = fieldDeviseTotal;
         this.fieldHA = fieldHA;
         this.fieldHT = fieldHT;
+        final SQLTable tablePrefCompte = Configuration.getInstance().getRoot().findTable("PREFS_COMPTE");
+        final SQLRow rowPrefsCompte = tablePrefCompte.getRow(2);
 
         // Comptes par défaut
         this.rowDefaultCptService = rowPrefsCompte.getForeign("ID_COMPTE_PCE_VENTE_SERVICE");

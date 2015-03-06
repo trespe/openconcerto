@@ -14,7 +14,7 @@
  package org.openconcerto.erp.model;
 
 import org.openconcerto.erp.core.humanresources.payroll.element.FichePayeSQLElement;
-import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheet;
+import org.openconcerto.erp.core.humanresources.payroll.report.FichePayeSheetXML;
 import org.openconcerto.erp.core.humanresources.payroll.ui.VisualisationPayeFrame;
 import org.openconcerto.sql.Configuration;
 import org.openconcerto.sql.element.SQLElement;
@@ -23,6 +23,7 @@ import org.openconcerto.sql.model.SQLRowValues;
 import org.openconcerto.sql.model.SQLSelect;
 import org.openconcerto.sql.model.SQLTable;
 import org.openconcerto.sql.model.SQLTableListener;
+import org.openconcerto.sql.model.Where;
 import org.openconcerto.utils.ExceptionHandler;
 
 import java.sql.Date;
@@ -122,7 +123,7 @@ public class EditionFichePayeModel extends AbstractTableModel {
     public boolean isCellEditable(int rowIndex, int columnIndex) {
 
         String s = this.mapColumn.get(columnIndex).toString();
-        if (s.equalsIgnoreCase("A_CREER") || s.equalsIgnoreCase("IMPRESSION") || s.equalsIgnoreCase("VISU")) {
+        if (s.equalsIgnoreCase("A_CREER") || s.equalsIgnoreCase("IMPRESSION")) {
             return true;
         }
         return false;
@@ -149,7 +150,11 @@ public class EditionFichePayeModel extends AbstractTableModel {
         SQLElement eltSal = Configuration.getInstance().getDirectory().getElement("SALARIE");
         SQLSelect sel = new SQLSelect(eltSal.getTable().getBase());
         sel.addSelect(eltSal.getTable().getField("ID"));
-
+        final SQLTable tableInfos = eltSal.getTable().getTable("INFOS_SALARIE_PAYE");
+        Where w = new Where(tableInfos.getKey(), "=", eltSal.getTable().getField("ID_INFOS_SALARIE_PAYE"));
+        Where w2 = new Where(tableInfos.getField("DATE_SORTIE"), "=", (Object) null);
+        w2 = w2.or(new Where(tableInfos.getField("DATE_SORTIE"), ">", new java.util.Date()));
+        sel.setWhere(w.and(w2));
         this.vData.removeAllElements();
         List l = (List) eltSal.getTable().getBase().getDataSource().execute(sel.asString(), new ArrayListHandler());
         if (l != null) {
@@ -161,8 +166,8 @@ public class EditionFichePayeModel extends AbstractTableModel {
                 m.put("NOM", new Integer(i));
                 m.put("BRUT", new Integer(i));
                 m.put("NET", new Integer(i));
-                m.put("VISU", Boolean.FALSE);
-                m.put("IMPRESSION", Boolean.TRUE);
+                m.put("VISU", Boolean.TRUE);
+                m.put("IMPRESSION", Boolean.FALSE);
                 m.put("ID_SALARIE", new Integer(idSal));
 
                 this.vData.add(m);
@@ -320,11 +325,12 @@ public class EditionFichePayeModel extends AbstractTableModel {
                                 EditionFichePayeModel.this.bar.setValue(tmp++);
 
                                 // Impression
+                                SQLRow rowFiche = eltFichePaye.getTable().getRow(idFiche);
+                                FichePayeSheetXML sheet = new FichePayeSheetXML(rowFiche);
+                                sheet.createDocumentAsynchronous();
                                 Boolean bPrint = (Boolean) m.get("IMPRESSION");
                                 if (bPrint.booleanValue()) {
-                                    SQLRow rowFiche = eltFichePaye.getTable().getRow(idFiche);
-                                    FichePayeSheet.generation(rowFiche, false);
-                                    FichePayeSheet.impression(rowFiche);
+                                    sheet.showPrintAndExportAsynchronous(false, true, false);
                                 }
 
                                 EditionFichePayeModel.this.bar.setValue(tmp++);
