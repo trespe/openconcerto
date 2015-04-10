@@ -168,7 +168,7 @@ public class FichePayeSheet extends SheetInterface {
         return getLocation(tableFiche.getRow(id), type);
     }
 
-    public static final String TEMPLATE_ID = "Fiche de paye";
+    public static final String TEMPLATE_ID = "Fichedepaye";
     public static final String TEMPLATE_PROPERTY_NAME = "LocationFichePaye";
 
     @Override
